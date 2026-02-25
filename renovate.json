@@ -1,23 +1,22 @@
 {
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
-  ],
-  "labels": [
-    "renovate"
-  ],
-  "baseBranchPatterns": [
-    "/^r2024$/",
-    "/^2024.[0-9]$/"
-  ],
-  "separateMinorPatch": true,
-  // In order to be able to see the changelog in the commit message, changing the commitbody and generating the changelog during branch creation
-  "fetchChangeLogs": "branch",
-  "commitBody": "{{#if logJSON.hasReleaseNotes}}{{#each logJSON.versions as |release|}}{{# if release.releaseNotes}}##### [\\`v{{{release.version}}}\\`]({{{release.releaseNotes.url}}})\n\n{{{release.releaseNotes.body}}}{{/if}}{{/each}}{{/if}}",
-  "registryAliases":
-   {
-      "registry.intersec.com/amazon-ecr-cache": "public.ecr.aws",
-      "registry.intersec.com/dockerhub-cache": "docker.io",
-      "registry.intersec.com/ghcr-cache": "ghcr.io"
-   }
+    "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+    "extends": [
+        "config:recommended"
+    ],
+    "labels": [
+        "renovate"
+    ],
+    "baseBranchPatterns": [
+        "/^2024.6$/",
+        "/^r2026$/"
+    ],
+    "separateMinorPatch": true,
+    // In order to be able to see the changelog in the commit message, changing the commitbody and generating the changelog during branch creation
+    "fetchChangeLogs": "branch",
+    "commitBody": "{{#if logJSON.hasReleaseNotes}}{{#each logJSON.versions as |release|}}{{# if release.releaseNotes}}##### [\\`v{{{release.version}}}\\`]({{{release.releaseNotes.url}}})\n\n{{{release.releaseNotes.body}}}{{/if}}{{/each}}{{/if}}",
+    "registryAliases": {
+        "registry.intersec.com/amazon-ecr-cache": "public.ecr.aws",
+        "registry.intersec.com/dockerhub-cache": "docker.io",
+        "registry.intersec.com/ghcr-cache": "ghcr.io"
+    }
 }
