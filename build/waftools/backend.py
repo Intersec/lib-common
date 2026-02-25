@@ -1539,7 +1539,7 @@ def process_c_for_check(self: TaskGen, node: Node) -> None:
 # {{{ DSO PYSTUB
 
 
-class DsoPystubTask(FirstInputStrTask):
+class DsoPystubTask(Task):  # type: ignore[misc]
     run_str = ['${MAKE_DSO_PYSTUB_PY} --dso-path ${SRC[0].abspath()} '
                '--output-pystub ${TGT[0].abspath()}']
     color = 'CYAN'
@@ -1547,7 +1547,12 @@ class DsoPystubTask(FirstInputStrTask):
 
     @classmethod
     def keyword(cls: Type['DsoPystubTask']) -> str:
-        return 'Dumping'
+        return 'Generating'
+
+    def __str__(self) -> str:
+        node = self.outputs[0]
+        node_path: str = node.path_from(node.ctx.launch_node())
+        return node_path
 
 
 @TaskGen.feature('cshlib')
