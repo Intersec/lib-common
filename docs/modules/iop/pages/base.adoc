@@ -708,9 +708,20 @@ breaking the backward compatibility.
 To deal with backward compatibility do not forget the following rules:
 
 * always preserve the existing tag even when they are implicit;
-* never add a mandatory member to a structure;
+* never add a mandatory member to a structure and never change an optional
+  member to a mandatory member;
 * do not change data types;
 * avoid to change fields names (will break JSon, XML, PHP, …).
+
+Therefore, the following updates can be done without breaking the backward
+compatibility:
+* adding an optional field;
+* adding a mandatory field with a default value;
+* changing a field from mandatory to optional;
+* removing a field as long as you explicitly tag the previous and next member
+  with their current values (it is advised to explicitly tag the whole
+  structure in this case). However, the recommended practice would be to keep
+  the field, change its type to `void` and add a `@deprecated` attribute.
 
 ==== Exceptions
 
