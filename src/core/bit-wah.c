@@ -439,6 +439,7 @@ static wah_bucket_t *wah_create_bucket(wah_t *map, int size)
 
                 wah_bucket_init(bucket);
                 p_copy(bucket->inlined.words, qv.tab, qv.len);
+                bucket->inlined.len = qv.len;
 
                 /* Instead of deleting the useless qv we reuse it for the new
                  * bucket. We assume that if the qv was allocated we will
@@ -470,8 +471,14 @@ static wah_bucket_t *__wah_create_bucket(wah_t *map)
 {
     wah_bucket_t *bucket = wah_create_bucket(map, 2);
 
-    assert(wah_bucket_is_inlined(bucket));
-    bucket->inlined.len = 2;
+    if (wah_bucket_is_inlined(bucket)) {
+        /* Clear already performed, no need to wipe the first 2 words. Just
+         * set len. */
+        bucket->inlined.len = 2;
+    } else {
+        /* Potentially recycled qv, enforce 0 on those 2 words. */
+        qv_growlen0(&bucket->qv, 2);
+    }
     map->previous_run_pos = -1;
     map->last_run_pos     = 0;
 

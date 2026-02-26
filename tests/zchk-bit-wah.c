@@ -1015,6 +1015,45 @@ Z_GROUP_EXPORT(wah) {
     } Z_TEST_END;
 
     /* }}} */
+    Z_TEST(fuzzing_nr_1) { /* {{{ */
+        wah_t map __attr_cleanup__(wah_wipe);
+        static const uint8_t data[32] = {
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x04, 0x00, 0x04,
+            0x00, 0x04, 0x00, 0x08,
+            0x00, 0x00, 0x00, 0x00,
+            0x01, 0x00, 0x00, 0x01,
+            0x00, 0x21, 0x00, 0x00,
+        };
+
+        /* The following sequence was reduced from wahstress and uses the
+         * exact 32-byte wah_add() payload from the minimized corpus. It used
+         * to hit:
+         *
+         *   __wah_create_bucket():
+         *   assert(wah_bucket_is_inlined(bucket))
+         *
+         * Root cause:
+         * wah_create_bucket(map, 2) may return a recycled qvector bucket when
+         * converting a shrunk previous qvector bucket back to inline storage.
+         * __wah_create_bucket() requires an inline bucket and asserts.
+         */
+
+        /* Run with the default bucket size to match the fuzzing reproducer.*/
+        wah_reset_bits_in_bucket();
+        wah_init(&map);
+
+        /* Sequence triggering the bug. */
+        wah_add0s(&map, UINT64_C(4294967104));
+        wah_add(&map, data, bitsizeof(data));
+
+        /* No crash should happen and the appended chunk must be accounted. */
+        Z_ASSERT_EQ(map.len, UINT64_C(4294967360));
+    } Z_TEST_END;
+
+    /* }}} */
 
     wah_reset_bits_in_bucket();
 } Z_GROUP_END;
