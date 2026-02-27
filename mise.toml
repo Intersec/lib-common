@@ -57,7 +57,7 @@ run = "waf clean"
 [tasks.static-checks]
 alias = "sc"
 description = "Run static checks (ruff, mypy)"
-run = "./static-checks.sh"
+run = "./static-checks.py"
 
 [tasks.target]
 alias = "t"

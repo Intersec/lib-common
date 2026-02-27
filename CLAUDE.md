@@ -32,10 +32,9 @@ waf fast-check             # Run fast subset of tests
 ## Running Tests
 
 ```bash
-waf check                  # Tests for current directory and subdirectories
-waf fast-check             # Faster subset
-./static-checks.sh         # Run all static checks (ruff, mypy, clippy)
-./static-checks.sh --staged-files  # Check only staged files
+waf check           # Tests for current directory and subdirectories
+waf fast-check      # Faster subset
+./static-checks.py  # Run all static checks (ruff, mypy, clippy)
 ```
 
 Test binaries are in `tests/` (main test binary: `zchk`).
