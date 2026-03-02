@@ -49,7 +49,7 @@ from waflib.Build import BuildContext
 from waflib.Configure import ConfigurationContext
 from waflib.Node import Node
 from waflib.Options import OptionsContext
-from waflib.Task import Task
+from waflib.Task import Task, TaskSemaphore
 from waflib.Tools import (
     c as c_tool,
     c_preproc,
@@ -2054,6 +2054,13 @@ def build(ctx: BuildContext) -> None:
     ctx.env.PROJECT_ROOT = ctx.srcnode
     ctx.env.GEN_FILES = set()
     ctx.env.CHECKED_FILES = set()
+
+    # Limit the number of parallel link tasks. Linking is memory-intensive,
+    # so on machines with many CPUs, running too many link tasks in parallel
+    # can exhaust memory and disk I/O.
+    max_link_tasks = int(os.environ.get('MAX_LINK_TASKS', '8'))
+    Logs.info(f'Waf: Limiting parallel link tasks to {max_link_tasks}')
+    ccroot.link_task.semaphore = TaskSemaphore(max_link_tasks)
 
     register_get_cwd()
 

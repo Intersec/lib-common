@@ -266,6 +266,14 @@ The following environment variables can be used at the configuration phase:
     If the variable is not set, only the release and dev dependencies are
     installed.
 
+The following environment variables can be used at the build phase:
+
+`MAX_LINK_TASKS` (integer)::
+    Limit the number of link tasks that can run in parallel. Linking is
+    memory-intensive, so on machines with many CPUs, running too many link
+    tasks in parallel can exhaust memory and disk I/O.
+    Defaults to 8 if not set.
+
 ==== Compiling with gcc
 
 An important part of the lib-common uses the
