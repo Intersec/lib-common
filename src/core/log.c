@@ -822,7 +822,7 @@ int log_make_fancy_prefix(lstr_t progname, int pid, char fancy[static 64])
         TERM_COLOR_BRIGHTER(TERM_COLOR_GREEN),
         TERM_COLOR_BRIGHTER(TERM_COLOR_BLUE),
     };
-    char buf_progname[10 + 1];
+    char buf_progname[64];
     uint32_t hash;
     const char *color;
     int len;
