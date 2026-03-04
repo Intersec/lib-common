@@ -44,7 +44,7 @@ jobs:
 
       - name: Install waf
         run: |
-          sudo curl https://waf.io/waf-2.0.24 -o /usr/local/bin/waf && \
+          sudo curl https://waf.io/waf-2.1.9 -o /usr/local/bin/waf && \
           sudo chmod +x /usr/local/bin/waf && \
           sudo waf --help 2>&1 >/dev/null
 

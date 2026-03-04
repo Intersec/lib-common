@@ -8,7 +8,7 @@ lib-common is an Intersec C library extension targeting Linux environments. It p
 
 ## Build System
 
-lib-common uses WAF (https://waf.io/). Download waf 2.0.x and place in PATH.
+lib-common uses WAF (https://waf.io/).
 
 ```bash
 waf configure              # Configure (default profile)

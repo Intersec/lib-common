@@ -91,14 +91,14 @@ install it in a directory already in your PATH environment, for example
 `/usr/local/bin`:
 ---------------------------------
 $ cd /usr/local/bin
-$ wget https://waf.io/waf-2.0.x
-$ ln -s waf-2.0.x waf
-$ chmod +x waf-2.0.x
+$ wget https://waf.io/waf-2.1.x
+$ ln -s waf-2.1.x waf
+$ chmod +x waf-2.1.x
 $ ./waf
 ---------------------------------
 
-`waf` versions 2.0.8 and 2.0.18 are known to work fine, running the latest 2.0.x
-`waf` should also work fine.
+`waf` versions 2.1.9 is known to work fine, but running the latest 2.1.x `waf`
+should also work fine.
 
 === Dependencies
 ==== List of packages per Linux distribution
