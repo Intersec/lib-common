@@ -4,8 +4,9 @@
 
 [tools]
 # TODO support version template like for ASDF
-python = '3.9'
+python = '3.11'
 uv = '0.7.2'
+rust = '1.92.0'
 
 [settings]
 python.uv_venv_auto = true
