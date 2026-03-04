@@ -291,18 +291,17 @@ class CargoBuildBase(Task.Task):  # type: ignore[misc]
         ]
 
         # When using a sanitizer, we need to:
-        # - Use nightly with '+nightly' passed before the command.
+        # - Set 'RUSTC_BOOTSTRAP' to use unstable features on stable Rust.
+        #   See https://doc.rust-lang.org/beta/unstable-book/compiler-environment-variables/RUSTC_BOOTSTRAP.html#rustc_bootstrap
         # - Set the environment variable 'RUSTFLAGS' and 'RUSTDOCFLAGS' to
         #   '-Zsanitizer={sanitizer}'.
         # - Build the standard Rust library itself with '-Z build-std'.
         # - Set the explicit target 'x86_64-unknown-linux-gnu'.
         if self.env.USE_SANITIZER and not self.env.USE_PIC:
-            cargo_exec_cmd += [
-                '+nightly',
-            ]
             sanitizer = self.env.SANITIZER
             old_rustflags = os.environ.get('RUSTFLAGS', '')
             old_rustdocflags = os.environ.get('RUSTDOCFLAGS', '')
+            cmd_env['RUSTC_BOOTSTRAP'] = '1'
             cmd_env['RUSTFLAGS'] = f'-Zsanitizer={sanitizer} {old_rustflags}'
             cmd_env['RUSTDOCFLAGS'] = (
                 f'-Zsanitizer={sanitizer} {old_rustdocflags}'
@@ -553,7 +552,6 @@ def sanitizer_add_toolchain(ctx: ConfigurationContext) -> None:
     # '-Zbuild-std=panic_abort,std'.
     ctx.exec_command(ctx.env.RUSTUP + [
         'component', 'add', 'rust-src',
-        '--toolchain', 'nightly-x86_64-unknown-linux-gnu',
     ], stdout=None, stderr=None)
 
 

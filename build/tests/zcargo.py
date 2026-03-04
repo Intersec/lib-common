@@ -260,8 +260,7 @@ def get_cargo_test_cmd(pkg: str, argv: list[str]) -> list[str]:
         # and
         # https://github.com/rust-lang/wg-cargo-std-aware/issues/29#issuecomment-549950466
         # for panic-abort strategy.
-        cmd.extend(['+nightly', '-Zbuild-std=panic_abort,std',
-                    '-Zpanic-abort-tests'])
+        cmd.extend(['-Zbuild-std=panic_abort,std', '-Zpanic-abort-tests'])
 
     cmd.append('test')
 
@@ -284,6 +283,11 @@ def run_cargo_test_for_pkg(pkg: str, argv: list[str]) -> None:
 
     env = os.environ.copy()
     env['CARGO_TERM_COLOR'] = 'never'
+
+    if 'USE_SANITIZER' in os.environ:
+        # In order to use unstable features on stable Rust.
+        # See https://doc.rust-lang.org/beta/unstable-book/compiler-environment-variables/RUSTC_BOOTSTRAP.html#rustc_bootstrap
+        env['RUSTC_BOOTSTRAP'] = '1'
 
     # Use a suppression file to avoid leak in rustlib:
     # https://github.com/rust-lang/rust/issues/151367
