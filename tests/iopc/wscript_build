@@ -21,5 +21,5 @@ from waflib.Build import BuildContext
 ctx: BuildContext
 
 
-ctx.program(target='zchk', source='zchk.c',
+ctx.program(target='zchk-iopc', source='zchk.c',
             use=['libiopsq', 'libiopc', 'tstiop', 'libcommon'])
