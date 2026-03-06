@@ -805,9 +805,8 @@ void wah_flatten_last_run(wah_t *map)
         map->last_run_pos     = map->previous_run_pos;
         map->previous_run_pos = -1;
     } else {
-        assert(wah_bucket_is_inlined(bucket));
         head->words = 0;
-        bucket->inlined.words[1].count = 1;
+        wah_bucket_word_ptr(bucket, 1)->count = 1;
     }
 
     wah_append_literal(map, head->bit ? UINT32_MAX : 0);
