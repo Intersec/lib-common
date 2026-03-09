@@ -28,7 +28,7 @@ requires-python = ">=3.11, <4.0"
 [dependency-groups]
 dev = [
     # C extension writer for Python, used by IOPy
-    "cython~=3.0.0",
+    "cython~=3.2.4",
 
     # process handling, used in tests
     "psutil~=7.2.2",
