@@ -74,7 +74,7 @@ dev = [
     { name = "mypy", specifier = "==1.14.1" },
     { name = "psutil", specifier = "~=5.9.5" },
     { name = "ruff", specifier = "==0.14.14" },
-    { name = "types-psutil", specifier = "~=5.9.5" },
+    { name = "types-psutil", specifier = "~=7.2.2" },
 ]
 
 [[package]]
@@ -159,11 +159,11 @@ wheels = [
 
 [[package]]
 name = "types-psutil"
-version = "5.9.5.20240516"
+version = "7.2.2.20260130"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/af/41/5d3d2f7b7e819e85820eadececc121ab805c0cb4cab5d88defb0a37eabed/types-psutil-5.9.5.20240516.tar.gz", hash = "sha256:bb296f59fc56458891d0feb1994717e548a1bcf89936a2877df8792b822b4696", size = 14771, upload-time = "2024-05-16T02:21:20.026Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/69/14/fc5fb0a6ddfadf68c27e254a02ececd4d5c7fdb0efcb7e7e917a183497fb/types_psutil-7.2.2.20260130.tar.gz", hash = "sha256:15b0ab69c52841cf9ce3c383e8480c620a4d13d6a8e22b16978ebddac5590950", size = 26535, upload-time = "2026-01-30T03:58:14.116Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3c/b0/872fd0f7b3998f18447a49b0ebae95994c9f589c79443551030caa8f94f0/types_psutil-5.9.5.20240516-py3-none-any.whl", hash = "sha256:83146ded949a10167d9895e567b3b71e53ebc5e23fd8363eab62b3c76cce7b89", size = 18356, upload-time = "2024-05-16T02:21:18.398Z" },
+    { url = "https://files.pythonhosted.org/packages/17/d7/60974b7e31545d3768d1770c5fe6e093182c3bfd819429b33133ba6b3e89/types_psutil-7.2.2.20260130-py3-none-any.whl", hash = "sha256:15523a3caa7b3ff03ac7f9b78a6470a59f88f48df1d74a39e70e06d2a99107da", size = 32876, upload-time = "2026-01-30T03:58:13.172Z" },
 ]
 
 [[package]]
