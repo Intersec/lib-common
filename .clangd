@@ -7,3 +7,11 @@ Diagnostics:
     - bugprone-sizeof-expression
     - readability-misleading-indentation
     - unused-includes
+
+---
+
+If:
+  PathMatch: .*-t\.iop\.h
+Diagnostics:
+  Suppress:
+    - -Wunknown-pragmas
