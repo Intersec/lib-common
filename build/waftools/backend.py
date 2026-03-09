@@ -63,10 +63,15 @@ if TYPE_CHECKING:
     T = TypeVar('T')
     def task_gen_decorator(*args: str) -> Callable[[T], T]:
         ...
-    TaskGen.feature = task_gen_decorator
-    TaskGen.before_method = task_gen_decorator
-    TaskGen.after_method = task_gen_decorator
-    TaskGen.extension = task_gen_decorator
+    task_gen_feature = task_gen_decorator
+    task_gen_before_method = task_gen_decorator
+    task_gen_after_method = task_gen_decorator
+    task_gen_extension = task_gen_decorator
+else:
+    task_gen_feature = TaskGen.feature
+    task_gen_before_method = TaskGen.before_method
+    task_gen_after_method = TaskGen.after_method
+    task_gen_extension = TaskGen.extension
 
 # Protocol is not available in Python 3.6 :(
 if TYPE_CHECKING:
@@ -80,8 +85,8 @@ else:
 # These functions implement the use_whole attribute, allowing to link a
 # library with -whole-archive
 
-@TaskGen.feature('c', 'cprogram', 'cstlib')
-@TaskGen.before_method('process_rule')
+@task_gen_feature('c', 'cprogram', 'cstlib')
+@task_gen_before_method('process_rule')
 def prepare_whole(self: TaskGen) -> None:
     use_whole = self.to_list(getattr(self, 'use_whole', []))
     if not use_whole:
@@ -99,8 +104,8 @@ def prepare_whole(self: TaskGen) -> None:
         self.use.append(uw)
 
 
-@TaskGen.feature('c', 'cprogram', 'cstlib')
-@TaskGen.after_method('process_use')
+@task_gen_feature('c', 'cprogram', 'cstlib')
+@task_gen_after_method('process_use')
 def process_whole(self: TaskGen) -> None:
     use_whole = self.to_list(getattr(self, 'use_whole', []))
     if not use_whole:
@@ -372,8 +377,8 @@ def compile_fuzzing_programs(ctx: BuildContext) -> None:
                                     ldflags=fuzzing_ldflags)
 
 
-@TaskGen.feature('fuzzing')
-@TaskGen.after_method('process_use')
+@task_gen_feature('fuzzing')
+@task_gen_after_method('process_use')
 def fuzzing_feature(ctx: TaskGen) -> None:
     # Avoid warning about fuzzing feature
     pass
@@ -442,8 +447,8 @@ def register_global_includes(self: BuildContext, includes: List[str]) -> None:
 # {{{ Patch tasks to build targets in the source directory
 
 
-@TaskGen.feature('cprogram', 'cxxprogram')
-@TaskGen.after_method('apply_link')
+@task_gen_feature('cprogram', 'cxxprogram')
+@task_gen_after_method('apply_link')
 def deploy_program(self: TaskGen) -> None:
     # Build programs in the corresponding source directory
     assert (len(self.link_task.outputs) == 1)
@@ -455,8 +460,8 @@ def deploy_program(self: TaskGen) -> None:
     self.link_task.hcode += str(self.env.CONFIGURE_TIME).encode('utf-8')
 
 
-@TaskGen.feature('cshlib')
-@TaskGen.after_method('apply_link')
+@task_gen_feature('cshlib')
+@task_gen_after_method('apply_link')
 def deploy_shlib(self: TaskGen) -> None:
     # Build C shared library in the corresponding source directory,
     # stripping the 'lib' prefix
@@ -477,8 +482,8 @@ def deploy_shlib(self: TaskGen) -> None:
 # }}}
 # {{{ remove_dynlibs: option to remove all dynamic libraries at link
 
-@TaskGen.feature('cshlib', 'cprogram')
-@TaskGen.after_method('apply_link', 'process_use')
+@task_gen_feature('cshlib', 'cprogram')
+@task_gen_after_method('apply_link', 'process_use')
 def remove_dynamic_libs(self: TaskGen) -> None:
     if getattr(self, 'remove_dynlibs', False):
         self.link_task.env.LIB = []
@@ -907,16 +912,16 @@ class Blk2c(Task):  # type: ignore[misc]
         return 'Rewriting'
 
 
-@TaskGen.feature('c')
-@TaskGen.before_method('process_source')
+@task_gen_feature('c')
+@task_gen_before_method('process_source')
 def init_c_ctx(self: TaskGen) -> None:
     self.blk2c_tasks = []
     self.clang_check_tasks = []
     self.env.CLANG_CFLAGS = self.to_list(getattr(self, 'cflags', []))
 
 
-@TaskGen.feature('c')
-@TaskGen.after_method('propagate_uselib_vars')
+@task_gen_feature('c')
+@task_gen_after_method('propagate_uselib_vars')
 def update_blk2c_envs(self: TaskGen) -> None:
     if not self.blk2c_tasks:
         return
@@ -931,7 +936,7 @@ def update_blk2c_envs(self: TaskGen) -> None:
         task.env.CLANG_EXTRA_CFLAGS = extra_cflags
 
 
-@TaskGen.extension('.blk')
+@task_gen_extension('.blk')
 def process_blk(self: TaskGen, node: Node) -> None:
     if self.env.COMPILER_CC == 'clang':
         # clang is our C compiler -> directly compile the file
@@ -968,14 +973,14 @@ class Blkk2cc(Task):  # type: ignore[misc]
         return 'Rewriting'
 
 
-@TaskGen.feature('cxx')
-@TaskGen.before_method('process_source')
+@task_gen_feature('cxx')
+@task_gen_before_method('process_source')
 def init_cxx_ctx(self: TaskGen) -> None:
     self.blkk2cc_tasks = []
 
 
-@TaskGen.feature('cxx')
-@TaskGen.after_method('propagate_uselib_vars')
+@task_gen_feature('cxx')
+@task_gen_after_method('propagate_uselib_vars')
 def update_blk2cc_envs(self: TaskGen) -> None:
     if self.blkk2cc_tasks:
         # Compute clang extra cflags from g++ flags
@@ -987,7 +992,7 @@ def update_blk2cc_envs(self: TaskGen) -> None:
             task.env.CLANGXX_EXTRA_CFLAGS = extra_flags
 
 
-@TaskGen.extension('.blkk')
+@task_gen_extension('.blkk')
 def process_blkk(self: TaskGen, node: Node) -> None:
     if self.env.COMPILER_CXX == 'clang++':
         # clang++ is our C++ compiler -> directly compile the file
@@ -1022,7 +1027,7 @@ class Perf2c(Task):  # type: ignore[misc]
         return 'Generating'
 
 
-@TaskGen.extension('.perf')
+@task_gen_extension('.perf')
 def process_perf(self: TaskGen, node: Node) -> None:
     c_node = node.change_ext_src('.c')
 
@@ -1045,7 +1050,7 @@ class Lex2c(Task):  # type: ignore[misc]
         return 'Generating'
 
 
-@TaskGen.extension('.l')
+@task_gen_extension('.l')
 def process_lex(self: TaskGen, node: Node) -> None:
     c_node = node.change_ext_src('.c')
 
@@ -1100,7 +1105,7 @@ class Fc2c(FirstInputStrTask):
         return (deps, None)
 
 
-@TaskGen.extension('.fc')
+@task_gen_extension('.fc')
 def process_fc(self: TaskGen, node: Node) -> None:
     ctx = self.bld
 
@@ -1142,7 +1147,7 @@ class Tokens2c(Task):  # type: ignore[misc]
         return 'Generating'
 
 
-@TaskGen.extension('.tokens')
+@task_gen_extension('.tokens')
 def process_tokens(self: TaskGen, node: Node) -> None:
     c_node = node.change_ext_src('tokens.c')
     h_node = node.change_ext_src('tokens.h')
@@ -1366,7 +1371,7 @@ def iop_get_package_path(self: BuildContext, node: Node) -> str:
     return match.group(1).replace('.', '/')
 
 
-@TaskGen.extension('.iop')
+@task_gen_extension('.iop')
 def process_iop(self: TaskGen, node: Node) -> None:
     ctx = self.bld
 
@@ -1425,7 +1430,7 @@ def process_iop(self: TaskGen, node: Node) -> None:
 # {{{ LD
 
 
-@TaskGen.extension('.ld')
+@task_gen_extension('.ld')
 def process_ld(self: TaskGen, node: Node) -> None:
     self.env.append_value('LDFLAGS',
                           ['-Xlinker', '--version-script',
@@ -1450,7 +1455,7 @@ class Pxc2Pxd(FirstInputStrTask):
         return 'Pxcc'
 
 
-@TaskGen.extension('.pxc')
+@task_gen_extension('.pxc')
 def process_pxcc(self: TaskGen, node: Node) -> None:
     ctx = self.bld
 
@@ -1487,8 +1492,8 @@ class ClangCheck(Task):  # type: ignore[misc]
         return 'Checking'
 
 
-@TaskGen.feature('c')
-@TaskGen.after_method('propagate_uselib_vars')
+@task_gen_feature('c')
+@task_gen_after_method('propagate_uselib_vars')
 def update_clang_check_envs(self: TaskGen) -> None:
     if self.clang_check_tasks:
         # Compute clang extra cflags from gcc flags
@@ -1498,7 +1503,7 @@ def update_clang_check_envs(self: TaskGen) -> None:
             task.env.CLANG_EXTRA_CFLAGS = extra_flags
 
 
-@TaskGen.extension('.c')
+@task_gen_extension('.c')
 def process_c_for_check(self: TaskGen, node: Node) -> None:
     # Call standard C hook
     c_task = c_tool.c_hook(self, node)
@@ -1555,8 +1560,8 @@ class DsoPystubTask(Task):  # type: ignore[misc]
         return node_path
 
 
-@TaskGen.feature('cshlib')
-@TaskGen.after_method('apply_link', 'deploy_shlib')
+@task_gen_feature('cshlib')
+@task_gen_after_method('apply_link', 'deploy_shlib')
 def make_dso_pystub(self: TaskGen) -> None:
     # Only consider shlib that specify pystub_path
     pystub_path = getattr(self, 'pystub_path', None)

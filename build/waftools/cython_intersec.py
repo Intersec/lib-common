@@ -44,9 +44,10 @@ from waflib.Tools import c as c_tool
 # Add type hinting for TaskGen decorators
 if TYPE_CHECKING:
     T = TypeVar('T')
-    def task_gen_decorator(*args: str) -> Callable[[T], T]:
+    def task_gen_extension(*args: str) -> Callable[[T], T]:
         ...
-    TaskGen.extension = task_gen_decorator
+else:
+    task_gen_extension = TaskGen.extension
 
 
 ScanRes = Tuple[Optional[List[str]], Optional[List[str]]]
@@ -55,7 +56,7 @@ ScanRes = Tuple[Optional[List[str]], Optional[List[str]]]
 # {{{ .pyx extension handler
 
 
-@TaskGen.extension('.pyx')
+@task_gen_extension('.pyx')
 def add_cython_file(self: BuildContext, node: Node) -> None:
     """
     Process a *.pyx* file given in the list of source files. No additional

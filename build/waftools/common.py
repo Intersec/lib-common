@@ -48,12 +48,17 @@ if TYPE_CHECKING:
     T = TypeVar('T')
     def task_gen_decorator(*args: str) -> Callable[[T], T]:
         ...
-    TaskGen.feature = task_gen_decorator
-    TaskGen.after = task_gen_decorator
-    TaskGen.before_method = task_gen_decorator
-    TaskGen.after_method = task_gen_decorator
-    TaskGen.extension = task_gen_decorator
-
+    task_gen_feature = task_gen_decorator
+    task_gen_after = task_gen_decorator
+    task_gen_before_method = task_gen_decorator
+    task_gen_after_method = task_gen_decorator
+    task_gen_extension = task_gen_decorator
+else:
+    task_gen_feature = TaskGen.feature
+    task_gen_after = TaskGen.after
+    task_gen_before_method = TaskGen.before_method
+    task_gen_after_method = TaskGen.after_method
+    task_gen_extension = TaskGen.extension
 
 # {{{ depends_on
 
@@ -92,8 +97,8 @@ def check_circular_dependencies(self: TaskGen, tgen: TaskGen,
             path.pop()
 
 
-@TaskGen.feature('*')
-@TaskGen.before_method('process_rule')
+@task_gen_feature('*')
+@task_gen_before_method('process_rule')
 def post_depends_on(self: TaskGen) -> None:
     """
     Post the depends_on dependencies of the "self" task generator.
@@ -135,8 +140,8 @@ def check_used(self: TaskGen, name: str) -> None:
         f'`{name}`')
 
 
-@TaskGen.feature('*')
-@TaskGen.before_method('process_rule')
+@task_gen_feature('*')
+@task_gen_before_method('process_rule')
 def check_libs(self: TaskGen) -> None:
     """
     Check that each element listed in "use" exists either as a task generator
@@ -371,8 +376,8 @@ def add_scan_in_signature(ctx: BuildContext) -> None:
 # The environment variable ${PREFIX} is controlled by the configuration
 # argument `--prefix` (default is '/usr/local/')
 
-@TaskGen.feature('*')
-@TaskGen.after('process_subst', 'process_rule', 'process_source')
+@task_gen_feature('*')
+@task_gen_after('process_subst', 'process_rule', 'process_source')
 def remove_default_install_tasks(self: TaskGen) -> None:
     """Remove all default install tasks"""
     for i, t in enumerate(self.tasks):
@@ -424,8 +429,8 @@ class CustomInstall(Task):  # type: ignore[misc]
         return 0
 
 
-@TaskGen.feature('*')
-@TaskGen.after('process_rule', 'process_source')
+@task_gen_feature('*')
+@task_gen_after('process_rule', 'process_source')
 def add_custom_install(self: TaskGen) -> None:
     commands = getattr(self, 'custom_install', None)
     if not commands:

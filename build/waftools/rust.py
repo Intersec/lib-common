@@ -50,10 +50,15 @@ if TYPE_CHECKING:
 
     def task_gen_decorator(*args: str) -> Callable[[T], T]: ...
 
-    TaskGen.feature = task_gen_decorator
-    TaskGen.before_method = task_gen_decorator
-    TaskGen.after_method = task_gen_decorator
-    TaskGen.extension = task_gen_decorator
+    task_gen_feature = task_gen_decorator
+    task_gen_before_method = task_gen_decorator
+    task_gen_after_method = task_gen_decorator
+    task_gen_extension = task_gen_decorator
+else:
+    task_gen_feature = TaskGen.feature
+    task_gen_before_method = TaskGen.before_method
+    task_gen_after_method = TaskGen.after_method
+    task_gen_extension = TaskGen.extension
 
 
 # Copy USELIB_VARS for `cprogram` and `cshlib` to be used by `rust` task gens
@@ -358,8 +363,8 @@ class CargoBuildStlinkTask(CargoBuildBase, waflib_stlink_task):  # type: ignore[
     """Class for building a static library"""
 
 
-@TaskGen.feature('rust')
-@TaskGen.before_method('process_use')
+@task_gen_feature('rust')
+@task_gen_before_method('process_use')
 def rust_create_task(self: TaskGen) -> None:
     ctx = self.bld
 
@@ -490,8 +495,8 @@ def rust_create_task(self: TaskGen) -> None:
     tsk.env.USE_PIC = use_pic
 
 
-@TaskGen.feature('rust')
-@TaskGen.after_method('process_use')
+@task_gen_feature('rust')
+@task_gen_after_method('process_use')
 def rust_add_dep_task(self: TaskGen) -> None:
     """
     Add task dependencies between rust task gen even if the waf rust task gen

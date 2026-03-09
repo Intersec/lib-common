@@ -1034,8 +1034,7 @@ class IopyTest(z.TestCase):
         self.assertEqual(structa.val, copy_structa.val)
         self.assertEqual(structa.foo, copy_structa.foo)
         self.assertEqual(structa.bar, copy_structa.bar)
-        self.assertEqual(
-            structa.e.baz, copy_structa.e.baz)  # type: ignore[attr-defined]
+        self.assertEqual(structa.e.baz, copy_structa.e.baz)
         self.assertEqual(str(structa), str(copy_structa))
         self.assertNotEqual(id(structa), id(copy_structa))
         self.assertNotEqual(is_deepcopy,
@@ -1048,10 +1047,8 @@ class IopyTest(z.TestCase):
                             id(structa.e) == id(copy_structa.e))
         self.assertNotEqual(is_deepcopy,
                             id(structa.r) == id(copy_structa.r))
-        self.assertNotEqual(
-            is_deepcopy,
-            id(structa.e.baz) ==  # type: ignore[attr-defined]
-            id(copy_structa.e.baz))
+        self.assertNotEqual(is_deepcopy,
+                            id(structa.e.baz) == id(copy_structa.e.baz))
 
         classb = self.r.test.ClassB(field1=42, field2=20)
         classb.plop = err  # type: ignore[attr-defined]

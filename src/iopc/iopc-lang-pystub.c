@@ -86,23 +86,34 @@ static void iopc_pystub_dump_package_member(sb_t *buf, const iopc_pkg_t *pkg,
     sb_adds(buf, member_name);
 }
 
-static void iopc_pystub_dump_no_getattr(sb_t *buf)
+static void iopc_pystub_dump_no_getattr_or_settattr(
+    sb_t *buf, const char *attr, bool is_child_class)
 {
-    sb_adds(buf,
+    sb_addf(buf,
         "\n"
-        "    __getattr__ = None  "
-        "# type: ignore[misc, assignment] "
-        "# noqa: PYI026 (type-alias-without-annotation)\n"
+        "    %s = None  ",
+        attr
     );
+
+    if (is_child_class) {
+        sb_adds(buf, "# type: ignore[misc] ");
+    } else {
+        sb_adds(buf, "# type: ignore[misc, assignment] ");
+    }
+
+    sb_adds(buf, "# noqa: PYI026 (type-alias-without-annotation)\n");
 }
 
-static void iopc_pystub_dump_no_setattr(sb_t *buf)
+static void iopc_pystub_dump_no_getattr(sb_t *buf, bool is_child_class)
 {
-    sb_adds(buf,
-        "    __setattr__ = None  "
-        "# type: ignore[misc, assignment] "
-        "# noqa: PYI026 (type-alias-without-annotation)\n"
-    );
+    iopc_pystub_dump_no_getattr_or_settattr(
+        buf, "__getattr__", is_child_class);
+}
+
+static void iopc_pystub_dump_no_setattr(sb_t *buf, bool is_child_class)
+{
+    iopc_pystub_dump_no_getattr_or_settattr(
+        buf, "__setattr__", is_child_class);
 }
 
 /* }}} */
@@ -558,6 +569,7 @@ static void
 iopc_pystub_dump_struct_intern(sb_t *buf, const iopc_pkg_t *pkg,
                                const iopc_struct_t *st, const char *st_name)
 {
+    bool is_child_class;
     assert(st_name);
 
     if (_G.simple_definitions) {
@@ -565,11 +577,13 @@ iopc_pystub_dump_struct_intern(sb_t *buf, const iopc_pkg_t *pkg,
         return;
     }
 
+    is_child_class = iopc_is_class(st->type) && st->extends.len;
+
     iopc_pystub_dump_struct_dict_type(buf, pkg, st, st_name);
 
     sb_adds(buf, "@typing.type_check_only\n");
     sb_addf(buf, "class %s(", st_name);
-    if (iopc_is_class(st->type) && st->extends.len) {
+    if (is_child_class) {
         const iopc_pkg_t *parent_pkg = st->extends.tab[0]->pkg;
         const iopc_struct_t *parent = st->extends.tab[0]->st;
 
@@ -585,8 +599,8 @@ iopc_pystub_dump_struct_intern(sb_t *buf, const iopc_pkg_t *pkg,
     iopc_pystub_dump_common_inits(buf, st_name);
     iopc_pystub_dump_struct_inits(buf, st_name);
     iopc_pystub_dump_to_dict(buf, st_name);
-    iopc_pystub_dump_no_getattr(buf);
-    iopc_pystub_dump_no_setattr(buf);
+    iopc_pystub_dump_no_getattr(buf, is_child_class);
+    iopc_pystub_dump_no_setattr(buf, is_child_class);
 
     sb_addf(buf, "\n%s_ParamType: typing_extensions.TypeAlias = "
             "%s | %s_DictType\n",
@@ -865,8 +879,8 @@ static void iopc_pystub_dump_union_intern(sb_t *buf, const iopc_pkg_t *pkg,
     iopc_pystub_dump_to_dict(buf, st_name);
 
     /* Remove attr methods */
-    iopc_pystub_dump_no_getattr(buf);
-    iopc_pystub_dump_no_setattr(buf);
+    iopc_pystub_dump_no_getattr(buf, false);
+    iopc_pystub_dump_no_setattr(buf, false);
 
     /* Dump param class type */
     sb_addf(buf, "\n%s_ParamType: typing_extensions.TypeAlias = "
@@ -1194,7 +1208,7 @@ static void iopc_pystub_dump_iface(sb_t *buf, const iopc_pkg_t *pkg,
             iopc_pystub_dump_iface_rpc_attr(buf, "RPC", rpc, iface);
         }
     }
-    iopc_pystub_dump_no_getattr(buf);
+    iopc_pystub_dump_no_getattr(buf, false);
     sb_adds(buf, "\n");
 
     /* Async RPCs */
@@ -1205,7 +1219,7 @@ static void iopc_pystub_dump_iface(sb_t *buf, const iopc_pkg_t *pkg,
             iopc_pystub_dump_iface_rpc_attr(buf, "AsyncRPC", rpc, iface);
         }
     }
-    iopc_pystub_dump_no_getattr(buf);
+    iopc_pystub_dump_no_getattr(buf, false);
     sb_adds(buf, "\n");
 
     /* Server RPCs */
@@ -1216,7 +1230,7 @@ static void iopc_pystub_dump_iface(sb_t *buf, const iopc_pkg_t *pkg,
             iopc_pystub_dump_iface_rpc_attr(buf, "RPCServer", rpc, iface);
         }
     }
-    iopc_pystub_dump_no_getattr(buf);
+    iopc_pystub_dump_no_getattr(buf, false);
     sb_adds(buf, "\n");
 
     iopc_pystup_dump_fold_end(buf);
@@ -1258,7 +1272,7 @@ static void iopc_pystub_dump_module(sb_t *buf, const iopc_pkg_t *pkg,
             sb_adds(buf, "_Iface\n");
         }
     }
-    iopc_pystub_dump_no_getattr(buf);
+    iopc_pystub_dump_no_getattr(buf, false);
 
     /* Async module */
     sb_adds(buf, "\n");
@@ -1273,7 +1287,7 @@ static void iopc_pystub_dump_module(sb_t *buf, const iopc_pkg_t *pkg,
             sb_adds(buf, "_AsyncIface\n");
         }
     }
-    iopc_pystub_dump_no_getattr(buf);
+    iopc_pystub_dump_no_getattr(buf, false);
 
     /* Server module */
     sb_adds(buf, "\n");
@@ -1288,7 +1302,7 @@ static void iopc_pystub_dump_module(sb_t *buf, const iopc_pkg_t *pkg,
             sb_adds(buf, "_IfaceServer\n");
         }
     }
-    iopc_pystub_dump_no_getattr(buf);
+    iopc_pystub_dump_no_getattr(buf, false);
 
     iopc_pystup_dump_fold_end_extra(buf);
 }
@@ -1322,7 +1336,7 @@ static void iopc_pystub_dump_package(sb_t *buf, const iopc_pkg_t *pkg)
             }
         }
     }
-    iopc_pystub_dump_no_getattr(buf);
+    iopc_pystub_dump_no_getattr(buf, false);
 
     sb_adds(buf, "\n");
 
@@ -1348,7 +1362,7 @@ static void iopc_pystub_dump_package(sb_t *buf, const iopc_pkg_t *pkg)
         }
     }
 
-    iopc_pystub_dump_no_getattr(buf);
+    iopc_pystub_dump_no_getattr(buf, false);
 
     iopc_pystup_dump_fold_end_extra(buf);
 }
