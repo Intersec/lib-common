@@ -450,8 +450,10 @@ class IopcTest(z.TestCase):
     def test_inheritance_invalid_circular1(self) -> None:
         self.run_iopc('inheritance_invalid_circular1.iop', False,
                       ['circular dependency',
-                       'inheritance_invalid_circular1.iop:3:2:  '
-                       'from: class A',
+                       (
+                           'inheritance_invalid_circular1.iop:3:2:  '
+                           'from: class A'
+                       ),
                        'class A inherits from class C2',
                        'class C2 inherits from class B',
                        'class B inherits from class A'])

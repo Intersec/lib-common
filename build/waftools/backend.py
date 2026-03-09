@@ -1540,8 +1540,8 @@ def process_c_for_check(self: TaskGen, node: Node) -> None:
 
 
 class DsoPystubTask(Task):  # type: ignore[misc]
-    run_str = ['${MAKE_DSO_PYSTUB_PY} --dso-path ${SRC[0].abspath()} '
-               '--output-pystub ${TGT[0].abspath()}']
+    run_str = [('${MAKE_DSO_PYSTUB_PY} --dso-path ${SRC[0].abspath()} '
+                '--output-pystub ${TGT[0].abspath()}')]
     color = 'CYAN'
     ext_out = ['.pyi']
 
