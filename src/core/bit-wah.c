@@ -45,11 +45,38 @@ static struct {
 
 /* Word enumerator {{{ */
 
+/** Get the words array of the bucket the enumerator is currently pointing to.
+ *
+ * This is a helper that translates the enumerator's current bucket index into
+ * the actual (tab, len) pair, abstracting over the inlined/qvector bucket
+ * representation.
+ */
 static wah_words_t wah_word_enum_get_cur_bucket(wah_word_enum_t *en)
 {
     return wah_bucket_get_words(&en->map->_buckets.tab[en->bucket]);
 }
 
+/** Initialize an enumerator from the current position within a bucket.
+ *
+ * Reads the WAH chunk at en->pos in \p bucket and sets the enumerator state
+ * accordingly:
+ * - If the chunk has a non-zero run (head.words > 0), the enumerator enters
+ *   WAH_ENUM_RUN state: en->current is set to all-0s or all-1s depending on
+ *   head.bit, and remain_words tracks how many run words are left.
+ * - If the chunk has no run but has literals (count > 0), the enumerator
+ *   enters WAH_ENUM_LITERAL state: en->current is set to the first literal,
+ *   en->pos is advanced past all the literals, and remain_words is set to the
+ *   literal count.
+ * - Otherwise (no run, no literals), we are past all stored chunks and the
+ *   remaining data is the pending word: the enumerator enters
+ *   WAH_ENUM_PENDING state.
+ *
+ * The en->reverse mask is XOR-ed into en->current to support the "reverse"
+ * mode used by wah_for_each_0 (iterating over cleared bits).
+ *
+ * Called both at enumeration start and when transitioning between chunks in
+ * wah_word_enum_next().
+ */
 static void
 __wah_word_enum_start(wah_word_enum_t *en, const wah_words_t *bucket)
 {
@@ -76,6 +103,15 @@ __wah_word_enum_start(wah_word_enum_t *en, const wah_words_t *bucket)
     en->current ^= en->reverse;
 }
 
+/** Start a word-level enumeration over a WAH bitmap.
+ *
+ * Returns an enumerator positioned on the first 32-bit word of \p map.
+ *
+ * If \p reverse is true, every word value yielded by the enumerator will be
+ * bitwise-inverted (used to iterate over 0-bits as if they were 1-bits).
+ *
+ * If the map is empty (len == 0), the enumerator starts in WAH_ENUM_END.
+ */
 wah_word_enum_t wah_word_enum_start(const wah_t *map, bool reverse)
 {
     wah_word_enum_t en = {
@@ -94,6 +130,22 @@ wah_word_enum_t wah_word_enum_start(const wah_t *map, bool reverse)
     return en;
 }
 
+/** Advance the word enumerator to the next 32-bit word.
+ *
+ * Moves the enumerator forward by one word and updates en->current with the
+ * new word value. Returns true if a new word is available, false when the
+ * enumeration is complete (WAH_ENUM_END).
+ *
+ * Handles three kinds of transitions:
+ * 1. Within a run or literal sequence: simply decrements remain_words (and
+ *    for literals, loads the next literal value).
+ * 2. From the end of a run to its trailing literals: reads the literal count
+ *    from the chunk and transitions to WAH_ENUM_LITERAL.
+ * 3. From the end of a literal sequence to the next chunk: if more chunks
+ *    exist in the current bucket, starts the next chunk via
+ *    __wah_word_enum_start(). If the bucket is exhausted, moves to the next
+ *    bucket or to the pending word.
+ */
 bool wah_word_enum_next(wah_word_enum_t *en)
 {
     wah_words_t bucket = wah_word_enum_get_cur_bucket(en);
@@ -157,6 +209,18 @@ bool wah_word_enum_next(wah_word_enum_t *en)
     }
 }
 
+/** Skip \p skip words forward in the word enumerator.
+ *
+ * This is an optimized way to advance the enumerator by multiple words at
+ * once, avoiding the cost of calling wah_word_enum_next() for each word.
+ *
+ * In a run, this simply adjusts remain_words. The last word of each skip
+ * batch is consumed via wah_word_enum_next() so that chunk transitions are
+ * handled correctly and en->current is properly updated.
+ *
+ * Returns true if the enumerator is still valid after the skip, false if the
+ * end was reached.
+ */
 static bool wah_word_enum_skip(wah_word_enum_t *en, uint32_t skip)
 {
     uint32_t skippable = 0;
@@ -187,6 +251,16 @@ static bool wah_word_enum_skip(wah_word_enum_t *en, uint32_t skip)
     return true;
 }
 
+/** Skip over consecutive all-zero words in the word enumerator.
+ *
+ * Advances the enumerator past all words whose value is 0 (after applying the
+ * reverse mask). This is used during bit enumeration to efficiently jump over
+ * large gaps of cleared bits without examining them one by one.
+ *
+ * For runs of zeros, the entire run is skipped at once. For literal zeros,
+ * they are skipped one at a time. Returns the total number of zero-words that
+ * were skipped.
+ */
 uint32_t wah_word_enum_skip0(wah_word_enum_t *en)
 {
     uint32_t skipped = 0;
@@ -219,6 +293,20 @@ uint32_t wah_word_enum_skip0(wah_word_enum_t *en)
 /* }}} */
 /* Bit enumerator {{{ */
 
+/** Scan forward in the bit enumerator to find the next non-zero word.
+ *
+ * Called when en->current_word has been fully consumed (== 0). It advances
+ * the underlying word enumerator until a word with at least one set bit is
+ * found.
+ *
+ * For runs of 1-bits, sets remain_bits to the total bit count of the run and
+ * immediately returns. For literal or pending words, sets remain_bits to 32
+ * (or the pending bit count) and masks out any unused trailing bits.  For
+ * runs of 0-bits, the key is advanced past them in bulk.
+ *
+ * Returns true if a non-zero word was found, false if the enumeration is
+ * exhausted.
+ */
 bool wah_bit_enum_scan_word(wah_bit_enum_t *en)
 {
     /* realign to a word boundary */
@@ -253,6 +341,13 @@ bool wah_bit_enum_scan_word(wah_bit_enum_t *en)
     return false;
 }
 
+/** Start a bit-level enumeration over a WAH bitmap.
+ *
+ * Returns an enumerator positioned on the first set bit (or first cleared bit
+ * if \p reverse is true). This enumerator is used by wah_for_each_1 and
+ * wah_for_each_0 macros. The en.key field gives the position of the current
+ * bit.
+ */
 wah_bit_enum_t wah_bit_enum_start(const wah_t *wah, bool reverse)
 {
     wah_bit_enum_t en;
@@ -271,6 +366,14 @@ wah_bit_enum_t wah_bit_enum_start(const wah_t *wah, bool reverse)
     return en;
 }
 
+/** Skip \p to_skip set bits in the bit enumerator.
+ *
+ * Efficiently advances the enumerator past \p to_skip set bits. For runs of
+ * 1-bits, arithmetic on remain_bits is sufficient. For literal words, the
+ * bitcount determines how many bits can be skipped in the current word.
+ * After the bulk skip, the remaining bits (if any) are consumed one-by-one
+ * via wah_bit_enum_next().
+ */
 void wah_bit_enum_skip1s(wah_bit_enum_t *en, uint64_t to_skip)
 {
     if (to_skip == 0) {
@@ -395,6 +498,12 @@ wah_bucket_append(wah_t *map, wah_bucket_t *bucket, wah_word_t word)
     qv_append(&bucket->qv, word);
 }
 
+/** Append \p len words from \p src into a bucket.
+ *
+ * Like wah_bucket_append() but for multiple words at once. Handles the
+ * inlined-to-qvector promotion if the new words don't fit in the inlined
+ * storage.
+ */
 static void
 wah_bucket_extend(wah_t *map, wah_bucket_t *bucket, const wah_word_t *src,
                   int len)
@@ -412,6 +521,16 @@ wah_bucket_extend(wah_t *map, wah_bucket_t *bucket, const wah_word_t *src,
     qv_extend(&bucket->qv, src, len);
 }
 
+/** Make a bucket point to external data without copying.
+ *
+ * Used by wah_init_from_data() to create zero-copy buckets that reference the
+ * original serialized WAH data. If the data fits in the inline storage, it is
+ * copied into the bucket directly. Otherwise, a static qvector is set up that
+ * borrows the pointer (the caller must ensure the data remains valid for the
+ * lifetime of the WAH).
+ *
+ * The bucket must be freshly initialized (inlined, length 0).
+ */
 static void
 wah_bucket_set_static(wah_bucket_t *bucket, wah_word_t *data, int len)
 {
@@ -424,6 +543,19 @@ wah_bucket_set_static(wah_bucket_t *bucket, wah_word_t *data, int len)
     }
 }
 
+/** Create and append a new bucket to the WAH's bucket vector.
+ *
+ * Before allocating a new bucket, this function performs housekeeping on the
+ * current last bucket:
+ * - If the last bucket was a qvector that has been shrunk to fit in the
+ *   inlined limit, it is converted back to an inlined bucket. The now-unused
+ *   qvector allocation is recycled for the new bucket to avoid a free() /
+ *   malloc() cycle.
+ * - Otherwise, the last bucket's qvector is optimized (trimmed to fit).
+ *
+ * \p size is a hint for the initial capacity of the new bucket. If it fits
+ * within WAH_BUCKET_INLINED_WORDS, an inlined bucket is used.
+ */
 static wah_bucket_t *wah_create_bucket(wah_t *map, int size)
 {
     wah_bucket_t *bucket;
@@ -467,6 +599,16 @@ static wah_bucket_t *wah_create_bucket(wah_t *map, int size)
     return bucket;
 }
 
+/** Create a new bucket pre-initialized with an empty WAH chunk header.
+ *
+ * This is the standard way to start a new bucket during sequential writing.
+ * The bucket is created with 2 zero-words (the chunk header + literal count),
+ * representing an empty chunk with no run and no literals. The last_run_pos
+ * is reset to point at this new chunk.
+ *
+ * Used whenever the current bucket is full and a new one must be started
+ * (e.g., in wah_push_pending(), wah_add_literal(), etc.).
+ */
 static wah_bucket_t *__wah_create_bucket(wah_t *map)
 {
     wah_bucket_t *bucket = wah_create_bucket(map, 2);
@@ -485,6 +627,13 @@ static wah_bucket_t *__wah_create_bucket(wah_t *map)
     return bucket;
 }
 
+/** Reset a WAH to an empty state, reusing its bucket vector allocation.
+ *
+ * All existing buckets are wiped and the bucket vector is clipped to zero
+ * length, but the outer allocation (map->_buckets.tab) is preserved. A single
+ * fresh bucket is created with an empty chunk header, ready for new data to
+ * be appended.
+ */
 void wah_reset_map(wah_t *map)
 {
     wah_bucket_t *first_bucket;
@@ -652,16 +801,38 @@ size_t wah_memory_footprint(const wah_t *map)
 /* }}} */
 /* Operations {{{ */
 
+/** Return the WAH length minus the buckets_shift.
+ *
+ * The buckets_shift accounts for extra bits stored in the first bucket when
+ * it is "overfilled" (i.e., the WAH starts with a very long run of the same
+ * bit). Subtracting the shift gives the length relative to the normal
+ * bucketing scheme, which is used to compute bucket boundaries.
+ */
 static ALWAYS_INLINE uint64_t wah_shifted_len(const wah_t *map)
 {
     return map->len - map->buckets_shift;
 }
 
+/** Return the total bit capacity of all current buckets, accounting for the
+ *  shift.
+ *
+ * Each bucket nominally holds WAH_BITS_IN_BUCKET bits. The first bucket may
+ * hold extra bits (buckets_shift). This function returns the total number of
+ * bits that can be stored in the existing buckets before a new one must be
+ * created.
+ */
 static ALWAYS_INLINE uint64_t wah_buckets_shifted_len(const wah_t *map)
 {
     return map->_buckets.len * WAH_BITS_IN_BUCKET + map->buckets_shift;
 }
 
+/** Resolve a bit position to the bucket containing it.
+ *
+ * Given a bit position \p *pos within the WAH, returns the bucket that
+ * contains that bit and adjusts \p *pos to be relative to that bucket. The
+ * first bucket is special because it may be overfilled by buckets_shift extra
+ * bits.
+ */
 static ALWAYS_INLINE wah_bucket_t *
 wah_buckets_get_bucket(const wah_t *map, uint64_t *pos)
 {
@@ -678,6 +849,11 @@ wah_buckets_get_bucket(const wah_t *map, uint64_t *pos)
     return bucket;
 }
 
+/** Get a pointer to the word at index \p pos within a bucket.
+ *
+ * Abstracts over the inlined vs. qvector bucket representation, returning a
+ * pointer to the correct storage.
+ */
 static ALWAYS_INLINE
 wah_word_t *wah_bucket_word_ptr(wah_bucket_t *bucket, int pos)
 {
@@ -690,6 +866,13 @@ wah_word_t *wah_bucket_word_ptr(wah_bucket_t *bucket, int pos)
     }
 }
 
+/** Get a pointer to the header of the last chunk in the WAH.
+ *
+ * The "last run" is the most recently appended chunk. Its position within the
+ * last bucket is tracked by map->last_run_pos. This function returns the
+ * header word of that chunk, which contains the run bit value and the run
+ * length (number of homogeneous words).
+ */
 static ALWAYS_INLINE
 wah_header_t *wah_last_run_header(const wah_t *map, wah_bucket_t *bucket)
 {
@@ -697,6 +880,13 @@ wah_header_t *wah_last_run_header(const wah_t *map, wah_bucket_t *bucket)
     return &wah_bucket_word_ptr(bucket, map->last_run_pos)->head;
 }
 
+/** Get a pointer to the literal count of the last chunk in the WAH.
+ *
+ * In the WAH chunk layout, the word immediately after the header is the count
+ * of uncompressed literal words that follow. This function returns a pointer
+ * to that count word for the last chunk, allowing callers to increment it
+ * when appending new literals to the current chunk.
+ */
 static ALWAYS_INLINE
 uint32_t *wah_last_run_count(const wah_t *map)
 {
@@ -706,6 +896,13 @@ uint32_t *wah_last_run_count(const wah_t *map)
     return &wah_bucket_word_ptr(bucket, map->last_run_pos + 1)->count;
 }
 
+/** Append a new WAH chunk header to the last bucket.
+ *
+ * Writes the two-word chunk prologue: the header word (containing the run bit
+ * and run length) followed by a zero literal-count word. The caller is
+ * expected to update last_run_pos and previous_run_pos before or after
+ * calling this.
+ */
 static ALWAYS_INLINE
 void wah_append_header(wah_t *map, wah_header_t head)
 {
@@ -718,6 +915,12 @@ void wah_append_header(wah_t *map, wah_header_t head)
     wah_bucket_append(map, bucket, word);
 }
 
+/** Append a single literal word to the last bucket.
+ *
+ * This appends the raw 32-bit value to the end of the last bucket's word
+ * array. The caller must also increment the literal count of the current
+ * chunk header (via wah_last_run_count()) separately.
+ */
 static ALWAYS_INLINE
 void wah_append_literal(wah_t *map, uint32_t val)
 {
@@ -728,6 +931,16 @@ void wah_append_literal(wah_t *map, uint32_t val)
     wah_bucket_append(map, bucket, word);
 }
 
+/** Debug-only: verify that the WAH is in normalized form.
+ *
+ * A normalized WAH never has two consecutive chunks that could be merged.
+ * Specifically, a literal word that is all-0s or all-1s must not be adjacent
+ * to a run of the same bit value (it should have been merged into the run).
+ * Similarly, a run of length < 2 should not exist except at the very
+ * beginning or end.
+ *
+ * Only active when WAH_CHECK_NORMALIZED is defined.
+ */
 static
 void wah_check_normalized(const wah_t *map)
 {
@@ -758,6 +971,17 @@ void wah_check_normalized(const wah_t *map)
 #endif
 }
 
+/** Debug-only: assert all WAH structural invariants.
+ *
+ * Verifies that:
+ * - last_run_pos and previous_run_pos are consistent.
+ * - Every bucket has at least 2 words (header + count).
+ * - The literal count of the last chunk matches the actual number of words
+ *   after it in the last bucket.
+ * - active <= len, len >= buckets_shift, and buckets_shift is word-aligned.
+ * - The total bit count is consistent with the number of buckets.
+ * - The WAH is in normalized form (if WAH_CHECK_NORMALIZED is enabled).
+ */
 static ALWAYS_INLINE
 void wah_check_invariant(const wah_t *map)
 {
@@ -781,6 +1005,28 @@ void wah_check_invariant(const wah_t *map)
 }
 
 
+/** Convert a single-word run into a literal, merging it with the previous
+ *  chunk.
+ *
+ * In a WAH, a chunk must represent at least 2 run-words to be worthwhile
+ * (since the header itself costs 2 words). When the last chunk has a run of
+ * exactly 1 word (head.words == 1) and no trailing literals, this function
+ * "flattens" it: the run word is converted into a literal value (0x00000000
+ * or 0xFFFFFFFF) and appended to the previous chunk's literal section.
+ *
+ * If there is a previous chunk (last_run_pos > 0):
+ *   - The last chunk's 2-word header is removed from the bucket.
+ *   - The previous chunk's literal count is incremented.
+ *   - last_run_pos is moved back to previous_run_pos.
+ *
+ * If there is no previous chunk (last_run_pos == 0):
+ *   - The run is converted to a zero-word run with 1 literal.
+ *
+ * In both cases the former run word is appended as a literal value.
+ *
+ * This is a key normalization step called before appending non-trivial
+ * literals to ensure the last chunk is ready to accept them.
+ */
 static inline
 void wah_flatten_last_run(wah_t *map)
 {
@@ -813,6 +1059,29 @@ void wah_flatten_last_run(wah_t *map)
     wah_check_invariant(map);
 }
 
+/** Flush the pending word into the WAH encoding, repeated \p words times.
+ *
+ * The "pending" word (map->_pending) holds the last partially or fully filled
+ * 32-bit word that hasn't been committed to the WAH structure yet. This
+ * function commits it.
+ *
+ * Two cases:
+ * 1. Non-trivial pending (mixed 0s and 1s): The last run is flattened (to
+ *    make room for literals), and the pending word is appended as \p words
+ *    literal copies.
+ *
+ * 2. Trivial pending (all-0s or all-1s): The function tries to merge the
+ *    words into the existing last run if the bit value matches (or the run
+ *    is empty). If the run would become too short (< 2 words) after the
+ *    merge, it is flattened. If additional words remain after filling the
+ *    current run (due to WAH_MAX_WORDS_IN_RUN), new runs are created.
+ *
+ * After this call, map->_pending is reset to 0.
+ *
+ * This is the core routine that translates raw data into WAH-compressed
+ * chunks. It only operates within a single bucket; the caller
+ * (wah_push_pending()) handles bucket boundaries.
+ */
 static void __wah_push_pending(wah_t *map, uint64_t words)
 {
     const bool is_trivial = map->_pending == UINT32_MAX || map->_pending == 0;
@@ -860,6 +1129,19 @@ static void __wah_push_pending(wah_t *map, uint64_t words)
     map->_pending = 0;
 }
 
+/** Flush the pending word into the WAH, handling bucket boundaries.
+ *
+ * This is the bucket-aware wrapper around __wah_push_pending(). It splits the
+ * work across bucket boundaries: when the current bucket is full, a new one
+ * is created. The pending word value is preserved across iterations so that
+ * each sub-call to __wah_push_pending() uses the same value.
+ *
+ * \p words is the number of 32-bit words to commit (each being a copy of the
+ * pending word). \p active is the number of set bits being added (precomputed
+ * by the caller).
+ *
+ * Precondition: map->len must be word-aligned (len % 32 == 0).
+ */
 static void wah_push_pending(wah_t *map, uint64_t words, uint64_t active)
 {
     const uint32_t pending = map->_pending;
@@ -888,6 +1170,19 @@ static void wah_push_pending(wah_t *map, uint64_t words, uint64_t active)
     map->active += active;
 }
 
+/** Update buckets_shift to allow the first bucket to exceed its normal
+ * capacity.
+ *
+ * When a WAH is being built sequentially and consists entirely of the same
+ * bit value (all 0s or all 1s so far), the first bucket is allowed to grow
+ * beyond WAH_BITS_IN_BUCKET. The buckets_shift records how many extra bits
+ * the first bucket contains beyond the normal limit.
+ *
+ * This avoids creating many tiny buckets for a bitmap that starts with a very
+ * long run of the same bit.
+ *
+ * Must only be called when there is at most one bucket.
+ */
 static ALWAYS_INLINE void wah_set_buckets_shift(wah_t *map)
 {
     assert(map->_buckets.len <= 1);
@@ -900,6 +1195,16 @@ static ALWAYS_INLINE void wah_set_buckets_shift(wah_t *map)
     }
 }
 
+/** Push \p words all-zero words into the WAH.
+ *
+ * Optimized path for adding runs of zeros. If no 1-bits have been added yet
+ * (active == 0), the first bucket is allowed to grow indefinitely (overfill
+ * optimization), avoiding bucket creation overhead for bitmaps with a large
+ * leading zero region.
+ *
+ * Otherwise, falls through to wah_push_pending() for normal bucket-bounded
+ * insertion.
+ */
 static void wah_push_pending_0s(wah_t *map, uint64_t words)
 {
     map->_pending = 0;
@@ -918,6 +1223,12 @@ static void wah_push_pending_0s(wah_t *map, uint64_t words)
     wah_push_pending(map, words, 0);
 }
 
+/** Push \p words all-ones words into the WAH.
+ *
+ * Symmetric to wah_push_pending_0s() but for runs of ones. If the WAH is
+ * entirely filled with 1-bits so far (active == len), the first bucket is
+ * allowed to overfill. Otherwise, wah_push_pending() handles the normal case.
+ */
 static void wah_push_pending_1s(wah_t *map, uint64_t words)
 {
     map->_pending = UINT32_MAX;
@@ -937,6 +1248,14 @@ static void wah_push_pending_1s(wah_t *map, uint64_t words)
     wah_push_pending(map, words, words * WAH_BIT_IN_WORD);
 }
 
+/** Append \p count zero-bits to the WAH bitmap.
+ *
+ * If the total (existing pending bits + count) doesn't fill a 32-bit word,
+ * only map->len is advanced (the pending word already has zeros in those
+ * positions). Otherwise, the pending word is flushed and full 32-bit words of
+ * zeros are pushed via wah_push_pending_0s(). Any remaining sub-word tail
+ * adjusts map->len without touching _pending.
+ */
 void wah_add0s(wah_t *map, uint64_t count)
 {
     uint64_t remain = map->len % WAH_BIT_IN_WORD;
@@ -977,6 +1296,12 @@ void wah_pad32(wah_t *map)
     }
 }
 
+/** Append \p count one-bits to the WAH bitmap.
+ *
+ * Symmetric to wah_add0s(). For sub-word additions, the 1-bits are OR-ed
+ * into map->_pending. For full words, wah_push_pending_1s() is called.
+ * Any remaining sub-word tail sets the low bits of _pending.
+ */
 void wah_add1s(wah_t *map, uint64_t count)
 {
     uint64_t remain = map->len % WAH_BIT_IN_WORD;
@@ -1014,6 +1339,16 @@ void wah_add1s(wah_t *map, uint64_t count)
     wah_check_invariant(map);
 }
 
+/** Set a single bit at position \p pos.
+ *
+ * If \p pos is at or beyond the current length (the expected case for
+ * sequential building), zeros are added up to that position and then a single
+ * 1-bit is appended.
+ *
+ * If \p pos is within the already-written region (unexpected / slow path), a
+ * temporary WAH with a single bit at \p pos is created and OR-ed into the
+ * map.
+ */
 void wah_add1_at(wah_t *map, uint64_t pos)
 {
     if (!expect(pos >= map->len)) {
@@ -1031,9 +1366,22 @@ void wah_add1_at(wah_t *map, uint64_t pos)
     wah_add1s(map, 1);
 }
 
-static
-const void *wah_read_word(const uint8_t *src, uint64_t count,
-                          uint64_t *res, int *bits)
+/** Read up to 64 bits from a raw byte buffer into a uint64_t.
+ *
+ * Reads \p count bits (up to 64) from \p src in little-endian order.
+ *
+ * Returns the advanced source pointer, and fills \p *res with the read value
+ * and \p *bits with the number of bits actually read.
+ *
+ * For performance, the reads are done in decreasing chunk sizes (32, 24, 16,
+ * 8 bits) to minimize the number of memory accesses. Unused high bits are
+ * masked off.
+ *
+ * Used by wah_add_unaligned() and wah_add_aligned() to parse raw bitmap data
+ * that may not be word-aligned.
+ */
+static const void *
+wah_read_word(const uint8_t *src, uint64_t count, uint64_t *res, int *bits)
 {
     uint64_t mask;
 
@@ -1068,6 +1416,16 @@ const void *wah_read_word(const uint8_t *src, uint64_t count,
     return src;
 }
 
+/** Add a mixed (non-trivial) word of \p bits bits to the WAH.
+ *
+ * Decomposes the word into alternating runs of 0-bits and 1-bits using
+ * bsf64() (bit-scan-forward) and adds each run via wah_add0s()/wah_add1s().
+ * The word is progressively shifted right and inverted to toggle between
+ * counting zeros and ones.
+ *
+ * This is the slow path used when a raw data word is neither all-0s nor
+ * all-1s and cannot be added as a run.
+ */
 static void wah_add_bits(wah_t *map, uint64_t word, int bits)
 {
     bool     on_0 = true;
@@ -1100,6 +1458,21 @@ static void wah_add_bits(wah_t *map, uint64_t word, int bits)
     }
 }
 
+/** Add raw bitmap data that is not word-aligned to the WAH.
+ *
+ * Processes \p count bits from \p src when the WAH's current position is not
+ * on a 32-bit word boundary (or when the data is byte-aligned but not
+ * word-aligned).
+ *
+ * For large chunks (>= 64 bits), it first checks if the data is a trivial run
+ * (all-0s or all-1s) and uses bsf() to find the run length for efficient
+ * compression. Non-trivial 64-bit words are decomposed via wah_add_bits().
+ *
+ * For the tail (< 64 bits), wah_read_word() is used to read the remaining
+ * bytes.
+ *
+ * Returns the advanced source pointer past the consumed bytes.
+ */
 static
 const void *wah_add_unaligned(wah_t *map, const uint8_t *src, uint64_t count)
 {
@@ -1151,6 +1524,21 @@ const void *wah_add_unaligned(wah_t *map, const uint8_t *src, uint64_t count)
     return src;
 }
 
+/** Add raw 32-bit-aligned data directly as literal words to the WAH.
+ *
+ * This is the fast path for adding non-trivial word-aligned data. Rather than
+ * decomposing each word into runs of 0s and 1s, the data is copied directly
+ * into the last bucket's literal section. The last run is first flattened (so
+ * that literals can be appended), then the literal count is incremented and
+ * the raw words are bulk-copied.
+ *
+ * Handles bucket boundaries by creating new buckets as needed.
+ *
+ * \p count is in bytes and must be a multiple of 4.
+ *
+ * Precondition: the data must contain at least some mixed content (not
+ * all-0s or all-1s) — otherwise wah_add0s/wah_add1s should be used.
+ */
 static void wah_add_literal(wah_t *map, const uint8_t *src, uint64_t count)
 {
     wah_bucket_t *bucket = tab_last(&map->_buckets);
@@ -1180,6 +1568,16 @@ static void wah_add_literal(wah_t *map, const uint8_t *src, uint64_t count)
     assert(map->active && map->active != map->len);
 }
 
+/** Add raw bitmap data that is word-aligned to the WAH.
+ *
+ * This is the main entry point for adding raw data when the WAH's current bit
+ * position is on a 32-bit boundary. It processes 32-bit words one at a time:
+ * - All-0s or all-1s words trigger a run-length scan (bsf()) to find the
+ *   extent of the run and add it in bulk via wah_add0s/wah_add1s.
+ * - Mixed words are added via wah_add_literal() (direct copy).
+ *
+ * Any remaining sub-word tail (< 32 bits) is loaded into map->_pending.
+ */
 static
 void wah_add_aligned(wah_t *map, const uint8_t *src, uint64_t count)
 {
@@ -1236,6 +1634,17 @@ void wah_add_aligned(wah_t *map, const uint8_t *src, uint64_t count)
 }
 
 
+/** Append \p count bits from raw bitmap \p data to the WAH.
+ *
+ * This is the main public function for ingesting raw (uncompressed) bitmap
+ * data into a WAH. It dispatches to wah_add_unaligned() or wah_add_aligned()
+ * depending on whether the WAH's current position is on a word boundary and
+ * whether the data is byte-aligned.
+ *
+ * If the WAH is mid-word (has pending bits), the unaligned path is used first
+ * to fill up to the next word boundary, then the aligned path handles the
+ * rest.
+ */
 void wah_add(wah_t *map, const void *data, uint64_t count)
 {
     uint32_t remain = WAH_BIT_IN_WORD - (map->len % WAH_BIT_IN_WORD);
@@ -1256,6 +1665,9 @@ void wah_add(wah_t *map, const void *data, uint64_t count)
     wah_check_invariant(map);
 }
 
+/** Push a run of \p Count all-ones words into the destination and advance
+ *  both source enumerators past the same number of words.
+ */
 #define PUSH_1RUN(Count) ({                                                  \
             uint64_t __run = (Count);                                        \
                                                                              \
@@ -1264,6 +1676,9 @@ void wah_add(wah_t *map, const void *data, uint64_t count)
             wah_word_enum_skip(&src_en, __run);                              \
         })
 
+/** Push a run of \p Count all-zero words into the destination and advance
+ *  both source enumerators past the same number of words.
+ */
 #define PUSH_0RUN(Count) ({                                                  \
             uint64_t __run = (Count);                                        \
                                                                              \
@@ -1272,6 +1687,19 @@ void wah_add(wah_t *map, const void *data, uint64_t count)
             wah_word_enum_skip(&other_en, __run);                            \
         })
 
+/** Copy literal words from \p data into the destination WAH, skipping \p run.
+ *
+ * Used during AND operations when one operand is a run of all-1s: the result
+ * is simply the other operand's data. This function copies
+ * min(run->remain_words, data->remain_words) words from \p data into \p map.
+ *
+ * The first word is handled specially (via push_pending) in case it is
+ * trivial (all-0s or all-1s), to maintain WAH normalization. The remaining
+ * words are bulk-copied as literals into the last bucket, and if the data
+ * enumerator is in reverse mode, each copied word is bitwise-inverted.
+ *
+ * Both enumerators are advanced by the number of words consumed.
+ */
 static
 void wah_copy_run(wah_t *map, wah_word_enum_t *run, wah_word_enum_t *data)
 {
@@ -1321,9 +1749,35 @@ void wah_copy_run(wah_t *map, wah_word_enum_t *run, wah_word_enum_t *data)
 
 #define PUSH_COPY(Run, Data)  wah_copy_run(map, &(Run), &(Data))
 
+/** Compute how many 32-bit words the shorter WAH still needs to produce to
+ *  match the longer one's length, capped at WAH_MAX_WORDS_IN_RUN. Used to
+ *  synthesize implicit trailing zeros when one WAH is shorter than the other.
+ */
 #define REMAIN_WORDS(Long, Map)  \
     MIN(((Long)->len - (Map)->len) / WAH_BIT_IN_WORD, WAH_MAX_WORDS_IN_RUN)
 
+/** Core AND implementation supporting optional negation of either operand.
+ *
+ * Computes map = (map_not ? ~map : map) AND (other_not ? ~other : other).
+ * This single implementation covers wah_and(), wah_and_not(), and
+ * wah_not_and().
+ *
+ * The algorithm works by enumerating both WAHs word-by-word in lockstep.
+ * For each step, the combination of enumerator states (run/literal/pending/
+ * end) determines the action:
+ *
+ * - Run of 0s AND anything → run of 0s (short-circuit).
+ * - Run of 1s AND literal → copy the literal (identity for AND).
+ * - Run of 1s AND run of 1s → run of 1s.
+ * - Literal AND literal → bitwise AND of the two words.
+ * - Pending AND pending → bitwise AND, then set result length.
+ *
+ * When one WAH is shorter, its enumerator reaches WAH_ENUM_END and the
+ * missing words are treated as implicit zeros (REMAIN_WORDS macro).
+ *
+ * The map is reset and rebuilt from scratch using a temporary duplicate of
+ * the original map (allocated on the t_scope stack).
+ */
 void wah_and_(wah_t *map, const wah_t *other, bool map_not, bool other_not)
 {
     t_scope;
@@ -1436,6 +1890,15 @@ void wah_not_and(wah_t *map, const wah_t *other)
 
 qvector_t(wah_word_enum, wah_word_enum_t *);
 
+/** Append \p words 32-bit words from a word enumerator into a destination
+ *  WAH.
+ *
+ * Used by wah_multi_or() to copy data from a single source enumerator into
+ * the result. Handles all enumerator states: runs are added via wah_add0s /
+ * wah_add1s, literals and pending words are added via wah_add_aligned(). If
+ * the enumerator runs out before \p words are consumed, the remainder is
+ * filled with zeros.
+ */
 static void wah_add_en(wah_t *dest, wah_word_enum_t *en, uint64_t words)
 {
     uint64_t exp_len = (words * WAH_BIT_IN_WORD) + dest->len;
@@ -1485,6 +1948,19 @@ enum {
     FLAG_RUN_1    = 0xff,
 };
 
+/** Compute a priority weight for a word enumerator, used by wah_multi_or().
+ *
+ * The weight determines which enumerator should be processed first in each
+ * iteration of the multi-OR loop. The encoding is:
+ * - Run of 1s: highest priority (0xff00000000 | remain_words). Processing a
+ *   run of 1s first allows the entire region to be output immediately.
+ * - Literal/pending: medium priority (0x0100000000 | remain_words).
+ * - Run of 0s: lowest priority (0xffffffff - remain_words, so longer runs get
+ *   lower values). A run of 0s in one operand means the OR result is just the
+ *   other operand, so it's beneficial to identify the longest zero-run and
+ *   skip it.
+ * - End: zero.
+ */
 static uint64_t wah_word_enum_weight(const wah_word_enum_t *a)
 {
     switch (a->state) {
@@ -1506,6 +1982,30 @@ static uint64_t wah_word_enum_weight(const wah_word_enum_t *a)
     return 0;
 }
 
+/** Compute the bitwise OR of \p len WAH bitmaps into \p dest.
+ *
+ * This is an optimized N-way OR that avoids the O(N) temporary copies that
+ * N-1 pairwise OR operations would require. The algorithm works in chunks:
+ *
+ * 1. Each source WAH gets a word enumerator. Dead enumerators (ENUM_END) are
+ *    removed eagerly.
+ *
+ * 2. At each step, the two highest-weight enumerators ("first" and "second")
+ *    are identified. The weight heuristic prioritizes runs of 1s (which make
+ *    the OR trivially all-1s), then literals, then runs of 0s (which are
+ *    identity for OR and can be skipped).
+ *
+ * 3. Depending on the top-2 weights:
+ *    - If second is a run of 0s: copy first's data directly (OR with 0 is
+ *      identity), advancing all enumerators.
+ *    - If only one enumerator remains: copy it entirely.
+ *    - If first is a run: emit it directly and advance all.
+ *    - Otherwise: buffer up to 1024 words, OR-ing all enumerators into the
+ *      buffer, then flush the buffer into dest (grouping consecutive runs of
+ *      0s, 1s, and literals).
+ *
+ * If \p dest is NULL, a new WAH is allocated and returned.
+ */
 wah_t *wah_multi_or(const wah_t *src[], int len, wah_t * restrict dest)
 {
     t_scope;
@@ -1726,6 +2226,11 @@ wah_t *wah_multi_or(const wah_t *src[], int len, wah_t * restrict dest)
     return dest;
 }
 
+/** Compute map = map OR other, in place.
+ *
+ * Implemented by duplicating map, then calling wah_multi_or() on the
+ * duplicate and other, writing the result back into map.
+ */
 void wah_or(wah_t *map, const wah_t *other)
 {
     t_scope;
@@ -1738,6 +2243,15 @@ void wah_or(wah_t *map, const wah_t *other)
 #undef PUSH_0RUN
 #undef PUSH_1RUN
 
+/** Compute the bitwise NOT of a WAH, in place.
+ *
+ * This is the only bitwise operation that can be done truly in-place because
+ * the WAH structure doesn't change—only the data values are inverted.
+ *
+ * For each chunk: the run bit is flipped, and every literal word is
+ * bitwise-negated. The pending word is also negated (masked to valid bits).
+ * The active count becomes len - active.
+ */
 void wah_not(wah_t *map)
 {
     wah_check_invariant(map);
@@ -1765,6 +2279,18 @@ void wah_not(wah_t *map)
     wah_check_invariant(map);
 }
 
+/** Get the value of a single bit at position \p pos (O(n) — inefficient).
+ *
+ * Walks through the WAH chunks sequentially until the chunk containing \p pos
+ * is found. For a run, returns the run's bit value. For a literal section,
+ * locates the specific word and tests the bit.
+ *
+ * If \p pos falls within the pending bits (the last sub-word), it is read
+ * directly from map->_pending.
+ *
+ * This function is O(number of chunks) and should only be used in tests or
+ * debugging. For production iteration, use the bit enumerator.
+ */
 bool wah_get(const wah_t *map, uint64_t pos)
 {
     wah_bucket_t *bucket;
@@ -1809,6 +2335,9 @@ bool wah_get(const wah_t *map, uint64_t pos)
 /* }}} */
 /* Open/store existing WAH {{{ */
 
+/** Context for wah_init_from_data(), tracking state while parsing serialized
+ *  WAH data into buckets.
+ */
 typedef struct from_data_ctx_t {
     /** WAH being built from data.
      */
@@ -1845,6 +2374,14 @@ typedef struct from_data_ctx_t {
     wah_bucket_t *nullable bucket;
 } from_data_ctx_t;
 
+/** Finalize the current bucket and prepare the context for the next one.
+ *
+ * Advances ctx->tab past the consumed words, resets the bucket-local
+ * position and bit count. Unless this is the last bucket (end_of_wah),
+ * also resets the run position tracking fields.
+ *
+ * Called whenever a bucket boundary is reached during deserialization.
+ */
 static inline void
 from_data_ctx_reset_bucket(from_data_ctx_t *ctx, bool end_of_wah)
 {
@@ -1862,6 +2399,27 @@ from_data_ctx_reset_bucket(from_data_ctx_t *ctx, bool end_of_wah)
     }
 }
 
+/** Split a WAH chunk that spans a bucket boundary during deserialization.
+ *
+ * When loading serialized WAH data, a single chunk (header run + literals)
+ * may encode more bits than fit in WAH_BITS_IN_BUCKET. This function breaks
+ * it into multiple buckets:
+ *
+ * 1. If no allocated bucket exists yet, one is created and all previously
+ *    scanned (but not yet bucketed) words are copied into it.
+ *
+ * 2. The header run is split: as many run-words as fit in the current bucket
+ *    are written, then a new bucket is started for the remainder.
+ *    Each bucket-boundary creates a new chunk header.
+ *
+ * 3. The literal words are similarly split across bucket boundaries: for each
+ *    bucket, as many literals as fit are appended, and when the bucket is
+ *    full, a new one is created with an empty run header to hold the
+ *    remaining literals.
+ *
+ * This is a rare path that only triggers for WAH data that was serialized
+ * with a larger bucket size than the current WAH_BITS_IN_BUCKET.
+ */
 static void
 from_data_split_chunk(from_data_ctx_t *ctx, wah_header_t head, uint64_t words)
 {
@@ -1935,6 +2493,26 @@ from_data_split_chunk(from_data_ctx_t *ctx, wah_header_t head, uint64_t words)
     }
 }
 
+/** Initialize a WAH from serialized (on-disk) data.
+ *
+ * Parses the raw WAH-encoded data and reconstructs the bucket structure. The
+ * generated WAH is read-only and references memory from \p data (which must
+ * remain valid for the WAH's lifetime).
+ *
+ * The algorithm walks through the serialized chunks and groups them into
+ * buckets of at most WAH_BITS_IN_BUCKET bits each. Two optimizations:
+ *
+ * - Overfilling: if the WAH starts with a long run of the same bit value,
+ *   the first bucket is allowed to exceed WAH_BITS_IN_BUCKET (tracked via
+ *   buckets_shift) to avoid creating many trivial buckets.
+ *
+ * - Zero-copy: when possible, buckets point directly into the \p data
+ *   buffer (via wah_bucket_set_static()) rather than copying the words.
+ *   Copying only occurs when a chunk must be split across bucket boundaries
+ *   (which should not happen for WAH correctly normalized).
+ *
+ * Returns \p map on success, NULL on malformed data.
+ */
 wah_t *wah_init_from_data(wah_t *map, pstream_t data)
 {
     from_data_ctx_t ctx;
@@ -2089,6 +2667,12 @@ const qv_t(wah_bucket) *wah_get_storage(const wah_t *wah)
     return &wah->_buckets;
 }
 
+/** Return the total number of wah_word_t across all buckets.
+ *
+ * This is the serialized size of the WAH in words (multiply by
+ * sizeof(wah_word_t) for bytes). Used by wah_get_storage_size() and
+ * mp_wah_get_storage_lstr().
+ */
 uint64_t wah_get_storage_len(const wah_t *wah)
 {
     uint64_t res = 0;
