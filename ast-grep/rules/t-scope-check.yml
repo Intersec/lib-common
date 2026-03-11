@@ -69,6 +69,24 @@ rule:
             regex: t_scope
             stopBy: end
 
+      # Fallback for when macros (e.g. MODULE_BEGIN/MODULE_END) confuse
+      # tree-sitter's parser: the function body may not form a proper
+      # compound_statement, and t_scope ends up outside any
+      # compound_statement. In that case, check for t_scope anywhere
+      # inside the enclosing function_definition, but only when it is
+      # not already inside a compound_statement (handled above).
+      - inside:
+          kind: function_definition
+          stopBy: end
+          has:
+            kind: identifier
+            regex: ^t_scope$
+            not:
+              inside:
+                kind: compound_statement
+                stopBy: end
+            stopBy: end
+
 constraints:
   T_FUNCTION:
     all:
