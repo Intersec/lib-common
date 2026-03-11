@@ -62,6 +62,10 @@ rule:
             any:
               - kind: expression_statement
               - kind: type_identifier
+              # In Clang block closures (^(...) { ... }), tree-sitter
+              # cannot parse the block syntax and during error recovery
+              # t_scope becomes a bare identifier node.
+              - kind: identifier
             regex: t_scope
             stopBy: end
 

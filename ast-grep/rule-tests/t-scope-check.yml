@@ -7,6 +7,7 @@ valid:
   - void in_macro() { t_scope; IOP_SWITCH(abc) { t_foo(); } }
   - composed_zone__t *(t_a)(int _) { t_iop_new(id); }
   - void seal_unseal_pool() { t_seal(); foo(); t_unseal(); t_pool(); }
+  - void f(void) { return foo(a, ^(const bar_t *x) { t_scope; t_bar(); }); }
 invalid:
   - void invalid() { t_foo(); }
   - composed_zone__t *(a)(int _) { t_iop_new(id); }
