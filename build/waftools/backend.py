@@ -2064,7 +2064,7 @@ def build(ctx: BuildContext) -> None:
     # so on machines with many CPUs, running too many link tasks in parallel
     # can exhaust memory and disk I/O.
     max_link_tasks = int(os.environ.get('MAX_LINK_TASKS', '8'))
-    Logs.info(f'Waf: Limiting parallel link tasks to {max_link_tasks}')
+    Logs.info('Waf: Limiting parallel link tasks to %d', max_link_tasks)
     ccroot.link_task.semaphore = TaskSemaphore(max_link_tasks)
 
     register_get_cwd()
