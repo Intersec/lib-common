@@ -113,6 +113,9 @@ ignore = [
     # B - flake8-bugbear
     "B026",     # star-arg-unpacking-after-keyword-arg
 
+    # COM - flake8-commas
+    "COM812",   # missing-trailing-comma
+
     # D - pydocstyle - error
     "D100",     # undocumented-public-module
     "D101",     # undocumented-public-class
@@ -133,6 +136,7 @@ ignore = [
 
     # E - pycodestyle - error
     "E731",     # lambda-assignment
+    "E501",     # line-too-long (Handled by format)
 
     # RET - flake8-return
     "RET501",   # unnecessary-return-none
@@ -178,5 +182,8 @@ inline-quotes = "single"
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
+
+[tool.ruff.format]
+quote-style = "single"
 
 # }}}
