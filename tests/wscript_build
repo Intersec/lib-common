@@ -23,108 +23,148 @@ ctx: BuildContext
 
 # {{{ Automated C tests
 
-ctx.program(target='zchk', depends_on=[
-    'zchk-iop-plugin',
-    'zchk-tstiop-plugin',
-    'zchk-tstiop2-plugin',
-    'zchk-tstiop-backward-compat-typedef-old',
-    'zchk-tstiop-backward-compat-typedef-new',
-], source=[
-    'zchk.c',
+ctx.program(
+    target='zchk',
+    depends_on=[
+        'zchk-iop-plugin',
+        'zchk-tstiop-plugin',
+        'zchk-tstiop2-plugin',
+        'zchk-tstiop-backward-compat-typedef-old',
+        'zchk-tstiop-backward-compat-typedef-new',
+    ],
+    source=[
+        'zchk.c',
+        'zchk-asn1-per.c',
+        'zchk-asn1-writer.c',
+        'zchk-bithacks.c',
+        'zchk-bit-wah.c',
+        'zchk-container.blk',
+        'zchk-core-bithacks.c',
+        'zchk-core-obj.c',
+        'zchk-core-rand.c',
+        'zchk-el.blk',
+        'zchk-farch.c',
+        'zchk-farch.fc',
+        'zchk-file-log.c',
+        'zchk-hash.c',
+        'zchk-hat.blk',
+        'zchk-hpack.c',
+        'zchk-http.c',
+        'zchk-h2spec.blk',
+        'zchk-qps-bitmap.c',
+        'zchk-iop.blk',
+        'zchk-iop.c',
+        'zchk-iop-core-obj.blk',
+        'zchk-iop-rpc.c',
+        'zchk-iop-yaml.c',
+        'zchk-iop-openapi.c',
+        'zchk-iop-http.c',
+        'zchk-iprintf.c',
+        'zchk-log.blk',
+        'zchk-mem.c',
+        'zchk-module.c',
+        'zchk-net.blk',
+        'zchk-parseopt.c',
+        'zchk-prometheus.blk',
+        'zchk-snmp.c',
+        'zchk-sort.c',
+        'zchk-str.c',
+        'zchk-thrjob.blk',
+        'zchk-time.c',
+        'zchk-unix.blk',
+        'zchk-xmlpp.c',
+        'zchk-xmlr.c',
+    ],
+    use=[
+        'iop-snmp',
+        'tstiop',
+        'tstiop2',
+        'tst-snmp-iop',
+    ],
+    use_whole='libcommon',
+)
 
-    'zchk-asn1-per.c',
-    'zchk-asn1-writer.c',
-    'zchk-bithacks.c',
-    'zchk-bit-wah.c',
-    'zchk-container.blk',
-    'zchk-core-bithacks.c',
-    'zchk-core-obj.c',
-    'zchk-core-rand.c',
-    'zchk-el.blk',
-    'zchk-farch.c',
-    'zchk-farch.fc',
-    'zchk-file-log.c',
-    'zchk-hash.c',
-    'zchk-hat.blk',
-    'zchk-hpack.c',
-    'zchk-http.c',
-    'zchk-h2spec.blk',
-    'zchk-qps-bitmap.c',
-    'zchk-iop.blk',
-    'zchk-iop.c',
-    'zchk-iop-core-obj.blk',
-    'zchk-iop-rpc.c',
-    'zchk-iop-yaml.c',
-    'zchk-iop-openapi.c',
-    'zchk-iop-http.c',
-    'zchk-iprintf.c',
-    'zchk-log.blk',
-    'zchk-mem.c',
-    'zchk-module.c',
-    'zchk-net.blk',
-    'zchk-parseopt.c',
-    'zchk-prometheus.blk',
-    'zchk-snmp.c',
-    'zchk-sort.c',
-    'zchk-str.c',
-    'zchk-thrjob.blk',
-    'zchk-time.c',
-    'zchk-unix.blk',
-    'zchk-xmlpp.c',
-    'zchk-xmlr.c',
-], use=[
-    'iop-snmp',
-    'tstiop',
-    'tstiop2',
-    'tst-snmp-iop',
-], use_whole='libcommon')
-
-ctx.shlib(target='zchk-iop-plugin', source=[
-    'zchk-iop-plugin.c',
-], use=[
-    'libcommon',
-], remove_dynlibs=True)
+ctx.shlib(
+    target='zchk-iop-plugin',
+    source=[
+        'zchk-iop-plugin.c',
+    ],
+    use=[
+        'libcommon',
+    ],
+    remove_dynlibs=True,
+)
 
 # }}}
 # {{{ Non-automated C test binaries
 
-ctx.program(target='ztst-httpd', source='ztst-httpd.c',
-            use='libcommon tstiop')
+ctx.program(
+    target='ztst-httpd', source='ztst-httpd.c', use='libcommon tstiop'
+)
 
-ctx.program(target='ztst-iprintf', source='ztst-iprintf.c',
-            use='libcommon')
+ctx.program(target='ztst-iprintf', source='ztst-iprintf.c', use='libcommon')
 
-ctx.program(target='ztst-iprintf-fp', source='ztst-iprintf-fp.c',
-            use='libcommon',
-            cflags=['-Wno-format', '-Wno-missing-format-attribute',
-                    '-Wno-format-nonliteral'])
+ctx.program(
+    target='ztst-iprintf-fp',
+    source='ztst-iprintf-fp.c',
+    use='libcommon',
+    cflags=[
+        '-Wno-format',
+        '-Wno-missing-format-attribute',
+        '-Wno-format-nonliteral',
+    ],
+)
 
-ctx.program(target='ztst-iprintf-glibc', source='ztst-iprintf-glibc.c',
-            use='libcommon',
-            cflags=['-Wno-format', '-Wno-missing-format-attribute',
-                    '-Wno-format-nonliteral'])
+ctx.program(
+    target='ztst-iprintf-glibc',
+    source='ztst-iprintf-glibc.c',
+    use='libcommon',
+    cflags=[
+        '-Wno-format',
+        '-Wno-missing-format-attribute',
+        '-Wno-format-nonliteral',
+    ],
+)
 
 ctx.program(target='ztst-lzo', source='ztst-lzo.c', use='libcommon')
 
-ctx.program(target='ztst-qps', features='c cprogram',
-            source='ztst-qps.blk', use='libcommon')
+ctx.program(
+    target='ztst-qps',
+    features='c cprogram',
+    source='ztst-qps.blk',
+    use='libcommon',
+)
 
-ctx.program(target='ztst-qpscheck', features='c cprogram',
-            source='ztst-qpscheck.blk', use='libcommon')
+ctx.program(
+    target='ztst-qpscheck',
+    features='c cprogram',
+    source='ztst-qpscheck.blk',
+    use='libcommon',
+)
 
-ctx.program(target='ztst-hattrie', features='c cprogram',
-            source='ztst-hattrie.blk', use='libcommon')
+ctx.program(
+    target='ztst-hattrie',
+    features='c cprogram',
+    source='ztst-hattrie.blk',
+    use='libcommon',
+)
 
-ctx.program(target='ztst-mem', features='c cprogram',
-            source='ztst-mem.blk', use='libcommon')
+ctx.program(
+    target='ztst-mem',
+    features='c cprogram',
+    source='ztst-mem.blk',
+    use='libcommon',
+)
 
 # }}}
 
-ctx.recurse([
-    'iop',
-    'iop-rust',
-    'iopc',
-    'iopy',
-    'pxcc',
-    'test-data/snmp',
-])
+ctx.recurse(
+    [
+        'iop',
+        'iop-rust',
+        'iopc',
+        'iopy',
+        'pxcc',
+        'test-data/snmp',
+    ]
+)

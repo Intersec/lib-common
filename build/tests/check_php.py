@@ -26,7 +26,6 @@ check with php 5.3 and with centos 5.1, php 5.1 will be used.
 The script will check PHP syntax in all subdirectories.
 """
 
-
 import fnmatch
 import os
 import sys
@@ -38,7 +37,8 @@ def find_php_files(path: str) -> list[str]:
     for dirname, _, filenames in os.walk(path):
         php_files.extend(
             os.path.join(dirname, filename)
-            for filename in fnmatch.filter(filenames, '*.php'))
+            for filename in fnmatch.filter(filenames, '*.php')
+        )
     return php_files
 
 
@@ -64,9 +64,11 @@ def main() -> None:
             print(f'{i} fail {filename}{err.output}')
 
     fail_percent = 100.0 * fail / len(files)
-    print('# 0% skipped  '
-          f'{int(100 - fail_percent)}% passed '
-          f'{int(fail_percent)}% failed')
+    print(
+        '# 0% skipped  '
+        f'{int(100 - fail_percent)}% passed '
+        f'{int(fail_percent)}% failed'
+    )
 
 
 if __name__ == '__main__':

@@ -21,8 +21,10 @@ from waflib.Build import BuildContext
 ctx: BuildContext
 
 
-ctx.recurse([
-    'libcommon-core',
-    'libcommon',
-    'farchc',
-])
+ctx.recurse(
+    [
+        'libcommon-core',
+        'libcommon',
+        'farchc',
+    ]
+)

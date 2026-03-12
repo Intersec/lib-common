@@ -27,6 +27,7 @@ Some filters are applied based on Z_SKIP_PATH and Z_LIST_SKIP:
  * Z_SKIP_PATH removes the research of ZFile in these paths
  * Z_LIST_SKIP removes a kind of test.
 """
+
 from __future__ import annotations
 
 import os
@@ -55,8 +56,8 @@ Z_TAG_SKIP = set(os.getenv('Z_TAG_SKIP', '').split())
 
 
 def dump_zfile(
-        zfile: str,
-        skipped_groups: list[str],
+    zfile: str,
+    skipped_groups: list[str],
 ) -> Iterator[tuple[str, str, str | None]]:
     folder = os.path.dirname(zfile)
 
@@ -77,8 +78,10 @@ def dump_zfile(
                     err = None
 
                     if check and not check(test_path):
-                        err = (f'{zfile}:{num + 1:d}: '
-                               f'no match for {stripped_line}')
+                        err = (
+                            f'{zfile}:{num + 1:d}: '
+                            f'no match for {stripped_line}'
+                        )
 
                     yield folder, test, err
                     break

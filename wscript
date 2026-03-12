@@ -41,7 +41,7 @@ out = f'.build-waf-{os.environ.get("P", "default")}'
 
 def remove_prefix(text: str, prefix: str) -> str:
     if text.startswith(prefix):
-        return text[len(prefix):]
+        return text[len(prefix) :]
     return text
 
 
@@ -64,14 +64,18 @@ def load_tools(ctx: Context) -> None:
 def configure_tool_manager(ctx: BuildContext) -> None:
     # For ASDF/Mise users, we first ensure that all plugins and tool versions
     # are installed before continuing the configuration.
-    if ('MISE_SHELL' in os.environ or 'MISE_DATA_DIR' in os.environ or
-            'mise/shims' in os.environ['PATH']):
+    if (
+        'MISE_SHELL' in os.environ
+        or 'MISE_DATA_DIR' in os.environ
+        or 'mise/shims' in os.environ['PATH']
+    ):
         ctx.env.TOOL_MANAGER = 'mise'
     elif 'ASDF_DIR' in os.environ:
         ctx.env.TOOL_MANAGER = 'asdf'
         # https://asdf-vm.com/manage/configuration.html#asdf-data-dir
         ctx.env.ASDF_DATA_DIR = os.environ.get(
-            'ASDF_DATA_DIR', os.environ['HOME'] + '/.asdf')
+            'ASDF_DATA_DIR', os.environ['HOME'] + '/.asdf'
+        )
         ctx.env.ASDF_SHIMS = ctx.env.ASDF_DATA_DIR + '/shims'
     else:
         ctx.msg('Using tool manager', 'no')
@@ -102,6 +106,7 @@ def configure_tool_manager(ctx: BuildContext) -> None:
     # Set _TOOL_MANAGER_INSTALL_DONE_WAF_CONFIGURE to avoid install twice.
     os.environ['_TOOL_MANAGER_INSTALL_DONE_WAF_CONFIGURE'] = '1'
 
+
 # }}}
 # {{{ uv
 
@@ -109,8 +114,9 @@ def configure_tool_manager(ctx: BuildContext) -> None:
 def run_waf_with_uv(ctx: BuildContext) -> None:
     Logs.info('Waf: Run waf in uv environment')
 
-    exit_code = ctx.exec_command(ctx.env.UV + ['run'] + sys.argv,
-                                 stdout=None, stderr=None)
+    exit_code = ctx.exec_command(
+        ctx.env.UV + ['run'] + sys.argv, stdout=None, stderr=None
+    )
     if exit_code != 0:
         sys.exit(exit_code)
 
@@ -134,33 +140,37 @@ def python_asdf_cleanup_prev_venv(ctx: BuildContext) -> None:
     # points to the old python version. We need to clean them to really use
     # the python version that we want from the asdf_install.sh script.
     old_path = os.environ['PATH']
-    new_path = re.sub(ctx.env.ASDF_DATA_DIR + r'/?[^/]*/python/[^:]*:',
-                      '', old_path)
+    new_path = re.sub(
+        ctx.env.ASDF_DATA_DIR + r'/?[^/]*/python/[^:]*:', '', old_path
+    )
     os.environ['PATH'] = new_path
 
 
 def uv_no_srv_tools(ctx: BuildContext) -> None:
     # Get python site packages from uv
     ctx.uv_site_packages = ctx.cmd_and_log(
-        ctx.env.UV + ['run', 'python3', '-c',
-        (
-            "import sysconfig; "
-            "print(sysconfig.get_paths()['purelib'])"
-        ),
-    ]).strip()
+        ctx.env.UV
+        + [
+            'run',
+            'python3',
+            '-c',
+            ("import sysconfig; print(sysconfig.get_paths()['purelib'])"),
+        ]
+    ).strip()
 
     # Write intersec no srv tools path file.
     # We use a `.pth` that is automatically loaded by python.
     # See https://docs.python.org/3/library/site.html
-    no_srv_tools_file = osp.join(ctx.uv_site_packages,
-                                 '_intersec_no_srv_tools.pth')
+    no_srv_tools_file = osp.join(
+        ctx.uv_site_packages, '_intersec_no_srv_tools.pth'
+    )
     with open(no_srv_tools_file, 'w') as f:
         # Remove /srv/tools from sys.path. We don't want to depend on the
         # outdated packages in /srv/tools.
         f.write(
-            "import sys; sys.path = ["
+            'import sys; sys.path = ['
             "    x for x in sys.path if not x.startswith('/srv/tools')"
-            "]\n",
+            ']\n',
         )
 
 
@@ -233,13 +243,18 @@ def rerun_waf_configure_with_uv(ctx: BuildContext) -> None:
 
     # Get lockfile for waf in uv environment.
     uv_waf_lockfile = ctx.cmd_and_log(
-        ctx.env.UV + ['run', 'python3', '-c',
-        (
-            "import sys; import os; "
-            "print(os.environ.get('WAFLOCK', "
-            "      '.lock-waf_%s_build' % sys.platform))"
-        ),
-    ]).strip()
+        ctx.env.UV
+        + [
+            'run',
+            'python3',
+            '-c',
+            (
+                'import sys; import os; '
+                "print(os.environ.get('WAFLOCK', "
+                "      '.lock-waf_%s_build' % sys.platform))"
+            ),
+        ]
+    ).strip()
 
     # If uv_waf_lockfile is different from the current lockfile, we need
     # to copy it.
@@ -357,14 +372,23 @@ def configure(ctx: ConfigurationContext) -> None:
     ctx.find_program('gperf')
 
     # External libraries
-    ctx.check_cfg(package='libxml-2.0', uselib_store='libxml',
-                  args=['--cflags', '--libs'])
-    ctx.check_cfg(package='openssl', uselib_store='openssl',
-                  args=['--cflags', '--libs'])
-    ctx.check_cfg(package='zlib', uselib_store='zlib',
-                  args=['--cflags', '--libs'])
-    ctx.check_cfg(package='valgrind', uselib_store='valgrind',
-                  args=['--cflags'], mandatory=False)
+    ctx.check_cfg(
+        package='libxml-2.0',
+        uselib_store='libxml',
+        args=['--cflags', '--libs'],
+    )
+    ctx.check_cfg(
+        package='openssl', uselib_store='openssl', args=['--cflags', '--libs']
+    )
+    ctx.check_cfg(
+        package='zlib', uselib_store='zlib', args=['--cflags', '--libs']
+    )
+    ctx.check_cfg(
+        package='valgrind',
+        uselib_store='valgrind',
+        args=['--cflags'],
+        mandatory=False,
+    )
 
     ctx.find_program('smilint', mandatory=False)
     if ctx.env.SMILINT:
@@ -380,14 +404,19 @@ def configure(ctx: ConfigurationContext) -> None:
     # in a virtualenv.
     # To solve this issue, look for python3.x-config in the real python3
     # installation directory.
-    py_config_path = ctx.cmd_and_log(ctx.env.PYTHON3 + [
-        '-c', (
-            'import sys, os;'
-            'print(os.path.realpath(sys.executable) + "-config")'
-        ),
-    ])
-    ctx.find_program('python3-config', var='PYTHON3_CONFIG',
-                     value=py_config_path)
+    py_config_path = ctx.cmd_and_log(
+        ctx.env.PYTHON3
+        + [
+            '-c',
+            (
+                'import sys, os;'
+                'print(os.path.realpath(sys.executable) + "-config")'
+            ),
+        ]
+    )
+    ctx.find_program(
+        'python3-config', var='PYTHON3_CONFIG', value=py_config_path
+    )
 
     # We need to remove -I prefix to use Python include paths in INCLUDES
     # variables.
@@ -411,8 +440,9 @@ def configure(ctx: ConfigurationContext) -> None:
     # For python < 3.8, ldflags are the same for both shared libraries and
     # standalone executables.
     try:
-        py_embed_ldflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG +
-                                           ['--ldflags', '--embed'])
+        py_embed_ldflags = ctx.cmd_and_log(
+            ctx.env.PYTHON3_CONFIG + ['--ldflags', '--embed']
+        )
     except Errors.WafError:
         py_embed_ldflags = py_ldflags
     else:
@@ -424,11 +454,14 @@ def configure(ctx: ConfigurationContext) -> None:
     # {{{ cython
 
     src_path = ctx.path.make_node('src').abspath()
-    ctx.env.append_unique('CYTHONFLAGS', [
-        '--warning-errors',
-        '--warning-extra',
-        '-I' + src_path,
-    ])
+    ctx.env.append_unique(
+        'CYTHONFLAGS',
+        [
+            '--warning-errors',
+            '--warning-extra',
+            '-I' + src_path,
+        ],
+    )
     ctx.env.CYTHONSUFFIX = '.pyx'
 
     # }}}
@@ -439,8 +472,9 @@ def configure(ctx: ConfigurationContext) -> None:
     # The purpose of this section is to let projects using the lib-common to
     # redefine some files.
 
-    def customize_source_file(name: str, ctx_field: str, default_path: str,
-                              out_path: str) -> None:
+    def customize_source_file(
+        name: str, ctx_field: str, default_path: str, out_path: str
+    ) -> None:
         in_path = getattr(ctx, ctx_field, None)
         if in_path:
             in_node = ctx.srcnode.make_node(in_path)
@@ -452,20 +486,26 @@ def configure(ctx: ConfigurationContext) -> None:
         ctx.msg(name, in_node)
 
     # str-l-obfuscate.c
-    customize_source_file('lstr_obfuscate source file',
-                          'lstr_obfuscate_src',
-                          'src/core/str-l-obfuscate-default.c',
-                          'src/core/str-l-obfuscate.c')
+    customize_source_file(
+        'lstr_obfuscate source file',
+        'lstr_obfuscate_src',
+        'src/core/str-l-obfuscate-default.c',
+        'src/core/str-l-obfuscate.c',
+    )
 
     # Ichannels SSL certificate/key
-    customize_source_file('Ichannel SSL certificate',
-                          'ic_cert_src',
-                          'src/iop/ic-cert-default.pem',
-                          'src/iop/ic-cert.pem')
-    customize_source_file('Ichannel SSL private key',
-                          'ic_key_src',
-                          'src/iop/ic-key-default.pem',
-                          'src/iop/ic-key.pem')
+    customize_source_file(
+        'Ichannel SSL certificate',
+        'ic_cert_src',
+        'src/iop/ic-cert-default.pem',
+        'src/iop/ic-cert.pem',
+    )
+    customize_source_file(
+        'Ichannel SSL private key',
+        'ic_key_src',
+        'src/iop/ic-key-default.pem',
+        'src/iop/ic-key.pem',
+    )
 
     # }}}
 
@@ -499,12 +539,15 @@ def build(ctx: BuildContext) -> None:
 
     load_tools(ctx)
 
-    ctx.recurse([
-        'src',
-        'rust',
-        'bench',
-        'examples',
-        'tests',
-    ])
+    ctx.recurse(
+        [
+            'src',
+            'rust',
+            'bench',
+            'examples',
+            'tests',
+        ]
+    )
+
 
 # }}}

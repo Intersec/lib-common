@@ -63,8 +63,17 @@ else:
 
 # Copy USELIB_VARS for `cprogram` and `cshlib` to be used by `rust` task gens
 USELIB_VARS['rust'] = {
-    'LIB', 'STLIB', 'LIBPATH', 'STLIBPATH', 'LINKFLAGS', 'RPATH', 'LINKDEPS',
-    'FRAMEWORK', 'FRAMEWORKPATH', 'ARCH', 'LDFLAGS',
+    'LIB',
+    'STLIB',
+    'LIBPATH',
+    'STLIBPATH',
+    'LINKFLAGS',
+    'RPATH',
+    'LINKDEPS',
+    'FRAMEWORK',
+    'FRAMEWORKPATH',
+    'ARCH',
+    'LDFLAGS',
 }
 
 PROFILE_TO_SANITIZER = {
@@ -75,11 +84,13 @@ PROFILE_TO_SANITIZER = {
 
 # {{{ helpers
 
+
 def remove_in_list_no_err(list_: list[str], value: str) -> None:
     try:
         list_.remove(value)
     except ValueError:
         pass
+
 
 # }}}
 # {{{ dependencies workspace hack
@@ -110,7 +121,8 @@ def generate_deps_workspace_hack_cargo_toml(ctx: BuildContext) -> None:
     # Read the manifest root Cargo.toml
     libcommon_node = get_libcommon_node(ctx)
     deps_workspace_hack_node = libcommon_node.make_node(
-        'rust/deps-workspace-hack')
+        'rust/deps-workspace-hack'
+    )
     manifest_node = ctx.srcnode.make_node('Cargo.toml')
 
     with open(manifest_node.abspath(), 'rb') as f:
@@ -139,7 +151,8 @@ def generate_deps_workspace_hack_cargo_toml(ctx: BuildContext) -> None:
 
     # Add dependency names
     cargo_new_content = cargo_new_content.replace(
-        '$WORKSPACE_DEPS', dependencies_names_str)
+        '$WORKSPACE_DEPS', dependencies_names_str
+    )
 
     # Write the new content
     cargo_path = deps_workspace_hack_node.make_node('Cargo.toml')
@@ -159,7 +172,9 @@ class TaskGenModifierRust:
 
     @staticmethod
     def has_tg_rust_target(
-        ctx: BuildContext, tgen: TaskGen, kind: str,
+        ctx: BuildContext,
+        tgen: TaskGen,
+        kind: str,
     ) -> bool:
         cargo_pkg_name = getattr(tgen, 'cargo_package', tgen.name)
         pkg_metadata = ctx.cargo_packages.get(cargo_pkg_name)
@@ -219,7 +234,8 @@ class CargoBuildBase(Task.Task):  # type: ignore[misc]
 
         incpaths = Utils.to_list(self.env.INCPATHS)
         cargo_includes = [
-            incdir if osp.isabs(incdir)
+            incdir
+            if osp.isabs(incdir)
             else ctx.srcnode.make_node(incdir).abspath()
             for incdir in incpaths
         ]
@@ -238,13 +254,11 @@ class CargoBuildBase(Task.Task):  # type: ignore[misc]
                 continue
             dep_stlibs.append(link_task.outputs[0].abspath())
 
-        cargo_libs = (
-            Utils.to_list(self.env.STLIB) +
-            Utils.to_list(self.env.LIB)
+        cargo_libs = Utils.to_list(self.env.STLIB) + Utils.to_list(
+            self.env.LIB
         )
-        cargo_libpaths = (
-            Utils.to_list(self.env.STLIBPATH) +
-            Utils.to_list(self.env.LIBPATH)
+        cargo_libpaths = Utils.to_list(self.env.STLIBPATH) + Utils.to_list(
+            self.env.LIBPATH
         )
         cargo_rerun_libs = sorted(dep_stlibs)
         cargo_link_args = Utils.to_list(self.env.LDFLAGS).copy()
@@ -264,7 +278,8 @@ class CargoBuildBase(Task.Task):  # type: ignore[misc]
         }
 
         cargo_build_dir = self.generator.path.make_node(
-            '.waf-cargo-build' + self.env.PKG_PROFILE_SUFFIX)
+            '.waf-cargo-build' + self.env.PKG_PROFILE_SUFFIX
+        )
         cargo_build_dir.mkdir()
         waf_build_env_file = cargo_build_dir.make_node('waf_build_env.json')
 
@@ -323,7 +338,8 @@ class CargoBuildBase(Task.Task):  # type: ignore[misc]
             # for panic-abort strategy.
             cargo_exec_cmd += [
                 '-Zbuild-std=panic_abort,std',
-                '--target', 'x86_64-unknown-linux-gnu',
+                '--target',
+                'x86_64-unknown-linux-gnu',
             ]
 
         cargo_exec_cmd += [
@@ -339,8 +355,12 @@ class CargoBuildBase(Task.Task):  # type: ignore[misc]
         if Logs.verbose > 0:
             cargo_exec_cmd.append('-' + 'v' * Logs.verbose)
 
-        if self.exec_command(cargo_exec_cmd, stdout=None, stderr=None,
-                             env=cmd_env) != 0:
+        if (
+            self.exec_command(
+                cargo_exec_cmd, stdout=None, stderr=None, env=cmd_env
+            )
+            != 0
+        ):
             raise Errors.WafError('unable to run cargo')
 
     def make_hardlinks(self) -> None:
@@ -382,8 +402,10 @@ def rust_create_task(self: TaskGen) -> None:
     # Get the cargo package corresponding to the waf target
     pkg_metadata = cargo_packages.get(cargo_pkg_name)
     if pkg_metadata is None:
-        ctx.fatal(f'waf target `{cargo_pkg_name}` does not correspond to a '
-                  'cargo package')
+        ctx.fatal(
+            f'waf target `{cargo_pkg_name}` does not correspond to a '
+            'cargo package'
+        )
 
     # Get manifest path and package dir
     manifest_path = pkg_metadata['manifest_path']
@@ -410,8 +432,9 @@ def rust_create_task(self: TaskGen) -> None:
     if not use_pic and ctx.env.USE_SANITIZER:
         profile_dir = osp.basename(cargo_build_dir)
         target_dir = osp.dirname(cargo_build_dir)
-        cargo_build_dir = osp.join(target_dir, 'x86_64-unknown-linux-gnu',
-                                   profile_dir)
+        cargo_build_dir = osp.join(
+            target_dir, 'x86_64-unknown-linux-gnu', profile_dir
+        )
 
     cargo_bld_name = cargo_build_dir + target_profile_suffix
     cargo_bld_dir = ctx.srcnode.make_node(cargo_bld_name)
@@ -434,9 +457,7 @@ def rust_create_task(self: TaskGen) -> None:
             )
             cargo_output = cargo_bld_dir.make_node(cargo_target_output_name)
 
-            waf_target_output_name = (
-                ctx.env.cstlib_PATTERN % waf_target_name
-            )
+            waf_target_output_name = ctx.env.cstlib_PATTERN % waf_target_name
 
             # Hard-link the rust static lib to waf build directory
             waf_relative_src_path = self.path.path_from(ctx.srcnode)
@@ -456,13 +477,11 @@ def rust_create_task(self: TaskGen) -> None:
             )
             cargo_output = cargo_bld_dir.make_node(cargo_target_output_name)
 
-            waf_target_output_name = (
-                ctx.env.cshlib_PATTERN % waf_target_name
-            )
+            waf_target_output_name = ctx.env.cshlib_PATTERN % waf_target_name
             if not getattr(self, 'keep_lib_prefix', False):
                 # Remove the lib prefix unless specified otherwise
                 assert waf_target_output_name.startswith('lib')
-                waf_target_output_name = waf_target_output_name[len('lib'):]
+                waf_target_output_name = waf_target_output_name[len('lib') :]
             waf_output = self.path.make_node(waf_target_output_name)
 
             outputs.extend([waf_output, cargo_output])
@@ -472,9 +491,7 @@ def rust_create_task(self: TaskGen) -> None:
         if 'bin' in kinds:
             # Use the same target output name for bin as there can be multiple
             # bins in a Cargo package.
-            target_output_name = (
-                ctx.env.cprogram_PATTERN % cargo_target_name
-            )
+            target_output_name = ctx.env.cprogram_PATTERN % cargo_target_name
 
             cargo_output = cargo_bld_dir.make_node(target_output_name)
             waf_output = self.path.make_node(target_output_name)
@@ -486,7 +503,8 @@ def rust_create_task(self: TaskGen) -> None:
 
     # `link_task` is required for use lib links in waf.
     self.link_task = self.rust_task = tsk = self.create_task(
-        task_kind, [ctx.root.make_node(manifest_path)], outputs)
+        task_kind, [ctx.root.make_node(manifest_path)], outputs
+    )
     tsk.env.CARGO_PROFILE = cargo_profile
     tsk.env.PKG_DIR = package_dir
     tsk.env.PKG_NAME = cargo_pkg_name
@@ -555,9 +573,16 @@ def sanitizer_add_toolchain(ctx: ConfigurationContext) -> None:
 
     # Add the rust sources to be able to compile it when using sanitizer and
     # '-Zbuild-std=panic_abort,std'.
-    ctx.exec_command(ctx.env.RUSTUP + [
-        'component', 'add', 'rust-src',
-    ], stdout=None, stderr=None)
+    ctx.exec_command(
+        ctx.env.RUSTUP
+        + [
+            'component',
+            'add',
+            'rust-src',
+        ],
+        stdout=None,
+        stderr=None,
+    )
 
 
 def configure(ctx: ConfigurationContext) -> None:
@@ -566,10 +591,15 @@ def configure(ctx: ConfigurationContext) -> None:
     ctx.find_program('cargo', var='CARGO')
     ctx.find_program('rustup', var='RUSTUP')
 
-    if ctx.exec_command(ctx.env.CARGO + ['tree', '--quiet', '--locked'],
-                        stdout=subprocess.DEVNULL, stderr=None):
-        ctx.fatal('Cargo.lock is not up-to-date.\n'
-                  'Use `cargo generate-lockfile` to sync it.')
+    if ctx.exec_command(
+        ctx.env.CARGO + ['tree', '--quiet', '--locked'],
+        stdout=subprocess.DEVNULL,
+        stderr=None,
+    ):
+        ctx.fatal(
+            'Cargo.lock is not up-to-date.\n'
+            'Use `cargo generate-lockfile` to sync it.'
+        )
 
     waf_profile = ctx.env.PROFILE
     ctx.env.CARGO_PROFILE = 'dev' if waf_profile == 'debug' else waf_profile
@@ -581,6 +611,7 @@ def configure(ctx: ConfigurationContext) -> None:
         ctx.env.SANITIZER = PROFILE_TO_SANITIZER[waf_profile]
 
     sanitizer_add_toolchain(ctx)
+
 
 # }}}
 # {{{ build
@@ -603,10 +634,11 @@ def rust_set_features(tgen: TaskGen, feats: list[str]) -> None:
 
 
 def rust_resolve_local_recursive_dependencies(
-    ctx: BuildContext, cargo_package: dict[str, Any],
+    ctx: BuildContext,
+    cargo_package: dict[str, Any],
 ) -> dict[str, str]:
-    local_recursive_dependencies: dict[str, str] | None = (
-        cargo_package.get('local_recursive_dependencies')
+    local_recursive_dependencies: dict[str, str] | None = cargo_package.get(
+        'local_recursive_dependencies'
     )
     if local_recursive_dependencies is not None:
         return local_recursive_dependencies

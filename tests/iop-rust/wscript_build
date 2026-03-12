@@ -20,7 +20,9 @@ from waflib.Build import BuildContext
 
 ctx: BuildContext
 
-ctx(target='iop-rust-tests',
+ctx(
+    target='iop-rust-tests',
     features='rust',
     cargo_package='iop-rust-tests',
-    use=['libcommon-rs', 'tstiop'])
+    use=['libcommon-rs', 'tstiop'],
+)

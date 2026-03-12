@@ -25,31 +25,39 @@ ctx.IopcOptions(ctx, json_path='.', ts_path='.')
 
 ctx.set_group('iopc')
 
-ctx.stlib(target='libiopc', source=[
-    'iopc.fc',
-    'iopc-dso.c',
-    'iopc-lex.l',
-    'iopc-parser.c',
-    'iopc-common.c',
-    'iopc-typer.blk',
-    'iopctokens.c',
-    'iopc-write.c',
+ctx.stlib(
+    target='libiopc',
+    source=[
+        'iopc.fc',
+        'iopc-dso.c',
+        'iopc-lex.l',
+        'iopc-parser.c',
+        'iopc-common.c',
+        'iopc-typer.blk',
+        'iopctokens.c',
+        'iopc-write.c',
+        'iopc-lang-c.blk',
+        'iopc-lang-json.blk',
+        'iopc-lang-typescript.c',
+        'iopc-lang-pystub.c',
+    ],
+)
 
-    'iopc-lang-c.blk',
-    'iopc-lang-json.blk',
-    'iopc-lang-typescript.c',
-    'iopc-lang-pystub.c',
-])
-
-ctx.iopc_tgen = ctx.program(target='iopc', source='iopc.c',
-                            use=['libiopc', 'libcommon-minimal',
-                                 'libcommon-core-rs'])
+ctx.iopc_tgen = ctx.program(
+    target='iopc',
+    source='iopc.c',
+    use=['libiopc', 'libcommon-minimal', 'libcommon-core-rs'],
+)
 
 ctx.set_group('code_compiling')
 
-ctx.stlib(target='libiopsq', source=[
-    'iopc-iopsq.c',
-    'iopsq.iop',
-], use=[
-    'libiopc',
-])
+ctx.stlib(
+    target='libiopsq',
+    source=[
+        'iopc-iopsq.c',
+        'iopsq.iop',
+    ],
+    use=[
+        'libiopc',
+    ],
+)

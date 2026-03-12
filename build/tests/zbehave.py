@@ -42,11 +42,11 @@ class ZFormatter(Formatter):  # type: ignore[misc]
     """
 
     status: ClassVar[dict[str, str]] = {
-        'passed':    'pass',
-        'failed':    'fail',
-        'error':     'fail',
-        'skipped':   'skip',
-        'untested':  'skip',
+        'passed': 'pass',
+        'failed': 'fail',
+        'error': 'fail',
+        'skipped': 'skip',
+        'untested': 'skip',
         'undefined': 'fail',
     }
 
@@ -85,7 +85,8 @@ class ZFormatter(Formatter):  # type: ignore[misc]
             self.stream.write(
                 f'{self.__count:d} {self.__status} {self.__scenario.name}   '
                 f'# ({self.__scenario.duration:.3f}s) '
-                f'{self.__steps:d} steps\n')
+                f'{self.__steps:d} steps\n',
+            )
             self.stream.flush()
             if self.__exn:
                 for line in self.__exn.split('\n'):
@@ -138,9 +139,17 @@ class ZFormatter(Formatter):  # type: ignore[misc]
 
         step = self.steps.pop(0)
         step_name = f'<{step.step_type} {step.name}>'
-        self.stream.write(self.step_tpl.format(
-            self.__count, self.__steps, status,
-            step_name, self.basename, step.line, step.duration))
+        self.stream.write(
+            self.step_tpl.format(
+                self.__count,
+                self.__steps,
+                status,
+                step_name,
+                self.basename,
+                step.line,
+                step.duration,
+            ),
+        )
         self.stream.flush()
         if status == 'fail':
             self.__exn = step.error_message
@@ -155,9 +164,10 @@ class ZFormatter(Formatter):  # type: ignore[misc]
             total = self.__success + self.__skipped + self.__failed
             self.stream.write(
                 '# '
-                f'{(100. * self.__skipped) / total:.1f}% skipped  '
-                f'{(100. * self.__success) / total:.1f}% passed  '
-                f'{(100. * self.__failed) / total:.1f}% failed\n')
+                f'{(100.0 * self.__skipped) / total:.1f}% skipped  '
+                f'{(100.0 * self.__success) / total:.1f}% passed  '
+                f'{(100.0 * self.__failed) / total:.1f}% failed\n',
+            )
             self.stream.flush()
 
         self.reset()

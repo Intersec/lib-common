@@ -21,7 +21,11 @@ from waflib.Build import BuildContext
 bld: BuildContext
 
 
-bld.program(target='ex-iop', source=[
-    'ex-iop.c',
-    'exiop.iop',
-], use='libcommon')
+bld.program(
+    target='ex-iop',
+    source=[
+        'ex-iop.c',
+        'exiop.iop',
+    ],
+    use='libcommon',
+)

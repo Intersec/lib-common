@@ -21,14 +21,20 @@ from waflib.Build import BuildContext
 ctx: BuildContext
 
 
-ctx.shlib(target='zchk_mod', features='c cshlib', source=[
-    'zchk_cmod.pxc',
-    'zchk_mod.pyx',
-    'zchk_cmod.c',
-], cflags=[
-    '-Wno-unused-parameter',
-    '-Wno-shadow',
-    '-Wno-redundant-decls',
-], use=[
-    'python3',
-])
+ctx.shlib(
+    target='zchk_mod',
+    features='c cshlib',
+    source=[
+        'zchk_cmod.pxc',
+        'zchk_mod.pyx',
+        'zchk_cmod.c',
+    ],
+    cflags=[
+        '-Wno-unused-parameter',
+        '-Wno-shadow',
+        '-Wno-redundant-decls',
+    ],
+    use=[
+        'python3',
+    ],
+)

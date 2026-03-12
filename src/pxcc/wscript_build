@@ -22,11 +22,16 @@ ctx: BuildContext
 
 
 with ctx.UseGroup(ctx, 'pxcc'):
-    ctx.pxcc_tgen = ctx.program(target='pxcc', features='c cprogram', source=[
-        'pxcc.c',
-        'pxcc.fc',
-    ], use=[
-        'clang',
-        'libcommon-minimal',
-        'libcommon-core-rs',
-    ])
+    ctx.pxcc_tgen = ctx.program(
+        target='pxcc',
+        features='c cprogram',
+        source=[
+            'pxcc.c',
+            'pxcc.fc',
+        ],
+        use=[
+            'clang',
+            'libcommon-minimal',
+            'libcommon-core-rs',
+        ],
+    )

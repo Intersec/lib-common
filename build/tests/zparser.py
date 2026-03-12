@@ -37,36 +37,51 @@ RETRY_STEPS = {'check-retry', 'fast-selenium-retry'}
 RE_KIND_STEP = re.compile(r"^\s*argv:\s+\[.?'waf',\s+.?'(?P<kind>[^']+)'\]$")
 RE_SUITE = re.compile(
     r'.*starting suite (?:\.\/)?(?P<suite>(?P<product>[a-zA-Z0-9_\-\.]*)'
-    r'(?:\/.*)?)\.\.\.')  # cannot anchor due to shell colors
+    r'(?:\/.*)?)\.\.\.'
+)  # cannot anchor due to shell colors
 RE_DONE_SUITE = re.compile(
     r'(\S*(done )|.*(TEST SUITE (?P<suite>.*) (?P<status>FAILED) ))'
-    r'\((?P<time>\d+) seconds\)')  # cannot anchor due to shell colors
+    r'\((?P<time>\d+) seconds\)'
+)  # cannot anchor due to shell colors
 RE_GROUP = re.compile(r'^1\.\.(?P<total>\d+) (?P<group>.*)$')
 RE_TEST = re.compile(
     r'^ *(?P<number>\d+) (?P<status>{})[ \t]+(?P<name>.+)$'.format(
-        '|'.join(STATUS)))
+        '|'.join(STATUS)
+    )
+)
 RE_TEST_OPTIONAL = re.compile(
     r'^(?P<name>.*)[ \t]+#[ |\t]+\((?P<time>\d+\.\d+)s?\)'
-    r'([ \t]*(?P<comment>.*))?$')
-RE_STEP = re.compile(r'^# +\d+-(?P<number>\d+) +(?P<status>{}) +'
-                     r'<(?P<name>.*)>? +(?P<filename>.+):(?P<line>\d+) +# '
-                     r'\((?P<time>\d+\.\d+)s\)$'.format('|'.join(STATUS)))
+    r'([ \t]*(?P<comment>.*))?$'
+)
+RE_STEP = re.compile(
+    r'^# +\d+-(?P<number>\d+) +(?P<status>{}) +'
+    r'<(?P<name>.*)>? +(?P<filename>.+):(?P<line>\d+) +# '
+    r'\((?P<time>\d+\.\d+)s\)$'.format('|'.join(STATUS))
+)
 RE_END = re.compile(r'^# TOTAL$')
 RE_HEADER = re.compile(r'(.*),\d+:(0|1)')
-RE_SCREEN = re.compile(r'.*screenshot available -> '
-                       r'(?P<url>https://img.corp/.*)')
-RE_BROWSER_LOG = re.compile(r'[ |:]*ERROR:corp.intersec.ipy.console.logs:'
-                            r'(?P<log>.*)')
+RE_SCREEN = re.compile(
+    r'.*screenshot available -> '
+    r'(?P<url>https://img.corp/.*)'
+)
+RE_BROWSER_LOG = re.compile(
+    r'[ |:]*ERROR:corp.intersec.ipy.console.logs:'
+    r'(?P<log>.*)'
+)
 
 RE_CORE = re.compile(r'.*Core was generated.*')
-RE_CORE_PROCESS = re.compile(r':Processing .*?core(?:(?:\[New \S+ \d+\])|'
-                             r'(?:Traceback))')
+RE_CORE_PROCESS = re.compile(
+    r':Processing .*?core(?:(?:\[New \S+ \d+\])|'
+    r'(?:Traceback))'
+)
 
 
 # {{{ Error messages
 
-LEN_POS_DIFF = ('{0}tests stoppped at position ({1}) but'
-                ' we were expecting it to stop at ({2})'.format)
+LEN_POS_DIFF = (
+    '{0}tests stoppped at position ({1}) but'
+    ' we were expecting it to stop at ({2})'.format
+)
 POS_GT_LEN = 'position greater than group len: '
 POS_LT_LEN = 'too many missing tests: '
 
@@ -98,24 +113,24 @@ class Result:
     @property
     def skipped(self) -> float:
         if not self.total_nb:
-            return 0.
-        return self.skipped_nb * 100. / self.total_nb
+            return 0.0
+        return self.skipped_nb * 100.0 / self.total_nb
 
     @property
     def passed(self) -> float:
         if not self.total_nb:
-            return 0.
+            return 0.0
         if self.status == 'passed':
             return 100 - self.skipped - self.failed
-        return self.passed_nb * 100. / self.total_nb
+        return self.passed_nb * 100.0 / self.total_nb
 
     @property
     def failed(self) -> float:
         if not self.total_nb:
-            return 100.
+            return 100.0
         if self.status == 'fail':
             return 100 - self.skipped - self.passed
-        return self.failed_nb * 100. / self.total_nb
+        return self.failed_nb * 100.0 / self.total_nb
 
     def compute(self) -> None:
         raise NotImplementedError
@@ -139,9 +154,15 @@ class Result:
 
 
 class Step:
-
-    def __init__(self, number: int, name: str, status: str, filename: str,
-                 line: str, time: float):
+    def __init__(
+        self,
+        number: int,
+        name: str,
+        status: str,
+        filename: str,
+        line: str,
+        time: float,
+    ):
         self.number = int(number)
         self.name = name
         self.status = status
@@ -150,14 +171,21 @@ class Step:
         self.time = float(time)
 
     def __str__(self) -> str:
-        return (f'{self.number:<2} {self.status:<5} {self.time:>6.3f} '
-                f'{self.name} {self.filename}:{self.line}')
+        return (
+            f'{self.number:<2} {self.status:<5} {self.time:>6.3f} '
+            f'{self.name} {self.filename}:{self.line}'
+        )
 
 
 class Test:
-
-    def __init__(self, number: int, name: str, status: str, time: float = 0.0,
-                 comment: str = ''):
+    def __init__(
+        self,
+        number: int,
+        name: str,
+        status: str,
+        time: float = 0.0,
+        comment: str = '',
+    ):
         self.number = int(number)
         self.status = status
         self.name = name
@@ -166,12 +194,13 @@ class Test:
         self.steps: list[Step] = []
 
     def __str__(self) -> str:
-        return (f'{self.number:<5} {self.status:<5} {self.time:>10.6f} '
-                f'{self.name} {self.comment.strip()}')
+        return (
+            f'{self.number:<5} {self.status:<5} {self.time:>10.6f} '
+            f'{self.name} {self.comment.strip()}'
+        )
 
 
 class Group(Result):
-
     def __init__(self, name: str, total: int):
         self.name: str = name
         self.total_nb = int(total)
@@ -193,15 +222,18 @@ class Group(Result):
             results[test.status] += 1
         self.skipped_nb = results['skip'] + results['todo-fail']
         self.passed_nb = results['pass']
-        self.failed_nb = (results['fail'] + results['todo-pass'] +
-                          results['missing'] + results['bad-number'])
+        self.failed_nb = (
+            results['fail']
+            + results['todo-pass']
+            + results['missing']
+            + results['bad-number']
+        )
 
     def __str__(self) -> str:
         return f'{self.name} ({self.passed}% passed)   {self.time}s'
 
 
 class Suite(Result):
-
     def __init__(self, fullname: str, product: str):
         self.name = self.make_short_name(product, fullname)
         self.groups: list[Group] = []
@@ -209,8 +241,13 @@ class Suite(Result):
 
     @staticmethod
     def make_short_name(product: str, name: str) -> str:
-        for useless in ['www/testem/', product + '/', 'testem/',
-                        'jasmine/testem/', 'jasmine/']:
+        for useless in [
+            'www/testem/',
+            product + '/',
+            'testem/',
+            'jasmine/testem/',
+            'jasmine/',
+        ]:
             name = name.replace(useless, '', 1)
         return name
 
@@ -223,8 +260,10 @@ class Suite(Result):
                 self.time += gr.time
 
     def __str__(self) -> str:
-        return (f'suite {self.name} passed {self.passed}% '
-                f'skipped {self.skipped}% failed {self.failed}%')
+        return (
+            f'suite {self.name} passed {self.passed}% '
+            f'skipped {self.skipped}% failed {self.failed}%'
+        )
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -243,8 +282,10 @@ class Product(Result):
             self.time += suite.time
 
     def __str__(self) -> str:
-        return (f'product {self.name} passed {self.passed}% '
-                f'skipped {self.skipped}% failed {self.failed}%')
+        return (
+            f'product {self.name} passed {self.passed}% '
+            f'skipped {self.skipped}% failed {self.failed}%'
+        )
 
 
 class Global(Result):
@@ -268,37 +309,55 @@ class Global(Result):
             self.width_passed = self.passed
             self.width_skipped = self.skipped
             self.width_failed = self.failed
-        elif (self.passed < width_min and self.skipped > width_min
-              and self.failed > width_min):
+        elif (
+            self.passed < width_min
+            and self.skipped > width_min
+            and self.failed > width_min
+        ):
             self.width_passed = width_min
             if (self.skipped - (width_min - self.passed)) > width_min:
                 self.width_skipped = self.skipped - (width_min - self.passed)
             else:
                 self.width_failed = self.failed - (width_min - self.passed)
-        elif (self.passed < width_min and self.skipped < width_min
-              and self.failed > width_min):
+        elif (
+            self.passed < width_min
+            and self.skipped < width_min
+            and self.failed > width_min
+        ):
             self.width_passed = width_min
             self.width_skipped = width_min
             self.width_failed = 100 - 2 * width_min
-        elif (self.passed < width_min and self.skipped > width_min
-              and self.failed < width_min):
+        elif (
+            self.passed < width_min
+            and self.skipped > width_min
+            and self.failed < width_min
+        ):
             self.width_passed = width_min
             self.width_skipped = 100 - 2 * width_min
             self.width_failed = width_min
-        elif (self.passed > width_min and self.skipped < width_min
-              and self.failed < width_min):
+        elif (
+            self.passed > width_min
+            and self.skipped < width_min
+            and self.failed < width_min
+        ):
             self.width_passed = 100 - 2 * width_min
             self.width_skipped = width_min
             self.width_failed = width_min
-        elif (self.passed > width_min and self.skipped < width_min
-              and self.failed > width_min):
+        elif (
+            self.passed > width_min
+            and self.skipped < width_min
+            and self.failed > width_min
+        ):
             self.width_skipped = width_min
             if (self.passed - (width_min - self.skipped)) > width_min:
                 self.width_passed = self.passed - (width_min - self.skipped)
             else:
                 self.width_failed = self.failed - (width_min - self.skipped)
-        elif (self.passed > width_min and self.skipped > width_min
-              and self.failed < width_min):
+        elif (
+            self.passed > width_min
+            and self.skipped > width_min
+            and self.failed < width_min
+        ):
             self.width_failed = width_min
             if (self.passed - (width_min - self.failed)) > width_min:
                 self.width_passed = self.passed - (width_min - self.failed)
@@ -357,15 +416,23 @@ class Global(Result):
         return '\n'.join(res)
 
     def __str__(self) -> str:
-        return (f'global passed {self.passed}% skipped {self.skipped}% '
-                f'failed {self.failed}%')
+        return (
+            f'global passed {self.passed}% skipped {self.skipped}% '
+            f'failed {self.failed}%'
+        )
 
 
 class Error:
-
-    def __init__(self, product: str, suite: str, group: str, test: str,
-                 context: deque[tuple[str, str]], test_filename: str = '',
-                 status: str = 'fail'):
+    def __init__(
+        self,
+        product: str,
+        suite: str,
+        group: str,
+        test: str,
+        context: deque[tuple[str, str]],
+        test_filename: str = '',
+        status: str = 'fail',
+    ):
         self.productName = product
         self.suite_fullname = suite
         self.suiteName = Suite.make_short_name(product, suite)
@@ -407,14 +474,14 @@ class Error:
         return f': - {self!s:s}: {self.status}'
 
     def z_screenshot(self) -> list[str]:
-        return ['Failed screenshot:',
-                f'screenshot available -> {self.screen_url}',
-                '']
+        return [
+            'Failed screenshot:',
+            f'screenshot available -> {self.screen_url}',
+            '',
+        ]
 
     def z_step_fail(self) -> list[str]:
-        return ['Step failed:',
-                f'<{self.step_fail}',
-                '']
+        return ['Step failed:', f'<{self.step_fail}', '']
 
     def __str__(self) -> str:
         return f'{self.groupName}.{self.testName.strip()}'
@@ -495,32 +562,40 @@ class StreamParser:
             if r is not None:
                 if self.group_len > self.group_pos:
                     test_name = self.missing_test_name(
-                        self.group_name, self.group_pos + 1, self.group_len)
+                        self.group_name, self.group_pos + 1, self.group_len
+                    )
                     assert self.product is not None
                     assert self.group is not None
                     self.error = Error(
-                        self.product.name, self.suite_fullname,
-                        self.group_name, test_name, self.context,
-                        test_filename=self.test_filename, status='missing')
+                        self.product.name,
+                        self.suite_fullname,
+                        self.group_name,
+                        test_name,
+                        self.context,
+                        test_filename=self.test_filename,
+                        status='missing',
+                    )
                     self.res.errors.append(self.error)
-                    assert self.group_pos <= self.group_len, (
-                        LEN_POS_DIFF(POS_GT_LEN, self.group_pos,
-                                     self.group_len)
+                    assert self.group_pos <= self.group_len, LEN_POS_DIFF(
+                        POS_GT_LEN, self.group_pos, self.group_len
                     )
                     assert self.group_len - self.group_pos < 1000, (
-                        LEN_POS_DIFF(POS_LT_LEN, self.group_pos,
-                                     self.group_len)
+                        LEN_POS_DIFF(
+                            POS_LT_LEN, self.group_pos, self.group_len
+                        )
                     )
                     for i in range(self.group_pos, self.group_len):
                         test_name = self.missing_test_name(
-                            self.group_name, i + 1, self.group_len)
+                            self.group_name, i + 1, self.group_len
+                        )
                         test = Test(i, test_name, 'missing')
                         self.group.append_test(test)
                     self.group_len = 0
                 self.context = fixed_list()
                 self.suite_fullname, name = r.groups()
                 self.product = self.res.products.setdefault(
-                    name, Product(name))
+                    name, Product(name)
+                )
                 self.suite = Suite(self.suite_fullname, self.product.name)
                 self.product.suites.append(self.suite)
 
@@ -531,16 +606,23 @@ class StreamParser:
                     self.group_pos = len(self.group.tests)
                 if self.group_len > self.group_pos:
                     test_name = self.missing_test_name(
-                        self.group_name, self.group_pos + 1, self.group_len)
+                        self.group_name, self.group_pos + 1, self.group_len
+                    )
                     self.error = Error(
-                        self.product.name, self.suite_fullname,
-                        self.group_name, test_name, self.context,
-                        test_filename=self.test_filename, status='missing')
+                        self.product.name,
+                        self.suite_fullname,
+                        self.group_name,
+                        test_name,
+                        self.context,
+                        test_filename=self.test_filename,
+                        status='missing',
+                    )
                     self.res.errors.append(self.error)
                     assert self.group is not None
                     for i in range(self.group_pos, self.group_len):
                         test_name = self.missing_test_name(
-                            self.group_name, i + 1, self.group_len)
+                            self.group_name, i + 1, self.group_len
+                        )
                         test = Test(i, test_name, 'missing')
                         self.group.append_test(test)
                 group_len, group_name = r.groups()
@@ -548,8 +630,7 @@ class StreamParser:
                 self.group_len = int(group_len)
                 self.group = Group(name=self.group_name, total=self.group_len)
                 if not self.suite:
-                    self.suite_fullname = (
-                        f'{self.product.name}/unknown_suite')
+                    self.suite_fullname = f'{self.product.name}/unknown_suite'
                     self.suite = Suite(self.suite_fullname, self.product.name)
                     self.product.suites.append(self.suite)
                 self.suite.groups.append(self.group)
@@ -558,8 +639,11 @@ class StreamParser:
             r = RE_DONE_SUITE.match(line)
             if r is not None:
                 if self.suite is None:
-                    LOGGER.error('wrong suite end, any suites initializes '
-                                 'line %s %s', self.line_counter, line[:-1])
+                    LOGGER.error(
+                        'wrong suite end, any suites initializes line %s %s',
+                        self.line_counter,
+                        line[:-1],
+                    )
                     continue
 
                 assert self.product is not None
@@ -570,23 +654,31 @@ class StreamParser:
                 if self.suite.status == 'fail':
                     if len(self.suite.groups) == 0:
                         self.error = Error(
-                            self.product.name, self.suite_fullname,
-                            'No specific group', 'Suite initialize',
-                            self.context)
+                            self.product.name,
+                            self.suite_fullname,
+                            'No specific group',
+                            'Suite initialize',
+                            self.context,
+                        )
                         self.res.errors.append(self.error)
                         continue
 
                     do_err = True
                     for grp in self.suite.groups:
-                        if any(t.status in {'fail', 'todo-pass'}
-                                for t in grp.tests.values()):
+                        if any(
+                            t.status in {'fail', 'todo-pass'}
+                            for t in grp.tests.values()
+                        ):
                             do_err = False
                             break
                     if do_err:
                         self.error = Error(
-                            self.product.name, self.suite_fullname,
-                            'No specific group', 'Outside of any test',
-                            self.context)
+                            self.product.name,
+                            self.suite_fullname,
+                            'No specific group',
+                            'Outside of any test',
+                            self.context,
+                        )
                         self.res.errors.append(self.error)
                 self.suite = None
 
@@ -606,31 +698,42 @@ class StreamParser:
 
                 if n < self.group_pos:
                     test_name = self.bad_number_test_name(
-                        self.group_name, test_args['name'])
+                        self.group_name, test_args['name']
+                    )
                     self.error = Error(
-                        self.product.name, self.suite_fullname,
-                        self.group_name, test_name, self.context,
-                        test_filename=self.test_filename, status='bad-number')
+                        self.product.name,
+                        self.suite_fullname,
+                        self.group_name,
+                        test_name,
+                        self.context,
+                        test_filename=self.test_filename,
+                        status='bad-number',
+                    )
                     self.res.errors.append(self.error)
                 elif n > self.group_pos:
                     test_name = self.missing_test_name(
-                        self.group_name, self.group_pos, n)
-                    self.error = Error(
-                        self.product.name, self.suite_fullname,
-                        self.group_name, test_name, self.context,
-                        test_filename=self.test_filename, status='missing')
-                    self.res.errors.append(self.error)
-                    assert self.group_pos <= n, (
-                        LEN_POS_DIFF(POS_GT_LEN, self.group_pos,
-                                     self.group_len)
+                        self.group_name, self.group_pos, n
                     )
-                    assert n - self.group_pos < 1000, (
-                        LEN_POS_DIFF(POS_LT_LEN, self.group_pos,
-                                     self.group_len)
+                    self.error = Error(
+                        self.product.name,
+                        self.suite_fullname,
+                        self.group_name,
+                        test_name,
+                        self.context,
+                        test_filename=self.test_filename,
+                        status='missing',
+                    )
+                    self.res.errors.append(self.error)
+                    assert self.group_pos <= n, LEN_POS_DIFF(
+                        POS_GT_LEN, self.group_pos, self.group_len
+                    )
+                    assert n - self.group_pos < 1000, LEN_POS_DIFF(
+                        POS_LT_LEN, self.group_pos, self.group_len
                     )
                     for i in range(self.group_pos, n):
                         test_name = self.missing_test_name(
-                            self.group_name, i, n)
+                            self.group_name, i, n
+                        )
                         test = Test(i, test_name, 'missing')
                         self.group.append_test(test)
 
@@ -643,9 +746,14 @@ class StreamParser:
 
                 if test.status in {'fail', 'todo-pass'}:
                     self.error = Error(
-                        self.product.name, self.suite_fullname,
-                        self.group.name, test.name, self.context,
-                        test_filename=self.test_filename, status=test.status)
+                        self.product.name,
+                        self.suite_fullname,
+                        self.group.name,
+                        test.name,
+                        self.context,
+                        test_filename=self.test_filename,
+                        status=test.status,
+                    )
                     self.error.screen_url = self.screenshot or ''
                     self.screenshot = None
                     self.error.step_fail = self.first_step_fail or ''
@@ -656,11 +764,9 @@ class StreamParser:
 
                     # Define error.trace start content
                     if self.error.step_fail:
-                        self.error.traces.extend(
-                            self.error.z_step_fail())
+                        self.error.traces.extend(self.error.z_step_fail())
                     if self.error.screen_url:
-                        self.error.traces.extend(
-                            self.error.z_screenshot())
+                        self.error.traces.extend(self.error.z_screenshot())
                     self.error.traces.append('Traceback:')
                 continue
 
@@ -703,19 +809,28 @@ class StreamParser:
             assert self.product is not None
             assert self.group is not None
             test_name = self.missing_test_name(
-                self.group_name, self.group_pos + 1, self.group_len)
+                self.group_name, self.group_pos + 1, self.group_len
+            )
             self.error = Error(
-                self.product.name, self.suite_fullname, self.group_name,
-                test_name, self.context, test_filename=self.test_filename,
-                status='missing')
+                self.product.name,
+                self.suite_fullname,
+                self.group_name,
+                test_name,
+                self.context,
+                test_filename=self.test_filename,
+                status='missing',
+            )
             self.res.errors.append(self.error)
-            assert self.group_pos <= self.group_len, (
-                LEN_POS_DIFF(POS_GT_LEN, self.group_pos, self.group_len))
-            assert self.group_len - self.group_pos < 1000, (
-                LEN_POS_DIFF(POS_LT_LEN, self.group_pos, self.group_len))
+            assert self.group_pos <= self.group_len, LEN_POS_DIFF(
+                POS_GT_LEN, self.group_pos, self.group_len
+            )
+            assert self.group_len - self.group_pos < 1000, LEN_POS_DIFF(
+                POS_LT_LEN, self.group_pos, self.group_len
+            )
             for i in range(self.group_pos, self.group_len):
                 test_name = self.missing_test_name(
-                    self.group_name, i + 1, self.group_len)
+                    self.group_name, i + 1, self.group_len
+                )
                 test = Test(i, test_name, 'missing')
                 self.group.append_test(test)
         self.res.compute()

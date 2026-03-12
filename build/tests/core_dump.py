@@ -39,6 +39,7 @@ In manual mode
  - core_dump.py --core /var/log/iglo.core show
 ...
 """
+
 from __future__ import annotations
 
 import argparse
@@ -129,17 +130,20 @@ class Cores:
 
     def init_regex(self, pattern: str) -> None:
         # we replace core template with proper regex pattern
-        r = {'%h': platform.node(),
-             '%t': '[0-9]{8,16}',
-             '%p': r'\d+',
-             '%e': '(?P<exe>[A-Za-z-_]*)',
-            }
+        r = {
+            '%h': platform.node(),
+            '%t': '[0-9]{8,16}',
+            '%p': r'\d+',
+            '%e': '(?P<exe>[A-Za-z-_]*)',
+        }
         for k, v in r.items():
             pattern = pattern.replace(k, v)
 
         if '%' in pattern:
-            debug(f'Update {CORE_PATTERN} or this script to manage '
-                  f'template {pattern}')
+            debug(
+                f'Update {CORE_PATTERN} or this script to manage '
+                f'template {pattern}'
+            )
             return
 
         debug('CORE_REGEX = ', pattern)
@@ -159,8 +163,11 @@ class Cores:
 
     def _glob(self) -> list[str]:
         cores = glob(self.core_path + '/*')
-        cores = [c for c in cores if os.path.isfile(c) and
-                 c.endswith(BINARY_EXT) is False]
+        cores = [
+            c
+            for c in cores
+            if os.path.isfile(c) and c.endswith(BINARY_EXT) is False
+        ]
         if self.core_filter is not None:
             cores = [c for c in cores if self.core_filter in c]
         debug('cores found : ', cores)
@@ -173,10 +180,7 @@ class Cores:
             gdb_cmd.write('\n'.join(cmd).encode('utf-8'))
 
         # launch gdb
-        cmd = ['gdb',
-               '-batch',
-               '-x', gdb_cmd.name,
-               '--core', core]
+        cmd = ['gdb', '-batch', '-x', gdb_cmd.name, '--core', core]
         if fullpath:
             cmd += ['-cd=' + osp.dirname(fullpath), fullpath]
 
@@ -264,8 +268,9 @@ class Cores:
             self.show_backtrace(core, exe, frmt)
             shutil.copyfile(exe, f'{core}{BINARY_EXT}')
 
-    def show_backtrace(self, core: str, exe: str | None = None,
-                       frmt: str = 'text') -> None:
+    def show_backtrace(
+        self, core: str, exe: str | None = None, frmt: str = 'text'
+    ) -> None:
         core = osp.realpath(core)
         out = self.backtrace(core, exe)
         if out is None:
@@ -288,21 +293,39 @@ class Cores:
 
 def options(args: list[str]) -> argparse.Namespace:
     op = argparse.ArgumentParser()
-    op.add_argument('-r', '--root', action='store', default='.',
-                    dest='rootpath', help='Root path to find executable')
-    op.add_argument('-f', '--format', action='store', choices=['text', 'z'],
-                    default='text', help='Output format')
-    op.add_argument('-i', '--ignore', action='store', default=None,
-                    help='Coredumps to ignore, prefix it with @ to load from'
-                    ' file')
+    op.add_argument(
+        '-r',
+        '--root',
+        action='store',
+        default='.',
+        dest='rootpath',
+        help='Root path to find executable',
+    )
+    op.add_argument(
+        '-f',
+        '--format',
+        action='store',
+        choices=['text', 'z'],
+        default='text',
+        help='Output format',
+    )
+    op.add_argument(
+        '-i',
+        '--ignore',
+        action='store',
+        default=None,
+        help='Coredumps to ignore, prefix it with @ to load from file',
+    )
     op.add_argument('-c', '--core', help='Full path of core to inspect')
 
     subparsers = op.add_subparsers(dest='action')
     subparsers.add_parser('list', help='Show list')
-    subparsers.add_parser('diff',
-                          help='Show backtrace of all new detected coredump')
-    subparsers.add_parser('show',
-                          help='Show backtrace of specifieds coredump')
+    subparsers.add_parser(
+        'diff', help='Show backtrace of all new detected coredump'
+    )
+    subparsers.add_parser(
+        'show', help='Show backtrace of specifieds coredump'
+    )
     return op.parse_args(args)
 
 

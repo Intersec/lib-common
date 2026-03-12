@@ -23,46 +23,64 @@ ctx: BuildContext
 
 ctx.IopcOptions(ctx)
 
-ctx.stlib(target='tstiop', features='c cstlib', source=[
-    'tstiop.iop',
-    'tstiop_rpc.iop',
-    'tstiop_inheritance.iop',
-    'tstiop_backward_compat.iop',
-    'tstiop_backward_compat_deleted_struct_1.iop',
-    'tstiop_backward_compat_deleted_struct_2.iop',
-    'tstiop_backward_compat_incompatible_struct_1.iop',
-    'tstiop_backward_compat_incompatible_struct_2.iop',
-    'tstiop_backward_compat_iface.iop',
-    'tstiop_backward_compat_iface_deleted.iop',
-    'tstiop_backward_compat_iface_deleted_rpc.iop',
-    'tstiop_backward_compat_iface_deleted_rpc_ignored.iop',
-    'tstiop_backward_compat_iface_deleted_rpc_ignored_bin.iop',
-    'tstiop_backward_compat_iface_deleted_rpc_ignored_json.iop',
-    'tstiop_backward_compat_iface_incompatible_rpc.iop',
-    'tstiop_backward_compat_iface_incompatible_rpc_ignored.iop',
-    'tstiop_backward_compat_iface_incompatible_rpc_ignored_binjson.iop',
-    'tstiop_backward_compat_mod.iop',
-    'tstiop_backward_compat_mod_deleted.iop',
-    'tstiop_backward_compat_mod_deleted_if.iop',
-    'tstiop_bpack_unregistered_class.iop',
-    'tstiop_void_type.iop',
-    'tstiop_wsdl.iop',
-    'tstiop_dox.iop',
-    'tstiop_dox_invalid_example_struct.iop',
-    'tstiop_dox_invalid_example_rpc.iop',
-    'tstiop_typedef.iop',
-])
+ctx.stlib(
+    target='tstiop',
+    features='c cstlib',
+    source=[
+        'tstiop.iop',
+        'tstiop_rpc.iop',
+        'tstiop_inheritance.iop',
+        'tstiop_backward_compat.iop',
+        'tstiop_backward_compat_deleted_struct_1.iop',
+        'tstiop_backward_compat_deleted_struct_2.iop',
+        'tstiop_backward_compat_incompatible_struct_1.iop',
+        'tstiop_backward_compat_incompatible_struct_2.iop',
+        'tstiop_backward_compat_iface.iop',
+        'tstiop_backward_compat_iface_deleted.iop',
+        'tstiop_backward_compat_iface_deleted_rpc.iop',
+        'tstiop_backward_compat_iface_deleted_rpc_ignored.iop',
+        'tstiop_backward_compat_iface_deleted_rpc_ignored_bin.iop',
+        'tstiop_backward_compat_iface_deleted_rpc_ignored_json.iop',
+        'tstiop_backward_compat_iface_incompatible_rpc.iop',
+        'tstiop_backward_compat_iface_incompatible_rpc_ignored.iop',
+        'tstiop_backward_compat_iface_incompatible_rpc_ignored_binjson.iop',
+        'tstiop_backward_compat_mod.iop',
+        'tstiop_backward_compat_mod_deleted.iop',
+        'tstiop_backward_compat_mod_deleted_if.iop',
+        'tstiop_bpack_unregistered_class.iop',
+        'tstiop_void_type.iop',
+        'tstiop_wsdl.iop',
+        'tstiop_dox.iop',
+        'tstiop_dox_invalid_example_struct.iop',
+        'tstiop_dox_invalid_example_rpc.iop',
+        'tstiop_typedef.iop',
+    ],
+)
 
-ctx.stlib(target='tstiop2', features='c cstlib', source=[
-    'tstiop2.iop',
-])
+ctx.stlib(
+    target='tstiop2',
+    features='c cstlib',
+    source=[
+        'tstiop2.iop',
+    ],
+)
 
-ctx.shlib(target='zchk-tstiop-plugin', source=[
-    'tstiop-plugin.c',
-], use=['libcommon', 'tstiop'], remove_dynlibs=True)
+ctx.shlib(
+    target='zchk-tstiop-plugin',
+    source=[
+        'tstiop-plugin.c',
+    ],
+    use=['libcommon', 'tstiop'],
+    remove_dynlibs=True,
+)
 
-ctx.shlib(target='zchk-tstiop2-plugin', source=[
-    'tstiop2-plugin.c',
-], use=['libcommon', 'tstiop2'], remove_dynlibs=True)
+ctx.shlib(
+    target='zchk-tstiop2-plugin',
+    source=[
+        'tstiop2-plugin.c',
+    ],
+    use=['libcommon', 'tstiop2'],
+    remove_dynlibs=True,
+)
 
 ctx.recurse(['backward-compat'])

@@ -21,8 +21,12 @@ from waflib.Build import BuildContext
 ctx: BuildContext
 
 
-ctx.stlib(target='tst-snmp-iop', features='c cstlib', source=[
-    'snmp_test.iop',
-    'snmp_test_doc.iop',
-    'snmp_intersec_test.iop',
-])
+ctx.stlib(
+    target='tst-snmp-iop',
+    features='c cstlib',
+    source=[
+        'snmp_test.iop',
+        'snmp_test_doc.iop',
+        'snmp_intersec_test.iop',
+    ],
+)

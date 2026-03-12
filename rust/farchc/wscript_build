@@ -23,6 +23,7 @@ ctx: BuildContext
 
 with ctx.UseGroup(ctx, 'farchc'):
     ctx.farchc_tgen = ctx(
-        target='farchc', features='rust',
+        target='farchc',
+        features='rust',
         use=['libcommon-minimal', 'libcommon-core-rs'],
     )

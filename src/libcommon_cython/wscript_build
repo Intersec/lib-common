@@ -21,12 +21,17 @@ from waflib.Build import BuildContext
 ctx: BuildContext
 
 
-ctx(target='libcommon-cython-pxc', features='c', source=[
-    'core.pxc',
-    'container.pxc',
-    'iop.pxc',
-    'xml.pxc',
-    'farch.pxc',
-], use=[
-    'libcommon',
-])
+ctx(
+    target='libcommon-cython-pxc',
+    features='c',
+    source=[
+        'core.pxc',
+        'container.pxc',
+        'iop.pxc',
+        'xml.pxc',
+        'farch.pxc',
+    ],
+    use=[
+        'libcommon',
+    ],
+)

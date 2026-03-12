@@ -18,6 +18,7 @@
 # ruff: noqa: PGH003
 # type: ignore
 
+
 def test_add_iop_package(plugin):
     if not issubclass(plugin.test_dso.ClassDso, plugin.test.ClassA):
         raise TypeError('ClassDso is not a child class of ClassA')

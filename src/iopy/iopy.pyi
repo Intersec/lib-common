@@ -74,7 +74,8 @@ class Basic:
     def __new__(cls, val: int | str, /) -> EnumBase: ...
     @typing.overload
     def __new__(
-        cls, self_dict: dict[str, typing.Any], /) -> StructUnionBase: ...
+        cls, self_dict: dict[str, typing.Any], /
+    ) -> StructUnionBase: ...
     @typing.overload
     def __new__(cls, **kwargs: typing.Any) -> StructUnionBase: ...
     @typing.overload
@@ -103,7 +104,9 @@ class IopEnumDescription:
 class EnumBase(Basic):
     # Reset the auto-deduction of created objects in `Basic`.
     def __new__(
-        cls, *args: typing.Any, **kwargs: typing.Any,
+        cls,
+        *args: typing.Any,
+        **kwargs: typing.Any,
     ) -> typing_extensions.Self: ...
     @typing.overload
     def __init__(self, self_val: typing_extensions.Self, /) -> None: ...
@@ -146,7 +149,9 @@ class Enum(EnumBase): ...
 class StructUnionBase(Basic):
     # Reset the auto-deduction of created objects in `Basic`.
     def __new__(
-        cls, *args: typing.Any, **kwargs: typing.Any,
+        cls,
+        *args: typing.Any,
+        **kwargs: typing.Any,
     ) -> typing_extensions.Self: ...
     @typing.overload
     def __init__(self, self_dict: dict[str, typing.Any], /) -> None: ...

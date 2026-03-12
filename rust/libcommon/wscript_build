@@ -20,7 +20,9 @@ from waflib.Build import BuildContext
 
 ctx: BuildContext
 
-ctx(target='libcommon-rs', features='rust',
+ctx(
+    target='libcommon-rs',
+    features='rust',
     cargo_package='libcommon',
     use=['libcommon-core-rs', 'libcommon'],
 )

@@ -74,8 +74,8 @@ def build_task_classes_map() -> None:
 
     assert TASK_CLASSES is None
     TASK_CLASSES = {
-        x: Task.classes.get(x) for x in
-        ('Iop2c', 'c', 'cxx', 'Blk2c', 'Blkk2cc')
+        x: Task.classes.get(x)
+        for x in ('Iop2c', 'c', 'cxx', 'Blk2c', 'Blkk2cc')
     }
 
 
@@ -88,9 +88,9 @@ class CompileDbContext(Build.BuildContext):  # type: ignore[misc]
 
     cmd = 'compiledb'
 
-    def filter_task_node_cmd_input(self, cmd: Union[str, List[str]],
-                                   task: Task,
-                                   task_node: Node) -> Union[str, List[str]]:
+    def filter_task_node_cmd_input(
+        self, cmd: Union[str, List[str]], task: Task, task_node: Node
+    ) -> Union[str, List[str]]:
         if not isinstance(cmd, list):
             # This is not a list of arguments, do nothing
             assert isinstance(cmd, str)
@@ -105,7 +105,7 @@ class CompileDbContext(Build.BuildContext):  # type: ignore[misc]
 
     @staticmethod
     def replace_task_node_cmd_output(
-            cmd: Union[str, List[str]],
+        cmd: Union[str, List[str]],
     ) -> Union[str, List[str]]:
         if not isinstance(cmd, list):
             # This is not a list of arguments, do nothing
@@ -141,9 +141,9 @@ class CompileDbContext(Build.BuildContext):  # type: ignore[misc]
         return new_cmd
 
     @staticmethod
-    def get_task_node_cmd(task: Task, cmd: Union[str, List[str]],
-                          f_node: Node,
-                          is_dep: bool) -> Union[str, List[str]]:
+    def get_task_node_cmd(
+        task: Task, cmd: Union[str, List[str]], f_node: Node, is_dep: bool
+    ) -> Union[str, List[str]]:
         """Get the command used for the task"""
         if not isinstance(cmd, list):
             # This is not a list of arguments, do nothing
@@ -176,9 +176,14 @@ class CompileDbContext(Build.BuildContext):  # type: ignore[misc]
 
         return cmd + additional_args
 
-    def add_task_nodes_db(self, clang_db: ClangDb, task: Task,
-                          cmd: Union[str, List[str]],
-                          f_nodes: List[Node], is_dep: bool) -> None:
+    def add_task_nodes_db(
+        self,
+        clang_db: ClangDb,
+        task: Task,
+        cmd: Union[str, List[str]],
+        f_nodes: List[Node],
+        is_dep: bool,
+    ) -> None:
         """Add the nodes to the db"""
         for f_node in f_nodes:
             filename = f_node.path_from(self.srcnode)
@@ -206,8 +211,10 @@ class CompileDbContext(Build.BuildContext):  # type: ignore[misc]
 
     def write_one_compilation_db(self, db_file: str, tasks: Task) -> None:
         database_file = self.srcnode.make_node(db_file)
-        Logs.info('Build commands will be stored in %s',
-                  database_file.path_from(self.path))
+        Logs.info(
+            'Build commands will be stored in %s',
+            database_file.path_from(self.path),
+        )
 
         empty_list: List[Node] = []
         clang_db: ClangDb = {}
@@ -218,8 +225,9 @@ class CompileDbContext(Build.BuildContext):  # type: ignore[misc]
             # First filter out the task node path from the arguments list as
             # doxygen requires absolute paths.
             # The paths will be added later on.
-            cmd = self.filter_task_node_cmd_input(task.last_cmd, task,
-                                                  task_node)
+            cmd = self.filter_task_node_cmd_input(
+                task.last_cmd, task, task_node
+            )
 
             # Add the task node to the db
             self.add_task_nodes_db(clang_db, task, cmd, [task_node], False)
@@ -235,10 +243,12 @@ class CompileDbContext(Build.BuildContext):  # type: ignore[misc]
         database_file.write_json(root)
 
     def write_compilation_database(self) -> None:
-        self.write_one_compilation_db('compile_commands.json',
-                                      self.clang_compilation_database_tasks)
-        self.write_one_compilation_db('iop_compile_commands.json',
-                                      self.iop_compilation_database_tasks)
+        self.write_one_compilation_db(
+            'compile_commands.json', self.clang_compilation_database_tasks
+        )
+        self.write_one_compilation_db(
+            'iop_compile_commands.json', self.iop_compilation_database_tasks
+        )
 
     def execute(self) -> None:
         """
@@ -259,9 +269,11 @@ class CompileDbContext(Build.BuildContext):  # type: ignore[misc]
             self.env.COMPILER_CC = 'clang'
             self.env.CC = self.env.CLANG
             extra_cflags = compute_clang_extra_cflags(
-                self, self.env.CLANG_FLAGS, 'CFLAGS')
-            include_cflags = ['-I' + include for include in
-                              self.env.INCLUDES_clang]
+                self, self.env.CLANG_FLAGS, 'CFLAGS'
+            )
+            include_cflags = [
+                '-I' + include for include in self.env.INCLUDES_clang
+            ]
             self.env.CFLAGS = (
                 self.env.CLANG_FLAGS + extra_cflags + include_cflags
             )
@@ -270,9 +282,11 @@ class CompileDbContext(Build.BuildContext):  # type: ignore[misc]
             self.env.COMPILER_CXX = 'clang++'
             self.env.CXX = self.env.CLANGXX
             extra_cxxflags = compute_clang_extra_cflags(
-                self, self.env.CLANGXX_FLAGS, 'CXXFLAGS')
-            include_cxxflags = ['-I' + include for include in
-                                self.env.INCLUDES_clang_cpp]
+                self, self.env.CLANGXX_FLAGS, 'CXXFLAGS'
+            )
+            include_cxxflags = [
+                '-I' + include for include in self.env.INCLUDES_clang_cpp
+            ]
             self.env.CXXFLAGS = (
                 self.env.CLANGXX_FLAGS + extra_cxxflags + include_cxxflags
             )

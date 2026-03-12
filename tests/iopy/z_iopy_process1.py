@@ -55,8 +55,9 @@ def main() -> None:
     if not connected:
         sys.exit(100)
 
-    res = c.test_ModuleA.interfaceA.funA(a=r.test.ClassB(field1=1),
-                                         _login='root', _password='1234')
+    res = c.test_ModuleA.interfaceA.funA(
+        a=r.test.ClassB(field1=1), _login='root', _password='1234'
+    )
 
     c.disconnect()
 

@@ -61,8 +61,9 @@ from waflib.Utils import check_exe
 # Add type hinting for TaskGen decorators
 if TYPE_CHECKING:
     T = TypeVar('T')
-    def task_gen_decorator(*args: str) -> Callable[[T], T]:
-        ...
+
+    def task_gen_decorator(*args: str) -> Callable[[T], T]: ...
+
     task_gen_feature = task_gen_decorator
     task_gen_before_method = task_gen_decorator
     task_gen_after_method = task_gen_decorator
@@ -84,6 +85,7 @@ else:
 
 # These functions implement the use_whole attribute, allowing to link a
 # library with -whole-archive
+
 
 @task_gen_feature('c', 'cprogram', 'cstlib')
 @task_gen_before_method('process_rule')
@@ -112,8 +114,7 @@ def process_whole(self: TaskGen) -> None:
         return
 
     # Patch the LINKFLAGS to enter in whole archive mode...
-    self.env.append_value('LINKFLAGS',
-                          '-Wl,--as-needed,--whole-archive')
+    self.env.append_value('LINKFLAGS', '-Wl,--as-needed,--whole-archive')
 
     cwd = self.get_cwd()
 
@@ -125,11 +126,17 @@ def process_whole(self: TaskGen) -> None:
         # TODO waf: filter STLIB_PATH by removing unused ones.
         self.env.append_value(
             'LINKFLAGS',
-            list(chain.from_iterable(('-Xlinker', p.path_from(cwd))
-                                     for p in lib_task.link_task.outputs)))
+            list(
+                chain.from_iterable(
+                    ('-Xlinker', p.path_from(cwd))
+                    for p in lib_task.link_task.outputs
+                )
+            ),
+        )
 
     # ...and close the whole archive mode
     self.env.append_value('LINKFLAGS', '-Wl,--no-whole-archive')
+
 
 # }}}
 # {{{ Filter-out zchk binaries in release mode
@@ -166,16 +173,13 @@ class BaseTaskGenModifier(Protocol):
     """
 
     @staticmethod
-    def is_tg_stlib(ctx: BuildContext, tgen: TaskGen) -> bool:
-        ...
+    def is_tg_stlib(ctx: BuildContext, tgen: TaskGen) -> bool: ...
 
     @staticmethod
-    def is_tg_shlib(ctx: BuildContext, tgen: TaskGen) -> bool:
-        ...
+    def is_tg_shlib(ctx: BuildContext, tgen: TaskGen) -> bool: ...
 
     @staticmethod
-    def is_tg_fuzzing_exe(ctx: BuildContext, tgen: TaskGen) -> bool:
-        ...
+    def is_tg_fuzzing_exe(ctx: BuildContext, tgen: TaskGen) -> bool: ...
 
 
 class TaskGenModifierC:
@@ -226,8 +230,9 @@ SKIPPED_STLIB_TGEN_COPY_KEYS = {
 }
 
 
-def duplicate_lib_tgen(ctx: BuildContext, new_name: str,
-                       orig_lib: TaskGen) -> TaskGen:
+def duplicate_lib_tgen(
+    ctx: BuildContext, new_name: str, orig_lib: TaskGen
+) -> TaskGen:
     """Duplicate a TaskGen with a new name"""
     ctx_path_bak = ctx.path
     ctx.path = orig_lib.path
@@ -238,21 +243,30 @@ def duplicate_lib_tgen(ctx: BuildContext, new_name: str,
     # create a stlib TaskGen, but a generic TaskGen. Moreover, it copies some
     # attributes that should not be copied.
     orig_lib_attrs = {
-        key: copy.copy(value) for key, value in orig_lib.__dict__.items()
+        key: copy.copy(value)
+        for key, value in orig_lib.__dict__.items()
         if key not in SKIPPED_STLIB_TGEN_COPY_KEYS
     }
-    lib = ctx(target=new_name, features=orig_lib.features,
-              env=orig_lib.env.derive(), **orig_lib_attrs)
+    lib = ctx(
+        target=new_name,
+        features=orig_lib.features,
+        env=orig_lib.env.derive(),
+        **orig_lib_attrs,
+    )
     ctx.path = ctx_path_bak
 
     return lib
 
 
-def deep_add_tgen_compile_flags(ctx: BuildContext, tgen: TaskGen,
-                                dep_suffix: str, dep_libs: Set[str],
-                                cflags: Optional[List[str]] = None,
-                                cxxflags: Optional[List[str]] = None,
-                                ldflags: Optional[List[str]] = None) -> None:
+def deep_add_tgen_compile_flags(
+    ctx: BuildContext,
+    tgen: TaskGen,
+    dep_suffix: str,
+    dep_libs: Set[str],
+    cflags: Optional[List[str]] = None,
+    cxxflags: Optional[List[str]] = None,
+    ldflags: Optional[List[str]] = None,
+) -> None:
     """
     Add the compile flags to a TaskGen and duplicate all its dependencies
     to add the compile flags
@@ -286,8 +300,10 @@ def deep_add_tgen_compile_flags(ctx: BuildContext, tgen: TaskGen,
                 continue
 
             # Check that use_tgen is a stlib.
-            if not any(task_gen_modifier.is_tg_stlib(ctx, use_tgen)
-                       for task_gen_modifier in ctx.task_gen_modifiers):
+            if not any(
+                task_gen_modifier.is_tg_stlib(ctx, use_tgen)
+                for task_gen_modifier in ctx.task_gen_modifiers
+            ):
                 continue
 
             # Replace the static library by the dependency version in tgen
@@ -345,13 +361,20 @@ def compile_fpic(ctx: BuildContext) -> None:
         for tgen in group:
             with ctx.UseGroup(ctx, group_name):
                 # Check that tgen is a shlib.
-                if not any(task_gen_modifier.is_tg_shlib(ctx, tgen)
-                           for task_gen_modifier in ctx.task_gen_modifiers):
+                if not any(
+                    task_gen_modifier.is_tg_shlib(ctx, tgen)
+                    for task_gen_modifier in ctx.task_gen_modifiers
+                ):
                     continue
 
-                deep_add_tgen_compile_flags(ctx, tgen, pic_suffix, pic_libs,
-                                            cflags=pic_flags,
-                                            cxxflags=pic_flags)
+                deep_add_tgen_compile_flags(
+                    ctx,
+                    tgen,
+                    pic_suffix,
+                    pic_libs,
+                    cflags=pic_flags,
+                    cxxflags=pic_flags,
+                )
 
 
 # }}}
@@ -367,14 +390,21 @@ def compile_fuzzing_programs(ctx: BuildContext) -> None:
 
     for tgen in ctx.get_all_task_gen():
         # Check that tgen is a fuzzing program.
-        if not any(task_gen_modifier.is_tg_fuzzing_exe(ctx, tgen)
-                   for task_gen_modifier in ctx.task_gen_modifiers):
+        if not any(
+            task_gen_modifier.is_tg_fuzzing_exe(ctx, tgen)
+            for task_gen_modifier in ctx.task_gen_modifiers
+        ):
             continue
 
-        deep_add_tgen_compile_flags(ctx, tgen, fuzzing_suffix, fuzzing_libs,
-                                    cflags=fuzzing_cflags,
-                                    cxxflags=fuzzing_cxxflags,
-                                    ldflags=fuzzing_ldflags)
+        deep_add_tgen_compile_flags(
+            ctx,
+            tgen,
+            fuzzing_suffix,
+            fuzzing_libs,
+            cflags=fuzzing_cflags,
+            cxxflags=fuzzing_cxxflags,
+            ldflags=fuzzing_ldflags,
+        )
 
 
 @task_gen_feature('fuzzing')
@@ -386,6 +416,7 @@ def fuzzing_feature(ctx: TaskGen) -> None:
 
 # }}}
 # {{{ Patch C tasks for compression
+
 
 def compile_sanitizer(ctx: BuildContext) -> None:
     """
@@ -400,8 +431,9 @@ def compile_sanitizer(ctx: BuildContext) -> None:
         if 'c' not in features and 'cxx' not in features:
             continue
 
-        if (not ctx.env.SHARED_LIBRARY_SANITIZER
-                and ('cshlib' in features or tgen.name.endswith('.pic'))):
+        if not ctx.env.SHARED_LIBRARY_SANITIZER and (
+            'cshlib' in features or tgen.name.endswith('.pic')
+        ):
             continue
 
         tgen.env.append_value('CFLAGS', ctx.env.SANITIZER_CFLAGS)
@@ -412,6 +444,7 @@ def compile_sanitizer(ctx: BuildContext) -> None:
 # }}}
 # {{{ Execute commands from project root
 
+
 def register_get_cwd() -> None:
     """
     Execute the compiler's commands from the project root instead of the
@@ -419,6 +452,7 @@ def register_get_cwd() -> None:
     This is important for us because some code (for example the Z tests
     registration) relies on the value of the __FILE__ macro.
     """
+
     def get_cwd(self: BuildContext) -> str:
         cwd: str = self.env.PROJECT_ROOT
         return cwd
@@ -451,7 +485,7 @@ def register_global_includes(self: BuildContext, includes: List[str]) -> None:
 @task_gen_after_method('apply_link')
 def deploy_program(self: TaskGen) -> None:
     # Build programs in the corresponding source directory
-    assert (len(self.link_task.outputs) == 1)
+    assert len(self.link_task.outputs) == 1
     node = self.link_task.outputs[0]
     self.link_task.outputs = [node.get_src()]
 
@@ -465,12 +499,12 @@ def deploy_program(self: TaskGen) -> None:
 def deploy_shlib(self: TaskGen) -> None:
     # Build C shared library in the corresponding source directory,
     # stripping the 'lib' prefix
-    assert (len(self.link_task.outputs) == 1)
+    assert len(self.link_task.outputs) == 1
     node = self.link_task.outputs[0]
-    assert (node.name.startswith('lib'))
+    assert node.name.startswith('lib')
     tgt_name = node.name
     if not getattr(self, 'keep_lib_prefix', False):
-        tgt_name = tgt_name[len('lib'):]
+        tgt_name = tgt_name[len('lib') :]
     tgt = node.parent.get_src().make_node(tgt_name)
     self.link_task.outputs = [tgt]
 
@@ -482,18 +516,21 @@ def deploy_shlib(self: TaskGen) -> None:
 # }}}
 # {{{ remove_dynlibs: option to remove all dynamic libraries at link
 
+
 @task_gen_feature('cshlib', 'cprogram')
 @task_gen_after_method('apply_link', 'process_use')
 def remove_dynamic_libs(self: TaskGen) -> None:
     if getattr(self, 'remove_dynlibs', False):
         self.link_task.env.LIB = []
 
+
 # }}}
 # {{{ .local_vimrc.vim / syntastic configuration generation
 
 
-def get_linter_flags(ctx: BuildContext, flags_key: str,
-                     include_python3: bool = True) -> List[str]:
+def get_linter_flags(
+    ctx: BuildContext, flags_key: str, include_python3: bool = True
+) -> List[str]:
     include_flags = []
     for key in ctx.env:
         if key == 'INCLUDES' or key.startswith('INCLUDES_'):
@@ -567,6 +604,7 @@ def gen_syntastic(ctx: BuildContext) -> None:
 
     https://github.com/vim-syntastic/syntastic
     """
+
     def write_file(filename: str, what: str, envs: List[str]) -> None:
         node = ctx.srcnode.make_node(filename)
         content = '\n'.join(envs) + '\n'
@@ -575,10 +613,12 @@ def gen_syntastic(ctx: BuildContext) -> None:
             msg = f'Writing syntastic {what} configuration file'
             ctx.msg(msg, node)
 
-    write_file('.syntastic_c_config', 'C',
-               get_linter_flags(ctx, 'CLANG_FLAGS'))
-    write_file('.syntastic_cpp_config', 'C++',
-               get_linter_flags(ctx, 'CLANGXX_FLAGS'))
+    write_file(
+        '.syntastic_c_config', 'C', get_linter_flags(ctx, 'CLANG_FLAGS')
+    )
+    write_file(
+        '.syntastic_cpp_config', 'C++', get_linter_flags(ctx, 'CLANGXX_FLAGS')
+    )
 
 
 # }}}
@@ -657,8 +697,9 @@ def is_gen_file(ctx: BuildContext, parent_node: Node, name: str) -> bool:
 def get_git_files(ctx: BuildContext, repo_node: Node) -> List[Node]:
     """Get the list of committed files in a git repository."""
     # Call git ls-files to get the list of committed files
-    git_ls_files = ctx.cmd_and_log(['git', 'ls-files'], quiet=Context.BOTH,
-                                   cwd=repo_node)
+    git_ls_files = ctx.cmd_and_log(
+        ['git', 'ls-files'], quiet=Context.BOTH, cwd=repo_node
+    )
 
     # Build nodes from the list
     res = [repo_node.make_node(p) for p in git_ls_files.strip().splitlines()]
@@ -745,8 +786,10 @@ def old_gen_files_detect(ctx: BuildContext) -> None:
         Logs.warn('Following files are old generated ones:')
         for node in old_gen_files:
             Logs.warn('  %s', node.path_from(ctx.srcnode))
-        ctx.fatal('Old generated files detected; '
-                  'use old-gen-files-delete to remove them')
+        ctx.fatal(
+            'Old generated files detected; '
+            'use old-gen-files-delete to remove them'
+        )
     else:
         # Delete old generated files
         for node in old_gen_files:
@@ -772,8 +815,11 @@ class OldGenFilesDelete(BuildContext):  # type: ignore[misc]
 
 def do_coverage_start(ctx: BuildContext) -> None:
     cmd = '{0} --directory {1} --base-directory {2} --zerocounters'
-    if ctx.exec_command(cmd.format(ctx.env.LCOV[0], ctx.bldnode.abspath(),
-                                   ctx.srcnode.abspath())):
+    if ctx.exec_command(
+        cmd.format(
+            ctx.env.LCOV[0], ctx.bldnode.abspath(), ctx.srcnode.abspath()
+        )
+    ):
         ctx.fatal('failed to start coverage session')
 
 
@@ -782,13 +828,17 @@ def coverage_start_cmd(ctx: BuildContext) -> None:
         return
 
     if ctx.env.PROFILE != 'coverage':
-        ctx.fatal('coverage-start requires coverage profile, '
-                  f'current is {ctx.env.PROFILE}')
+        ctx.fatal(
+            'coverage-start requires coverage profile, '
+            f'current is {ctx.env.PROFILE}'
+        )
 
     do_coverage_start(ctx)
 
-    print('You can now run some code, and use `waf coverage-end` to produce '
-          'a coverage report.')
+    print(
+        'You can now run some code, and use `waf coverage-end` to produce '
+        'a coverage report.'
+    )
 
     # Interrupt the build
     ctx.groups = []
@@ -805,8 +855,10 @@ def coverage_end_cmd(ctx: BuildContext) -> None:
         return
 
     if ctx.env.PROFILE != 'coverage':
-        ctx.fatal('coverage-end requires coverage profile, '
-                  f'current is {ctx.env.PROFILE}')
+        ctx.fatal(
+            'coverage-end requires coverage profile, '
+            f'current is {ctx.env.PROFILE}'
+        )
 
     # The following code is adapted from
     # http://bind10.isc.org/wiki/TestCodeCoverage
@@ -820,18 +872,28 @@ def coverage_end_cmd(ctx: BuildContext) -> None:
 
     # Generate the lcov trace file.
     lcov_all_file = ctx.bldnode.make_node('lcov-all.info')
-    cmd = ('{0} --capture --ignore-errors gcov,source --directory {1} '
-           '--base-directory {2} --output-file {3}')
-    if ctx.exec_command(cmd.format(ctx.env.LCOV[0], ctx.bldnode.abspath(),
-                                   ctx.srcnode.abspath(),
-                                   lcov_all_file.abspath())):
+    cmd = (
+        '{0} --capture --ignore-errors gcov,source --directory {1} '
+        '--base-directory {2} --output-file {3}'
+    )
+    if ctx.exec_command(
+        cmd.format(
+            ctx.env.LCOV[0],
+            ctx.bldnode.abspath(),
+            ctx.srcnode.abspath(),
+            lcov_all_file.abspath(),
+        )
+    ):
         ctx.fatal('failed to generate lcov trace file')
 
     # Remove files not needed in the report
     lcov_file = ctx.bldnode.make_node('lcov.info')
     cmd = '{0} --remove {1} "/usr/*" --output {2}'
-    if ctx.exec_command(cmd.format(ctx.env.LCOV[0], lcov_all_file.abspath(),
-                                   lcov_file.abspath())):
+    if ctx.exec_command(
+        cmd.format(
+            ctx.env.LCOV[0], lcov_all_file.abspath(), lcov_file.abspath()
+        )
+    ):
         ctx.fatal('failed to purify lcov trace file')
     lcov_all_file.delete()
 
@@ -841,8 +903,11 @@ def coverage_end_cmd(ctx: BuildContext) -> None:
     report_dir = ctx.srcnode.make_node(report_dir_name)
     report_dir.delete(evict=False)
     cmd = '{0} -o {1} {2}'
-    if ctx.exec_command(cmd.format(ctx.env.GENHTML[0], report_dir.abspath(),
-                                   lcov_file.abspath())):
+    if ctx.exec_command(
+        cmd.format(
+            ctx.env.GENHTML[0], report_dir.abspath(), lcov_file.abspath()
+        )
+    ):
         ctx.fatal('failed to generate HTML report')
 
     # Produce a symlink to the report directory
@@ -886,9 +951,11 @@ def ensure_clang_rewrite_blocks(ctx: BuildContext) -> None:
         )
 
 
-def compute_clang_extra_cflags(self: BuildContext, clang_flags: List[str],
-                               cflags_var: str) -> List[str]:
+def compute_clang_extra_cflags(
+    self: BuildContext, clang_flags: List[str], cflags_var: str
+) -> List[str]:
     """Compute clang cflags for a task generator from CFLAGS"""
+
     def keep_flag(flag: str) -> bool:
         if not flag.startswith('-I') and not flag.startswith('-D'):
             return False
@@ -899,11 +966,15 @@ def compute_clang_extra_cflags(self: BuildContext, clang_flags: List[str],
 
 
 class Blk2c(Task):  # type: ignore[misc]
-    run_str = ['rm -f ${TGT}',
-               ('${CLANG_REWRITE_BLOCKS} -x c ${CLANG_REWRITE_FLAGS} '
-                '${CLANG_CFLAGS} -DIS_CLANG_BLOCKS_REWRITER '
-                '${CLANG_EXTRA_CFLAGS} ${CPPPATH_ST:INCPATHS} '
-                '${SRC} -o ${TGT}')]
+    run_str = [
+        'rm -f ${TGT}',
+        (
+            '${CLANG_REWRITE_BLOCKS} -x c ${CLANG_REWRITE_FLAGS} '
+            '${CLANG_CFLAGS} -DIS_CLANG_BLOCKS_REWRITER '
+            '${CLANG_EXTRA_CFLAGS} ${CPPPATH_ST:INCPATHS} '
+            '${SRC} -o ${TGT}'
+        ),
+    ]
     ext_out = ['.c']
     color = 'CYAN'
 
@@ -927,8 +998,9 @@ def update_blk2c_envs(self: TaskGen) -> None:
         return
 
     # Compute clang extra cflags from gcc flags
-    extra_cflags = compute_clang_extra_cflags(self, self.env.CLANG_FLAGS,
-                                              'CFLAGS')
+    extra_cflags = compute_clang_extra_cflags(
+        self, self.env.CLANG_FLAGS, 'CFLAGS'
+    )
 
     # Update Blk2c tasks environment
     for task in self.blk2c_tasks:
@@ -960,11 +1032,16 @@ def process_blk(self: TaskGen, node: Node) -> None:
 # }}}
 # {{{ BLKK
 
+
 class Blkk2cc(Task):  # type: ignore[misc]
-    run_str = ['rm -f ${TGT}',
-               ('${CLANG_REWRITE_BLOCKS} -x c++ ${CLANGXX_REWRITE_FLAGS} '
-                '${CLANGXX_EXTRA_CFLAGS} ${CPPPATH_ST:INCPATHS} '
-                '${SRC} -o ${TGT}')]
+    run_str = [
+        'rm -f ${TGT}',
+        (
+            '${CLANG_REWRITE_BLOCKS} -x c++ ${CLANGXX_REWRITE_FLAGS} '
+            '${CLANGXX_EXTRA_CFLAGS} ${CPPPATH_ST:INCPATHS} '
+            '${SRC} -o ${TGT}'
+        ),
+    ]
     ext_out = ['.cc']
     color = 'CYAN'
 
@@ -985,7 +1062,8 @@ def update_blk2cc_envs(self: TaskGen) -> None:
     if self.blkk2cc_tasks:
         # Compute clang extra cflags from g++ flags
         extra_flags = compute_clang_extra_cflags(
-            self, self.env.CLANGXX_REWRITE_FLAGS, 'CXXFLAGS')
+            self, self.env.CLANGXX_REWRITE_FLAGS, 'CXXFLAGS'
+        )
 
         # Update Blk2cc tasks environment
         for task in self.blkk2cc_tasks:
@@ -1041,6 +1119,7 @@ def process_perf(self: TaskGen, node: Node) -> None:
 # }}}
 # {{{ LEX
 
+
 class Lex2c(Task):  # type: ignore[misc]
     run_str = ['rm -f ${TGT}', '${FLEX_SH} ${SRC} ${TGT}']
     color = 'BLUE'
@@ -1066,7 +1145,6 @@ def process_lex(self: TaskGen, node: Node) -> None:
 
 
 class FirstInputStrTask(Task):  # type: ignore[misc]
-
     def __str__(self) -> str:
         node = self.inputs[0]
         node_path: str = node.path_from(node.ctx.launch_node())
@@ -1136,8 +1214,10 @@ def process_fc(self: TaskGen, node: Node) -> None:
 
 
 class Tokens2c(Task):  # type: ignore[misc]
-    run_str = ('${TOKENS_SH} ${SRC[0].abspath()} ${TGT[0]} && '
-               '${TOKENS_SH} ${SRC[0].abspath()} ${TGT[1]}')
+    run_str = (
+        '${TOKENS_SH} ${SRC[0].abspath()} ${TGT[0]} && '
+        '${TOKENS_SH} ${SRC[0].abspath()} ${TGT[1]}'
+    )
     color = 'BLUE'
     before = ['Blk2c', 'Blkk2cc', 'ClangCheck']
     ext_out = ['.h', '.c']
@@ -1162,16 +1242,20 @@ def process_tokens(self: TaskGen, node: Node) -> None:
 # }}}
 # {{{ IOP
 
+
 # IOPC options for a given sources path
 class IopcOptions:
-
-    def __init__(self, ctx: BuildContext, path: Optional[Node] = None,
-                 class_range: Optional[str] = None,
-                 includes: Optional[List[str]] = None,
-                 json_path: Optional[str] = None,
-                 ts_path: Optional[str] = None,
-                 pystub_path: Optional[str] = None,
-                 pystub_simple_definitions: bool = False):
+    def __init__(
+        self,
+        ctx: BuildContext,
+        path: Optional[Node] = None,
+        class_range: Optional[str] = None,
+        includes: Optional[List[str]] = None,
+        json_path: Optional[str] = None,
+        ts_path: Optional[str] = None,
+        pystub_path: Optional[str] = None,
+        pystub_simple_definitions: bool = False,
+    ):
         self.ctx = ctx
         self.path = path or ctx.path
         self.class_range = class_range
@@ -1260,8 +1344,9 @@ class IopcOptions:
             return '--pystub-simple-definitions'
         return ''
 
-    def get_includes_recursive(self, includes: Set[Node],
-                               seen_opts: Set['IopcOptions']) -> None:
+    def get_includes_recursive(
+        self, includes: Set[Node], seen_opts: Set['IopcOptions']
+    ) -> None:
         """Recursively get the IOP include paths for the current node"""
         # Detect infinite recursions
         if self in seen_opts:
@@ -1274,8 +1359,9 @@ class IopcOptions:
         # Recurse on the included nodes
         for node in self.includes:
             if node in self.ctx.iopc_options:
-                self.ctx.iopc_options[node].get_includes_recursive(includes,
-                                                                   seen_opts)
+                self.ctx.iopc_options[node].get_includes_recursive(
+                    includes, seen_opts
+                )
 
     @property
     def includes_option(self) -> str:
@@ -1316,13 +1402,17 @@ class Iop2c(FirstInputStrTask):
         # Manually redirect output to /dev/null because we don't want IOP
         # errors to be printed in double (once here, and once in build).
         # exec_command does not seem to allow dropping the output :-(...
-        cmd = ('{iopc} {includes} --depends {depfile} -o {outdir} {source} '
-               '> /dev/null 2>&1')
-        cmd = cmd.format(iopc=self.inputs[1].abspath(),
-                         includes=self.env.IOP_INCLUDES,
-                         depfile=depfile.abspath(),
-                         outdir=self.outputs[0].parent.abspath(),
-                         source=node.abspath())
+        cmd = (
+            '{iopc} {includes} --depends {depfile} -o {outdir} {source} '
+            '> /dev/null 2>&1'
+        )
+        cmd = cmd.format(
+            iopc=self.inputs[1].abspath(),
+            includes=self.env.IOP_INCLUDES,
+            depfile=depfile.abspath(),
+            outdir=self.outputs[0].parent.abspath(),
+            source=node.abspath(),
+        )
         if self.exec_command(cmd, cwd=self.get_cwd()):
             # iopc falied, run should fail too
             self.scan_failed = True
@@ -1334,20 +1424,24 @@ class Iop2c(FirstInputStrTask):
         return (deps, None)
 
     def run(self) -> int:
-        cmd = ('{iopc} --Wextra --language {languages} --c-resolve-includes '
-               '{includes} {class_range} {json_output} {ts_output} '
-               '{pystub_output} {pystub_simple_definitions} {source}')
-        cmd = cmd.format(iopc=self.inputs[1].abspath(),
-                         languages=self.env.IOP_LANGUAGES,
-                         includes=self.env.IOP_INCLUDES,
-                         class_range=self.env.IOP_CLASS_RANGE,
-                         json_output=self.env.IOP_JSON_OUTPUT,
-                         ts_output=self.env.IOP_TS_OUTPUT,
-                         pystub_output=self.env.IOP_PYSTUB_OUTPUT,
-                         pystub_simple_definitions=(
-                            self.env.IOP_PYSTUB_SIMPLE_DEFINITIONS
-                         ),
-                         source=self.inputs[0].abspath())
+        cmd = (
+            '{iopc} --Wextra --language {languages} --c-resolve-includes '
+            '{includes} {class_range} {json_output} {ts_output} '
+            '{pystub_output} {pystub_simple_definitions} {source}'
+        )
+        cmd = cmd.format(
+            iopc=self.inputs[1].abspath(),
+            languages=self.env.IOP_LANGUAGES,
+            includes=self.env.IOP_INCLUDES,
+            class_range=self.env.IOP_CLASS_RANGE,
+            json_output=self.env.IOP_JSON_OUTPUT,
+            ts_output=self.env.IOP_TS_OUTPUT,
+            pystub_output=self.env.IOP_PYSTUB_OUTPUT,
+            pystub_simple_definitions=(
+                self.env.IOP_PYSTUB_SIMPLE_DEFINITIONS
+            ),
+            source=self.inputs[0].abspath(),
+        )
         self.last_cmd = cmd
         res: int = self.exec_command(cmd, cwd=self.get_cwd())
         if res and not getattr(self, 'scan_failed', False):
@@ -1393,10 +1487,12 @@ def process_iop(self: TaskGen, node: Node) -> None:
             opts = IopcOptions(ctx, path=self.path)
 
         # Build list of outputs
-        outputs = [c_node,
-                   node.change_ext_src('.iop.h'),
-                   node.change_ext_src('-tdef.iop.h'),
-                   node.change_ext_src('-t.iop.h')]
+        outputs = [
+            c_node,
+            node.change_ext_src('.iop.h'),
+            node.change_ext_src('-tdef.iop.h'),
+            node.change_ext_src('-t.iop.h'),
+        ]
         if opts.json_node or opts.ts_node:
             package_path = iop_get_package_path(self, node)
             if opts.json_node:
@@ -1432,9 +1528,10 @@ def process_iop(self: TaskGen, node: Node) -> None:
 
 @task_gen_extension('.ld')
 def process_ld(self: TaskGen, node: Node) -> None:
-    self.env.append_value('LDFLAGS',
-                          ['-Xlinker', '--version-script',
-                           '-Xlinker', node.abspath()])
+    self.env.append_value(
+        'LDFLAGS',
+        ['-Xlinker', '--version-script', '-Xlinker', node.abspath()],
+    )
 
 
 # }}}
@@ -1442,9 +1539,11 @@ def process_ld(self: TaskGen, node: Node) -> None:
 
 
 class Pxc2Pxd(FirstInputStrTask):
-    run_str = ('${PXCC} ${CLANG_FLAGS} ${CLANG_CFLAGS} ${CLANG_EXTRA_CFLAGS} '
-               '-fno-blocks ${CPPPATH_ST:INCPATHS} ${SRC[0].abspath()} '
-               '-o ${TGT}')
+    run_str = (
+        '${PXCC} ${CLANG_FLAGS} ${CLANG_CFLAGS} ${CLANG_EXTRA_CFLAGS} '
+        '-fno-blocks ${CPPPATH_ST:INCPATHS} ${SRC[0].abspath()} '
+        '-o ${TGT}'
+    )
     color = 'BLUE'
     before = 'Cython'
     after = 'Iop2c'
@@ -1472,8 +1571,9 @@ def process_pxcc(self: TaskGen, node: Node) -> None:
     if pxd_node not in self.env.GEN_FILES:
         self.env.GEN_FILES.add(pxd_node)
         inputs = [node, ctx.pxcc_tgen.link_task.outputs[0]]
-        pxc_task = self.create_task('Pxc2Pxd', inputs, [pxd_node],
-                                    cwd=self.env.PROJECT_ROOT)
+        pxc_task = self.create_task(
+            'Pxc2Pxd', inputs, [pxd_node], cwd=self.env.PROJECT_ROOT
+        )
         pxc_task.set_run_after(ctx.pxcc_task)
 
 
@@ -1482,9 +1582,11 @@ def process_pxcc(self: TaskGen, node: Node) -> None:
 
 
 class ClangCheck(Task):  # type: ignore[misc]
-    run_str = ('${CLANG} -x c -O0 -fsyntax-only ${CLANG_FLAGS} '
-               '${CLANG_CFLAGS} ${CLANG_EXTRA_CFLAGS} ${CPPPATH_ST:INCPATHS} '
-               '${SRC} -o /dev/null')
+    run_str = (
+        '${CLANG} -x c -O0 -fsyntax-only ${CLANG_FLAGS} '
+        '${CLANG_CFLAGS} ${CLANG_EXTRA_CFLAGS} ${CPPPATH_ST:INCPATHS} '
+        '${SRC} -o /dev/null'
+    )
     color = 'BLUE'
 
     @classmethod
@@ -1497,8 +1599,9 @@ class ClangCheck(Task):  # type: ignore[misc]
 def update_clang_check_envs(self: TaskGen) -> None:
     if self.clang_check_tasks:
         # Compute clang extra cflags from gcc flags
-        extra_flags = compute_clang_extra_cflags(self, self.env.CLANG_FLAGS,
-                                                 'CFLAGS')
+        extra_flags = compute_clang_extra_cflags(
+            self, self.env.CLANG_FLAGS, 'CFLAGS'
+        )
         for task in self.clang_check_tasks:
             task.env.CLANG_EXTRA_CFLAGS = extra_flags
 
@@ -1545,8 +1648,12 @@ def process_c_for_check(self: TaskGen, node: Node) -> None:
 
 
 class DsoPystubTask(Task):  # type: ignore[misc]
-    run_str = [('${MAKE_DSO_PYSTUB_PY} --dso-path ${SRC[0].abspath()} '
-                '--output-pystub ${TGT[0].abspath()}')]
+    run_str = [
+        (
+            '${MAKE_DSO_PYSTUB_PY} --dso-path ${SRC[0].abspath()} '
+            '--output-pystub ${TGT[0].abspath()}'
+        )
+    ]
     color = 'CYAN'
     ext_out = ['.pyi']
 
@@ -1586,13 +1693,15 @@ def make_dso_pystub(self: TaskGen) -> None:
         self.env.GEN_FILES.add(pystub_node)
         inputs = [shlib_node, ctx.iopy_tgen.link_task.outputs[0]]
         dso_pystub_task = self.create_task(
-            'DsoPystubTask', inputs, pystub_node)
+            'DsoPystubTask', inputs, pystub_node
+        )
         dso_pystub_task.set_run_after(self.link_task)
 
 
 # }}}
 
 # {{{ options
+
 
 def options(ctx: OptionsContext) -> None:
     # Load C/C++ compilers
@@ -1602,6 +1711,7 @@ def options(ctx: OptionsContext) -> None:
     # Python/cython
     ctx.load('python')
     ctx.load('cython_intersec')
+
 
 # }}}
 # {{{ configure
@@ -1625,11 +1735,12 @@ def llvm_clang_configure(ctx: ConfigurationContext) -> None:
         llvm_version_minor = llvm_version[1]
 
         if llvm_version_major < llvm_min_version:
-            Logs.warn(f'llvm-config found with version {llvm_version_major}, '
-                      'but is not supported by lib-common, '
-                      'lib-common only supports llvm versions >= '
-                      f'{llvm_min_version}',
-                      )
+            Logs.warn(
+                f'llvm-config found with version {llvm_version_major}, '
+                'but is not supported by lib-common, '
+                'lib-common only supports llvm versions >= '
+                f'{llvm_min_version}',
+            )
             llvm_version_major = None
             del ctx.env.LLVM_CONFIG
 
@@ -1637,16 +1748,19 @@ def llvm_clang_configure(ctx: ConfigurationContext) -> None:
     if llvm_version_major is None:
         # Try up to version 99
         for version in range(llvm_min_version, 100):
-            if ctx.find_program(f'llvm-config-{version}',
-                                var='LLVM_CONFIG', mandatory=False):
+            if ctx.find_program(
+                f'llvm-config-{version}', var='LLVM_CONFIG', mandatory=False
+            ):
                 llvm_version_major = version
                 break
         else:
-            ctx.fatal('supported version of llvm-config not found, '
-                      'lib-common only supports llvm versions >= '
-                      f'{llvm_min_version}, '
-                      'please install supported version of llvm-dev or '
-                      'llvm-devel')
+            ctx.fatal(
+                'supported version of llvm-config not found, '
+                'lib-common only supports llvm versions >= '
+                f'{llvm_min_version}, '
+                'please install supported version of llvm-dev or '
+                'llvm-devel'
+            )
 
     # Get llvm flags
     llvm_flags_env_args = {
@@ -1663,7 +1777,7 @@ def llvm_clang_configure(ctx: ConfigurationContext) -> None:
 
     llvm_libs = ctx.cmd_and_log(ctx.env.LLVM_CONFIG + ['--libs'])
     llvm_libs = shlex.split(llvm_libs)
-    llvm_libs = [x[len('-l'):] for x in llvm_libs]
+    llvm_libs = [x[len('-l') :] for x in llvm_libs]
     ctx.env.append_value('LIB_llvm', llvm_libs)
 
     # Get clang flags
@@ -1678,8 +1792,9 @@ def llvm_clang_configure(ctx: ConfigurationContext) -> None:
     # libclang-cpp-x.so -> libclang-cpp.so are not done.
     # Use filename instead.
     clang_cpp_lib_major = f':libclang-cpp.so.{llvm_version_major}'
-    clang_cpp_lib_major_minor = \
+    clang_cpp_lib_major_minor = (
         f':libclang-cpp.so.{llvm_version_major}.{llvm_version_minor}'
+    )
     clang_cpp_lib = ''
     ctx.env.RPATH_clang_cpp = ctx.env.RPATH_clang
     for path in ctx.env.RPATH_clang_cpp:
@@ -1692,9 +1807,11 @@ def llvm_clang_configure(ctx: ConfigurationContext) -> None:
             clang_cpp_lib = clang_cpp_lib_major_minor
             break
     if not clang_cpp_lib:
-        ctx.fatal(f'cannot find libclang-cpp.so.{llvm_version_major} or '
-                  f'libclang-cpp.so.{llvm_version_major}.{llvm_version_minor}'
-                  ' in any clang path')
+        ctx.fatal(
+            f'cannot find libclang-cpp.so.{llvm_version_major} or '
+            f'libclang-cpp.so.{llvm_version_major}.{llvm_version_minor}'
+            ' in any clang path'
+        )
     ctx.env.append_value('LIB_clang_cpp', [clang_cpp_lib])
     ctx.env.CXXFLAGS_clang_cpp = ctx.env.CXXFLAGS_llvm
     ctx.env.LDFLAGS_clang_cpp = ctx.env.LDFLAGS_clang
@@ -1702,9 +1819,13 @@ def llvm_clang_configure(ctx: ConfigurationContext) -> None:
 
     # Check installation of libclang
     ctx.msg('Checking for libclang', ctx.env.INCLUDES_clang)
-    ctx.check_cc(header_name='clang-c/Index.h', use='clang',
-                 errmsg='clang-c not available in libclang, libclang-dev '
-                        'or clang-devel may be missing', nocheck=True)
+    ctx.check_cc(
+        header_name='clang-c/Index.h',
+        use='clang',
+        errmsg='clang-c not available in libclang, libclang-dev '
+        'or clang-devel may be missing',
+        nocheck=True,
+    )
 
     # Get clang binaries from llvm
     llvm_bindir = ctx.cmd_and_log(ctx.env.LLVM_CONFIG + ['--bindir'])
@@ -1717,9 +1838,10 @@ def llvm_clang_configure(ctx: ConfigurationContext) -> None:
         ctx.env.CLANG = [osp.join(llvm_bindir, 'clang')]
     ctx.msg("Checking for program 'clang'", ctx.env.CLANG[0])
     if not check_exe(ctx.env.CLANG[0]):
-        ctx.fatal(f'`{ctx.env.CLANG[0]}` is not a valid executable, '
-                  'clang may be missing',
-                  )
+        ctx.fatal(
+            f'`{ctx.env.CLANG[0]}` is not a valid executable, '
+            'clang may be missing',
+        )
 
     # Set clang++ if used as C++ compiler, otherwise, use llvm version
     if ctx.env.COMPILER_CXX == 'clang++':
@@ -1728,9 +1850,10 @@ def llvm_clang_configure(ctx: ConfigurationContext) -> None:
         ctx.env.CLANGXX = [osp.join(llvm_bindir, 'clang++')]
     ctx.msg("Checking for program 'clang++'", ctx.env.CLANGXX[0])
     if not check_exe(ctx.env.CLANGXX[0]):
-        ctx.fatal(f'`{ctx.env.CLANGXX[0]}` is not a valid executable, '
-                  'clang++ may be missing',
-                  )
+        ctx.fatal(
+            f'`{ctx.env.CLANGXX[0]}` is not a valid executable, '
+            'clang++ may be missing',
+        )
 
 
 # }}}
@@ -1744,13 +1867,14 @@ def get_cflags(ctx: ConfigurationContext, args: List[str]) -> List[str]:
 
 
 def profile_default(
-        ctx: ConfigurationContext,
-        no_assert: bool = False,
-        allow_no_double_fpic: bool = True,
-        allow_fake_versions: bool = True,
-        use_sanitizer: bool = False,
-        optim_level: int = 2,
-        fortify_source: Optional[str] = '-D_FORTIFY_SOURCE=2') -> None:
+    ctx: ConfigurationContext,
+    no_assert: bool = False,
+    allow_no_double_fpic: bool = True,
+    allow_fake_versions: bool = True,
+    use_sanitizer: bool = False,
+    optim_level: int = 2,
+    fortify_source: Optional[str] = '-D_FORTIFY_SOURCE=2',
+) -> None:
     # Load C/C++ compilers
     ctx.load('compiler_c')
     ctx.load('compiler_cxx')
@@ -1759,8 +1883,11 @@ def profile_default(
     llvm_clang_configure(ctx)
 
     # Get compilation flags with cflags.sh
-    ctx.find_program('cflags.sh', var='CFLAGS_SH',
-                     path_list=[os.path.join(ctx.path.abspath(), 'build')])
+    ctx.find_program(
+        'cflags.sh',
+        var='CFLAGS_SH',
+        path_list=[os.path.join(ctx.path.abspath(), 'build')],
+    )
 
     ctx.env.CFLAGS = get_cflags(ctx, ctx.env.CC)
 
@@ -1780,7 +1907,8 @@ def profile_default(
         # indirect library dependencies loading when using -rpath.
         # See https://sourceware.org/ml/binutils/2014-02/msg00031.html
         #  or https://reviews.llvm.org/D8836
-        '-Xlinker', '--disable-new-dtags',
+        '-Xlinker',
+        '--disable-new-dtags',
         '-Wl,--disable-new-dtags',
     ]
     ctx.env.LIB = [
@@ -1810,7 +1938,8 @@ def profile_default(
         ctx.env.CLANG_FLAGS = get_cflags(ctx, ctx.env.CLANG)
         ctx.env.CLANG_FLAGS += oflags
         ctx.env.CLANG_REWRITE_FLAGS = get_cflags(
-            ctx, ctx.env.CLANG + ['rewrite'])
+            ctx, ctx.env.CLANG + ['rewrite']
+        )
         ctx.env.CLANG_REWRITE_FLAGS += oflags
 
     if ctx.env.COMPILER_CXX == 'clang++':
@@ -1823,7 +1952,8 @@ def profile_default(
         ctx.env.CLANGXX_FLAGS = get_cflags(ctx, ctx.env.CLANGXX)
         ctx.env.CLANGXX_FLAGS += oflags
         ctx.env.CLANGXX_REWRITE_FLAGS = get_cflags(
-            ctx, ctx.env.CLANGXX + ['rewrite'])
+            ctx, ctx.env.CLANGXX + ['rewrite']
+        )
         ctx.env.CLANGXX_REWRITE_FLAGS += oflags
 
     # Asserts
@@ -1880,24 +2010,34 @@ def profile_default(
     ctx.msg('Use sanitizer for shared libraries', log)
 
 
-def profile_debug(ctx: ConfigurationContext,
-                  allow_no_double_fpic: bool = True,
-                  use_sanitizer: bool = False) -> None:
-    profile_default(ctx, fortify_source=None,
-                    allow_no_double_fpic=allow_no_double_fpic,
-                    use_sanitizer=use_sanitizer, optim_level=0)
+def profile_debug(
+    ctx: ConfigurationContext,
+    allow_no_double_fpic: bool = True,
+    use_sanitizer: bool = False,
+) -> None:
+    profile_default(
+        ctx,
+        fortify_source=None,
+        allow_no_double_fpic=allow_no_double_fpic,
+        use_sanitizer=use_sanitizer,
+        optim_level=0,
+    )
 
     cflags = [
-        '-Wno-uninitialized', '-fno-inline', '-fno-inline-functions',
+        '-Wno-uninitialized',
+        '-fno-inline',
+        '-fno-inline-functions',
     ]
     ctx.env.CFLAGS += cflags
     ctx.env.CXXFLAGS += cflags
 
 
-def profile_fuzzing(ctx: ConfigurationContext,
-                    debug: bool = False,
-                    asan: bool = False,
-                    display_log: bool = False) -> None:
+def profile_fuzzing(
+    ctx: ConfigurationContext,
+    debug: bool = False,
+    asan: bool = False,
+    display_log: bool = False,
+) -> None:
     Options.options.check_c_compiler = 'clang'
     Options.options.check_cxx_compiler = 'clang++'
 
@@ -1932,9 +2072,12 @@ def profile_fuzzingdebug(ctx: ConfigurationContext) -> None:
 
 
 def profile_release(ctx: ConfigurationContext) -> None:
-    profile_default(ctx, no_assert=True,
-                    allow_no_double_fpic=False,
-                    allow_fake_versions=False)
+    profile_default(
+        ctx,
+        no_assert=True,
+        allow_no_double_fpic=False,
+        allow_fake_versions=False,
+    )
     ctx.env.LINKFLAGS += ['-Wl,-x', '-rdynamic']
     ctx.env.WEBPACK_MODE = 'production'
 
@@ -1988,15 +2131,15 @@ def profile_coverage(ctx: ConfigurationContext) -> None:
 
 
 PROFILES: Dict[str, Callable[[ConfigurationContext], None]] = {
-    'default':      profile_default,
-    'debug':        profile_debug,
-    'release':      profile_release,
-    'asan':         profile_asan,
-    'tsan':         profile_tsan,
-    'mem-bench':    profile_mem_bench,
-    'coverage':     profile_coverage,
-    'fuzzing':      profile_fuzzing,
-    'fuzzingcov':   profile_fuzzingcov,
+    'default': profile_default,
+    'debug': profile_debug,
+    'release': profile_release,
+    'asan': profile_asan,
+    'tsan': profile_tsan,
+    'mem-bench': profile_mem_bench,
+    'coverage': profile_coverage,
+    'fuzzing': profile_fuzzing,
+    'fuzzingcov': profile_fuzzingcov,
     'fuzzingdebug': profile_fuzzingdebug,
 }
 
@@ -2022,11 +2165,13 @@ def configure(ctx: ConfigurationContext) -> None:
     ctx.find_program('objcopy', var='OBJCOPY')
 
     build_dir = os.path.join(ctx.path.abspath(), 'build')
-    ctx.find_program('run_checks.sh', path_list=[build_dir],
-                     var='RUN_CHECKS_SH')
+    ctx.find_program(
+        'run_checks.sh', path_list=[build_dir], var='RUN_CHECKS_SH'
+    )
     ctx.find_program('tokens.sh', path_list=[build_dir], var='TOKENS_SH')
-    ctx.find_program('make_dso_pystub.py', path_list=[build_dir],
-                     var='MAKE_DSO_PYSTUB_PY')
+    ctx.find_program(
+        'make_dso_pystub.py', path_list=[build_dir], var='MAKE_DSO_PYSTUB_PY'
+    )
     if ctx.find_program('ctags', mandatory=False):
         ctx.find_program('ctags.sh', path_list=[build_dir], var='CTAGS_SH')
 
@@ -2039,7 +2184,6 @@ def configure(ctx: ConfigurationContext) -> None:
 
 
 class IsConfigurationContext(ConfigurationContext):  # type: ignore[misc]
-
     def execute(self) -> None:
         # Run configure
         ConfigurationContext.execute(self)
@@ -2052,6 +2196,7 @@ class IsConfigurationContext(ConfigurationContext):  # type: ignore[misc]
 
 # }}}
 # {{{ build
+
 
 def build(ctx: BuildContext) -> None:
     Logs.info(f'Waf: Selected profile: {ctx.env.PROFILE}')
@@ -2094,5 +2239,6 @@ def build(ctx: BuildContext) -> None:
     ctx.add_pre_fun(old_gen_files_detect)
     ctx.add_pre_fun(coverage_start_cmd)
     ctx.add_pre_fun(coverage_end_cmd)
+
 
 # }}}

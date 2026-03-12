@@ -22,7 +22,9 @@ ctx: BuildContext
 
 
 with ctx.UseGroup(ctx, 'libcommon-minimal'):
-    ctx(target='libcommon-core-rs', features='rust',
+    ctx(
+        target='libcommon-core-rs',
+        features='rust',
         cargo_package='libcommon-core',
         use=['libcommon-minimal'],
     )

@@ -133,8 +133,12 @@ class FuzzingGenericStep(FuzzingStep):
     for fuzzing operations.
     """
 
-    def __init__(self, step: QpsstressStep, handle: int | None = None,
-                 size: int | None = None):
+    def __init__(
+        self,
+        step: QpsstressStep,
+        handle: int | None = None,
+        size: int | None = None,
+    ):
         super().__init__(step, handle=handle)
         self.size = size
 
@@ -150,8 +154,12 @@ class FuzzingQpsObjStep(FuzzingStep):
     QPS hat fix stored 0) into a binary blob used for fuzzing operations.
     """
 
-    def __init__(self, step: QpsstressStep, handle: int | None = 0,
-                 type_obj: QpsstressObj = QpsstressObj.QPS_QHAT):
+    def __init__(
+        self,
+        step: QpsstressStep,
+        handle: int | None = 0,
+        type_obj: QpsstressObj = QpsstressObj.QPS_QHAT,
+    ):
         super().__init__(step, handle=handle)
         self.type_obj = type_obj
 
@@ -165,9 +173,13 @@ class FuzzingQpsObjStepWithKey(FuzzingQpsObjStep):
     blob used for fuzzing operations.
     """
 
-    def __init__(self, step: QpsstressStep, handle: int | None = 0,
-                 type_obj: QpsstressObj = QpsstressObj.QPS_QHAT,
-                 key: int = 1):
+    def __init__(
+        self,
+        step: QpsstressStep,
+        handle: int | None = 0,
+        type_obj: QpsstressObj = QpsstressObj.QPS_QHAT,
+        key: int = 1,
+    ):
         super().__init__(step, handle=handle)
         self.type_obj = type_obj
         self.key = key
@@ -187,17 +199,24 @@ class FuzzingQpsObjMultipleOp(FuzzingQpsObjStep):
     limited by an uint16 value (UINT16_MAX).
     """
 
-    def __init__(self, step: QpsstressStep, handle: int | None = 0,
-                 type_obj: QpsstressObj = QpsstressObj.QPS_QHAT,
-                 key: int = 1, nbr_iter: int = 2, gap_keys: int = 1):
+    def __init__(
+        self,
+        step: QpsstressStep,
+        handle: int | None = 0,
+        type_obj: QpsstressObj = QpsstressObj.QPS_QHAT,
+        key: int = 1,
+        nbr_iter: int = 2,
+        gap_keys: int = 1,
+    ):
         super().__init__(step, handle=handle, type_obj=type_obj)
         self.key = key
         self.nbr_iter = nbr_iter
         self.gap_keys = gap_keys
 
     def pack_blob(self) -> bytes:
-        return super().pack_blob() + struct.pack('<IHB', self.key,
-                                                 self.nbr_iter, self.gap_keys)
+        return super().pack_blob() + struct.pack(
+            '<IHB', self.key, self.nbr_iter, self.gap_keys
+        )
 
 
 class FuzzingQhatObjStepMv(FuzzingQpsObjStep):
@@ -206,8 +225,9 @@ class FuzzingQhatObjStepMv(FuzzingQpsObjStep):
     fuzzing operations.
     """
 
-    def __init__(self, step: QpsstressStep, handle: int | None = 0,
-                 move_count: int = 3):
+    def __init__(
+        self, step: QpsstressStep, handle: int | None = 0, move_count: int = 3
+    ):
         super().__init__(step, handle=handle, type_obj=QpsstressObj.QPS_QHAT)
         self.move_count = move_count
 
@@ -221,9 +241,13 @@ class FuzzingQhatCompute(FuzzingQpsObjStep):
     operations.
     """
 
-    def __init__(self, step: QpsstressStep, handle: int | None = 0,
-                 do_stats: int | None = None,
-                 do_mem_overhead: int | None = None):
+    def __init__(
+        self,
+        step: QpsstressStep,
+        handle: int | None = 0,
+        do_stats: int | None = None,
+        do_mem_overhead: int | None = None,
+    ):
         super().__init__(step, handle=handle, type_obj=QpsstressObj.QPS_QHAT)
 
         if do_stats is not None:
@@ -243,21 +267,27 @@ class FuzzingQpsObjStepCreate(FuzzingQpsObjStep):
     operations.
     """
 
-    def __init__(self, step: QpsstressStep,
-                 type_obj: QpsstressObj = QpsstressObj.QPS_QHAT,
-                 is_nullable: bool = False, value_len: int = 4):
+    def __init__(
+        self,
+        step: QpsstressStep,
+        type_obj: QpsstressObj = QpsstressObj.QPS_QHAT,
+        is_nullable: bool = False,
+        value_len: int = 4,
+    ):
         super().__init__(step, type_obj=type_obj)
         self.is_nullable = is_nullable
         self.value_len = value_len
 
     def pack_blob(self) -> bytes:
         val_is_nullable = 1 if self.is_nullable else 0
-        return super().pack_blob() + struct.pack('<BB', val_is_nullable,
-                                                 self.value_len)
+        return super().pack_blob() + struct.pack(
+            '<BB', val_is_nullable, self.value_len
+        )
 
 
-def discard_fuzzing_operation(step: QpsstressStep,
-                              category: QpsstressFuzzerCat) -> bool:
+def discard_fuzzing_operation(
+    step: QpsstressStep, category: QpsstressFuzzerCat
+) -> bool:
     if category == QpsstressFuzzerCat.QPS_CAT_HANDLES_SNAP_REOPEN:
         return step > QpsstressStep.QPS_REOPEN
     if category == QpsstressFuzzerCat.QPS_CAT_QPS_OBJ_OPERATIONS:
@@ -266,10 +296,11 @@ def discard_fuzzing_operation(step: QpsstressStep,
 
 
 def create_corpus_files_and_dict(
-        corpus: list[list[FuzzingStep]],
-        category: QpsstressFuzzerCat,
-        generate_files: bool = False,
-        fuzz_dict_name: str | None = None) -> None:
+    corpus: list[list[FuzzingStep]],
+    category: QpsstressFuzzerCat,
+    generate_files: bool = False,
+    fuzz_dict_name: str | None = None,
+) -> None:
     """
     Based on the list of sequences representing themselves a list of steps,
     create a list of files for the initial corpus (initial stimulation
@@ -285,8 +316,10 @@ def create_corpus_files_and_dict(
         else:
             corpus_case = corpus_case_it
 
-        if any(discard_fuzzing_operation(item.step, category)
-               for item in corpus_case):
+        if any(
+            discard_fuzzing_operation(item.step, category)
+            for item in corpus_case
+        ):
             continue
 
         generated_file = None
@@ -295,8 +328,8 @@ def create_corpus_files_and_dict(
         # create it now.
         if generate_files:
             generated_file = open(  # noqa: SIM115 (open-file-with-context-handler)
-                os.path.join(CORPUS_DIR, f'{CORPUS_NAME}-{i}.bin'),
-                mode='wb')
+                os.path.join(CORPUS_DIR, f'{CORPUS_NAME}-{i}.bin'), mode='wb'
+            )
 
         # Write for one sequence each step.
         for item in corpus_case:
@@ -318,171 +351,281 @@ def create_corpus_files_and_dict(
             # Add time of generation, so we have less doubt about the fact
             # that we need to generate it again or not.
             now = datetime.datetime.now()
-            f.write('# Generated at ' + now.strftime('%Y-%m-%d %H:%M:%S') +
-                    ' for category ' + str(category) + '\n\n')
+            f.write(
+                '# Generated at '
+                + now.strftime('%Y-%m-%d %H:%M:%S')
+                + ' for category '
+                + str(category)
+                + '\n\n'
+            )
             for i, k in enumerate(sorted(corpus_set)):
                 blob_str = str(binascii.hexlify(k))[2:-1]
                 fuzz_key = '\\x'
-                fuzz_key += '\\x'.join([(blob_str[i:i + 2])
-                                        for i in range(0, len(blob_str), 2)])
+                fuzz_key += '\\x'.join(
+                    [
+                        (blob_str[i : i + 2])
+                        for i in range(0, len(blob_str), 2)
+                    ]
+                )
                 f.write(f'kw{i + 1}="' + fuzz_key + '"\n')
             f.write('\n')
 
 
 def create_corpus(
-        generate_files: bool = True,
-        category: QpsstressFuzzerCat = QpsstressFuzzerCat.QPS_CAT_ALL,
-        fuzz_dict_name: str | None = None) -> None:
+    generate_files: bool = True,
+    category: QpsstressFuzzerCat = QpsstressFuzzerCat.QPS_CAT_ALL,
+    fuzz_dict_name: str | None = None,
+) -> None:
     max_mem_alloc = 33554431
     corpus: list[list[FuzzingStep]] = []
 
-    corpus += [[
-        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=24),
-        FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=1),
-        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=65 * 1024),
-        FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=2),
-        FuzzingGenericStep(QpsstressStep.QPS_REALLOC, size=65 * 1024,
-                           handle=1),
-        FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=1),
-        FuzzingGenericStep(QpsstressStep.QPS_REALLOC, size=24, handle=2),
-        FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=2),
-        FuzzingGenericStep(QpsstressStep.QPS_DEALLOC, handle=1),
-        FuzzingGenericStep(QpsstressStep.QPS_DEALLOC, handle=2),
-    ]]
+    corpus += [
+        [
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=24),
+            FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=1),
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=65 * 1024),
+            FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=2),
+            FuzzingGenericStep(
+                QpsstressStep.QPS_REALLOC, size=65 * 1024, handle=1
+            ),
+            FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=1),
+            FuzzingGenericStep(QpsstressStep.QPS_REALLOC, size=24, handle=2),
+            FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=2),
+            FuzzingGenericStep(QpsstressStep.QPS_DEALLOC, handle=1),
+            FuzzingGenericStep(QpsstressStep.QPS_DEALLOC, handle=2),
+        ]
+    ]
 
-    corpus += [[
-        # Allocate memory in TLSF map.
-        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=24),
-        FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=1),
-        # Allocate memory in QPS page map.
-        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=65 * 1024),
-        FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=2),
-        FuzzingGenericStep(QpsstressStep.QPS_REALLOC, size=65 * 1024),
-        FuzzingGenericStep(QpsstressStep.QPS_DEALLOC, handle=1),
-        FuzzingGenericStep(QpsstressStep.QPS_SNAPSHOT),
-        FuzzingGenericStep(QpsstressStep.QPS_DEALLOC, handle=2),
-        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=0),
-        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=0),
-        FuzzingGenericStep(QpsstressStep.QPS_SNAPSHOT_WAIT),
-        FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=1),
-    ]]
+    corpus += [
+        [
+            # Allocate memory in TLSF map.
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=24),
+            FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=1),
+            # Allocate memory in QPS page map.
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=65 * 1024),
+            FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=2),
+            FuzzingGenericStep(QpsstressStep.QPS_REALLOC, size=65 * 1024),
+            FuzzingGenericStep(QpsstressStep.QPS_DEALLOC, handle=1),
+            FuzzingGenericStep(QpsstressStep.QPS_SNAPSHOT),
+            FuzzingGenericStep(QpsstressStep.QPS_DEALLOC, handle=2),
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=0),
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=0),
+            FuzzingGenericStep(QpsstressStep.QPS_SNAPSHOT_WAIT),
+            FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=1),
+        ]
+    ]
 
-    corpus += [[
-        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=24),
-        FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=1),
-        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=65 * 1024),
-        FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=2),
-        FuzzingGenericStep(QpsstressStep.QPS_REALLOC, size=65 * 1024),
-        FuzzingGenericStep(QpsstressStep.QPS_DEALLOC, handle=1),
-        FuzzingGenericStep(QpsstressStep.QPS_SNAPSHOT),
-        FuzzingGenericStep(QpsstressStep.QPS_DEALLOC, handle=2),
-        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=0),
-        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=0),
-        FuzzingGenericStep(QpsstressStep.QPS_REOPEN),
-        FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=1),
-    ]]
+    corpus += [
+        [
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=24),
+            FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=1),
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=65 * 1024),
+            FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=2),
+            FuzzingGenericStep(QpsstressStep.QPS_REALLOC, size=65 * 1024),
+            FuzzingGenericStep(QpsstressStep.QPS_DEALLOC, handle=1),
+            FuzzingGenericStep(QpsstressStep.QPS_SNAPSHOT),
+            FuzzingGenericStep(QpsstressStep.QPS_DEALLOC, handle=2),
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=0),
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=0),
+            FuzzingGenericStep(QpsstressStep.QPS_REOPEN),
+            FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=1),
+        ]
+    ]
 
     # Sequence playing with multiple QPS maps, improves coverage.
-    corpus += [[
-        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=10),
-        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-    ]]
+    corpus += [
+        [
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=10),
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+        ]
+    ]
 
-    corpus += [[
-        # Sequence playing with Qhat objects.
-        FuzzingQpsObjStepCreate(QpsstressStep.QPS_OBJ_CREATE,
-                                type_obj=QpsstressObj.QPS_QHAT,
-                                is_nullable=False, value_len=4),
-        FuzzingQpsObjStepWithKey(QpsstressStep.QPS_OBJ_SET, handle=1,
-                                 type_obj=QpsstressObj.QPS_QHAT, key=10),
-        FuzzingQpsObjMultipleOp(QpsstressStep.QPS_OBJ_MULTIPLE_SET, handle=1,
-                                type_obj=QpsstressObj.QPS_QHAT, key=20,
-                                nbr_iter=2, gap_keys=10),
-        FuzzingQhatObjStepMv(QpsstressStep.QPS_HAT_MV_ENUMERATOR, handle=1,
-                             move_count=1),
-        # "move enumerator to" action must pick a key bigger or equal to the
-        # current key from the enumerator, so >= 20 in this corpus
-        FuzzingQpsObjStepWithKey(QpsstressStep.QPS_HAT_MV_ENUMERATOR_TO,
-                                 handle=1, type_obj=QpsstressObj.QPS_QHAT,
-                                 key=30),
-        FuzzingQpsObjStep(QpsstressStep.QPS_HAT_CHECK_ENUMERATOR, handle=1),
-        FuzzingQpsObjStep(QpsstressStep.QPS_HAT_SET_ENUMERATOR, handle=1),
-        FuzzingQpsObjStep(QpsstressStep.QPS_HAT_RESET_ENUMERATOR, handle=1),
-        FuzzingQpsObjStep(QpsstressStep.QPS_HAT_FIX_STORED0, handle=1),
-        FuzzingQhatCompute(QpsstressStep.QPS_HAT_COMPUTE_COUNTS,
-                           handle=1, do_stats=0),
-        FuzzingQhatCompute(QpsstressStep.QPS_HAT_COMPUTE_MEMORY,
-                           handle=1, do_mem_overhead=0),
-        FuzzingQpsObjStepWithKey(QpsstressStep.QPS_OBJ_RM_ENTRY, handle=1,
-                                 type_obj=QpsstressObj.QPS_QHAT, key=10),
-        FuzzingQpsObjMultipleOp(QpsstressStep.QPS_OBJ_MULTIPLE_RM_ENTRY,
-                                handle=1, type_obj=QpsstressObj.QPS_QHAT,
-                                key=20, nbr_iter=2, gap_keys=10),
-        FuzzingQpsObjStep(QpsstressStep.QPS_OBJ_CLEAR, handle=1,
-                          type_obj=QpsstressObj.QPS_QHAT),
-        FuzzingQpsObjStep(QpsstressStep.QPS_OBJ_DELETE, handle=1,
-                          type_obj=QpsstressObj.QPS_QHAT),
-    ]]
+    corpus += [
+        [
+            # Sequence playing with Qhat objects.
+            FuzzingQpsObjStepCreate(
+                QpsstressStep.QPS_OBJ_CREATE,
+                type_obj=QpsstressObj.QPS_QHAT,
+                is_nullable=False,
+                value_len=4,
+            ),
+            FuzzingQpsObjStepWithKey(
+                QpsstressStep.QPS_OBJ_SET,
+                handle=1,
+                type_obj=QpsstressObj.QPS_QHAT,
+                key=10,
+            ),
+            FuzzingQpsObjMultipleOp(
+                QpsstressStep.QPS_OBJ_MULTIPLE_SET,
+                handle=1,
+                type_obj=QpsstressObj.QPS_QHAT,
+                key=20,
+                nbr_iter=2,
+                gap_keys=10,
+            ),
+            FuzzingQhatObjStepMv(
+                QpsstressStep.QPS_HAT_MV_ENUMERATOR, handle=1, move_count=1
+            ),
+            # "move enumerator to" action must pick a key bigger or equal to the
+            # current key from the enumerator, so >= 20 in this corpus
+            FuzzingQpsObjStepWithKey(
+                QpsstressStep.QPS_HAT_MV_ENUMERATOR_TO,
+                handle=1,
+                type_obj=QpsstressObj.QPS_QHAT,
+                key=30,
+            ),
+            FuzzingQpsObjStep(
+                QpsstressStep.QPS_HAT_CHECK_ENUMERATOR, handle=1
+            ),
+            FuzzingQpsObjStep(QpsstressStep.QPS_HAT_SET_ENUMERATOR, handle=1),
+            FuzzingQpsObjStep(
+                QpsstressStep.QPS_HAT_RESET_ENUMERATOR, handle=1
+            ),
+            FuzzingQpsObjStep(QpsstressStep.QPS_HAT_FIX_STORED0, handle=1),
+            FuzzingQhatCompute(
+                QpsstressStep.QPS_HAT_COMPUTE_COUNTS, handle=1, do_stats=0
+            ),
+            FuzzingQhatCompute(
+                QpsstressStep.QPS_HAT_COMPUTE_MEMORY,
+                handle=1,
+                do_mem_overhead=0,
+            ),
+            FuzzingQpsObjStepWithKey(
+                QpsstressStep.QPS_OBJ_RM_ENTRY,
+                handle=1,
+                type_obj=QpsstressObj.QPS_QHAT,
+                key=10,
+            ),
+            FuzzingQpsObjMultipleOp(
+                QpsstressStep.QPS_OBJ_MULTIPLE_RM_ENTRY,
+                handle=1,
+                type_obj=QpsstressObj.QPS_QHAT,
+                key=20,
+                nbr_iter=2,
+                gap_keys=10,
+            ),
+            FuzzingQpsObjStep(
+                QpsstressStep.QPS_OBJ_CLEAR,
+                handle=1,
+                type_obj=QpsstressObj.QPS_QHAT,
+            ),
+            FuzzingQpsObjStep(
+                QpsstressStep.QPS_OBJ_DELETE,
+                handle=1,
+                type_obj=QpsstressObj.QPS_QHAT,
+            ),
+        ]
+    ]
 
-    corpus += [[
-        # Sequence playing with Qbitmap objects.
-        FuzzingQpsObjStepCreate(QpsstressStep.QPS_OBJ_CREATE,
-                                type_obj=QpsstressObj.QPS_QBITMAP,
-                                is_nullable=False, value_len=4),
-        FuzzingQpsObjStepWithKey(QpsstressStep.QPS_OBJ_SET, handle=1,
-                                 type_obj=QpsstressObj.QPS_QBITMAP, key=10),
-        FuzzingQpsObjMultipleOp(QpsstressStep.QPS_OBJ_MULTIPLE_SET, handle=1,
-                                type_obj=QpsstressObj.QPS_QBITMAP, key=20,
-                                nbr_iter=2, gap_keys=10),
-        FuzzingQpsObjStepWithKey(QpsstressStep.QPS_OBJ_GET, handle=1,
-                                 type_obj=QpsstressObj.QPS_QBITMAP, key=20),
-        FuzzingQpsObjStep(QpsstressStep.QPS_BITMAP_COMPUTE_STATS, handle=1,
-                          type_obj=QpsstressObj.QPS_QBITMAP),
-        FuzzingQpsObjStepWithKey(QpsstressStep.QPS_OBJ_RM_ENTRY, handle=1,
-                                 type_obj=QpsstressObj.QPS_QBITMAP, key=10),
-        FuzzingQpsObjMultipleOp(QpsstressStep.QPS_OBJ_MULTIPLE_RM_ENTRY,
-                                handle=1, type_obj=QpsstressObj.QPS_QBITMAP,
-                                key=20, nbr_iter=2, gap_keys=10),
-        FuzzingQpsObjStep(QpsstressStep.QPS_OBJ_CLEAR, handle=1,
-                          type_obj=QpsstressObj.QPS_QBITMAP),
-        FuzzingQpsObjStep(QpsstressStep.QPS_OBJ_DELETE, handle=1,
-                          type_obj=QpsstressObj.QPS_QBITMAP),
-    ]]
+    corpus += [
+        [
+            # Sequence playing with Qbitmap objects.
+            FuzzingQpsObjStepCreate(
+                QpsstressStep.QPS_OBJ_CREATE,
+                type_obj=QpsstressObj.QPS_QBITMAP,
+                is_nullable=False,
+                value_len=4,
+            ),
+            FuzzingQpsObjStepWithKey(
+                QpsstressStep.QPS_OBJ_SET,
+                handle=1,
+                type_obj=QpsstressObj.QPS_QBITMAP,
+                key=10,
+            ),
+            FuzzingQpsObjMultipleOp(
+                QpsstressStep.QPS_OBJ_MULTIPLE_SET,
+                handle=1,
+                type_obj=QpsstressObj.QPS_QBITMAP,
+                key=20,
+                nbr_iter=2,
+                gap_keys=10,
+            ),
+            FuzzingQpsObjStepWithKey(
+                QpsstressStep.QPS_OBJ_GET,
+                handle=1,
+                type_obj=QpsstressObj.QPS_QBITMAP,
+                key=20,
+            ),
+            FuzzingQpsObjStep(
+                QpsstressStep.QPS_BITMAP_COMPUTE_STATS,
+                handle=1,
+                type_obj=QpsstressObj.QPS_QBITMAP,
+            ),
+            FuzzingQpsObjStepWithKey(
+                QpsstressStep.QPS_OBJ_RM_ENTRY,
+                handle=1,
+                type_obj=QpsstressObj.QPS_QBITMAP,
+                key=10,
+            ),
+            FuzzingQpsObjMultipleOp(
+                QpsstressStep.QPS_OBJ_MULTIPLE_RM_ENTRY,
+                handle=1,
+                type_obj=QpsstressObj.QPS_QBITMAP,
+                key=20,
+                nbr_iter=2,
+                gap_keys=10,
+            ),
+            FuzzingQpsObjStep(
+                QpsstressStep.QPS_OBJ_CLEAR,
+                handle=1,
+                type_obj=QpsstressObj.QPS_QBITMAP,
+            ),
+            FuzzingQpsObjStep(
+                QpsstressStep.QPS_OBJ_DELETE,
+                handle=1,
+                type_obj=QpsstressObj.QPS_QBITMAP,
+            ),
+        ]
+    ]
 
     # Generate files from all sequences provided before.
-    create_corpus_files_and_dict(corpus, category=category,
-                                 generate_files=generate_files,
-                                 fuzz_dict_name=fuzz_dict_name)
+    create_corpus_files_and_dict(
+        corpus,
+        category=category,
+        generate_files=generate_files,
+        fuzz_dict_name=fuzz_dict_name,
+    )
 
 
 if __name__ == '__main__':
     ALL_OPTS = ArgumentParser()
-    ALL_OPTS.add_argument('-d', '--dict-file', dest='fuzz_dict_name',
-                          help='export fuzzing dict to FILE',
-                          metavar='FILE')
-    ALL_OPTS.add_argument('-g', '--generate-corpus',
-                          action='store_true', dest='generate_files',
-                          default=False,
-                          help='Define if all corpus steps should be written '
-                          'for libFuzzer')
-    ALL_OPTS.add_argument('-c', '--category',
-                          type=int, dest='category',
-                          default=QpsstressFuzzerCat.QPS_CAT_ALL,
-                          help='Define if all steps like snapshot, reopen '
-                          'must be triggered for libFuzzer')
+    ALL_OPTS.add_argument(
+        '-d',
+        '--dict-file',
+        dest='fuzz_dict_name',
+        help='export fuzzing dict to FILE',
+        metavar='FILE',
+    )
+    ALL_OPTS.add_argument(
+        '-g',
+        '--generate-corpus',
+        action='store_true',
+        dest='generate_files',
+        default=False,
+        help='Define if all corpus steps should be written for libFuzzer',
+    )
+    ALL_OPTS.add_argument(
+        '-c',
+        '--category',
+        type=int,
+        dest='category',
+        default=QpsstressFuzzerCat.QPS_CAT_ALL,
+        help='Define if all steps like snapshot, reopen '
+        'must be triggered for libFuzzer',
+    )
 
     CREATE_OPTS = ALL_OPTS.parse_args()
 
@@ -490,16 +633,21 @@ if __name__ == '__main__':
         raise RuntimeError('Need at least -g or -d, see the help (-h)')
 
     if CREATE_OPTS.generate_files and not os.path.isdir(CORPUS_DIR):
-        raise RuntimeError(f'Create first folder "{CORPUS_DIR}" before -g '
-                           f'option')
+        raise RuntimeError(
+            f'Create first folder "{CORPUS_DIR}" before -g option'
+        )
 
-    if CREATE_OPTS.category not in [item.value for item in
-                                    QpsstressFuzzerCat]:
+    if CREATE_OPTS.category not in [
+        item.value for item in QpsstressFuzzerCat
+    ]:
         raise RuntimeError(
             f'Category unknown, integer should be in [0; '
             f'{QpsstressFuzzerCat.QPS_CAT_QPS_OBJ_OPERATIONS}] for '
-            f'{QpsstressFuzzerCat}')
+            f'{QpsstressFuzzerCat}'
+        )
 
-    create_corpus(category=QpsstressFuzzerCat(CREATE_OPTS.category),
-                  generate_files=CREATE_OPTS.generate_files,
-                  fuzz_dict_name=CREATE_OPTS.fuzz_dict_name)
+    create_corpus(
+        category=QpsstressFuzzerCat(CREATE_OPTS.category),
+        generate_files=CREATE_OPTS.generate_files,
+        fuzz_dict_name=CREATE_OPTS.fuzz_dict_name,
+    )

@@ -46,8 +46,9 @@ from waflib.Task import RUN_ME, SKIP_ME, Task, compile_fun
 # Add type hinting for TaskGen decorators
 if TYPE_CHECKING:
     T = TypeVar('T')
-    def task_gen_decorator(*args: str) -> Callable[[T], T]:
-        ...
+
+    def task_gen_decorator(*args: str) -> Callable[[T], T]: ...
+
     task_gen_feature = task_gen_decorator
     task_gen_after = task_gen_decorator
     task_gen_before_method = task_gen_decorator
@@ -63,8 +64,9 @@ else:
 # {{{ depends_on
 
 
-def check_circular_dependencies(self: TaskGen, tgen: TaskGen,
-                                path: List[str], seen: Set[str]) -> None:
+def check_circular_dependencies(
+    self: TaskGen, tgen: TaskGen, path: List[str], seen: Set[str]
+) -> None:
     """
     Recursively check that there is no cycle in depends_on/use dependencies of
     "self" task generator.
@@ -86,7 +88,8 @@ def check_circular_dependencies(self: TaskGen, tgen: TaskGen,
         if name == self.name:
             raise Errors.WafError(
                 'cycle detected in use/depends_on from '
-                f'tgen `{self.name}`: {" -> ".join(path)}')
+                f'tgen `{self.name}`: {" -> ".join(path)}'
+            )
         try:
             other = self.bld.get_tgen_by_name(name)
         except Errors.WafError:
@@ -137,7 +140,8 @@ def check_used(self: TaskGen, name: str) -> None:
     raise Errors.WafError(
         f'In task generator `{self.name}` (path={self.path}): '
         'cannot find tgen or env variable that matches '
-        f'`{name}`')
+        f'`{name}`'
+    )
 
 
 @task_gen_feature('*')
@@ -187,9 +191,7 @@ def run_checks(ctx: BuildContext) -> None:
         old_rustflags = os.environ.get('RUSTFLAGS', '')
         old_rustdocflags = os.environ.get('RUSTDOCFLAGS', '')
         env['RUSTFLAGS'] = f'-Zsanitizer={sanitizer} {old_rustflags}'
-        env['RUSTDOCFLAGS'] = (
-            f'-Zsanitizer={sanitizer} {old_rustdocflags}'
-        )
+        env['RUSTDOCFLAGS'] = f'-Zsanitizer={sanitizer} {old_rustdocflags}'
 
     if ctx.cmd in {'check-retry', 'fast-selenium-retry'}:
         arg = ctx.cmd
@@ -294,7 +296,6 @@ Is equivalent to:
 
 
 class UseGroup:
-
     def __init__(self, ctx: BuildContext, group: str):
         self.ctx = ctx
         self.group = group
@@ -304,10 +305,10 @@ class UseGroup:
         self.ctx.set_group(self.group)
 
     def __exit__(
-            self,
-            exctype: Optional[Type[BaseException]],
-            excinst: Optional[BaseException],
-            exctb: Optional[TracebackType],
+        self,
+        exctype: Optional[Type[BaseException]],
+        excinst: Optional[BaseException],
+        exctb: Optional[TracebackType],
     ) -> None:
         self.ctx.set_group(self.previous_group)
 
@@ -375,6 +376,7 @@ def add_scan_in_signature(ctx: BuildContext) -> None:
 #
 # The environment variable ${PREFIX} is controlled by the configuration
 # argument `--prefix` (default is '/usr/local/')
+
 
 @task_gen_feature('*')
 @task_gen_after('process_subst', 'process_rule', 'process_source')
@@ -479,7 +481,9 @@ def run_python_checker(ctx: BuildContext, checker_exec: str) -> None:
         files_str = ctx.cmd_and_log(
             'git ls-files "*.py" "**/*.py" "*.pyi" "**/*.pyi" '
             '"wscript*" "**/wscript*"',
-            cwd=path, quiet=Context.BOTH).strip()
+            cwd=path,
+            quiet=Context.BOTH,
+        ).strip()
         files_list = files_str.splitlines()
 
     # Create tasks to check them using the checker
@@ -516,13 +520,16 @@ def run_ruff(ctx: BuildContext) -> None:
         rule = f'ruff check {fix} --force-exclude {file_args}'
     else:
         # Use shell pipeline to get files and check them
-        rule = ('git ls-files "*.py" "**/*.py" "*.pyi" "**/*.pyi" '
-                f'"wscript*" "**/wscript*" | '
-                f'xargs ruff check --force-exclude {fix}')
+        rule = (
+            'git ls-files "*.py" "**/*.py" "*.pyi" "**/*.pyi" '
+            f'"wscript*" "**/wscript*" | '
+            f'xargs ruff check --force-exclude {fix}'
+        )
 
     # One task, run everything at once
-    ctx.cmd_and_log(cmd=rule, cwd=ctx.launch_node(),
-                    shell=True, stdout=None, stderr=None)
+    ctx.cmd_and_log(
+        cmd=rule, cwd=ctx.launch_node(), shell=True, stdout=None, stderr=None
+    )
 
 
 class RuffClass(BuildContext):  # type: ignore[misc]
@@ -567,6 +574,7 @@ def configure(ctx: ConfigurationContext) -> None:
 
 # }}}
 # {{{ build
+
 
 def build(ctx: BuildContext) -> None:
     if ctx.is_install > 0:

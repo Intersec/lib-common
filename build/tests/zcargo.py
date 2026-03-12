@@ -35,9 +35,10 @@ SCRIPT_DIR = Path(__file__).parent
 RE_ANSI = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
 
 # Examples of a line we want to match:
-# Running unittests zcargo.rs (/.cargo/target/debug/deps/zcargo-7838fa10588bc85e)  # noqa: E501
+# Running unittests zcargo.rs (/.cargo/target/debug/deps/zcargo-7838fa10588bc85e)
 RE_TESTS_INTRO = re.compile(
-    r'^\s*Running unittests (?P<file>[^ ]+)\s*\((?P<path>[^)]+)\)\s*$')
+    r'^\s*Running unittests (?P<file>[^ ]+)\s*\((?P<path>[^)]+)\)\s*$'
+)
 
 # Examples of a line we want to match:
 # running 0 tests
@@ -58,24 +59,25 @@ RE_SUITE_INTRO = re.compile(r'^\s*running\s+(?P<planned>\d+)\s+tests?\s*$')
 # test tests::should_fail - should panic ... FAILED
 RE_TEST_STATUS = re.compile(
     r'^\s*test\s+(?P<name>[^ -]+)\s(?P<notice>-.*)?\s*\.\.\.\s*'
-    r'(?P<status>ok|FAILED|ignored),?\s*(?P<comment>.*)?\s*$')
+    r'(?P<status>ok|FAILED|ignored),?\s*(?P<comment>.*)?\s*$'
+)
 
 
 # Examples of a line we want to match:
 # ---- should_fail stdout ----
 # ---- should_pass stdout ----
-RE_TEST_STDOUT = re.compile(
-    r'^\s*----\s*(?P<name>[^ ]+)\s+stdout\s*----\s*$')
+RE_TEST_STDOUT = re.compile(r'^\s*----\s*(?P<name>[^ ]+)\s+stdout\s*----\s*$')
 
 
 # Examples of a line we want to match:
-# test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s  # noqa: E501
-# test result: FAILED. 0 passed; 4 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s  # noqa: E501
+# test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+# test result: FAILED. 0 passed; 4 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
 RE_SUITE_RESULT = re.compile(
     r'^test result: (?P<status>ok|FAILED)\. (?P<passed>\d+) passed; '
     r'(?P<failed>\d+) failed; (?P<ignored>\d+) ignored; '
     r'(?P<measured>\d+) measured; (?P<filtered>\d+) '
-    r'filtered out; finished in (?P<duration>[^ ]+)s$')
+    r'filtered out; finished in (?P<duration>[^ ]+)s$'
+)
 
 
 # {{{ helpers
@@ -146,8 +148,16 @@ class TestSuite:
     def get_test(self, name: str) -> TestStatus:
         return self.tests[name]
 
-    def set_result(self, status: str, passed: int, failed: int, ignored: int,
-                   measured: int, filtered: int, duration: float) -> None:
+    def set_result(
+        self,
+        status: str,
+        passed: int,
+        failed: int,
+        ignored: int,
+        measured: int,
+        filtered: int,
+        duration: float,
+    ) -> None:
         self.status = status
         self.passed = passed
         self.failed = failed
@@ -179,8 +189,11 @@ class TestSuite:
         if test_status:
             name = test_status.group('name')
             status = test_status.group('status')
-            self.add_test(TestStatus(index=len(self.tests) + 1, name=name,
-                                     status=status))
+            self.add_test(
+                TestStatus(
+                    index=len(self.tests) + 1, name=name, status=status
+                )
+            )
             return
 
         """
@@ -197,7 +210,7 @@ class TestSuite:
 
         failures:
             should_pass
-        """  # noqa: E501
+        """
 
         if line.startswith('failures:'):
             if self.parse_state == 'DIAGNOSTICS':
@@ -334,7 +347,7 @@ def run_cargo_test_for_pkg(pkg: str, argv: list[str]) -> None:
                 continue
 
             # Ignore compiler messages like
-            # Finished `test` profile [unoptimized + debuginfo] target(s) in 0.11s  # noqa: E501
+            # Finished `test` profile [unoptimized + debuginfo] target(s) in 0.11s
             # Redirect to stderr to catch them in case of cargo test exit
             # with errors (ex. compile error, ASAN error, etc.)
             sys.stderr.write(raw_line)
@@ -379,14 +392,17 @@ def run_cargo_test_for_pkg(pkg: str, argv: list[str]) -> None:
     # https://doc.rust-lang.org/cargo/commands/cargo-test.html#exit-status
     if rc not in {0, 101}:
         raise RuntimeError(
-            f'`cargo test` for `{pkg}` failed with exit code {rc}')
+            f'`cargo test` for `{pkg}` failed with exit code {rc}'
+        )
 
     if rc:
         if suites:
             raise RuntimeError(
-                f'`cargo test` for `{pkg}` failed (test crash?)')
+                f'`cargo test` for `{pkg}` failed (test crash?)'
+            )
         raise RuntimeError(
-            f'`cargo test` for `{pkg}` failed (compiler error?)')
+            f'`cargo test` for `{pkg}` failed (compiler error?)'
+        )
 
     sys.exit(rc)  # should be 0
 

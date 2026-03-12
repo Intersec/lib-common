@@ -134,6 +134,7 @@ def wipe_children_register() -> Iterator[None]:
     finally:
         wipe_children('atexit')
 
+
 # }}}
 # Sandbox {{{
 
@@ -154,5 +155,6 @@ def mkdtemp(ns: str) -> str:
     except OSError:
         pass
     return do('/tmp')  # noqa: S108 (hardcoded-temp-file)
+
 
 # }}}

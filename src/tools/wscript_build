@@ -22,18 +22,23 @@ ctx: BuildContext
 
 
 with ctx.UseGroup(ctx, 'code_compiling'):
-    ctx.program(target='str-ctype-maker', source='str-ctype-maker.c',
-                use='libcommon')
+    ctx.program(
+        target='str-ctype-maker', source='str-ctype-maker.c', use='libcommon'
+    )
 
-    ctx.program(target='dso-compatibility-check', features='c cprogram',
-                source='dso-compatibility-check.blk',
-                use='libcommon')
+    ctx.program(
+        target='dso-compatibility-check',
+        features='c cprogram',
+        source='dso-compatibility-check.blk',
+        use='libcommon',
+    )
 
-    ctx.program(target='dso-find-free-class-id',
-                source='dso-find-free-class-id.c',
-                use='libcommon')
+    ctx.program(
+        target='dso-find-free-class-id',
+        source='dso-find-free-class-id.c',
+        use='libcommon',
+    )
 
-    ctx.program(target='dso2openapi', source='dso2openapi.c',
-                use='libcommon')
+    ctx.program(target='dso2openapi', source='dso2openapi.c', use='libcommon')
 
     ctx.program(target='yamlfmt', source='yamlfmt.c', use='libcommon')

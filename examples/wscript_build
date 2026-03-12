@@ -21,10 +21,16 @@ from waflib.Build import BuildContext
 bld: BuildContext
 
 
-bld.program(target='ex-prometheus-client', source=[
-    'ex-prometheus-client.c',
-], use='libcommon')
+bld.program(
+    target='ex-prometheus-client',
+    source=[
+        'ex-prometheus-client.c',
+    ],
+    use='libcommon',
+)
 
-bld.recurse([
-    'iop-tutorial',
-])
+bld.recurse(
+    [
+        'iop-tutorial',
+    ]
+)

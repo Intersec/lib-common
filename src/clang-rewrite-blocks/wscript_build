@@ -24,14 +24,18 @@ ctx: BuildContext
 if ctx.env.COMPILER_CC != 'clang' and ctx.env.COMPILER_CXX != 'clang++':
     with ctx.UseGroup(ctx, 'clang_rewrite_blocks'):
         ctx.clang_rewrite_blocks_tgen = ctx.program(
-            target='clang-rewrite-blocks', features='cxx cxxprogram', source=[
+            target='clang-rewrite-blocks',
+            features='cxx cxxprogram',
+            source=[
                 'RewriteBlocks.cpp',
                 'main.cpp',
-            ], use=[
+            ],
+            use=[
                 'llvm',
                 'clang',
                 'clang_cpp',
-            ])
+            ],
+        )
 
         # Get common flags supported by clang and llvm.
         flags = ctx.env.OFLAGS + ['-ggdb3']

@@ -33,21 +33,35 @@ import numpy as np
 
 COLUMNS = [
     # alloc block
-    'alloc_nb', 'alloc_slow',
-    'alloc_nbtimer', 'alloc_min', 'alloc_max',
+    'alloc_nb',
+    'alloc_slow',
+    'alloc_nbtimer',
+    'alloc_min',
+    'alloc_max',
     'alloc_tot',
     # realloc block
-    'realloc_nb', 'realloc_slow',
-    'realloc_nbtimer', 'realloc_min', 'realloc_max',
+    'realloc_nb',
+    'realloc_slow',
+    'realloc_nbtimer',
+    'realloc_min',
+    'realloc_max',
     'realloc_tot',
     # free block
-    'free_nb', 'free_slow',
-    'free_nbtimer', 'free_min', 'free_max',
+    'free_nb',
+    'free_slow',
+    'free_nbtimer',
+    'free_min',
+    'free_max',
     'free_tot',
     # memory block
-    'total_allocated', 'total_requested',
-    'max_allocated', 'max_unused', 'max_used',
-    'malloc_calls', 'current_used', 'current_allocated',
+    'total_allocated',
+    'total_requested',
+    'max_allocated',
+    'max_unused',
+    'max_used',
+    'malloc_calls',
+    'current_used',
+    'current_allocated',
 ]
 POSITION = {s: i for i, s in enumerate(COLUMNS)}
 NUM_COLUMNS = len(COLUMNS)

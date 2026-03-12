@@ -24,41 +24,67 @@ ctx: BuildContext
 ctx.IopcOptions(ctx, pystub_path='../pystubs')
 
 
-ctx.stlib(target='test-iop', features='c cstlib', source=[
-    'test.iop',
-    'test/emptystuffs.iop',
-])
+ctx.stlib(
+    target='test-iop',
+    features='c cstlib',
+    source=[
+        'test.iop',
+        'test/emptystuffs.iop',
+    ],
+)
 
-ctx.stlib(target='test1-iop', features='c cstlib', source=[
-    'tst1.iop',
-    'tst1/tst2.iop',
-])
+ctx.stlib(
+    target='test1-iop',
+    features='c cstlib',
+    source=[
+        'tst1.iop',
+        'tst1/tst2.iop',
+    ],
+)
 
-ctx.stlib(target='testvoid-iop', features='c cstlib', source=[
-    'testvoid.iop',
-])
+ctx.stlib(
+    target='testvoid-iop',
+    features='c cstlib',
+    source=[
+        'testvoid.iop',
+    ],
+)
 
 
-ctx.shlib(target='test-iop-plugin', source=[
-    'test-iop-plugin.c',
-], use_whole=[
-    'test-iop',
-    'test1-iop',
-    'testvoid-iop',
-    'libcommon-iop',
-], pystub_path='../pystubs')
+ctx.shlib(
+    target='test-iop-plugin',
+    source=[
+        'test-iop-plugin.c',
+    ],
+    use_whole=[
+        'test-iop',
+        'test1-iop',
+        'testvoid-iop',
+        'libcommon-iop',
+    ],
+    pystub_path='../pystubs',
+)
 
-ctx.shlib(target='test-iop-plugin2', source=[
-    'test-iop-plugin2.c',
-], use_whole=[
-    'test-iop',
-    'testvoid-iop',
-    'libcommon-iop',
-], pystub_path='../pystubs')
+ctx.shlib(
+    target='test-iop-plugin2',
+    source=[
+        'test-iop-plugin2.c',
+    ],
+    use_whole=[
+        'test-iop',
+        'testvoid-iop',
+        'libcommon-iop',
+    ],
+    pystub_path='../pystubs',
+)
 
-ctx.shlib(target='test-iop-plugin-dso', source=[
-    'test-iop-plugin-dso.c',
-    'test/dso.iop',
-], use_whole=[
-    'libcommon-iop',
-])
+ctx.shlib(
+    target='test-iop-plugin-dso',
+    source=[
+        'test-iop-plugin-dso.c',
+        'test/dso.iop',
+    ],
+    use_whole=[
+        'libcommon-iop',
+    ],
+)

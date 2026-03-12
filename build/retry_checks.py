@@ -38,9 +38,11 @@ def main() -> int:
         retry_tests = retry_string.split(',')
 
     if not retry_tests:
-        print(f'ERROR: no tests provided in {retry_env_variable} environment '
-              'variable or variable is empty',
-              file=sys.stderr)
+        print(
+            f'ERROR: no tests provided in {retry_env_variable} environment '
+            'variable or variable is empty',
+            file=sys.stderr,
+        )
         return 2
 
     final_tests = defaultdict(list)
@@ -55,12 +57,15 @@ def main() -> int:
             # but not the .feature file at the end: we enforce the fact that
             # run_checks.sh can really go to retry-behave/*.feature) case.
             if not parts[-1].endswith('.feature'):
-                print(f'ERROR: invalid path for feature file: got "{test}"',
-                      file=sys.stderr)
+                print(
+                    f'ERROR: invalid path for feature file: got "{test}"',
+                    file=sys.stderr,
+                )
                 return 2
 
             behave_test = os.path.sep.join(
-                ['retry-behave'] + parts[:position])
+                ['retry-behave'] + parts[:position]
+            )
             final_tests[behave_test].append(test)
         except ValueError:
             final_tests[test] = []

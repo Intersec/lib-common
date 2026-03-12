@@ -44,8 +44,9 @@ from waflib.Tools import c as c_tool
 # Add type hinting for TaskGen decorators
 if TYPE_CHECKING:
     T = TypeVar('T')
-    def task_gen_extension(*args: str) -> Callable[[T], T]:
-        ...
+
+    def task_gen_extension(*args: str) -> Callable[[T], T]: ...
+
 else:
     task_gen_extension = TaskGen.extension
 
@@ -93,7 +94,6 @@ def add_cython_file(self: BuildContext, node: Node) -> None:
 
 
 class CythonC(c_tool.c):  # type: ignore[misc]
-
     def get_cwd(self) -> Node:
         """
         Execute the compiler's commands from the project root instead of the
@@ -111,10 +111,13 @@ class CythonC(c_tool.c):  # type: ignore[misc]
         self.env.stash()
 
         # Add needed defines so that preprocessor works
-        self.env.append_unique('DEFINES', [
-            'Py_PYTHON_H',
-            'PY_VERSION_HEX=' + self.env.PYTHON_HEXVERSION,
-        ])
+        self.env.append_unique(
+            'DEFINES',
+            [
+                'Py_PYTHON_H',
+                'PY_VERSION_HEX=' + self.env.PYTHON_HEXVERSION,
+            ],
+        )
 
         # Call original preprocessor
         res: ScanRes = super().scan()
@@ -135,15 +138,18 @@ class CythonC(c_tool.c):  # type: ignore[misc]
         self.env.stash()
 
         # Add needed cflags to ignore warnings
-        self.env.append_unique('CFLAGS', [
-            '-Wno-unused-function',
-            '-Wno-unused-parameter',
-            '-Wno-shadow',
-            '-Wno-redundant-decls',
-            '-Wno-uninitialized',
-            '-Wno-missing-field-initializers',
-            '-Wno-undef',  # See https://github.com/cython/cython/issues/6014
-        ])
+        self.env.append_unique(
+            'CFLAGS',
+            [
+                '-Wno-unused-function',
+                '-Wno-unused-parameter',
+                '-Wno-shadow',
+                '-Wno-redundant-decls',
+                '-Wno-uninitialized',
+                '-Wno-missing-field-initializers',
+                '-Wno-undef',  # See https://github.com/cython/cython/issues/6014
+            ],
+        )
 
         # Call original run method
         res: int = super().run()
@@ -160,16 +166,22 @@ class CythonC(c_tool.c):  # type: ignore[misc]
 
 CY_API_PAT = re.compile(r'\s*?cdef\s*?(public|api)\w*')
 RE_INC_DIRS = re.compile(r'-I(.*)')
-RE_IMPORT_CYT = re.compile(r"""
+RE_IMPORT_CYT = re.compile(
+    r"""
     ^\s*                           # may begin with some whitespace characters
     (?:from\s+([\w.]+)*\s+)?       # optionally match "from foo(.baz)*" and
                                    # capture foo
     c?import\s(\w+|[*])            # require "import bar" and capture bar
-    """, re.MULTILINE | re.VERBOSE)
-RE_INCLUDE_CYT = re.compile(r"""
+    """,
+    re.MULTILINE | re.VERBOSE,
+)
+RE_INCLUDE_CYT = re.compile(
+    r"""
     ^\s*                           # may begin with some whitespace characters
     include\s+[\"'](.+)[\"']       # capture include path
-    """, re.MULTILINE | re.VERBOSE)
+    """,
+    re.MULTILINE | re.VERBOSE,
+)
 
 
 class Cython(Task.Task):  # type: ignore[misc]
@@ -220,8 +232,11 @@ class Cython(Task.Task):  # type: ignore[misc]
             return ret
         for x in self.generator.bld.raw_deps[self.uid()]:
             if x.startswith('header:'):
-                self.outputs.append(self.inputs[0].parent.find_or_declare(
-                    x.replace('header:', '')))
+                self.outputs.append(
+                    self.inputs[0].parent.find_or_declare(
+                        x.replace('header:', '')
+                    )
+                )
         return cast(int, super().runnable_status())
 
     def post_run(self) -> None:
@@ -340,9 +355,14 @@ class Cython(Task.Task):  # type: ignore[misc]
                 if ' public ' in elt:
                     state.has_public = True
 
-    def scan_dependency(self, state: ScannerState, inc_dirs: List[Node],
-                        dep_orig_name: str, dep_file_name: str,
-                        can_be_abs: bool) -> None:
+    def scan_dependency(
+        self,
+        state: ScannerState,
+        inc_dirs: List[Node],
+        dep_orig_name: str,
+        dep_file_name: str,
+        can_be_abs: bool,
+    ) -> None:
         """
         Look for a dependency in all includes directories and scan it
         recursively if found.
@@ -364,14 +384,23 @@ class Cython(Task.Task):  # type: ignore[misc]
         else:
             state.missing.append(dep_orig_name)
 
+
 # }}}
 
 
 def options(ctx: OptionsContext) -> None:
-    ctx.add_option('--cython-flags', action='store', default='',
-                   help='space separated list of flags to pass to cython')
-    ctx.add_option('--cython-suffix', action='store', default='',
-                   help='add a suffix to cython generated files')
+    ctx.add_option(
+        '--cython-flags',
+        action='store',
+        default='',
+        help='space separated list of flags to pass to cython',
+    )
+    ctx.add_option(
+        '--cython-suffix',
+        action='store',
+        default='',
+        help='add a suffix to cython generated files',
+    )
 
 
 def configure(ctx: ConfigurationContext) -> None:
@@ -383,6 +412,10 @@ def configure(ctx: ConfigurationContext) -> None:
     if hasattr(ctx.options, 'cython_flags'):
         ctx.env.CYTHONFLAGS = ctx.options.cython_flags
     ctx.env.CYTHONSUFFIX = ctx.options.cython_suffix
-    ctx.env.PYTHON_HEXVERSION = ctx.cmd_and_log(ctx.env.PYTHON + [
-        '-c', 'import sys; print(hex(sys.hexversion))',
-    ]).strip()
+    ctx.env.PYTHON_HEXVERSION = ctx.cmd_and_log(
+        ctx.env.PYTHON
+        + [
+            '-c',
+            'import sys; print(hex(sys.hexversion))',
+        ]
+    ).strip()

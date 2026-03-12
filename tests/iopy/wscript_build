@@ -21,17 +21,23 @@ from waflib.Build import BuildContext
 ctx: BuildContext
 
 
-ctx.program(target='zchk-iopy-dso', features='c cprogram', source=[
-    'zchk-iopy-dso.c',
-    'zchk-iopy-dso.fc',
-], use=[
-    'test-iop',
-    'test1-iop',
-    'testvoid-iop',
-    'python3_embed',
-    'libcommon',
-], depends_on=[
-    'iopy',
-])
+ctx.program(
+    target='zchk-iopy-dso',
+    features='c cprogram',
+    source=[
+        'zchk-iopy-dso.c',
+        'zchk-iopy-dso.fc',
+    ],
+    use=[
+        'test-iop',
+        'test1-iop',
+        'testvoid-iop',
+        'python3_embed',
+        'libcommon',
+    ],
+    depends_on=[
+        'iopy',
+    ],
+)
 
 ctx.recurse('testsuite')
