@@ -274,6 +274,25 @@ The following environment variables can be used at the build phase:
     tasks in parallel can exhaust memory and disk I/O.
     Defaults to 8 if not set.
 
+=== Static checks
+
+The `static-checks.py` script runs linters on the codebase. It performs the
+following checks:
+
+* `ruff check`: lint Python files for code quality issues.
+* `ruff format --check`: verify that Python files are properly formatted.
+* `mypy`: run type checking on Python files.
+
+To run the checks on the entire codebase:
+---------------------------------
+$ ./static-checks.py
+---------------------------------
+
+To run only on staged files (used by the git pre-commit hook):
+---------------------------------
+$ ./static-checks.py --staged-files
+---------------------------------
+
 ==== Compiling with gcc
 
 An important part of the lib-common uses the
