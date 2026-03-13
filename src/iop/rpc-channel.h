@@ -651,19 +651,6 @@ struct ichannel_t {
     /* }}} */
     /* {{{ Life-cycle attributes */
 
-    /** IChannel unique ID.
-     *
-     * The IChannel unique ID is put inside the messages slots so the IChannel
-     * can be retrieved for async replies.
-     */
-    uint32_t id;
-
-    /** Transport layer protocol.
-     *
-     * Default is 0.
-     */
-    int protocol;
-
     /** Set to true when the IC is disconnecting.
      */
     bool is_closing   :  1;
@@ -738,6 +725,19 @@ struct ichannel_t {
      */
     bool no_user_version_check :  1;
 
+    /** IChannel unique ID.
+     *
+     * The IChannel unique ID is put inside the messages slots so the IChannel
+     * can be retrieved for async replies.
+     */
+    uint32_t id;
+
+    /** Transport layer protocol.
+     *
+     * Default is 0.
+     */
+    int protocol;
+
     /** Next slot ID to try for messages slots allocation.
      */
     unsigned nextslot;
@@ -779,6 +779,10 @@ struct ichannel_t {
      */
     uint16_t peer_version;
 
+    /** Account the number of entered callbacks.
+     */
+    int16_t cb_level;
+
     /** Delay before a reconnection attempt (ms).
      *
      * Default is 1000ms.
@@ -814,9 +818,13 @@ struct ichannel_t {
      */
     htlist_t local_async_replies;
 
-    /** Handle used to schedule local async queries and replies.
+    /** Handle used to defer some actions.
+     *
+     * Can be used to defer actions that cannot be executed synchronously,
+     * like scheduling local async queries and replies, or perform the
+     * automatic deletion of the IChannel.
      */
-    el_t nullable local_async_el;
+    el_t nullable el_before;
 
     /** Used to store the current file description exchanged on a Unix socket.
      * See ic_get_fd.
@@ -997,9 +1005,6 @@ int ic_connect_blocking(ichannel_t *nonnull ic, int timeout);
  * no_autodel is not set and the IChannel is not already in closing state,
  * then IChannel will be deleted.
  *
- * This function must not be used inside RPC implementation and reply
- * callbacks. See \ref ic_bye for this purpose.
- *
  * \param[in] ic The IChannel object.
  */
 void ic_disconnect(ichannel_t *nonnull ic);
@@ -1018,8 +1023,8 @@ void ic_spawn(ichannel_t *nonnull ic, int fd, ic_creds_f *nullable creds_fn);
 /** Initiate an IChannel disconnection.
  *
  * This function will initiate a gentle closing of the IChannel. The
- * disconnection will be performed asynchronously and thus \ref ic_bye can be
- * used inside RPC implementation and reply callbacks.
+ * disconnection will be performed asynchronously once all the pending queries
+ * have been written.
  *
  * \param[in] ic The IChannel object.
  */

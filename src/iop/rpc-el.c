@@ -440,7 +440,7 @@ static void ic_el_server_wipe(ic_el_server_t *server)
 DO_REFCNT(ic_el_server_t, ic_el_server);
 
 static void ic_el_server_clear(ic_el_server_t *server,
-                               bool use_wait_for_stop)
+                               bool use_wait_for_stop, bool at_fork)
 {
     if (!server->el_ic) {
         return;
@@ -449,6 +449,15 @@ static void ic_el_server_clear(ic_el_server_t *server,
     el_unregister(&server->el_ic);
 
     dlist_for_each_entry(ic_el_peer_t, peer, &server->peers, node) {
+        if (at_fork && peer->ic) {
+            /* XXX The fork() may have happened from an IChannel callback and
+             * it is expected to force the deletion of those whatever the
+             * state they are in.
+             * By resetting ic->cb_level to 0 we avoid triggering internal
+             * assertions.
+             */
+            peer->ic->cb_level = 0;
+        }
         ic_el_peer_delete(&peer);
     }
 
@@ -469,7 +478,7 @@ static void ic_el_server_el_process(void)
         if (!server->is_stopping) {
             continue;
         }
-        ic_el_server_clear(server, true);
+        ic_el_server_clear(server, true, false);
         server->is_stopping = false;
         ic_el_server_delete(&server);
         qm_del_at(ic_el_server, &_G.servers, pos);
@@ -711,7 +720,7 @@ ic_el_server_listen_block(ic_el_server_t *server, lstr_t uri, double timeout,
     res = ic_el_server_wait_for_stop(server, timeout);
 
     if (server->el_ic) {
-        ic_el_server_clear(server, false);
+        ic_el_server_clear(server, false, false);
     }
 
   end:
@@ -1731,7 +1740,7 @@ static void ic_el_atfork_child(void)
 {
     /* Stop all servers. */
     qm_for_each_value_p(ic_el_server, server_ptr, &_G.servers) {
-        ic_el_server_clear(*server_ptr, false);
+        ic_el_server_clear(*server_ptr, false, true);
         ic_el_server_delete(server_ptr);
     }
     qm_clear(ic_el_server, &_G.servers);
@@ -1776,7 +1785,7 @@ static int ic_el_shutdown(void)
     qm_for_each_pos(ic_el_server, pos, &_G.servers) {
         ic_el_server_t *server = _G.servers.values[pos];
 
-        ic_el_server_clear(server, false);
+        ic_el_server_clear(server, false, false);
         ic_el_server_delete(&server);
     }
     qh_for_each_pos(ic_el_client, pos, &_G.clients) {

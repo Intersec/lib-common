@@ -66,6 +66,33 @@ static struct {
 
 const QM(ic_cbs, ic_no_impl);
 
+#define __EXPR_OR_ZERO(expr) \
+    __builtin_choose_expr(__builtin_types_compatible_p(typeof(expr), void),  \
+                          ((expr), 0), (expr))
+
+/** Call an IChannel callback with keeping track of the current stack level.
+ *
+ * The macro wraps the callback call in __EXPR_OR_ZERO to handle in the same
+ * way callbacks returning an error code and callbacks having a void return
+ * type.
+ */
+#define IC_CALL_CB(_ic, _cb, ...) \
+    ({                                                                       \
+        int __cb_res;                                                        \
+        ichannel_t *__ic = (_ic);                                            \
+                                                                             \
+        if (__ic) {                                                          \
+            assert(__ic->cb_level >= 0);                                     \
+            __ic->cb_level++;                                                \
+        }                                                                    \
+        __cb_res = __EXPR_OR_ZERO((*(_cb))(__VA_ARGS__));                    \
+        if (__ic) {                                                          \
+            __ic->cb_level--;                                                \
+            assert(__ic->cb_level >= 0);                                     \
+        }                                                                    \
+        __cb_res;                                                            \
+    })
+
 /*----- messages stuff -----*/
 
 /* Tracing {{{ */
@@ -445,7 +472,10 @@ static void ic_blk_cb(ichannel_t *ic, ic_msg_t *msg, ic_status_t status,
 {
     ic_msg_cb_b blk = *(ic_msg_cb_b *)msg->priv;
 
+    ic->cb_level++;
     blk(ic, status, res, exn);
+    ic->cb_level--;
+    assert(ic->cb_level >= 0);
     Block_release(blk);
 }
 
@@ -600,7 +630,8 @@ t_ic_query_do_pre_hook(ichannel_t *ic, uint64_t slot, const ic_cb_entry_t *e,
              */
             ic_hook_ctx_save_current();
         }
-        (*e->t_pre_hook)(ic, slot, hdr, e->pre_hook_args, hdr_modified);
+        IC_CALL_CB(ic, e->t_pre_hook, ic, slot, hdr, e->pre_hook_args,
+                   hdr_modified);
         /* XXX: if we reply to the query during pre_hook then
          * _G.ic_hook_ctx will be NULL, and we mustn't call the implementation
          * of the RPC
@@ -624,7 +655,8 @@ void ic_query_do_post_hook(ichannel_t *ic, ic_status_t status, uint64_t slot,
         return;
     }
     if (ctx->post_hook) {
-        (*ctx->post_hook)(ic, status, ctx, ctx->post_hook_args, st, value);
+        IC_CALL_CB(ic, ctx->post_hook, ic, status, ctx, ctx->post_hook_args,
+                   st, value);
     }
     ic_hook_ctx_delete(&ctx);
 
@@ -700,7 +732,7 @@ void __ic_msg_reply_err(ichannel_t *ic, ic_msg_t *msg, ic_status_t status)
     if (msg->cb == IC_PROXY_MAGIC_CB) {
         ic_proxify(ic, msg, -status, NULL, 0, NULL);
     } else {
-        (*msg->cb)(ic, msg, status, NULL, NULL);
+        IC_CALL_CB(ic, msg->cb, ic, msg, status, NULL, NULL);
     }
 }
 
@@ -785,9 +817,10 @@ static void ic_cancel_all(ichannel_t *ic)
     ic_msg_t *msg;
     qm_t(ic_msg) h;
 
-#ifndef NDEBUG
+    if (unexpected(ic->cancel_guard)) {
+        return;
+    }
     ic->cancel_guard = true;
-#endif
 
     while (!htlist_is_empty(&ic->iov_list)) {
         msg = htlist_pop_entry(&ic->iov_list, ic_msg_t, msg_link);
@@ -833,9 +866,7 @@ static void ic_cancel_all(ichannel_t *ic)
      */
     assert (qm_len(ic_msg, &ic->queries) == 0);
 
-#ifndef NDEBUG
     ic->cancel_guard = false;
-#endif
 }
 
 static void ic_choose_id(ichannel_t *ic)
@@ -1146,11 +1177,11 @@ ic_read_process_answer(ichannel_t *ic, int cmd, uint32_t slot,
             iop_set_err2(&err);
             ic_msg_trace(tmp, "%s %*pM", ic_status_to_string(cmd),
                         LSTR_FMT_ARG(err));
-            (*tmp->cb)(ic, tmp, cmd, NULL, &err);
+            IC_CALL_CB(ic, tmp->cb, ic, tmp, cmd, NULL, &err);
         } else {
             iop_clear_err();
             ic_msg_trace(tmp, "%s", ic_status_to_string(cmd));
-            (*tmp->cb)(ic, tmp, cmd, NULL, NULL);
+            IC_CALL_CB(ic, tmp->cb, ic, tmp, cmd, NULL, NULL);
         }
         goto wipe;
     }
@@ -1178,19 +1209,19 @@ ic_read_process_answer(ichannel_t *ic, int cmd, uint32_t slot,
                 }
             }
             t_seal();
-            (*tmp->cb)(ic, tmp, IC_MSG_INVALID, NULL, NULL);
+            IC_CALL_CB(ic, tmp->cb, ic, tmp, IC_MSG_INVALID, NULL, NULL);
         } else
         if (cmd == IC_MSG_OK) {
             t_seal();
             ic_msg_trace(tmp, "OK");
-            (*tmp->cb)(ic, tmp, cmd, value, NULL);
+            IC_CALL_CB(ic, tmp->cb, ic, tmp, cmd, value, NULL);
         } else {
             t_seal();
             ic_msg_trace(tmp, "%s", ic_status_to_string(cmd));
-            (*tmp->cb)(ic, tmp, cmd, NULL, value);
+            IC_CALL_CB(ic, tmp->cb, ic, tmp, cmd, NULL, value);
         }
     } else {
-        (*tmp->cb)(ic, tmp, cmd, NULL, NULL);
+        IC_CALL_CB(ic, tmp->cb, ic, tmp, cmd, NULL, NULL);
     }
 
   wipe:
@@ -1552,9 +1583,12 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
         ic->cmd  = cmd;
         assert (value);
         if (e->cb_type == IC_CB_NORMAL_BLK) {
+            ic->cb_level++;
             (e->u.blk.cb)(ic, query_slot, value, hdr);
+            ic->cb_level--;
+            assert(ic->cb_level >= 0);
         } else {
-            (*e->u.cb.cb)(ic, query_slot, value, hdr);
+            IC_CALL_CB(ic, e->u.cb.cb, ic, query_slot, value, hdr);
         }
         if (is_async) {
             ic_query_do_post_hook(ic, cmd, query_slot, NULL, NULL);
@@ -1864,7 +1898,7 @@ static ssize_t _ic_read(ichannel_t *ic, short events, int sock, int to_read)
 
     if (ic->wa_soft > 0) {
         if (!ic->wa_soft_timer) {
-            ic->on_event(ic, IC_EVT_ACT);
+            IC_CALL_CB(ic, ic->on_event, ic, IC_EVT_ACT);
             ic->wa_soft_timer = el_timer_register(ic->wa_soft, 0, 0,
                                                   ic_watch_act_soft, ic);
             el_unref(ic->wa_soft_timer);
@@ -2061,12 +2095,61 @@ static void ic_cancel_addr_resolution(ichannel_t * nonnull ic)
     ic->elh = NULL;
 }
 
+static inline bool ic_should_be_autodel(const ichannel_t *ic)
+{
+    return ic->is_spawned && !ic->no_autodel;
+}
+
+static void ic_do_delete(el_t el, data_t data)
+{
+    ichannel_t *ic = data.ptr;
+
+    ic_delete(&ic);
+}
+
+static void ic_delete_later(ichannel_t *ic)
+{
+    /* XXX ic->el_before may be registered by ic_local_async_flush() in which
+     * case we must take over.
+     */
+    el_unregister(&ic->el_before);
+    ic->el_before = el_before_register(&ic_do_delete, ic);
+}
+
+static bool ic_smart_delete(ichannel_t *nonnull *nonnull icp)
+{
+    if ((*icp)->cb_level > 0) {
+        ic_delete_later(*icp);
+        return false;
+    }
+    ic_delete(icp);
+
+    return true;
+}
+
+static void ic_autodel_or_mark_disconnected(ichannel_t *ic)
+{
+    if (!ic_should_be_autodel(ic)) {
+        ic_mark_disconnected(ic);
+        return;
+    }
+    if (ic_smart_delete(&ic)) {
+        return;
+    }
+    /* The IChannel cannot be deleted right now thus we disconnect it to
+     * ensure it won't be left in a weird state until it can actually be
+     * deleted.
+     */
+    ic_disconnect(ic);
+}
+
 void ic_disconnect(ichannel_t *ic)
 {
     thr_assert_is_main_thread();
 
     ic->queuable = false;
     ic->is_connected = false;
+    ic->is_closing = true;
 
     if (ic->ssl) {
         SSL_free(ic->ssl);
@@ -2083,14 +2166,19 @@ void ic_disconnect(ichannel_t *ic)
         qh_wipe(ic_replies, &ic->dbg_replies);
         qh_init(ic_replies, &ic->dbg_replies);
 #endif
-        ic->on_event(ic, IC_EVT_DISCONNECTED);
+        IC_CALL_CB(ic, ic->on_event, ic, IC_EVT_DISCONNECTED);
     }
     el_unregister(&ic->timer);
     el_unregister(&ic->wa_soft_timer);
     ic_drop_id(ic);
 
-    if (!ic->is_closing && ic->is_spawned && !ic->no_autodel) {
-        ic_delete(&ic);
+    if (ic->is_wiped) {
+        /* IChannel is being wiped and must neither be reset nor deleted. */
+        return;
+    }
+
+    if (ic_should_be_autodel(ic)) {
+        ic_smart_delete(&ic);
     } else {
         ic_choose_id(ic);
         qv_clear(&ic->iov);
@@ -2108,8 +2196,12 @@ void ic_wipe(ichannel_t *ic)
     if (unexpected(ic->is_wiped)) {
         return;
     }
+    /* XXX cb_level isn't check when el_is_terminating() because there is a
+     * lot of code wiping IChannels from their callback on purpose because
+     * exit() will be called synchronously.
+     */
+    assert(!ic->cb_level || el_is_terminating());
     ic->is_wiped = true;
-    ic->is_closing = true;
     ic_disconnect(ic);
     ic_cancel_all(ic);
 
@@ -2117,9 +2209,8 @@ void ic_wipe(ichannel_t *ic)
         *ic->owner = NULL;
     }
     if (ic->on_wipe) {
-        (*ic->on_wipe)(ic);
+        IC_CALL_CB(ic, ic->on_wipe, ic);
     }
-    ic_drop_id(ic);
     qm_wipe(ic_msg, &ic->queries);
 #ifdef IC_DEBUG_REPLIES
     qh_init(ic_replies, &ic->dbg_replies);
@@ -2131,7 +2222,7 @@ void ic_wipe(ichannel_t *ic)
     lstr_wipe(&ic->name);
     lstr_wipe(&ic->remote_addr);
     lstr_wipe(&ic->client_addr);
-    el_unregister(&ic->local_async_el);
+    el_unregister(&ic->el_before);
 }
 
 static int ic_event(el_t ev, int fd, short events, data_t priv)
@@ -2156,6 +2247,12 @@ static int ic_event(el_t ev, int fd, short events, data_t priv)
         ic_msg_filter_on_bye(ic);
     }
     if (!ic->elh) {
+        /* The IChannel has been disconnected from an RPC callback, and may
+         * require to be deleted.
+         */
+        if (ic_should_be_autodel(ic)) {
+            goto close;
+        }
         return 0;
     }
     if (ic_write(ic, fd) < 0) {
@@ -2170,11 +2267,7 @@ static int ic_event(el_t ev, int fd, short events, data_t priv)
     return 0;
 
 close:
-    if (ic->is_spawned && !ic->no_autodel) {
-        ic_delete(&ic);
-    } else {
-        ic_mark_disconnected(ic);
-    }
+    ic_autodel_or_mark_disconnected(ic);
     return 0;
 }
 
@@ -2270,15 +2363,14 @@ static void ic_queue(ichannel_t *ic, ic_msg_t *msg, uint32_t flags)
     }
 }
 
-static void __ic_flush(ichannel_t *ic, int fd)
+static int __ic_flush(ichannel_t *ic, int fd)
 {
     if (ic_write(ic, fd) < 0) {
-        if (ic->is_spawned && !ic->no_autodel) {
-            ic_delete(&ic);
-        } else {
-            ic_mark_disconnected(ic);
-        }
+        ic_mark_disconnected(ic);
+        return -1;
     }
+
+    return 0;
 }
 
 void ic_flush(ichannel_t *ic)
@@ -2292,7 +2384,9 @@ void ic_flush(ichannel_t *ic)
     }
 
     fd_unset_features(fd, O_NONBLOCK);
-    __ic_flush(ic, fd);
+    if (__ic_flush(ic, fd) < 0) {
+        return;
+    }
     fd_set_features(fd, O_NONBLOCK);
 }
 
@@ -2372,7 +2466,7 @@ ic_local_async_flush(el_t el, data_t data)
     htlist_t replies;
     htlist_t queries;
 
-    el_unregister(&ic->local_async_el);
+    el_unregister(&ic->el_before);
     /* XXX: We do not iterate directly on ichannel queries and replies list.
      * The reason is to ensure that handling queries and replies could
      * trigger new queries which would then be handled synchronously.
@@ -2402,8 +2496,11 @@ ic_local_async_flush(el_t el, data_t data)
 
 static void ic_local_async_schedule_flush(ichannel_t *ic)
 {
-    if (!ic->local_async_el) {
-        ic->local_async_el = el_before_register(ic_local_async_flush, ic);
+    /* XXX ic->el_before may be registered by ic_delete_later() in which case
+     * we must not try to replace it.
+     */
+    if (!ic->el_before) {
+        ic->el_before = el_before_register(ic_local_async_flush, ic);
     }
 }
 
@@ -2425,12 +2522,17 @@ void __ic_query_flags(ichannel_t *ic, ic_msg_t *msg, uint32_t flags)
 {
     thr_assert_is_main_thread();
 
-    /* if that crashes, one of the IC_MSG_ABORT callback reenqueues directly in
-     * that ichannel_t which is forbidden, fix the code
-     */
-    assert(ic->cancel_guard == false);
     assert(ic->iop_env);
 
+    if (unexpected(ic->cancel_guard)) {
+        /* One of the callbacks re-enqueued directly in that IChannel after
+         * receiving an IC_MSG_ABORT which is forbidden. The query is silently
+         * discarded to avoid an infinite loop. However any private context
+         * associated to the ic_msg_t will probably be leaked.
+         */
+        ic_msg_delete(&msg);
+        return;
+    }
     msg->ic = ic;
 
     if (msg->timeout > 0 && !ic->is_local_async) {
@@ -2736,6 +2838,13 @@ void ic_bye(ichannel_t *ic)
     if (ic->elh) {
         ic_sc_do(ic, IC_SC_BYE, NULL, 0);
     } else {
+        if (ic_should_be_autodel(ic)) {
+            /* The IChannel will be deleted asynchronously because it would be
+             * unexpected by users of ic_bye() to have a synchronous delete.
+             */
+            ic_delete_later(ic);
+            return;
+        }
         el_unregister(&ic->timer);
         el_unregister(&ic->wa_soft_timer);
     }
@@ -2845,7 +2954,7 @@ static int ic_mark_connected(ichannel_t *ic, int fd)
     ic->queuable = true;
     el_fd_set_hook(ic->elh, ic_event);
     ic->is_connected = true;
-    ic->on_event(ic, IC_EVT_CONNECTED);
+    IC_CALL_CB(ic, ic->on_event, ic, IC_EVT_CONNECTED);
     if (ic->on_creds && ic->is_unix) {
         ic_creds_t creds;
         struct ucred ucred;
@@ -2853,7 +2962,7 @@ static int ic_mark_connected(ichannel_t *ic, int fd)
 
         RETHROW(getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &len));
         creds = (ic_creds_t){ .uid = ucred.uid, .gid = ucred.gid, .pid = ucred.pid };
-        RETHROW((*ic->on_creds)(ic, &creds));
+        RETHROW(IC_CALL_CB(ic, ic->on_creds, ic, &creds));
 
     }
     /* force an exchange at connect time, so force NOP if queue is empty */
@@ -2869,8 +2978,11 @@ void ic_mark_disconnected(ichannel_t *ic)
 {
     thr_assert_is_main_thread();
 
-    ic->is_closing = true;
-    ic_disconnect(ic);
+    /* XXX We consider ic_mark_disconnected() as callback because we expect
+     * the IChannel to never be deleted synchronously when using this API.
+     */
+    IC_CALL_CB(ic, &ic_disconnect, ic);
+
     if (!ic->is_spawned && ic->auto_reconn) {
         assert (ic->timer == NULL);
         ic->timer = el_timer_register(ic->retry_delay, 0, 0, ic_reconnect,
@@ -3137,7 +3249,7 @@ static void ic_watch_act_soft(el_t ev, data_t priv)
 {
     ichannel_t *ic = priv.ptr;
 
-    ic->on_event(ic, IC_EVT_NOACT);
+    IC_CALL_CB(ic, ic->on_event, ic, IC_EVT_NOACT);
     el_unregister(&ic->wa_soft_timer);
 }
 
@@ -3423,7 +3535,12 @@ void ic_spawn(ichannel_t *ic, int fd, ic_creds_f *creds_fn)
             fd_set_features(fd, FD_FEAT_TCP_NODELAY);
         }
         if (ic_version_write(ic, fd) < 0) {
-            ic_mark_disconnected(ic);
+            /* XXX we call ic_mark_disconnected() like we were in a callback
+             * because ic_spawn() isn't expected to fail by caller for
+             * historical reasons, and thus we have to delete it
+             * asynchronously.
+             */
+            IC_CALL_CB(ic, &ic_mark_disconnected, ic);
             return;
         }
     }
