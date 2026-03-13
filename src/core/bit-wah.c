@@ -1018,11 +1018,11 @@ void wah_check_invariant(const wah_t *map)
  *   - The last chunk's 2-word header is removed from the bucket.
  *   - The previous chunk's literal count is incremented.
  *   - last_run_pos is moved back to previous_run_pos.
+ *   - the former run word is appended as a literal value.
  *
  * If there is no previous chunk (last_run_pos == 0):
- *   - The run is converted to a zero-word run with 1 literal.
- *
- * In both cases the former run word is appended as a literal value.
+ *   - The run is left untouched since we would waste one word by converting
+ *     it to a literal.
  *
  * This is a key normalization step called before appending non-trivial
  * literals to ensure the last chunk is ready to accept them.
@@ -1034,26 +1034,21 @@ void wah_flatten_last_run(wah_t *map)
     wah_header_t *head;
 
     head = wah_last_run_header(map, bucket);
-    if (likely(head->words != 1)) {
+    if (likely(head->words != 1 || map->last_run_pos <= 0)) {
         return;
     }
     assert(*wah_last_run_count(map) == 0);
     assert(wah_bucket_len(bucket) == map->last_run_pos + 2);
 
-    if (map->last_run_pos > 0) {
-        if (wah_bucket_is_inlined(bucket)) {
-            bucket->inlined.len -= 2;
-            bucket->inlined.words[map->previous_run_pos + 1].count++;
-        } else {
-            bucket->qv.len -= 2;
-            bucket->qv.tab[map->previous_run_pos + 1].count++;
-        }
-        map->last_run_pos     = map->previous_run_pos;
-        map->previous_run_pos = -1;
+    if (wah_bucket_is_inlined(bucket)) {
+        bucket->inlined.len -= 2;
+        bucket->inlined.words[map->previous_run_pos + 1].count++;
     } else {
-        head->words = 0;
-        wah_bucket_word_ptr(bucket, 1)->count = 1;
+        bucket->qv.len -= 2;
+        bucket->qv.tab[map->previous_run_pos + 1].count++;
     }
+    map->last_run_pos     = map->previous_run_pos;
+    map->previous_run_pos = -1;
 
     wah_append_literal(map, head->bit ? UINT32_MAX : 0);
     wah_check_invariant(map);
@@ -2534,6 +2529,20 @@ wah_t *wah_init_from_data(wah_t *map, pstream_t data)
 
     if (likely(ctx.size >= 1)) {
         uint64_t bits_count = ctx.tab[0].head.words * WAH_BIT_IN_WORD;
+
+        if (!bits_count && ctx.size >= 4 && ctx.tab[1].count == 1 &&
+            (!ctx.tab[2].literal || ctx.tab[2].literal == UINT32_MAX) &&
+            !!ctx.tab[2].literal == ctx.tab[3].head.bit)
+        {
+            /* Because of an old bug in wah_flatten_last_run() we may have an
+             * overfilled WAH looking like that:
+             *     { words: 0; bit: 0 }, { count: 1 }, { literal: 0x0 },
+             *     { words: <a lot>; bit: 0 }, { count: 0 }
+             *
+             * The ugly if above detects this case…
+             */
+            bits_count = (1ULL + ctx.tab[3].head.words) * WAH_BIT_IN_WORD;
+        }
 
         assert(WAH_BITS_IN_BUCKET < WAH_MAX_WORDS_IN_RUN * 8);
         if (bits_count <= WAH_BITS_IN_BUCKET) {

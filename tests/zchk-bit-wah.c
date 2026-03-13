@@ -1054,6 +1054,52 @@ Z_GROUP_EXPORT(wah) {
     } Z_TEST_END;
 
     /* }}} */
+    Z_TEST(fuzzing_nr_2) { /* {{{ */
+        t_scope;
+        wah_t map __attr_cleanup__(wah_wipe);
+        wah_t map2 __attr_cleanup__(wah_wipe);
+        lstr_t storage;
+        const wah_word_t data[] = {
+            { .head = { .words = 0 } },
+            { .count = 1 },
+            { .literal = 0x0 },
+            { .head = { .words = 134737920, .bit = 0 } },
+            { .count = 0 }
+        };
+        pstream_t ps = ps_init(data, countof(data) * sizeof(data[0]));
+
+        wah_init(&map);
+
+        /* Adding 16 0s will introduce some pending bits leaving the first
+         * bucket empty. */
+        wah_add0s(&map, 16);
+
+        /* Adding a lot of additional 0s at once after the pending bits used
+         * to wrongly flatten the pending bits generating a WAH looking like:
+         *     { words: 0; bit: 0 }, { count: 1 }, { literal: 0x0 },
+         *     { words: <a lot>; bit: 0 }, { count: 0 }
+         *
+         * Such a WAH isn't normalized, and thus would trigger various
+         * asserts.
+         */
+        wah_add0s(&map, 16711680ULL);
+        wah_add0s(&map, 4294901760ULL);
+        wah_pad32(&map);
+
+        storage = t_wah_get_storage_lstr(&map);
+        Z_ASSERT_P(wah_init_from_data(&map2, ps_initlstr(&storage)));
+
+        Z_ASSERT_EQ(map.len, map2.len);
+
+        /* Now check that we are still able to reload the old broken version
+         * of the same WAH.
+         */
+        wah_wipe(&map2);
+        Z_ASSERT_P(wah_init_from_data(&map2, ps));
+        Z_ASSERT_EQ(map.len, map2.len);
+    } Z_TEST_END;
+
+    /* }}} */
 
     wah_reset_bits_in_bucket();
 } Z_GROUP_END;
