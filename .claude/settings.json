@@ -1,4 +1,9 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(*.claude/scripts/gerrit_helper.py*)"
+    ]
+  },
   "hooks": {
     "Stop": [
       {
