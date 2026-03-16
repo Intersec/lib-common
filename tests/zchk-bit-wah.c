@@ -189,6 +189,7 @@ Z_GROUP_EXPORT(wah) {
     /* Have a smaller value of bits_in_bucket for tests to stress the buckets
      * code. */
     wah_set_bits_in_bucket(Z_WAH_BITS_IN_BUCKETS);
+    wah_set_check_normalized(true);
 
     Z_TEST(simple) { /* {{{ */
         wah_t map;
@@ -758,9 +759,16 @@ Z_GROUP_EXPORT(wah) {
          * split.
          */
         wah_set_bits_in_bucket(4 * WAH_BIT_IN_WORD);
+
+        /* Because of the split some buckets will not be normalized anymore
+         * which is expected in this case.
+         */
+        wah_set_check_normalized(false);
+
         Z_ASSERT_P(wah_init_from_data(&map1, ps_initsb(&sb)));
         CHECK_WAH(5, (4 * 5 + 1) * WAH_BIT_IN_WORD);
         wah_wipe(&map1);
+        wah_set_check_normalized(true);
 
         /* We remake the original WAH but with smaller buckets and with some
          * additional bits in order to be exactly aligned on bits_in_bucket to
@@ -950,8 +958,10 @@ Z_GROUP_EXPORT(wah) {
         Z_HELPER_RUN(z_wah_word_enum_no_reg_test(&map, literal));
 
         /* Then we load the sub-optimal version of the same WAH. */
+        wah_set_check_normalized(false);
         wah_wipe(&map);
         Z_ASSERT_P(wah_init_from_data(&map, ps));
+        wah_set_check_normalized(true);
 
         Z_ASSERT_EQ(map._buckets.len, 1);
         Z_ASSERT_EQ(wah_bucket_len(&map._buckets.tab[0]), 5);
@@ -1095,7 +1105,9 @@ Z_GROUP_EXPORT(wah) {
          * of the same WAH.
          */
         wah_wipe(&map2);
+        wah_set_check_normalized(false);
         Z_ASSERT_P(wah_init_from_data(&map2, ps));
+        wah_set_check_normalized(true);
         Z_ASSERT_EQ(map.len, map2.len);
     } Z_TEST_END;
 

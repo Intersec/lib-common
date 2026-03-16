@@ -375,6 +375,7 @@ void wah_and_(wah_t *map, const wah_t *other, bool map_not, bool other_not);
 #ifndef NDEBUG
 void wah_set_bits_in_bucket(uint64_t nb_bits);
 void wah_reset_bits_in_bucket(void);
+void wah_set_check_normalized(bool value);
 #endif /* NDEBUG */
 
 /* }}} */

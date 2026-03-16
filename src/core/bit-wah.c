@@ -19,8 +19,6 @@
 #include <lib-common/arith.h>
 #include <lib-common/bit-wah.h>
 
-//#define WAH_CHECK_NORMALIZED  1
-
 #define WAH_BITS_IN_BUCKET_DEFAULT (8 * (512ul << 20))
 
 #ifdef NDEBUG
@@ -29,8 +27,11 @@
 
 #else
 
+#define WAH_CHECK_NORMALIZED  1
+
 static struct {
     uint64_t bits_in_bucket;
+    bool check_normalized;
 } bit_wah_g = {
 # define _G  bit_wah_g
     .bits_in_bucket = WAH_BITS_IN_BUCKET_DEFAULT,
@@ -945,26 +946,31 @@ static
 void wah_check_normalized(const wah_t *map)
 {
 #ifdef WAH_CHECK_NORMALIZED
-    uint32_t prev_word = 0xcafebabe;
+
+    if (likely(!_G.check_normalized)) {
+        return;
+    }
 
     tab_for_each_ptr(bucket, &map->_buckets) {
+        uint64_t prev_word = UINT64_MAX;
+        const wah_words_t bucket_words = wah_bucket_get_words(bucket);
         int pos = 0;
 
-        while (pos < bucket->len) {
-            wah_header_t *head  = &bucket->tab[pos++].head;
-            uint32_t      count = bucket->tab[pos++].count;
+        while (pos < bucket_words.len) {
+            wah_header_t *head  = &bucket_words.tab[pos++].head;
+            uint32_t      count = bucket_words.tab[pos++].count;
 
-            assert (head->words >= 2 || pos == bucket->len || pos == 2);
+            assert (head->words >= 2 || pos == bucket_words.len || pos == 2);
             if (prev_word == UINT32_MAX || prev_word == 0) {
-                assert (prev_word != head->bit ? UINT32_MAX : 0);
+                assert(prev_word != (head->bit ? UINT32_MAX : 0));
                 prev_word = head->bit ? UINT32_MAX : 0;
             }
 
             for (uint32_t i = 0; i < count; i++) {
                 if (prev_word == UINT32_MAX || prev_word == 0) {
-                    assert (prev_word != bucket->tab[pos].literal);
+                    assert(prev_word != bucket_words.tab[pos].literal);
                 }
-                prev_word = bucket->tab[pos++].literal;
+                prev_word = bucket_words.tab[pos++].literal;
             }
         }
     }
@@ -2811,6 +2817,11 @@ void wah_set_bits_in_bucket(uint64_t nb_bits)
 void wah_reset_bits_in_bucket(void)
 {
     wah_set_bits_in_bucket(WAH_BITS_IN_BUCKET_DEFAULT);
+}
+
+void wah_set_check_normalized(bool value)
+{
+    _G.check_normalized = value;
 }
 #endif /* NDEBUG */
 
