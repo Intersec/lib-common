@@ -1584,6 +1584,9 @@ void wah_add_aligned(wah_t *map, const uint8_t *src, uint64_t count)
 {
     uint64_t exp_len = map->len + count;
 
+    assert(map->len % WAH_BIT_IN_WORD == 0);
+    assert(!map->_pending);
+
     while (count >= 32) {
         ssize_t run_length = 32;
         bool    bit = false;
@@ -1661,7 +1664,6 @@ void wah_add(wah_t *map, const void *data, uint64_t count)
             count -= remain;
         }
     }
-    assert (map->len % WAH_BIT_IN_WORD == 0);
     wah_add_aligned(map, data, count);
     wah_check_invariant(map);
 }
