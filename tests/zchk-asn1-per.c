@@ -1248,7 +1248,9 @@ Z_GROUP_EXPORT(asn1_aper) {
         } tests[3];
 
         tstiop__asn1_ext_choice__t out;
-        SB(buf, 42);
+        /* FIXME: it was previously 42. It should not be necessary to properly
+         * align the buffer size on 8 bytes manually. */
+        SB(buf, 48);
         pstream_t ps;
 
         tests[0].in = IOP_UNION(tstiop__asn1_ext_choice, i, 192);
