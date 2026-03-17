@@ -551,6 +551,34 @@ cdef class _InternalBaseType(type):
     cdef Plugin plugin
 
 
+cdef inline Plugin base_get_plugin_cls(object cls):
+    """Get the plugin from base class.
+
+    Parameters
+    ----------
+    cls
+        The IOPy base type.
+
+    Returns
+    -------
+        The Plugin.
+    """
+    cdef _InternalBaseType iop_type = cls
+    cdef object parent
+
+    # Fast path: the type is an IOP base directly
+    if likely(iop_type.plugin is not None):
+        return iop_type.plugin
+
+    # Slow path: walk MRO to find first real IOP base parent
+    for parent in (<object>cls).__mro__:
+        if (isinstance(parent, _InternalBaseType) and
+                (<_InternalBaseType>parent).plugin is not None):
+            return (<_InternalBaseType>parent).plugin
+
+    raise TypeError('no IOP base found in MRO for class %s' % cls)
+
+
 # }}}
 # {{{ Enum
 
@@ -882,8 +910,19 @@ cdef inline const iop_enum_t *enum_get_desc_cls(object cls) except NULL:
         The C enum iop type.
     """
     cdef _InternalEnumType iop_type = cls
+    cdef object parent
 
-    return iop_type.desc
+    # Fast path: the type is an IOP Enum directly
+    if likely(iop_type.desc != NULL):
+        return iop_type.desc
+
+    # Slow path: walk MRO to find first real IOP Enum parent
+    for parent in (<object>cls).__mro__:
+        if (isinstance(parent, _InternalEnumType) and
+                (<_InternalEnumType>parent).desc != NULL):
+            return (<_InternalEnumType>parent).desc
+
+    raise TypeError('no IOP enum found in MRO for class %s' % cls)
 
 
 cdef inline const iop_enum_t *enum_get_desc(EnumBase py_en) except NULL:
@@ -1774,7 +1813,19 @@ cdef inline _InternalStructUnionType struct_union_get_iop_type_cls(
     -------
         The internal object that holds the C iop struct and union desc.
     """
-    return cls
+    cdef _InternalStructUnionType iop_type = cls
+
+    # Fast path: the type is an IOP struct/union directly
+    if likely(iop_type.desc != NULL):
+        return iop_type
+
+    # Slow path: walk MRO to find first real IOP struct/union parent
+    for parent in (<object>cls).__mro__:
+        if (isinstance(parent, _InternalStructUnionType) and
+                (<_InternalStructUnionType>parent).desc != NULL):
+            return <_InternalStructUnionType>parent
+
+    raise TypeError('no IOP struct/union found in MRO for class %s' % cls)
 
 
 cdef inline _InternalStructUnionType struct_union_get_iop_type(
@@ -1980,7 +2031,6 @@ cdef int add_error_convert_field_different_plugins(
     -------
         -1 in case of unexpected python exception. 0 otherwise.
     """
-    cdef _InternalBaseType py_obj_base_type
     cdef Plugin other_plugin
     cdef lstr_t field_type_name
     cdef lstr_t dso_path
@@ -1995,8 +2045,7 @@ cdef int add_error_convert_field_different_plugins(
         return 0
 
     # Get the plugin of the other object
-    py_obj_base_type = type(py_obj)
-    other_plugin = py_obj_base_type.plugin
+    other_plugin = base_get_plugin_cls(type(py_obj))
     if other_plugin == plugin:
         # Same plugin, the previous error is enough
         return 0

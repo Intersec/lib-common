@@ -2211,6 +2211,56 @@ class IopyTest(z.TestCase):
         self.assertEqual(getattr(u, 'raise'), 7)
         self.assertFalse(hasattr(c, 'nonlocal'))
 
+    def test_manual_inheritance(self) -> None:
+        class ManualEnum(self.r.test.EnumA):  # type: ignore[misc, name-defined]
+            pass
+
+        enum = ManualEnum('A')
+        self.assertEqual(enum, 'A')
+        self.assertEqual(enum, 1)
+        self.assertEqual(enum, ManualEnum('A'))
+
+        class ManualStruct(self.r.test.StructB):  # type: ignore[misc, name-defined]
+            pass
+
+        struct = ManualStruct(a='test', b='foo')
+        self.assertEqual(
+            struct.to_dict(),
+            {
+                'a': 'test',
+                'b': 'foo',
+                'tab': [],
+            },
+        )
+        self.assertEqual(struct, ManualStruct(a='test', b='foo'))
+
+        class ManualUnion(self.r.test.UnionA):  # type: ignore[misc, name-defined]
+            pass
+
+        union = ManualUnion(i=20)
+        self.assertEqual(
+            union.to_dict(),
+            {
+                'i': 20,
+            },
+        )
+        self.assertEqual(union, ManualUnion(i=20))
+
+        class ManualClass(self.r.test.ClassB):  # type: ignore[misc, name-defined]
+            pass
+
+        klass = ManualClass(optField=1)
+        self.assertEqual(
+            klass.to_dict(),
+            {
+                '_class': 'test.ClassB',
+                'field1': 0,
+                'field2': 0,
+                'optField': 1,
+            },
+        )
+        self.assertEqual(klass, ManualClass(optField=1))
+
 
 # }}}
 # {{{ IopyIfaceTests
