@@ -16,6 +16,7 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
+# mypy: disable-error-code="unused-ignore"
 from __future__ import annotations
 
 import asyncio
@@ -30,7 +31,7 @@ import sys
 import threading
 import time
 import warnings
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
@@ -151,7 +152,7 @@ def z_iopy_test_threads_and_forks(
 
 
 @contextmanager
-def z_iopy_use_fake_tcp_server(uri: str) -> Iterator[socket.socket]:
+def z_iopy_use_fake_tcp_server(uri: str) -> Generator[socket.socket]:
     addr, port_str = uri.split(':')
     port = int(port_str)
 
@@ -396,6 +397,24 @@ class IopyTest(z.TestCase):
             'field1': 0,
             'field2': 87,
         }
+        # Annotated to help pyrefly infer the element type: when the list has
+        # multiple TypedDict literals with disjoint keys, pyrefly joins them
+        # into `dict[str, ...]` instead of the expected `UnionA_DictType`.
+        tu_list: list[test__iop.UnionA_DictType] = [
+            {
+                'i': 77,
+            },
+            {
+                's': 'pouet',
+            },
+            {
+                'a': {
+                    '_class': 'test.ClassA',
+                    'field1': 7,
+                    'optField': 642,
+                },
+            },
+        ]
         dict_struct_to_dict: test__iop.StructToDict_DictType = {
             'structA': {
                 'e': 'B',
@@ -403,21 +422,7 @@ class IopyTest(z.TestCase):
                 'u': {
                     's': 'aaaa',
                 },
-                'tu': [
-                    {
-                        'i': 77,
-                    },
-                    {
-                        's': 'pouet',
-                    },
-                    {
-                        'a': {
-                            '_class': 'test.ClassA',
-                            'field1': 7,
-                            'optField': 642,
-                        },
-                    },
-                ],
+                'tu': tu_list,
             },
             'privateField': 12,
             'emptyArray': [],
@@ -1043,7 +1048,7 @@ class IopyTest(z.TestCase):
                 self.class_a = self.r.test.ClassA(**kwargs)
                 super(test_StructA, self).__init__()
 
-        sta = self.r.test.StructA(field1=5)  # type: ignore[call-overload]
+        sta: test_StructA = self.r.test.StructA(field1=5)  # type: ignore[call-overload]
         self.assertIsNotNone(
             getattr(sta, 'class_a', None), 'custom init with kwargs failed'
         )
@@ -1153,34 +1158,35 @@ class IopyTest(z.TestCase):
         structa = self.r.test.StructA(  # type: ignore[call-overload]
             val=5, foo=err
         )
-        structa.tu.append(self.r.test.ClassA())
+        structa.tu.append(self.r.test.UnionA(self.r.test.ClassA()))
         structa.u = self.r.test.UnionA('toto')
-        structa.r = self.r.test.Error(code=42, desc='test')
+        structa.r = self.r.test.Error(code=42, desc='test')  # type: ignore[attr-defined]
         enuma = self.r.test.EnumA('B')
         enuma.baz = self.r.test.ClassB()  # type: ignore[attr-defined]
         structa.e = enuma
-        structa.bar = 24
+        structa.bar = 24  # type: ignore[attr-defined]
 
         copy_structa = copy_method(structa)
         self.assertEqual(structa, copy_structa)
-        self.assertEqual(structa.val, copy_structa.val)
-        self.assertEqual(structa.foo, copy_structa.foo)
-        self.assertEqual(structa.bar, copy_structa.bar)
-        self.assertEqual(structa.e.baz, copy_structa.e.baz)
+        self.assertEqual(structa.val, copy_structa.val)  # type: ignore[attr-defined]
+        self.assertEqual(structa.foo, copy_structa.foo)  # type: ignore[attr-defined]
+        self.assertEqual(structa.bar, copy_structa.bar)  # type: ignore[attr-defined]
+        self.assertEqual(structa.e.baz, copy_structa.e.baz)  # type: ignore[attr-defined]
         self.assertEqual(str(structa), str(copy_structa))
         self.assertNotEqual(id(structa), id(copy_structa))
         self.assertNotEqual(
-            is_deepcopy, id(structa.foo) == id(copy_structa.foo)
+            is_deepcopy,
+            id(structa.foo) == id(copy_structa.foo),  # type: ignore[attr-defined]
         )
         self.assertNotEqual(
             is_deepcopy, id(structa.tu[0]) == id(copy_structa.tu[0])
         )
         self.assertNotEqual(is_deepcopy, id(structa.u) == id(copy_structa.u))
         self.assertNotEqual(is_deepcopy, id(structa.e) == id(copy_structa.e))
-        self.assertNotEqual(is_deepcopy, id(structa.r) == id(copy_structa.r))
+        self.assertNotEqual(is_deepcopy, id(structa.r) == id(copy_structa.r))  # type: ignore[attr-defined]
         self.assertNotEqual(
             is_deepcopy,
-            id(structa.e.baz) == id(copy_structa.e.baz),
+            id(structa.e.baz) == id(copy_structa.e.baz),  # type: ignore[attr-defined]
         )
 
         classb = self.r.test.ClassB(field1=42, field2=20)
@@ -2021,23 +2027,24 @@ class IopyTest(z.TestCase):
             '_class': 'test.ClassB',
             'field2': 87,
         }
+        tu_list: list[test__iop.UnionA_DictType] = [
+            {
+                'i': 24,
+            },
+            {
+                'a': cls_b_dct,
+            },
+            {
+                's': 'toto',
+            },
+        ]
         new_struct_a = self.r.test.StructA(
             {
                 'e': 'A',
                 'a': {
                     'field1': 10,
                 },
-                'tu': [
-                    {
-                        'i': 24,
-                    },
-                    {
-                        'a': cls_b_dct,
-                    },
-                    {
-                        's': 'toto',
-                    },
-                ],
+                'tu': tu_list,
             }
         )
 
@@ -2059,7 +2066,7 @@ class IopyTest(z.TestCase):
         exp = r'IOPy type `test.StructA` is not a class'
         with self.assertRaisesRegex(TypeError, exp):
             self.r.test.StructA(  # type: ignore[call-overload]
-                {'_class': 'test.ClassA'}
+                {'_class': 'test.ClassA'}  # type: ignore[bad-argument-type]
             )
 
         # Fail test unknown type
@@ -2146,6 +2153,7 @@ class IopyTest(z.TestCase):
             # Check that the "standard fullname is the same for the typedef
             # and referenced type
             if hasattr(ref_type, 'fullname'):
+                self.assertTrue(hasattr(td_type, 'fullname'))
                 self.assertEqual(td_type.fullname(), ref_type.fullname())
 
             # Create instance of the typedef type
@@ -2158,7 +2166,8 @@ class IopyTest(z.TestCase):
             self.assertIs(type(td_obj), ref_type)
 
             # Get the typedef description
-            td_desc = td_type.get_typedef_description()
+            # TODO: Add typedef stubs
+            td_desc = td_type.get_typedef_description()  # type: ignore[missing-attribute]
 
             # Check the typedef description fullname
             self.assertEqual(td_desc.fullname, f'test.{td_name}')
@@ -4107,7 +4116,7 @@ class IopyAsyncTests(z.TestCase):
         self.hdr = self.p.ic.Hdr(simple=shdr)
 
         def check_hdr(rpc_args: iopy.RPCArgs[Any, Any, Any]) -> None:
-            assert rpc_args.hdr and rpc_args.hdr.simple
+            assert rpc_args.hdr and rpc_args.hdr.simple  # type: ignore[not-callable]
             assert rpc_args.hdr.simple.login == self.hdr.simple.login
             assert rpc_args.hdr.simple.password == self.hdr.simple.password
 

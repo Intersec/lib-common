@@ -575,6 +575,7 @@ class RPC(
 ):
     @property
     def channel(self) -> Channel: ...
+    @typing_extensions.override
     def get_iface(self) -> Iface: ...
     @typing.overload
     def call(
@@ -680,6 +681,7 @@ class AsyncRPC(
 ):
     @property
     def channel(self) -> AsyncChannel: ...
+    @typing_extensions.override
     def get_iface(self) -> AsyncIface: ...
     @typing.overload
     def call(
@@ -841,6 +843,7 @@ RPCServerImplCb: typing_extensions.TypeAlias = typing.Callable[
 class RPCServer(RPCBase[_TRpcArg, _TRpcRes, _TRpcExn]):
     @property
     def channel(self) -> ChannelServer: ...
+    @typing_extensions.override
     def get_iface(self) -> IfaceServer: ...
     @property
     def impl(

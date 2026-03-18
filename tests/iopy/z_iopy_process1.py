@@ -24,6 +24,8 @@
 #    full path name of the iop plugin
 #    uri to connect to
 
+from __future__ import annotations
+
 import sys
 import time
 import warnings
@@ -42,8 +44,11 @@ def main() -> None:
     p = cast('test_iop_plugin__iop.Plugin', iopy.Plugin(plugin_file))
     r = p.register()
 
+    c: test_iop_plugin__iop.Channel | None = None
+
     connected = False
     t0 = time.time()
+
     while not connected and time.time() - t0 < 30:
         try:
             c = r.connect(uri)
@@ -55,6 +60,7 @@ def main() -> None:
     if not connected:
         sys.exit(100)
 
+    assert c is not None
     res = c.test_ModuleA.interfaceA.funA(
         a=r.test.ClassB(field1=1), _login='root', _password='1234'
     )

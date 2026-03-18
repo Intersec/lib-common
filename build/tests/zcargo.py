@@ -90,7 +90,7 @@ def strip_ansi(line: str) -> str:
 class TestStatus:
     __slots__ = ('index', 'name', 'status', 'stdout')
 
-    def __init__(self, index: int, name: str, status: str):
+    def __init__(self, index: int, name: str, status: str) -> None:
         self.name = name
         self.status = status.lower()
         self.stdout: list[str] = []
@@ -134,12 +134,19 @@ class TestSuite:
         'tests',
     )
 
-    def __init__(self, name: str, planned: int):
+    def __init__(self, name: str, planned: int) -> None:
         self.name = name
         self.planned = planned
         self.tests: dict[str, TestStatus] = {}
         self.parse_state = 'STARTED'
         self.test_with_open_stdout: TestStatus | None = None
+        self.status = 'unknown'
+        self.passed = 0
+        self.failed = 0
+        self.ignored = 0
+        self.measured = 0
+        self.filtered = 0
+        self.duration = 0.0
 
     def add_test(self, test: TestStatus) -> None:
         assert test.name not in self.tests

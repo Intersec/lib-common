@@ -21,7 +21,7 @@ import signal
 import sys
 import tempfile
 import threading
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Any
 
@@ -112,7 +112,7 @@ def wipe_children_rearm() -> None:
 
 
 @contextmanager
-def wipe_children_register() -> Iterator[None]:
+def wipe_children_register() -> Generator[None]:
     global THR
 
     # Don't hang child processes on SIGTTOU when changing

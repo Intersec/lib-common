@@ -23,6 +23,7 @@ import datetime
 import os
 import struct
 from argparse import ArgumentParser
+from collections.abc import Sequence
 from enum import IntEnum
 
 CORPUS_DIR = 'corpus'
@@ -296,7 +297,7 @@ def discard_fuzzing_operation(
 
 
 def create_corpus_files_and_dict(
-    corpus: list[list[FuzzingStep]],
+    corpus: list[Sequence[FuzzingStep]],
     category: QpsstressFuzzerCat,
     generate_files: bool = False,
     fuzz_dict_name: str | None = None,
@@ -310,12 +311,7 @@ def create_corpus_files_and_dict(
     corpus_set: set[bytes] = set()
 
     assert generate_files or fuzz_dict_name is not None
-    for i, corpus_case_it in enumerate(corpus):
-        if not isinstance(corpus_case_it, list):
-            corpus_case = [corpus_case_it]
-        else:
-            corpus_case = corpus_case_it
-
+    for i, corpus_case in enumerate(corpus):
         if any(
             discard_fuzzing_operation(item.step, category)
             for item in corpus_case
@@ -377,7 +373,7 @@ def create_corpus(
     fuzz_dict_name: str | None = None,
 ) -> None:
     max_mem_alloc = 33554431
-    corpus: list[list[FuzzingStep]] = []
+    corpus: list[Sequence[FuzzingStep]] = []
 
     corpus += [
         [

@@ -26,7 +26,7 @@ from typing import NamedTuple, TextIO
 
 # Import iopy
 sys.path.insert(0, osp.join(osp.dirname(__file__), '..', 'src', 'iopy'))
-import iopy  # pylint: disable=import-error
+import iopy
 
 
 class ModuleNameComponents(NamedTuple):
@@ -66,7 +66,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def dump_preambule(output_file: TextIO) -> None:
+def dump_preamble(output_file: TextIO) -> None:
     output_file.write(
         textwrap.dedent(
             """\
@@ -75,6 +75,7 @@ def dump_preambule(output_file: TextIO) -> None:
         ######################################################
         # ruff: noqa: CPY001, E501, F401, I001, N801, N802, N815, PYI015, \
 RUF012, RUF100
+        # mypy: disable-error-code="unused-ignore"
 
         import asyncio
         import typing
@@ -169,7 +170,7 @@ def dump_connect_methods(plugin: iopy.Plugin, output_file: TextIO) -> None:
         _hdr: ic__iop.Hdr | None = None,
     ) -> Channel: ...
     @typing.overload  # type: ignore[override]
-    def async_connect(
+    def async_connect(  # type: ignore[bad-override]
         self, uri: str, *,
         default_timeout: float | None = None,
         connect_timeout: float | None = None,
@@ -236,7 +237,10 @@ def dump_plugin(
 
     # Dump modules
     output_file.write('\n')
-    output_file.write('    modules: Modules\n')
+    output_file.write(
+        '    modules: Modules'
+        '  # type: ignore[bad-override-mutable-attribute]\n'
+    )
 
     dump_connect_methods(plugin, output_file)
     dump_no_getattr(output_file)
@@ -257,7 +261,7 @@ def process_dso(dso_path: pathlib.Path, output_pystub: pathlib.Path) -> None:
     )
 
     with open(output_pystub, 'w') as output_file:
-        dump_preambule(output_file)
+        dump_preamble(output_file)
         dump_import_packages(packages, output_file)
         dump_channel_types(plugin, module_names, output_file)
         dump_modules(plugin, module_names, output_file)

@@ -96,7 +96,6 @@ def fixed_list() -> deque[T]:
 
 
 class Result:
-    name: str | None = None
     step_kind: str | None = None
     retry: bool = False
     time = 0.0
@@ -136,7 +135,7 @@ class Result:
         raise NotImplementedError
 
     def _compute(self, items: Iterable[Result]) -> None:
-        results: dict[str, list[Result]] = {k: [] for k in self.z_status_nb}
+        results: dict[str, list[int]] = {k: [] for k in self.z_status_nb}
         for item in items:
             item.compute()
             for k, v in results.items():

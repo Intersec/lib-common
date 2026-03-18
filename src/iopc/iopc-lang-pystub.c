@@ -35,6 +35,7 @@ struct {
     "######################################################\n"               \
     "# ruff: noqa: CPY001, E501, F401, I001, N801, N802, N815, RUF036, "     \
     "RUF100, UP013\n"                                                        \
+    "# mypy: disable-error-code=\"unused-ignore\"\n"                         \
     "\n"                                                                     \
     "import asyncio\n"                                                       \
     "import typing\n"                                                        \
@@ -1010,7 +1011,7 @@ static void iopc_pystub_dump_rpc_call_meth(sb_t *buf,
         buf,
         "\n"
         "    @typing.overload  # type: ignore[override]\n"
-        "    def %s(\n"
+        "    def %s(  # type: ignore[bad-overload]\n"
         "        self, obj: %s, /, *,\n"
         RPC_UNDERSCORE_KWARGS "\n"
         "    ) -> %s: ...\n",
@@ -1382,7 +1383,7 @@ static void iopc_pystub_dump_package(sb_t *buf, const iopc_pkg_t *pkg)
     sb_adds(buf, "@typing.type_check_only\n");
     sb_adds(buf, "class Package(iopy.Package):\n");
 
-    sb_adds(buf, "    interfaces: Interfaces\n\n");
+    sb_adds(buf, "    interfaces: Interfaces  # type: ignore[bad-override]\n\n");
 
     tab_for_each_entry(en, &pkg->enums) {
         sb_addf(buf, "    %s = %s\n", en->name, en->name);
