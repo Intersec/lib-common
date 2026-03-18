@@ -2,6 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(*.claude/scripts/gerrit_helper.py*)"
+    ],
+    "deny": [
+      "Bash(git push*)",
+      "Bash(git push)"
     ]
   },
   "hooks": {
