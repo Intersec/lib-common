@@ -1,0 +1,16 @@
+id: no-preincrement-stmt
+snapshots:
+  void f(void) { ++counter; }:
+    fixed: void f(void) { counter++; }
+    labels:
+    - source: ++counter;
+      style: primary
+      start: 15
+      end: 25
+  void f(void) { ++i; }:
+    fixed: void f(void) { i++; }
+    labels:
+    - source: ++i;
+      style: primary
+      start: 15
+      end: 19

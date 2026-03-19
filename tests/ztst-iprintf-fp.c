@@ -4094,7 +4094,7 @@ int main(int argc, char *argv[])
         }
         sprintf(buffer, "%.100g", d); line = __LINE__;
         if (!matches(buffer, ref)) {
-            ++errcount;
+            errcount++;
             printf("%s:%d: error using \"%s\".  "
                    "Result is \"%s\"; should be: \"%s\".\n",
                    __FILE__, line, "%.100g", buffer, ref);

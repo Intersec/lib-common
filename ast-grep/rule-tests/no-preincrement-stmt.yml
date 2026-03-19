@@ -1,0 +1,13 @@
+id: no-preincrement-stmt
+
+valid:
+  # postincrement as statement: correct
+  - void f(void) { i++; }
+  # preincrement inside an expression: intentional, not flagged
+  - void f(void) { j = ++i; }
+  - void f(void) { foo(++i); }
+  - void f(void) { a[++i] = 0; }
+
+invalid:
+  - void f(void) { ++i; }
+  - void f(void) { ++counter; }

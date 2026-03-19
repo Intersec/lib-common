@@ -1,0 +1,26 @@
+id: no-while-true
+snapshots:
+  while (1) { do_something(); }:
+    labels:
+    - source: while (1) { do_something(); }
+      style: primary
+      start: 0
+      end: 29
+  while (1) {}:
+    labels:
+    - source: while (1) {}
+      style: primary
+      start: 0
+      end: 12
+  while (true) { do_something(); }:
+    labels:
+    - source: while (true) { do_something(); }
+      style: primary
+      start: 0
+      end: 32
+  while (true) {}:
+    labels:
+    - source: while (true) {}
+      style: primary
+      start: 0
+      end: 15

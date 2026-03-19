@@ -1,0 +1,13 @@
+id: no-while-true
+
+valid:
+  - for (;;) {}
+  - for (;;) { do_something(); }
+  - while (condition) { do_something(); }
+  - while (running) {}
+
+invalid:
+  - while (true) {}
+  - while (true) { do_something(); }
+  - while (1) {}
+  - while (1) { do_something(); }

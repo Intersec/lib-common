@@ -1267,7 +1267,7 @@ static int fmt_output(FILE *stream, char *str, size_t size,
                     expsize = exponent(expstr, expt, c);
                     fsize = expsize + ndig;
                     if (ndig > 1 || (flags & FLAG_ALT)) {
-                        ++fsize;
+                        fsize++;
                     }
                 } else
                 if (c == 'f') {         /* f fmt */
@@ -1282,7 +1282,7 @@ static int fmt_output(FILE *stream, char *str, size_t size,
                 if (expt >= ndig) {     /* fixed g fmt */
                     fsize = expt;
                     if (flags & FLAG_ALT)
-                        ++fsize;
+                        fsize++;
                 } else {
                     fsize = ndig + (expt > 0 ? 1 : 2 - expt);
                 }
