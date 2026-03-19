@@ -675,7 +675,7 @@ bool _z_assert_lstrequal(const char *file, int lno, bool use_hex,
     return false;
 }
 
-int z_show_diff(lstr_t exp, lstr_t got, const char *nullable diff_opts,
+int z_show_diff(lstr_t got, lstr_t exp, const char *nullable diff_opts,
                 sb_t *diff)
 {
     t_scope;

@@ -577,14 +577,14 @@ void z_todo_end(void);
 
 /** Show the diff between two multi-lines contents.
  *
- * \param[in] exp  Content initially expected during the test.
- *
  * \param[in] got  Content obtained during the test.
+ *
+ * \param[in] exp  Content initially expected during the test.
  *
  * \param[in] diff_opts  Options to pass to the diff command.
  *                       If not set, the default options "-urNw" will be used.
  */
-int z_show_diff(lstr_t exp, lstr_t got, const char *nullable diff_opts,
+int z_show_diff(lstr_t got, lstr_t exp, const char *nullable diff_opts,
                 sb_t *diff);
 
 int  z_setup(int argc, char **argv);
