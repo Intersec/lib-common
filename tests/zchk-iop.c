@@ -2921,11 +2921,10 @@ Z_GROUP_EXPORT(iop)
     Z_TEST(json_unicode_surrogates, "test JSON Unicode surrogate pairs") { /* {{{ */
         t_scope;
         const iop_struct_t *st_string;
-        iop_dso_t *dso;
         SB_1k(sb);
 
-        dso = Z_DSO_OPEN();
-        st_string = iop_dso_find_type(dso, LSTR("tstiop.StringTest"));
+        st_string = iop_env_get_struct(_G.iop_env,
+                                       LSTR("tstiop.StringTest"));
         Z_ASSERT_P(st_string, "Failed to find tstiop.StringTest struct");
 
         /* Test decoding: surrogate pairs to UTF-8 */
@@ -3011,7 +3010,7 @@ Z_GROUP_EXPORT(iop)
 
             /* Decode */
             ps = ps_initsb(&sb);
-            Z_ASSERT_N(t_iop_junpack_ptr_ps(&ps, st_string,
+            Z_ASSERT_N(t_iop_junpack_ptr_ps(_G.iop_env, &ps, st_string,
                                             (void **)&parsed, 0, NULL));
             Z_ASSERT_LSTREQUAL(parsed->test_string, orig.test_string);
 
@@ -3049,7 +3048,8 @@ Z_GROUP_EXPORT(iop)
                 void *res = NULL;
                 int ret;
 
-                ret = t_iop_junpack_ptr_ps(&ps, st_string, &res, 0, NULL);
+                ret = t_iop_junpack_ptr_ps(_G.iop_env, &ps, st_string,
+                                          &res, 0, NULL);
                 /* Unpaired surrogates should be accepted (WHATWG) */
                 Z_ASSERT_N(ret, "%s should be accepted", t->test_name);
             }
@@ -3101,7 +3101,8 @@ Z_GROUP_EXPORT(iop)
                 {"{\"testInt\": c'\\uD83D'}", 0xD83D, "unpaired high"},
             };
 
-            st_int = iop_dso_find_type(dso, LSTR("tstiop.IntTest"));
+            st_int = iop_env_get_struct(_G.iop_env,
+                                       LSTR("tstiop.IntTest"));
             Z_ASSERT_P(st_int, "Failed to find tstiop.IntTest struct");
 
             carray_for_each_ptr(t, char_tests) {
@@ -3109,15 +3110,49 @@ Z_GROUP_EXPORT(iop)
                 tstiop__int_test__t *res = NULL;
                 int ret;
 
-                ret = t_iop_junpack_ptr_ps(&ps, st_int,
-                                           (void **)&res, 0, NULL);
+                ret = t_iop_junpack_ptr_ps(_G.iop_env, &ps, st_int,
+                                          (void **)&res, 0, NULL);
                 Z_ASSERT_N(ret, "%s should parse", t->test_name);
                 Z_ASSERT_EQ(res->test_int, t->expected,
                             "%s value mismatch", t->test_name);
             }
         }
 
-        iop_dso_close(&dso);
+    } Z_TEST_END
+    /* }}} */
+    Z_TEST(json_invalid_hex_escape, "test JSON with invalid \\x escapes") {
+        /* {{{ */
+        t_scope;
+        const iop_struct_t *st_string = &tstiop__string_test__s;
+
+        /* Invalid hex escape sequences after \x should be kept literally
+         * instead of causing a parse error.
+         * Regression test for a bug where PS_CHECK(hexdecode()) would
+         * propagate the error instead of falling through to the default
+         * literal copy. */
+        {
+            struct {
+                const char *json_input;
+                const char *expected_string;
+                const char *test_name;
+            } tests[] = {
+                {"\"\\x\\y\"", "\\x\\y", "two invalid hex escapes"},
+                {"\"\\xZZ\"", "\\xZZ", "invalid hex digits"},
+                {"\"\\x\"", "\\x", "truncated hex escape"},
+            };
+
+            carray_for_each_ptr(t, tests) {
+                tstiop__string_test__t string_test;
+                const char *json_buf;
+
+                json_buf = t_fmt("{\"testString\": %s}", t->json_input);
+                string_test.test_string = LSTR(t->expected_string);
+
+                Z_HELPER_RUN(iop_json_test_json(st_string, json_buf,
+                                                &string_test,
+                                                t->test_name));
+            }
+        }
     } Z_TEST_END
     /* }}} */
     Z_TEST(json_big_integer, "test JSON packing with big integers") { /* {{{ */

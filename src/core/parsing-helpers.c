@@ -102,8 +102,8 @@ parse_backslash(pstream_t *ps, sb_t *buf, int *line, int *col)
         }
         break;
       case 'x':
-        if (ps_has(ps, 4)) {
-            sb_addc(buf, PS_CHECK(hexdecode(ps->s + 2)));
+        if (ps_has(ps, 4) && (a = hexdecode(ps->s + 2)) >= 0) {
+            sb_addc(buf, a);
             SKIP(4);
             return 0;
         }
