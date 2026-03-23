@@ -42,7 +42,7 @@ dev = [
 
     # Linter that uses the AST of languages. Its configuration
     # resides in `ast-grep/` and sgconfig.yml.
-    "ast-grep-cli~=0.41.0",
+    "ast-grep-cli~=0.42.0",
 
     # Gerrit REST API client, used by Claude Code skills
     "python-gerrit-api~=3.1.0",
