@@ -24,7 +24,7 @@ from typing import Any, ClassVar, TextIO
 
 import behave.model
 from behave.__main__ import (
-    main as behave_main,  # noqa: PLC2701 (import-private-name)
+    main as behave_main,
 )
 from behave.formatter.base import Formatter
 

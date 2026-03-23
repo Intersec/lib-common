@@ -876,14 +876,14 @@ class IopyTest(z.TestCase):
 
     def test_field_deletion(self) -> None:
         a = self.r.test.ClassA(optField=1)
-        delattr(a, 'optField')
+        del a.optField
         self.assertFalse(
             hasattr(a, 'optField'), 'deletion of optional field has failed'
         )
 
         err = False
         try:
-            delattr(a, 'field1')
+            del a.field1
         except iopy.Error:
             err = True
         self.assertTrue(
@@ -894,7 +894,7 @@ class IopyTest(z.TestCase):
         u = self.r.test.UnionA(i=0)
         err = False
         try:
-            delattr(u, 'i')
+            del u.i
         except iopy.Error:
             err = True
         self.assertTrue(
