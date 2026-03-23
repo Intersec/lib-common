@@ -109,11 +109,11 @@ parse_backslash(pstream_t *ps, sb_t *buf, int *line, int *col)
         }
         break;
       case 'u': {
-        if (ps_has(ps, 6)) {
+        if (ps_has(ps, 6) && (a = hexdecode(ps->s + 2)) >= 0
+            && (b = hexdecode(ps->s + 4)) >= 0)
+        {
             int codepoint, skip_len;
 
-            a = PS_CHECK(hexdecode(ps->s + 2));
-            b = PS_CHECK(hexdecode(ps->s + 4));
             codepoint = (a << 8) | b;
 
             /* Handle Unicode character (BMP or surrogate pair) */
