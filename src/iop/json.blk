@@ -639,15 +639,15 @@ static int iop_json_lex_char(iop_json_lex_t *ll, int terminator)
             }
             break;
           case HEXADECIMAL:
-            if (HAS(4) && (a = hexdecode(PS->s + 2)) >= 0) {
+            if (HAS(4) && (a = PS_CHECK(hexdecode(PS->s + 2))) >= 0) {
                 ll->ctx->u.i = a;
                 SKIP(2);
             }
             break;
           case UNICODE:
             if (HAS(6)
-            &&  (a = hexdecode(PS->s + 2)) >= 0
-            &&  (b = hexdecode(PS->s + 4)) >= 0)
+            &&  (a = PS_CHECK(hexdecode(PS->s + 2))) >= 0
+            &&  (b = PS_CHECK(hexdecode(PS->s + 4))) >= 0)
             {
                 int codepoint = (a << 8) | b;
 

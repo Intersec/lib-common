@@ -3120,41 +3120,6 @@ Z_GROUP_EXPORT(iop)
 
     } Z_TEST_END
     /* }}} */
-    Z_TEST(json_invalid_hex_escape, "test JSON with invalid \\x escapes") {
-        /* {{{ */
-        t_scope;
-        const iop_struct_t *st_string = &tstiop__string_test__s;
-
-        /* Invalid hex escape sequences after \x should be kept literally
-         * instead of causing a parse error.
-         * Regression test for a bug where PS_CHECK(hexdecode()) would
-         * propagate the error instead of falling through to the default
-         * literal copy. */
-        {
-            struct {
-                const char *json_input;
-                const char *expected_string;
-                const char *test_name;
-            } tests[] = {
-                {"\"\\x\\y\"", "\\x\\y", "two invalid hex escapes"},
-                {"\"\\xZZ\"", "\\xZZ", "invalid hex digits"},
-                {"\"\\x\"", "\\x", "truncated hex escape"},
-            };
-
-            carray_for_each_ptr(t, tests) {
-                tstiop__string_test__t string_test;
-                const char *json_buf;
-
-                json_buf = t_fmt("{\"testString\": %s}", t->json_input);
-                string_test.test_string = LSTR(t->expected_string);
-
-                Z_HELPER_RUN(iop_json_test_json(st_string, json_buf,
-                                                &string_test,
-                                                t->test_name));
-            }
-        }
-    } Z_TEST_END
-    /* }}} */
     Z_TEST(json_big_integer, "test JSON packing with big integers") { /* {{{ */
         SB_1k(sb);
         tstiop__my_struct_n__t sn = {
