@@ -81,30 +81,93 @@ IndentPPDirectives: AfterHash
 # .blk files use Apple's blocks extension; keep block indent consistent.
 ObjCBlockIndentWidth: 4
 
+# --- Type macros ---
+# Teach clang-format that these macros expand to types, so `*` after them
+# is treated as a pointer declarator (PointerAlignment: Right) rather than
+# a binary operator (which would produce `qv_t(foo) * p` with spaces).
+TypenameMacros:
+  - qv_t
+  - qvector_t
+  - qm_t
+  - qh_t
+  - qhh_t
+  - qhm_t
+  - qhp_t
+  - rb_t
+  - rb_tree_t
+  - spsc_t
+  - spsc_queue_t
+
 # --- Foreach-style macros ---
-# Definition by pattern is not possible.
-# TODO: Add more!
+# Teach clang-format that these expand to loops so it treats the following
+# braced block correctly (same as a for/while body, not a function call).
 ForEachMacros:
-  - tab_for_each_pos
-  - tab_for_each_ptr
-  - tab_for_each_entry
-  - tab_enumerate
-  - tab_enumerate_ptr
-  - carray_for_each_pos
   - carray_for_each_entry
+  - carray_for_each_pos
+  - carray_for_each_ptr
+  - dlist_for_each
+  - dlist_for_each_continue
+  - dlist_for_each_entry
+  - dlist_for_each_entry_after
+  - dlist_for_each_entry_continue
+  - dlist_for_each_entry_start
+  - dlist_for_each_rev
+  - dlist_for_each_rev_continue
+  - dlist_for_each_rev_start
+  - dlist_for_each_start
+  - file_bin_for_each_entry
   - htlist_for_each
   - htlist_for_each_entry
-  - dlist_for_each
-  - dlist_for_each_entry
-  - dlist_for_each_rev
-  - qh_for_each_pos
+  - htlist_for_each_entry_start
+  - htlist_for_each_start
+  - iop_array_for_each
+  - iop_array_for_each_const
+  - iop_obj_for_each_field
+  - iop_struct_for_each_field
+  - iop_tab_for_each
+  - iop_tab_for_each_const
+  - IOP_UNION_SWITCH
+  - qhat_for_each
+  - qhat_for_each_limit_safe
+  - qhat_for_each_limit_unsafe
+  - qhat_for_each_safe
+  - qhat_for_each_unsafe
   - qh_for_each_key
-  - qm_for_each_pos
+  - qh_for_each_key_p
+  - qh_for_each_pos
+  - qhhash_for_each_pos
+  - qhp_for_each_pos
   - qm_for_each_key
   - qm_for_each_key_p
+  - qm_for_each_key_p_value
+  - qm_for_each_key_p_value_p
+  - qm_for_each_key_value
+  - qm_for_each_key_value_p
+  - qm_for_each_pos
   - qm_for_each_value
   - qm_for_each_value_p
-  - qm_for_each_key_value
-  - qm_for_each_key_p_value
-  - qm_for_each_key_value_p
-  - qm_for_each_key_p_value_p
+  - qps_bitmap_for_each_safe
+  - qps_bitmap_for_each_unsafe
+  - rb_for_each
+  - rb_for_each_safe
+  - ring_for_each_entry
+  - ring_for_each_ptr
+  - sockunion_for_each
+  - tab_enumerate
+  - tab_enumerate_ptr
+  - tab_for_each_entry
+  - tab_for_each_pos
+  - tab_for_each_pos_rev
+  - tab_for_each_pos_safe
+  - tab_for_each_ptr
+  - wah_for_each_
+  - xmlr_for_each_attr
+
+# MODULE_BEGIN/END are statement-like macros that don't take a trailing ';'.
+StatementMacros:
+  - MODULE_BEGIN
+  - MODULE_END
+  - MODULE_DEPENDS_ON
+  - MODULE_PROVIDE
+  - MODULE_RELEASE
+  - MODULE_REQUIRE
