@@ -66,6 +66,17 @@ AllowAllParametersOfDeclarationOnNextLine: false
 AlignOperands:              Align
 BreakBeforeTernaryOperators: true
 
+# --- Preprocessor ---
+# CRITICAL: never reorder includes — order is semantically significant.
+SortIncludes: false
+
+# Indent cascaded #ifdef/#else/#endif using AfterHash style:
+#   #ifdef FOO
+#   # define BAR
+#   # ifdef BAZ
+#   #   define QUX
+IndentPPDirectives: AfterHash
+
 # --- Apple Blocks (.blk files) ---
 # .blk files use Apple's blocks extension; keep block indent consistent.
 ObjCBlockIndentWidth: 4
