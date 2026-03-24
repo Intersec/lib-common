@@ -1,0 +1,27 @@
+# Clang-tidy configuration for lib-common.
+#
+# Kept intentionally minimal: only checks with a very low false-positive rate
+# on this codebase are enabled.
+#
+# Explicitly NOT included:
+#   - cppcoreguidelines-avoid-goto: goto is legitimate here (cleanup patterns)
+#   - clang-analyzer-*: too noisy with custom allocators (p_new, t_new_raw)
+#   - modernize-*: C99 codebase, not C++
+#   - -Wswitch-enum / -Wimplicit-fallthrough via clang-tidy: impractical due
+#     to generated code (Cython iopy.pyx.c, bison iopc-parser.c, flex output)
+
+Checks: >-
+  -*,
+  readability-braces-around-statements,
+  bugprone-macro-parentheses
+
+# Do not treat warnings as errors — these are hints for new code, not CI gates.
+# To enable as errors on a per-check basis, move the check name here.
+WarningsAsErrors: ""
+
+# Report diagnostics for project headers but not system headers.
+# Matches any path containing the project source directory (relative-path safe).
+HeaderFilterRegex: "src/"
+
+CheckOptions:
+  []
