@@ -1,78 +1,76 @@
----
-# BasedOnStyle:  LLVM
-AccessModifierOffset: -2
-AlignAfterOpenBracket: true
-AlignEscapedNewlinesLeft: false
-AlignOperands: true
-AlignTrailingComments: true
-AllowAllParametersOfDeclarationOnNextLine: false
-AllowShortBlocksOnASingleLine: false
-AllowShortCaseLabelsOnASingleLine: false
-AllowShortFunctionsOnASingleLine: false
-AllowShortIfStatementsOnASingleLine: false
-AllowShortLoopsOnASingleLine: false
-AlwaysBreakBeforeMultilineStrings: false
-BinPackArguments: true
-BinPackParameters: true
+# Clang-format configuration for lib-common.
+#
+# IMPORTANT: This is intended for range-based formatting only (gq in Nvim).
+# Do NOT run this on whole files — it will reformat existing code that was
+# intentionally laid out differently.
+#
+# Use `// clang-format off` / `// clang-format on` around blocks where
+# clang-format produces incorrect output (e.g. column-aligned struct
+# initialisers).
 
-# BreakBeforeBinaryOperators changed to None from NonAssignment to respect
-# our CR on the multi-line conditions in control flow statements.
-BreakBeforeBinaryOperators: None
+BasedOnStyle: LLVM
 
-# Customized based on BreakBeforeBraces: Linux
-# AfterControlStatement changed to MultiLine from false to respect our CR
-# on multi-line conditions in control flow statements.
+# --- Basics ---
+IndentWidth:          4
+UseTab:               Never
+TabWidth:             4
+ColumnLimit:          78
+
+# --- Braces ---
+# Custom brace style based on Linux, with one key difference:
+# AfterControlStatement: MultiLine puts `{` on a new line when the condition
+# spans multiple lines, matching the coding rule exactly.
 BreakBeforeBraces: Custom
 BraceWrapping:
-  AfterClass: true
-  AfterControlStatement: MultiLine # For Linux Style: is false
-  AfterEnum: false
-  AfterFunction: true
-  AfterNamespace: true
-  AfterStruct: false
-  AfterUnion: false
-  BeforeCatch: false
-  BeforeElse: false
-  IndentBraces: false
+  AfterClass:             true   # C++ (useful for submodule consumers)
+  AfterFunction:          true   # fn() \n {
+  AfterControlStatement:  MultiLine  # single-line: if (x) {  multi-line: )\n{
+  AfterEnum:              false  # enum foo {
+  AfterNamespace:         true   # C++ (useful for submodule consumers)
+  AfterStruct:            false  # struct foo {
+  AfterUnion:             false  # union foo {
+  BeforeCatch:            false  # C++ (useful for submodule consumers)
+  BeforeElse:             false  # } else {
+  IndentBraces:           false
 
-BreakBeforeTernaryOperators: true
-ColumnLimit: 78
-ContinuationIndentWidth: 4
-#Cpp11BracedListStyle: true
-DerivePointerAlignment: false
-DisableFormat: false
-#IndentCaseLabels: true
-#IndentFunctionDeclarationAfterType: false
-IndentWidth:     4
-IndentWrappedFunctionNames: false
-KeepEmptyLinesAtTheStartOfBlocks: false
-MaxEmptyLinesToKeep: 1
-ObjCBlockIndentWidth: 4
-PenaltyBreakBeforeFirstCallParameter: 19
-PenaltyBreakComment: 300
-PenaltyBreakFirstLessLess: 120
-PenaltyBreakString: 1000
-PenaltyExcessCharacter: 1000000
-PenaltyReturnTypeOnItsOwnLine: 0
-PointerAlignment: Right
-SpaceAfterCStyleCast: false
-SpaceBeforeAssignmentOperators: true
+# Prevent short functions from being collapsed to one line.
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
 
-# SpaceBeforeParens Changed from ControlStatements to keep our current sytle
-# in for_each macros although no CR require this.
+# --- Spacing ---
+# One space after if/while/switch/for, no space before fn() or foreach macros.
 SpaceBeforeParens: ControlStatementsExceptForEachMacros
 
-SpaceInEmptyParentheses: false
-SpacesInCStyleCastParentheses: false
-SpacesInParentheses: false
-SpacesInSquareBrackets: false
-TabWidth:        4
-UseTab:          Never
+# --- Pointers ---
+# Star sticks to the variable name: const char *p, not const char* p.
+PointerAlignment: Right
+# Don't infer alignment from existing code — always use the setting above.
+DerivePointerAlignment: false
+# C++ access modifier offset (useful for submodule consumers).
+AccessModifierOffset: -2
 
-#LabelModifierOffset: 2
-#SpaceAfterAssert: true
-#SpacesBeforeDefineValue: 2
+# --- Function calls and declarations ---
+# When a call wraps, align arguments at the opening parenthesis.
+AlignAfterOpenBracket: Align
+BinPackArguments:     true
+BinPackParameters:    true
+# Don't put all parameters on the next line as a block when they don't fit.
+AllowAllParametersOfDeclarationOnNextLine: false
 
+# --- Ternary operator ---
+# Align ':' with '?':
+#   a = long_cond ? value1
+#                 : value2;
+AlignOperands:              Align
+BreakBeforeTernaryOperators: true
+
+# --- Apple Blocks (.blk files) ---
+# .blk files use Apple's blocks extension; keep block indent consistent.
+ObjCBlockIndentWidth: 4
+
+# --- Foreach-style macros ---
 # Definition by pattern is not possible.
 # TODO: Add more!
 ForEachMacros:
@@ -99,9 +97,3 @@ ForEachMacros:
   - qm_for_each_key_p_value
   - qm_for_each_key_value_p
   - qm_for_each_key_p_value_p
-
----
-Language:        Cpp
----
-Language:        JavaScript
-...
