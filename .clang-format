@@ -1,0 +1,107 @@
+---
+# BasedOnStyle:  LLVM
+AccessModifierOffset: -2
+AlignAfterOpenBracket: true
+AlignEscapedNewlinesLeft: false
+AlignOperands: true
+AlignTrailingComments: true
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortBlocksOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: false
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AlwaysBreakBeforeMultilineStrings: false
+BinPackArguments: true
+BinPackParameters: true
+
+# BreakBeforeBinaryOperators changed to None from NonAssignment to respect
+# our CR on the multi-line conditions in control flow statements.
+BreakBeforeBinaryOperators: None
+
+# Customized based on BreakBeforeBraces: Linux
+# AfterControlStatement changed to MultiLine from false to respect our CR
+# on multi-line conditions in control flow statements.
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: true
+  AfterControlStatement: MultiLine # For Linux Style: is false
+  AfterEnum: false
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: false
+  AfterUnion: false
+  BeforeCatch: false
+  BeforeElse: false
+  IndentBraces: false
+
+BreakBeforeTernaryOperators: true
+ColumnLimit: 78
+ContinuationIndentWidth: 4
+#Cpp11BracedListStyle: true
+DerivePointerAlignment: false
+DisableFormat: false
+#IndentCaseLabels: true
+#IndentFunctionDeclarationAfterType: false
+IndentWidth:     4
+IndentWrappedFunctionNames: false
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1
+ObjCBlockIndentWidth: 4
+PenaltyBreakBeforeFirstCallParameter: 19
+PenaltyBreakComment: 300
+PenaltyBreakFirstLessLess: 120
+PenaltyBreakString: 1000
+PenaltyExcessCharacter: 1000000
+PenaltyReturnTypeOnItsOwnLine: 0
+PointerAlignment: Right
+SpaceAfterCStyleCast: false
+SpaceBeforeAssignmentOperators: true
+
+# SpaceBeforeParens Changed from ControlStatements to keep our current sytle
+# in for_each macros although no CR require this.
+SpaceBeforeParens: ControlStatementsExceptForEachMacros
+
+SpaceInEmptyParentheses: false
+SpacesInCStyleCastParentheses: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+TabWidth:        4
+UseTab:          Never
+
+#LabelModifierOffset: 2
+#SpaceAfterAssert: true
+#SpacesBeforeDefineValue: 2
+
+# Definition by pattern is not possible.
+# TODO: Add more!
+ForEachMacros:
+  - tab_for_each_pos
+  - tab_for_each_ptr
+  - tab_for_each_entry
+  - tab_enumerate
+  - tab_enumerate_ptr
+  - carray_for_each_pos
+  - carray_for_each_entry
+  - htlist_for_each
+  - htlist_for_each_entry
+  - dlist_for_each
+  - dlist_for_each_entry
+  - dlist_for_each_rev
+  - qh_for_each_pos
+  - qh_for_each_key
+  - qm_for_each_pos
+  - qm_for_each_key
+  - qm_for_each_key_p
+  - qm_for_each_value
+  - qm_for_each_value_p
+  - qm_for_each_key_value
+  - qm_for_each_key_p_value
+  - qm_for_each_key_value_p
+  - qm_for_each_key_p_value_p
+
+---
+Language:        Cpp
+---
+Language:        JavaScript
+...
