@@ -32,7 +32,9 @@ import time
 import warnings
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
+
+from typing_extensions import ParamSpec
 
 import iopy
 import zpycore as z
@@ -4231,6 +4233,78 @@ class IopyIopStubsTests(z.TestCase):
             _ = client.test_ModuleA.funA.invalid_attr  # type: ignore[attr-defined]
 
         server.stop()
+
+    def test_interface_query_typing(self) -> None:
+        _p = ParamSpec('_p')
+        _TRpcRes = TypeVar('_TRpcRes')
+
+        # -- Test with RPC call via a channel
+
+        def call_rpc(
+            rpc: Callable[_p, _TRpcRes],
+            *args: _p.args,
+            **kwargs: _p.kwargs,
+        ) -> tuple[int, _TRpcRes]:
+            rpc_inst = rpc
+            assert isinstance(rpc_inst, iopy.RPCBase)
+            return rpc_inst.get_cmd(), rpc(*args, **kwargs)
+
+        # Server
+        def rpc_impl_b(
+            rpc_args: test__iop.InterfaceA_funB_RPCServer.RpcArgs,
+        ) -> test__iop.InterfaceA_funB_RPCServer.RpcRes:
+            return rpc_args.res(
+                status='A', res=1000, strField=rpc_args.hdr.simple.login
+            )
+
+        uri = make_uri()
+        server = self.plugin_stub.channel_server()
+        server.test_ModuleA.interfaceA.funB.impl = rpc_impl_b
+        server.listen(uri=uri)
+
+        # Client
+        client = self.plugin_stub.connect(uri)
+
+        res_call_impl_b = call_rpc(
+            client.test_ModuleA.interfaceA.funB,
+            a=self.plugin_stub.test.ClassA(field1=10),
+            _login='plop',
+        )
+        fun_b = self.plugin_stub.test.interfaces.InterfaceA.funB
+        exp_rpc_res_impl_b = fun_b.Res(status='A', res=1000, strField='plop')
+        self.assertEqual(res_call_impl_b, (65538, exp_rpc_res_impl_b))
+
+        # -- Test without RPC call with just the module
+
+        def no_call(
+            rpc: Callable[_p, _TRpcRes],
+            *args: _p.args,
+            **kwargs: _p.kwargs,
+        ) -> tuple[int, _TRpcRes]:
+            rpc_inst = rpc
+            assert isinstance(rpc_inst, iopy.RPCBase)
+            return rpc_inst.get_cmd(), rpc_inst.Res()
+
+        # - funAsync
+        res_no_call_async = no_call(
+            self.plugin_stub.modules.test_ModuleA.interfaceA.funAsync,
+            a=self.plugin_stub.test.ClassA(field1=10),
+        )
+        # `funAsync` has `out null`: `Res` is the `Void` class, so `Res()`
+        # yields a `Void` instance.
+        self.assertEqual(res_no_call_async, (65539, self.plugin_stub.Void()))
+
+        # - funToggleVoid
+        res_no_call_fun_toggle_void = no_call(
+            self.plugin_stub.modules.test_ModuleA.interfaceA.funToggleVoid,
+        )
+        fun_toggle_void = (
+            self.plugin_stub.test.interfaces.InterfaceA.funToggleVoid
+        )
+        exp_rpc_res_toggle_void = fun_toggle_void.Res()
+        self.assertEqual(
+            res_no_call_fun_toggle_void, (65540, exp_rpc_res_toggle_void)
+        )
 
 
 # }}}
