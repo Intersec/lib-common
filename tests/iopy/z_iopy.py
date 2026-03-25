@@ -2413,7 +2413,7 @@ class IopyIfaceTests(z.TestCase):
         class test_InterfaceA1:  # noqa: N801 (invalid-class-name)
             def __pre_hook__(  # noqa: PLW3201 (bad-dunder-method-name)
                 self,
-                rpc: iopy.RPCBase,
+                rpc: iopy.RPCBase[Any, Any, Any],
                 *args: Any,
                 **kwargs: Any,
             ) -> None:
@@ -2423,7 +2423,7 @@ class IopyIfaceTests(z.TestCase):
 
             def __post_hook__(  # noqa: PLW3201 (bad-dunder-method-name)
                 self,
-                rpc: iopy.RPCBase,
+                rpc: iopy.RPCBase[Any, Any, Any],
                 res: iopy.StructUnionBase,
             ) -> None:
                 self.post_hook_rpc = rpc
@@ -2483,7 +2483,7 @@ class IopyIfaceTests(z.TestCase):
 
             def __pre_hook__(  # noqa: PLW3201 (bad-dunder-method-name)
                 self,
-                rpc: iopy.RPCBase,
+                rpc: iopy.RPCBase[Any, Any, Any],
                 *args: Any,
                 **kwargs: Any,
             ) -> tuple[tuple[Any, ...], dict[str, Any]]:
@@ -2492,7 +2492,7 @@ class IopyIfaceTests(z.TestCase):
             @classmethod
             def __post_hook__(  # noqa: PLW3201 (bad-dunder-method-name)
                 cls,
-                rpc: iopy.RPCBase,
+                rpc: iopy.RPCBase[Any, Any, Any],
                 res: iopy.StructUnionBase,
             ) -> int:
                 return 0
@@ -2511,7 +2511,7 @@ class IopyIfaceTests(z.TestCase):
 
             def __pre_hook__(  # noqa: PLW3201 (bad-dunder-method-name)
                 self,
-                rpc: iopy.RPCBase,
+                rpc: iopy.RPCBase[Any, Any, Any],
                 *args: Any,
                 **kwargs: Any,
             ) -> tuple[tuple[Any, ...], dict[str, Any]]:
@@ -2522,7 +2522,7 @@ class IopyIfaceTests(z.TestCase):
             @classmethod
             def __post_hook__(  # noqa: PLW3201 (bad-dunder-method-name)
                 cls,
-                rpc: iopy.RPCBase,
+                rpc: iopy.RPCBase[Any, Any, Any],
                 res: iopy.StructUnionBase,
             ) -> int:
                 return 0
@@ -2536,12 +2536,17 @@ class IopyIfaceTests(z.TestCase):
         )
 
         def default_pre_hook(
-            self: iopy.IfaceBase, rpc: iopy.RPCBase, *args: Any, **kwargs: Any
+            self: iopy.IfaceBase,
+            rpc: iopy.RPCBase[Any, Any, Any],
+            *args: Any,
+            **kwargs: Any,
         ) -> None:
             self.attr1 = 1  # type: ignore[attr-defined]
 
         def default_post_hook(
-            self: iopy.IfaceBase, rpc: iopy.RPCBase, res: iopy.StructUnionBase
+            self: iopy.IfaceBase,
+            rpc: iopy.RPCBase[Any, Any, Any],
+            res: iopy.StructUnionBase,
         ) -> None:
             self.attr2 = 1  # type: ignore[attr-defined]
 
@@ -2596,7 +2601,7 @@ class IopyIfaceTests(z.TestCase):
         class test_InterfaceA6:  # noqa: N801 (invalid-class-name)
             def __pre_hook__(  # noqa: PLW3201 (bad-dunder-method-name)
                 self,
-                rpc: iopy.RPCBase,
+                rpc: iopy.RPCBase[Any, Any, Any],
                 *args: Any,
                 **kwargs: Any,
             ) -> None:
@@ -2604,7 +2609,7 @@ class IopyIfaceTests(z.TestCase):
 
             def __post_hook__(  # noqa: PLW3201 (bad-dunder-method-name)
                 self,
-                rpc: iopy.RPCBase,
+                rpc: iopy.RPCBase[Any, Any, Any],
                 res: iopy.StructUnionBase,
             ) -> None:
                 self.attr2 = 2
@@ -2628,12 +2633,17 @@ class IopyIfaceTests(z.TestCase):
         # custom pre/post hooks from external functions are used instead of
         # default pre/post hooks
         def iface_pre_hook_1(
-            self: iopy.IfaceBase, rpc: iopy.RPCBase, *args: Any, **kwargs: Any
+            self: iopy.IfaceBase,
+            rpc: iopy.RPCBase[Any, Any, Any],
+            *args: Any,
+            **kwargs: Any,
         ) -> None:
             self.attr1 = 3  # type: ignore[attr-defined]
 
         def iface_post_hook_1(
-            self: iopy.IfaceBase, rpc: iopy.RPCBase, res: iopy.StructUnionBase
+            self: iopy.IfaceBase,
+            rpc: iopy.RPCBase[Any, Any, Any],
+            res: iopy.StructUnionBase,
         ) -> None:
             self.attr2 = 3  # type: ignore[attr-defined]
 
@@ -2661,12 +2671,17 @@ class IopyIfaceTests(z.TestCase):
         # added pre/post hooks after class definition are used instead of
         # default pre/post hooks
         def iface_pre_hook_2(
-            self: iopy.IfaceBase, rpc: iopy.RPCBase, *args: Any, **kwargs: Any
+            self: iopy.IfaceBase,
+            rpc: iopy.RPCBase[Any, Any, Any],
+            *args: Any,
+            **kwargs: Any,
         ) -> None:
             self.attr1 = 4  # type: ignore[attr-defined]
 
         def iface_post_hook_2(
-            self: iopy.IfaceBase, rpc: iopy.RPCBase, res: iopy.StructUnionBase
+            self: iopy.IfaceBase,
+            rpc: iopy.RPCBase[Any, Any, Any],
+            res: iopy.StructUnionBase,
         ) -> None:
             self.attr2 = 4  # type: ignore[attr-defined]
 
@@ -4054,14 +4069,14 @@ class IopyIopStubsTests(z.TestCase):
 
         # Server
         def rpc_impl_a(
-            rpc_args: iopy.RPCServer.RpcArgs,
-        ) -> iopy.StructUnionBase | None:
+            rpc_args: test__iop.InterfaceA_funA_RPCServer.RpcArgs,
+        ) -> test__iop.InterfaceA_funA_RPCServer.RpcRes:
             assert issubclass(rpc_args.res, iopy.StructUnionBase)
             return rpc_args.res(status='A', res=1000)
 
         uri = make_uri()
         server = self.plugin_no_stub.channel_server()
-        server.test_ModuleA.interfaceA.funA.impl = rpc_impl_a
+        server.test_ModuleA.interfaceA.funA.impl = rpc_impl_a  # type: ignore[assignment]
         server.listen(uri=uri)
 
         # Client

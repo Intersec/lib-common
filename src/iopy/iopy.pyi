@@ -513,27 +513,29 @@ class IsIopFieldOptional: ...
 
 class ChannelBase: ...
 
-_TRpcArg = typing.TypeVar('_TRpcArg')
-_TRpcRes = typing.TypeVar('_TRpcRes')
-_TRpcExn = typing.TypeVar('_TRpcExn')
+_TRpcArg = typing.TypeVar('_TRpcArg', bound=StructUnionBase | None)
+_TRpcRes = typing.TypeVar('_TRpcRes', bound=StructUnionBase | None)
+_TRpcExn = typing.TypeVar('_TRpcExn', bound=StructUnionBase | None)
+
+class EmptyTypedDict(typing.TypedDict): ...
 
 class RPCArgs(typing.Generic[_TRpcArg, _TRpcRes, _TRpcExn]):
-    rpc: RPCServer
+    rpc: RPCServer[_TRpcArg, _TRpcRes, _TRpcExn]
     arg: _TRpcArg
     res: type[_TRpcRes]
     exn: type[_TRpcExn]
     hdr: ic__iop.Hdr
 
-class RPCBase:
-    Arg: type[StructUnionBase] | None
-    Res: type[StructUnionBase] | None
-    Exn: type[StructUnionBase] | None
+class RPCBase(typing.Generic[_TRpcArg, _TRpcRes, _TRpcExn]):
+    Arg: type[_TRpcArg]
+    Res: type[_TRpcRes]
+    Exn: type[_TRpcExn]
 
     is_async: bool
 
-    def arg(self) -> type[StructUnionBase] | None: ...
-    def res(self) -> type[StructUnionBase] | None: ...
-    def exn(self) -> type[StructUnionBase] | None: ...
+    def arg(self) -> type[_TRpcArg]: ...
+    def res(self) -> type[_TRpcRes]: ...
+    def exn(self) -> type[_TRpcExn]: ...
     def name(self) -> str: ...
     def desc(self) -> str: ...
     def get_tag(self) -> int: ...
@@ -559,19 +561,28 @@ class IfaceBase:
 class Iface(IfaceBase):
     # Every unknown attributes of an Iface is potentially a RPC.
     # This method is reset when generating the specific IOP stubs.
-    def __getattr__(self, name: str) -> RPC: ...
+    def __getattr__(
+        self,
+        name: str,
+    ) -> RPC[_TRpcArg, _TRpcRes, _TRpcExn]: ...
 
 @typing.type_check_only
 class AsyncIface(IfaceBase):
     # Every unknown attributes of an AsyncIface is potentially an AsyncRPC.
     # This method is reset when generating the specific IOP stubs.
-    def __getattr__(self, name: str) -> AsyncRPC: ...
+    def __getattr__(
+        self,
+        name: str,
+    ) -> AsyncRPC[_TRpcArg, _TRpcRes, _TRpcExn]: ...
 
 @typing.type_check_only
 class IfaceServer(IfaceBase):
     # Every unknown attributes of an IfaceServer is potentially a RPCServer.
     # This method is reset when generating the specific IOP stubs.
-    def __getattr__(self, name: str) -> RPCServer: ...
+    def __getattr__(
+        self,
+        name: str,
+    ) -> RPCServer[_TRpcArg, _TRpcRes, _TRpcExn]: ...
 
 class Module:
     @classmethod
@@ -677,13 +688,15 @@ class Channel(ChannelBase):
     # This method is reset when generating the specific IOP stubs.
     def __getattr__(self, name: str) -> Module: ...
 
-class RPC(RPCBase):
+class RPC(
+    RPCBase[_TRpcArg, _TRpcRes, _TRpcExn],
+):
     @property
     def channel(self) -> Channel: ...
     @typing.overload
     def call(
         self,
-        obj: StructUnionBase | None,
+        obj: _TRpcArg,
         /,
         *,
         _timeout: float | None = None,
@@ -694,7 +707,7 @@ class RPC(RPCBase):
         _workspace_id: int | None = None,
         _dealias: bool | None = None,
         _hdr: ic__iop.Hdr | None = None,
-    ) -> StructUnionBase | None: ...
+    ) -> _TRpcRes: ...
     @typing.overload
     def call(
         self,
@@ -709,7 +722,7 @@ class RPC(RPCBase):
         _workspace_id: int | None = None,
         _dealias: bool | None = None,
         _hdr: ic__iop.Hdr | None = None,
-    ) -> StructUnionBase | None: ...
+    ) -> _TRpcRes: ...
     @typing.overload
     def call(
         self,
@@ -723,11 +736,11 @@ class RPC(RPCBase):
         _dealias: bool | None = None,
         _hdr: ic__iop.Hdr | None = None,
         **kwargs: typing.Any,
-    ) -> StructUnionBase | None: ...
+    ) -> _TRpcRes: ...
     @typing.overload
     def __call__(
         self,
-        obj: StructUnionBase | None,
+        obj: _TRpcArg,
         /,
         *,
         _timeout: float | None = None,
@@ -738,7 +751,7 @@ class RPC(RPCBase):
         _workspace_id: int | None = None,
         _dealias: bool | None = None,
         _hdr: ic__iop.Hdr | None = None,
-    ) -> StructUnionBase | None: ...
+    ) -> _TRpcRes: ...
     @typing.overload
     def __call__(
         self,
@@ -753,7 +766,7 @@ class RPC(RPCBase):
         _workspace_id: int | None = None,
         _dealias: bool | None = None,
         _hdr: ic__iop.Hdr | None = None,
-    ) -> StructUnionBase | None: ...
+    ) -> _TRpcRes: ...
     @typing.overload
     def __call__(
         self,
@@ -767,7 +780,7 @@ class RPC(RPCBase):
         _dealias: bool | None = None,
         _hdr: ic__iop.Hdr | None = None,
         **kwargs: typing.Any,
-    ) -> StructUnionBase | None: ...
+    ) -> _TRpcRes: ...
 
 class AsyncChannel(Channel):
     def connect(  # type: ignore[override]
@@ -779,13 +792,15 @@ class AsyncChannel(Channel):
     # This method is reset when generating the specific IOP stubs.
     def __getattr__(self, name: str) -> AsyncModule: ...
 
-class AsyncRPC(RPCBase):
+class AsyncRPC(
+    RPCBase[_TRpcArg, _TRpcRes, _TRpcExn],
+):
     @property
     def channel(self) -> AsyncChannel: ...
     @typing.overload
     def call(
         self,
-        obj: StructUnionBase | None,
+        obj: _TRpcArg,
         /,
         *,
         _timeout: float | None = None,
@@ -796,7 +811,7 @@ class AsyncRPC(RPCBase):
         _workspace_id: int | None = None,
         _dealias: bool | None = None,
         _hdr: ic__iop.Hdr | None = None,
-    ) -> asyncio.Future[StructUnionBase | None]: ...
+    ) -> asyncio.Future[_TRpcRes]: ...
     @typing.overload
     def call(
         self,
@@ -811,7 +826,7 @@ class AsyncRPC(RPCBase):
         _workspace_id: int | None = None,
         _dealias: bool | None = None,
         _hdr: ic__iop.Hdr | None = None,
-    ) -> asyncio.Future[StructUnionBase | None]: ...
+    ) -> asyncio.Future[_TRpcRes]: ...
     @typing.overload
     def call(
         self,
@@ -825,11 +840,11 @@ class AsyncRPC(RPCBase):
         _dealias: bool | None = None,
         _hdr: ic__iop.Hdr | None = None,
         **kwargs: typing.Any,
-    ) -> asyncio.Future[StructUnionBase | None]: ...
+    ) -> asyncio.Future[_TRpcRes]: ...
     @typing.overload
     def __call__(
         self,
-        obj: StructUnionBase | None,
+        obj: _TRpcArg,
         /,
         *,
         _timeout: float | None = None,
@@ -840,7 +855,7 @@ class AsyncRPC(RPCBase):
         _workspace_id: int | None = None,
         _dealias: bool | None = None,
         _hdr: ic__iop.Hdr | None = None,
-    ) -> asyncio.Future[StructUnionBase | None]: ...
+    ) -> asyncio.Future[_TRpcRes]: ...
     @typing.overload
     def __call__(
         self,
@@ -855,7 +870,7 @@ class AsyncRPC(RPCBase):
         _workspace_id: int | None = None,
         _dealias: bool | None = None,
         _hdr: ic__iop.Hdr | None = None,
-    ) -> asyncio.Future[StructUnionBase | None]: ...
+    ) -> asyncio.Future[_TRpcRes]: ...
     @typing.overload
     def __call__(
         self,
@@ -869,7 +884,7 @@ class AsyncRPC(RPCBase):
         _dealias: bool | None = None,
         _hdr: ic__iop.Hdr | None = None,
         **kwargs: typing.Any,
-    ) -> asyncio.Future[StructUnionBase | None]: ...
+    ) -> asyncio.Future[_TRpcRes]: ...
 
 # }}}
 # {{{ Server RPC
@@ -939,25 +954,17 @@ RPCServerImplCb: typing_extensions.TypeAlias = typing.Callable[
     _TRpcRes | _TRpcExn,
 ]
 
-class RPCServer(RPCBase):
+class RPCServer(RPCBase[_TRpcArg, _TRpcRes, _TRpcExn]):
     @property
     def channel(self) -> ChannelServer: ...
-
-    RpcArgs: typing_extensions.TypeAlias = RPCArgs[
-        StructUnionBase | None,
-        StructUnionBase | None,
-        StructUnionBase | None,
-    ]
-    RpcRes: typing_extensions.TypeAlias = type[StructUnionBase] | None
-
     @property
     def impl(
         self,
     ) -> (
         RPCServerImplCb[
-            StructUnionBase | None,
-            StructUnionBase | None,
-            StructUnionBase | None,
+            _TRpcArg,
+            _TRpcRes,
+            _TRpcExn,
         ]
         | None
     ): ...
@@ -965,9 +972,9 @@ class RPCServer(RPCBase):
     def impl(
         self,
         value: RPCServerImplCb[
-            StructUnionBase | None,
-            StructUnionBase | None,
-            StructUnionBase | None,
+            _TRpcArg,
+            _TRpcRes,
+            _TRpcExn,
         ]
         | None,
     ) -> None: ...
