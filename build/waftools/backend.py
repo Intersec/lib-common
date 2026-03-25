@@ -521,7 +521,8 @@ def deploy_shlib(self: TaskGen) -> None:
 @task_gen_after_method('apply_link', 'process_use')
 def remove_dynamic_libs(self: TaskGen) -> None:
     if getattr(self, 'remove_dynlibs', False):
-        self.link_task.env.LIB = []
+        lib: List[str] = []
+        self.link_task.env.LIB = lib
 
 
 # }}}
@@ -531,7 +532,7 @@ def remove_dynamic_libs(self: TaskGen) -> None:
 def get_linter_flags(
     ctx: BuildContext, flags_key: str, include_python3: bool = True
 ) -> List[str]:
-    include_flags = []
+    include_flags: List[str] = []
     for key in ctx.env:
         if key == 'INCLUDES' or key.startswith('INCLUDES_'):
             include_flags += ['-I' + value for value in ctx.env[key]]
@@ -641,7 +642,8 @@ def gen_tags(ctx: BuildContext) -> None:
         ctx.fatal('ctags generation failed')
 
     # Interrupt the build
-    ctx.groups = []
+    groups: List[List[TaskGen]] = []
+    ctx.groups = groups
 
 
 class TagsClass(BuildContext):  # type: ignore[misc]
@@ -775,7 +777,8 @@ def old_gen_files_detect(ctx: BuildContext) -> None:
     old_gen_files = get_old_gen_files(ctx)
 
     # Interrupt the build
-    ctx.groups = []
+    groups: List[List[TaskGen]] = []
+    ctx.groups = groups
 
     if len(old_gen_files) == 0:
         print('All good, you have no old generated file on disk :-)')
@@ -841,7 +844,8 @@ def coverage_start_cmd(ctx: BuildContext) -> None:
     )
 
     # Interrupt the build
-    ctx.groups = []
+    groups: List[List[TaskGen]] = []
+    ctx.groups = groups
 
 
 class CoverageStartClass(BuildContext):  # type: ignore[misc]
@@ -924,7 +928,8 @@ def coverage_end_cmd(ctx: BuildContext) -> None:
     print()
 
     # Interrupt the build
-    ctx.groups = []
+    groups: List[List[TaskGen]] = []
+    ctx.groups = groups
 
 
 class CoverageReportClass(BuildContext):  # type: ignore[misc]
@@ -986,8 +991,10 @@ class Blk2c(Task):  # type: ignore[misc]
 @task_gen_feature('c')
 @task_gen_before_method('process_source')
 def init_c_ctx(self: TaskGen) -> None:
-    self.blk2c_tasks = []
-    self.clang_check_tasks = []
+    blk2c_tasks: List[Task] = []
+    self.blk2c_tasks = blk2c_tasks
+    clang_check_tasks: List[Task] = []
+    self.clang_check_tasks = clang_check_tasks
     self.env.CLANG_CFLAGS = self.to_list(getattr(self, 'cflags', []))
 
 
@@ -1053,7 +1060,8 @@ class Blkk2cc(Task):  # type: ignore[misc]
 @task_gen_feature('cxx')
 @task_gen_before_method('process_source')
 def init_cxx_ctx(self: TaskGen) -> None:
-    self.blkk2cc_tasks = []
+    blkk2cc_tasks: List[Task] = []
+    self.blkk2cc_tasks = blkk2cc_tasks
 
 
 @task_gen_feature('cxx')
@@ -1145,6 +1153,7 @@ def process_lex(self: TaskGen, node: Node) -> None:
 
 
 class FirstInputStrTask(Task):  # type: ignore[misc]
+    # pyrefly: ignore[missing-override-decorator]
     def __str__(self) -> str:
         node = self.inputs[0]
         node_path: str = node.path_from(node.ctx.launch_node())
@@ -1255,13 +1264,13 @@ class IopcOptions:
         ts_path: Optional[str] = None,
         pystub_path: Optional[str] = None,
         pystub_simple_definitions: bool = False,
-    ):
+    ) -> None:
         self.ctx = ctx
         self.path = path or ctx.path
         self.class_range = class_range
 
         # Evaluate include nodes
-        self.includes = set()
+        self.includes: Set[Node] = set()
         if includes is not None:
             for include in Utils.to_list(includes):
                 node = self.path.find_node(include)
@@ -1383,6 +1392,8 @@ class Iop2c(FirstInputStrTask):
     color = 'BLUE'
     ext_out = ['.h', '.c']
     before = ['Blk2c', 'Blkk2cc', 'ClangCheck']
+    scan_failed: bool
+    last_cmd: str
 
     @classmethod
     def keyword(cls: Type['Iop2c']) -> str:
@@ -1668,6 +1679,7 @@ class DsoPystubTask(Task):  # type: ignore[misc]
     def keyword(cls: Type['DsoPystubTask']) -> str:
         return 'Generating'
 
+    # pyrefly: ignore[missing-override-decorator]
     def __str__(self) -> str:
         node = self.outputs[0]
         node_path: str = node.path_from(node.ctx.launch_node())
@@ -2230,7 +2242,8 @@ def build(ctx: BuildContext) -> None:
 
     # iopc options
     ctx.IopcOptions = IopcOptions
-    ctx.iopc_options = {}
+    iopc_options: Dict[str, IopcOptions] = {}
+    ctx.iopc_options = iopc_options
 
     # Task gen modifiers
     ctx.task_gen_modifiers = []

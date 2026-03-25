@@ -35,7 +35,7 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
-from typing_extensions import ParamSpec, assert_type
+from typing_extensions import ParamSpec, assert_type, override
 
 import iopy
 import zpycore as z
@@ -200,6 +200,10 @@ def z_monkey_patch(iop_cls: type) -> Callable[[type], type]:
 
 @z.ZGroup
 class IopyTest(z.TestCase):
+    async_done: bool
+    connections: int
+
+    @override
     def setUp(self) -> None:
         self.plugin_file = os.path.join(TEST_PATH, 'test-iop-plugin.so')
         self.p = cast(
@@ -446,7 +450,7 @@ class IopyTest(z.TestCase):
         )
 
         # Check minimal option
-        minimal_dict_struct_to_dict = {
+        minimal_dict_struct_to_dict: dict[str, Any] = {
             'structA': {
                 'e': 'B',
                 'a': {
@@ -561,9 +565,7 @@ class IopyTest(z.TestCase):
             if login != 'root' or password != '1234':
                 desc = f'invalid login, hdr: {rpc_args.hdr!r}'
                 return rpc_args.exn(code=1, desc=desc)
-            status = self.r.test.EnumA(
-                str(rpc_args.arg.a.get_iop_fullname()[-1])
-            )
+            status = self.r.test.EnumA(rpc_args.arg.a.get_iop_fullname()[-1])
             return rpc_args.res(status=status, res=rpc_args.arg.a.field1)
 
         s = self.r.channel_server()
@@ -1060,11 +1062,16 @@ class IopyTest(z.TestCase):
 
     def test_custom_inheritance(self) -> None:
         class CommonClass1:
+            common_val1: int
+
             def foo(self) -> None:
                 self.common_val1 = 42
 
         @z_monkey_patch(self.r.test.StructA)
         class test_StructA1(CommonClass1):  # noqa: N801 (invalid-class-name)
+            common_val2: int
+
+            @override
             def foo(self) -> None:
                 super(test_StructA1, self).foo()
                 self.common_val2 = 12
@@ -1075,10 +1082,14 @@ class IopyTest(z.TestCase):
         self.assertEqual(st.common_val2, 12)  # type: ignore[attr-defined]
 
         class BaseCommonClass1:
+            common_val2: int
+
             def bar(self) -> None:
                 self.common_val2 = 7777
 
         class CommonClass2(BaseCommonClass1):
+            common_val1: int
+
             def foo(self) -> None:
                 self.bar()
                 self.common_val1 = 84
@@ -1096,7 +1107,7 @@ class IopyTest(z.TestCase):
         self.assertEqual(st.common_val2, 7777)  # type: ignore[attr-defined]
 
         class CommonClass3:
-            def __init__(self, *args: Any, **kwargs: Any):
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
                 super().__init__(*args, **kwargs)
                 self.common_val1 = 10
 
@@ -2282,6 +2293,7 @@ class IopyTest(z.TestCase):
 
 @z.ZGroup
 class IopyIfaceTests(z.TestCase):
+    @override
     def setUp(self) -> None:
         plugin_file = os.path.join(TEST_PATH, 'test-iop-plugin.so')
         self.p = cast('test_iop_plugin__iop.Plugin', iopy.Plugin(plugin_file))
@@ -2425,6 +2437,12 @@ class IopyIfaceTests(z.TestCase):
     def test_iopy_iface_hooks(self) -> None:
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
         class test_InterfaceA1:  # noqa: N801 (invalid-class-name)
+            pre_hook_rpc: iopy.RPCBase[Any, Any, Any]
+            pre_hook_args: tuple[Any, ...]
+            pre_hook_kwargs: dict[str, Any]
+            post_hook_rpc: iopy.RPCBase[Any, Any, Any]
+            post_hook_res: iopy.StructUnionBase
+
             def __pre_hook__(  # noqa: PLW3201 (bad-dunder-method-name)
                 self,
                 rpc: iopy.RPCBase[Any, Any, Any],
@@ -2613,6 +2631,9 @@ class IopyIfaceTests(z.TestCase):
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
         class test_InterfaceA6:  # noqa: N801 (invalid-class-name)
+            attr1: int
+            attr2: int
+
             def __pre_hook__(  # noqa: PLW3201 (bad-dunder-method-name)
                 self,
                 rpc: iopy.RPCBase[Any, Any, Any],
@@ -2780,11 +2801,16 @@ class IopyIfaceTests(z.TestCase):
         iface = c.test_ModuleA.interfaceA
 
         class CommonClass1:
+            common_val1: int
+
             def foo(self) -> None:
                 self.common_val1 = 42
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
         class test_InterfaceA1(CommonClass1):  # noqa: N801 (invalid-class-name)
+            common_val2: int
+
+            @override
             def foo(self) -> None:
                 super(test_InterfaceA1, self).foo()
                 self.common_val2 = 12
@@ -2794,10 +2820,14 @@ class IopyIfaceTests(z.TestCase):
         self.assertEqual(iface.common_val2, 12)  # type: ignore[attr-defined]
 
         class BaseCommonClass1:
+            common_val2: int
+
             def bar(self) -> None:
                 self.common_val2 = 7777
 
         class CommonClass2(BaseCommonClass1):
+            common_val1: int
+
             def foo(self) -> None:
                 self.bar()
                 self.common_val1 = 84
@@ -3063,7 +3093,7 @@ class IopyIfaceTests(z.TestCase):
 
         # Check with an exception callback, the error should be retrieved by
         # the callback
-        exc_type = []
+        exc_type: list[type[Exception]] = []
 
         def on_exception_cb_catch(exc: Exception) -> None:
             exc_type.append(type(exc))
@@ -3124,7 +3154,7 @@ class IopyIfaceTests(z.TestCase):
 
         # Check with an exception callback, the error should be retrieved by
         # the callback
-        exc_type = []
+        exc_type: list[type[Exception]] = []
 
         def on_exception_cb_connect_catch(exc: Exception) -> None:
             exc_type.append(type(exc))
@@ -3544,6 +3574,7 @@ class IopyIfaceTests(z.TestCase):
 
 @z.ZGroup
 class IopyVoidTest(z.TestCase):
+    @override
     def setUp(self) -> None:
         self.plugin_file = os.path.join(TEST_PATH, 'test-iop-plugin.so')
         self.p = cast(
@@ -3652,6 +3683,7 @@ class IopyVoidTest(z.TestCase):
 
 @z.ZGroup
 class IopyDsoTests(z.TestCase):
+    @override
     def setUp(self) -> None:
         plugin_file = os.path.join(TEST_PATH, 'test-iop-plugin2.so')
         self.p = cast(
@@ -3858,6 +3890,7 @@ class IopyDsoTests(z.TestCase):
 class IopyCompatibilityTests(z.TestCase):
     """Comaptibility tests with previous versions of IOPy"""
 
+    @override
     def setUp(self) -> None:
         plugin_file = os.path.join(TEST_PATH, 'test-iop-plugin.so')
         self.p = cast('test_iop_plugin__iop.Plugin', iopy.Plugin(plugin_file))
@@ -4010,6 +4043,8 @@ class IopyCompatibilityTests(z.TestCase):
                     args = method[2]  # type: ignore[misc]
                 except IndexError:
                     args = ()
+
+                kwargs: dict[str, Any]
                 try:
                     kwargs = method[3]  # type: ignore[misc]
                 except IndexError:
@@ -4103,6 +4138,7 @@ class IopyCompatibilityTests(z.TestCase):
 class IopyAsyncTests(z.TestCase):
     """Tests with asynchronous connections and queries"""
 
+    @override
     def setUp(self) -> None:
         plugin_file = os.path.join(TEST_PATH, 'test-iop-plugin.so')
         self.p = cast('test_iop_plugin__iop.Plugin', iopy.Plugin(plugin_file))
@@ -4140,6 +4176,7 @@ class IopyAsyncTests(z.TestCase):
         self.server.test_ModuleA.interfaceA.funAsync.impl = rpc_impl_async
         self.server.listen(uri=self.uri)
 
+    @override
     def tearDown(self) -> None:
         self.loop.close()
 
@@ -4316,6 +4353,7 @@ class IopyIopEnvironmentTests(z.TestCase):
 class IopyIopStubsTests(z.TestCase):
     """Tests with typing with IOP stubs"""
 
+    @override
     def setUp(self) -> None:
         # Create plugin from test-iop-plugin.so without stubs typing
         self.plugin_no_stub = iopy.Plugin(
@@ -4555,6 +4593,7 @@ class IopyIopStubsTests(z.TestCase):
 class IopySlowTests(z.TestCase):
     """Tests that takes some fixed time to complete"""
 
+    @override
     def setUp(self) -> None:
         plugin_file = os.path.join(TEST_PATH, 'test-iop-plugin.so')
         self.p = cast('test_iop_plugin__iop.Plugin', iopy.Plugin(plugin_file))

@@ -33,7 +33,7 @@ def main() -> int:
     retry_env_variable = 'Z_LIST_RETRY'
     retry_string = os.getenv(retry_env_variable)
 
-    retry_tests = []
+    retry_tests: list[str] = []
     if retry_string and retry_string != '':
         retry_tests = retry_string.split(',')
 

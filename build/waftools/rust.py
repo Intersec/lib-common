@@ -46,6 +46,8 @@ from waflib.Tools.ccroot import (
 
 # Add type hinting for TaskGen decorators
 if TYPE_CHECKING:
+    from typing_extensions import override
+
     T = TypeVar('T')
 
     def task_gen_decorator(*args: str) -> Callable[[T], T]: ...
@@ -55,6 +57,12 @@ if TYPE_CHECKING:
     task_gen_after_method = task_gen_decorator
     task_gen_extension = task_gen_decorator
 else:
+    # `typing_extensions` isn't installed in the waf bootstrap environment
+    # that loads this tool, and `@override` is a type-checker-only hint, so
+    # fall back to a no-op passthrough at runtime.
+    def override(meth):
+        return meth
+
     task_gen_feature = TaskGen.feature
     task_gen_before_method = TaskGen.before_method
     task_gen_after_method = TaskGen.after_method
@@ -212,6 +220,7 @@ class CargoBuildBase(Task.Task):  # type: ignore[misc]
     def keyword(cls: type[CargoBuildBase]) -> str:
         return 'Cargo'
 
+    @override
     def __str__(self) -> str:
         ctx = self.generator.bld
         pkg_dir_node = ctx.root.make_node(self.env.PKG_DIR)

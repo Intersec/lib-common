@@ -26,6 +26,8 @@ from argparse import ArgumentParser
 from collections.abc import Sequence
 from enum import IntEnum
 
+from typing_extensions import override
+
 CORPUS_DIR = 'corpus'
 CORPUS_NAME = 'corpus-init'
 
@@ -97,7 +99,9 @@ class FuzzingStep:
     operations.
     """
 
-    def __init__(self, step: QpsstressStep, handle: int | None = None):
+    def __init__(
+        self, step: QpsstressStep, handle: int | None = None
+    ) -> None:
         self.step = step
         self.handle = handle
         # This size is the maximum size expected for a fuzzing binary blob.
@@ -139,10 +143,11 @@ class FuzzingGenericStep(FuzzingStep):
         step: QpsstressStep,
         handle: int | None = None,
         size: int | None = None,
-    ):
+    ) -> None:
         super().__init__(step, handle=handle)
         self.size = size
 
+    @override
     def pack_blob(self) -> bytes:
         if self.size is None:
             self.size = 0
@@ -160,10 +165,11 @@ class FuzzingQpsObjStep(FuzzingStep):
         step: QpsstressStep,
         handle: int | None = 0,
         type_obj: QpsstressObj = QpsstressObj.QPS_QHAT,
-    ):
+    ) -> None:
         super().__init__(step, handle=handle)
         self.type_obj = type_obj
 
+    @override
     def pack_blob(self) -> bytes:
         return super().pack_blob() + struct.pack('<B', self.type_obj)
 
@@ -180,11 +186,12 @@ class FuzzingQpsObjStepWithKey(FuzzingQpsObjStep):
         handle: int | None = 0,
         type_obj: QpsstressObj = QpsstressObj.QPS_QHAT,
         key: int = 1,
-    ):
+    ) -> None:
         super().__init__(step, handle=handle)
         self.type_obj = type_obj
         self.key = key
 
+    @override
     def pack_blob(self) -> bytes:
         return super().pack_blob() + struct.pack('<I', self.key)
 
@@ -208,12 +215,13 @@ class FuzzingQpsObjMultipleOp(FuzzingQpsObjStep):
         key: int = 1,
         nbr_iter: int = 2,
         gap_keys: int = 1,
-    ):
+    ) -> None:
         super().__init__(step, handle=handle, type_obj=type_obj)
         self.key = key
         self.nbr_iter = nbr_iter
         self.gap_keys = gap_keys
 
+    @override
     def pack_blob(self) -> bytes:
         return super().pack_blob() + struct.pack(
             '<IHB', self.key, self.nbr_iter, self.gap_keys
@@ -228,10 +236,11 @@ class FuzzingQhatObjStepMv(FuzzingQpsObjStep):
 
     def __init__(
         self, step: QpsstressStep, handle: int | None = 0, move_count: int = 3
-    ):
+    ) -> None:
         super().__init__(step, handle=handle, type_obj=QpsstressObj.QPS_QHAT)
         self.move_count = move_count
 
+    @override
     def pack_blob(self) -> bytes:
         return super().pack_blob() + struct.pack('<H', self.move_count)
 
@@ -248,7 +257,7 @@ class FuzzingQhatCompute(FuzzingQpsObjStep):
         handle: int | None = 0,
         do_stats: int | None = None,
         do_mem_overhead: int | None = None,
-    ):
+    ) -> None:
         super().__init__(step, handle=handle, type_obj=QpsstressObj.QPS_QHAT)
 
         if do_stats is not None:
@@ -258,6 +267,7 @@ class FuzzingQhatCompute(FuzzingQpsObjStep):
         else:
             raise RuntimeError('do_stats or do_mem_overhead expected')
 
+    @override
     def pack_blob(self) -> bytes:
         return super().pack_blob() + struct.pack('<B', self.flag)
 
@@ -274,11 +284,12 @@ class FuzzingQpsObjStepCreate(FuzzingQpsObjStep):
         type_obj: QpsstressObj = QpsstressObj.QPS_QHAT,
         is_nullable: bool = False,
         value_len: int = 4,
-    ):
+    ) -> None:
         super().__init__(step, type_obj=type_obj)
         self.is_nullable = is_nullable
         self.value_len = value_len
 
+    @override
     def pack_blob(self) -> bytes:
         val_is_nullable = 1 if self.is_nullable else 0
         return super().pack_blob() + struct.pack(

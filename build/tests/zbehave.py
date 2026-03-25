@@ -54,7 +54,18 @@ class ZFormatter(Formatter):  # type: ignore[misc]
 
     step_tpl = '# {0:>2}-{1:<2} {2} {3} {4}:{5:<3}   # ({6:>.3f}s)\n'
 
-    def __init__(self, stream: TextIO, config: Any):
+    __count: int
+    __success: int
+    __skipped: int
+    __failed: int
+    __steps: int
+    __scenario: behave.model.Scenario | None
+    __status: str | None
+    __exn: str | None
+    steps: list[behave.model.Step]
+    basename: str
+
+    def __init__(self, stream: TextIO, config: Any) -> None:
         # Force show_skipped to order the formatter to be called for skipped
         # features.
         config.show_skipped = True

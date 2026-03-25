@@ -27,6 +27,8 @@ from collections.abc import Iterable
 from logging import NullHandler
 from typing import Any, TypeVar
 
+from typing_extensions import override
+
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(NullHandler())
 
@@ -155,13 +157,13 @@ class Result:
 class Step:
     def __init__(
         self,
-        number: int,
+        number: int | str,
         name: str,
         status: str,
         filename: str,
         line: str,
-        time: float,
-    ):
+        time: float | str,
+    ) -> None:
         self.number = int(number)
         self.name = name
         self.status = status
@@ -169,6 +171,7 @@ class Step:
         self.line = int(line)
         self.time = float(time)
 
+    @override
     def __str__(self) -> str:
         return (
             f'{self.number:<2} {self.status:<5} {self.time:>6.3f} '
@@ -179,19 +182,20 @@ class Step:
 class Test:
     def __init__(
         self,
-        number: int,
+        number: int | str,
         name: str,
         status: str,
-        time: float = 0.0,
+        time: float | str = 0.0,
         comment: str = '',
-    ):
+    ) -> None:
         self.number = int(number)
         self.status = status
         self.name = name
-        self.time = float(time) if isinstance(time, str) else time
+        self.time = float(time)
         self.comment = comment
         self.steps: list[Step] = []
 
+    @override
     def __str__(self) -> str:
         return (
             f'{self.number:<5} {self.status:<5} {self.time:>10.6f} '
@@ -200,9 +204,9 @@ class Test:
 
 
 class Group(Result):
-    def __init__(self, name: str, total: int):
+    def __init__(self, name: str, total: int) -> None:
         self.name: str = name
-        self.total_nb = int(total)
+        self.total_nb = total
         self.tests: OrderedDict[str, Test] = OrderedDict()
 
     def append_test(self, test: Test) -> None:
@@ -215,6 +219,7 @@ class Group(Result):
         self.tests.setdefault(test.name, test)
         self.time += test.time
 
+    @override
     def compute(self) -> None:
         results = dict.fromkeys(EXTENDED_STATUS, 0)
         for test in self.tests.values():
@@ -228,12 +233,13 @@ class Group(Result):
             + results['bad-number']
         )
 
+    @override
     def __str__(self) -> str:
         return f'{self.name} ({self.passed}% passed)   {self.time}s'
 
 
 class Suite(Result):
-    def __init__(self, fullname: str, product: str):
+    def __init__(self, fullname: str, product: str) -> None:
         self.name = self.make_short_name(product, fullname)
         self.groups: list[Group] = []
         self.product = product
@@ -250,6 +256,7 @@ class Suite(Result):
             name = name.replace(useless, '', 1)
         return name
 
+    @override
     def compute(self) -> None:
         self._compute(self.groups)
 
@@ -258,21 +265,24 @@ class Suite(Result):
             for gr in self.groups:
                 self.time += gr.time
 
+    @override
     def __str__(self) -> str:
         return (
             f'suite {self.name} passed {self.passed}% '
             f'skipped {self.skipped}% failed {self.failed}%'
         )
 
+    @override
     def __repr__(self) -> str:
         return self.__str__()
 
 
 class Product(Result):
-    def __init__(self, name: str):
+    def __init__(self, name: str) -> None:
         self.name: str = name
         self.suites: list[Suite] = []
 
+    @override
     def compute(self) -> None:
         self._compute(self.suites)
 
@@ -280,6 +290,7 @@ class Product(Result):
         for suite in self.suites:
             self.time += suite.time
 
+    @override
     def __str__(self) -> str:
         return (
             f'product {self.name} passed {self.passed}% '
@@ -288,6 +299,10 @@ class Product(Result):
 
 
 class Global(Result):
+    width_passed: float
+    width_skipped: float
+    width_failed: float
+
     def __init__(self) -> None:
         self.name = 'global suite'
         self.products: OrderedDict[str, Product] = OrderedDict()
@@ -295,6 +310,7 @@ class Global(Result):
         self.timeout = True
         self.additionals: deque[str] = fixed_list()
 
+    @override
     def compute(self) -> None:
         self._compute(self.products.values())
         self.define_width()
@@ -414,6 +430,7 @@ class Global(Result):
             res.append(self.z_errors())
         return '\n'.join(res)
 
+    @override
     def __str__(self) -> str:
         return (
             f'global passed {self.passed}% skipped {self.skipped}% '
@@ -431,7 +448,7 @@ class Error:
         context: deque[tuple[str, str]],
         test_filename: str = '',
         status: str = 'fail',
-    ):
+    ) -> None:
         self.productName = product
         self.suite_fullname = suite
         self.suiteName = Suite.make_short_name(product, suite)
@@ -482,12 +499,13 @@ class Error:
     def z_step_fail(self) -> list[str]:
         return ['Step failed:', f'<{self.step_fail}', '']
 
+    @override
     def __str__(self) -> str:
         return f'{self.groupName}.{self.testName.strip()}'
 
 
 class StreamParser:
-    def __init__(self, stats: Global | None = None):
+    def __init__(self, stats: Global | None = None) -> None:
         self.suite: Suite | None = None
         self.group: Group | None = None
         self.product: Product | None = None

@@ -55,6 +55,8 @@ from subprocess import check_output
 from tempfile import NamedTemporaryFile
 from typing import Any
 
+from typing_extensions import override
+
 CORE_PATTERN = '/proc/sys/kernel/core_pattern'
 DEBUG = os.getenv('CORE_DEBUG', None)
 
@@ -111,7 +113,7 @@ def get_intersec_poi(output: str, root: str) -> str | None:
 
 
 class Cores:
-    def __init__(self, rootpath: str = '.'):
+    def __init__(self, rootpath: str = '.') -> None:
         self.cores: list[str] = []
         self.rootpath = rootpath
 
@@ -283,9 +285,11 @@ class Cores:
         else:
             print(out)
 
+    @override
     def __str__(self) -> str:
         return ','.join(self.cores)
 
+    @override
     def __repr__(self) -> str:
         cores_join = ','.join(self.cores)
         return f'Cores(rootpath="{self.rootpath}", cores="{cores_join}")'

@@ -69,6 +69,8 @@ from functools import wraps
 from types import TracebackType
 from typing import Any, ClassVar, NoReturn, TypeVar, cast
 
+from typing_extensions import override
+
 from .util import wipe_children_rearm, wipe_children_register
 
 ExecInfo = (
@@ -171,6 +173,7 @@ class IopDocTestRunner(doctest.DocTestRunner):
     Used to wrap tests in a "print_iop" function
     """
 
+    @override
     def run(
         self, test: doctest.DocTest, *args: Any, **kwargs: Any
     ) -> doctest.TestResults:
@@ -199,7 +202,7 @@ class DocTestModule(ZTestSuite):
     def extraglobs() -> dict[str, int]:
         return {}
 
-    def __init__(self, *args: Any, **kwargs: Any):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         # upgrade doc test runner to our custom one
         if not isinstance(doctest.DocTestCase, IopDocTestRunner):
             doctest.DocTestRunner = IopDocTestRunner  # type: ignore[misc]
@@ -264,7 +267,7 @@ class _ZTodo(Exception):  # noqa: N818 (error-suffix-on-exception-name)
     Hack to store the reason in the exception for ZTodo.
     """
 
-    def __init__(self, reason: str, exc_info: ExecInfo):
+    def __init__(self, reason: str, exc_info: ExecInfo) -> None:
         self.reason = reason
         self.exc_info = exc_info
         super().__init__(reason, exc_info)
@@ -298,7 +301,7 @@ class _ZTextTestResult(unittest.TextTestResult):
     Also, addExpectedFailure is overriden to fixup the _ZTodo hack
     """
 
-    def __init__(self, *args: Any, **kwargs: Any):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         self.debug_on = os.getenv('Z_DEBUG_ON_ERROR') == '1'
         super().__init__(*args, **kwargs)
 
@@ -309,7 +312,8 @@ class _ZTextTestResult(unittest.TextTestResult):
             _, _, exc_traceback = err
             pdb.post_mortem(exc_traceback)
 
-    def addError(  # noqa: N802 (invalid-function-name)
+    @override
+    def addError(
         self,
         test: unittest.TestCase,
         err: ExecInfo,
@@ -321,7 +325,8 @@ class _ZTextTestResult(unittest.TextTestResult):
         self.debug(err)
         super().addError(test, err)
 
-    def addFailure(  # noqa: N802 (invalid-function-name)
+    @override
+    def addFailure(
         self,
         test: unittest.TestCase,
         err: ExecInfo,
@@ -333,7 +338,8 @@ class _ZTextTestResult(unittest.TextTestResult):
         self.debug(err)
         super().addFailure(test, err)
 
-    def addExpectedFailure(  # noqa: N802 (invalid-function-name)
+    @override
+    def addExpectedFailure(
         self,
         test: unittest.TestCase,
         err: ExecInfo,
@@ -353,13 +359,14 @@ class _ZTestResult(unittest.TestResult):
     Only used when Z_HARNESS is set
     """
 
-    def __init__(self, *args: Any, **kwargs: Any):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         self.start_time = time.time()
         self.global_failures: list[tuple[unittest.TestCase, str]] = []
         self.global_errors: list[tuple[unittest.TestCase, str]] = []
         super().__init__(*args, **kwargs)
 
-    def startTest(  # noqa: N802 (invalid-function-name)
+    @override
+    def startTest(
         self,
         test: unittest.TestCase,
     ) -> None:
@@ -406,7 +413,8 @@ class _ZTestResult(unittest.TestResult):
 
         sys.stdout.write(f': {err}\n')
 
-    def addSuccess(  # noqa: N802 (invalid-function-name)
+    @override
+    def addSuccess(
         self,
         test: unittest.TestCase,
     ) -> None:
@@ -414,7 +422,8 @@ class _ZTestResult(unittest.TestResult):
         self._put_st('pass', test)
         sys.stdout.flush()
 
-    def addError(  # noqa: N802 (invalid-function-name)
+    @override
+    def addError(
         self,
         test: unittest.TestCase,
         err: ExecInfo,
@@ -430,7 +439,8 @@ class _ZTestResult(unittest.TestResult):
         self._put_err(test, err)
         sys.stdout.flush()
 
-    def addFailure(  # noqa: N802 (invalid-function-name)
+    @override
+    def addFailure(
         self,
         test: unittest.TestCase,
         err: ExecInfo,
@@ -446,7 +456,8 @@ class _ZTestResult(unittest.TestResult):
         self._put_err(test, err)
         sys.stdout.flush()
 
-    def addSkip(  # noqa: N802 (invalid-function-name)
+    @override
+    def addSkip(
         self,
         test: unittest.TestCase,
         reason: str,
@@ -455,7 +466,8 @@ class _ZTestResult(unittest.TestResult):
         self._put_st('skip', test, reason)
         sys.stdout.flush()
 
-    def addExpectedFailure(  # noqa: N802 (invalid-function-name)
+    @override
+    def addExpectedFailure(
         self,
         test: unittest.TestCase,
         err: ExecInfo,
@@ -468,7 +480,8 @@ class _ZTestResult(unittest.TestResult):
         self._put_err(test, exn.exc_info)
         sys.stdout.flush()
 
-    def addUnexpectedSuccess(  # noqa: N802 (invalid-function-name)
+    @override
+    def addUnexpectedSuccess(
         self,
         test: unittest.TestCase,
     ) -> None:
@@ -494,7 +507,8 @@ class _ZTestResult(unittest.TestResult):
         self.expectedFailures = []
         self.unexpectedSuccesses = []
 
-    def wasSuccessful(self) -> bool:  # noqa: N802 (invalid-function-name)
+    @override
+    def wasSuccessful(self) -> bool:
         return (
             len(self.global_failures)
             + len(self.global_errors)
@@ -567,7 +581,7 @@ def expectedFailure(  # noqa: N802 (invalid-function-name)
 
 
 class TestProgram(unittest.TestProgram):
-    def __init__(self, *args: Any, **kwargs: Any):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         with wipe_children_register():
             if os.getenv('Z_HARNESS'):
                 unittest.TestLoader.suiteClass = ZTestSuite

@@ -137,6 +137,7 @@ def dump_channel_types(
 
 def dump_connect_methods(plugin: iopy.Plugin, output_file: TextIO) -> None:
     text = """
+    @typing_extensions.override
     @typing.overload
     def connect(
         self, uri: str, *,
@@ -201,6 +202,7 @@ def dump_connect_methods(plugin: iopy.Plugin, output_file: TextIO) -> None:
         _dealias: bool | None = None,
         _hdr: ic__iop.Hdr | None = None,
     ) -> asyncio.Future[AsyncChannel]: ...
+    @typing_extensions.override
     def channel_server(self) -> ChannelServer: ...
     """
 

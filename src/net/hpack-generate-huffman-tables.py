@@ -121,7 +121,7 @@ def get_huffman_code_table_from(rfc_fn: str) -> HuffManCodeTable:
     )
     matches = re.finditer(regex, huff_code_txt)
 
-    code_table = {}
+    code_table: dict[int, tuple[int, int, int, str]] = {}
 
     for match in matches:
         sym = int(match.group(1))
@@ -219,7 +219,8 @@ def get_huffman_tree(code_table: HuffManCodeTable) -> Tree:
 def walk_from(
     root: Tree, node: Tree, code_str: str
 ) -> tuple[list[int], bool, bool, Tree]:
-    sym, error, final, current = [], False, False, node
+    sym: list[int] = []
+    error, final, current = False, False, node
     for bit in (int(ch) for ch in code_str):
         # non leaf node that has two children [0] [1]
         assert current['sym'] is None and bit in current

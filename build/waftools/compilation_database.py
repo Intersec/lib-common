@@ -87,9 +87,12 @@ class CompileDbContext(Build.BuildContext):  # type: ignore[misc]
     """generates compile_commands.json by request"""
 
     cmd = 'compiledb'
+    cur_tasks: List[Task.Task]
+    clang_compilation_database_tasks: List[Task.Task]
+    iop_compilation_database_tasks: List[Task.Task]
 
     def filter_task_node_cmd_input(
-        self, cmd: Union[str, List[str]], task: Task, task_node: Node
+        self, cmd: Union[str, List[str]], task: Task.Task, task_node: Node
     ) -> Union[str, List[str]]:
         if not isinstance(cmd, list):
             # This is not a list of arguments, do nothing
@@ -142,7 +145,10 @@ class CompileDbContext(Build.BuildContext):  # type: ignore[misc]
 
     @staticmethod
     def get_task_node_cmd(
-        task: Task, cmd: Union[str, List[str]], f_node: Node, is_dep: bool
+        task: Task.Task,
+        cmd: Union[str, List[str]],
+        f_node: Node,
+        is_dep: bool,
     ) -> Union[str, List[str]]:
         """Get the command used for the task"""
         if not isinstance(cmd, list):
@@ -179,7 +185,7 @@ class CompileDbContext(Build.BuildContext):  # type: ignore[misc]
     def add_task_nodes_db(
         self,
         clang_db: ClangDb,
-        task: Task,
+        task: Task.Task,
         cmd: Union[str, List[str]],
         f_nodes: List[Node],
         is_dep: bool,
@@ -209,7 +215,9 @@ class CompileDbContext(Build.BuildContext):  # type: ignore[misc]
 
             clang_db[filename] = entry
 
-    def write_one_compilation_db(self, db_file: str, tasks: Task) -> None:
+    def write_one_compilation_db(
+        self, db_file: str, tasks: Task.Task
+    ) -> None:
         database_file = self.srcnode.make_node(db_file)
         Logs.info(
             'Build commands will be stored in %s',
@@ -255,7 +263,7 @@ class CompileDbContext(Build.BuildContext):  # type: ignore[misc]
         Build dry run
         """
         self.restore()
-        self.cur_tasks: List[Task] = []
+        self.cur_tasks: List[Task.Task] = []
         self.clang_compilation_database_tasks = []
         self.iop_compilation_database_tasks = []
 
@@ -295,7 +303,7 @@ class CompileDbContext(Build.BuildContext):  # type: ignore[misc]
 
         # we need only to generate last_cmd, so override
         # exec_command temporarily
-        def exec_command(self: Task, *k: Any, **kw: Any) -> int:
+        def exec_command(self: Task.Task, *k: Any, **kw: Any) -> int:
             return 0
 
         # Get the list of classes to filter

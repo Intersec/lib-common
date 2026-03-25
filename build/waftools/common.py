@@ -296,7 +296,9 @@ Is equivalent to:
 
 
 class UseGroup:
-    def __init__(self, ctx: BuildContext, group: str):
+    previous_group: int
+
+    def __init__(self, ctx: BuildContext, group: str) -> None:
         self.ctx = ctx
         self.group = group
 
@@ -397,6 +399,7 @@ class CustomInstall(Task):  # type: ignore[misc]
     color = 'PINK'
     after = ['cprogram', 'cshlib', 'vnum']
 
+    # pyrefly: ignore[missing-override-decorator]
     def __str__(self) -> str:
         launch_node = self.generator.bld.launch_node()
         path = self.generator.path
@@ -460,7 +463,8 @@ def add_custom_install(self: TaskGen) -> None:
 
 def run_python_checker(ctx: BuildContext, checker_exec: str) -> None:
     # Reset the build
-    ctx.groups = []
+    groups: List[List[TaskGen]] = []
+    ctx.groups = groups
 
     # Get the launch directory
     path = ctx.launch_node()
@@ -502,7 +506,8 @@ def run_ruff(ctx: BuildContext) -> None:
         return
 
     # Reset the build
-    ctx.groups = []
+    groups: List[List[TaskGen]] = []
+    ctx.groups = groups
 
     # Steal the optional list of files passed as arguments.
     # Waf store the arguments in `Options.commands` and use them to run each
