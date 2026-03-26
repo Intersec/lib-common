@@ -48,6 +48,7 @@ for f in "${rs_files[@]}"; do
 done
 
 # -- Run static checks; exit 2 on failure to force Claude to fix errors --
+export FROM_AI_AGENT=1
 OUTPUT=$(python3 static-checks.py --modified-files 2>&1)
 STATUS=$?
 
