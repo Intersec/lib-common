@@ -24,15 +24,14 @@ Usage:
     gerrit_helper.py fetch-comments [--commit <sha>]
     gerrit_helper.py post-drafts [--commit <sha>] < drafts.json
 
-Authentication: uses ~/.netrc credentials for git.corp, or set
-GERRIT_HTTP_USER / GERRIT_HTTP_PASSWORD environment variables.
+Authentication: set GERRIT_HTTP_USER / GERRIT_HTTP_PASSWORD environment
+                variables.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import netrc
 import os
 import subprocess
 import sys
@@ -57,20 +56,9 @@ def _get_credentials() -> tuple[str, str]:
     if user and password:
         return user, password
 
-    try:
-        nrc = netrc.netrc()
-        auth = nrc.authenticators('git.corp')
-        if auth and auth[2]:
-            return auth[0], auth[2]
-    except (FileNotFoundError, netrc.NetrcParseError):
-        pass
-
     sys.exit(
         'Error: no credentials found for git.corp.\n'
-        'Either add this line to the file ~/.netrc (create it if needed):\n'
-        '  machine git.corp login <user> password <http-password>\n'
-        '(then run: chmod 600 ~/.netrc)\n'
-        'or set GERRIT_HTTP_USER and GERRIT_HTTP_PASSWORD env vars.\n'
+        'Set GERRIT_HTTP_USER and GERRIT_HTTP_PASSWORD env vars.\n'
         '\n'
         'The HTTP password is generated in the Gerrit web UI at\n'
         'Settings > HTTP Credentials.'
