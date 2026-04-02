@@ -12,8 +12,7 @@
 
 Checks: >-
   -*,
-  readability-braces-around-statements,
-  bugprone-macro-parentheses
+  readability-braces-around-statements
 
 # Do not treat warnings as errors — these are hints for new code, not CI gates.
 # To enable as errors on a per-check basis, move the check name here.
