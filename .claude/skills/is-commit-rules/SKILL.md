@@ -17,10 +17,22 @@ Do not change your usual behavior except where these rules add constraints.
   stack traces, command output) may exceed 72 columns when wrapping would
   reduce readability.
 
-## Rule 2 — Preserve existing trailers
+## Rule 2 — Do NOT generate a `Change-Id` trailer
+
+When creating a **new** commit, never add a `Change-Id:` trailer yourself.
+The project's git commit hook generates it automatically.
+
+## Rule 3 — Preserve existing trailers
 
 When **amending** an existing commit (e.g., `git commit --amend`), check
 whether the current commit message contains trailers (e.g., `Change-Id:`,
 `Refs:`, `Closes:`, or any other `Key: value` tags at the end of the message).
 You MUST preserve all existing trailers exactly as-is — do not modify, reorder,
 or remove them.
+
+## Rule 4 — Keep the commit message up-to-date when amending
+
+When **amending** a commit, review whether the existing subject and body
+still accurately describe the changes after the amendment. If the scope
+or intent of the commit has changed, update the message accordingly
+(while still following Rules 1 and 3).
