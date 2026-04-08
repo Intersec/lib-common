@@ -194,6 +194,10 @@ void ps_write_backtrace(int signum, bool allow_fork)
 
         if (allow_fork) {
             ps_print_file(path,
+                          "echo '\n--- OS release:\n'");
+            ps_print_file(path, "cat /etc/os-release");
+
+            ps_print_file(path,
                           "echo '\n--- File descriptors (using ls):\n'");
             ps_print_file(path, "ls -al /proc/self/fd");
 
