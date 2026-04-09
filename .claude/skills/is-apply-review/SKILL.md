@@ -15,7 +15,7 @@ skipping it, then post draft replies and update the local commit.
 Run the Gerrit helper to get all unresolved comments on the current commit:
 
 ```
-$CLAUDE_PROJECT_DIR/.claude/scripts/gerrit_helper.py fetch-comments
+.claude/scripts/gerrit_helper.py fetch-comments
 ```
 
 Parse the JSON output. If there are no unresolved comments, inform the user
@@ -52,7 +52,7 @@ helper via stdin:
 - For **rejected** comments the reply is the reason the user gave.
 
 ```
-echo '<json>' | $CLAUDE_PROJECT_DIR/.claude/scripts/gerrit_helper.py post-drafts
+echo '<json>' | .claude/scripts/gerrit_helper.py post-drafts
 ```
 
 Where `<json>` looks like:
