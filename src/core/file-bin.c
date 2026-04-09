@@ -261,7 +261,7 @@ static int _file_bin_get_next_record(file_bin_t *file, lstr_t *rec)
     off_t prev_off = file->cur;
     off_t rec_end_off;
     uint32_t sz;
-    uint32_t check_slot_hdr;
+    off_t check_slot_hdr;
     bool is_spanning = false;
 
     if (file_bin_is_finished(file)) {
