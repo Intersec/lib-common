@@ -21,8 +21,12 @@
 Gerrit REST API helper for Claude Code skills.
 
 Usage:
-    gerrit_helper.py fetch-comments [--commit <sha>]
-    gerrit_helper.py post-drafts [--commit <sha>] < drafts.json
+    gerrit_helper.py fetch-comments [--commit <sha>] [--branch <branch>]
+    gerrit_helper.py post-drafts [--commit <sha>] [--branch <branch>] < drafts.json
+
+The target branch is detected automatically from the upstream tracking branch
+or, failing that, by merge-base analysis against all origin/ refs.  Use
+--branch to override when the automatic detection picks the wrong branch.
 
 Authentication: set GERRIT_HTTP_USER / GERRIT_HTTP_PASSWORD environment
                 variables.
@@ -79,12 +83,16 @@ def _get_client() -> Any:
     )
 
 
+def _git(*args: str, stderr: int | None = None) -> str:
+    """Run a git command and return stripped stdout."""
+    return subprocess.check_output(
+        ['git', *args], text=True, stderr=stderr
+    ).strip()
+
+
 def _get_change_id_from_commit(commit: str = 'HEAD') -> str:
     """Extract the Change-Id from the commit message."""
-    msg = subprocess.check_output(
-        ['git', 'log', '-1', '--format=%B', commit],
-        text=True,
-    )
+    msg = _git('log', '-1', '--format=%B', commit)
     for line in msg.splitlines():
         if line.startswith('Change-Id:'):
             return line.split(':', 1)[1].strip()
@@ -93,26 +101,67 @@ def _get_change_id_from_commit(commit: str = 'HEAD') -> str:
 
 def _get_project_name() -> str:
     """Derive the Gerrit project name from the git remote URL."""
-    url = subprocess.check_output(
-        ['git', 'remote', 'get-url', 'origin'],
-        text=True,
-    ).strip()
+    url = _git('remote', 'get-url', 'origin')
     # ssh://git.corp:29418/lib-common -> lib-common
     return url.rsplit('/', 1)[-1].removesuffix('.git')
 
 
-def _get_branch() -> str:
-    """Get the current git branch name."""
-    return subprocess.check_output(
-        ['git', 'rev-parse', '--abbrev-ref', 'HEAD'], text=True
-    ).strip()
+def _get_branch(commit: str = 'HEAD') -> str:
+    """Return the Gerrit target branch for the given commit."""
+    # Fast path: upstream of current branch
+    if commit == 'HEAD':
+        try:
+            branch = _git('rev-parse', '--abbrev-ref', 'HEAD')
+            if branch != 'HEAD':  # not detached
+                upstream = _git(
+                    'rev-parse',
+                    '--abbrev-ref',
+                    '--symbolic-full-name',
+                    '@{u}',
+                    stderr=subprocess.DEVNULL,
+                )
+                if upstream.startswith('origin/'):
+                    return upstream.removeprefix('origin/')
+        except subprocess.CalledProcessError:
+            pass
+
+    # Fallback: find closest origin/* branch by merge-base distance.
+    refs = _git('branch', '-r', '--format=%(refname:short)').splitlines()
+    branches = [
+        r for r in refs if r.startswith('origin/') and r != 'origin/HEAD'
+    ]
+    if not branches:
+        sys.exit('Error: no origin/ branches found.')
+
+    def _score(ref: str) -> int | None:
+        try:
+            base = _git('merge-base', commit, ref, stderr=subprocess.DEVNULL)
+            ahead = int(_git('rev-list', '--count', f'{base}..{commit}'))
+            behind = int(_git('rev-list', '--count', f'{base}..{ref}'))
+            return ahead + behind
+        except subprocess.CalledProcessError:
+            return None
+
+    best, best_score = None, float('inf')
+    for ref in branches:
+        score = _score(ref)
+        if score is not None and score < best_score:
+            best_score = score
+            best = ref.removeprefix('origin/')
+
+    if not best:
+        sys.exit('Error: could not determine target branch.')
+    return best
 
 
-def _get_change(client: Any, commit: str = 'HEAD') -> Any:
+def _get_change(
+    client: Any, commit: str = 'HEAD', branch: str | None = None
+) -> Any:
     """Get the GerritChange object for the given commit."""
     change_id = _get_change_id_from_commit(commit)
     project = _get_project_name()
-    branch = _get_branch()
+    if branch is None:
+        branch = _get_branch(commit)
     return client.changes.get(f'{project}~{branch}~{change_id}')
 
 
@@ -138,7 +187,7 @@ def cmd_fetch_comments(args: argparse.Namespace) -> None:
     ]
     """
     client = _get_client()
-    change = _get_change(client, args.commit)
+    change = _get_change(client, args.commit, args.branch)
     revision = change.get_revision('current')
     comments = revision.comments.list()
 
@@ -192,7 +241,7 @@ def cmd_post_drafts(args: argparse.Namespace) -> None:
     ]
     """
     client = _get_client()
-    change = _get_change(client, args.commit)
+    change = _get_change(client, args.commit, args.branch)
     revision = change.get_revision('current')
 
     drafts = json.load(sys.stdin)
@@ -235,6 +284,11 @@ def main() -> None:
         default='HEAD',
         help='Git commit to inspect (default: HEAD).',
     )
+    p_fetch.add_argument(
+        '--branch',
+        default=None,
+        help='Override the auto-detected Gerrit target branch.',
+    )
     p_fetch.set_defaults(func=cmd_fetch_comments)
 
     p_post = sub.add_parser(
@@ -245,6 +299,11 @@ def main() -> None:
         '--commit',
         default='HEAD',
         help='Git commit to inspect (default: HEAD).',
+    )
+    p_post.add_argument(
+        '--branch',
+        default=None,
+        help='Override the auto-detected Gerrit target branch.',
     )
     p_post.set_defaults(func=cmd_post_drafts)
 
