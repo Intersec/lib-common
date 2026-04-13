@@ -1770,7 +1770,12 @@ Stmt *RewriteBlocks::SynthBlockInitExpr(BlockExpr *Exp,
                                           SourceLocation(), SourceLocation(),
                                           II);
       assert(RD && "SynthBlockInitExpr(): Can't find RecordDecl");
+#if CLANG_VERSION_MAJOR >= 22
+      QualType castT =
+          Context->getPointerType(Context->getCanonicalTagType(RD));
+#else
       QualType castT = Context->getPointerType(Context->getTagDeclType(RD));
+#endif
 
       FD = SynthBlockInitFunctionDecl((*I)->getName());
       Exp = new (Context) DeclRefExpr(*Context, FD, false, FD->getType(),
@@ -1884,7 +1889,12 @@ Stmt *RewriteBlocks::SynthesizeBlockCall(CallExpr *Exp, const Expr *BlockExp) {
   RecordDecl *RD = RecordDecl::Create(*Context, TTK_Struct, TUDecl,
                                       SourceLocation(), SourceLocation(),
                                       &Context->Idents.get("__block_impl"));
+#if CLANG_VERSION_MAJOR >= 22
+  QualType PtrBlock =
+      Context->getPointerType(Context->getCanonicalTagType(RD));
+#else
   QualType PtrBlock = Context->getPointerType(Context->getTagDeclType(RD));
+#endif
   PtrBlock = canonifyType(PtrBlock);
 
   // Generate a funky cast.

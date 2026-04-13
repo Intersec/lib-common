@@ -32,7 +32,11 @@
 #include <clang/Basic/DiagnosticFrontend.h>
 #include <clang/Basic/Version.h>
 #include <clang/Driver/DriverDiagnostic.h>
-#include <clang/Driver/Options.h>
+#if CLANG_VERSION_MAJOR >= 22
+# include <clang/Options/Options.h>
+#else
+# include <clang/Driver/Options.h>
+#endif
 #include <clang/Frontend/CompilerInstance.h>
 #include <clang/Frontend/FrontendPluginRegistry.h>
 #include <clang/Frontend/TextDiagnosticPrinter.h>
@@ -100,7 +104,9 @@ RewriteBlocksAction::CreateASTConsumer(CompilerInstance &CI,
 static bool ExecuteCompilerInvocationRewriteBlock(CompilerInstance *Clang) {
   // Honor -help.
   if (Clang->getFrontendOpts().ShowHelp) {
-#if CLANG_VERSION_MAJOR >= 13
+#if CLANG_VERSION_MAJOR >= 22
+    getDriverOptTable().printHelp(
+#elif CLANG_VERSION_MAJOR >= 13
     driver::getDriverOptTable().printHelp(
 #elif CLANG_VERSION_MAJOR >= 10
     driver::getDriverOptTable().PrintHelp(
@@ -112,7 +118,11 @@ static bool ExecuteCompilerInvocationRewriteBlock(CompilerInstance *Clang) {
       "clang-rewrite-blocks [options] file.blk -o file.blk.c",
       "LLVM 'Clang' Compiler Rewriter Block: "
       "http://clang.llvm.org http://intersec.com",
+#if CLANG_VERSION_MAJOR >= 22
+      /*Include=*/options::CC1Option,
+#else
       /*Include=*/driver::options::CC1Option,
+#endif
       /*Exclude=*/0, /*ShowAllAliases=*/false);
     return true;
   }
@@ -232,11 +242,19 @@ int main(int argc, const char **argv) {
   // Infer the builtin include path if unspecified.
   if (Clang->getHeaderSearchOpts().UseBuiltinIncludes &&
       Clang->getHeaderSearchOpts().ResourceDir.empty())
+#if CLANG_VERSION_MAJOR >= 22
+    Clang->getHeaderSearchOpts().ResourceDir = GetResourcesPath(Argv0,
+                                                                MainAddr);
+#else
     Clang->getHeaderSearchOpts().ResourceDir =
       CompilerInvocation::GetResourcesPath(Argv0, MainAddr);
+#endif
 
   // Create the actual diagnostics engine.
-#if CLANG_VERSION_MAJOR >= 20
+#if CLANG_VERSION_MAJOR >= 22
+  Clang->createVirtualFileSystem();
+  Clang->createDiagnostics();
+#elif CLANG_VERSION_MAJOR >= 20
   Clang->createDiagnostics(*llvm::vfs::getRealFileSystem(), NULL, true);
 #else
   Clang->createDiagnostics();
