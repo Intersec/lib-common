@@ -16,7 +16,6 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# ruff: noqa: UP008
 from __future__ import annotations
 
 import asyncio

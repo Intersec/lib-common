@@ -35,7 +35,7 @@ dev = [
     "types-psutil~=7.2.2",
 
     # python linter
-    "ruff==0.15.8",
+    "ruff==0.15.10",
 
     # static typing for Python
     "mypy==1.19.1",
