@@ -20,6 +20,7 @@
 #define IS_LIBCOMMON_CYTHON_FIXES_H
 
 #include <Python.h>
+#include <lib-common/core.h>
 
 /* These macros are redefined by Cython */
 #ifdef likely
@@ -38,8 +39,9 @@
 #  pragma GCC diagnostic ignored "-Wcomma"
 #endif /* Clang >= 3.9 */
 
-/* Disable Wunused-but-set-parameter for clang >= 15 */
-#if defined(__clang__) && __clang_major__ >= 15
+/* Disable -Wunused-but-set-parameter for Cython-generated code (GCC 16+ and
+ * Clang 15+ triggers it in __Pyx_Coroutine_patch_module). */
+#if CC_HAS_WARNING("-Wunused-but-set-parameter", 16, 0)
 #  pragma GCC diagnostic ignored "-Wunused-but-set-parameter"
 #endif /* Clang => 15 */
 
