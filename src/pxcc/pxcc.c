@@ -605,6 +605,20 @@ static int t_register_record_enum_type(CXType type, qv_t(cstr) *type_stack)
     name = get_unconst_type_spelling(spelling);
     cursor = clang_getTypeDeclaration(type);
 
+    /* clang_getTypeDeclaration() may return a forward declaration cursor
+     * instead of the definition cursor.  This happens since clang 22, which
+     * removed ElaboratedType from the AST: the RecordType stored in a
+     * typedef's underlying type now keeps a reference to the first (forward)
+     * declaration.  Resolve to the definition so that clang_visitChildren()
+     * actually visits the record's fields. */
+    {
+        CXCursor def_cursor = clang_getCursorDefinition(cursor);
+
+        if (!clang_Cursor_isNull(def_cursor)) {
+            cursor = def_cursor;
+        }
+    }
+
     non_anonymous_ctype = get_non_anonymous_ctype();
     is_anonymous = !lstr_match_ctype(name, non_anonymous_ctype);
     if (is_anonymous) {
