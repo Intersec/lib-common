@@ -7118,7 +7118,7 @@ class _InternalIfaceNameWrapper(str):
 cdef class _InternalIfaceType(type):
     """Internal base metaclass for interface types"""
     cdef Plugin plugin
-    cdef const iop_iface_t *iface
+    cdef const iop_iface_alias_t *iface_alias
     cdef int refcnt
     cdef object name_wrapper
 
@@ -7134,13 +7134,14 @@ cdef class _InternalIfaceType(type):
         str
             The representation of the IOP interface.
         """
-        cdef str iface_fullname = lstr_to_py_str(cls.iface.fullname)
+        cdef const iop_iface_t *iface = cls.iface_alias.iface
+        cdef str iface_fullname = lstr_to_py_str(iface.fullname)
         cdef list rpcs_name = []
         cdef uint16_t i
         cdef const iop_rpc_t *rpc
 
-        for i in range(cls.iface.funs_len):
-            rpc = &cls.iface.funs[i]
+        for i in range(iface.funs_len):
+            rpc = &iface.funs[i]
             rpcs_name.append(lstr_to_py_str(rpc.name))
         rpcs_name.sort()
 
@@ -7162,7 +7163,6 @@ cdef class _InternalIface:
     """
     cdef readonly IfaceRpcsContainer _rpcs
     cdef readonly ChannelBase channel
-    cdef const iop_iface_alias_t *iface_alias
 
     def __cinit__(_InternalIface self):
         """Cython contructor of _InternalIface"""
@@ -7189,9 +7189,10 @@ cdef class _InternalIface:
         """
         cdef _InternalIfaceType holder = cls
 
-        return lstr_to_py_str(holder.iface.fullname)
+        return lstr_to_py_str(holder.iface_alias.iface.fullname)
 
-    def __name__(_InternalIface self):
+    @classmethod
+    def __name__(object cls):
         """Return the name of the IOP interface.
 
         Returns
@@ -7199,7 +7200,9 @@ cdef class _InternalIface:
         str
             The name of the IOP interface.
         """
-        return lstr_to_py_str(self.iface_alias.name)
+        cdef _InternalIfaceType holder = cls
+
+        return lstr_to_py_str(holder.iface_alias.name)
 
 
 @cython.warn.undeclared(False)
@@ -7368,7 +7371,7 @@ cdef class RPCBase:
         str
             The representation of the RPC.
         """
-        cdef const iop_iface_t *iface = self.iface_cls.iface
+        cdef const iop_iface_t *iface = self.iface_cls.iface_alias.iface
         cdef str iface_fullname = lstr_to_py_str(iface.fullname)
 
         return 'RPC %s::%s' % (iface_fullname, lstr_to_py_str(self.rpc.name))
@@ -7472,15 +7475,13 @@ cdef Module create_module(_InternalModuleHolder cls, ChannelBase channel,
         iface_alias = &cls.module.ifaces[i]
         iface_name = lstr_to_py_str(iface_alias.name)
         iface_cls = getattr(cls, iface_name)
-        py_iface = create_interface(iface_cls, channel, iface_alias,
-                                    rpc_create_cb)
+        py_iface = create_interface(iface_cls, channel, rpc_create_cb)
         setattr(res, iface_name, py_iface)
 
     return res
 
 
 cdef _InternalIface create_interface(object cls, ChannelBase channel,
-                                     const iop_iface_alias_t *iface_alias,
                                      rpc_create_f rpc_create_cb):
     """Create instance of module from class type and channel.
 
@@ -7490,8 +7491,6 @@ cdef _InternalIface create_interface(object cls, ChannelBase channel,
         The class type of the interface.
     channel
         The IC connection channel.
-    iface_alias
-        The alias of the interface in the module.
     rpc_create_cb
         The callback used to create the RPC object for the connection.
 
@@ -7500,12 +7499,11 @@ cdef _InternalIface create_interface(object cls, ChannelBase channel,
         An instance of the interface for the given connection.
     """
     cdef _InternalIfaceType iface_cls = cls
-    cdef const iop_iface_t *iface = iface_cls.iface
+    cdef const iop_iface_t *iface = iface_cls.iface_alias.iface
     cdef _InternalIface res = <_InternalIface>cls()
     cdef uint16_t i
     cdef const iop_rpc_t *rpc
 
-    res.iface_alias = iface_alias
     res.channel = channel
 
     for i in range(iface.funs_len):
@@ -8553,7 +8551,7 @@ cdef StructUnionBase t_client_channel_prepare_rpc(
     if not hdr[0]:
         hdr[0] = channel.def_hdr
 
-    cmd[0] = get_iface_rpc_cmd(py_iface.iface_alias, rpc.rpc)
+    cmd[0] = get_iface_rpc_cmd(iface_cls.iface_alias, rpc.rpc)
 
     py_arg_cls = plugin_get_class_type_st(plugin, rpc.rpc.args)
 
@@ -8966,7 +8964,7 @@ cdef class RPCServer(RPCChannel):
             del self.impl
             return
 
-        cmd = get_iface_rpc_cmd(self.py_iface.iface_alias, self.rpc)
+        cmd = get_iface_rpc_cmd(self.iface_cls.iface_alias, self.rpc)
         channel = self.channel
 
         channel.rpc_impls[cmd] = self
@@ -8977,7 +8975,7 @@ cdef class RPCServer(RPCChannel):
     @impl.deleter
     def impl(RPCServer self):
         """Remove the current callback for the RPC"""
-        cdef const iop_iface_alias_t *iface_alias = self.py_iface.iface_alias
+        cdef const iop_iface_alias_t *iface_alias = self.iface_cls.iface_alias
         cdef int32_t cmd = get_iface_rpc_cmd(iface_alias, self.rpc)
         cdef ChannelServer channel = self.channel
 
@@ -9990,12 +9988,12 @@ cdef object plugin_get_iface_type_from_fullname(Plugin plugin,
     -------
         The class of the IOP interface.
     """
-    cdef object cls
+    cdef tuple key
 
-    cls = plugin.interfaces.get(fullname)
-    if cls is None:
-        raise KeyError('unknown IOPy interface `%s`' % fullname)
-    return cls
+    for key in plugin.interfaces:
+        if key[0] == fullname:
+            return plugin.interfaces[key]
+    raise KeyError('unknown IOPy interface `%s`' % fullname)
 
 
 cdef inline object plugin_get_class_type_st(Plugin plugin,
@@ -10645,28 +10643,31 @@ cdef void plugin_add_module(Plugin plugin, const iop_mod_t *module):
 
     for i in range(module.ifaces_len):
         iface_alias = &module.ifaces[i]
-        py_iface = plugin_add_iface(plugin, iface_alias.iface)
+        py_iface = plugin_add_iface(plugin, iface_alias)
         setattr(py_module, lstr_to_py_str(iface_alias.name), py_iface)
 
     setattr(plugin.modules, py_fullname, py_module)
 
 
-cdef object plugin_add_iface(Plugin plugin, const iop_iface_t *iface):
+cdef object plugin_add_iface(Plugin plugin,
+                             const iop_iface_alias_t *iface_alias):
     """Add iop interface to plugin.
 
     Parameters
     ----------
     plugin
         The IOPy plugin.
-    iface
-        The interface to add.
+    iface_alias
+        The IOP C interface alias to add.
 
     Returns
     -------
     object
         The class of the interface
     """
+    cdef const iop_iface_t *iface = iface_alias.iface
     cdef str iop_fullname
+    cdef tuple iface_key
     cdef _InternalIfaceType interface_cls
     cdef IopPath iop_path
     cdef Package py_pkg
@@ -10676,8 +10677,9 @@ cdef object plugin_add_iface(Plugin plugin, const iop_iface_t *iface):
     cdef str rpc_name
 
     iop_fullname = lstr_to_py_str(iface.fullname)
-    interface_cls = <_InternalIfaceType>plugin.interfaces.get(
-        iop_fullname)
+    iface_key = (iop_fullname, iface_alias.tag)
+
+    interface_cls = <_InternalIfaceType>plugin.interfaces.get(iface_key)
     if interface_cls is not None:
         interface_cls.refcnt += 1
         return interface_cls
@@ -10690,7 +10692,7 @@ cdef object plugin_add_iface(Plugin plugin, const iop_iface_t *iface):
     )
     interface_cls.refcnt = 1
     interface_cls.plugin = plugin
-    interface_cls.iface = iface
+    interface_cls.iface_alias = iface_alias
 
     for i in range(iface.funs_len):
         rpc = &iface.funs[i]
@@ -10699,8 +10701,14 @@ cdef object plugin_add_iface(Plugin plugin, const iop_iface_t *iface):
         setattr(interface_cls, rpc_name, py_rpc)
 
     py_pkg = plugin_create_or_get_py_pkg(plugin, iop_path.pkg_name)
-    setattr(py_pkg.interfaces, iop_path.local_name, interface_cls)
-    plugin.interfaces[iop_fullname] = interface_cls
+    # The same IOP interface fullname can be referenced from several modules
+    # with different alias tags, each yielding a distinct `_InternalIfaceType`
+    # instance. The package-level `interfaces` attribute is a single slot per
+    # local name, so keep the first one inserted; `plugin_remove_iface` is
+    # responsible for re-pointing it to a remaining class on removal.
+    if not hasattr(py_pkg.interfaces, iop_path.local_name):
+        setattr(py_pkg.interfaces, iop_path.local_name, interface_cls)
+    plugin.interfaces[iface_key] = interface_cls
     return interface_cls
 
 
@@ -10713,10 +10721,10 @@ cdef RPCBase plugin_create_iface_rpc(Plugin plugin,
     ----------
     plugin
         The IOPy plugin.
+    iface_cls
+        The IOPy interface class.
     rpc
         The C iop rpc.
-    iface
-        The C iop interface.
 
     Returns
     -------
@@ -10924,7 +10932,6 @@ cdef void plugin_remove_module(Plugin plugin, const iop_mod_t *module):
     cdef _InternalModuleHolder py_module
     cdef uint16_t i
     cdef const iop_iface_alias_t *iface_alias
-    cdef str iface_fullname
 
     iop_fullname = lstr_to_py_str(module.fullname)
     py_fullname = make_py_pkg_name(iop_fullname)
@@ -10942,29 +10949,35 @@ cdef void plugin_remove_module(Plugin plugin, const iop_mod_t *module):
 
     for i in range(module.ifaces_len):
         iface_alias = &module.ifaces[i]
-        iface_fullname = lstr_to_py_str(iface_alias.iface.fullname)
-        plugin.interfaces.pop(iface_fullname, None)
+        plugin_remove_iface(plugin, iface_alias)
 
     delattr(plugin.modules, py_fullname)
 
 
-cdef void plugin_remove_iface(Plugin plugin, const iop_iface_t *iface):
-    """Remove iop module from plugin.
+cdef void plugin_remove_iface(Plugin plugin,
+                              const iop_iface_alias_t *iface_alias):
+    """Remove iop interface from plugin.
 
     Parameters
     ----------
     plugin
         The IOPy plugin.
-    iface
-        The interface to remove.
+    iface_alias
+        The interface alias to remove.
     """
+    cdef const iop_iface_t *iface = iface_alias.iface
     cdef str iop_fullname
     cdef _InternalIfaceType interface_cls
     cdef IopPath iop_path
     cdef Package py_pkg
+    cdef tuple iface_key
+    cdef tuple key
+    cdef object current
+    cdef object replacement
 
     iop_fullname = lstr_to_py_str(iface.fullname)
-    interface_cls = <_InternalIfaceType>plugin.interfaces.get(iop_fullname)
+    iface_key = (iop_fullname, iface_alias.tag)
+    interface_cls = <_InternalIfaceType>plugin.interfaces.get(iface_key)
     if interface_cls is None:
         # Already removed?
         return
@@ -10974,11 +10987,30 @@ cdef void plugin_remove_iface(Plugin plugin, const iop_iface_t *iface):
         # Still used by another dso.
         return
 
-    del plugin.interfaces[iop_fullname]
+    del plugin.interfaces[iface_key]
 
     iop_path = make_iop_path(iop_fullname)
     py_pkg = <Package>getattr(plugin, iop_path.pkg_name, None)
-    if py_pkg is not None:
+    if py_pkg is None:
+        return
+
+    # `py_pkg.interfaces` has a single slot per local name. Only act on it
+    # when the slot still points to the class we are removing.
+    current = getattr(py_pkg.interfaces, iop_path.local_name, None)
+    if current is not interface_cls:
+        return
+
+    # Re-point the slot to one of the remaining classes that share the same
+    # fullname (different alias tag), if any; otherwise drop the attribute.
+    replacement = None
+    for key in plugin.interfaces:
+        if key[0] == iop_fullname:
+            replacement = plugin.interfaces[key]
+            break
+
+    if replacement is not None:
+        setattr(py_pkg.interfaces, iop_path.local_name, replacement)
+    else:
         delattr(py_pkg.interfaces, iop_path.local_name)
 
 
