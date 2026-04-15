@@ -990,6 +990,11 @@ class Interfaces:
     # This method is reset when generating the specific IOP stubs.
     def __getattr__(self, name: str) -> IfaceBase: ...
 
+class Modules:
+    # Every unknown attributes of a Modules is potentially a Module.
+    # This method is reset when generating the specific IOP stubs.
+    def __getattr__(self, name: str) -> Module: ...
+
 class Package:
     interfaces: Interfaces
 
@@ -1002,7 +1007,7 @@ class Package:
 class Void(Struct): ...
 
 class Plugin:
-    modules: dict[str, Module]
+    modules: Modules
     Void: type[Void]
 
     def __init__(self, dso_path: str | bytes): ...

@@ -3587,7 +3587,10 @@ class IopyCompatibilityTests(z.TestCase):
             ],
         )
         self.assertEqual(self.p.__dsopath__, self.p.dsopath)
-        self.assertEqual(self.p.__modules__, self.p.modules)
+
+        self.assertIs(
+            self.p.modules.test_ModuleA, self.p.__modules__['test.ModuleA']
+        )
 
 
 # }}}

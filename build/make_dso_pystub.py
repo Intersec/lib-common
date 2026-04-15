@@ -30,20 +30,18 @@ import iopy  # pylint: disable=import-error
 
 
 class ModuleNameComponents(NamedTuple):
-    module_fullname: str
-    module_iop_fullname: str
-    module_iop_pkg: str
+    module_py_fullname: str
+    module_py_pkg: str
     module_name: str
 
 
-def build_module_name_component(module_fullname: str) -> ModuleNameComponents:
-    module_iop_fullname = module_fullname.replace('.', '_')
-    module_pkg, module_name = module_fullname.rsplit('.', 1)
-    module_iop_pkg = module_pkg.replace('.', '_')
+def build_module_name_component(
+    module_py_fullname: str,
+) -> ModuleNameComponents:
+    module_py_pkg, module_name = module_py_fullname.rsplit('_', 1)
     return ModuleNameComponents(
-        module_fullname=module_fullname,
-        module_iop_fullname=module_iop_fullname,
-        module_iop_pkg=module_iop_pkg,
+        module_py_fullname=module_py_fullname,
+        module_py_pkg=module_py_pkg,
         module_name=module_name,
     )
 
@@ -113,8 +111,8 @@ def dump_channel_type(
 ) -> None:
     output_file.write(f'class {channel_type}(iopy.{channel_type}):\n')
     output_file.writelines(
-        f'    {module_name_comp.module_iop_fullname}: '
-        f'{module_name_comp.module_iop_pkg}__iop.'
+        f'    {module_name_comp.module_py_fullname}: '
+        f'{module_name_comp.module_py_pkg}__iop.'
         f'{module_name_comp.module_name}_{module_type}\n'
         for module_name_comp in module_names
     )
@@ -210,6 +208,22 @@ def dump_connect_methods(plugin: iopy.Plugin, output_file: TextIO) -> None:
     output_file.write('\n')
 
 
+def dump_modules(
+    plugin: iopy.Plugin,
+    module_names: list[ModuleNameComponents],
+    output_file: TextIO,
+) -> None:
+    output_file.write('class Modules(iopy.Modules):\n')
+    output_file.writelines(
+        f'    {module_name_comp.module_py_fullname}: '
+        f'{module_name_comp.module_py_pkg}__iop.'
+        f'{module_name_comp.module_name}_Module\n'
+        for module_name_comp in module_names
+    )
+    dump_no_getattr(output_file)
+    output_file.write('\n')
+
+
 def dump_plugin(
     plugin: iopy.Plugin,
     packages: list[str],
@@ -223,14 +237,7 @@ def dump_plugin(
 
     # Dump modules
     output_file.write('\n')
-    output_file.write('    modules = {\n')
-    output_file.writelines(
-        f"        '{module_name_comp.module_fullname}': "
-        f'{module_name_comp.module_iop_pkg}__iop.'
-        f'{module_name_comp.module_name}_Module(),\n'
-        for module_name_comp in module_names
-    )
-    output_file.write('    }\n')
+    output_file.write('    modules: Modules\n')
 
     dump_connect_methods(plugin, output_file)
     dump_no_getattr(output_file)
@@ -246,14 +253,15 @@ def process_dso(dso_path: pathlib.Path, output_pystub: pathlib.Path) -> None:
     )
 
     module_names = sorted(
-        build_module_name_component(module_fullname)
-        for module_fullname in plugin.modules
+        build_module_name_component(module_py_fullname)
+        for module_py_fullname in plugin.modules.__dict__
     )
 
     with open(output_pystub, 'w') as output_file:
         dump_preambule(output_file)
         dump_import_packages(packages, output_file)
         dump_channel_types(plugin, module_names, output_file)
+        dump_modules(plugin, module_names, output_file)
         dump_plugin(plugin, packages, module_names, output_file)
 
 

@@ -7418,7 +7418,6 @@ cdef int create_modules_of_channel(Plugin plugin, ChannelBase channel,
         -1 in case of exception, 0 otherwise.
     """
     cdef dict short_modules = {}
-    cdef object module_name
     cdef object module_py_name
     cdef _InternalModuleHolder module_cls
     cdef Module module
@@ -7426,8 +7425,7 @@ cdef int create_modules_of_channel(Plugin plugin, ChannelBase channel,
     cdef object module_short_name
     cdef object short_py_obj
 
-    for module_name, module_cls in plugin.modules.iteritems():
-        module_py_name = make_py_pkg_name(module_name)
+    for module_py_name, module_cls in plugin.modules.__dict__.items():
         module = create_module(module_cls, channel, rpc_create_cb)
         setattr(channel, module_py_name, module)
 
@@ -7441,7 +7439,7 @@ cdef int create_modules_of_channel(Plugin plugin, ChannelBase channel,
     # When there is no collision with other module, add a link with the short
     # name (aka only module name) in the same dictionary, to get quick access
     # for users.
-    for module_short_name, short_py_obj in short_modules.iteritems():
+    for module_short_name, short_py_obj in short_modules.items():
         if short_py_obj is not False:
             setattr(channel, module_short_name, short_py_obj)
 
@@ -9594,6 +9592,11 @@ cdef class _InternalAdditionalDso:
         iop_dso_close(&self.dso)
 
 
+cdef class Modules:
+    """Class to contain the modules of a plugin"""
+    cdef dict __dict__
+
+
 @cython.final
 cdef class Plugin:
     """Iopy Plugin object.
@@ -9609,7 +9612,7 @@ cdef class Plugin:
     cdef dict types
     cdef dict interfaces
     cdef dict additional_dsos
-    cdef readonly dict modules
+    cdef readonly Modules modules
 
     def __cinit__(Plugin self):
         """Cython constructor.
@@ -9618,8 +9621,9 @@ cdef class Plugin:
         """
         self.types = {}
         self.interfaces = {}
-        self.modules = {}
         self.additional_dsos = {}
+
+        self.modules = Modules.__new__(Modules)
 
         # Force loading IOPy IC package instead of the one in the DSO
         plugin_add_package(self, &ic__pkg, NULL)
@@ -9664,8 +9668,16 @@ cdef class Plugin:
 
     @property
     def __modules__(Plugin self):
-        """Deprecated, use modules instead."""
-        return self.modules
+        """Deprecated, use modules instead.
+
+        For backward compatible reasons, it also returns a dict with the IOP
+        fullname as key (i.e. `pkg.mod`) instead of IOPy module name (i.e.
+        `pkg_mod`).
+        """
+        return {
+            module.__fullname__(): module
+            for module in self.modules.__dict__.values()
+        }
 
     def get_type_from_fullname(Plugin self, object fullname):
         """Get the class for the given IOP type fullname.
@@ -10609,22 +10621,24 @@ cdef void plugin_add_module(Plugin plugin, const iop_mod_t *module):
         The module to add.
     """
     cdef str iop_fullname
+    cdef str py_fullname
     cdef _InternalModuleHolder py_module
-    cdef IopPath iop_path
     cdef uint16_t i
     cdef const iop_iface_alias_t *iface_alias
     cdef object py_iface
 
     iop_fullname = lstr_to_py_str(module.fullname)
-    py_module = <_InternalModuleHolder>plugin.modules.get(iop_fullname)
+    py_fullname = make_py_pkg_name(iop_fullname)
+    py_module = <_InternalModuleHolder>getattr(
+        plugin.modules, py_fullname, None
+    )
     if py_module is not None:
         py_module.refcnt += 1
         return
 
-    iop_path = make_iop_path(iop_fullname)
     py_module = _InternalModuleHolder.__new__(
-        _InternalModuleHolder, iop_path.py_name, (Module,),
-        plugin_make_class_attrs_dict(iop_path.py_name)
+        _InternalModuleHolder, py_fullname, (Module,),
+        plugin_make_class_attrs_dict(py_fullname)
     )
     py_module.module = module
     py_module.refcnt = 1
@@ -10634,7 +10648,7 @@ cdef void plugin_add_module(Plugin plugin, const iop_mod_t *module):
         py_iface = plugin_add_iface(plugin, iface_alias.iface)
         setattr(py_module, lstr_to_py_str(iface_alias.name), py_iface)
 
-    plugin.modules[iop_fullname] = py_module
+    setattr(plugin.modules, py_fullname, py_module)
 
 
 cdef object plugin_add_iface(Plugin plugin, const iop_iface_t *iface):
@@ -10906,13 +10920,17 @@ cdef void plugin_remove_module(Plugin plugin, const iop_mod_t *module):
         The module to remove.
     """
     cdef str iop_fullname
+    cdef str py_fullname
     cdef _InternalModuleHolder py_module
     cdef uint16_t i
     cdef const iop_iface_alias_t *iface_alias
     cdef str iface_fullname
 
     iop_fullname = lstr_to_py_str(module.fullname)
-    py_module = <_InternalModuleHolder>plugin.modules.get(iop_fullname)
+    py_fullname = make_py_pkg_name(iop_fullname)
+    py_module = <_InternalModuleHolder>getattr(
+        plugin.modules, py_fullname, None
+    )
     if py_module is None:
         # Already removed?
         return
@@ -10927,7 +10945,7 @@ cdef void plugin_remove_module(Plugin plugin, const iop_mod_t *module):
         iface_fullname = lstr_to_py_str(iface_alias.iface.fullname)
         plugin.interfaces.pop(iface_fullname, None)
 
-    del plugin.modules[iop_fullname]
+    delattr(plugin.modules, py_fullname)
 
 
 cdef void plugin_remove_iface(Plugin plugin, const iop_iface_t *iface):
