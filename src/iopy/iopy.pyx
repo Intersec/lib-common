@@ -9548,8 +9548,14 @@ cdef void iopy_ic_server_on_exception(ic_el_server_t *server, Exception exc):
 
 
 cdef class Interfaces:
-    """Class to contain the interfaces of a packages"""
+    """Class to contain the interfaces of a package"""
     cdef dict __dict__
+
+    def __repr__(self):
+        return ', '.join([
+            f'{name}: {iface!r}'
+            for name, iface in self.__dict__.items()
+        ])
 
 
 cdef class Package:
