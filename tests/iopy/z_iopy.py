@@ -3174,6 +3174,47 @@ class IopyIfaceTests(z.TestCase):
             self.assertEqual(w[0].category, iopy.UnexpectedExceptionWarning)
             self.assertIn('TypeError', str(w[0].message))
 
+    def test_accessors(self) -> None:
+        c = cast(
+            'test_iop_plugin__iop.Channel', iopy.Channel(self.p, make_uri())
+        )
+
+        self.assertEqual(self.p.test.get_fullname(), 'test')
+
+        self.assertEqual(c.test_ModuleA.get_fullname(), 'test.ModuleA')
+        self.assertEqual(
+            self.p.modules.test_ModuleA.get_fullname(), 'test.ModuleA'
+        )
+
+        self.assertEqual(
+            c.test_ModuleA.interfaceA.get_fullname(), 'test.InterfaceA'
+        )
+        self.assertEqual(
+            self.p.modules.test_ModuleA.interfaceA.get_fullname(),
+            'test.InterfaceA',
+        )
+
+        self.assertEqual(
+            c.test_ModuleA.interfaceA.get_basename(), 'interfaceA'
+        )
+        self.assertEqual(
+            self.p.modules.test_ModuleA.interfaceA.get_basename(),
+            'interfaceA',
+        )
+
+        self.assertEqual(c.test_ModuleA.interfaceA.get_tag(), 1)
+        self.assertEqual(self.p.modules.test_ModuleA.interfaceA.get_tag(), 1)
+
+        self.assertEqual(c.test_ModuleA.interfaceA.funA.get_tag(), 1)
+        self.assertEqual(
+            self.p.modules.test_ModuleA.interfaceA.funA.get_tag(), 1
+        )
+
+        self.assertEqual(c.test_ModuleA.interfaceA.funA.get_cmd(), 65537)
+        self.assertEqual(
+            self.p.modules.test_ModuleA.interfaceA.funA.get_cmd(), 65537
+        )
+
 
 # }}}
 # {{{ IopyVoidTest
@@ -3503,7 +3544,47 @@ class IopyCompatibilityTests(z.TestCase):
         """Test iface __name__ works as a property and as a method"""
         iface = self.p.test.interfaces.InterfaceA
         self.assertEqual(iface.__name__, 'test.InterfaceA')
-        self.assertEqual(iface.__name__(), 'test.InterfaceA')
+        self.assertEqual(iface.__name__(), 'test.InterfaceA')  # type: ignore[operator]
+
+        c = cast(
+            'test_iop_plugin__iop.Channel', iopy.Channel(self.p, make_uri())
+        )
+        self.assertEqual(
+            c.test_ModuleA.interfaceA.__name__(),  # type: ignore[attr-defined]
+            'interfaceA',
+        )
+
+    def test_package_fullname(self) -> None:
+        """Test deprecated package __name__ matches get_fullname"""
+        pkg = self.p.test
+        self.assertEqual(pkg.__name__(), pkg.get_fullname())  # type: ignore[attr-defined]
+
+    def test_iface_fullname(self) -> None:
+        """Test deprecated iface __fullname__ matches get_fullname"""
+        iface = self.p.test.interfaces.InterfaceA
+        self.assertEqual(iface.__fullname__(), iface.get_fullname())  # type: ignore[attr-defined]
+
+        c = cast(
+            'test_iop_plugin__iop.Channel', iopy.Channel(self.p, make_uri())
+        )
+        self.assertEqual(
+            c.test_ModuleA.interfaceA.__fullname__(),  # type: ignore[attr-defined]
+            c.test_ModuleA.interfaceA.get_fullname(),
+        )
+
+    def test_module_fullname(self) -> None:
+        """Test deprecated module __fullname__ matches get_fullname"""
+        c = cast(
+            'test_iop_plugin__iop.Channel', iopy.Channel(self.p, make_uri())
+        )
+        self.assertEqual(
+            c.test_ModuleA.__fullname__(),  # type: ignore[attr-defined]
+            c.test_ModuleA.get_fullname(),
+        )
+        self.assertEqual(
+            self.p.modules.test_ModuleA.__fullname__(),  # type: ignore[attr-defined]
+            self.p.modules.test_ModuleA.get_fullname(),
+        )
 
     def test_iface_types(self) -> None:
         """

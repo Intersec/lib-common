@@ -7084,7 +7084,7 @@ cdef class Module:
         return repr(type(self))
 
     @classmethod
-    def __fullname__(object cls):
+    def get_fullname(object cls):
         """Return the fullname of the IOP module.
 
         Returns
@@ -7095,6 +7095,16 @@ cdef class Module:
         cdef _InternalModuleHolder holder = cls
 
         return lstr_to_py_str(holder.module.fullname)
+
+    # FIXME: `__x__` names are reserved by Python; this method is kept for
+    # backward compatibility only.
+    @classmethod
+    def __fullname__(object cls):
+        """Return the fullname of the IOP module.
+
+        Deprecated: Use `get_fullname` instead.
+        """
+        return cls.get_fullname()
 
 
 @cython.internal
@@ -7147,10 +7157,45 @@ cdef class _InternalIfaceType(type):
 
         return 'Interface %s (RPCs: %s)' % (iface_fullname, rpcs_name)
 
+    # FIXME: `__name__` is a reserved keyword in Python.
+    # This method is a hack for IOPyV1, which is still used but deprecated.
     @property
     def __name__(_InternalIfaceType cls):
-        """Name property that can also act like a method"""
+        """Name property that can also act like a method.
+
+        Deprecated: Use `get_fullname` or `get_basename` instead.
+        """
         return cls.name_wrapper
+
+    def get_fullname(_InternalIfaceType cls):
+        """Return the fullname of the IOP interface.
+
+        Returns
+        -------
+        str
+            The fullname of the IOP interface.
+        """
+        return lstr_to_py_str(cls.iface_alias.iface.fullname)
+
+    def get_basename(_InternalIfaceType cls):
+        """Return the basename of the IOP interface in the module.
+
+        Returns
+        -------
+        str
+            The basename of the IOP interface.
+        """
+        return lstr_to_py_str(cls.iface_alias.name)
+
+    def get_tag(_InternalIfaceType cls):
+        """Get the tag of the interface in the module.
+
+        Returns
+        -------
+        int
+            The tag of the IOP interface.
+        """
+        return cls.iface_alias.tag
 
 
 @cython.internal
@@ -7179,7 +7224,7 @@ cdef class _InternalIface:
         return repr(type(self))
 
     @classmethod
-    def __fullname__(object cls):
+    def get_fullname(object cls):
         """Return the fullname of the IOP interface.
 
         Returns
@@ -7192,17 +7237,49 @@ cdef class _InternalIface:
         return lstr_to_py_str(holder.iface_alias.iface.fullname)
 
     @classmethod
-    def __name__(object cls):
-        """Return the name of the IOP interface.
+    def get_basename(object cls):
+        """Return the basename of the IOP interface in the module.
 
         Returns
         -------
         str
-            The name of the IOP interface.
+            The basename of the IOP interface.
         """
         cdef _InternalIfaceType holder = cls
 
         return lstr_to_py_str(holder.iface_alias.name)
+
+    # FIXME: `__x__` names are reserved by Python; this method is kept for
+    # backward compatibility only.
+    @classmethod
+    def __fullname__(object cls):
+        """Return the fullname of the IOP interface.
+
+        Deprecated: Use `get_fullname` instead.
+        """
+        return cls.get_fullname()
+
+    # FIXME: `__name__` is a reserved keyword in Python.
+    @classmethod
+    def __name__(object cls):
+        """Return the name of the IOP interface.
+
+        Deprecated: Use `get_basename` instead.
+        """
+        return cls.get_basename()
+
+    @classmethod
+    def get_tag(object cls):
+        """Get the tag of the interface in the module.
+
+        Returns
+        -------
+        int
+            The tag of the IOP interface.
+        """
+        cdef _InternalIfaceType holder = cls
+
+        return holder.iface_alias.tag
 
 
 @cython.warn.undeclared(False)
@@ -7362,6 +7439,27 @@ cdef class RPCBase:
         arg_type = plugin_get_class_type_st(self.iface_cls.plugin,
                                             self.rpc.args)
         return '%s, argument: %s' % (rpc_name, arg_type.get_desc())
+
+    def get_tag(RPCBase self):
+        """Return the tag identifier of the RPC in the interface.
+
+        Returns
+        -------
+        int
+            The tag identifier of the RPC.
+        """
+        return self.rpc.tag
+
+    def get_cmd(RPCBase self):
+        """Return the command identifier of the RPC in the module and
+        interface.
+
+        Returns
+        -------
+        int
+            The command identifier of the RPC.
+        """
+        return get_iface_rpc_cmd(self.iface_cls.iface_alias, self.rpc)
 
     def __repr__(RPCBase self):
         """Return the representation of the RPC.
@@ -9565,18 +9663,26 @@ cdef class Package:
         """Cython constructor of package"""
         self.interfaces = Interfaces.__new__(Interfaces)
 
-    def __name__(self):
-        """Get package name
+    def get_fullname(self):
+        """Get package fullname
 
         Returns
         -------
         str
-            The package name.
+            The package fullname.
         """
         if self.pkg:
             return lstr_to_py_str(self.pkg.name)
         else:
             return '<unknown>'
+
+    # FIXME: `__name__` is a reserved keyword in Python.
+    def __name__(self):
+        """Get package name
+
+        Deprecated: Use `get_fullname` instead.
+        """
+        return self.get_fullname()
 
 
 @cython.internal
@@ -9673,7 +9779,7 @@ cdef class Plugin:
         `pkg_mod`).
         """
         return {
-            module.__fullname__(): module
+            module.get_fullname(): module
             for module in self.modules.__dict__.values()
         }
 
