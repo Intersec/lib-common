@@ -870,20 +870,6 @@ Z_GROUP_EXPORT(iop_yaml)
                   "     ^^^");
 
 #undef ERR_COMMON
-
-        /* obj -> seq */
-        st = &tstiop__my_struct_f__s;
-#undef ERR_COMMON
-#define ERR_COMMON  \
-        "cannot unpack YAML as a `tstiop.MyStructF` IOP struct"
-
-        TST_ERROR(0, "c: a: 2",
-                  "<string>:1:4: "ERR_COMMON": cannot set field `c`: "
-                  "cannot unpack an object into an array\n"
-                  "c: a: 2\n"
-                  "   ^^^^");
-
-#undef ERR_COMMON
 #undef TST
 #undef TST_ERROR
     } Z_TEST_END;
@@ -997,6 +983,24 @@ Z_GROUP_EXPORT(iop_yaml)
             "      - a: 5\n"
             "  - a: 6",
             NULL);
+
+        /* backward compat: unpacking a struct/union/class into a repeated
+         * field creates a single-element array. */
+        TST(&tstiop__my_struct_f__s,
+            "c:\n"
+            "  a: 2",
+            "c:\n"
+            "  - a: 2");
+        TST(&tstiop__my_struct_f__s,
+            "d:\n"
+            "  ua: 3",
+            "d:\n"
+            "  - ua: 3");
+        TST(&tstiop__my_struct_f__s,
+            "e: !tstiop.MyClass1\n"
+            "  int1: 4",
+            "e:\n"
+            "  - int1: 4");
 
         /* unpacking an integer inside an enum works, but is repacked as a
          * string. */
