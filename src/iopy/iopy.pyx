@@ -7117,6 +7117,7 @@ class _InternalIfaceNameWrapper(str):
 @cython.internal
 cdef class _InternalIfaceType(type):
     """Internal base metaclass for interface types"""
+    cdef Plugin plugin
     cdef const iop_iface_t *iface
     cdef int refcnt
     cdef object name_wrapper
