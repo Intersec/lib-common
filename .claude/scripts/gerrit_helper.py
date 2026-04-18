@@ -106,33 +106,76 @@ def _get_project_name() -> str:
     return url.rsplit('/', 1)[-1].removesuffix('.git')
 
 
+def _is_close_ancestor(ref: str, max_depth: int = 100) -> bool:
+    """True iff `ref` is an ancestor of HEAD within max_depth commits."""
+    try:
+        subprocess.check_call(
+            ['git', 'merge-base', '--is-ancestor', ref, 'HEAD'],
+            stderr=subprocess.DEVNULL,
+        )
+    except subprocess.CalledProcessError:
+        return False
+    try:
+        depth = int(_git('rev-list', '--count', f'{ref}..HEAD'))
+    except subprocess.CalledProcessError:
+        return False
+    return depth <= max_depth
+
+
 def _get_branch(commit: str = 'HEAD') -> str:
     """Return the Gerrit target branch for the given commit."""
-    # Fast path: upstream of current branch
-    if commit == 'HEAD':
+    # The fast paths below trust the current local branch (its upstream
+    # and its name), which is reliable only when `commit` is HEAD or a
+    # close ancestor — i.e. part of the user's current work. A cherry-
+    # picked commit from an unrelated branch falls through to the
+    # merge-base fallback so it can be located from its own history.
+    trust_local = commit == 'HEAD' or _is_close_ancestor(commit)
+
+    # Query the current local branch once; reused by every fast path.
+    local: str | None = None
+    if trust_local:
         try:
-            branch = _git('rev-parse', '--abbrev-ref', 'HEAD')
-            if branch != 'HEAD':  # not detached
-                upstream = _git(
-                    'rev-parse',
-                    '--abbrev-ref',
-                    '--symbolic-full-name',
-                    '@{u}',
-                    stderr=subprocess.DEVNULL,
-                )
-                if upstream.startswith('origin/'):
-                    return upstream.removeprefix('origin/')
+            candidate = _git('rev-parse', '--abbrev-ref', 'HEAD')
+            if candidate != 'HEAD':  # not detached
+                local = candidate
         except subprocess.CalledProcessError:
             pass
 
-    # Fallback: find closest origin/* branch by merge-base distance.
+    # Fast path 1: upstream of the current branch.
+    if local:
+        try:
+            upstream = _git(
+                'rev-parse',
+                '--abbrev-ref',
+                '--symbolic-full-name',
+                '@{u}',
+                stderr=subprocess.DEVNULL,
+            )
+            if upstream.startswith('origin/'):
+                return upstream.removeprefix('origin/')
+        except subprocess.CalledProcessError:
+            pass
+
     refs = _git('branch', '-r', '--format=%(refname:short)').splitlines()
     branches = [
         r for r in refs if r.startswith('origin/') and r != 'origin/HEAD'
     ]
     if not branches:
         sys.exit('Error: no origin/ branches found.')
+    shorts = [r.removeprefix('origin/') for r in branches]
 
+    # Fast paths 2 & 3: match the local branch name against origin/*.
+    if local:
+        # Exact match: local branch name is an origin branch name.
+        if local in shorts:
+            return local
+        # Substring match: an origin branch name appears in the local
+        # branch name; pick the longest (most specific) match.
+        matches = [s for s in shorts if s in local]
+        if matches:
+            return max(matches, key=len)
+
+    # Fallback: find closest origin/* branch by merge-base distance.
     def _score(ref: str) -> int | None:
         try:
             base = _git('merge-base', commit, ref, stderr=subprocess.DEVNULL)
