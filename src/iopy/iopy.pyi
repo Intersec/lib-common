@@ -513,9 +513,9 @@ class IsIopFieldOptional: ...
 
 class ChannelBase: ...
 
-_TRpcArg = typing.TypeVar('_TRpcArg', bound=StructUnionBase | None)
-_TRpcRes = typing.TypeVar('_TRpcRes', bound=StructUnionBase | None)
-_TRpcExn = typing.TypeVar('_TRpcExn', bound=StructUnionBase | None)
+_TRpcArg = typing.TypeVar('_TRpcArg', bound=StructUnionBase)
+_TRpcRes = typing.TypeVar('_TRpcRes', bound=StructUnionBase)
+_TRpcExn = typing.TypeVar('_TRpcExn', bound=StructUnionBase)
 
 class EmptyTypedDict(typing.TypedDict): ...
 

@@ -368,6 +368,18 @@ cdef inline int check_ic_el_res(ic_el_sync_res_t res,
     return 0
 
 
+cdef inline cbool iop_rpc_struct_is_void(
+        const iop_struct_t *st) noexcept nogil:
+    """Return whether an RPC arg/res/exn struct represents `void`.
+
+    The C IOP layer registers a missing or `null` IOP RPC field as a pointer
+    to the shared `&iop__void__s` struct (whose `fullname` is "Void"), so a
+    NULL pointer should not happen in practice; we still check for it
+    defensively.
+    """
+    return st == NULL or lstr_equal(st.fullname, LSTR('Void'))
+
+
 # }}}
 # {{{ Errors
 
@@ -7347,11 +7359,11 @@ cdef class RPCBase:
         Returns
         -------
         type
-            The IOPy type for the RPC arguments. None if the RPC has no
-            arguments.
+            The IOPy type for the RPC arguments. The `Void` class if
+            the RPC has no arguments.
         """
-        if not self.rpc.args:
-            return None
+        if iop_rpc_struct_is_void(self.rpc.args):
+            return self.iface_cls.plugin.void_type
         return plugin_get_class_type_st(self.iface_cls.plugin,
                                         self.rpc.args)
 
@@ -7362,11 +7374,11 @@ cdef class RPCBase:
         Returns
         -------
         type
-            The IOPy type for the RPC results. None if the RPC has no
-            results.
+            The IOPy type for the RPC results. The `Void` class if the
+            RPC has no results.
         """
-        if not self.rpc.result:
-            return None
+        if iop_rpc_struct_is_void(self.rpc.result):
+            return self.iface_cls.plugin.void_type
         return plugin_get_class_type_st(self.iface_cls.plugin,
                                         self.rpc.result)
 
@@ -7377,11 +7389,11 @@ cdef class RPCBase:
         Returns
         -------
         type
-            The IOPy type for the RPC exception. None if the RPC has no
-            exception.
+            The IOPy type for the RPC exception. The `Void` class if
+            the RPC has no exception.
         """
-        if not self.rpc.exn:
-            return None
+        if iop_rpc_struct_is_void(self.rpc.exn):
+            return self.iface_cls.plugin.void_type
         return plugin_get_class_type_st(self.iface_cls.plugin,
                                         self.rpc.exn)
 
@@ -8389,7 +8401,8 @@ cdef object client_sync_channel_call_rpc(RPC rpc, tuple args, dict kwargs):
 
     Returns
     -------
-        The result of the RPC or None in case of asynchronous RPC.
+        The result of the RPC, or a `Void` instance for asynchronous RPCs
+        (the client does not wait for a reply).
     """
     cdef t_scope_t t_scope_guard = t_scope_init()
     cdef sb_buf_1k_t err_buf
@@ -8422,7 +8435,7 @@ cdef object client_sync_channel_call_rpc(RPC rpc, tuple args, dict kwargs):
     check_ic_el_res(call_res, &err)
 
     if rpc.rpc.async:
-        return None
+        return plugin_build_void_instance(plugin)
 
     try:
         return client_channel_call_rpc_process_res(plugin, rpc, ic_status,
@@ -8582,7 +8595,7 @@ def client_async_channel_call_rpc_set_res(AsyncChannelRpcCallCtx ctx):
         if ctx.error.s:
             ctx.future.set_exception(Error(lstr_to_py_str(ctx.error)))
         elif ctx.rpc.rpc.async:
-            ctx.future.set_result(None)
+            ctx.future.set_result(plugin_build_void_instance(plugin))
         else:
             try:
                 py_res = client_channel_call_rpc_process_res(plugin, ctx.rpc,
@@ -8771,9 +8784,12 @@ cdef object client_channel_call_rpc_process_res(Plugin plugin, RPCChannel rpc,
     cdef object py_exn
 
     if ic_status == IC_MSG_OK:
-        py_res_cls = plugin_get_class_type_st(plugin, rpc.rpc.result)
-        py_res = iop_c_val_to_py_obj(py_res_cls, rpc.rpc.result, ic_res,
-                                     plugin)
+        if iop_rpc_struct_is_void(rpc.rpc.result):
+            py_res = plugin_build_void_instance(plugin)
+        else:
+            py_res_cls = plugin_get_class_type_st(plugin, rpc.rpc.result)
+            py_res = iop_c_val_to_py_obj(py_res_cls, rpc.rpc.result, ic_res,
+                                         plugin)
         py_res = client_channel_do_post_hook(rpc, py_res)
         return py_res
     elif ic_status == IC_MSG_EXN:
@@ -9568,18 +9584,21 @@ cdef int t_iopy_ic_server_on_rpc_gil(
 
     args.rpc = rpc
 
-    py_arg_cls = plugin_get_class_type_st(plugin, rpc.rpc.args)
-    args.arg = iop_c_val_to_py_obj(py_arg_cls, rpc.rpc.args, arg, plugin)
+    if iop_rpc_struct_is_void(rpc.rpc.args):
+        args.arg = plugin_build_void_instance(plugin)
+    else:
+        py_arg_cls = plugin_get_class_type_st(plugin, rpc.rpc.args)
+        args.arg = iop_c_val_to_py_obj(py_arg_cls, rpc.rpc.args, arg, plugin)
 
-    if rpc.rpc.result:
+    if iop_rpc_struct_is_void(rpc.rpc.result):
+        args.res = plugin.void_type
+    else:
         args.res = plugin_get_class_type_st(plugin, rpc.rpc.result)
-    else:
-        args.res = None
 
-    if rpc.rpc.exn:
-        args.exn = plugin_get_class_type_st(plugin, rpc.rpc.exn)
+    if iop_rpc_struct_is_void(rpc.rpc.exn):
+        args.exn = plugin.void_type
     else:
-        args.exn = None
+        args.exn = plugin_get_class_type_st(plugin, rpc.rpc.exn)
 
     if hdr:
         py_hdr_cls = plugin_get_class_type_st(plugin, &ic__hdr__s)
@@ -9595,10 +9614,13 @@ cdef int t_iopy_ic_server_on_rpc_gil(
     py_res = rpc.rpc_impl(args)
 
     if py_res is None:
-        if not lstr_equal(rpc.rpc.result.fullname, LSTR('Void')):
+        if not iop_rpc_struct_is_void(rpc.rpc.result):
             raise Error('RPC impl %s of <%s> returned None while '
                         'expected type is: %s' %
                         (rpc.rpc_impl, rpc, args.arg))
+        # Void result: the IC layer needs `res_st` to know how to serialize
+        # the (empty) response payload, even when there is no data.
+        res_st[0] = rpc.rpc.result
         return IC_MSG_OK
     elif isinstance(py_res, args.res):
         res_st[0] = struct_union_get_desc(<StructUnionBase>py_res)
@@ -9717,6 +9739,7 @@ cdef class Plugin:
     cdef dict interfaces
     cdef dict additional_dsos
     cdef readonly Modules modules
+    cdef type void_type
 
     def __cinit__(Plugin self):
         """Cython constructor.
@@ -10902,6 +10925,24 @@ cdef void plugin_add_void_type(Plugin plugin, const iop_struct_t *st,
     iop_type = plugin_create_st_iop_type(plugin, iop_path, st, Struct, None)
     plugin_add_type(plugin, iop_path, iop_type)
     setattr(plugin, iop_path.py_name, iop_type)
+    plugin.void_type = iop_type
+
+
+cdef inline object plugin_build_void_instance(Plugin plugin):
+    """Build a Void instance
+
+    Parameters
+    ----------
+    plugin
+        The IOPy plugin.
+
+
+    Returns
+    -------
+    object
+        The Void instance
+    """
+    return plugin.void_type.__new__(plugin.void_type)
 
 
 cdef void plugin_unload_dso(Plugin plugin, const iop_dso_t *dso):

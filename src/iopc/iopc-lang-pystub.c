@@ -938,14 +938,13 @@ iopc_pystub_dump_rpc_fun_struct(sb_t *buf, const iopc_pkg_t *pkg,
 
     if (iopc_fun_struct_is_void(fun_st)) {
         sb_addf(buf,
-                "%s: typing_extensions.TypeAlias = None\n"
+                "%s: typing_extensions.TypeAlias = iopy.Void\n"
                 "%s_DictType: typing_extensions.TypeAlias = "
                 "iopy.EmptyTypedDict\n",
                 st_name, st_name);
     } else if (fun_st->is_anonymous) {
         iopc_pystub_dump_struct_intern(buf, pkg, fun_st->anonymous_struct,
                                        st_name);
-        sb_adds(buf, "\n");
     } else {
         SB_1k(type_buf);
 

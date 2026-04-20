@@ -567,8 +567,9 @@ class IopyTest(z.TestCase):
 
         def rpc_impl_async(
             rpc_args: test__iop.InterfaceA_funAsync_RPCServer.RpcArgs,
-        ) -> None:
+        ) -> test__iop.InterfaceA_funAsync_RPCServer.RpcRes:
             self.async_done = True
+            return rpc_args.res()
 
         s.test_ModuleA.interfaceA.funAsync.impl = rpc_impl_async
 
@@ -3814,9 +3815,10 @@ class IopyAsyncTests(z.TestCase):
 
         def rpc_impl_async(
             rpc_args: test__iop.InterfaceA_funAsync_RPCServer.RpcArgs,
-        ) -> None:
+        ) -> test__iop.InterfaceA_funAsync_RPCServer.RpcRes:
             check_hdr(rpc_args)
             self.async_done = True
+            return rpc_args.res()
 
         self.server = self.p.channel_server()
         self.server.test_ModuleA.interfaceA.funB.impl = rpc_impl_b
@@ -3861,10 +3863,10 @@ class IopyAsyncTests(z.TestCase):
 
         # Make a RPC call with async RPC
         self.async_done = False
-        ret_none = self.loop.run_until_complete(
+        ret_void = self.loop.run_until_complete(
             iface.funAsync(a=obj_a, _hdr=self.hdr)
         )
-        self.assertIsNone(ret_none)
+        self.assertIsInstance(ret_void, self.p.Void)
         for _ in range(10):
             if self.async_done:
                 break
