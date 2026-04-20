@@ -177,10 +177,14 @@
 #endif
 
 #if  __has_feature(thread_sanitizer)
+void __tsan_acquire(void *addr);
+void __tsan_release(void *addr);
 #  define __has_tsan       1
 #  define __attr_notsan__  __attribute__((no_sanitize_thread))
 #else
 # define __attr_notsan__
+# define __tsan_acquire(addr)  ((void)0)
+# define __tsan_release(addr)  ((void)0)
 #endif
 
 #if  !__has_feature(nullability)
