@@ -792,8 +792,30 @@ static void thr_info_cleanup(void *unused)
         self_g->ncache.qnode.next = n->qnode.next;
         free(n);
     }
+}
+
+/* Mark the current worker thread as dead. Registered as an exit hook at the
+ * tail of thr_hooks_g.exit_cbs so it runs after all other per-thread exit
+ * hooks (e.g. log_shutdown_thread, t_pool_wipe). Setting `alive = false`
+ * last ensures that main's busy-wait on `alive` in thr_shutdown establishes
+ * a happens-before with every access the exiting thread made inside
+ * thr_detach; otherwise TSan reports races between worker tear-down and
+ * subsequent main-thread globals accesses.
+ */
+static void thr_mark_dead(void)
+{
+    if (!self_g) {
+        return;
+    }
     atomic_thread_fence(memory_order_acq_rel);
     atomic_store(&self_g->alive, false);
+}
+
+static struct thr_ctor thr_mark_dead_ctor = { .cb = &thr_mark_dead };
+
+static __attribute__((constructor)) void thr_mark_dead_register(void)
+{
+    dlist_add_tail(&thr_hooks_g.exit_cbs, &thr_mark_dead_ctor.link);
 }
 
 static int thr_sleep_until(thr_evc_t *ec, int timeout, bool (^cond)(void))
