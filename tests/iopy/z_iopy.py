@@ -3232,6 +3232,96 @@ class IopyIfaceTests(z.TestCase):
             self.p.modules.test_ModuleA.interfaceA.funA.get_cmd(), 65537
         )
 
+    def test_rpc_args_types(self) -> None:
+        """Test rpc_args types correspond to the RPC Arg/Res/Exn types"""
+        iface_cls = self.p.test.interfaces.InterfaceA
+        server_excs: list[BaseException] = []
+
+        # Server impls verify the runtime types of `rpc_args` match the
+        # RPC `Arg`/`Res`/`Exn` types declared by the interface.
+        def rpc_impl_a(
+            rpc_args: test__iop.InterfaceA_funA_RPCServer.RpcArgs,
+        ) -> test__iop.InterfaceA_funA_RPCServer.RpcRes:
+            self.assertIsInstance(rpc_args.arg, iface_cls.funA.Arg)
+            self.assertIs(type(rpc_args.arg), iface_cls.funA.Arg)
+            self.assertIs(rpc_args.res, iface_cls.funA.Res)
+            self.assertIs(rpc_args.exn, iface_cls.funA.Exn)
+            return rpc_args.res(status='A', res=1000)
+
+        def rpc_impl_async(
+            rpc_args: test__iop.InterfaceA_funAsync_RPCServer.RpcArgs,
+        ) -> test__iop.InterfaceA_funAsync_RPCServer.RpcRes:
+            self.assertIsInstance(rpc_args.arg, iface_cls.funAsync.Arg)
+            self.assertIs(type(rpc_args.arg), iface_cls.funAsync.Arg)
+            self.assertIs(rpc_args.res, iface_cls.funAsync.Res)
+            self.assertIs(rpc_args.exn, iface_cls.funAsync.Exn)
+            self.assertIs(rpc_args.res, self.p.Void)
+            self.assertIs(rpc_args.exn, self.p.Void)
+            return rpc_args.res()
+
+        def rpc_impl_err(
+            rpc_args: test__iop.InterfaceA_funErrOnly_RPCServer.RpcArgs,
+        ) -> test__iop.InterfaceA_funErrOnly_RPCServer.RpcRes:
+            self.assertIsInstance(rpc_args.arg, iface_cls.funErrOnly.Arg)
+            self.assertIs(type(rpc_args.arg), iface_cls.funErrOnly.Arg)
+            self.assertIs(rpc_args.res, iface_cls.funErrOnly.Res)
+            self.assertIs(rpc_args.exn, iface_cls.funErrOnly.Exn)
+            self.assertIs(rpc_args.res, self.p.Void)
+            return rpc_args.exn(code=42)
+
+        def rpc_impl_err_no_throw(
+            rpc_args: test__iop.InterfaceA_funErrOnly_RPCServer.RpcArgs,
+        ) -> test__iop.InterfaceA_funErrOnly_RPCServer.RpcRes:
+            self.assertIsInstance(rpc_args.arg, iface_cls.funErrOnly.Arg)
+            self.assertIs(type(rpc_args.arg), iface_cls.funErrOnly.Arg)
+            self.assertIs(rpc_args.res, iface_cls.funErrOnly.Res)
+            self.assertIs(rpc_args.exn, iface_cls.funErrOnly.Exn)
+            self.assertIs(rpc_args.res, self.p.Void)
+            # Exercise the server-side `None` → void result path.
+            return None  # type: ignore[return-value]
+
+        uri = make_uri()
+        server = self.p.channel_server()
+        server.on_exception = server_excs.append
+        server.test_ModuleA.interfaceA.funA.impl = rpc_impl_a
+        server.test_ModuleA.interfaceA.funAsync.impl = rpc_impl_async
+        server.test_ModuleA.interfaceA.funErrOnly.impl = rpc_impl_err
+        server.listen(uri=uri)
+
+        # Client side: verify the result is an instance of the RPC `Res`.
+        client = self.p.connect(uri)
+        iface = client.test_ModuleA.interfaceA
+
+        res_a = iface.funA(a=self.p.test.ClassA(field1=10))
+        self.assertIsInstance(res_a, iface_cls.funA.Res)
+
+        # `funAsync` has `out null`: the client receives a `Void` instance.
+        res_async = iface.funAsync(a=self.p.test.ClassA(field1=10))
+        self.assertIsInstance(res_async, self.p.Void)
+
+        # `funAsync` has `out null`: `Res` and `Exn` are the `Void` class.
+        self.assertIs(iface_cls.funAsync.Res, self.p.Void)
+        self.assertIs(iface_cls.funAsync.Exn, self.p.Void)
+
+        # `funErrOnly` has `out null` and `throw (int code)`: the client
+        # receives the exn instance via an `iopy.RpcError`.
+        with self.assertRaises(iopy.RpcError) as cm:
+            iface.funErrOnly(val=1)
+        self.assertEqual(len(cm.exception.args), 1)
+        self.assertIsInstance(cm.exception.args[0], iface_cls.funErrOnly.Exn)
+
+        # Same RPC, but the impl returns `None` instead of throwing: the
+        # client should get a `Void` instance as a successful response.
+        server.test_ModuleA.interfaceA.funErrOnly.impl = rpc_impl_err_no_throw
+        res_err = iface.funErrOnly(val=1)
+        self.assertIsInstance(res_err, self.p.Void)
+
+        server.stop()
+
+        # Surface any assertion error raised on the server side.
+        if server_excs:
+            raise server_excs[0]
+
 
 # }}}
 # {{{ IopyVoidTest

@@ -417,6 +417,9 @@ interface InterfaceA {
     del
         in PythonKeywordUnion
         out null;
+    funErrOnly
+        in (int val)
+        throw (int code);
 };
 
 module ModuleA : test.emptystuffs.EmptyModule {
