@@ -792,6 +792,16 @@ thr_hooks(t_pool_init, t_pool_wipe);
 
 __thread mem_stack_pool_t t_pool_g;
 
+static void mem_stack_all_pools_prepare_fork(void)
+{
+    spin_lock(&_G.all_pools_lock);
+}
+
+static void mem_stack_all_pools_parent_fork(void)
+{
+    spin_unlock(&_G.all_pools_lock);
+}
+
 static void mem_stack_fix_all_pools_at_fork(void)
 {
     /* When a process forks, the stack pools of the main thread remain (like
@@ -803,12 +813,15 @@ static void mem_stack_fix_all_pools_at_fork(void)
             dlist_remove(&sp->mp.pool_link);
         }
     }
+    spin_unlock(&_G.all_pools_lock);
 }
 
 __attribute__((constructor))
 static void mem_stack_all_pools_init_at_fork(void)
 {
-    pthread_atfork(NULL, NULL, &mem_stack_fix_all_pools_at_fork);
+    pthread_atfork(&mem_stack_all_pools_prepare_fork,
+                   &mem_stack_all_pools_parent_fork,
+                   &mem_stack_fix_all_pools_at_fork);
 }
 
 /* {{{ Module (for print_state method) */
