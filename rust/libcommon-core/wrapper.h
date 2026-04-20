@@ -17,6 +17,7 @@
 /***************************************************************************/
 
 #include <lib-common/core.h>
+#include <lib-common/el.h>
 #include <lib-common/farch.h>
 #include <lib-common/log.h>
 #include <lib-common/qlzo.h>

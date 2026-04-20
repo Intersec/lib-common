@@ -106,3 +106,64 @@ where
 }
 
 // }}}
+// {{{ Tests
+
+#[cfg(test)]
+mod test {
+    use std::sync::atomic::{AtomicU32, Ordering};
+    use std::thread;
+
+    use super::{attach, detach, main_c_queue_schedule};
+    use crate::bindings::{
+        el_blocker_register, el_loop, el_unregister, ev_t, module_release, module_require,
+        thr_assert_is_main_thread, thr_get_module,
+    };
+
+    static RESULT: AtomicU32 = AtomicU32::new(0);
+
+    struct ElBlocker(*mut ev_t);
+    unsafe impl Send for ElBlocker {}
+
+    #[test]
+    fn main_c_queue_schedule_from_other_thread() {
+        unsafe {
+            module_require(thr_get_module());
+        }
+
+        let blocker = ElBlocker(unsafe { el_blocker_register() });
+
+        let handle = thread::spawn(move || {
+            attach();
+            main_c_queue_schedule(move || {
+                // Force capture of the whole `blocker` (which is `Send`) instead of
+                // disjointly capturing `blocker.0` (which is not `Send`).
+                let mut blocker = blocker;
+
+                unsafe {
+                    thr_assert_is_main_thread();
+                }
+
+                RESULT.store(42, Ordering::SeqCst);
+
+                unsafe {
+                    el_unregister(&raw mut blocker.0);
+                }
+            });
+            detach();
+        });
+
+        unsafe {
+            el_loop();
+        }
+
+        handle.join().expect("rust thread panicked");
+
+        assert_eq!(RESULT.load(Ordering::SeqCst), 42);
+
+        unsafe {
+            module_release(thr_get_module());
+        }
+    }
+}
+
+// }}}
