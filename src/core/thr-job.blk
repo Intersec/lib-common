@@ -135,6 +135,9 @@ thr_queue_t *const thr_queue_main_g = &_G.main_queue;
 
 typedef _Atomic(thr_evc_t *) atomic_thr_evc_t;
 static atomic_thr_evc_t thr0_cur_ec_g;
+
+static atomic_bool thr_is_initialized_g;
+
 static bool reload_at_fork_g;
 
 #define for_each_thread(thr)  \
@@ -981,7 +984,7 @@ static void thr_fork_threads(void)
 
 void thr_enter_blocking_syscall(void)
 {
-    if (MODULE_IS_LOADED(thr)) {
+    if (thr_is_initialized()) {
         atomic_fetch_add(&_G.target_threads_count, 1);
         atomic_fetch_add(&_G.threads_count_gen, 1);
         thr_ec_broadcast(&_G.threads_count_evc);
@@ -994,7 +997,7 @@ void thr_enter_blocking_syscall(void)
 
 void thr_exit_blocking_syscall(void)
 {
-    if (MODULE_IS_LOADED(thr)) {
+    if (thr_is_initialized()) {
         size_t count = atomic_fetch_sub(&_G.target_threads_count, 1);
 
         assert (count > thr_parallelism_g);
@@ -1134,11 +1137,15 @@ static int thr_initialize(void *arg)
     _G.before = el_unref(el_before_register(&thr_on_el, NULL));
     _G.wakeel = el_unref(el_wake_register(&thr_on_el, NULL));
 
+    atomic_store_explicit(&thr_is_initialized_g, true, memory_order_release);
+
     return 0;
 }
 
 static int thr_shutdown(void)
 {
+    atomic_store_explicit(&thr_is_initialized_g, false, memory_order_release);
+
     if (thr_parallelism_g && self_g->id == 0) {
         atomic_store(&_G.stopping, true);
         atomic_store(&_G.target_threads_count, thr_parallelism_g);
@@ -1184,6 +1191,11 @@ MODULE_BEGIN(thr)
     MODULE_DEPENDS_ON(el);
     MODULE_IMPLEMENTS_VOID(at_fork_on_child, &thr_job_at_fork);
 MODULE_END()
+
+bool thr_is_initialized(void)
+{
+    return atomic_load_explicit(&thr_is_initialized_g, memory_order_acquire);
+}
 
 /* }}} */
 /* thr_syn {{{ */

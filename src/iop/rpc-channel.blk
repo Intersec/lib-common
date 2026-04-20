@@ -3373,7 +3373,7 @@ __ic_resolve_remote_addr(ichannel_t *ic, int flags, int timeout)
     /* It is mandatory to have the thr module loaded when using the
      * asynchronous DNS resolution. If not, just fallback to the legacy
      * behavior. */
-    if (!(flags & O_NONBLOCK) || !MODULE_IS_LOADED(thr)) {
+    if (!(flags & O_NONBLOCK) || !thr_is_initialized()) {
         /* Blocking / old fashion to resolve address. */
         if (addr_resolve_with_err(ic->name.s, ic->remote_addr, &ic->su,
                                   &err) < 0)

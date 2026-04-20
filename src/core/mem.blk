@@ -202,7 +202,7 @@ void core_mem_malloc_trim(void)
 {
     size_t pad = libc_g.malloc_trim_pad;
 
-    if (MODULE_IS_LOADED(thr)) {
+    if (thr_is_initialized()) {
         thr_schedule_b(^{
             call_malloc_trim(pad);
         });

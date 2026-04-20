@@ -110,10 +110,17 @@ typedef struct thr_cfg_t {
 /* Takes an optional thr_cfg_t as argument */
 MODULE_DECLARE(thr);
 
+/** Whether the \ref thr module is initialized.
+ *
+ * Unlike \ref MODULE_IS_LOADED, this function is thread-safe and can be
+ * called from any thread.
+ */
+bool thr_is_initialized(void);
+
 /** Assert that the current thread is the main thread. */
 static inline void thr_assert_is_main_thread(void)
 {
-    assert(!MODULE_IS_LOADED(thr) || thr_is_on_queue(thr_queue_main_g));
+    assert(!thr_is_initialized() || thr_is_on_queue(thr_queue_main_g));
 }
 
 #endif /* IS_LIB_COMMON_THR_H */

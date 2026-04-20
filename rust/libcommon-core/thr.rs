@@ -23,8 +23,8 @@
 //! `main_c_queue_schedule()` can be used to run a closure into the main C thread.
 
 use crate::bindings::{
-    module_is_loaded, thr_attach, thr_detach, thr_get_module, thr_is_on_queue, thr_job_t,
-    thr_queue, thr_queue_main_g, thr_syn_t,
+    thr_attach, thr_detach, thr_is_initialized, thr_is_on_queue, thr_job_t, thr_queue,
+    thr_queue_main_g, thr_syn_t,
 };
 
 // {{{ Attach/Detach
@@ -81,8 +81,8 @@ pub fn main_c_queue_schedule<F>(callback: F)
 where
     F: FnOnce() + Send + 'static,
 {
-    // Assert that the `thr` module is loaded.
-    debug_assert!(unsafe { module_is_loaded(thr_get_module()) });
+    // Assert that the `thr` module is initialized.
+    debug_assert!(unsafe { thr_is_initialized() });
 
     if unsafe { thr_is_on_queue(thr_queue_main_g) } {
         // We are already on the main C thread, run the callback immediately.
