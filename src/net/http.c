@@ -3215,6 +3215,7 @@ void httpc_pool_wipe(httpc_pool_t *pool, bool wipe_conns)
     }
     lstr_wipe(&pool->name);
     lstr_wipe(&pool->host);
+    qv_wipe(&pool->resolved);
     httpc_cfg_delete(&pool->cfg);
 }
 
@@ -3265,9 +3266,10 @@ httpc_t *httpc_pool_launch(httpc_pool_t *pool)
 {
     if (pool->resolve_on_connect) {
         t_scope;
-        SB_1k(err);
         const char *what = pool->name.s ?: "httpc pool";
         lstr_t host = pool->host;
+        pstream_t ps_host;
+        in_port_t port;
 
         if (pool->cfg->use_proxy) {
             host = t_lstr_fmt(
@@ -3277,10 +3279,26 @@ httpc_t *httpc_pool_launch(httpc_pool_t *pool)
             assert(pool->host.s);
         }
 
-        if (addr_resolve_with_err(what, host, &pool->su, &err) < 0) {
-            logger_warning(&_G.logger, "%pL", &err);
+        if (addr_parse(ps_initlstr(&host), &ps_host, &port, -1) < 0) {
+            logger_warning(
+                &_G.logger, "unable to parse %s address `%pL`", what, &host
+            );
             return NULL;
         }
+
+        qv_clear(&pool->resolved);
+        if (addr_info_all(&pool->resolved, AF_UNSPEC, ps_host, port) < 0) {
+            logger_warning(
+                &_G.logger, "unable to resolve %s address `%pL`", what, &host
+            );
+            return NULL;
+        }
+
+        /* XXX resolved_idx is advanced on connect error (see
+         * httpc_on_connect_error()), so that the pool sticks to a working
+         * address and fails over to the next one on connection failure. */
+        pool->su =
+            pool->resolved.tab[pool->resolved_idx % pool->resolved.len];
     }
 
     return httpc_connect_as(&pool->su, pool->su_src, pool->cfg, pool);
@@ -3534,6 +3552,12 @@ close:
 
 static void httpc_on_connect_error(httpc_t *w, int errnum)
 {
+    if (w->pool && w->pool->resolved.len) {
+        /* Fail over: the next launch will try the next resolved address. */
+        w->pool->resolved_idx =
+            (w->pool->resolved_idx + 1) % w->pool->resolved.len;
+    }
+
     if (w->pool && w->pool->on_connect_error) {
         (*w->pool->on_connect_error)(w, errnum);
     } else if (w->on_connect_error) {

@@ -940,8 +940,19 @@ struct httpc_pool_t {
      * Instead of manually resolve \ref su, when this is set to true, \ref su
      * is resolved from \ref host before making the connection in
      * \ref httpc_pool_launch() or \ref httpc_pool_get().
+     *
+     * When the host resolves to multiple addresses, the pool cycles through
+     * them on connection failure (round-robin via \ref resolved_idx).
      */
     bool resolve_on_connect;
+
+    /** All addresses from the last DNS resolution.
+     *
+     * Populated by \ref httpc_pool_launch() when \ref resolve_on_connect is
+     * set. Used for round-robin failover on connect error.
+     */
+    qv_t(sockunion) resolved;
+    int resolved_idx;
 
     /** To connect using a specific network interface. */
     sockunion_t *nullable su_src;

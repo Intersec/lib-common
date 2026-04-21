@@ -378,4 +378,154 @@ Z_GROUP_EXPORT(http2)
 }
 Z_GROUP_END;
 
+/* {{{ httpc_pool resolve_on_connect tests */
+
+static struct {
+    bool connect_error_called;
+    int connect_error_errno;
+} z_http_pool_g;
+
+static void z_http_pool_on_connect_error(const httpc_t *w, int errnum)
+{
+    z_http_pool_g.connect_error_called = true;
+    z_http_pool_g.connect_error_errno = errnum;
+}
+
+Z_GROUP_EXPORT(httpc_pool)
+{
+
+    Z_TEST(resolve_on_connect_multi_addr) {
+        httpc_pool_t pool;
+
+        httpc_pool_init(&pool);
+        pool.cfg = httpc_cfg_new();
+        pool.cfg->noact_delay = 20;
+        pool.resolve_on_connect = true;
+        pool.host = LSTR("127.0.0.1:1");
+        pool.max_len = 10;
+        pool.on_connect_error = &z_http_pool_on_connect_error;
+
+        /* Launch triggers resolution; resolved should be populated */
+        httpc_pool_launch(&pool);
+        Z_ASSERT_GE(pool.resolved.len, 1);
+        Z_ASSERT_EQ(pool.resolved_idx, 0);
+        Z_ASSERT_EQ(pool.su.family, AF_INET);
+
+        httpc_pool_wipe(&pool, true);
+
+        el_wait_until(false, 50);
+    }
+    Z_TEST_END;
+
+    Z_TEST(resolved_idx_advances_on_error) {
+        httpc_pool_t pool;
+        httpc_t *w;
+
+        httpc_pool_init(&pool);
+        pool.cfg = httpc_cfg_new();
+        pool.cfg->noact_delay = 20;
+        pool.resolve_on_connect = true;
+        /* Port 1 is unlikely to be listening — connection will fail */
+        pool.host = LSTR("127.0.0.1:1");
+        pool.max_len = 10;
+        pool.on_connect_error = &z_http_pool_on_connect_error;
+
+        z_http_pool_g.connect_error_called = false;
+        w = httpc_pool_launch(&pool);
+        Z_ASSERT_P(w);
+        Z_ASSERT_GE(pool.resolved.len, 1);
+        Z_ASSERT_EQ(pool.resolved_idx, 0);
+
+        /* Wait for connection to fail */
+        el_wait_until(z_http_pool_g.connect_error_called, 5000);
+        Z_ASSERT(z_http_pool_g.connect_error_called);
+        Z_ASSERT_EQ(z_http_pool_g.connect_error_errno, ECONNREFUSED);
+        Z_ASSERT_EQ(
+            pool.resolved_idx, 1 % pool.resolved.len,
+            "resolved_idx should advance on connect error"
+        );
+
+        httpc_pool_wipe(&pool, true);
+
+        el_wait_until(false, 50);
+    }
+    Z_TEST_END;
+
+    Z_TEST(pool_failover_to_working_addr) {
+        httpc_pool_t pool;
+        sockunion_t su;
+        httpc_t *w;
+
+        /* Start a real server to connect to */
+        httpd_cfg_t *server_cfg = httpd_cfg_new();
+
+        server_cfg->max_conns = 1;
+        server_cfg->max_queries = 1;
+        server_cfg->noact_delay = 100;
+
+        Z_ASSERT_N(addr_resolve("test", LSTR("127.0.0.1:1"), &su));
+        sockunion_setport(&su, 0);
+        el_t server = httpd_listen(&su, server_cfg);
+        Z_ASSERT_P(server);
+        int port = getsockport(el_fd_get_fd(server), AF_INET);
+
+        /* Set up a pool with resolve_on_connect. The host resolves to
+         * 127.0.0.1 which is where our server is. First pre-fill resolved
+         * with a bad address followed by the real one to simulate failover.
+         */
+        httpc_pool_init(&pool);
+        pool.cfg = httpc_cfg_new();
+        pool.cfg->noact_delay = 100;
+        pool.max_len = 10;
+        pool.on_connect_error = &z_http_pool_on_connect_error;
+
+        /* Manually populate resolved: first a bad addr, then the good one */
+        {
+            sockunion_t bad_su;
+            sockunion_t good_su;
+
+            Z_ASSERT_N(
+                addr_info(&bad_su, AF_INET, ps_initstr("127.0.0.1"), 1)
+            );
+            Z_ASSERT_N(
+                addr_info(&good_su, AF_INET, ps_initstr("127.0.0.1"), port)
+            );
+
+            qv_append(&pool.resolved, bad_su);
+            qv_append(&pool.resolved, good_su);
+        }
+        pool.resolved_idx = 0;
+        pool.su = pool.resolved.tab[0];
+
+        /* First attempt: connects to port 1 (bad) */
+        z_http_pool_g.connect_error_called = false;
+        w = httpc_connect_as(&pool.su, pool.su_src, pool.cfg, &pool);
+        Z_ASSERT_P(w);
+
+        el_wait_until(z_http_pool_g.connect_error_called, 5000);
+        Z_ASSERT(z_http_pool_g.connect_error_called);
+        Z_ASSERT_EQ(
+            pool.resolved_idx, 1,
+            "resolved_idx should advance past the failed address"
+        );
+
+        /* Second attempt: connects to the real server port (good) */
+        pool.su = pool.resolved.tab[pool.resolved_idx];
+        w = httpc_connect_as(&pool.su, pool.su_src, pool.cfg, &pool);
+        Z_ASSERT_P(w);
+
+        el_wait_until(!w->busy, 100);
+        Z_ASSERT(!w->busy, "should have connected to good address");
+
+        httpc_pool_wipe(&pool, true);
+        httpd_unlisten(&server);
+        httpd_cfg_delete(&server_cfg);
+
+        el_wait_until(false, 100);
+        Z_ASSERT(!el_has_pending_events());
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END;
+
 /* }}} */
