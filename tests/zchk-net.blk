@@ -388,6 +388,54 @@ Z_GROUP_EXPORT(net_addr)
 #undef NET_ADDR_IPV6
 #undef NET_ADDR_IPV4
 
+    Z_TEST(addr_info_all) {
+        qv_t(sockunion) res;
+
+        qv_init(&res);
+
+        /* a numeric literal resolves to exactly one address (results are
+         * deduplicated by socket type) */
+        Z_ASSERT_N(
+            addr_info_all(&res, AF_INET, ps_initstr("127.0.0.1"), 8080)
+        );
+        Z_ASSERT_EQ(res.len, 1);
+        Z_ASSERT_EQ(sockunion_getport(&res.tab[0]), 8080);
+        Z_ASSERT_EQ(res.tab[0].family, AF_INET);
+
+        /* verify addr_info returns the same first result */
+        {
+            sockunion_t su;
+
+            Z_ASSERT_N(
+                addr_info(&su, AF_INET, ps_initstr("127.0.0.1"), 8080)
+            );
+            Z_ASSERT(sockunion_equal(&su, &res.tab[0]));
+        }
+
+        /* AF_UNSPEC on localhost should return both IPv4 and IPv6 */
+        qv_clear(&res);
+        Z_ASSERT_N(
+            addr_info_all(&res, AF_UNSPEC, ps_initstr("localhost"), 1234)
+        );
+        Z_ASSERT_GE(res.len, 1);
+        for (int i = 0; i < res.len; i++) {
+            Z_ASSERT_EQ(sockunion_getport(&res.tab[i]), 1234);
+            Z_ASSERT(
+                res.tab[i].family == AF_INET || res.tab[i].family == AF_INET6
+            );
+        }
+
+        /* unresolvable host should fail */
+        qv_clear(&res);
+        Z_ASSERT_NEG(addr_info_all(
+            &res, AF_INET, ps_initstr("does.not.exist.invalid"), 80
+        ));
+        Z_ASSERT_EQ(res.len, 0);
+
+        qv_wipe(&res);
+    }
+    Z_TEST_END;
+
     Z_TEST(parse_http_url) {
         http_url_t url;
 

@@ -22,6 +22,7 @@
 #  define IS_LIB_COMMON_NET_ADDR_H
 
 #  include <lib-common/el.h>
+#  include <lib-common/container-qvector.h>
 
 typedef struct addr_filter_t {
     union {
@@ -46,6 +47,8 @@ typedef union sockunion_t {
     struct sockaddr sa;
     sa_family_t family;
 } sockunion_t;
+
+qvector_t(sockunion, sockunion_t);
 
 /** Structure containing the result of DNS resolution. */
 typedef struct dns_resolv_res_t {
@@ -179,7 +182,40 @@ static inline int addr_parse(
 {
     return addr_parse_minport(ps, host, port, 1, defport);
 }
-int addr_info(sockunion_t *nonnull, sa_family_t, pstream_t host, in_port_t);
+/** Resolve a hostname into a single address.
+ *
+ * Calls getaddrinfo() and returns the first matching address
+ * (AF_INET, AF_INET6, or AF_UNIX).
+ *
+ * \param[out] su   socket address to fill
+ * \param[in]  af   address family hint (AF_UNSPEC to allow any)
+ * \param[in]  host hostname or IP address to resolve
+ * \param[in]  port port number to set on the resolved address
+ *
+ * \return 0 on success, -1 on error
+ */
+int addr_info(
+    sockunion_t *nonnull su, sa_family_t af, pstream_t host, in_port_t port
+);
+
+/** Resolve a hostname into all matching addresses.
+ *
+ * Calls getaddrinfo() and appends all matching addresses
+ * (AF_INET, AF_INET6, or AF_UNIX) to \p out.
+ *
+ * \param[out] out  vector to append resolved addresses to
+ * \param[in]  af   address family hint (AF_UNSPEC to allow any)
+ * \param[in]  host hostname or IP address to resolve
+ * \param[in]  port port number to set on each resolved address
+ *
+ * \return 0 on success (at least one address appended), a negative
+ *         getaddrinfo() error code (EAI_*) on error
+ */
+int addr_info_all(
+    qv_t(sockunion) *nonnull out, sa_family_t af, pstream_t host,
+    in_port_t port
+);
+
 __must_check__ dns_resolv_ctx_t *nonnull addr_info_async(
     sa_family_t af, lstr_t host, in_port_t port,
     on_dns_result_f *nonnull on_result_cb, data_t priv

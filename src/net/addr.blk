@@ -254,6 +254,37 @@ static void dns_resolv_ctx_wipe(dns_resolv_ctx_t *nonnull ctx)
 }
 GENERIC_DELETE(dns_resolv_ctx_t, dns_resolv_ctx);
 
+static int process_getaddrinfo_result_all(
+    struct addrinfo *ai, in_port_t port, qv_t(sockunion) *out
+)
+{
+    int orig_len = out->len;
+
+    for (struct addrinfo *cur = ai; cur != NULL; cur = cur->ai_next) {
+        sockunion_t su;
+
+        switch (cur->ai_family) {
+        case AF_INET:
+        case AF_INET6:
+        case AF_UNIX:
+            if (cur->ai_addrlen > ssizeof(su)) {
+                continue;
+            }
+            break;
+
+        default:
+            continue;
+        }
+
+        memcpy(&su, cur->ai_addr, cur->ai_addrlen);
+        sockunion_setport(&su, port);
+        qv_append(out, su);
+    }
+
+    freeaddrinfo(ai);
+    return out->len > orig_len ? 0 : EAI_NODATA;
+}
+
 static int process_getaddrinfo_result(
     struct addrinfo *ai, in_port_t port, sockunion_t *su
 )
@@ -380,6 +411,24 @@ dns_resolv_ctx_t *addr_info_async_b(
 )
 {
     return __addr_info_async(NULL, af, host, port, NULL, on_result_blk);
+}
+
+int addr_info_all(
+    qv_t(sockunion) *out, sa_family_t af, pstream_t host, in_port_t port
+)
+{
+    t_scope;
+    struct addrinfo *ai = NULL;
+    /* ai_socktype is set only to deduplicate: with it unset, getaddrinfo()
+     * returns each address once per socket type (SOCK_STREAM, SOCK_DGRAM,
+     * ...), i.e. the same address several times. SOCK_STREAM is arbitrary
+     * and does not make the result TCP-specific. Since 'service' is NULL,
+     * socktype cannot affect the resolved address, only which duplicates
+     * are returned; the addresses work with any protocol (TCP or UDP). */
+    struct addrinfo hint = {.ai_family = af, .ai_socktype = SOCK_STREAM};
+
+    RETHROW(getaddrinfo(t_dupz(host.p, ps_len(&host)), NULL, &hint, &ai));
+    return process_getaddrinfo_result_all(ai, port, out);
 }
 
 int addr_info(sockunion_t *su, sa_family_t af, pstream_t host, in_port_t port)
