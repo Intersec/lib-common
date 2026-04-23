@@ -2,8 +2,6 @@ id: no-while-true
 language: c
 severity: warning
 message: "Use for (;;) for endless loops, not while (true) or while (1)"
-ignores:
-  - "src/compat/runtime.c"
 rule:
   any:
     - pattern: while (true) $BODY

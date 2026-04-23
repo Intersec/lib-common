@@ -65,7 +65,7 @@ static bool isGC = false;
 
 #if 0
 static unsigned long int latching_incr_long(unsigned long int *where) {
-    while (1) {
+    for (;;) {
         unsigned long int old_value = *(volatile unsigned long int *)where;
         if ((old_value & BLOCK_REFCOUNT_MASK) == BLOCK_REFCOUNT_MASK) {
             return BLOCK_REFCOUNT_MASK;
@@ -78,7 +78,7 @@ static unsigned long int latching_incr_long(unsigned long int *where) {
 #endif /* if 0 */
 
 static int latching_incr_int(int *where) {
-    while (1) {
+    for (;;) {
         int old_value = *(volatile int *)where;
         if ((old_value & BLOCK_REFCOUNT_MASK) == BLOCK_REFCOUNT_MASK) {
             return BLOCK_REFCOUNT_MASK;
@@ -91,7 +91,7 @@ static int latching_incr_int(int *where) {
 
 #if 0
 static int latching_decr_long(unsigned long int *where) {
-    while (1) {
+    for (;;) {
         unsigned long int old_value = *(volatile int *)where;
         if ((old_value & BLOCK_REFCOUNT_MASK) == BLOCK_REFCOUNT_MASK) {
             return BLOCK_REFCOUNT_MASK;
@@ -107,7 +107,7 @@ static int latching_decr_long(unsigned long int *where) {
 #endif /* if 0 */
 
 static int latching_decr_int(int *where) {
-    while (1) {
+    for (;;) {
         int old_value = *(volatile int *)where;
         if ((old_value & BLOCK_REFCOUNT_MASK) == BLOCK_REFCOUNT_MASK) {
             return BLOCK_REFCOUNT_MASK;

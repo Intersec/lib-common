@@ -2,8 +2,6 @@ id: no-preincrement-stmt
 language: c
 severity: warning
 message: "Use i++ not ++i as a statement (preincrement marks intentionally tricky code)"
-ignores:
-  - "src/core/str-dtoa.c"
 
 rule:
   pattern: ++$VAR;

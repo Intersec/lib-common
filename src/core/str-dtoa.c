@@ -932,7 +932,7 @@ lshift
         }
         while(x < xe);
         if ((*x1 = z) != 0)
-            ++n1;
+            n1++;
     }
 #else
     if (k &= 0xf) {
@@ -944,7 +944,7 @@ lshift
         }
         while(x < xe);
         if ((*x1 = z) != 0)
-            ++n1;
+            n1++;
     }
 #endif
     else do {
@@ -2707,6 +2707,7 @@ double _d_; int mode, ndigits, *decpt, *sign; char **rve;
                             break;
                         }
                     }
+                    /* ast-grep-ignore */
                     ++*s++;
                 }
                 break;
@@ -2945,6 +2946,7 @@ double _d_; int mode, ndigits, *decpt, *sign; char **rve;
                 *s++ = '1';
                 goto ret;
             }
+        /* ast-grep-ignore */
         ++*s++;
     }
     else {
