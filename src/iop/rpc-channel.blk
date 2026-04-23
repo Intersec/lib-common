@@ -216,6 +216,18 @@ static lstr_t ev_priority_to_str(ev_priority_t prio)
     return LSTR_NULL_V;
 }
 
+static void sb_add_ic_wa_info(sb_t *buf, int wa, el_t timer)
+{
+    if (wa > 0) {
+        sb_addf(buf, "%'d ms", wa);
+        if (expect(timer)) {
+            sb_addf(buf, " (in %'jd ms)", el_timer_get_remaining(timer));
+        }
+    } else {
+        sb_addc(buf, '-');
+    }
+}
+
 static void ic_get_state(sb_t *buf)
 {
     t_scope;
@@ -245,6 +257,8 @@ static void ic_get_state(sb_t *buf)
             .title = LSTR_IMMED("NB IOV"),
         }, {
             .title = LSTR_IMMED("IOV TOTAL LEN"),
+        }, {
+            .title = LSTR_IMMED("WATCH ACTIVITY"),
         }
     };
     uint32_t hdr_size = countof(hdr_data);
@@ -299,6 +313,7 @@ static void ic_get_state(sb_t *buf)
             }                                                                \
         } while (0)
 
+        ADD_FLAG(is_connected, "connected");
         ADD_FLAG(is_trusted,   "trusted");
         ADD_FLAG(is_closing,   "closing");
         ADD_FLAG(no_autodel,   "no autodel");
@@ -315,10 +330,22 @@ static void ic_get_state(sb_t *buf)
 #undef ADD_FLAG
 
         qv_append(tab, ev_priority_to_str(ic->priority));
-        qv_append(tab, t_lstr_fmt("%u", ic->nextslot));
-        qv_append(tab, t_lstr_fmt("%d", ic_queue_len(ic)));
-        qv_append(tab, t_lstr_fmt("%d", ic->iov.len));
-        qv_append(tab, t_lstr_fmt("%d", ic->iov_total_len));
+        qv_append(tab, t_lstr_fmt("%'u", ic->nextslot));
+        qv_append(tab, t_lstr_fmt("%'d", ic_queue_len(ic)));
+        qv_append(tab, t_lstr_fmt("%'d", ic->iov.len));
+        qv_append(tab, t_lstr_fmt("%'d", ic->iov_total_len));
+
+        if (ic->wa_soft > 0 || ic->wa_hard > 0) {
+            t_SB(wa_buf, 64);
+
+            sb_add_ic_wa_info(&wa_buf, ic->wa_soft, ic->wa_soft_timer);
+            sb_adds(&wa_buf, " / ");
+            sb_add_ic_wa_info(&wa_buf, ic->wa_hard, ic->timer);
+
+            qv_append(tab, LSTR_SB_V(&wa_buf));
+        } else {
+            qv_append(tab, LSTR("-"));
+        }
     }
 
     sb_add_table(buf, &hdr, &rows);
