@@ -404,6 +404,13 @@ el_timer_register(int64_t next, int64_t repeat, ev_timer_flags_t flags,
 bool el_timer_is_repeated(el_t nonnull ev)
     __attr_leaf__ __attribute__((pure));
 
+/** \brief return the time in ms until the timer next fires.
+ *
+ * May be negative if the timer is overdue (it will fire on the next event
+ * loop iteration).
+ */
+int64_t el_timer_get_remaining(el_t nonnull) __attr_leaf__;
+
 /** \brief restart a single shot timer.
  *
  * Note that if the timer hasn't expired yet, it just sets it to a later time.

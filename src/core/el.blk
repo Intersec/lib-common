@@ -1273,6 +1273,13 @@ bool el_timer_is_repeated(el_t ev)
     return ev->timer.repeat > 0;
 }
 
+int64_t el_timer_get_remaining(el_t ev)
+{
+    CHECK_EV_TYPE(ev, EV_TIMER);
+
+    return (int64_t)ev->timer.expiry - (int64_t)get_clock();
+}
+
 /* }}} */
 /* {{{ fd events */
 
