@@ -216,6 +216,30 @@ static lstr_t ev_priority_to_str(ev_priority_t prio)
     return LSTR_NULL_V;
 }
 
+static void t_sb_add_ic_addr_info(sb_t *buf, ichannel_t *ic)
+{
+    lstr_t addr = LSTR_NULL_V;
+
+    if (ic->is_local) {
+        addr = LSTR("-");
+    } else if (ic->is_spawned) {
+        addr = ic_get_client_addr(ic);
+        addr = t_lstr_fmt("peer: %*pM", LSTR_FMT_ARG(addr));
+    } else {
+        addr = t_addr_fmt_lstr(&ic->su);
+    }
+    if (ic->remote_addr.s) {
+        addr = t_lstr_fmt("%*pM (%*pM)", LSTR_FMT_ARG(addr),
+                          LSTR_FMT_ARG(ic->remote_addr));
+    }
+
+    sb_add_lstr(buf, addr);
+
+    if (ic->dns_ctx) {
+        sb_adds(buf, " (DNS resolution in progress)");
+    }
+}
+
 static void sb_add_ic_wa_info(sb_t *buf, int wa, el_t timer)
 {
     if (wa > 0) {
@@ -267,10 +291,10 @@ static void ic_get_state(sb_t *buf)
     t_qv_init(&rows, 200);
 
     qm_for_each_pos(ic, pos, &_G.ics) {
+        t_SB(address, 64);
         t_SB(flags, 64);
         ichannel_t *ic = _G.ics.values[pos];
         qv_t(lstr) *tab = qv_growlen(&rows, 1);
-        lstr_t addr;
 
         t_qv_init(tab, hdr_size);
 
@@ -288,20 +312,8 @@ static void ic_get_state(sb_t *buf)
             qv_append(tab, LSTR("client"));
         }
 
-        if (ic->is_local) {
-            addr = LSTR("-");
-        } else
-        if (ic->is_spawned) {
-            addr = ic_get_client_addr(ic);
-            addr = t_lstr_fmt("peer: %*pM", LSTR_FMT_ARG(addr));
-        } else {
-            addr = t_addr_fmt_lstr(&ic->su);
-        }
-        if (ic->remote_addr.s) {
-            addr = t_lstr_fmt("%*pM (%*pM)", LSTR_FMT_ARG(addr),
-                              LSTR_FMT_ARG(ic->remote_addr));
-        }
-        qv_append(tab, addr);
+        t_sb_add_ic_addr_info(&address, ic);
+        qv_append(tab, LSTR_SB_V(&address));
 
 #define ADD_FLAG(_field, _str)                                               \
         do {                                                                 \
