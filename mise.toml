@@ -3,13 +3,11 @@
 # https://mise.jdx.dev/configuration.html
 
 [tools]
-# TODO support version template like for ASDF
-python = '3.11'
 uv = '0.7.2'
 rust = '1.92.0'
 
 [settings]
-python.uv_venv_auto = true
+python.uv_venv_auto = 'create|source'
 
 [tasks.configure]
 alias = "cfg"
@@ -57,7 +55,7 @@ run = "waf clean"
 
 [tasks.static-checks]
 alias = "sc"
-description = "Run static checks (ruff, mypy)"
+description = "Run static checks (ruff, pyrefly)"
 run = "./static-checks.py"
 
 [tasks.target]
