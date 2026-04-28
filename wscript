@@ -97,6 +97,7 @@ def configure_tool_manager(ctx: BuildContext) -> None:
         mise_env = json.loads(ctx.cmd_and_log(cmd))
         os.environ.update(mise_env)
         ctx.environ.update(mise_env)
+
     elif ctx.env.TOOL_MANAGER == 'asdf':
         build_dir = os.path.join(ctx.path.abspath(), 'build')
         cmd = [f'{build_dir}/asdf_install.sh', str(ctx.srcnode)]
