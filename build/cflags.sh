@@ -164,8 +164,8 @@ EOF
         fi
         if clang_prereq 12.0; then
             if test "$2" != "rewrite"; then
-                # Enable x86-64-v2 architecture profile
-                echo -march=x86-64-v2
+                # Enable x86-64-v3 architecture profile
+                echo -march=x86-64-v3
             fi
         fi
         if is_cpp && clang_prereq 20.0; then
@@ -231,8 +231,8 @@ EOF
         # false-positive, see
         # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=97048
         echo -Wno-stringop-overread
-        # Enable x86-64-v2 architecture profile
-        echo -march=x86-64-v2
+        # Enable x86-64-v3 architecture profile
+        echo -march=x86-64-v3
     fi
 
     if is_cpp; then
