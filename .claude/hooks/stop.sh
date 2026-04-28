@@ -22,6 +22,11 @@
 # is forced to continue and fix the reported errors (exit code 2).
 set -uo pipefail
 
+# Only run when explicitly enabled via environment.
+if [[ "${IS_CLAUDE_STOP_HOOK:-}" != "1" ]]; then
+    exit 0
+fi
+
 cd "$CLAUDE_PROJECT_DIR" || exit 0
 
 # -- Collect modified (unstaged) files from git --
