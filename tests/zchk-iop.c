@@ -936,8 +936,9 @@ static int iop_json_test_json(const iop_struct_t *st, const char *json,
 
     ps = ps_initstr(json);
     iop_jlex_attach(&jll, &ps);
-    if ((ret = iop_junpack_ptr(&jll, st, &res, true)) < 0)
+    if ((ret = iop_junpack_ptr(&jll, st, &res, true)) < 0) {
         iop_jlex_write_error(&jll, &sb);
+    }
     Z_ASSERT_N(ret, "JSon unpacking error (%s, %s): %s", st->fullname.s, info,
                sb.data);
     iop_jlex_detach(&jll);
@@ -991,8 +992,9 @@ static int iop_json_test_unpack(const iop_struct_t *st, const char *json,
     ps = ps_initstr(json);
     iop_jlex_attach(&jll, &ps);
 
-    if ((ret = iop_junpack_ptr(&jll, st, &res, true)) < 0)
+    if ((ret = iop_junpack_ptr(&jll, st, &res, true)) < 0) {
         iop_jlex_write_error(&jll, &sb);
+    }
     if (valid) {
         Z_ASSERT_N(ret, "JSon unpacking error (%s, %s): %s", st->fullname.s,
                    info, sb.data);
