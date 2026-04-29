@@ -74,10 +74,10 @@ typedef struct ic_el_server_cb_cfg_t {
      * \return  The status of the reply. If the status is not IC_MSG_OK or
      *          IC_MSG_EXN, \p res and \p res_desc are ignored.
      */
-    ic_status_t (*nonnull t_on_rpc)(ic_el_server_t *server, ichannel_t *ic,
-                                    uint64_t slot, void *arg,
-                                    const ic__hdr__t *hdr, void **res,
-                                    const iop_struct_t **res_st);
+    ic_status__t (*nonnull t_on_rpc)(ic_el_server_t *server, ichannel_t *ic,
+                                     uint64_t slot, void *arg,
+                                     const ic__hdr__t *hdr, void **res,
+                                     const iop_struct_t **res_st);
 
     /** Callback called when a peer is connecting to the server.
      *
@@ -346,7 +346,7 @@ bool ic_el_client_is_connected(ic_el_client_t *client);
 ic_el_sync_res_t
 ic_el_client_sync_call(ic_el_client_t *client, const iop_rpc_t *rpc,
                        int32_t cmd, const ic__hdr__t *hdr, double timeout,
-                       const void *arg, ic_status_t *status, void **res,
+                       const void *arg, ic_status__t *status, void **res,
                        sb_t *err);
 
 /** The callback used when asynchronously call an RPC with the IC EL client.
@@ -368,7 +368,7 @@ ic_el_client_sync_call(ic_el_client_t *client, const iop_rpc_t *rpc,
  *                   \ref ic_el_client_async_call.
  */
 typedef void (*ic_client_async_call_f)(const sb_t *nullable err,
-                                       ic_status_t status,
+                                       ic_status__t status,
                                        const void *nullable res,
                                        void *nullable cb_arg);
 

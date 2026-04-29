@@ -596,7 +596,7 @@ static void ic_el_server_rpc_cb(ichannel_t *ic, uint64_t slot, void *arg,
 {
     t_scope;
     ic_el_server_t *server = ic->priv;
-    ic_status_t status;
+    ic_status__t status;
     void *res = NULL;
     const iop_struct_t *res_st = NULL;
 
@@ -1319,7 +1319,7 @@ typedef struct ic_el_client_sync_query_ctx_t {
     bool aborted : 1;
     bool completed : 1;
     const iop_rpc_t *rpc;
-    ic_status_t status;
+    ic_status__t status;
     void *res;
 } ic_el_client_sync_query_ctx_t;
 
@@ -1329,7 +1329,7 @@ DO_REFCNT(ic_el_client_sync_query_ctx_t, ic_el_client_sync_query_ctx);
 
 /** Callback for syncronous client queries. */
 static void ic_el_client_sync_query_cb(ichannel_t *ic, ic_msg_t *msg,
-                                       ic_status_t status, void *res,
+                                       ic_status__t status, void *res,
                                        void *exn)
 {
     ic_el_client_t *client = container_of(ic, ic_el_client_t, ic);
@@ -1382,7 +1382,7 @@ static bool ic_el_client_sync_query_is_completed(void *arg)
 ic_el_sync_res_t
 ic_el_client_sync_call(ic_el_client_t *client, const iop_rpc_t *rpc,
                        int32_t cmd, const ic__hdr__t *hdr, double timeout,
-                       const void *arg, ic_status_t *status, void **res,
+                       const void *arg, ic_status__t *status, void **res,
                        sb_t *err)
 {
     ic_el_sync_res_t call_res = IC_EL_SYNC_OK;
@@ -1493,7 +1493,7 @@ static void ic_el_client_async_query_timeout_cb(el_t ev, el_data_t priv)
 
 /** Callback for asynchronous client queries. */
 static void ic_el_client_async_query_cb(ichannel_t *ic, ic_msg_t *msg,
-                                        ic_status_t status, void *res,
+                                        ic_status__t status, void *res,
                                         void *exn)
 {
     ic_el_client_t *client = container_of(ic, ic_el_client_t, ic);

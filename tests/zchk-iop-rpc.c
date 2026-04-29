@@ -35,7 +35,7 @@ static struct {
     ichannel_t         *ic_aux;
     ichannel_t         *ic_spawned;
     int                 mode;
-    ic_status_t         status;
+    ic_status__t        status;
     core__log_level__t  level;
     ctx_t               ctx;
     int echo_rpc_answered;
@@ -159,7 +159,7 @@ static void IOP_RPC_CB(core__core, log, set_logger_level)
                                                                              \
         /* call with no error */                                             \
         RPC_CALL(__ic, _rpc, __force_pack, __force_dup, 1, 0xabcdef);        \
-        Z_ASSERT_EQ(_G.status, (ic_status_t)IC_MSG_OK,                       \
+        Z_ASSERT_EQ(_G.status, (ic_status__t)IC_MSG_OK,                      \
                     "rpc returned bad status"_suffix);                       \
         Z_ASSERT_EQ(_G.level, 1, "rpc returned bad result"_suffix);          \
         Z_ASSERT_EQ(_G.ctx.u, 0xabcdefU, "rpc returned bad msg priv"_suffix);\
@@ -167,7 +167,7 @@ static void IOP_RPC_CB(core__core, log, set_logger_level)
         /* call with throw */                                                \
         RPC_CALL(__ic, _rpc, __force_pack, __force_dup,                      \
                  LOG_LEVEL_min - 1, 0);                                      \
-        Z_ASSERT_EQ(_G.status, (ic_status_t)IC_MSG_EXN,                      \
+        Z_ASSERT_EQ(_G.status, (ic_status__t)IC_MSG_EXN,                     \
                     "rpc returned bad status"_suffix);                       \
     } while (0)
 
@@ -355,7 +355,7 @@ Z_GROUP_EXPORT(iop_rpc)
 
                 /* check behavior when ic->impl is null */
                 RPC_CALL(&ic, set_root_level, force_pack, force_dup, 0, 0);
-                Z_ASSERT_EQ(_G.status, (ic_status_t)IC_MSG_UNIMPLEMENTED,
+                Z_ASSERT_EQ(_G.status, (ic_status__t)IC_MSG_UNIMPLEMENTED,
                             "rpc returned bad status");
 
                 ic_register(&impl, core__core, log, set_root_level);

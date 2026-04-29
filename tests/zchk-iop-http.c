@@ -40,7 +40,7 @@ static struct {
     bool query_sent;
     bool query_answered;
     int query_conn_error;
-    ic_status_t query_status;
+    ic_status__t query_status;
     http_code_t query_code;
 
     bool query_http_header;
@@ -119,7 +119,7 @@ static void z_iop_httpd_pre_hook(ichannel_t * nullable channel, uint64_t slot,
 }
 
 static void z_iop_httpd_post_hook(ichannel_t * nullable channel,
-                                  ic_status_t status,
+                                  ic_status__t status,
                                   ic_hook_ctx_t * nonnull ctx, data_t data,
                                   const iop_struct_t * nullable st,
                                   const void * nullable value)

@@ -18,6 +18,21 @@
 
 package ic;
 
+@ctype(ic_status__t)
+@prefix(IC_MSG)
+enum IcStatus {
+    OK            = 0,
+    EXN           = 1,
+    RETRY         = 2,
+    ABORT         = 3,
+    INVALID       = 4,
+    UNIMPLEMENTED = 5,
+    SERVER_ERROR  = 6,
+    PROXY_ERROR   = 7,
+    TIMEDOUT      = 8,
+    CANCELED      = 9,
+};
+
 enum IcPriority {
     LOW,
     NORMAL,

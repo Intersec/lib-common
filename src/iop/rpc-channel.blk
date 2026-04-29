@@ -26,6 +26,8 @@
 
 #include "rpc-channel.fc.c"
 
+#define IC_MSG_STREAM_CONTROL INT32_MIN
+
 /* IC_MSG_STREAM_CONTROL messages uses the "slot" to encode the command.
  */
 enum ic_msg_sc_slots {
@@ -506,7 +508,7 @@ ic_msg_t *ic_msg_new(int len)
     return ic_msg_new_fd(-1, len);
 }
 
-static void ic_blk_cb(ichannel_t *ic, ic_msg_t *msg, ic_status_t status,
+static void ic_blk_cb(ichannel_t *ic, ic_msg_t *msg, ic_status__t status,
                       void *res, void *exn)
 {
     ic_msg_cb_b blk = *(ic_msg_cb_b *)msg->priv;
@@ -685,7 +687,7 @@ t_ic_query_do_pre_hook(ichannel_t *ic, uint64_t slot, const ic_cb_entry_t *e,
     return 0;
 }
 
-void ic_query_do_post_hook(ichannel_t *ic, ic_status_t status, uint64_t slot,
+void ic_query_do_post_hook(ichannel_t *ic, ic_status__t status, uint64_t slot,
                            const iop_struct_t *st, const void *value)
 {
     ic_hook_ctx_t *ctx = ic_hook_ctx_get(slot);
@@ -762,7 +764,7 @@ static void ic_proxify(ichannel_t *pxy_ic, ic_msg_t *msg, int cmd,
     }
 }
 
-void __ic_msg_reply_err(ichannel_t *ic, ic_msg_t *msg, ic_status_t status)
+void __ic_msg_reply_err(ichannel_t *ic, ic_msg_t *msg, ic_status__t status)
 {
     if (msg->canceled) {
         return;
@@ -3615,7 +3617,7 @@ el_t ic_listento(const sockunion_t *su, int type, int proto,
 }
 
 void ic_drop_ans_cb(ichannel_t *ic, ic_msg_t *msg,
-                    ic_status_t res, void *arg, void *exn)
+                    ic_status__t res, void *arg, void *exn)
 {
 }
 

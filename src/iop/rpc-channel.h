@@ -137,7 +137,7 @@
  *
  *     Slot     The IC slot of the query or response (IC_MSG_SLOT_MASK).
  *
- *     Status   The status of the response, defined by the ic_status_t enum.
+ *     Status   The status of the response, defined by the ic_status__t enum.
  *
  *     Data length  The length of the Payload.
  *
@@ -347,16 +347,16 @@ typedef void (ic_hook_f)(ichannel_t * nonnull, ic_event_t evt);
 typedef void (t_ic_pre_hook_f)(ichannel_t * nullable, uint64_t,
                                ic__hdr__t * nullable, data_t,
                                bool * nonnull hdr_modified);
-typedef void (ic_post_hook_f)(ichannel_t * nullable, ic_status_t,
+typedef void (ic_post_hook_f)(ichannel_t * nullable, ic_status__t,
                               ic_hook_ctx_t * nonnull, data_t,
                               const iop_struct_t * nullable,
                               const void * nullable);
 typedef int (ic_creds_f)(ichannel_t * nonnull,
                          const ic_creds_t * nonnull creds);
 typedef void (ic_msg_cb_f)(ichannel_t * nonnull, ic_msg_t * nonnull,
-                           ic_status_t, void * nullable, void * nullable);
+                           ic_status__t, void * nullable, void * nullable);
 #ifdef __has_blocks
-typedef void (BLOCK_CARET ic_msg_cb_b)(ichannel_t * nonnull, ic_status_t,
+typedef void (BLOCK_CARET ic_msg_cb_b)(ichannel_t * nonnull, ic_status__t,
                                        void * nullable, void * nullable);
 #endif
 
@@ -885,7 +885,7 @@ struct ichannel_t {
 };
 
 void ic_drop_ans_cb(ichannel_t * nonnull, ic_msg_t * nonnull,
-                    ic_status_t, void * nullable, void * nullable);
+                    ic_status__t, void * nullable, void * nullable);
 
 MODULE_DECLARE(ic);
 
@@ -1166,7 +1166,7 @@ void ic_mark_disconnected(ichannel_t * nonnull ic);
  *     #IC_MSG_EXN, and should not be accessed otherwise.
  */
 #define IOP_RPC_CB_ARGS(_mod, _i, _r)                                        \
-    ichannel_t * nonnull ic, ic_msg_t * nonnull msg, ic_status_t status,     \
+    ichannel_t * nonnull ic, ic_msg_t * nonnull msg, ic_status__t status,    \
     IOP_RPC_T(_mod, _i, _r, res) * nullable res,                             \
     IOP_RPC_T(_mod, _i, _r, exn) * nullable exn
 
@@ -1237,7 +1237,7 @@ void ic_mark_disconnected(ichannel_t * nonnull ic);
  *    <tt>void (*)(ichannel_t *, uint64_t, const ic__hdr__t *, void *)</tt>
  * \param[in]  _post_cb
  *    the post_hook callback. Its type should be:
- *    <tt>void (*)(ichannel_t *, ic_status_t, ic_hook_ctx_t *, void *,
+ *    <tt>void (*)(ichannel_t *, ic_status__t, ic_hook_ctx_t *, void *,
  *                 const iop_struct_t * nullable, const void * nullable)</tt>
  *    see #ic_query_do_post_hook about how to use the last two arguments.
  * \param[in]  _pre_arg   argument we want to pass to pre_hook
@@ -1328,7 +1328,7 @@ void ic_mark_disconnected(ichannel_t * nonnull ic);
  *    <tt>void (*)(ichannel_t *, uint64_t, const ic__hdr__t *, void *)</tt>
  * \param[in]  _post_cb
  *    the post_hook callback. Its type should be:
- *    <tt>void (*)(ichannel_t *, ic_status_t, ic_hook_ctx_t *, void *,
+ *    <tt>void (*)(ichannel_t *, ic_status__t, ic_hook_ctx_t *, void *,
  *                 const iop_struct_t * nullable, const void * nullable)</tt>
  *    see #ic_query_do_post_hook about how to use the last two arguments.
  * \param[in]  _pre_arg   argument we want to pass to pre_hook
@@ -1425,7 +1425,7 @@ void ic_mark_disconnected(ichannel_t * nonnull ic);
  *    <tt>void (*)(ichannel_t *, uint64_t, const ic__hdr__t *, void *)</tt>
  * \param[in]  _post_cb
  *    the post_hook callback. Its type should be:
- *    <tt>void (*)(ichannel_t *, ic_status_t, ic_hook_ctx_t *, void *,
+ *    <tt>void (*)(ichannel_t *, ic_status__t, ic_hook_ctx_t *, void *,
  *                 const iop_struct_t * nullable, const void * nullable)</tt>
  *    see #ic_query_do_post_hook about how to use the last two arguments.
  * \param[in]  _pre_arg   argument we want to pass to pre_hook
@@ -1511,7 +1511,7 @@ void ic_mark_disconnected(ichannel_t * nonnull ic);
  *    <tt>void (*)(ichannel_t *, uint64_t, const ic__hdr__t *, void *)</tt>
  * \param[in]  _post_cb
  *    the post_hook callback. Its type should be:
- *    <tt>void (*)(ichannel_t *, ic_status_t, ic_hook_ctx_t *, void *,
+ *    <tt>void (*)(ichannel_t *, ic_status__t, ic_hook_ctx_t *, void *,
  *                 const iop_struct_t * nullable, const void * nullable)</tt>
  *    see #ic_query_do_post_hook about how to use the last two arguments.
  * \param[in]  _pre_arg   argument we want to pass to pre_hook
@@ -1639,7 +1639,7 @@ t_ic_query_do_pre_hook(ichannel_t * nullable ic, uint64_t slot,
  * query is not proxified and the query has been replied with #ic_reply or
  * #ic_throw.
  */
-void ic_query_do_post_hook(ichannel_t * nullable ic, ic_status_t status,
+void ic_query_do_post_hook(ichannel_t * nullable ic, ic_status__t status,
                            uint64_t slot, const iop_struct_t * nullable st,
                            const void * nullable value);
 
@@ -2109,7 +2109,7 @@ void __ic_forward_reply_to(ichannel_t * nonnull ic, uint64_t slot,
  * \param[in]  status the reply status.
  */
 void __ic_msg_reply_err(ichannel_t * nullable ic, ic_msg_t * nonnull msg,
-                        ic_status_t status);
+                        ic_status__t status);
 
 /* Compatibility aliases */
 #define ic_reply_throw_p(...)  ic_throw_p(__VA_ARGS__)

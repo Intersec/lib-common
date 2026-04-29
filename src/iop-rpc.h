@@ -34,22 +34,6 @@
 #endif
 #endif
 
-typedef enum ic_status_t {
-    IC_MSG_OK             = 0,
-    IC_MSG_EXN            = 1,
-    IC_MSG_RETRY          = 2,
-    IC_MSG_ABORT          = 3,
-    IC_MSG_INVALID        = 4,
-    IC_MSG_UNIMPLEMENTED  = 5,
-    IC_MSG_SERVER_ERROR   = 6,
-    IC_MSG_PROXY_ERROR    = 7,
-    IC_MSG_TIMEDOUT       = 8,
-    IC_MSG_CANCELED       = 9,
-
-    /* XXX: think to update ic_status_to_string too */
-#define IC_MSG_STREAM_CONTROL   INT32_MIN
-} ic_status_t;
-
 #define IC_SLOT_ERROR           (~UINT64_C(0))
 #define IC_SLOT_FOREIGN_MASK    BITMASK_GE(uint64_t, 62)
 #define IC_SLOT_FOREIGN_IC      (UINT64_C(0) << 62)
@@ -59,24 +43,9 @@ static ALWAYS_INLINE bool ic_slot_is_http(uint64_t slot) {
     return (slot & IC_SLOT_FOREIGN_MASK) == IC_SLOT_FOREIGN_HTTP;
 }
 
-static inline const char * nonnull ic_status_to_string(ic_status_t s)
+static inline const char * nonnull ic_status_to_string(ic_status__t s)
 {
-#define CASE(st)  case IC_MSG_##st: return #st;
-    switch (s) {
-        CASE(OK);
-        CASE(EXN);
-        CASE(RETRY);
-        CASE(ABORT);
-        CASE(INVALID);
-        CASE(UNIMPLEMENTED);
-        CASE(SERVER_ERROR);
-        CASE(PROXY_ERROR);
-        CASE(TIMEDOUT);
-        CASE(CANCELED);
-      default:
-        return "UNKNOWN";
-    }
-#undef CASE
+    return iop_enum_to_str(ic_status, s) ?: "UNKNOWN";
 }
 
 #include "iop/rpc-channel.h"

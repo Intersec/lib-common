@@ -231,7 +231,7 @@ __ichttp_register(httpd_trigger__ic_t * nonnull tcb,
  *    #ic_register call.
  * \param[in]  _post_cb
  *    the post_hook callback. Its type should be:
- *    <tt>void (*)(ichannel_t *, ic_status_t, ic_hook_ctx_t *, void *)</tt>
+ *    <tt>void (*)(ichannel_t *, ic_status__t, ic_hook_ctx_t *, void *)</tt>
  *    it can be the same implementation callback as the one used for an
  *    #ic_register call.
  * \param[in]  _pre_arg   argument we want to pass to pre_hook
@@ -309,7 +309,7 @@ __ichttp_register(httpd_trigger__ic_t * nonnull tcb,
  *    <tt>void (*)(ichannel_t *, uint64_t, const ic__hdr__t *, void *)</tt>
  * \param[in]  _post_cb
  *    the post_hook callback. Its type should be:
- *    <tt>void (*)(ichannel_t *, ic_status_t, ic_hook_ctx_t *, void *)</tt>
+ *    <tt>void (*)(ichannel_t *, ic_status__t, ic_hook_ctx_t *, void *)</tt>
  * \param[in]  _pre_arg   argument we want to pass to pre_hook
  * \param[in]  _post_arg  argument we want to pass to post_hook
  */
@@ -355,7 +355,7 @@ __ichttp_register(httpd_trigger__ic_t * nonnull tcb,
  *    <tt>void (*)(ichannel_t *, uint64_t, const ic__hdr__t *, void *)</tt>
  * \param[in]  _post_cb
  *    the post_hook callback. Its type should be:
- *    <tt>void (*)(ichannel_t *, ic_status_t, ic_hook_ctx_t *, void *)</tt>
+ *    <tt>void (*)(ichannel_t *, ic_status__t, ic_hook_ctx_t *, void *)</tt>
  * \param[in]  _pre_arg   argument we want to pass to pre_hook
  * \param[in]  _post_arg  argument we want to pass to post_hook
  */
@@ -423,7 +423,7 @@ __ichttp_register(httpd_trigger__ic_t * nonnull tcb,
  *    #ic_register call.
  * \param[in]  _post_cb
  *    the post_hook callback. Its type should be:
- *    <tt>void (*)(ichannel_t *, ic_status_t, ic_hook_ctx_t *, void *)</tt>
+ *    <tt>void (*)(ichannel_t *, ic_status__t, ic_hook_ctx_t *, void *)</tt>
  *    it can be the same implementation callback as the one used for an
  *    #ic_register call.
  * \param[in]  _pre_arg   argument we want to pass to pre_hook
@@ -507,7 +507,7 @@ __ichttp_register(httpd_trigger__ic_t * nonnull tcb,
  *    <tt>void (*)(ichannel_t *, uint64_t, const ic__hdr__t *, void *)</tt>
  * \param[in]  _post_cb
  *    the post_hook callback. Its type should be:
- *    <tt>void (*)(ichannel_t *, ic_status_t, ic_hook_ctx_t *, void *)</tt>
+ *    <tt>void (*)(ichannel_t *, ic_status__t, ic_hook_ctx_t *, void *)</tt>
  * \param[in]  _pre_arg   argument we want to pass to pre_hook
  * \param[in]  _post_arg  argument we want to pass to post_hook
  */
@@ -591,7 +591,7 @@ typedef OPT_OF(http_code_t) opt_http_code_t;
  * \param[in] exn       The exception thrown by the RPC (only set if status
  *                      is IC_MSG_EXN).
  */
-typedef void (*http_iop_cb_f)(http_iop_msg_t *msg, ic_status_t status,
+typedef void (*http_iop_cb_f)(http_iop_msg_t *msg, ic_status__t status,
                               opt_http_code_t http_code, void * nullable res,
                               void * nullable exn);
 
@@ -882,7 +882,7 @@ void http_iop_query_(http_iop_channel_t *channel, http_iop_msg_t *msg,
  * \param[in]  _rpc name of the rpc
 */
 #define IOP_HTTP_RPC_CB_ARGS(_mod, _if, _rpc)                                \
-    http_iop_msg_t *msg, ic_status_t status, opt_http_code_t http_code,      \
+    http_iop_msg_t *msg, ic_status__t status, opt_http_code_t http_code,     \
     IOP_RPC_T(_mod, _if, _rpc, res) * nullable res,                          \
     IOP_RPC_T(_mod, _if, _rpc, exn) * nullable exn
 

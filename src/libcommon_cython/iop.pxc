@@ -89,7 +89,7 @@ PXCC_EXPORT_SYMBOL(t_iop_junpack_ptr_file);
 #include <lib-common/iop-rpc.h>
 PXCC_EXPORT_FILE("<lib-common/iop-rpc.h>");
 
-PXCC_EXPORT_TYPE(ic_status_t);
+PXCC_EXPORT_TYPE(ic_status__t);
 PXCC_EXPORT_TYPE(ic__hdr__t);
 PXCC_EXPORT_SYMBOL(ic__hdr__s);
 PXCC_EXPORT_TYPE(ic__simple_hdr__t);

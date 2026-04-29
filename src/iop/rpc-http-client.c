@@ -272,7 +272,7 @@ static inline bool http_code_is_successful(http_code_t code)
     return code >= HTTP_CODE_OK && code < HTTP_CODE_MULTIPLE_CHOICES;
 }
 
-static ic_status_t ic_status_from_httpc_status(httpc_status_t status)
+static ic_status__t ic_status_from_httpc_status(httpc_status_t status)
 {
     switch (status) {
     case HTTPC_STATUS_OK:
@@ -312,7 +312,7 @@ http_iop_on_query_done(httpc_query_t *http_query, httpc_status_t httpc_status)
     opt_http_code_t http_code = OPT_NONE;
     void *exn = NULL;
     void *res = NULL;
-    ic_status_t ic_status;
+    ic_status__t ic_status;
     SB_1k(err);
 
     msg = container_of(http_query, http_iop_msg_t, query);

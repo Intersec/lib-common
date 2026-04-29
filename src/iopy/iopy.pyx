@@ -8309,7 +8309,7 @@ cdef object client_sync_channel_call_rpc(RPC rpc, tuple args, dict kwargs):
     cdef StructUnionBase py_input
     cdef void *ic_input = NULL
     cdef ic_el_sync_res_t call_res
-    cdef ic_status_t ic_status = IC_MSG_OK
+    cdef ic_status__t ic_status = IC_MSG_OK
     cdef void *ic_res = NULL
 
     t_scope_ignore(t_scope_guard)
@@ -8343,7 +8343,7 @@ cdef class AsyncChannelRpcCallCtx:
     cdef object loop
     cdef object future
     cdef lstr_t error
-    cdef ic_status_t status
+    cdef ic_status__t status
     cdef void *res
 
     def __dealloc__(AsyncChannelConnectCtx self):
@@ -8417,7 +8417,7 @@ cdef object client_async_channel_call_rpc(AsyncRPC rpc, tuple args,
 
 
 cdef void client_async_channel_call_rpc_cb(const sb_t *err,
-                                           ic_status_t status,
+                                           ic_status__t status,
                                            const void *res,
                                            void *cb_arg) noexcept nogil:
     """Callback used on IC EL client async RPC call.
@@ -8438,7 +8438,7 @@ cdef void client_async_channel_call_rpc_cb(const sb_t *err,
 
 
 cdef void client_async_channel_call_rpc_cb_gil(const sb_t *err,
-                                               ic_status_t status,
+                                               ic_status__t status,
                                                const void *res,
                                                void *cb_arg):
     """Callback used on IC EL client async RPC call with the GIL.
@@ -8648,7 +8648,7 @@ cdef cbool validate_pre_hook_res(object res):
 
 
 cdef object client_channel_call_rpc_process_res(Plugin plugin, RPCChannel rpc,
-                                                ic_status_t ic_status,
+                                                ic_status__t ic_status,
                                                 const void *ic_res):
     """Process the result of a client RPC call.
 
@@ -9386,7 +9386,7 @@ cdef void iopy_ic_server_on_disconnect_gil(ic_el_server_t *server,
             iopy_ic_server_on_exception(server, e)
 
 
-cdef ic_status_t t_iopy_ic_server_on_rpc(
+cdef ic_status__t t_iopy_ic_server_on_rpc(
     ic_el_server_t *server, ichannel_t *ic, uint64_t slot, void *arg,
     const ic__hdr__t *hdr, void **res,
     const iop_struct_t **res_st) noexcept nogil:
@@ -9422,7 +9422,7 @@ cdef ic_status_t t_iopy_ic_server_on_rpc(
             iopy_ic_server_on_exception(server, e)
             status = IC_MSG_SERVER_ERROR
 
-    return <ic_status_t>status
+    return <ic_status__t>status
 
 
 cdef int t_iopy_ic_server_on_rpc_gil(
