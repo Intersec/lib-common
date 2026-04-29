@@ -94,6 +94,8 @@ typedef struct qhash_hdr_t {
         uint8_t      k_size;                                                 \
         uint16_t     v_size;                                                 \
         uint32_t     minsize;                                                \
+        uint8_t      k_align;                                                \
+        uint8_t      v_align;                                                \
     }
 
 /* uint8_t allow us to use pointer arith on ->{values,vec} */
@@ -113,7 +115,8 @@ typedef bool     (qhash_kequ_f)(const qhash_t * nullable,
 
 uint32_t qhash_scan(const qhash_t * nonnull qh, uint32_t pos)
     __attr_leaf__;
-void qhash_init(qhash_t * nonnull qh, uint16_t k_size, uint16_t v_size, bool doh,
+void qhash_init(qhash_t * nonnull qh, uint16_t k_size, uint8_t k_align,
+                uint16_t v_size, uint8_t v_align, bool doh,
                 mem_pool_t * nullable mp)
     __attr_leaf__;
 void qhash_clear(qhash_t * nonnull qh)
@@ -315,7 +318,8 @@ size_t qhash_memory_footprint(const qhash_t * nonnull qh);
 #define CASTK_ID(key)  (key)
 #define CASTK_UPTR(key)  ((uintptr_t)(key))
 
-#define __QH_BASE(sfx, pfx, name, ckey_t, key_t, val_t, _v_size, hashK, castK)\
+#define __QH_BASE(sfx, pfx, name, ckey_t, key_t, val_t, _v_size, _v_align,   \
+                  hashK, castK)                                              \
     typedef union pfx##_t {                                                  \
         qhash_t qh;                                                          \
         STRUCT_QHASH_T(key_t, val_t);                                        \
@@ -326,7 +330,8 @@ size_t qhash_memory_footprint(const qhash_t * nonnull qh);
                                   mem_pool_t * nullable mp)                  \
     {                                                                        \
         STATIC_ASSERT(sizeof(key_t) < 256);                                  \
-        qhash_init(&qh->qh, sizeof(key_t), _v_size, chahes, mp);             \
+        qhash_init(&qh->qh, sizeof(key_t), alignof(key_t),                   \
+                   _v_size, _v_align, chahes, mp);                           \
     }                                                                        \
     __attr_unused__                                                          \
     static inline uint32_t pfx##_hash(const pfx##_t * nonnull qh, ckey_t key)\
@@ -389,8 +394,8 @@ size_t qhash_memory_footprint(const qhash_t * nonnull qh);
                                (qhash_khash_f *)hf, (qhash_kequ_f *)ef);     \
     }
 
-#define __QH_IKEY(sfx, pfx, name, key_t, val_t, v_size)                      \
-    __QH_BASE(sfx, pfx, name, key_t const, key_t, val_t, v_size,             \
+#define __QH_IKEY(sfx, pfx, name, key_t, val_t, v_size, v_align)             \
+    __QH_BASE(sfx, pfx, name, key_t const, key_t, val_t, v_size, v_align,    \
               qhash_hash_u##sfx, CASTK_ID);                                  \
     __QH_FIND(sfx, pfx, name, key_t const, key_t, qhash_hash_u##sfx,         \
               CASTK_ID);                                                     \
@@ -409,9 +414,9 @@ size_t qhash_memory_footprint(const qhash_t * nonnull qh);
         return pos;                                                          \
     }
 
-#define __QH_HPKEY(pfx, name, ckey_t, key_t, val_t, v_size)                  \
+#define __QH_HPKEY(pfx, name, ckey_t, key_t, val_t, v_size, v_align)         \
     __QH_BASE(64, pfx, name, ckey_t * nullable, key_t * nullable, val_t,     \
-              v_size, qhash_hash_u64, CASTK_UPTR);                           \
+              v_size, v_align, qhash_hash_u64, CASTK_UPTR);                  \
     __QH_FIND(64, pfx, name, ckey_t * nullable, key_t * nullable,            \
               qhash_hash_u64, CASTK_UPTR);                                   \
                                                                              \
@@ -429,9 +434,10 @@ size_t qhash_memory_footprint(const qhash_t * nonnull qh);
         return pos;                                                          \
     }
 
-#define __QH_PKEY(pfx, name, ckey_t, key_t, val_t, v_size, hashK, iseqK)     \
+#define __QH_PKEY(pfx, name, ckey_t, key_t, val_t, v_size, v_align,          \
+                  hashK, iseqK)                                              \
     __QH_BASE(_ptr, pfx, name, ckey_t * nullable, key_t * nullable, val_t,   \
-              v_size, hashK, CASTK_ID);                                      \
+              v_size, v_align, hashK, CASTK_ID);                             \
     __QH_FIND2(_ptr, pfx, name, ckey_t * nullable, key_t * nullable, hashK,  \
                CASTK_ID, iseqK);                                             \
                                                                              \
@@ -453,9 +459,10 @@ size_t qhash_memory_footprint(const qhash_t * nonnull qh);
         return pos;                                                          \
     }
 
-#define __QH_VKEY(pfx, name, ckey_t, key_t, val_t, v_size, hashK, iseqK)     \
+#define __QH_VKEY(pfx, name, ckey_t, key_t, val_t, v_size, v_align,          \
+                  hashK, iseqK)                                              \
     __QH_BASE(_vec, pfx, name, ckey_t * nonnull, key_t, val_t, v_size,       \
-              hashK, CASTK_ID);                                              \
+              v_align, hashK, CASTK_ID);                                     \
     __QH_FIND2(_vec, pfx, name, ckey_t * nonnull, key_t * nonnull, hashK,    \
                CASTK_ID,  iseqK);                                            \
                                                                              \
@@ -491,39 +498,46 @@ size_t qhash_memory_footprint(const qhash_t * nonnull qh);
  */
 
 #define qh_k32_t(name)                                                       \
-    __QH_IKEY(32, qh_##name, name, uint32_t, void, 0)
+    __QH_IKEY(32, qh_##name, name, uint32_t, void, 0, 1)
 #define qh_k64_t(name)                                                       \
-    __QH_IKEY(64, qh_##name, name, uint64_t, void, 0)
+    __QH_IKEY(64, qh_##name, name, uint64_t, void, 0, 1)
 #define qh_k128_t(name)                                                      \
-    __QH_IKEY(128, qh_##name, name, uint128_t, void, 0)
+    __QH_IKEY(128, qh_##name, name, uint128_t, void, 0, 1)
 #define qh_kvec_t(name, key_t, hf, ef)                                       \
-    __QH_VKEY(qh_##name, name, key_t const, key_t, void, 0, hf, ef)
+    __QH_VKEY(qh_##name, name, key_t const, key_t, void, 0, 1, hf, ef)
 #define qh_kptr_t(name, key_t, hf, ef)                                       \
-    __QH_PKEY(qh_##name, name, key_t const, key_t, void, 0, hf, ef)
+    __QH_PKEY(qh_##name, name, key_t const, key_t, void, 0, 1, hf, ef)
 #define qh_kptr_ckey_t(name, key_t, hf, ef)                                  \
-    __QH_PKEY(qh_##name, name, key_t const, key_t const, void, 0, hf, ef)
+    __QH_PKEY(qh_##name, name, key_t const, key_t const, void, 0, 1, hf, ef)
 #define qh_khptr_t(name, key_t)                                              \
-    __QH_HPKEY(qh_##name, name, key_t const, key_t, void, 0)
+    __QH_HPKEY(qh_##name, name, key_t const, key_t, void, 0, 1)
 #define qh_khptr_ckey_t(name, key_t)                                         \
-    __QH_HPKEY(qh_##name, name, key_t const, key_t const, void, 0)
+    __QH_HPKEY(qh_##name, name, key_t const, key_t const, void, 0, 1)
 
 #define qm_k32_t(name, val_t)                                                \
-    __QH_IKEY(32, qm_##name, name, uint32_t, val_t, sizeof(val_t))
+    __QH_IKEY(32, qm_##name, name, uint32_t, val_t,                          \
+              sizeof(val_t), alignof(val_t))
 #define qm_k64_t(name, val_t)                                                \
-    __QH_IKEY(64, qm_##name, name, uint64_t, val_t, sizeof(val_t))
-#define qm_k128_t(name, val_t)                                                \
-    __QH_IKEY(128, qm_##name, name, uint128_t, val_t, sizeof(val_t))
+    __QH_IKEY(64, qm_##name, name, uint64_t, val_t,                          \
+              sizeof(val_t), alignof(val_t))
+#define qm_k128_t(name, val_t)                                               \
+    __QH_IKEY(128, qm_##name, name, uint128_t, val_t,                        \
+              sizeof(val_t), alignof(val_t))
 #define qm_kvec_t(name, key_t, val_t, hf, ef)                                \
-    __QH_VKEY(qm_##name, name, key_t const, key_t, val_t, sizeof(val_t), hf, ef)
+    __QH_VKEY(qm_##name, name, key_t const, key_t, val_t,                    \
+              sizeof(val_t), alignof(val_t), hf, ef)
 #define qm_kptr_t(name, key_t, val_t, hf, ef)                                \
-    __QH_PKEY(qm_##name, name, key_t const, key_t, val_t, sizeof(val_t), hf, ef)
+    __QH_PKEY(qm_##name, name, key_t const, key_t, val_t,                    \
+              sizeof(val_t), alignof(val_t), hf, ef)
 #define qm_kptr_ckey_t(name, key_t, val_t, hf, ef)                           \
     __QH_PKEY(qm_##name, name, key_t const, key_t const, val_t,              \
-              sizeof(val_t), hf, ef)
+              sizeof(val_t), alignof(val_t), hf, ef)
 #define qm_khptr_t(name, key_t, val_t)                                       \
-    __QH_HPKEY(qm_##name, name, key_t const, key_t, val_t, sizeof(val_t))
+    __QH_HPKEY(qm_##name, name, key_t const, key_t, val_t,                   \
+               sizeof(val_t), alignof(val_t))
 #define qm_khptr_ckey_t(name, key_t, val_t)                                  \
-    __QH_HPKEY(qm_##name, name, key_t const, key_t const, val_t, sizeof(val_t))
+    __QH_HPKEY(qm_##name, name, key_t const, key_t const, val_t,             \
+               sizeof(val_t), alignof(val_t))
 
 /** Static QH initializer.
  *
@@ -532,6 +546,8 @@ size_t qhash_memory_footprint(const qhash_t * nonnull qh);
 #define QH_INIT(name, var)                      \
     { .qh = {                                   \
         .k_size = sizeof((var).keys[0]),        \
+        .k_align = alignof((var).keys[0]),      \
+        .v_align = 1,                           \
     } }
 
 /** Static QH initializer with hash caching.
@@ -541,6 +557,8 @@ size_t qhash_memory_footprint(const qhash_t * nonnull qh);
 #define QH_INIT_CACHED(name, var) \
     { .qh = {                                   \
         .k_size = sizeof((var).keys[0]),        \
+        .k_align = alignof((var).keys[0]),      \
+        .v_align = 1,                           \
         .h_size = true,                         \
     } }
 
@@ -551,7 +569,9 @@ size_t qhash_memory_footprint(const qhash_t * nonnull qh);
 #define QM_INIT(name, var)                      \
     { .qh = {                                   \
         .k_size = sizeof((var).keys[0]),        \
+        .k_align = alignof((var).keys[0]),      \
         .v_size = sizeof((var).values[0]),      \
+        .v_align = alignof((var).values[0]),    \
     } }
 
 /** Static QM initializer with hash caching.
@@ -561,7 +581,9 @@ size_t qhash_memory_footprint(const qhash_t * nonnull qh);
 #define QM_INIT_CACHED(name, var) \
     { .qh = {                                   \
         .k_size = sizeof((var).keys[0]),        \
+        .k_align = alignof((var).keys[0]),      \
         .v_size = sizeof((var).values[0]),      \
+        .v_align = alignof((var).values[0]),    \
         .h_size = true,                         \
     } }
 

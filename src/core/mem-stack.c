@@ -637,7 +637,7 @@ const void *mem_stack_pool_push(mem_stack_pool_t *sp)
 #endif
 
     res = sp_reserve(sp, sizeof(mem_stack_frame_t),
-                     __BIGGEST_ALIGNMENT__, &end);
+                     alignof(mem_stack_frame_t), &end);
 
 #ifdef MEM_BENCH
     /* if the assert fires,

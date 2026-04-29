@@ -86,13 +86,13 @@ static void qhash_resize_start(qhash_t *qh)
     if (newsize > hdr->size) {
         assert (!hdr->mp || !hdr->mp->realloc_fallback);
         qh->keys = mp_irealloc(hdr->mp, qh->keys, hdr->size * qh->k_size,
-                               newsize * qh->k_size, __BIGGEST_ALIGNMENT__,
+                               newsize * qh->k_size, qh->k_align,
                                MEM_RAW);
         if (qh->v_size) {
             qh->values = mp_irealloc(hdr->mp, qh->values,
                                      hdr->size * qh->v_size,
                                      newsize * qh->v_size,
-                                     __BIGGEST_ALIGNMENT__, MEM_RAW);
+                                     qh->v_align, MEM_RAW);
         }
         if (qh->h_size) {
             qh->hashes = mp_irealloc(hdr->mp, qh->hashes,
@@ -119,12 +119,12 @@ static void qhash_resize_done(qhash_t *qh)
 
     if (qh->old->size > size) {
         qh->keys = mp_irealloc(hdr->mp, qh->keys, qh->old->size * qh->k_size,
-                               size * qh->k_size, __BIGGEST_ALIGNMENT__,
+                               size * qh->k_size, qh->k_align,
                                MEM_RAW);
         if (qh->v_size) {
             qh->values = mp_irealloc(hdr->mp, qh->values,
                                      qh->old->size * qh->v_size,
-                                     size * qh->v_size, __BIGGEST_ALIGNMENT__,
+                                     size * qh->v_size, qh->v_align,
                                      MEM_RAW);
         }
         if (qh->h_size) {
@@ -138,14 +138,17 @@ static void qhash_resize_done(qhash_t *qh)
     mp_delete(hdr->mp, &qh->old);
 }
 
-void qhash_init(qhash_t *qh, uint16_t k_size, uint16_t v_size, bool doh,
+void qhash_init(qhash_t *qh, uint16_t k_size, uint8_t k_align,
+                uint16_t v_size, uint8_t v_align, bool doh,
                 mem_pool_t *mp)
 {
     p_clear(qh, 1);
-    qh->k_size = k_size;
-    qh->v_size = v_size;
-    qh->h_size = !!doh;
-    qh->hdr.mp = mp;
+    qh->k_size  = k_size;
+    qh->k_align = k_align;
+    qh->v_size  = v_size;
+    qh->v_align = v_align;
+    qh->h_size  = !!doh;
+    qh->hdr.mp  = mp;
 }
 
 void qhash_set_minsize(qhash_t *qh, uint32_t minsize)
@@ -169,7 +172,7 @@ void qhash_wipe(qhash_t *qh)
     mp_delete(qh->hdr.mp, &qh->values);
     mp_delete(qh->hdr.mp, &qh->hashes);
     mp_delete(qh->hdr.mp, &qh->keys);
-    qhash_init(qh, 0, 0, false, qh->hdr.mp);
+    qhash_init(qh, 0, 0, 0, 0, false, qh->hdr.mp);
 }
 
 void qhash_clear(qhash_t *qh)
