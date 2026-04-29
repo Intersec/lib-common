@@ -120,9 +120,10 @@ static inline bool is_aligned_to(const void *addr, size_t boundary)
     return ((uintptr_t)addr & (boundary - 1)) == 0;
 }
 
-static byte *align_for(const void *mem, size_t size)
+static byte *align_for(const void *mem, size_t size, size_t min_alignment)
 {
-    size_t bmask = align_boundary(size) - 1;
+    size_t bmask = MAX(align_boundary(size), min_alignment) - 1;
+
     return (byte *)(((uintptr_t)mem + bmask) & ~bmask);
 }
 
@@ -199,9 +200,10 @@ frame_get_next_blk(ring_pool_t *rp, size_t size)
     return blk_create(rp, size);
 }
 
-static void *rp_reserve(ring_pool_t *rp, size_t size, ring_blk_t **blkp)
+static void *rp_reserve(ring_pool_t *rp, size_t size, size_t alignment,
+                        ring_blk_t **blkp)
 {
-    byte *res = align_for(rp->pos, size);
+    byte *res = align_for(rp->pos, size, alignment);
 
     /* Note for programmers: if you abort() here, it's because you're
      * allocating in a pool where you haven't performed a r_newframe() first
@@ -209,10 +211,11 @@ static void *rp_reserve(ring_pool_t *rp, size_t size, ring_blk_t **blkp)
     assert (rp->pos);
 
     if (unlikely(res + size > blk_end(rp->cblk))) {
-        ring_blk_t *blk = frame_get_next_blk(rp, size);
+        size_t effective = MAX(align_boundary(size), alignment);
+        ring_blk_t *blk = frame_get_next_blk(rp, size + effective - 1);
 
         *blkp = blk;
-        res = blk->area;
+        res = align_for(blk->area, size, alignment);
     } else {
         *blkp = rp->cblk;
     }
@@ -235,16 +238,12 @@ static void *rp_alloc(mem_pool_t *_rp, size_t size, size_t alignment,
     ring_pool_t *rp = container_of(_rp, ring_pool_t, mp);
     byte *res;
 
-    if (unlikely(alignment > 16)) {
-        e_panic("mem_pool_ring does not support alignments greater than 16");
-    }
-
     if (unlikely((size == 0))) {
         return MEM_EMPTY_ALLOC;
     }
 
     spin_lock(&rp->lock);
-    res = rp_reserve(rp, size, &rp->cblk);
+    res = rp_reserve(rp, size, alignment, &rp->cblk);
     rp->pos = res + size;
     rp->last = res;
     spin_unlock(&rp->lock);
@@ -266,10 +265,6 @@ static void *rp_realloc(mem_pool_t *_rp, void *mem, size_t oldsize,
     ring_pool_t *rp = container_of(_rp, ring_pool_t, mp);
     byte *res;
 
-    if (unlikely(alignment > 16)) {
-        e_panic("mem_pool_ring does not support alignments greater than 16");
-    }
-
     if (unlikely(oldsize == MEM_UNKNOWN)) {
         e_panic("ring pools do not support reallocs with unknown old size");
     }
@@ -287,7 +282,7 @@ static void *rp_realloc(mem_pool_t *_rp, void *mem, size_t oldsize,
     }
 
     if (mem != NULL && mem == rp->last
-    &&  is_aligned_to(mem, align_boundary(size))
+    &&  is_aligned_to(mem, MAX(align_boundary(size), alignment))
     &&  (byte *)rp->last + size <= blk_end(rp->cblk))
     {
         rp->pos = (byte *)rp->last + size;
@@ -491,7 +486,7 @@ const void *mem_ring_seal(mem_pool_t *_rp)
     ring_blk_t *blk;
 
     /* Makes a new frame */
-    frame = rp_reserve(rp, sizeof(frame_t), &blk);
+    frame = rp_reserve(rp, sizeof(frame_t), 0, &blk);
     ring_setup_frame(rp, blk, frame);
 
     return last;
