@@ -22,18 +22,18 @@ It also contains higher level libraries:
 * tracing and reporting primitives
 * program argument parser
 * ASN1 parser / writer
-* A prometheus client
+* A Prometheus client
 * ...
 
 It is also the home of our IOP library. The IOP (Intersec Object Packer) is a
 framework to serialize structured data to use in communications protocols, data
 storage... IOP is language independent. IOP objects are encoded using TLV
-(Tag-Length-Value) packers/un-packers.  The IOP concept is similar to the
+(Tag-Length-Value) packers/unpackers. The IOP concept is similar to the
 Google Protocol Buffers.
 
 The IOP library is used to transmit data over the network in a safe manner. It
-deals with data integrity checking, retro-compatibility issues,... They are also
-used to exchange data between different languages or to provide a generic
+deals with data integrity checking, backward-compatibility issues, etc. It is
+also used to exchange data between different languages or to provide a generic
 interface to store and load C data on disk.
 
 == Documentation
@@ -63,8 +63,8 @@ flex:: IOP syntax lexer at https://github.com/westes/flex
 gperf:: GNU library for perfect hash function generation at
 https://www.gnu.org/software/gperf
 
-Most of dependencies can be installed using your own Linux distribution
-packages, with the exception of waf which is usually not packaged.
+Most dependencies can be installed using your own Linux distribution
+packages, with the exception of waf, which is usually not packaged.
 
 === waf installation
 
@@ -97,7 +97,7 @@ $ chmod +x waf-2.1.x
 $ ./waf
 ---------------------------------
 
-`waf` versions 2.1.9 is known to work fine, but running the latest 2.1.x `waf`
+`waf` versions 2.1.9 is known to work fine. Running the latest 2.1.x `waf`
 should also work fine.
 
 === Dependencies
@@ -143,9 +143,9 @@ $ sudo dnf install libsmi diffutils
 
 ==== uv
 
-`uv` is used to install Python dependencies used on compilation (Cython),
+`uv` is used to install Python dependencies used during compilation (Cython)
 and in tests.
-To install `uv`, follow the instructions on the official documentation:
+To install `uv`, follow the instructions in the official documentation:
 https://docs.astral.sh/uv/getting-started/installation/
 
 === Building lib-common
@@ -163,7 +163,7 @@ $ CC=clang CXX=clang++ waf configure
 ---------------------------------
 
 If the configuration step triggers no error, then you are ready to build,
-which just consists in running:
+which just consists of running:
 ----------------------------------
 $ waf
 or
@@ -188,7 +188,7 @@ $ waf --targets=target1,target2
 
 Other commands are listed with `waf --help`. Here they are:
 
-* `waf check`: run the tests of the current directory (defined in the `ZFile`)
+* `waf check`: run the tests in the current directory (defined in the `ZFile`)
                and in its sub-directories.
                The following variants also exist (cf `waf --help` for the
                details): `fast-check`, `www-check`, `selenium`,
@@ -227,7 +227,7 @@ The following environment variables can be used at the configuration phase:
     The build-system doesn't run "check" targets, which are:
       * clang check of c files.
       * linters on js/ts files.
-    You may want to set it to speedup the build.
+    You may want to set it to speed up the build.
     You can also bypass the checks thanks to the `nocheck` parameter of
     task-generators, which can be `True` to bypass the checks of all the
     source files, or a list of files to not check.
@@ -297,7 +297,7 @@ $ ./static-checks.py --staged-files
 
 An important part of the lib-common uses the
 https://clang.llvm.org/docs/BlockLanguageSpec.html[blocks] clang extension,
-that is not supported by gcc.
+which is not supported by gcc.
 
 Because of this, we have put in place a two-phase build of some files
 (named `foo.blk` instead of `foo.c`) that are pre-compiled using a special
@@ -305,7 +305,7 @@ tool named `clang-rewrite-blocks`. gcc is then used to produce the final
 object code.
 
 `clang-rewrite-blocks` is compiled and used automatically by the build-system.
-See `src/`clang-rewrite-blocks`/README.adoc` for more information about
+See `src/clang-rewrite-blocks/README.adoc` for more information about
 `clang-rewrite-blocks`.
 
 == Contributing
