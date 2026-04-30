@@ -46,3 +46,30 @@ repository's existing commit style — the trailer is mandatory.
 
 When **amending**, this rule combines with Rule 3: keep any existing
 `Co-Authored-By` trailer in place; if none is present, add one.
+
+## Rule 6 — Redmine ticket trailers (`Refs` / `Closes`)
+
+This project tracks tickets in Redmine and links commits to them via two
+trailers:
+
+- `Refs: #XXX #YYY` — the commit is related to ticket(s) `XXX`, `YYY`
+  but does not finish the work.
+- `Closes: #XXX #YYY` — the commit is the last and final commit for
+  ticket(s) `XXX`, `YYY` (the work on those tickets is complete).
+
+The syntax always uses `#` followed by the numeric ticket id; multiple
+tickets are space-separated on a single trailer line.
+
+This rule applies **only when creating a new commit**, not when amending.
+Two cases:
+
+1. If the user explicitly mentioned ticket numbers (and whether they
+   are referenced or closed) when asking to commit, set the appropriate
+   trailer(s) on the new commit without further prompting.
+2. If the user did not mention any tickets, ASK before creating the
+   commit whether any tickets should be referenced (`Refs:`) or closed
+   (`Closes:`). Wait for the answer before running `git commit`.
+
+When **amending**, do not invoke this rule: existing `Refs:` / `Closes:`
+trailers are preserved per Rule 3, and no new ones are added unless the
+user explicitly asks for it.
