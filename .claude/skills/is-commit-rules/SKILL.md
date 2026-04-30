@@ -5,71 +5,53 @@ description: Commit message formatting rules. Apply whenever creating or amendin
 
 # Commit Message Rules
 
-Apply these rules **on top of** the standard commit message conventions you
-already follow (imperative mood, meaningful subject, explanatory body, etc.).
-Do not change your usual behavior except where these rules add constraints.
+Apply these rules **on top of** your usual commit message conventions
+(imperative mood, meaningful subject, etc.). They add constraints; they
+don't replace your defaults.
 
 ## Rule 1 — 72-column limit
 
-- The **subject line** (first line) MUST be at most 72 characters.
-- Every line in the **commit body** MUST also wrap at 72 columns.
-- **Exception**: in the body only, raw pasted content (logs, error messages,
-  stack traces, command output) may exceed 72 columns when wrapping would
-  reduce readability.
+Subject and every body line MUST wrap at 72 columns. Exception: in the
+body, raw pasted content (logs, errors, stack traces, command output)
+may exceed 72 when wrapping would hurt readability.
 
 ## Rule 2 — Do NOT generate a `Change-Id` trailer
 
-When creating a **new** commit, never add a `Change-Id:` trailer yourself.
-The project's git commit hook generates it automatically.
+Never add `Change-Id:` to a new commit; the project's git hook generates
+it automatically.
 
 ## Rule 3 — Preserve existing trailers
 
-When **amending** an existing commit (e.g., `git commit --amend`), check
-whether the current commit message contains trailers (e.g., `Change-Id:`,
-`Refs:`, `Closes:`, or any other `Key: value` tags at the end of the message).
-You MUST preserve all existing trailers exactly as-is — do not modify, reorder,
-or remove them.
+When amending, keep all existing trailers (`Change-Id:`, `Refs:`,
+`Closes:`, any `Key: value` tags at the end) exactly as-is — no
+modification, reordering, or removal.
 
-## Rule 4 — Keep the commit message up-to-date when amending
+## Rule 4 — Keep the message up-to-date when amending
 
-When **amending** a commit, review whether the existing subject and body
-still accurately describe the changes after the amendment. If the scope
-or intent of the commit has changed, update the message accordingly
-(while still following Rules 1 and 3).
+After amending, update the subject/body if the scope or intent changed
+(still respecting Rules 1 and 3).
 
 ## Rule 5 — Always include the `Co-Authored-By` trailer
 
-Every commit message you create MUST end with the `Co-Authored-By:`
-trailer specified by your system prompt, even if no other commit in
-this repository uses it. Do not omit it on the grounds of matching the
-repository's existing commit style — the trailer is mandatory.
-
-When **amending**, this rule combines with Rule 3: keep any existing
-`Co-Authored-By` trailer in place; if none is present, add one.
+Every commit MUST end with the `Co-Authored-By:` trailer from your
+system prompt, regardless of repo style. When amending, combine with
+Rule 3: keep an existing one, or add it if missing.
 
 ## Rule 6 — Redmine ticket trailers (`Refs` / `Closes`)
 
-This project tracks tickets in Redmine and links commits to them via two
-trailers:
+This project links commits to Redmine tickets via:
 
-- `Refs: #XXX #YYY` — the commit is related to ticket(s) `XXX`, `YYY`
-  but does not finish the work.
-- `Closes: #XXX #YYY` — the commit is the last and final commit for
-  ticket(s) `XXX`, `YYY` (the work on those tickets is complete).
+- `Refs: #XXX #YYY` — related to those tickets, work not finished.
+- `Closes: #XXX #YYY` — final commit for those tickets.
 
-The syntax always uses `#` followed by the numeric ticket id; multiple
-tickets are space-separated on a single trailer line.
+Syntax: `#` + numeric id, multiple ids space-separated on one line.
 
-This rule applies **only when creating a new commit**, not when amending.
-Two cases:
+Applies **only to new commits**, not amends:
 
-1. If the user explicitly mentioned ticket numbers (and whether they
-   are referenced or closed) when asking to commit, set the appropriate
-   trailer(s) on the new commit without further prompting.
-2. If the user did not mention any tickets, ASK before creating the
-   commit whether any tickets should be referenced (`Refs:`) or closed
-   (`Closes:`). Wait for the answer before running `git commit`.
+1. If the user named tickets (and Refs vs. Closes), set the trailer(s)
+   without further prompting.
+2. Otherwise, ASK before committing whether any tickets should be
+   `Refs:`'d or `Closes:`'d, and wait for the answer.
 
-When **amending**, do not invoke this rule: existing `Refs:` / `Closes:`
-trailers are preserved per Rule 3, and no new ones are added unless the
-user explicitly asks for it.
+When amending, do not invoke this rule: existing trailers are preserved
+per Rule 3, and no new ones are added unless the user asks.
