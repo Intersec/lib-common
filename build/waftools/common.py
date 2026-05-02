@@ -562,6 +562,60 @@ class MypyClass(BuildContext):  # type: ignore[misc]
 
 
 # }}}
+# {{{ git hooks
+
+GIT_HOOKS_SRC_DIR = '/srv/tools/share/git/hooks'
+GIT_HOOKS = ('pre-commit', 'prepare-commit-msg')
+
+
+def install_git_hooks(ctx: ConfigurationContext) -> None:
+    """
+    Install pre-commit and prepare-commit-msg git hooks as symlinks.
+
+    The hooks point at the shared scripts in /srv/tools/share/git/hooks/.
+    If a hook path already exists (correct symlink, wrong symlink, or a
+    regular file) it is left untouched, so devs can deploy their own hook
+    if they explicitly want to.
+
+    Works for worktrees (uses git's common dir) and for lib-common used
+    either as a submodule or standalone (uses ctx.srcnode as the project
+    root to query git from).
+    """
+    src_dir = ctx.root.make_node(GIT_HOOKS_SRC_DIR)
+    if not src_dir.exists():
+        return
+
+    common_dir = ctx.cmd_and_log(
+        [
+            'git',
+            '-C',
+            ctx.srcnode.abspath(),
+            'rev-parse',
+            '--path-format=absolute',
+            '--git-common-dir',
+        ],
+        output=Context.STDOUT,
+        quiet=Context.BOTH,
+    ).strip()
+
+    hooks_dir = ctx.root.make_node(common_dir).make_node('hooks')
+    if not hooks_dir.exists():
+        return
+
+    for hook in GIT_HOOKS:
+        src = src_dir.make_node(hook)
+        dst = hooks_dir.make_node(hook)
+
+        # lexists also matches dangling symlinks; Node.exists follows them
+        if os.path.lexists(dst.abspath()):
+            ctx.msg(f'Git hook {hook}', 'already present, skipped')
+            continue
+
+        os.symlink(src.abspath(), dst.abspath())
+        ctx.msg(f'Git hook {hook}', f'installed -> {src.abspath()}')
+
+
+# }}}
 # {{{ configure
 
 
@@ -570,6 +624,9 @@ def configure(ctx: ConfigurationContext) -> None:
 
     # Find install for custom install
     ctx.find_program('install')
+
+    # Install git hooks
+    install_git_hooks(ctx)
 
 
 # }}}
