@@ -26,6 +26,7 @@ members = [
     "rust/libcommon-core",
     "rust/waf-cargo-build",
     "rust/waf-cargo-build-macros",
+    "rust/tokio-c-mod",
 
     "tests/iop-rust",
 ]
@@ -59,6 +60,9 @@ paste = "1.0.15"
 
 # Used by waf-cargo-build for IOP code generation
 prettyplease = "0.2"
+
+# Used by tokio_c_mod
+tokio = {version = "1.52.1", features = ["sync","rt-multi-thread"]}
 
 # }}}
 # {{{ Shared profiles

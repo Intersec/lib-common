@@ -20,12 +20,9 @@ from waflib.Build import BuildContext
 
 ctx: BuildContext
 
-
-ctx.recurse(
-    [
-        'libcommon-core',
-        'libcommon',
-        'farchc',
-        'tokio-c-mod',
-    ]
+ctx(
+    target='tokio-c-mod-rs',
+    features='rust',
+    cargo_package='tokio-c-mod',
+    use=['libcommon-core-rs'],
 )
