@@ -20,7 +20,7 @@ Let `COMMIT` denote the resolved commit SHA.
 
 Run these commands to collect all the information you need:
 
-1. `git log -1 --format="%H%n%s%n%n%B" COMMIT` — full commit message
+1. `git log -1 --format="%H%n%B" COMMIT` — full commit message
 2. `git diff COMMIT~1..COMMIT` — the full diff
 3. `git diff --stat COMMIT~1..COMMIT` — summary of changed files
 
