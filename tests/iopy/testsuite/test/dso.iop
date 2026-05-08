@@ -30,3 +30,11 @@ interface InterfaceTest {
 module ModuleTest {
     InterfaceTest interfaceTest;
 };
+
+/* Second module referencing the same `InterfaceTest`. The alias is
+ * given an explicit tag so it differs from the one in `ModuleTest`,
+ * exercising the case where an interface fullname is registered
+ * through several independent modules with different alias tags. */
+module ModuleTestBis {
+    100: InterfaceTest interfaceTestBis;
+};

@@ -3410,6 +3410,82 @@ class IopyDsoTests(z.TestCase):
             'module "test_dso_ModuleTest" should not be loaded',
         )
 
+    def test_iopy_iface_in_multiple_modules(self) -> None:
+        """
+        Test an iface registered through two independent modules.
+
+        `test.dso.InterfaceTest` is referenced by both `ModuleTest` (alias
+        `interfaceTest`) and `ModuleTestBis` (alias `interfaceTestBis`),
+        with different alias tags. Each module gets its own
+        `_InternalIfaceType` instance so that command numbers are unique
+        per module. The package-level `interfaces` attribute keeps a
+        single class for the iface fullname (the first inserted) and is
+        re-pointed or dropped on removal.
+        """
+
+        def rpc_impl_fun(
+            rpc_args: test_dso__iop.InterfaceTest_fun_RPCServer.RpcArgs,
+        ) -> test_dso__iop.InterfaceTest_fun_RPCServer.RpcRes:
+            return rpc_args.res(val=21)
+
+        def rpc_impl_fun_bis(
+            rpc_args: test_dso__iop.InterfaceTest_fun_RPCServer.RpcArgs,
+        ) -> test_dso__iop.InterfaceTest_fun_RPCServer.RpcRes:
+            return rpc_args.res(val=42)
+
+        plugin_file = os.path.join(TEST_PATH, 'test-iop-plugin-dso.so')
+        self.p.load_dso('plugin', plugin_file)
+
+        # Both modules should be exposed by the plugin.
+        self.assertTrue(hasattr(self.p.modules, 'test_dso_ModuleTest'))
+        self.assertTrue(hasattr(self.p.modules, 'test_dso_ModuleTestBis'))
+
+        # The package-level `interfaces` attribute keeps a single class
+        # per iface local name; check it is reachable.
+        self.assertTrue(hasattr(self.p.test_dso.interfaces, 'InterfaceTest'))  # type: ignore[attr-defined]
+
+        # The two modules must yield distinct interface classes, so that
+        # each carries its own alias tag and produces unique command
+        # numbers.
+        iface_cls = self.p.modules.test_dso_ModuleTest.interfaceTest  # type: ignore[attr-defined]
+        iface_cls_bis = (
+            self.p.modules.test_dso_ModuleTestBis.interfaceTestBis  # type: ignore[attr-defined]
+        )
+        self.assertIsNot(iface_cls, iface_cls_bis)
+
+        # Independently register a server impl on each module and check
+        # that calls are dispatched to the right one. If both modules
+        # shared the same command number, the second `impl` assignment
+        # would clobber the first and both calls would return 42.
+        uri = make_uri()
+        s = self.r.ChannelServer()
+        s.listen(uri=uri)
+        s_mod: test_dso__iop.ModuleTest_ModuleServer = (
+            s.test_dso_ModuleTest  # type: ignore[attr-defined]
+        )
+        s_mod_bis: test_dso__iop.ModuleTestBis_ModuleServer = (
+            s.test_dso_ModuleTestBis  # type: ignore[attr-defined]
+        )
+        s_mod.interfaceTest.fun.impl = rpc_impl_fun
+        s_mod_bis.interfaceTestBis.fun.impl = rpc_impl_fun_bis
+
+        c = self.r.connect(uri)
+        c_mod: test_dso__iop.ModuleTest_Module = (
+            c.test_dso_ModuleTest  # type: ignore[attr-defined]
+        )
+        c_mod_bis: test_dso__iop.ModuleTestBis_Module = (
+            c.test_dso_ModuleTestBis  # type: ignore[attr-defined]
+        )
+        self.assertEqual(21, c_mod.interfaceTest.fun().val)
+        self.assertEqual(42, c_mod_bis.interfaceTestBis.fun().val)
+
+        # Unloading the DSO must drop both modules and the package-level
+        # `interfaces.InterfaceTest` attribute.
+        self.p.unload_dso('plugin')
+        self.assertFalse(hasattr(self.p, 'test_dso'))
+        self.assertFalse(hasattr(self.p.modules, 'test_dso_ModuleTest'))
+        self.assertFalse(hasattr(self.p.modules, 'test_dso_ModuleTestBis'))
+
 
 # }}}
 # {{{ IopyCompatibilityTests
