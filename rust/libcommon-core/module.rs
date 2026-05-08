@@ -371,7 +371,7 @@ where
     /// #     my_module_get_module();
     /// # }
     /// ```
-    pub fn shutdown<F>(&mut self, f: F) -> &Self
+    pub fn shutdown<F>(&mut self, f: F) -> &mut Self
     where
         F: Fn(&mut T) -> Result<(), Box<dyn Error>> + 'static,
     {
@@ -476,7 +476,7 @@ where
     /// ```
     #[allow(clippy::not_unsafe_ptr_arg_deref)]
     #[allow(clippy::unnecessary_safety_doc)]
-    pub fn implement_void<F>(&mut self, method: *const module_method_t, cb: F)
+    pub fn implement_void<F>(&mut self, method: *const module_method_t, cb: F) -> &mut Self
     where
         F: Fn(&mut T) + 'static,
     {
@@ -514,6 +514,8 @@ where
                 cb_ptr as *mut c_void,
             );
         }
+
+        self
     }
 
     /// Implement an INT method.
@@ -552,7 +554,7 @@ where
     /// ```
     #[allow(clippy::not_unsafe_ptr_arg_deref)]
     #[allow(clippy::unnecessary_safety_doc)]
-    pub fn implement_int<F>(&mut self, method: *const module_method_t, cb: F)
+    pub fn implement_int<F>(&mut self, method: *const module_method_t, cb: F) -> &mut Self
     where
         F: Fn(&mut T, c_int) + 'static,
     {
@@ -590,6 +592,8 @@ where
                 cb_ptr as *mut c_void,
             );
         }
+
+        self
     }
 
     /// Implement a PTR method.
@@ -631,7 +635,7 @@ where
     /// ```
     #[allow(clippy::not_unsafe_ptr_arg_deref)]
     #[allow(clippy::unnecessary_safety_doc)]
-    pub fn implement_ptr<F>(&mut self, method: *const module_method_t, cb: F)
+    pub fn implement_ptr<F>(&mut self, method: *const module_method_t, cb: F) -> &mut Self
     where
         F: Fn(&mut T, *mut c_void) + 'static,
     {
@@ -669,6 +673,8 @@ where
                 cb_ptr as *mut c_void,
             );
         }
+
+        self
     }
 
     /// Implement a GENERIC method.
@@ -711,7 +717,7 @@ where
     /// ```
     #[allow(clippy::not_unsafe_ptr_arg_deref)]
     #[allow(clippy::unnecessary_safety_doc)]
-    pub fn implement_generic<F>(&mut self, method: *const module_method_t, cb: F)
+    pub fn implement_generic<F>(&mut self, method: *const module_method_t, cb: F) -> &mut Self
     where
         F: Fn(&mut T, data_t) + 'static,
     {
@@ -749,6 +755,8 @@ where
                 cb_ptr as *mut c_void,
             );
         }
+
+        self
     }
 
     /// Create a new module builder for the given internal module.
@@ -1327,46 +1335,42 @@ mod test {
     });
 
     c_module!(my_module, ModuleCtx, |builder| {
-        builder.depends_on(depend_on_module_get_module());
-
-        builder.initialize(|ctx, arg| {
-            let arg_u32 = arg as *const u32;
-            if !arg_u32.is_null() {
-                ctx.init = unsafe { *arg_u32 };
-            }
-            Ok(())
-        });
-
-        builder.shutdown(|_ctx| {
-            unsafe {
-                SHUTDOWN_MY_MODULE = true;
-            }
-            Ok(())
-        });
-
-        builder.implement_void(&raw const void_method, |ctx| {
-            ctx.void = true;
-        });
-
-        builder.implement_int(&raw const int_method, |ctx, arg| {
-            ctx.int = arg;
-        });
-
-        builder.implement_ptr(&raw const ptr_method, |ctx, arg| {
-            ctx.ptr = arg;
-        });
-
-        builder.implement_generic(&raw const generic_method, |ctx, arg| {
-            ctx.generic = unsafe { arg.u32_ };
-        });
+        builder
+            .depends_on(depend_on_module_get_module())
+            .initialize(|ctx, arg| {
+                let arg_u32 = arg as *const u32;
+                if !arg_u32.is_null() {
+                    ctx.init = unsafe { *arg_u32 };
+                }
+                Ok(())
+            })
+            .shutdown(|_ctx| {
+                unsafe {
+                    SHUTDOWN_MY_MODULE = true;
+                }
+                Ok(())
+            })
+            .implement_void(&raw const void_method, |ctx| {
+                ctx.void = true;
+            })
+            .implement_int(&raw const int_method, |ctx, arg| {
+                ctx.int = arg;
+            })
+            .implement_ptr(&raw const ptr_method, |ctx, arg| {
+                ctx.ptr = arg;
+            })
+            .implement_generic(&raw const generic_method, |ctx, arg| {
+                ctx.generic = unsafe { arg.u32_ };
+            });
     });
 
     c_module!(needed_by_module, ModuleCtx, |builder| {
-        builder.needed_by(my_module_get_module());
-
-        builder.implement_int(&raw const int_method, |ctx, arg| {
-            ctx.int = arg;
-        });
+        builder.needed_by(my_module_get_module()).implement_int(
+            &raw const int_method,
+            |ctx, arg| {
+                ctx.int = arg;
+            },
+        );
     });
 
     #[test]
