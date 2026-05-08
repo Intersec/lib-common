@@ -557,7 +557,7 @@ class IopyTest(z.TestCase):
             status = self.r.test.EnumA(str(rpc_args.arg.a.__fullname__()[-1]))
             return rpc_args.res(status=status, res=rpc_args.arg.a.field1)
 
-        s = self.r.ChannelServer()
+        s = self.r.channel_server()
 
         s.test_ModuleA.interfaceA.funA.impl = rpc_impl_a
         self.assertEqual(s.test_ModuleA.interfaceA.funA.impl, rpc_impl_a)
@@ -1174,7 +1174,8 @@ class IopyTest(z.TestCase):
         self.assertNotEqual(is_deepcopy, id(structa.e) == id(copy_structa.e))
         self.assertNotEqual(is_deepcopy, id(structa.r) == id(copy_structa.r))
         self.assertNotEqual(
-            is_deepcopy, id(structa.e.baz) == id(copy_structa.e.baz)
+            is_deepcopy,
+            id(structa.e.baz) == id(copy_structa.e.baz),
         )
 
         classb = self.r.test.ClassB(field1=42, field2=20)
@@ -3007,7 +3008,7 @@ class IopyIfaceTests(z.TestCase):
         ) -> test__iop.InterfaceA_funA_RPCServer.RpcRes:
             raise RuntimeError('test exception')
 
-        s = self.r.ChannelServer()
+        s = self.r.channel_server()
 
         s.test_ModuleA.interfaceA.funA.impl = rpc_impl_a
 
@@ -3061,7 +3062,7 @@ class IopyIfaceTests(z.TestCase):
 
     def test_rpc_client_exception(self) -> None:
         # Create a simple RPC server
-        s = self.r.ChannelServer()
+        s = self.r.channel_server()
         uri = make_uri()
         s.listen(uri=uri)
         c = iopy.Channel(self.p, uri)
@@ -3377,7 +3378,7 @@ class IopyDsoTests(z.TestCase):
 
         # we should be able to query test_dso_ModuleTest.interfaceTest.fun
         uri = make_uri()
-        s = self.r.ChannelServer()
+        s = self.r.channel_server()
         s.listen(uri=uri)
         s_mod: test_dso__iop.ModuleTest_ModuleServer = s.test_dso_ModuleTest  # type: ignore[attr-defined]
         s_mod.interfaceTest.fun.impl = rpc_impl_fun
@@ -3499,7 +3500,7 @@ class IopyDsoTests(z.TestCase):
         # shared the same command number, the second `impl` assignment
         # would clobber the first and both calls would return 42.
         uri = make_uri()
-        s = self.r.ChannelServer()
+        s = self.r.channel_server()
         s.listen(uri=uri)
         s_mod: test_dso__iop.ModuleTest_ModuleServer = (
             s.test_dso_ModuleTest  # type: ignore[attr-defined]
@@ -3585,6 +3586,18 @@ class IopyCompatibilityTests(z.TestCase):
             self.p.modules.test_ModuleA.__fullname__(),  # type: ignore[attr-defined]
             self.p.modules.test_ModuleA.get_fullname(),
         )
+
+    def test_plugin_get_plugin(self) -> None:
+        """Test deprecated plugin _get_plugin returns the plugin itself"""
+        self.assertIs(
+            self.p._get_plugin(),  # type: ignore[attr-defined] # noqa: SLF001 (private-member-access)
+            self.p,
+        )
+
+    def test_plugin_channel_server(self) -> None:
+        """Test deprecated plugin ChannelServer creates a channel server"""
+        server = self.p.ChannelServer()  # type: ignore[attr-defined]
+        self.assertIsInstance(server, iopy.ChannelServer)
 
     def test_iface_types(self) -> None:
         """
@@ -3743,10 +3756,11 @@ class IopyCompatibilityTests(z.TestCase):
                 ),
             ],
         )
-        self.assertEqual(self.p.__dsopath__, self.p.dsopath)
+        self.assertEqual(self.p.__dsopath__, self.p.dsopath)  # type: ignore[attr-defined]
 
         self.assertIs(
-            self.p.modules.test_ModuleA, self.p.__modules__['test.ModuleA']
+            self.p.modules.test_ModuleA,
+            self.p.__modules__['test.ModuleA'],  # type: ignore[attr-defined]
         )
 
 
