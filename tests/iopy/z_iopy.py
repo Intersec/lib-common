@@ -3234,6 +3234,87 @@ class IopyIfaceTests(z.TestCase):
             self.p.modules.test_ModuleA.interfaceA.funA.get_cmd(), 65537
         )
 
+    def test_iface_get_module(self) -> None:
+        """
+        Test iface get_module returns the iface's module.
+
+        Called on the iface class, get_module returns the module class
+        (the first one the iface was registered with). Called on a
+        channel-bound iface instance, it returns the module instance bound
+        to the channel.
+        """
+        c = cast(
+            'test_iop_plugin__iop.Channel', iopy.Channel(self.p, make_uri())
+        )
+
+        iface_cls = self.p.modules.test_ModuleA.interfaceA
+        module_cls = self.p.modules.test_ModuleA
+        self.assertIs(iface_cls.get_module(), module_cls)
+
+        iface_inst = c.test_ModuleA.interfaceA
+        module_inst = c.test_ModuleA
+        self.assertIs(iface_inst.get_module(), module_inst)
+
+    def test_iface_get_module_fullname(self) -> None:
+        """
+        Test iface get_module_fullname returns module fullname + iface
+        basename.
+        """
+        c = cast(
+            'test_iop_plugin__iop.Channel', iopy.Channel(self.p, make_uri())
+        )
+
+        iface_cls = self.p.modules.test_ModuleA.interfaceA
+        self.assertEqual(
+            iface_cls.get_module_fullname(), 'test.ModuleA.interfaceA'
+        )
+
+        iface_inst = c.test_ModuleA.interfaceA
+        self.assertEqual(
+            iface_inst.get_module_fullname(), 'test.ModuleA.interfaceA'
+        )
+
+    def test_rpc_get_iface(self) -> None:
+        """
+        Test RPC get_iface returns the iface class on RPCBase and the
+        iface instance on RPCs bound to a channel.
+        """
+        c = cast(
+            'test_iop_plugin__iop.Channel', iopy.Channel(self.p, make_uri())
+        )
+
+        iface_cls = self.p.modules.test_ModuleA.interfaceA
+        rpc_cls = iface_cls.funA
+        self.assertIsInstance(rpc_cls, iopy.RPCBase)
+        self.assertIs(rpc_cls.get_iface(), iface_cls)
+
+        iface_inst = c.test_ModuleA.interfaceA
+        rpc_inst = iface_inst.funA
+        self.assertIsInstance(rpc_inst, iopy.RPCBase)
+        self.assertIs(rpc_inst.get_iface(), iface_inst)
+
+    def test_rpc_get_module_fullname(self) -> None:
+        """
+        Test RPC get_module_fullname returns module fullname + iface
+        basename + RPC name on both RPCBase (iface-class RPCs) and
+        channel-bound RPCs.
+        """
+        c = cast(
+            'test_iop_plugin__iop.Channel', iopy.Channel(self.p, make_uri())
+        )
+
+        rpc_cls = self.p.modules.test_ModuleA.interfaceA.funA
+        self.assertIsInstance(rpc_cls, iopy.RPCBase)
+        self.assertEqual(
+            rpc_cls.get_module_fullname(), 'test.ModuleA.interfaceA.funA'
+        )
+
+        rpc_inst = c.test_ModuleA.interfaceA.funA
+        self.assertIsInstance(rpc_inst, iopy.RPCBase)
+        self.assertEqual(
+            rpc_inst.get_module_fullname(), 'test.ModuleA.interfaceA.funA'
+        )
+
     def test_rpc_args_types(self) -> None:
         """Test rpc_args types correspond to the RPC Arg/Res/Exn types"""
         iface_cls = self.p.test.interfaces.InterfaceA

@@ -7137,16 +7137,28 @@ class _InternalIfaceNameWrapper(str):
 
 
 @cython.internal
+@cython.final
+cdef class _InternalIfaceValueAccessor:
+    """Callable returning a stored value.
+
+    Used by `_InternalIfaceType` properties to expose values as if they
+    were methods (`iface_cls.foo()`). A property is required so that the
+    metaclass attribute wins over the same-named instance method on
+    `_InternalIface` during class-level attribute lookup.
+    """
+    cdef object value
+
+    def __call__(_InternalIfaceValueAccessor self):
+        return self.value
+
+
+@cython.internal
 cdef class _InternalIfaceType(type):
     """Internal base metaclass for interface types"""
     cdef Plugin plugin
     cdef const iop_iface_alias_t *iface_alias
+    cdef _InternalModuleHolder module_cls
     cdef int refcnt
-    cdef object name_wrapper
-
-    def __cinit__(_InternalIfaceType cls, name, bases, attrs):
-        """Cython constructor for _InternalIface class"""
-        cls.name_wrapper = _InternalIfaceNameWrapper(name)
 
     def __repr__(_InternalIfaceType cls):
         """Return the representation of the IOP interface.
@@ -7177,7 +7189,7 @@ cdef class _InternalIfaceType(type):
 
         Deprecated: Use `get_fullname` or `get_basename` instead.
         """
-        return cls.name_wrapper
+        return _InternalIfaceNameWrapper(cls.__qualname__)
 
     def get_fullname(_InternalIfaceType cls):
         """Return the fullname of the IOP interface.
@@ -7209,6 +7221,57 @@ cdef class _InternalIfaceType(type):
         """
         return cls.iface_alias.tag
 
+    # `get_module` and `get_module_fullname` are exposed as properties
+    # holding a `_InternalIfaceValueAccessor` callable rather than plain
+    # `def`s. `_InternalIface` defines instance methods of the same names
+    # returning channel-bound values, which would shadow plain metaclass
+    # methods during class-level lookup. Properties are data descriptors
+    # and win over the class MRO, ensuring `iface_cls.get_module()` reaches
+    # the metaclass version.
+    @property
+    def get_module(_InternalIfaceType cls):
+        """Return the IOP module class of the interface.
+
+        An interface can be referenced by multiple modules; this returns the
+        first module the interface was registered with in the plugin.
+
+        Returns
+        -------
+        type
+            The IOP module class.
+        """
+        cdef _InternalIfaceValueAccessor accessor
+
+        accessor = _InternalIfaceValueAccessor.__new__(
+            _InternalIfaceValueAccessor
+        )
+        accessor.value = cls.module_cls
+        return accessor
+
+    @property
+    def get_module_fullname(_InternalIfaceType cls):
+        """Return the fullname of the interface from its registration module.
+
+        This is the module fullname concatenated with the interface basename
+        in the module. The module used is the first one the interface was
+        registered with in the plugin.
+
+        Returns
+        -------
+        str
+            The fullname of the IOP interface from its registration module.
+        """
+        cdef _InternalIfaceValueAccessor accessor
+
+        accessor = _InternalIfaceValueAccessor.__new__(
+            _InternalIfaceValueAccessor
+        )
+        accessor.value = '%s.%s' % (
+            lstr_to_py_str(cls.module_cls.module.fullname),
+            lstr_to_py_str(cls.iface_alias.name),
+        )
+        return accessor
+
 
 @cython.internal
 cdef class _InternalIface:
@@ -7220,9 +7283,10 @@ cdef class _InternalIface:
     """
     cdef readonly IfaceRpcsContainer _rpcs
     cdef readonly ChannelBase channel
+    cdef Module py_module
 
     def __cinit__(_InternalIface self):
-        """Cython contructor of _InternalIface"""
+        """Cython constructor of _InternalIface"""
         self._rpcs = IfaceRpcsContainer.__new__(IfaceRpcsContainer)
 
     def __repr__(_InternalIface self):
@@ -7292,6 +7356,38 @@ cdef class _InternalIface:
         cdef _InternalIfaceType holder = cls
 
         return holder.iface_alias.tag
+
+    def get_module(_InternalIface self):
+        """Get the IOP module instance of the interface.
+
+        Returns the module instance bound to the channel that this interface
+        was created from.
+
+        Returns
+        -------
+        Module
+            The IOP module instance.
+        """
+        return self.py_module
+
+    def get_module_fullname(_InternalIface self):
+        """Get the fullname of the interface from its channel-bound module.
+
+        This is the channel-bound module fullname concatenated with the
+        interface basename in that module.
+
+        Returns
+        -------
+        str
+            The fullname of the IOP interface from the channel-bound module.
+        """
+        cdef _InternalModuleHolder module_cls = type(self.py_module)
+        cdef _InternalIfaceType iface_cls = type(self)
+
+        return '%s.%s' % (
+            lstr_to_py_str(module_cls.module.fullname),
+            lstr_to_py_str(iface_cls.iface_alias.name),
+        )
 
 
 @cython.warn.undeclared(False)
@@ -7473,6 +7569,32 @@ cdef class RPCBase:
         """
         return get_iface_rpc_cmd(self.iface_cls.iface_alias, self.rpc)
 
+    def get_iface(RPCBase self):
+        """Get the IOP interface class of the RPC.
+
+        Returns
+        -------
+        type
+            The IOP interface class.
+        """
+        return self.iface_cls
+
+    def get_module_fullname(RPCBase self):
+        """Get the fullname of the RPC from its module.
+
+        This is the module fullname, the interface basename in the module and
+        the RPC name, joined by dots.
+
+        Returns
+        -------
+        str
+            The fullname of the IOP RPC from the module.
+        """
+        return '%s.%s' % (
+            self.iface_cls.get_module_fullname(),
+            lstr_to_py_str(self.rpc.name),
+        )
+
     def __repr__(RPCBase self):
         """Return the representation of the RPC.
 
@@ -7506,6 +7628,32 @@ cdef class RPCChannel(RPCBase):
             The channel object of the RPC.
         """
         return self.py_iface.channel
+
+    def get_iface(RPCChannel self):
+        """Get the IOP interface instance of the RPC.
+
+        Returns
+        -------
+        IfaceBase
+            The IOP interface instance bound to the channel of the RPC.
+        """
+        return self.py_iface
+
+    def get_module_fullname(RPCChannel self):
+        """Get the fullname of the RPC from its channel-bound module.
+
+        This is the channel-bound module fullname, the interface basename in
+        that module and the RPC name, joined by dots.
+
+        Returns
+        -------
+        str
+            The fullname of the IOP RPC from the channel-bound module.
+        """
+        return '%s.%s' % (
+            self.py_iface.get_module_fullname(),
+            lstr_to_py_str(self.rpc.name),
+        )
 
 
 ctypedef int (*rpc_create_f)(const iop_rpc_t *rpc,
@@ -7585,13 +7733,14 @@ cdef Module create_module(_InternalModuleHolder cls, ChannelBase channel,
         iface_alias = &cls.module.ifaces[i]
         iface_name = lstr_to_py_str(iface_alias.name)
         iface_cls = getattr(cls, iface_name)
-        py_iface = create_interface(iface_cls, channel, rpc_create_cb)
+        py_iface = create_interface(iface_cls, channel, res, rpc_create_cb)
         setattr(res, iface_name, py_iface)
 
     return res
 
 
 cdef _InternalIface create_interface(object cls, ChannelBase channel,
+                                     Module py_module,
                                      rpc_create_f rpc_create_cb):
     """Create instance of module from class type and channel.
 
@@ -7601,6 +7750,8 @@ cdef _InternalIface create_interface(object cls, ChannelBase channel,
         The class type of the interface.
     channel
         The IC connection channel.
+    py_module
+        The IOP module instance the interface belongs to in the channel.
     rpc_create_cb
         The callback used to create the RPC object for the connection.
 
@@ -7615,6 +7766,7 @@ cdef _InternalIface create_interface(object cls, ChannelBase channel,
     cdef const iop_rpc_t *rpc
 
     res.channel = channel
+    res.py_module = py_module
 
     for i in range(iface.funs_len):
         rpc = &iface.funs[i]
@@ -10772,13 +10924,14 @@ cdef void plugin_add_module(Plugin plugin, const iop_mod_t *module):
 
     for i in range(module.ifaces_len):
         iface_alias = &module.ifaces[i]
-        py_iface = plugin_add_iface(plugin, iface_alias)
+        py_iface = plugin_add_iface(plugin, py_module, iface_alias)
         setattr(py_module, lstr_to_py_str(iface_alias.name), py_iface)
 
     setattr(plugin.modules, py_fullname, py_module)
 
 
 cdef object plugin_add_iface(Plugin plugin,
+                             _InternalModuleHolder py_module,
                              const iop_iface_alias_t *iface_alias):
     """Add iop interface to plugin.
 
@@ -10786,6 +10939,10 @@ cdef object plugin_add_iface(Plugin plugin,
     ----------
     plugin
         The IOPy plugin.
+    py_module
+        The IOP module the interface is being registered with. The first
+        module given for a fresh interface alias is stored on the interface
+        class so we can later retrieve a representative module for it.
     iface_alias
         The IOP C interface alias to add.
 
@@ -10822,6 +10979,7 @@ cdef object plugin_add_iface(Plugin plugin,
     interface_cls.refcnt = 1
     interface_cls.plugin = plugin
     interface_cls.iface_alias = iface_alias
+    interface_cls.module_cls = py_module
 
     for i in range(iface.funs_len):
         rpc = &iface.funs[i]
