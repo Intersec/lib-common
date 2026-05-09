@@ -7040,6 +7040,62 @@ cdef int typedef_init_iop_description(
 # }}}
 # }}}
 # {{{ RPCs
+#
+# Plugin defines metaclasses; channels instantiate them
+#
+# For each IOP module and interface, the plugin defines a custom
+# metaclass holding the C IOP descriptor (`_InternalModuleHolder`
+# for modules, `_InternalIfaceType` for interfaces), and a class
+# that is an instance of that metaclass. This class is shared
+# across all channels and is reachable from the plugin
+# (`plugin.modules.<name>`, `plugin.<pkg>.interfaces.<name>`).
+#
+# Binding to a channel means *instantiating* that plugin-level
+# class. The resulting instance carries the channel reference and
+# per-channel state, and is reachable from the channel
+# (`channel.<module>.<interface>`).
+#
+# Below is the layout for an Interface exposing an RPC. Modules
+# follow the same pattern with `_InternalModuleHolder` as metaclass
+# and `Module` as base class.
+#
+#  +----------------------+
+#  | _InternalIfaceType   |    metaclass (plugin side)
+#  +----------------------+
+#  |  iop_iface_alias_t   |
+#  +----------+-----------+
+#             ^
+#             | type
+#             |
+#  +----------+-----------+   RPC attr   +-------------+
+#  |  Interface (class)   |------------->|   RPCBase   |
+#  |  bases: IfaceBase    |              |  (unbound)  |
+#  +----------+-----------+              +------+------+
+#             ^                                 ^
+#             | type                            | bases
+#             |                                 |
+#  +----------+-----------+   RPC attr   +------+----------+
+#  | Interface (instance, |------------->| RPC/AsyncRPC/   |
+#  |  bound to a channel) |              | RPCServer       |
+#  | + channel            |              | + py_iface      |
+#  | + py_module          |              +-----------------+
+#  +----------------------+
+#
+# An `RPCBase` instance is stored on the Interface class for
+# class-level access; it is not bound to any channel. The
+# `RPC`/`AsyncRPC`/`RPCServer` subclasses (via the internal
+# `RPCChannel` class, which adds the `py_iface` back-reference to
+# the channel-bound Interface) are stored on Interface instances
+# and returned for instance-level access; these are what users
+# actually call.
+#
+# `get_module` / `get_module_fullname` use a property + callable
+# wrapper on the metaclass rather than a plain method: a metaclass
+# method would be shadowed by the instance method of the same name
+# defined on `_InternalIface` during class-level lookup; only a
+# data descriptor on the metaclass wins over an attribute found
+# via the class's own MRO.
+#
 # {{{ Base classes
 
 
