@@ -646,7 +646,7 @@ cdef class EnumBase(Basic):
             enum_set(self, val)
 
     @classmethod
-    def name(object cls):
+    def get_name(object cls):
         """Return the name of the enum.
 
         Returns
@@ -657,6 +657,14 @@ cdef class EnumBase(Basic):
         cdef const iop_enum_t *en = enum_get_desc_cls(cls)
 
         return lstr_to_py_str(en.name)
+
+    @classmethod
+    def name(object cls):
+        """Return the name of the enum.
+
+        Deprecated: Use `get_name` instead.
+        """
+        return cls.get_name()
 
     @classmethod
     def fullname(object cls):
@@ -704,7 +712,7 @@ cdef class EnumBase(Basic):
         return make_iop_path(enum_get_fullname(cls)).py_name
 
     @classmethod
-    def values(object cls):
+    def get_values(object cls):
         """Return the dict of allowed values.
 
         Returns
@@ -716,12 +724,20 @@ cdef class EnumBase(Basic):
         return enum_get_values(cls)
 
     @classmethod
-    def __values__(object cls):
-        """Deprecated, use values() instead."""
-        return enum_get_values(cls)
+    def values(object cls):
+        """Return the dict of allowed values.
+
+        Deprecated: Use `get_values` instead.
+        """
+        return cls.get_values()
 
     @classmethod
-    def ranges(object cls):
+    def __values__(object cls):
+        """Deprecated, use get_values() instead."""
+        return cls.get_values()
+
+    @classmethod
+    def get_ranges(object cls):
         """Return the ranges of the enum.
 
         Returns
@@ -732,9 +748,17 @@ cdef class EnumBase(Basic):
         return enum_get_ranges(cls)
 
     @classmethod
+    def ranges(object cls):
+        """Return the ranges of the enum.
+
+        Deprecated: Use `get_ranges` instead.
+        """
+        return cls.get_ranges()
+
+    @classmethod
     def __ranges__(object cls):
-        """Deprecated, use ranges() instead."""
-        return enum_get_ranges(cls)
+        """Deprecated, use get_ranges() instead."""
+        return cls.get_ranges()
 
     @classmethod
     def get_iop_description(object cls):

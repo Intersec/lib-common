@@ -3326,6 +3326,17 @@ class IopyIfaceTests(z.TestCase):
         self.assertEqual(enum_cls.get_iop_fullname(), 'test.EnumA')
         self.assertEqual(enum_cls.get_py_fullname(), 'test.EnumA')
 
+    def test_enum_get_name_values_ranges(self) -> None:
+        """Test EnumBase get_name / get_values / get_ranges accessors."""
+        enum_cls = self.p.test.EnumA
+        self.assertEqual(enum_cls.get_name(), 'EnumA')
+
+        values = enum_cls.get_values()
+        self.assertEqual(values['A'], 1)
+        self.assertEqual(values['B'], 2)
+
+        self.assertIsInstance(enum_cls.get_ranges(), dict)
+
     def test_iface_get_module(self) -> None:
         """
         Test iface get_module returns the iface's module.
@@ -3861,6 +3872,16 @@ class IopyCompatibilityTests(z.TestCase):
         pkg = self.p.test
         self.assertEqual(pkg.__name__(), pkg.get_iop_name())  # type: ignore[attr-defined]
 
+    def test_enum_name_values_ranges(self) -> None:
+        """
+        Test deprecated EnumBase name/values/ranges match
+        get_name/get_values/get_ranges.
+        """
+        enum_cls = self.p.test.EnumA
+        self.assertEqual(enum_cls.name(), enum_cls.get_name())  # type: ignore[attr-defined]
+        self.assertEqual(enum_cls.values(), enum_cls.get_values())  # type: ignore[attr-defined]
+        self.assertEqual(enum_cls.ranges(), enum_cls.get_ranges())  # type: ignore[attr-defined]
+
     def test_iface_fullname(self) -> None:
         """Test deprecated iface __fullname__ matches get_iop_fullname"""
         iface = self.p.test.interfaces.InterfaceA
@@ -3993,8 +4014,8 @@ class IopyCompatibilityTests(z.TestCase):
         check_method(
             enum_a,
             [
-                ('__values__', 'values'),
-                ('__ranges__', 'ranges'),
+                ('__values__', 'get_values'),
+                ('__ranges__', 'get_ranges'),
             ],
         )
 
