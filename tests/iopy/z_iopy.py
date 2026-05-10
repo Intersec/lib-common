@@ -556,7 +556,9 @@ class IopyTest(z.TestCase):
             if login != 'root' or password != '1234':
                 desc = f'invalid login, hdr: {rpc_args.hdr!r}'
                 return rpc_args.exn(code=1, desc=desc)
-            status = self.r.test.EnumA(str(rpc_args.arg.a.__fullname__()[-1]))
+            status = self.r.test.EnumA(
+                str(rpc_args.arg.a.get_iop_fullname()[-1])
+            )
             return rpc_args.res(status=status, res=rpc_args.arg.a.field1)
 
         s = self.r.channel_server()

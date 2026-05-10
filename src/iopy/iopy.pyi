@@ -115,21 +115,13 @@ class EnumBase(Basic):
     @classmethod
     def name(cls) -> str: ...
     @classmethod
-    def fullname(cls) -> str: ...
-    @classmethod
-    def __fullname__(cls) -> str: ...
-    @classmethod
     def get_iop_fullname(cls) -> str: ...
     @classmethod
     def get_py_fullname(cls) -> str: ...
     @classmethod
     def values(cls) -> dict[str, int]: ...
     @classmethod
-    def __values__(cls) -> dict[str, int]: ...
-    @classmethod
     def ranges(cls) -> dict[str, int]: ...
-    @classmethod
-    def __ranges__(cls) -> dict[str, int]: ...
     @classmethod
     def get_iop_description(cls) -> IopEnumDescription: ...
     def set(self, val: int | str) -> None: ...
@@ -212,70 +204,8 @@ class StructUnionBase(Basic):
         single: bool = True,
         _forbid_private: bool = False,
     ) -> typing_extensions.Self: ...
-    @typing.overload
-    @classmethod
-    def __from_file__(
-        cls,
-        *,
-        _json: str,
-        single: bool = True,
-        _ignore_unknown: bool = False,
-        _forbid_private: bool = False,
-        _use_c_case: bool = False,
-    ) -> typing_extensions.Self: ...
-    @typing.overload
-    @classmethod
-    def __from_file__(
-        cls,
-        *,
-        _yaml: str,
-        single: bool = True,
-        _ignore_unknown: bool = False,
-        _forbid_private: bool = False,
-    ) -> typing_extensions.Self: ...
-    @typing.overload
-    @classmethod
-    def __from_file__(
-        cls,
-        *,
-        _xml: str,
-        single: bool = True,
-        _ignore_unknown: bool = False,
-        _forbid_private: bool = False,
-    ) -> typing_extensions.Self: ...
-    @typing.overload
-    @classmethod
-    def __from_file__(
-        cls,
-        *,
-        _hex: str,
-        single: bool = True,
-        _forbid_private: bool = False,
-    ) -> typing_extensions.Self: ...
-    @typing.overload
-    @classmethod
-    def __from_file__(
-        cls,
-        *,
-        _bin: str,
-        single: bool = True,
-        _forbid_private: bool = False,
-    ) -> typing_extensions.Self: ...
     def __richcmp__(self, other: object, op: int) -> bool: ...
     def to_json(
-        self,
-        no_whitespaces: bool | None = None,
-        no_trailing_eol: bool | None = None,
-        skip_private: bool | None = None,
-        skip_default: bool | None = None,
-        skip_empty_arrays: bool | None = None,
-        skip_empty_structs: bool | None = None,
-        shorten_data: bool | None = None,
-        skip_class_names: bool | None = None,
-        skip_optional_class_names: bool | None = None,
-        minimal: bool | None = None,
-    ) -> str: ...
-    def __json__(
         self,
         no_whitespaces: bool | None = None,
         no_trailing_eol: bool | None = None,
@@ -301,33 +231,7 @@ class StructUnionBase(Basic):
         skip_optional_class_names: bool | None = None,
         minimal: bool | None = None,
     ) -> str: ...
-    def __yaml__(
-        self,
-        no_whitespaces: bool | None = None,
-        no_trailing_eol: bool | None = None,
-        skip_private: bool | None = None,
-        skip_default: bool | None = None,
-        skip_empty_arrays: bool | None = None,
-        skip_empty_structs: bool | None = None,
-        shorten_data: bool | None = None,
-        skip_class_names: bool | None = None,
-        skip_optional_class_names: bool | None = None,
-        minimal: bool | None = None,
-    ) -> str: ...
     def to_bin(
-        self,
-        no_whitespaces: bool | None = None,
-        no_trailing_eol: bool | None = None,
-        skip_private: bool | None = None,
-        skip_default: bool | None = None,
-        skip_empty_arrays: bool | None = None,
-        skip_empty_structs: bool | None = None,
-        shorten_data: bool | None = None,
-        skip_class_names: bool | None = None,
-        skip_optional_class_names: bool | None = None,
-        minimal: bool | None = None,
-    ) -> bytes: ...
-    def __bin__(
         self,
         no_whitespaces: bool | None = None,
         no_trailing_eol: bool | None = None,
@@ -353,33 +257,7 @@ class StructUnionBase(Basic):
         skip_optional_class_names: bool | None = None,
         minimal: bool | None = None,
     ) -> str: ...
-    def __hex__(
-        self,
-        no_whitespaces: bool | None = None,
-        no_trailing_eol: bool | None = None,
-        skip_private: bool | None = None,
-        skip_default: bool | None = None,
-        skip_empty_arrays: bool | None = None,
-        skip_empty_structs: bool | None = None,
-        shorten_data: bool | None = None,
-        skip_class_names: bool | None = None,
-        skip_optional_class_names: bool | None = None,
-        minimal: bool | None = None,
-    ) -> str: ...
     def to_xml(
-        self,
-        no_whitespaces: bool | None = None,
-        no_trailing_eol: bool | None = None,
-        skip_private: bool | None = None,
-        skip_default: bool | None = None,
-        skip_empty_arrays: bool | None = None,
-        skip_empty_structs: bool | None = None,
-        shorten_data: bool | None = None,
-        skip_class_names: bool | None = None,
-        skip_optional_class_names: bool | None = None,
-        minimal: bool | None = None,
-    ) -> str: ...
-    def __xml__(
         self,
         no_whitespaces: bool | None = None,
         no_trailing_eol: bool | None = None,
@@ -403,23 +281,15 @@ class StructUnionBase(Basic):
         minimal: bool | None = None,
     ) -> dict[str, typing.Any]: ...
     @classmethod
-    def __fullname__(cls) -> str: ...
-    @classmethod
     def get_iop_fullname(cls) -> str: ...
     @classmethod
     def get_py_fullname(cls) -> str: ...
     @classmethod
     def get_fields_name(cls) -> list[str]: ...
     @classmethod
-    def __get_fields_name__(cls) -> list[str]: ...
-    @classmethod
     def get_desc(cls) -> str: ...
     @classmethod
-    def __desc__(cls) -> str: ...
-    @classmethod
     def get_values(cls) -> dict[str, type]: ...
-    @classmethod
-    def __values__(cls) -> dict[str, type]: ...
     # Every unknown attributes of a StructUnionBase is potentially an IOP
     # field, so an attribute of type Any.
     # It is also possible to set any attributes in a StructUnionBase as they
@@ -472,9 +342,7 @@ class UnionBase(StructUnionBase):
     @typing.overload
     def __init__(self, **kwargs: typing.Any) -> None: ...
     def get_object(self) -> typing.Any: ...
-    def __object__(self) -> typing.Any: ...
     def get_key(self) -> str: ...
-    def __key__(self) -> str: ...
     @classmethod
     def get_iop_description(cls) -> IopUnionDescription: ...
 
@@ -500,11 +368,7 @@ class StructBase(StructUnionBase):
     @classmethod
     def get_iopslots(cls) -> str: ...
     @classmethod
-    def __iopslots__(cls) -> str: ...
-    @classmethod
     def get_class_attrs(cls) -> dict[str, typing.Any]: ...
-    @classmethod
-    def __get_class_attrs__(cls) -> dict[str, typing.Any]: ...
     @classmethod
     def get_iop_description(
         cls,
