@@ -662,6 +662,25 @@ cdef class EnumBase(Basic):
     def fullname(object cls):
         """Return the fullname of the enum.
 
+        Deprecated: Use `get_iop_fullname` instead.
+        """
+        return cls.get_iop_fullname()
+
+    @classmethod
+    def __fullname__(object cls):
+        """Return the fullname of the enum.
+
+        Deprecated: Use `get_iop_fullname` instead.
+        """
+        return cls.get_iop_fullname()
+
+    @classmethod
+    def get_iop_fullname(object cls):
+        """Return the IOP fullname of the enum.
+
+        The IOP fullname uses dots as package separators, e.g.
+        `test.emptystuffs.MyEnum`.
+
         Returns
         -------
         str
@@ -670,15 +689,19 @@ cdef class EnumBase(Basic):
         return enum_get_fullname(cls)
 
     @classmethod
-    def __fullname__(object cls):
-        """Return the fullname of the enum.
+    def get_py_fullname(object cls):
+        """Return the IOPy fullname of the enum.
+
+        The IOPy fullname replaces the dots in the package portion with
+        underscores, joined to the local name by a dot, e.g.
+        `test_emptystuffs.MyEnum`.
 
         Returns
         -------
         str
-            The enum IOP fullname.
+            The enum IOPy fullname.
         """
-        return enum_get_fullname(cls)
+        return make_iop_path(enum_get_fullname(cls)).py_name
 
     @classmethod
     def values(object cls):
@@ -1648,6 +1671,17 @@ cdef class StructUnionBase(Basic):
     def __fullname__(object cls):
         """Return IOP fullname of struct or union.
 
+        Deprecated: Use `get_iop_fullname` instead.
+        """
+        return cls.get_iop_fullname()
+
+    @classmethod
+    def get_iop_fullname(object cls):
+        """Return the IOP fullname of the struct or union.
+
+        The IOP fullname uses dots as package separators, e.g.
+        `test.emptystuffs.MyStruct`.
+
         Returns
         -------
         str
@@ -1657,6 +1691,24 @@ cdef class StructUnionBase(Basic):
 
         st = struct_union_get_iop_type_cls(cls).desc
         return lstr_to_py_str(st.fullname)
+
+    @classmethod
+    def get_py_fullname(object cls):
+        """Return the IOPy fullname of the struct or union.
+
+        The IOPy fullname replaces the dots in the package portion with
+        underscores, joined to the local name by a dot, e.g.
+        `test_emptystuffs.MyStruct`.
+
+        Returns
+        -------
+        str
+            The IOPy fullname of the struct or union.
+        """
+        cdef const iop_struct_t *st
+
+        st = struct_union_get_iop_type_cls(cls).desc
+        return make_iop_path(lstr_to_py_str(st.fullname)).py_name
 
     @classmethod
     def get_fields_name(object cls):
@@ -7089,12 +7141,12 @@ cdef int typedef_init_iop_description(
 # and returned for instance-level access; these are what users
 # actually call.
 #
-# `get_module` / `get_module_fullname` use a property + callable
-# wrapper on the metaclass rather than a plain method: a metaclass
-# method would be shadowed by the instance method of the same name
-# defined on `_InternalIface` during class-level lookup; only a
-# data descriptor on the metaclass wins over an attribute found
-# via the class's own MRO.
+# `get_module` / `get_iop_module_fullname` / `get_py_module_fullname` use
+# a property + callable wrapper on the metaclass rather than a plain method:
+# a metaclass method would be shadowed by the instance method of the same name
+# defined on `_InternalIface` during class-level lookup; only a data
+# descriptor on the metaclass wins over an attribute found via the class's
+# own MRO.
 #
 # {{{ Base classes
 
@@ -7152,17 +7204,35 @@ cdef class Module:
         return repr(type(self))
 
     @classmethod
-    def get_fullname(object cls):
-        """Return the fullname of the IOP module.
+    def get_iop_fullname(object cls):
+        """Return the IOP fullname of the IOP module.
+
+        The IOP fullname uses dots as package separators, e.g.
+        `test.emptystuffs.EmptyModule`.
 
         Returns
         -------
         str
-            The fullname of the IOP module.
+            The IOP fullname of the IOP module.
         """
         cdef _InternalModuleHolder holder = cls
 
         return lstr_to_py_str(holder.module.fullname)
+
+    @classmethod
+    def get_py_fullname(object cls):
+        """Return the IOPy fullname of the IOP module.
+
+        The IOPy fullname replaces all dots with underscores, e.g.
+        `test_emptystuffs_EmptyModule`. It is also the attribute name of
+        the module on the plugin's `modules` and on a channel.
+
+        Returns
+        -------
+        str
+            The IOPy fullname of the IOP module.
+        """
+        return make_py_pkg_name(cls.get_iop_fullname())
 
     # FIXME: `__x__` names are reserved by Python; this method is kept for
     # backward compatibility only.
@@ -7170,9 +7240,9 @@ cdef class Module:
     def __fullname__(object cls):
         """Return the fullname of the IOP module.
 
-        Deprecated: Use `get_fullname` instead.
+        Deprecated: Use `get_iop_fullname` instead.
         """
-        return cls.get_fullname()
+        return cls.get_iop_fullname()
 
 
 @cython.internal
@@ -7243,19 +7313,38 @@ cdef class _InternalIfaceType(type):
     def __name__(_InternalIfaceType cls):
         """Name property that can also act like a method.
 
-        Deprecated: Use `get_fullname` or `get_basename` instead.
+        Deprecated: Use `get_iop_fullname` or `get_basename` instead.
         """
         return _InternalIfaceNameWrapper(cls.__qualname__)
 
-    def get_fullname(_InternalIfaceType cls):
-        """Return the fullname of the IOP interface.
+    def get_iop_fullname(_InternalIfaceType cls):
+        """Return the IOP fullname of the IOP interface.
+
+        The IOP fullname uses dots as package separators, e.g.
+        `test.emptystuffs.SomeIface`.
 
         Returns
         -------
         str
-            The fullname of the IOP interface.
+            The IOP fullname of the IOP interface.
         """
         return lstr_to_py_str(cls.iface_alias.iface.fullname)
+
+    def get_py_fullname(_InternalIfaceType cls):
+        """Return the IOPy fullname of the IOP interface.
+
+        The IOPy fullname replaces the dots in the package portion with
+        underscores, joined to the local name by a dot, e.g.
+        `test_emptystuffs.SomeIface`.
+
+        Returns
+        -------
+        str
+            The IOPy fullname of the IOP interface.
+        """
+        cdef str iop_fullname = lstr_to_py_str(cls.iface_alias.iface.fullname)
+
+        return make_iop_path(iop_fullname).py_name
 
     def get_basename(_InternalIfaceType cls):
         """Return the basename of the IOP interface in the module.
@@ -7277,13 +7366,13 @@ cdef class _InternalIfaceType(type):
         """
         return cls.iface_alias.tag
 
-    # `get_module` and `get_module_fullname` are exposed as properties
-    # holding a `_InternalIfaceValueAccessor` callable rather than plain
-    # `def`s. `_InternalIface` defines instance methods of the same names
-    # returning channel-bound values, which would shadow plain metaclass
-    # methods during class-level lookup. Properties are data descriptors
-    # and win over the class MRO, ensuring `iface_cls.get_module()` reaches
-    # the metaclass version.
+    # `get_module`, `get_iop_module_fullname` and `get_py_module_fullname`
+    # are exposed as properties holding a `_InternalIfaceValueAccessor`
+    # callable rather than plain `def`s. `_InternalIface` defines instance
+    # methods of the same names returning channel-bound values, which
+    # would shadow plain metaclass methods during class-level lookup.
+    # Properties are data descriptors and win over the class MRO, ensuring
+    # `iface_cls.get_module()` reaches the metaclass version.
     @property
     def get_module(_InternalIfaceType cls):
         """Return the IOP module class of the interface.
@@ -7305,17 +7394,19 @@ cdef class _InternalIfaceType(type):
         return accessor
 
     @property
-    def get_module_fullname(_InternalIfaceType cls):
-        """Return the fullname of the interface from its registration module.
+    def get_iop_module_fullname(_InternalIfaceType cls):
+        """Return the IOP fullname of the interface from its registration
+        module.
 
-        This is the module fullname concatenated with the interface basename
-        in the module. The module used is the first one the interface was
-        registered with in the plugin.
+        This is the module IOP fullname and the interface basename in the
+        module joined by a dot, e.g. `test.ModuleA.interfaceA`. The module
+        used is the first one the interface was registered with in the
+        plugin.
 
         Returns
         -------
         str
-            The fullname of the IOP interface from its registration module.
+            The IOP fullname of the interface from its registration module.
         """
         cdef _InternalIfaceValueAccessor accessor
 
@@ -7324,6 +7415,34 @@ cdef class _InternalIfaceType(type):
         )
         accessor.value = '%s.%s' % (
             lstr_to_py_str(cls.module_cls.module.fullname),
+            lstr_to_py_str(cls.iface_alias.name),
+        )
+        return accessor
+
+    @property
+    def get_py_module_fullname(_InternalIfaceType cls):
+        """Return the IOPy fullname of the interface from its registration
+        module.
+
+        This is the module IOPy fullname (all dots replaced with
+        underscores) and the interface basename in the module joined by a
+        dot, e.g. `test_ModuleA.interfaceA`. The module used is the first
+        one the interface was registered with in the plugin.
+
+        Returns
+        -------
+        str
+            The IOPy fullname of the interface from its registration module.
+        """
+        cdef _InternalIfaceValueAccessor accessor
+
+        accessor = _InternalIfaceValueAccessor.__new__(
+            _InternalIfaceValueAccessor
+        )
+        accessor.value = '%s.%s' % (
+            make_py_pkg_name(
+                lstr_to_py_str(cls.module_cls.module.fullname)
+            ),
             lstr_to_py_str(cls.iface_alias.name),
         )
         return accessor
@@ -7356,17 +7475,40 @@ cdef class _InternalIface:
         return repr(type(self))
 
     @classmethod
-    def get_fullname(object cls):
-        """Return the fullname of the IOP interface.
+    def get_iop_fullname(object cls):
+        """Return the IOP fullname of the IOP interface.
+
+        The IOP fullname uses dots as package separators, e.g.
+        `test.emptystuffs.SomeIface`.
 
         Returns
         -------
         str
-            The fullname of the IOP interface.
+            The IOP fullname of the IOP interface.
         """
         cdef _InternalIfaceType holder = cls
 
         return lstr_to_py_str(holder.iface_alias.iface.fullname)
+
+    @classmethod
+    def get_py_fullname(object cls):
+        """Return the IOPy fullname of the IOP interface.
+
+        The IOPy fullname replaces the dots in the package portion with
+        underscores, joined to the local name by a dot, e.g.
+        `test_emptystuffs.SomeIface`.
+
+        Returns
+        -------
+        str
+            The IOPy fullname of the IOP interface.
+        """
+        cdef _InternalIfaceType holder = cls
+        cdef str iop_fullname = lstr_to_py_str(
+            holder.iface_alias.iface.fullname
+        )
+
+        return make_iop_path(iop_fullname).py_name
 
     @classmethod
     def get_basename(object cls):
@@ -7387,9 +7529,9 @@ cdef class _InternalIface:
     def __fullname__(object cls):
         """Return the fullname of the IOP interface.
 
-        Deprecated: Use `get_fullname` instead.
+        Deprecated: Use `get_iop_fullname` instead.
         """
-        return cls.get_fullname()
+        return cls.get_iop_fullname()
 
     # FIXME: `__name__` is a reserved keyword in Python.
     @classmethod
@@ -7426,22 +7568,47 @@ cdef class _InternalIface:
         """
         return self.py_module
 
-    def get_module_fullname(_InternalIface self):
-        """Get the fullname of the interface from its channel-bound module.
+    def get_iop_module_fullname(_InternalIface self):
+        """Get the IOP fullname of the interface from its channel-bound
+        module.
 
-        This is the channel-bound module fullname concatenated with the
-        interface basename in that module.
+        This is the channel-bound module IOP fullname and the interface
+        basename in that module joined by a dot, e.g.
+        `test.ModuleA.interfaceA`.
 
         Returns
         -------
         str
-            The fullname of the IOP interface from the channel-bound module.
+            The IOP fullname of the interface from the channel-bound
+            module.
         """
         cdef _InternalModuleHolder module_cls = type(self.py_module)
         cdef _InternalIfaceType iface_cls = type(self)
 
         return '%s.%s' % (
             lstr_to_py_str(module_cls.module.fullname),
+            lstr_to_py_str(iface_cls.iface_alias.name),
+        )
+
+    def get_py_module_fullname(_InternalIface self):
+        """Get the IOPy fullname of the interface from its channel-bound
+        module.
+
+        This is the channel-bound module IOPy fullname (all dots replaced
+        with underscores) and the interface basename in that module joined
+        by a dot, e.g. `test_ModuleA.interfaceA`.
+
+        Returns
+        -------
+        str
+            The IOPy fullname of the interface from the channel-bound
+            module.
+        """
+        cdef _InternalModuleHolder module_cls = type(self.py_module)
+        cdef _InternalIfaceType iface_cls = type(self)
+
+        return '%s.%s' % (
+            make_py_pkg_name(lstr_to_py_str(module_cls.module.fullname)),
             lstr_to_py_str(iface_cls.iface_alias.name),
         )
 
@@ -7635,19 +7802,37 @@ cdef class RPCBase:
         """
         return self.iface_cls
 
-    def get_module_fullname(RPCBase self):
-        """Get the fullname of the RPC from its module.
+    def get_iop_module_fullname(RPCBase self):
+        """Get the IOP fullname of the RPC from its module.
 
-        This is the module fullname, the interface basename in the module and
-        the RPC name, joined by dots.
+        This is the module IOP fullname, the interface basename in the
+        module and the RPC name, joined by dots, e.g.
+        `test.ModuleA.interfaceA.funA`.
 
         Returns
         -------
         str
-            The fullname of the IOP RPC from the module.
+            The IOP fullname of the RPC from the module.
         """
         return '%s.%s' % (
-            self.iface_cls.get_module_fullname(),
+            self.iface_cls.get_iop_module_fullname(),
+            lstr_to_py_str(self.rpc.name),
+        )
+
+    def get_py_module_fullname(RPCBase self):
+        """Get the IOPy fullname of the RPC from its module.
+
+        This is the module IOPy fullname (all dots replaced with
+        underscores), the interface basename in the module and the RPC
+        name, joined by dots, e.g. `test_ModuleA.interfaceA.funA`.
+
+        Returns
+        -------
+        str
+            The IOPy fullname of the RPC from the module.
+        """
+        return '%s.%s' % (
+            self.iface_cls.get_py_module_fullname(),
             lstr_to_py_str(self.rpc.name),
         )
 
@@ -7695,19 +7880,37 @@ cdef class RPCChannel(RPCBase):
         """
         return self.py_iface
 
-    def get_module_fullname(RPCChannel self):
-        """Get the fullname of the RPC from its channel-bound module.
+    def get_iop_module_fullname(RPCChannel self):
+        """Get the IOP fullname of the RPC from its channel-bound module.
 
-        This is the channel-bound module fullname, the interface basename in
-        that module and the RPC name, joined by dots.
+        This is the channel-bound module IOP fullname, the interface
+        basename in that module and the RPC name, joined by dots, e.g.
+        `test.ModuleA.interfaceA.funA`.
 
         Returns
         -------
         str
-            The fullname of the IOP RPC from the channel-bound module.
+            The IOP fullname of the RPC from the channel-bound module.
         """
         return '%s.%s' % (
-            self.py_iface.get_module_fullname(),
+            self.py_iface.get_iop_module_fullname(),
+            lstr_to_py_str(self.rpc.name),
+        )
+
+    def get_py_module_fullname(RPCChannel self):
+        """Get the IOPy fullname of the RPC from its channel-bound module.
+
+        This is the channel-bound module IOPy fullname (all dots replaced
+        with underscores), the interface basename in that module and the
+        RPC name, joined by dots, e.g. `test_ModuleA.interfaceA.funA`.
+
+        Returns
+        -------
+        str
+            The IOPy fullname of the RPC from the channel-bound module.
+        """
+        return '%s.%s' % (
+            self.py_iface.get_py_module_fullname(),
             lstr_to_py_str(self.rpc.name),
         )
 
@@ -9893,26 +10096,43 @@ cdef class Package:
         """Cython constructor of package"""
         self.interfaces = Interfaces.__new__(Interfaces)
 
-    def get_fullname(self):
-        """Get package fullname
+    def get_iop_name(self):
+        """Get the IOP name of the package.
+
+        The IOP name uses dots as package separators, e.g.
+        `test.emptystuffs`.
 
         Returns
         -------
         str
-            The package fullname.
+            The IOP name of the package.
         """
         if self.pkg:
             return lstr_to_py_str(self.pkg.name)
         else:
             return '<unknown>'
 
+    def get_py_name(self):
+        """Get the IOPy name of the package.
+
+        The IOPy name replaces all dots with underscores, e.g.
+        `test_emptystuffs`. It is also the attribute name of the package
+        on the plugin.
+
+        Returns
+        -------
+        str
+            The IOPy name of the package.
+        """
+        return make_py_pkg_name(self.get_iop_name())
+
     # FIXME: `__name__` is a reserved keyword in Python.
     def __name__(self):
         """Get package name
 
-        Deprecated: Use `get_fullname` instead.
+        Deprecated: Use `get_iop_name` instead.
         """
-        return self.get_fullname()
+        return self.get_iop_name()
 
 
 @cython.internal
@@ -10010,7 +10230,7 @@ cdef class Plugin:
         `pkg_mod`).
         """
         return {
-            module.get_fullname(): module
+            module.get_iop_fullname(): module
             for module in self.modules.__dict__.values()
         }
 

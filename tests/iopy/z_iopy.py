@@ -3198,18 +3198,30 @@ class IopyIfaceTests(z.TestCase):
             'test_iop_plugin__iop.Channel', iopy.Channel(self.p, make_uri())
         )
 
-        self.assertEqual(self.p.test.get_fullname(), 'test')
+        self.assertEqual(self.p.test.get_iop_name(), 'test')
+        self.assertEqual(self.p.test.get_py_name(), 'test')
 
-        self.assertEqual(c.test_ModuleA.get_fullname(), 'test.ModuleA')
+        self.assertEqual(c.test_ModuleA.get_iop_fullname(), 'test.ModuleA')
+        self.assertEqual(c.test_ModuleA.get_py_fullname(), 'test_ModuleA')
         self.assertEqual(
-            self.p.modules.test_ModuleA.get_fullname(), 'test.ModuleA'
+            self.p.modules.test_ModuleA.get_iop_fullname(), 'test.ModuleA'
+        )
+        self.assertEqual(
+            self.p.modules.test_ModuleA.get_py_fullname(), 'test_ModuleA'
         )
 
         self.assertEqual(
-            c.test_ModuleA.interfaceA.get_fullname(), 'test.InterfaceA'
+            c.test_ModuleA.interfaceA.get_iop_fullname(), 'test.InterfaceA'
         )
         self.assertEqual(
-            self.p.modules.test_ModuleA.interfaceA.get_fullname(),
+            c.test_ModuleA.interfaceA.get_py_fullname(), 'test.InterfaceA'
+        )
+        self.assertEqual(
+            self.p.modules.test_ModuleA.interfaceA.get_iop_fullname(),
+            'test.InterfaceA',
+        )
+        self.assertEqual(
+            self.p.modules.test_ModuleA.interfaceA.get_py_fullname(),
             'test.InterfaceA',
         )
 
@@ -3234,6 +3246,84 @@ class IopyIfaceTests(z.TestCase):
             self.p.modules.test_ModuleA.interfaceA.funA.get_cmd(), 65537
         )
 
+    def test_emptystuffs_fullnames(self) -> None:
+        """
+        Test get_iop_fullname / get_py_fullname / get_*_module_fullname
+        on the multi-component package `test.emptystuffs`, where the
+        IOPy form replaces the dots in the package portion with
+        underscores.
+        """
+        pkg = self.p.test_emptystuffs
+        self.assertEqual(pkg.get_iop_name(), 'test.emptystuffs')
+        self.assertEqual(pkg.get_py_name(), 'test_emptystuffs')
+
+        # Modules from a multi-component package: all dots replaced.
+        module_cls = self.p.modules.test_emptystuffs_EmptyIfaceModule
+        self.assertEqual(
+            module_cls.get_iop_fullname(),
+            'test.emptystuffs.EmptyIfaceModule',
+        )
+        self.assertEqual(
+            module_cls.get_py_fullname(),
+            'test_emptystuffs_EmptyIfaceModule',
+        )
+
+        # Interfaces from a multi-component package: only the package
+        # portion is underscored, the local name stays joined by a dot.
+        iface_cls = (
+            self.p.modules.test_emptystuffs_EmptyIfaceModule.emptyIface
+        )
+        self.assertEqual(
+            iface_cls.get_iop_fullname(), 'test.emptystuffs.EmptyIface'
+        )
+        self.assertEqual(
+            iface_cls.get_py_fullname(), 'test_emptystuffs.EmptyIface'
+        )
+
+        # Module-rooted iface fullname uses the iface basename in the
+        # module (`emptyIface`) joined to the module fullname by a dot.
+        self.assertEqual(
+            iface_cls.get_iop_module_fullname(),
+            'test.emptystuffs.EmptyIfaceModule.emptyIface',
+        )
+        self.assertEqual(
+            iface_cls.get_py_module_fullname(),
+            'test_emptystuffs_EmptyIfaceModule.emptyIface',
+        )
+
+        # Same distinction for IOP types (struct/enum) declared in the
+        # multi-component package.
+        struct_cls = self.p.test_emptystuffs.EmptyStruct
+        self.assertEqual(
+            struct_cls.get_iop_fullname(),
+            'test.emptystuffs.EmptyStruct',
+        )
+        self.assertEqual(
+            struct_cls.get_py_fullname(), 'test_emptystuffs.EmptyStruct'
+        )
+
+        enum_cls = self.p.tst1_tst2.Code
+        self.assertEqual(enum_cls.get_iop_fullname(), 'tst1.tst2.Code')
+        self.assertEqual(enum_cls.get_py_fullname(), 'tst1_tst2.Code')
+
+    def test_struct_union_enum_fullnames(self) -> None:
+        """
+        Test get_iop_fullname / get_py_fullname on struct, union and
+        enum types from a single-component package, where the IOP and
+        IOPy forms are identical.
+        """
+        struct_cls = self.p.test.StructA
+        self.assertEqual(struct_cls.get_iop_fullname(), 'test.StructA')
+        self.assertEqual(struct_cls.get_py_fullname(), 'test.StructA')
+
+        union_cls = self.p.test.UnionA
+        self.assertEqual(union_cls.get_iop_fullname(), 'test.UnionA')
+        self.assertEqual(union_cls.get_py_fullname(), 'test.UnionA')
+
+        enum_cls = self.p.test.EnumA
+        self.assertEqual(enum_cls.get_iop_fullname(), 'test.EnumA')
+        self.assertEqual(enum_cls.get_py_fullname(), 'test.EnumA')
+
     def test_iface_get_module(self) -> None:
         """
         Test iface get_module returns the iface's module.
@@ -3257,8 +3347,9 @@ class IopyIfaceTests(z.TestCase):
 
     def test_iface_get_module_fullname(self) -> None:
         """
-        Test iface get_module_fullname returns module fullname + iface
-        basename.
+        Test iface get_iop_module_fullname / get_py_module_fullname
+        return the module fullname + iface basename, in either IOP or
+        IOPy form.
         """
         c = cast(
             'test_iop_plugin__iop.Channel', iopy.Channel(self.p, make_uri())
@@ -3266,12 +3357,21 @@ class IopyIfaceTests(z.TestCase):
 
         iface_cls = self.p.modules.test_ModuleA.interfaceA
         self.assertEqual(
-            iface_cls.get_module_fullname(), 'test.ModuleA.interfaceA'
+            iface_cls.get_iop_module_fullname(),
+            'test.ModuleA.interfaceA',
+        )
+        self.assertEqual(
+            iface_cls.get_py_module_fullname(), 'test_ModuleA.interfaceA'
         )
 
         iface_inst = c.test_ModuleA.interfaceA
         self.assertEqual(
-            iface_inst.get_module_fullname(), 'test.ModuleA.interfaceA'
+            iface_inst.get_iop_module_fullname(),
+            'test.ModuleA.interfaceA',
+        )
+        self.assertEqual(
+            iface_inst.get_py_module_fullname(),
+            'test_ModuleA.interfaceA',
         )
 
     def test_rpc_get_iface(self) -> None:
@@ -3295,9 +3395,9 @@ class IopyIfaceTests(z.TestCase):
 
     def test_rpc_get_module_fullname(self) -> None:
         """
-        Test RPC get_module_fullname returns module fullname + iface
-        basename + RPC name on both RPCBase (iface-class RPCs) and
-        channel-bound RPCs.
+        Test RPC get_iop_module_fullname / get_py_module_fullname return
+        the module fullname + iface basename + RPC name on both RPCBase
+        (iface-class RPCs) and channel-bound RPCs.
         """
         c = cast(
             'test_iop_plugin__iop.Channel', iopy.Channel(self.p, make_uri())
@@ -3306,13 +3406,23 @@ class IopyIfaceTests(z.TestCase):
         rpc_cls = self.p.modules.test_ModuleA.interfaceA.funA
         self.assertIsInstance(rpc_cls, iopy.RPCBase)
         self.assertEqual(
-            rpc_cls.get_module_fullname(), 'test.ModuleA.interfaceA.funA'
+            rpc_cls.get_iop_module_fullname(),
+            'test.ModuleA.interfaceA.funA',
+        )
+        self.assertEqual(
+            rpc_cls.get_py_module_fullname(),
+            'test_ModuleA.interfaceA.funA',
         )
 
         rpc_inst = c.test_ModuleA.interfaceA.funA
         self.assertIsInstance(rpc_inst, iopy.RPCBase)
         self.assertEqual(
-            rpc_inst.get_module_fullname(), 'test.ModuleA.interfaceA.funA'
+            rpc_inst.get_iop_module_fullname(),
+            'test.ModuleA.interfaceA.funA',
+        )
+        self.assertEqual(
+            rpc_inst.get_py_module_fullname(),
+            'test_ModuleA.interfaceA.funA',
         )
 
     def test_rpc_args_types(self) -> None:
@@ -3745,35 +3855,35 @@ class IopyCompatibilityTests(z.TestCase):
         )
 
     def test_package_fullname(self) -> None:
-        """Test deprecated package __name__ matches get_fullname"""
+        """Test deprecated package __name__ matches get_iop_name"""
         pkg = self.p.test
-        self.assertEqual(pkg.__name__(), pkg.get_fullname())  # type: ignore[attr-defined]
+        self.assertEqual(pkg.__name__(), pkg.get_iop_name())  # type: ignore[attr-defined]
 
     def test_iface_fullname(self) -> None:
-        """Test deprecated iface __fullname__ matches get_fullname"""
+        """Test deprecated iface __fullname__ matches get_iop_fullname"""
         iface = self.p.test.interfaces.InterfaceA
-        self.assertEqual(iface.__fullname__(), iface.get_fullname())  # type: ignore[attr-defined]
+        self.assertEqual(iface.__fullname__(), iface.get_iop_fullname())  # type: ignore[attr-defined]
 
         c = cast(
             'test_iop_plugin__iop.Channel', iopy.Channel(self.p, make_uri())
         )
         self.assertEqual(
             c.test_ModuleA.interfaceA.__fullname__(),  # type: ignore[attr-defined]
-            c.test_ModuleA.interfaceA.get_fullname(),
+            c.test_ModuleA.interfaceA.get_iop_fullname(),
         )
 
     def test_module_fullname(self) -> None:
-        """Test deprecated module __fullname__ matches get_fullname"""
+        """Test deprecated module __fullname__ matches get_iop_fullname"""
         c = cast(
             'test_iop_plugin__iop.Channel', iopy.Channel(self.p, make_uri())
         )
         self.assertEqual(
             c.test_ModuleA.__fullname__(),  # type: ignore[attr-defined]
-            c.test_ModuleA.get_fullname(),
+            c.test_ModuleA.get_iop_fullname(),
         )
         self.assertEqual(
             self.p.modules.test_ModuleA.__fullname__(),  # type: ignore[attr-defined]
-            self.p.modules.test_ModuleA.get_fullname(),
+            self.p.modules.test_ModuleA.get_iop_fullname(),
         )
 
     def test_plugin_get_plugin(self) -> None:

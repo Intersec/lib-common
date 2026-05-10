@@ -33,3 +33,7 @@ interface EmptyIface {
 
 module EmptyModule {
 };
+
+module EmptyIfaceModule {
+50: EmptyIface emptyIface;
+};
