@@ -70,8 +70,7 @@ typedef struct module_method_t {
  * \param[in] name name of the method.
  */
 #define MODULE_METHOD_DECLARE(Type, Order, name)  \
-    extern const module_method_t name##_method;                              \
-    extern const module_method_t * const nonnull name##_method_ptr
+    extern const module_method_t name##_method
 
 /** Define a new method.
  *
@@ -86,8 +85,7 @@ typedef struct module_method_t {
     const module_method_t name##_method = {                                  \
         .type  = METHOD_##Type,                                              \
         .order = MODULE_##Order,                                             \
-    };                                                                       \
-    const module_method_t * const name##_method_ptr = &name##_method
+    }
 
 /** Run a void method.
  *
