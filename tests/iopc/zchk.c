@@ -304,7 +304,7 @@ Z_GROUP_EXPORT(iopsq) {
         tst2 = t_fmt("{\"st\":%s,\"stRef\":%s,\"stOpt\":%s}", v1, v2, v1);
 
         Z_HELPER_RUN(test_pkg_struct(iop_env, "sub-struct.json", 1,
-                                     tstiop__s2__sp, tst1, tst2));
+                                     &tstiop__s2__s, tst1, tst2));
     } Z_TEST_END;
 
     Z_TEST(union_, "basic union") {
@@ -315,7 +315,7 @@ Z_GROUP_EXPORT(iopsq) {
 
     Z_TEST(enum_, "basic enum") {
         Z_HELPER_RUN(test_pkg_struct(iop_env, "enum.json", 0,
-                                     tstiop__iop_sq_enum_st__sp,
+                                     &tstiop__iop_sq_enum_st__s,
                                      "{\"en\":\"VAL1\"}",
                                      "{\"en\":\"VAL2\"}",
                                      "{\"en\":\"VAL3\"}"));
@@ -323,13 +323,13 @@ Z_GROUP_EXPORT(iopsq) {
 
     Z_TEST(array, "array") {
         Z_HELPER_RUN(test_pkg_struct(iop_env, "array.json", 0,
-                                     tstiop__array_test__sp,
+                                     &tstiop__array_test__s,
                                      "{\"i\":[4,5,6]}"));
     } Z_TEST_END;
 
     Z_TEST(external_types, "external type names") {
         Z_HELPER_RUN(test_pkg_struct(iop_env, "external-types.json", 0,
-                                     tstiop__test_external_types__sp,
+                                     &tstiop__test_external_types__s,
                                      "{\"st\":{\"i\":42},\"en\":\"B\"}"));
     } Z_TEST_END;
 
@@ -365,7 +365,7 @@ Z_GROUP_EXPORT(iopsq) {
             int res;
 
             sb_reset(&err);
-            res = t_iop_junpack_ps(iop_env, &ps, iopsq__package__sp,
+            res = t_iop_junpack_ps(iop_env, &ps, &iopsq__package__s,
                                    &pkg_desc, 0, &err);
             if (t->jpack_err) {
                 Z_ASSERT_STREQUAL(err.data, t->jpack_err);

@@ -23,7 +23,6 @@ struct tstgen__my_iface_a__fun_a_args__t {
     int32_t  a;
 };
 EXPORT iop_struct_t const tstgen__my_iface_a__fun_a_args__s;
-EXPORT iop_struct_t const * const nonnull tstgen__my_iface_a__fun_a_args__sp;
 #define tstgen__my_iface_a__fun_a__rpc__tag    0x0002
 #define tstgen__my_iface_a__fun_a__rpc__async  0
 #define tstgen__my_iface_a__fun_a__rpc         (tstgen__my_iface_a__if.funs + 1)

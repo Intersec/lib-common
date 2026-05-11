@@ -76,14 +76,12 @@ struct tstdox__my_iface_a__fun_a_args__t {
     tstdox__my_struct_aa__t b;
 };
 EXPORT iop_struct_t const tstdox__my_iface_a__fun_a_args__s;
-EXPORT iop_struct_t const * const nonnull tstdox__my_iface_a__fun_a_args__sp;
 /// @iop struct { c: struct:tstdox__my_struct_a__t, d: i32 }
 struct tstdox__my_iface_a__fun_a_res__t {
     tstdox__my_struct_a__t c;
     int32_t  d;
 };
 EXPORT iop_struct_t const tstdox__my_iface_a__fun_a_res__s;
-EXPORT iop_struct_t const * const nonnull tstdox__my_iface_a__fun_a_res__sp;
 #define tstdox__my_iface_a__fun_a__rpc__tag    0x0001
 #define tstdox__my_iface_a__fun_a__rpc__async  0
 #define tstdox__my_iface_a__fun_a__rpc         (tstdox__my_iface_a__if.funs + 0)
@@ -93,13 +91,11 @@ struct tstdox__my_iface_a__fun_aa_args__t {
     int32_t  a;
 };
 EXPORT iop_struct_t const tstdox__my_iface_a__fun_aa_args__s;
-EXPORT iop_struct_t const * const nonnull tstdox__my_iface_a__fun_aa_args__sp;
 /// @iop struct { b: i32 }
 struct tstdox__my_iface_a__fun_aa_res__t {
     int32_t  b;
 };
 EXPORT iop_struct_t const tstdox__my_iface_a__fun_aa_res__s;
-EXPORT iop_struct_t const * const nonnull tstdox__my_iface_a__fun_aa_res__sp;
 #define tstdox__my_iface_a__fun_aa__rpc__tag    0x0002
 #define tstdox__my_iface_a__fun_aa__rpc__async  0
 #define tstdox__my_iface_a__fun_aa__rpc         (tstdox__my_iface_a__if.funs + 1)
@@ -109,7 +105,6 @@ struct tstdox__my_iface_a__fun_b_args__t {
     int32_t  a;
 };
 EXPORT iop_struct_t const tstdox__my_iface_a__fun_b_args__s;
-EXPORT iop_struct_t const * const nonnull tstdox__my_iface_a__fun_b_args__sp;
 #define tstdox__my_iface_a__fun_b__rpc__tag    0x0003
 #define tstdox__my_iface_a__fun_b__rpc__async  0
 #define tstdox__my_iface_a__fun_b__rpc         (tstdox__my_iface_a__if.funs + 2)
@@ -119,7 +114,6 @@ struct tstdox__my_iface_a__fun_c_res__t {
     int32_t  b;
 };
 EXPORT iop_struct_t const tstdox__my_iface_a__fun_c_res__s;
-EXPORT iop_struct_t const * const nonnull tstdox__my_iface_a__fun_c_res__sp;
 #define tstdox__my_iface_a__fun_c__rpc__tag    0x0004
 #define tstdox__my_iface_a__fun_c__rpc__async  0
 #define tstdox__my_iface_a__fun_c__rpc         (tstdox__my_iface_a__if.funs + 5)
@@ -129,7 +123,6 @@ struct tstdox__my_iface_a__fun_d_res__t {
     int32_t  b;
 };
 EXPORT iop_struct_t const tstdox__my_iface_a__fun_d_res__s;
-EXPORT iop_struct_t const * const nonnull tstdox__my_iface_a__fun_d_res__sp;
 #define tstdox__my_iface_a__fun_d__rpc__tag    0x0005
 #define tstdox__my_iface_a__fun_d__rpc__async  0
 #define tstdox__my_iface_a__fun_d__rpc         (tstdox__my_iface_a__if.funs + 6)
@@ -139,7 +132,6 @@ struct tstdox__my_iface_a__fun_e_args__t {
     int32_t  a;
 };
 EXPORT iop_struct_t const tstdox__my_iface_a__fun_e_args__s;
-EXPORT iop_struct_t const * const nonnull tstdox__my_iface_a__fun_e_args__sp;
 #define tstdox__my_iface_a__fun_e__rpc__tag    0x0006
 #define tstdox__my_iface_a__fun_e__rpc__async  0
 #define tstdox__my_iface_a__fun_e__rpc         (tstdox__my_iface_a__if.funs + 7)
@@ -153,7 +145,6 @@ struct tstdox__my_iface_b__fun_a_args__t {
     int32_t  i;
 };
 EXPORT iop_struct_t const tstdox__my_iface_b__fun_a_args__s;
-EXPORT iop_struct_t const * const nonnull tstdox__my_iface_b__fun_a_args__sp;
 #define tstdox__my_iface_b__fun_a__rpc__tag    0x0001
 #define tstdox__my_iface_b__fun_a__rpc__async  0
 #define tstdox__my_iface_b__fun_a__rpc         (tstdox__my_iface_b__if.funs + 0)
@@ -163,7 +154,6 @@ struct tstdox__my_iface_b__fun_b_args__t {
     int32_t  j;
 };
 EXPORT iop_struct_t const tstdox__my_iface_b__fun_b_args__s;
-EXPORT iop_struct_t const * const nonnull tstdox__my_iface_b__fun_b_args__sp;
 #define tstdox__my_iface_b__fun_b__rpc__tag    0x0002
 #define tstdox__my_iface_b__fun_b__rpc__async  0
 #define tstdox__my_iface_b__fun_b__rpc         (tstdox__my_iface_b__if.funs + 1)
@@ -177,7 +167,6 @@ struct tstdox__my_iface_c__fun_a_args__t {
     int32_t  i;
 };
 EXPORT iop_struct_t const tstdox__my_iface_c__fun_a_args__s;
-EXPORT iop_struct_t const * const nonnull tstdox__my_iface_c__fun_a_args__sp;
 #define tstdox__my_iface_c__fun_a__rpc__tag    0x0001
 #define tstdox__my_iface_c__fun_a__rpc__async  0
 #define tstdox__my_iface_c__fun_a__rpc         (tstdox__my_iface_c__if.funs + 0)
@@ -187,7 +176,6 @@ struct tstdox__my_iface_c__fun_b_args__t {
     int32_t  j;
 };
 EXPORT iop_struct_t const tstdox__my_iface_c__fun_b_args__s;
-EXPORT iop_struct_t const * const nonnull tstdox__my_iface_c__fun_b_args__sp;
 #define tstdox__my_iface_c__fun_b__rpc__tag    0x0002
 #define tstdox__my_iface_c__fun_b__rpc__async  0
 #define tstdox__my_iface_c__fun_b__rpc         (tstdox__my_iface_c__if.funs + 2)
@@ -201,7 +189,6 @@ struct tstdox__my_iface_d__fun_a_args__t {
     int32_t  i;
 };
 EXPORT iop_struct_t const tstdox__my_iface_d__fun_a_args__s;
-EXPORT iop_struct_t const * const nonnull tstdox__my_iface_d__fun_a_args__sp;
 #define tstdox__my_iface_d__fun_a__rpc__tag    0x0001
 #define tstdox__my_iface_d__fun_a__rpc__async  0
 #define tstdox__my_iface_d__fun_a__rpc         (tstdox__my_iface_d__if.funs + 0)
@@ -211,7 +198,6 @@ struct tstdox__my_iface_d__fun_b_args__t {
     int32_t  j;
 };
 EXPORT iop_struct_t const tstdox__my_iface_d__fun_b_args__s;
-EXPORT iop_struct_t const * const nonnull tstdox__my_iface_d__fun_b_args__sp;
 #define tstdox__my_iface_d__fun_b__rpc__tag    0x0002
 #define tstdox__my_iface_d__fun_b__rpc__async  0
 #define tstdox__my_iface_d__fun_b__rpc         (tstdox__my_iface_d__if.funs + 1)

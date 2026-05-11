@@ -120,7 +120,6 @@ const iop_struct_t typedef_valid__my_struct__s = {
     .fields_len = countof(typedef_valid__my_struct__desc_fields),
     .size       = sizeof(typedef_valid__my_struct__t),
 };
-iop_struct_t const * const typedef_valid__my_struct__sp = &typedef_valid__my_struct__s;
 
 /* }}} */
 /* Union typedef_valid.MyUnion {{{ */
@@ -167,7 +166,6 @@ const iop_struct_t typedef_valid__my_union__s = {
     .size       = sizeof(typedef_valid__my_union__t),
     .is_union   = true,
 };
-iop_struct_t const * const typedef_valid__my_union__sp = &typedef_valid__my_union__s;
 
 /* }}} */
 /* Class typedef_valid.A {{{ */
@@ -205,7 +203,6 @@ const iop_struct_t typedef_valid__a__s = {
         .class_attrs  = &typedef_valid__a__class_s,
     }
 };
-iop_struct_t const * const typedef_valid__a__sp = &typedef_valid__a__s;
 
 /* }}} */
 /* Class typedef_valid.B {{{ */
@@ -234,7 +231,6 @@ const iop_struct_t typedef_valid__b__s = {
         .class_attrs  = &typedef_valid__b__class_s,
     }
 };
-iop_struct_t const * const typedef_valid__b__sp = &typedef_valid__b__s;
 
 /* }}} */
 /* Structure typedef_valid.TypedefStructUseAll {{{ */
@@ -967,7 +963,6 @@ const iop_struct_t typedef_valid__typedef_struct_use_all__s = {
     .flags      = 3,
     .fields_attrs = typedef_valid__typedef_struct_use_all__desc_fields_attrs,
 };
-iop_struct_t const * const typedef_valid__typedef_struct_use_all__sp = &typedef_valid__typedef_struct_use_all__s;
 
 /* }}} */
 /* Union typedef_valid.TypedefUnionUseAll {{{ */
@@ -1354,7 +1349,6 @@ const iop_struct_t typedef_valid__typedef_union_use_all__s = {
     .is_union   = true,
     .fields_attrs = typedef_valid__typedef_union_use_all__desc_fields_attrs,
 };
-iop_struct_t const * const typedef_valid__typedef_union_use_all__sp = &typedef_valid__typedef_union_use_all__s;
 
 /* }}} */
 /* Class typedef_valid.C {{{ */
@@ -1389,7 +1383,6 @@ const iop_struct_t typedef_valid__c__s = {
         .class_attrs  = &typedef_valid__c__class_s,
     }
 };
-iop_struct_t const * const typedef_valid__c__sp = &typedef_valid__c__s;
 
 /* }}} */
 /* Structure typedef_valid.RoutingHdr {{{ */
@@ -1428,7 +1421,6 @@ const iop_struct_t typedef_valid__routing_hdr__s = {
     .fields_len = countof(typedef_valid__routing_hdr__desc_fields),
     .size       = sizeof(typedef_valid__routing_hdr__t),
 };
-iop_struct_t const * const typedef_valid__routing_hdr__sp = &typedef_valid__routing_hdr__s;
 
 /* }}} */
 /* Class typedef_valid.Route {{{ */
@@ -1454,7 +1446,6 @@ const iop_struct_t typedef_valid__route__s = {
         .class_attrs  = &typedef_valid__route__class_s,
     }
 };
-iop_struct_t const * const typedef_valid__route__sp = &typedef_valid__route__s;
 
 /* }}} */
 /* Union typedef_valid.Hdr {{{ */
@@ -1490,7 +1481,6 @@ const iop_struct_t typedef_valid__hdr__s = {
     .size       = sizeof(typedef_valid__hdr__t),
     .is_union   = true,
 };
-iop_struct_t const * const typedef_valid__hdr__sp = &typedef_valid__hdr__s;
 
 /* }}} */
 /* Structure typedef_valid.TypedefStructUseAllWithList {{{ */
@@ -1525,7 +1515,6 @@ const iop_struct_t typedef_valid__typedef_struct_use_all_with_list__s = {
     .size       = sizeof(typedef_valid__typedef_struct_use_all_with_list__t),
     .flags      = 2,
 };
-iop_struct_t const * const typedef_valid__typedef_struct_use_all_with_list__sp = &typedef_valid__typedef_struct_use_all_with_list__s;
 
 /* }}} */
 /* Typedef typedef_valid.MyString {{{ */

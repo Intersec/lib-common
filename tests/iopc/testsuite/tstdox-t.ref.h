@@ -10,16 +10,12 @@
 #endif
 
 EXPORT iop_enum_t const tstdox__my_enum_a__e;
-EXPORT iop_enum_t const * const nonnull tstdox__my_enum_a__ep;
 
 EXPORT iop_enum_t const tstdox__my_enum_b__e;
-EXPORT iop_enum_t const * const nonnull tstdox__my_enum_b__ep;
 
 EXPORT iop_enum_t const tstdox__my_enum_c__e;
-EXPORT iop_enum_t const * const nonnull tstdox__my_enum_c__ep;
 
 EXPORT iop_enum_t const tstdox__my_enum_d__e;
-EXPORT iop_enum_t const * const nonnull tstdox__my_enum_d__ep;
 
 /// @iop struct { field_a: i32, field_b: i32, field_c: i32 }
 struct tstdox__my_struct_a__t {
@@ -28,20 +24,17 @@ struct tstdox__my_struct_a__t {
     int32_t  field_c;
 };
 EXPORT iop_struct_t const tstdox__my_struct_a__s;
-EXPORT iop_struct_t const * const nonnull tstdox__my_struct_a__sp;
 /// @iop struct { i: i32, j: i32 }
 struct tstdox__my_struct_b__t {
     int32_t  i;
     int32_t  j;
 };
 EXPORT iop_struct_t const tstdox__my_struct_b__s;
-EXPORT iop_struct_t const * const nonnull tstdox__my_struct_b__sp;
 /// @iop struct { sfield: str }
 struct tstdox__c_data_test__t {
     lstr_t   sfield;
 };
 EXPORT iop_struct_t const tstdox__c_data_test__s;
-EXPORT iop_struct_t const * const nonnull tstdox__c_data_test__sp;
 /// @iop struct { field_a: i32, field_b: i32, field_c: i32 }
 struct tstdox__my_struct_aa__t {
     int32_t  field_a;
@@ -49,7 +42,6 @@ struct tstdox__my_struct_aa__t {
     int32_t  field_c;
 };
 EXPORT iop_struct_t const tstdox__my_struct_aa__s;
-EXPORT iop_struct_t const * const nonnull tstdox__my_struct_aa__sp;
 /// @iop struct { field_a: i32, field_b: i32, field_c: i32 }
 struct tstdox__my_struct_ab__t {
     int32_t  field_a;
@@ -57,7 +49,6 @@ struct tstdox__my_struct_ab__t {
     int32_t  field_c;
 };
 EXPORT iop_struct_t const tstdox__my_struct_ab__s;
-EXPORT iop_struct_t const * const nonnull tstdox__my_struct_ab__sp;
 /// @iop struct { field_a: i32, field_b: i32, field_c: i32 }
 struct tstdox__my_struct_ac__t {
     int32_t  field_a;
@@ -65,33 +56,28 @@ struct tstdox__my_struct_ac__t {
     int32_t  field_c;
 };
 EXPORT iop_struct_t const tstdox__my_struct_ac__s;
-EXPORT iop_struct_t const * const nonnull tstdox__my_struct_ac__sp;
 /// @iop struct { i: i32, j: i32 }
 struct tstdox__my_struct_ba__t {
     int32_t  i;
     int32_t  j;
 };
 EXPORT iop_struct_t const tstdox__my_struct_ba__s;
-EXPORT iop_struct_t const * const nonnull tstdox__my_struct_ba__sp;
 /// @iop struct { i: i32, j: i32 }
 struct tstdox__my_struct_bb__t {
     int32_t  i;
     int32_t  j;
 };
 EXPORT iop_struct_t const tstdox__my_struct_bb__s;
-EXPORT iop_struct_t const * const nonnull tstdox__my_struct_bb__sp;
 /// @iop struct { pos: u32 }
 struct tstdox__sort_field__t {
     uint32_t pos;
 };
 EXPORT iop_struct_t const tstdox__sort_field__s;
-EXPORT iop_struct_t const * const nonnull tstdox__sort_field__sp;
 /// @iop class {  }
 struct tstdox__my_class_base__t {
     const iop_struct_t *nonnull __vptr;
 };
 EXPORT iop_struct_t const tstdox__my_class_base__s;
-EXPORT iop_struct_t const * const nonnull tstdox__my_class_base__sp;
 #define tstdox__my_class_base__class_id  0
 
 /// @iop class:tstdox__my_class_base__t {  }
@@ -105,7 +91,6 @@ struct tstdox__my_class_a__t {
     };
 };
 EXPORT iop_struct_t const tstdox__my_class_a__s;
-EXPORT iop_struct_t const * const nonnull tstdox__my_class_a__sp;
 #define tstdox__my_class_a__class_id  1
 
 /// @iop class {  }
@@ -113,7 +98,6 @@ struct tstdox__my_class1__t {
     const iop_struct_t *nonnull __vptr;
 };
 EXPORT iop_struct_t const tstdox__my_class1__s;
-EXPORT iop_struct_t const * const nonnull tstdox__my_class1__sp;
 #define tstdox__my_class1__class_id  1
 
 /// @iop class:tstdox__my_class1__t {  }
@@ -127,7 +111,6 @@ struct tstdox__my_class2__t {
     };
 };
 EXPORT iop_struct_t const tstdox__my_class2__s;
-EXPORT iop_struct_t const * const nonnull tstdox__my_class2__sp;
 #define tstdox__my_class2__class_id  2
 
 #if __has_feature(nullability)

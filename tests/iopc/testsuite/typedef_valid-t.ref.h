@@ -23,7 +23,6 @@ typedef enum1__my_enum__opt_t typedef_valid__my_enum_alias__opt_t;
 typedef typedef1__foo_s__t typedef_valid__typedef_simple_hdr__t;
 typedef typedef1__foo_s__array_t typedef_valid__typedef_simple_hdr__array_t;
 #define typedef_valid__typedef_simple_hdr__s typedef1__foo_s__s
-#define typedef_valid__typedef_simple_hdr__sp typedef1__foo_s__sp
 
 /// @iop struct { a: str, b: i32, s1: struct:typedef_valid__typedef_simple_hdr__t, type1: str, type2: str, s2: struct:typedef2__foo_s__t, u1: union:typedef1__foo_u__t, u2: union:typedef2__foo_u__t, e1: enum:typedef1__foo_e__t, e2: enum:typedef2__foo_e__t }
 struct typedef_valid__my_struct__t {
@@ -39,7 +38,6 @@ struct typedef_valid__my_struct__t {
     typedef2__foo_e__t e2;
 };
 EXPORT iop_struct_t const typedef_valid__my_struct__s;
-EXPORT iop_struct_t const * const nonnull typedef_valid__my_struct__sp;
 /*----- XXX private data, do not use directly -{{{-*/
 typedef enum typedef_valid__my_union__tag_t {
     typedef_valid__my_union__a__ft = 1,
@@ -61,7 +59,6 @@ struct typedef_valid__my_union__t {
     };
 };
 EXPORT iop_struct_t const typedef_valid__my_union__s;
-EXPORT iop_struct_t const * const nonnull typedef_valid__my_union__sp;
 #define typedef_valid__my_union__get(u, field)       IOP_UNION_GET(typedef_valid__my_union, u, field)
 /// @iop class { a: str }
 struct typedef_valid__a__t {
@@ -69,7 +66,6 @@ struct typedef_valid__a__t {
     lstr_t   a;
 };
 EXPORT iop_struct_t const typedef_valid__a__s;
-EXPORT iop_struct_t const * const nonnull typedef_valid__a__sp;
 #define typedef_valid__a__class_id  0
 
 /// @iop class:typedef_valid__a__t {  }
@@ -84,7 +80,6 @@ struct typedef_valid__b__t {
     };
 };
 EXPORT iop_struct_t const typedef_valid__b__s;
-EXPORT iop_struct_t const * const nonnull typedef_valid__b__sp;
 #define typedef_valid__b__class_id  10
 
 /// @iop struct { ms: str, opt: str?, def: str, mst: str, mul: u64, muldef: u64, md: float, mddef: float, mddef2: float, mns: str, m3: u64, m37: u64, b310: u64, msa: str[], msa3: str[], msa6: str[], msa610: str[], mnso: str?, mea: enum:enum1__my_enum__t, msal: struct:typedef_valid__my_struct__t, mya: union:typedef_valid__my_union__t, muab: union:typedef_valid__my_union__t, muabc: union:typedef_valid__my_union__t, muwc: union:typedef_valid__my_union__t, muwcopt: union:typedef_valid__my_union__t&?, a: class:typedef_valid__a__t&, b: class:typedef_valid__b__t& }
@@ -134,7 +129,6 @@ struct typedef_valid__typedef_struct_use_all__t {
     typedef_valid__b__t *nonnull b;
 };
 EXPORT iop_struct_t const typedef_valid__typedef_struct_use_all__s;
-EXPORT iop_struct_t const * const nonnull typedef_valid__typedef_struct_use_all__sp;
 /*----- XXX private data, do not use directly -{{{-*/
 typedef enum typedef_valid__typedef_union_use_all__tag_t {
     typedef_valid__typedef_union_use_all__ms__ft = 1,
@@ -186,7 +180,6 @@ struct typedef_valid__typedef_union_use_all__t {
     };
 };
 EXPORT iop_struct_t const typedef_valid__typedef_union_use_all__s;
-EXPORT iop_struct_t const * const nonnull typedef_valid__typedef_union_use_all__sp;
 #define typedef_valid__typedef_union_use_all__get(u, field)       IOP_UNION_GET(typedef_valid__typedef_union_use_all, u, field)
 /// @iop class:typedef_valid__b__t { b: str }
 struct typedef_valid__c__t {
@@ -204,7 +197,6 @@ struct typedef_valid__c__t {
     lstr_t   b;
 };
 EXPORT iop_struct_t const typedef_valid__c__s;
-EXPORT iop_struct_t const * const nonnull typedef_valid__c__sp;
 #define typedef_valid__c__class_id  11
 
 /// @iop struct { route: class:typedef_valid__route__t&, original_hdr: union:typedef_valid__hdr__t&? }
@@ -213,13 +205,11 @@ struct typedef_valid__routing_hdr__t {
     typedef_valid__hdr__t *nullable original_hdr;
 };
 EXPORT iop_struct_t const typedef_valid__routing_hdr__s;
-EXPORT iop_struct_t const * const nonnull typedef_valid__routing_hdr__sp;
 /// @iop class {  }
 struct typedef_valid__route__t {
     const iop_struct_t *nonnull __vptr;
 };
 EXPORT iop_struct_t const typedef_valid__route__s;
-EXPORT iop_struct_t const * const nonnull typedef_valid__route__sp;
 #define typedef_valid__route__class_id  0
 
 /*----- XXX private data, do not use directly -{{{-*/
@@ -240,7 +230,6 @@ struct typedef_valid__hdr__t {
     };
 };
 EXPORT iop_struct_t const typedef_valid__hdr__s;
-EXPORT iop_struct_t const * const nonnull typedef_valid__hdr__sp;
 #define typedef_valid__hdr__get(u, field)       IOP_UNION_GET(typedef_valid__hdr, u, field)
 /// @iop struct { list_name: str, list: struct:typedef_valid__typedef_struct_use_all__t[] }
 struct typedef_valid__typedef_struct_use_all_with_list__t {
@@ -248,7 +237,6 @@ struct typedef_valid__typedef_struct_use_all_with_list__t {
     typedef_valid__typedef_struct_use_all__array_t list;
 };
 EXPORT iop_struct_t const typedef_valid__typedef_struct_use_all_with_list__s;
-EXPORT iop_struct_t const * const nonnull typedef_valid__typedef_struct_use_all_with_list__sp;
 #if __has_feature(nullability)
 #pragma GCC diagnostic pop
 #endif

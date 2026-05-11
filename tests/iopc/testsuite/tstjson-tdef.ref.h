@@ -96,6 +96,5 @@ typedef IOP_ARRAY_OF(tstjson__my_exception_a__t) tstjson__my_exception_a__array_
 typedef tstjson__my_union_a__t tstjson__my_union_int__t;
 typedef tstjson__my_union_a__array_t tstjson__my_union_int__array_t;
 #define tstjson__my_union_int__s tstjson__my_union_a__s
-#define tstjson__my_union_int__sp tstjson__my_union_a__sp
 
 #endif

@@ -176,7 +176,6 @@ const iop_struct_t attrs_multi_constraints__test__s = {
     .flags      = 3,
     .fields_attrs = attrs_multi_constraints__test__desc_fields_attrs,
 };
-iop_struct_t const * const attrs_multi_constraints__test__sp = &attrs_multi_constraints__test__s;
 
 /* }}} */
 /* Structure attrs_multi_constraints.Test2 {{{ */
@@ -279,7 +278,6 @@ const iop_struct_t attrs_multi_constraints__test2__s = {
     .flags      = 3,
     .fields_attrs = attrs_multi_constraints__test2__desc_fields_attrs,
 };
-iop_struct_t const * const attrs_multi_constraints__test2__sp = &attrs_multi_constraints__test2__s;
 
 /* }}} */
 /* Structure attrs_multi_constraints.StrTest {{{ */
@@ -381,7 +379,6 @@ const iop_struct_t attrs_multi_constraints__str_test__s = {
     .flags      = 3,
     .fields_attrs = attrs_multi_constraints__str_test__desc_fields_attrs,
 };
-iop_struct_t const * const attrs_multi_constraints__str_test__sp = &attrs_multi_constraints__str_test__s;
 
 /* }}} */
 /* Structure attrs_multi_constraints.TabTest {{{ */
@@ -444,7 +441,6 @@ const iop_struct_t attrs_multi_constraints__tab_test__s = {
     .flags      = 3,
     .fields_attrs = attrs_multi_constraints__tab_test__desc_fields_attrs,
 };
-iop_struct_t const * const attrs_multi_constraints__tab_test__sp = &attrs_multi_constraints__tab_test__s;
 
 /* }}} */
 /* Typedef attrs_multi_constraints.Min3 {{{ */

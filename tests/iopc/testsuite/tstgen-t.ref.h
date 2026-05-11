@@ -12,7 +12,6 @@
 #endif
 
 EXPORT iop_enum_t const tstgen__my_enum_a__e;
-EXPORT iop_enum_t const * const nonnull tstgen__my_enum_a__ep;
 
 typedef tstgen__my_enum_a__t my_enum_a__t;
 typedef tstgen__my_enum_a__array_t my_enum_a__array_t;
@@ -28,7 +27,6 @@ struct tstgen__my_struct_a__t {
     pkg_a__a__t *nullable weak_ref2;
 };
 EXPORT iop_struct_t const tstgen__my_struct_a__s;
-EXPORT iop_struct_t const * const nonnull tstgen__my_struct_a__sp;
 typedef tstgen__my_struct_a__t my_struct_a__t;
 typedef tstgen__my_struct_a__array_t my_struct_a__array_t;
 #define my_struct_a__s  tstgen__my_struct_a__s
@@ -51,7 +49,6 @@ struct tstgen__my_union_a__t {
     };
 };
 EXPORT iop_struct_t const tstgen__my_union_a__s;
-EXPORT iop_struct_t const * const nonnull tstgen__my_union_a__sp;
 #define tstgen__my_union_a__get(u, field)       IOP_UNION_GET(tstgen__my_union_a, u, field)
 /// @iop struct { f1: bool, f3: bool, f2: i64, f4: i64 }
 struct tstgen__optimized__t {
@@ -61,13 +58,11 @@ struct tstgen__optimized__t {
     int64_t  f4;
 };
 EXPORT iop_struct_t const tstgen__optimized__s;
-EXPORT iop_struct_t const * const nonnull tstgen__optimized__sp;
 /// @iop class {  }
 struct tstgen__my_class_a__t {
     const iop_struct_t *nonnull __vptr;
 };
 EXPORT iop_struct_t const tstgen__my_class_a__s;
-EXPORT iop_struct_t const * const nonnull tstgen__my_class_a__sp;
 #define tstgen__my_class_a__class_id  0
 
 typedef tstgen__my_class_a__t my_class_a__t;

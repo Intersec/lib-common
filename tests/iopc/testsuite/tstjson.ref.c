@@ -103,7 +103,6 @@ iop_enum_t const tstjson__my_enum_a__e = {
     .en_attrs     = &tstjson__my_enum_a__e_desc_attrs,
     .values_attrs = tstjson__my_enum_a__e_desc_values_attrs,
 };
-iop_enum_t const * const tstjson__my_enum_a__ep = &tstjson__my_enum_a__e;
 
 /* }}} */
 /* Enum tstjson.MyEnumB {{{ */
@@ -145,7 +144,6 @@ iop_enum_t const tstjson__my_enum_b__e = {
     .flags        = 3,
     .en_attrs     = &tstjson__my_enum_b__e_desc_attrs,
 };
-iop_enum_t const * const tstjson__my_enum_b__ep = &tstjson__my_enum_b__e;
 
 /* }}} */
 /* Enum tstjson.MyEnumC {{{ */
@@ -190,7 +188,6 @@ iop_enum_t const tstjson__my_enum_c__e = {
     .flags        = 1,
     .en_attrs     = &tstjson__my_enum_c__e_desc_attrs,
 };
-iop_enum_t const * const tstjson__my_enum_c__ep = &tstjson__my_enum_c__e;
 
 /* }}} */
 /* Union tstjson.MyUnionA {{{ */
@@ -280,7 +277,6 @@ const iop_struct_t tstjson__my_union_a__s = {
     .st_attrs   = &tstjson__my_union_a__s_desc_attrs,
     .fields_attrs = tstjson__my_union_a__desc_fields_attrs,
 };
-iop_struct_t const * const tstjson__my_union_a__sp = &tstjson__my_union_a__s;
 
 /* }}} */
 /* Structure tstjson.MyStructA {{{ */
@@ -477,7 +473,6 @@ const iop_struct_t tstjson__my_struct_a__s = {
     .st_attrs   = &tstjson__my_struct_a__s_desc_attrs,
     .fields_attrs = tstjson__my_struct_a__desc_fields_attrs,
 };
-iop_struct_t const * const tstjson__my_struct_a__sp = &tstjson__my_struct_a__s;
 
 /* }}} */
 /* Structure tstjson.MyStructB {{{ */
@@ -736,7 +731,6 @@ const iop_struct_t tstjson__my_struct_b__s = {
     .flags      = 3,
     .fields_attrs = tstjson__my_struct_b__desc_fields_attrs,
 };
-iop_struct_t const * const tstjson__my_struct_b__sp = &tstjson__my_struct_b__s;
 
 /* }}} */
 /* Structure tstjson.MyStructC {{{ */
@@ -812,7 +806,6 @@ const iop_struct_t tstjson__my_struct_c__s = {
     .st_attrs   = &tstjson__my_struct_c__s_desc_attrs,
     .fields_attrs = tstjson__my_struct_c__desc_fields_attrs,
 };
-iop_struct_t const * const tstjson__my_struct_c__sp = &tstjson__my_struct_c__s;
 
 /* }}} */
 /* Union tstjson.ConstraintU {{{ */
@@ -1096,7 +1089,6 @@ const iop_struct_t tstjson__constraint_u__s = {
     .is_union   = true,
     .fields_attrs = tstjson__constraint_u__desc_fields_attrs,
 };
-iop_struct_t const * const tstjson__constraint_u__sp = &tstjson__constraint_u__s;
 
 /* }}} */
 /* Structure tstjson.ConstraintS {{{ */
@@ -1430,7 +1422,6 @@ const iop_struct_t tstjson__constraint_s__s = {
     .flags      = 3,
     .fields_attrs = tstjson__constraint_s__desc_fields_attrs,
 };
-iop_struct_t const * const tstjson__constraint_s__sp = &tstjson__constraint_s__s;
 
 /* }}} */
 /* Class tstjson.MyClassBase {{{ */
@@ -1536,7 +1527,6 @@ const iop_struct_t tstjson__my_class_base__s = {
         .class_attrs  = &tstjson__my_class_base__class_s,
     }
 };
-iop_struct_t const * const tstjson__my_class_base__sp = &tstjson__my_class_base__s;
 
 /* }}} */
 /* Class tstjson.MyClassA {{{ */
@@ -1636,7 +1626,6 @@ const iop_struct_t tstjson__my_class_a__s = {
         .class_attrs  = &tstjson__my_class_a__class_s,
     }
 };
-iop_struct_t const * const tstjson__my_class_a__sp = &tstjson__my_class_a__s;
 
 /* }}} */
 /* Class tstjson.MyClassB {{{ */
@@ -1687,7 +1676,6 @@ const iop_struct_t tstjson__my_class_b__s = {
         .class_attrs  = &tstjson__my_class_b__class_s,
     }
 };
-iop_struct_t const * const tstjson__my_class_b__sp = &tstjson__my_class_b__s;
 
 /* }}} */
 /* Class tstjson.MyClass1 {{{ */
@@ -1730,7 +1718,6 @@ const iop_struct_t tstjson__my_class1__s = {
         .class_attrs  = &tstjson__my_class1__class_s,
     }
 };
-iop_struct_t const * const tstjson__my_class1__sp = &tstjson__my_class1__s;
 
 /* }}} */
 /* Class tstjson.MyClass2 {{{ */
@@ -1768,7 +1755,6 @@ const iop_struct_t tstjson__my_class2__s = {
         .class_attrs  = &tstjson__my_class2__class_s,
     }
 };
-iop_struct_t const * const tstjson__my_class2__sp = &tstjson__my_class2__s;
 
 /* }}} */
 /* Structure tstjson.ClassContainer {{{ */
@@ -1804,7 +1790,6 @@ const iop_struct_t tstjson__class_container__s = {
     .size       = sizeof(tstjson__class_container__t),
     .flags      = 2,
 };
-iop_struct_t const * const tstjson__class_container__sp = &tstjson__class_container__s;
 
 /* }}} */
 /* Structure tstjson.MyExceptionA {{{ */
@@ -1837,7 +1822,6 @@ const iop_struct_t tstjson__my_exception_a__s = {
     .fields_len = countof(tstjson__my_exception_a__desc_fields),
     .size       = sizeof(tstjson__my_exception_a__t),
 };
-iop_struct_t const * const tstjson__my_exception_a__sp = &tstjson__my_exception_a__s;
 
 /* }}} */
 /* Interface tstjson.MyIfaceA {{{ */
@@ -1904,7 +1888,6 @@ const iop_struct_t tstjson__my_iface_a__fun_a_args__s = {
     .flags      = 3,
     .fields_attrs = tstjson__my_iface_a__fun_a_args__desc_fields_attrs,
 };
-iop_struct_t const * const tstjson__my_iface_a__fun_a_args__sp = &tstjson__my_iface_a__fun_a_args__s;
 
 /* }}} */
 /* Structure tstjson.MyIfaceA.funARes {{{ */
@@ -1970,7 +1953,6 @@ const iop_struct_t tstjson__my_iface_a__fun_a_res__s = {
     .flags      = 1,
     .fields_attrs = tstjson__my_iface_a__fun_a_res__desc_fields_attrs,
 };
-iop_struct_t const * const tstjson__my_iface_a__fun_a_res__sp = &tstjson__my_iface_a__fun_a_res__s;
 
 /* }}} */
 /* Structure tstjson.MyIfaceA.funbRes {{{ */
@@ -2003,7 +1985,6 @@ const iop_struct_t tstjson__my_iface_a__funb_res__s = {
     .fields_len = countof(tstjson__my_iface_a__funb_res__desc_fields),
     .size       = sizeof(tstjson__my_iface_a__funb_res__t),
 };
-iop_struct_t const * const tstjson__my_iface_a__funb_res__sp = &tstjson__my_iface_a__funb_res__s;
 
 /* }}} */
 #define tstjson__my_iface_a__fun_d_res__desc_fields  tstjson__my_struct_a__desc_fields
@@ -2084,7 +2065,6 @@ const iop_struct_t tstjson__my_iface_a__fun_f_args__s = {
     .flags      = 3,
     .fields_attrs = tstjson__my_iface_a__fun_f_args__desc_fields_attrs,
 };
-iop_struct_t const * const tstjson__my_iface_a__fun_f_args__sp = &tstjson__my_iface_a__fun_f_args__s;
 
 /* }}} */
 #define tstjson__my_iface_a__fun_f_res__desc_fields  tstjson__my_struct_b__desc_fields
@@ -2173,7 +2153,6 @@ const iop_struct_t tstjson__my_iface_a__fun_j_res__s = {
     .st_attrs   = &tstjson__my_iface_a__fun_j_res__s_desc_attrs,
     .fields_attrs = tstjson__my_iface_a__fun_j_res__desc_fields_attrs,
 };
-iop_struct_t const * const tstjson__my_iface_a__fun_j_res__sp = &tstjson__my_iface_a__fun_j_res__s;
 
 /* }}} */
 /* Structure tstjson.MyIfaceA.funJExn {{{ */
@@ -2231,7 +2210,6 @@ const iop_struct_t tstjson__my_iface_a__fun_j_exn__s = {
     .st_attrs   = &tstjson__my_iface_a__fun_j_exn__s_desc_attrs,
     .fields_attrs = tstjson__my_iface_a__fun_j_exn__desc_fields_attrs,
 };
-iop_struct_t const * const tstjson__my_iface_a__fun_j_exn__sp = &tstjson__my_iface_a__fun_j_exn__s;
 
 /* }}} */
 /* Structure tstjson.MyIfaceA.funERes {{{ */
@@ -2255,7 +2233,6 @@ const iop_struct_t tstjson__my_iface_a__fun_e_res__s = {
     .fields_len = countof(tstjson__my_iface_a__fun_e_res__desc_fields),
     .size       = sizeof(tstjson__my_iface_a__fun_e_res__t),
 };
-iop_struct_t const * const tstjson__my_iface_a__fun_e_res__sp = &tstjson__my_iface_a__fun_e_res__s;
 
 /* }}} */
 #define tstjson__my_iface_a__fun_k_args__desc_fields  tstjson__my_struct_a__desc_fields
@@ -2291,7 +2268,6 @@ const iop_struct_t tstjson__my_iface_a__fun_k_res__s = {
     .fields_len = countof(tstjson__my_iface_a__fun_k_res__desc_fields),
     .size       = sizeof(tstjson__my_iface_a__fun_k_res__t),
 };
-iop_struct_t const * const tstjson__my_iface_a__fun_k_res__sp = &tstjson__my_iface_a__fun_k_res__s;
 
 /* }}} */
 #define tstjson__my_iface_a__fun_k_exn__desc_fields  tstjson__my_exception_a__desc_fields
@@ -2336,7 +2312,6 @@ const iop_struct_t tstjson__my_iface_a__fun_l_args__s = {
     .fields_len = countof(tstjson__my_iface_a__fun_l_args__desc_fields),
     .size       = sizeof(tstjson__my_iface_a__fun_l_args__t),
 };
-iop_struct_t const * const tstjson__my_iface_a__fun_l_args__sp = &tstjson__my_iface_a__fun_l_args__s;
 
 /* }}} */
 /* Structure tstjson.MyIfaceA.funAsyncArgs {{{ */
@@ -2360,7 +2335,6 @@ const iop_struct_t tstjson__my_iface_a__fun_async_args__s = {
     .fields_len = countof(tstjson__my_iface_a__fun_async_args__desc_fields),
     .size       = sizeof(tstjson__my_iface_a__fun_async_args__t),
 };
-iop_struct_t const * const tstjson__my_iface_a__fun_async_args__sp = &tstjson__my_iface_a__fun_async_args__s;
 
 /* }}} */
 static iop_rpc_t const tstjson__my_iface_a__if_funs[] = {
@@ -2626,7 +2600,6 @@ const iop_struct_t tstjson__my_iface_b__fun_a_args__s = {
     .fields_len = countof(tstjson__my_iface_b__fun_a_args__desc_fields),
     .size       = sizeof(tstjson__my_iface_b__fun_a_args__t),
 };
-iop_struct_t const * const tstjson__my_iface_b__fun_a_args__sp = &tstjson__my_iface_b__fun_a_args__s;
 const iop_struct_t tstjson__my_iface_b__function_a_args__s = {
     .fullname   = LSTR_IMMED("tstjson.MyIfaceB.functionAArgs"),
     .fields     = tstjson__my_iface_b__fun_a_args__desc_fields,
@@ -2635,7 +2608,6 @@ const iop_struct_t tstjson__my_iface_b__function_a_args__s = {
     .fields_len = countof(tstjson__my_iface_b__fun_a_args__desc_fields),
     .size       = sizeof(tstjson__my_iface_b__fun_a_args__t),
 };
-iop_struct_t const * const tstjson__my_iface_b__function_a_args__sp = &tstjson__my_iface_b__function_a_args__s;
 
 /* }}} */
 /* Structure tstjson.MyIfaceB.funARes {{{ */
@@ -2650,7 +2622,6 @@ const iop_struct_t tstjson__my_iface_b__fun_a_res__s = {
     .fields_len = countof(tstjson__my_iface_b__fun_a_args__desc_fields),
     .size       = sizeof(tstjson__my_iface_b__fun_a_res__t),
 };
-iop_struct_t const * const tstjson__my_iface_b__fun_a_res__sp = &tstjson__my_iface_b__fun_a_res__s;
 const iop_struct_t tstjson__my_iface_b__function_a_res__s = {
     .fullname   = LSTR_IMMED("tstjson.MyIfaceB.functionARes"),
     .fields     = tstjson__my_iface_b__fun_a_args__desc_fields,
@@ -2659,7 +2630,6 @@ const iop_struct_t tstjson__my_iface_b__function_a_res__s = {
     .fields_len = countof(tstjson__my_iface_b__fun_a_args__desc_fields),
     .size       = sizeof(tstjson__my_iface_b__fun_a_res__t),
 };
-iop_struct_t const * const tstjson__my_iface_b__function_a_res__sp = &tstjson__my_iface_b__function_a_res__s;
 
 /* }}} */
 static iop_rpc_t const tstjson__my_iface_b__if_funs[] = {
@@ -2719,7 +2689,6 @@ const iop_struct_t tstjson__my_iface_c__fun_a_args__s = {
     .fields_len = countof(tstjson__my_iface_b__fun_a_args__desc_fields),
     .size       = sizeof(tstjson__my_iface_c__fun_a_args__t),
 };
-iop_struct_t const * const tstjson__my_iface_c__fun_a_args__sp = &tstjson__my_iface_c__fun_a_args__s;
 
 /* }}} */
 /* Structure tstjson.MyIfaceC.funARes {{{ */
@@ -2734,7 +2703,6 @@ const iop_struct_t tstjson__my_iface_c__fun_a_res__s = {
     .fields_len = countof(tstjson__my_iface_b__fun_a_args__desc_fields),
     .size       = sizeof(tstjson__my_iface_c__fun_a_res__t),
 };
-iop_struct_t const * const tstjson__my_iface_c__fun_a_res__sp = &tstjson__my_iface_c__fun_a_res__s;
 
 /* }}} */
 static iop_rpc_t const tstjson__my_iface_c__if_funs[] = {
@@ -2767,7 +2735,6 @@ const iop_struct_t tstjson__my_iface_d__fun_a_args__s = {
     .fields_len = countof(tstjson__my_iface_b__fun_a_args__desc_fields),
     .size       = sizeof(tstjson__my_iface_d__fun_a_args__t),
 };
-iop_struct_t const * const tstjson__my_iface_d__fun_a_args__sp = &tstjson__my_iface_d__fun_a_args__s;
 
 /* }}} */
 /* Structure tstjson.MyIfaceD.funARes {{{ */
@@ -2782,7 +2749,6 @@ const iop_struct_t tstjson__my_iface_d__fun_a_res__s = {
     .fields_len = countof(tstjson__my_iface_b__fun_a_args__desc_fields),
     .size       = sizeof(tstjson__my_iface_d__fun_a_res__t),
 };
-iop_struct_t const * const tstjson__my_iface_d__fun_a_res__sp = &tstjson__my_iface_d__fun_a_res__s;
 
 /* }}} */
 static iop_rpc_t const tstjson__my_iface_d__if_funs[] = {

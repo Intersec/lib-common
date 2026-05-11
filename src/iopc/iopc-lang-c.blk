@@ -1042,9 +1042,8 @@ iopc_enum_dump_hdr(sb_t *buf, const char *pkg_name, const iopc_enum_t *en)
     char *tbase = t_fmt("%s__%s", pkg_name, tname);
 
     sb_addf(buf,
-            "EXPORT iop_enum_t const %s__e;\n"
-            "EXPORT iop_enum_t const * const nonnull %s__ep;\n",
-            tbase, tbase);
+            "EXPORT iop_enum_t const %s__e;\n",
+            tbase);
 
     sb_addc(buf, '\n');
 
@@ -1098,10 +1097,9 @@ static void iopc_create_tdef_aliases(sb_t *buf, const char *pkg_name,
 
         sb_addf(buf, "/*----- structure/union for typedef %s (from %s.%s)"
                 "-----*/\ntypedef %s__t %s__t;\ntypedef %s__array_t "
-                "%s__array_t;\n#define %s__s %s__s\n#define %s__sp %s__sp"
+                "%s__array_t;\n#define %s__s %s__s"
                 "\n\n", tdef->name, tdef->type_pkg->name->dot_path,
-                tdef->struct_def->name, tref, tbase, tref, tbase, tbase, tref,
-                tbase, tref);
+                tdef->struct_def->name, tref, tbase, tref, tbase, tbase, tref);
     } break;
 
     default:
@@ -1408,8 +1406,6 @@ static void iopc_struct_dump_hdr(sb_t *buf, const iopc_pkg_t *pkg,
         sb_adds(buf, "};\n");
     }
     sb_addf(buf, "EXPORT iop_struct_t const %s__s;\n", tbase);
-    sb_addf(buf, "EXPORT iop_struct_t const * const nonnull %s__sp;\n",
-            tbase);
     if (iopc_is_class(st->type)) {
         sb_addf(buf, "#define %s__class_id  %d\n\n", tbase, st->class_id);
         iopc_gen_ctype(buf, &st->attrs, tbase, IOP_T_STRUCT, st->class_id);
@@ -1543,9 +1539,8 @@ static void iopc_union_dump_hdr(sb_t *buf, const iopc_pkg_t *pkg,
     }
     sb_addf(buf, "    };\n"
             "};\n"
-            "EXPORT iop_struct_t const %s__s;\n"
-            "EXPORT iop_struct_t const * const nonnull %s__sp;\n",
-            tbase, tbase);
+            "EXPORT iop_struct_t const %s__s;\n",
+            tbase);
 
     /* Get & copy functions */
     sb_addf(buf, "#define %s__get(u, field)       "
@@ -3231,9 +3226,8 @@ iopc_enum_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
     }
     sb_addf(buf,
             "};\n"
-            "iop_enum_t const * const %s__ep = &%s__e;\n"
             "\n"
-            "/* }""}} */\n", tbase, tbase);
+            "/* }""}} */\n");
 }
 
 /* }}} */
@@ -3452,8 +3446,6 @@ write_struct(sb_t *buf, const iopc_struct_t *st, const iopc_pkg_t *pkg,
     }
     RETHROW(iopc_put_struct_fields(buf, st, real_tbase, has_attrs, as_base));
     sb_adds(buf, "};\n");
-    sb_addf(buf, "iop_struct_t const * const %s__sp = &%s__s;\n",
-            tbase, tbase);
 
     return 0;
 }

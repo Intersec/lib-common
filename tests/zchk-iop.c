@@ -236,7 +236,7 @@ static int z_test_macros_dup_copy_eq(const tstiop__full_struct__t *v,
                                      bool memcmp_eq)
 {
     Z_ASSERT_IOPEQUAL(tstiop__full_struct, out, v);
-    Z_ASSERT_EQ(z_iop_mem_equals_desc(tstiop__full_struct__sp, v, out),
+    Z_ASSERT_EQ(z_iop_mem_equals_desc(&tstiop__full_struct__s, v, out),
                 memcmp_eq);
     Z_HELPER_END;
 }
@@ -3984,11 +3984,11 @@ Z_GROUP_EXPORT(iop)
             iop_init(tstiop__full_repeated, &st2);
             st1.s = T_IOP_ARRAY(lstr, LSTR("abc"), LSTR("dez"));
             st2.s = T_IOP_ARRAY(lstr, LSTR("abc"), LSTR("def"), LSTR("ghij"));
-            CHECK_IOP_GT(tstiop__full_repeated__sp, &st1, &st2);
+            CHECK_IOP_GT(&tstiop__full_repeated__s, &st1, &st2);
             st1.s.tab[1] = LSTR("dea");
-            CHECK_IOP_LT(tstiop__full_repeated__sp, &st1, &st2);
+            CHECK_IOP_LT(&tstiop__full_repeated__s, &st1, &st2);
             st1.s.tab[1] = st2.s.tab[1];
-            CHECK_IOP_LT(tstiop__full_repeated__sp, &st1, &st2);
+            CHECK_IOP_LT(&tstiop__full_repeated__s, &st1, &st2);
         }
 
         /* An empty struct has only one representation, so iop_equals should
@@ -8142,7 +8142,7 @@ Z_GROUP_EXPORT(iop)
         SB_1k(err);
         const char *path;
         tstiop__full_struct__t fs;
-        const iop_struct_t *st = tstiop__full_struct__sp;
+        const iop_struct_t *st = &tstiop__full_struct__s;
 
         path = t_fmt("%*pM/samples/z-full-struct.json",
                      LSTR_FMT_ARG(z_cmddir_g));

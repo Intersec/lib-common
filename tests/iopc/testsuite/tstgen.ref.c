@@ -95,7 +95,6 @@ iop_enum_t const tstgen__my_enum_a__e = {
     .values_attrs = tstgen__my_enum_a__e_desc_values_attrs,
     .aliases      = &tstgen__my_enum_a__aliases,
 };
-iop_enum_t const * const tstgen__my_enum_a__ep = &tstgen__my_enum_a__e;
 
 /* }}} */
 /* Structure tstgen.MyStructA {{{ */
@@ -228,7 +227,6 @@ const iop_struct_t tstgen__my_struct_a__s = {
     .st_attrs   = &tstgen__my_struct_a__s_desc_attrs,
     .fields_attrs = tstgen__my_struct_a__desc_fields_attrs,
 };
-iop_struct_t const * const tstgen__my_struct_a__sp = &tstgen__my_struct_a__s;
 
 /* }}} */
 /* Union tstgen.MyUnionA {{{ */
@@ -267,7 +265,6 @@ const iop_struct_t tstgen__my_union_a__s = {
     .size       = sizeof(tstgen__my_union_a__t),
     .is_union   = true,
 };
-iop_struct_t const * const tstgen__my_union_a__sp = &tstgen__my_union_a__s;
 
 /* }}} */
 /* Structure tstgen.Optimized {{{ */
@@ -322,7 +319,6 @@ const iop_struct_t tstgen__optimized__s = {
     .fields_len = countof(tstgen__optimized__desc_fields),
     .size       = sizeof(tstgen__optimized__t),
 };
-iop_struct_t const * const tstgen__optimized__sp = &tstgen__optimized__s;
 
 /* }}} */
 /* Class tstgen.MyClassA {{{ */
@@ -350,7 +346,6 @@ const iop_struct_t tstgen__my_class_a__s = {
         .class_attrs  = &tstgen__my_class_a__class_s,
     }
 };
-iop_struct_t const * const tstgen__my_class_a__sp = &tstgen__my_class_a__s;
 
 /* }}} */
 /* Interface tstgen.MyIfaceA {{{ */
@@ -379,7 +374,6 @@ const iop_struct_t tstgen__my_iface_a__fun_a_args__s = {
     .fields_len = countof(tstgen__my_iface_a__fun_a_args__desc_fields),
     .size       = sizeof(tstgen__my_iface_a__fun_a_args__t),
 };
-iop_struct_t const * const tstgen__my_iface_a__fun_a_args__sp = &tstgen__my_iface_a__fun_a_args__s;
 
 /* }}} */
 static iop_rpc_t const tstgen__my_iface_a__if_funs[] = {

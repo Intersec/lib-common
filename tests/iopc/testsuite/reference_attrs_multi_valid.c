@@ -31,7 +31,6 @@ iop_enum_t const attrs_multi_valid__my_enum__e = {
     .ranges_len   = countof(iop__ranges__1) / 2,
     .enum_len     = 3,
 };
-iop_enum_t const * const attrs_multi_valid__my_enum__ep = &attrs_multi_valid__my_enum__e;
 
 /* }}} */
 /* Union attrs_multi_valid.MyUnion {{{ */
@@ -87,7 +86,6 @@ const iop_struct_t attrs_multi_valid__my_union__s = {
     .size       = sizeof(attrs_multi_valid__my_union__t),
     .is_union   = true,
 };
-iop_struct_t const * const attrs_multi_valid__my_union__sp = &attrs_multi_valid__my_union__s;
 
 /* }}} */
 /* Structure attrs_multi_valid.Toto {{{ */
@@ -245,7 +243,6 @@ const iop_struct_t attrs_multi_valid__toto__s = {
     .flags      = 3,
     .fields_attrs = attrs_multi_valid__toto__desc_fields_attrs,
 };
-iop_struct_t const * const attrs_multi_valid__toto__sp = &attrs_multi_valid__toto__s;
 
 /* }}} */
 /* Typedef attrs_multi_valid.Un {{{ */
