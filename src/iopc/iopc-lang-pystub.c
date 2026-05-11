@@ -959,6 +959,25 @@ iopc_pystub_dump_rpc_fun_struct(sb_t *buf, const iopc_pkg_t *pkg,
     }
 }
 
+/* Write the resolved underlying type for an RPC arg/res/exn. Used to avoid
+ * referencing a `TypeAlias` from a class-nested `TypeAlias`, which trips
+ * pyrefly's call-target resolution (it surfaces as `not-callable` on
+ * `type[<TypeAlias>]`). */
+static void
+iopc_pystub_dump_rpc_fun_struct_resolved(sb_t *buf, const iopc_pkg_t *pkg,
+                                         const char *st_name,
+                                         const iopc_fun_struct_t *fun_st)
+{
+    if (iopc_fun_struct_is_void(fun_st)) {
+        sb_adds(buf, "iopy.Void");
+    } else if (fun_st->is_anonymous) {
+        sb_adds(buf, st_name);
+    } else {
+        iopc_pystub_dump_field_basetype(buf, pkg, fun_st->existing_struct,
+                                        false);
+    }
+}
+
 #define RPC_UNDERSCORE_KWARGS                                                \
     "        _timeout: float | None = None,\n"                               \
     "        _login: str | None = None,\n"                                   \
@@ -1122,13 +1141,28 @@ static void iopc_pystub_dump_server_rpc(sb_t *buf, const iopc_pkg_t *pkg,
                                         const iopc_fun_t *rpc,
                                         const char *rpc_name)
 {
+    t_scope;
+    const char *arg_name = t_fmt("%s_Arg", rpc_name);
+    const char *res_name = t_fmt("%s_Res", rpc_name);
+    const char *exn_name = t_fmt("%s_Exn", rpc_name);
+    SB_1k(arg_resolved);
+    SB_1k(res_resolved);
+    SB_1k(exn_resolved);
+
+    iopc_pystub_dump_rpc_fun_struct_resolved(&arg_resolved, pkg, arg_name,
+                                             &rpc->arg);
+    iopc_pystub_dump_rpc_fun_struct_resolved(&res_resolved, pkg, res_name,
+                                             &rpc->res);
+    iopc_pystub_dump_rpc_fun_struct_resolved(&exn_resolved, pkg, exn_name,
+                                             &rpc->exn);
+
     sb_addf(buf,
             "\n"
             "@typing.type_check_only\n"
             "class %s_RPCServer(iopy.RPCServer[%s_Arg, %s_Res, %s_Exn], "
             "%s_RPCBase):\n"
             "    RpcArgs: typing_extensions.TypeAlias"
-            " = iopy.RPCArgs[%s_Arg, %s_Res, %s_Exn]\n"
+            " = iopy.RPCArgs[%*pM, %*pM, %*pM]\n"
             "    RpcRes: typing_extensions.TypeAlias"
             " = %s_ResExn\n"
             "\n"
@@ -1143,7 +1177,8 @@ static void iopc_pystub_dump_server_rpc(sb_t *buf, const iopc_pkg_t *pkg,
             rpc_name,
             rpc_name, rpc_name, rpc_name,
             rpc_name,
-            rpc_name, rpc_name, rpc_name,
+            SB_FMT_ARG(&arg_resolved), SB_FMT_ARG(&res_resolved),
+            SB_FMT_ARG(&exn_resolved),
             rpc_name,
             rpc_name, rpc_name, rpc_name,
             rpc_name, rpc_name, rpc_name);
