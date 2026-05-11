@@ -65,14 +65,12 @@ from libcommon_cython.farch cimport *
 from libcommon_cython.thr cimport *
 
 
-cdef extern from "version.h" nogil:
+cdef extern from "<lib-common/core.h>" nogil:
     """
-    extern const char iopy_git_revision[];
+    extern const char libcommon_git_revision[];
     """
-    int IOPY_MAJOR
-    int IOPY_MINOR
-    int IOPY_PATCH
-    extern const char *iopy_git_revision
+    const char *LIB_COMMON_VERSION
+    extern const char *libcommon_git_revision
 
 cdef extern from "iopy_cython_export.h":
     pass
@@ -11892,9 +11890,12 @@ cdef public object Iopy_make_plugin_iop_env(iop_env_t *iop_env):
 cdef void init_module_versions():
     """Init the IOPy versions to the module"""
     cdef dict globals_dict = globals()
-    cdef tuple version_info = (IOPY_MAJOR, IOPY_MINOR, IOPY_PATCH)
-    cdef object version = '%d.%d.%d' % version_info
-    cdef object revision = (<bytes>iopy_git_revision)[:40]
+    cdef str revision = (<bytes>libcommon_git_revision)[:40].decode('ascii')
+    cdef str lib_common_version = (<bytes>LIB_COMMON_VERSION).decode('ascii')
+    cdef str version = '%s.%s' % (lib_common_version, revision)
+    cdef tuple version_info = tuple([
+        int(x) for x in lib_common_version.split('.')
+    ])
 
     globals_dict['__version_info__'] = version_info
     globals_dict['__version__'] = version
