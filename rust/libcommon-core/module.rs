@@ -47,11 +47,9 @@
 //!     builder
 //!         .initialize(|_ctx: &mut MyModuleContext, _arg: *mut c_void| {
 //!             println!("module initialized");
-//!             Ok(())
 //!         })
 //!         .shutdown(|_ctx: &mut MyModuleContext| {
 //!             println!("module shutdown");
-//!             Ok(())
 //!         });
 //! });
 //!
@@ -89,11 +87,9 @@
 //!     builder
 //!         .initialize(|_ctx, _arg: *mut c_void| {
 //!             println!("module initialized");
-//!             Ok(())
 //!         })
 //!         .shutdown(|_ctx| {
 //!             println!("module shutdown");
-//!             Ok(())
 //!         });
 //! });
 //!
@@ -305,6 +301,41 @@ where
 }
 
 // }}}
+// {{{ IntoModuleResult
+
+/// Trait for converting a callback return value into a module's result type.
+///
+/// Implemented for `()` (infallible) and `Result<(), E>` where
+/// `E: Into<Box<dyn Error>>`. This allows the `initialize` and `shutdown`
+/// callbacks to return either nothing (when they cannot fail) or any
+/// `Result<(), E>` without forcing the caller to box the error themselves.
+#[allow(clippy::module_name_repetitions)]
+pub trait IntoModuleResult {
+    /// Convert into a `Result<(), Box<dyn Error>>`.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error from the underlying `Result`, boxed into
+    /// `Box<dyn Error>`. The unit (`()`) implementation never errors.
+    fn into_module_result(self) -> Result<(), Box<dyn Error>>;
+}
+
+impl IntoModuleResult for () {
+    fn into_module_result(self) -> Result<(), Box<dyn Error>> {
+        Ok(())
+    }
+}
+
+impl<E> IntoModuleResult for Result<(), E>
+where
+    E: Into<Box<dyn Error>>,
+{
+    fn into_module_result(self) -> Result<(), Box<dyn Error>> {
+        self.map_err(Into::into)
+    }
+}
+
+// }}}
 // {{{ ModuleBuilder
 
 /// Builder for configuring a C module's behavior.
@@ -337,7 +368,6 @@ where
     /// c_module!(my_module, |builder| {
     ///     builder.initialize(|_ctx, _arg| {
     ///         println!("module initialized");
-    ///         Ok(())
     ///     });
     /// });
     ///
@@ -345,11 +375,13 @@ where
     /// #     my_module_get_module();
     /// # }
     /// ```
-    pub fn initialize<F>(&mut self, f: F) -> &mut Self
+    pub fn initialize<F, R>(&mut self, f: F) -> &mut Self
     where
-        F: Fn(&mut T, *mut c_void) -> Result<(), Box<dyn Error>> + 'static,
+        F: Fn(&mut T, *mut c_void) -> R + 'static,
+        R: IntoModuleResult,
     {
-        self.internal_module.initialize = Some(Box::new(f));
+        self.internal_module.initialize =
+            Some(Box::new(move |ctx, arg| f(ctx, arg).into_module_result()));
         self
     }
 
@@ -363,7 +395,6 @@ where
     /// c_module!(my_module, |builder| {
     ///     builder.shutdown(|_ctx| {
     ///         println!("module shutdown");
-    ///         Ok(())
     ///     });
     /// });
     ///
@@ -371,11 +402,12 @@ where
     /// #     my_module_get_module();
     /// # }
     /// ```
-    pub fn shutdown<F>(&mut self, f: F) -> &mut Self
+    pub fn shutdown<F, R>(&mut self, f: F) -> &mut Self
     where
-        F: Fn(&mut T) -> Result<(), Box<dyn Error>> + 'static,
+        F: Fn(&mut T) -> R + 'static,
+        R: IntoModuleResult,
     {
-        self.internal_module.shutdown = Some(Box::new(f));
+        self.internal_module.shutdown = Some(Box::new(move |ctx| f(ctx).into_module_result()));
         self
     }
 
@@ -1302,6 +1334,7 @@ pub fn module_get_name(module: *mut module_t) -> &'static str {
 
 #[cfg(test)]
 mod test {
+    use std::io;
     use std::os::raw::{c_int, c_void};
     use std::ptr;
 
@@ -1330,25 +1363,21 @@ mod test {
     c_module!(depend_on_module, ModuleCtx, |builder| {
         builder.initialize(|ctx, arg| {
             ctx.init = arg.is_null().into();
-            Ok(())
         });
     });
 
     c_module!(my_module, ModuleCtx, |builder| {
         builder
             .depends_on(depend_on_module_get_module())
-            .initialize(|ctx, arg| {
+            .initialize(|ctx, arg| -> Result<(), io::Error> {
                 let arg_u32 = arg as *const u32;
                 if !arg_u32.is_null() {
                     ctx.init = unsafe { *arg_u32 };
                 }
                 Ok(())
             })
-            .shutdown(|_ctx| {
-                unsafe {
-                    SHUTDOWN_MY_MODULE = true;
-                }
-                Ok(())
+            .shutdown(|_ctx| unsafe {
+                SHUTDOWN_MY_MODULE = true;
             })
             .implement_void(&raw const void_method, |ctx| {
                 ctx.void = true;
