@@ -1452,17 +1452,19 @@ class Iop2c(FirstInputStrTask):
 RE_IOP_PACKAGE = re.compile(r'^package (.*);$', re.MULTILINE)
 
 
-def iop_get_package_path(self: BuildContext, node: Node) -> str:
+def iop_get_package_path(
+    self: BuildContext, node: Node, replace_char: str
+) -> str:
     """
     Get the 'package path' of a IOP file.
     It opens the IOP file, parses the 'package' line, and returns a string
-    where dots are replaced by slashes.
+    where dots are replaced by the given replacement character.
     """
     match = RE_IOP_PACKAGE.search(node.read())
     if match is None:
         self.bld.fatal(f'no package declaration found in {node}')
         return ''  # Dummy return
-    return match.group(1).replace('.', '/')
+    return match.group(1).replace('.', replace_char)
 
 
 @task_gen_extension('.iop')
@@ -1494,13 +1496,18 @@ def process_iop(self: TaskGen, node: Node) -> None:
             node.change_ext_src('-t.iop.h'),
         ]
         if opts.json_node or opts.ts_node:
-            package_path = iop_get_package_path(self, node)
+            package_path = iop_get_package_path(self, node, '/')
             if opts.json_node:
                 json_path = package_path + '.iop.json'
                 outputs.append(opts.json_node.make_node(json_path))
             if opts.ts_node:
                 ts_path = package_path + '.iop.ts'
                 outputs.append(opts.ts_node.make_node(ts_path))
+
+        if opts.pystub_node:
+            package_path = iop_get_package_path(self, node, '_')
+            pystub_path = package_path + '__iop.pyi'
+            outputs.append(opts.pystub_node.make_node(pystub_path))
 
         # Create iopc task (add iopc itself in the inputs so that IOP files
         # are rebuilt if iopc changes)
