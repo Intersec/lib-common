@@ -1058,6 +1058,13 @@ static void iopc_pystub_dump_rpc_types(sb_t *buf, const iopc_pkg_t *pkg,
     iopc_pystub_dump_rpc_fun_struct(buf, pkg, iface, rpc, "Arg", &rpc->arg);
     iopc_pystub_dump_rpc_fun_struct(buf, pkg, iface, rpc, "Res", &rpc->res);
     iopc_pystub_dump_rpc_fun_struct(buf, pkg, iface, rpc, "Exn", &rpc->exn);
+
+    sb_addf(buf,
+            "%s_%s_ResExn: typing_extensions.TypeAlias = "
+            "%s_%s_Res | %s_%s_Exn\n",
+            iface->name, rpc->name,
+            iface->name, rpc->name,
+            iface->name, rpc->name);
 }
 
 static void iopc_pystub_dump_rpc_base(sb_t *buf, const iopc_fun_t *rpc,
@@ -1123,7 +1130,7 @@ static void iopc_pystub_dump_server_rpc(sb_t *buf, const iopc_pkg_t *pkg,
             "    RpcArgs: typing_extensions.TypeAlias"
             " = iopy.RPCArgs[%s_Arg, %s_Res, %s_Exn]\n"
             "    RpcRes: typing_extensions.TypeAlias"
-            " = %s_Res | %s_Exn\n"
+            " = %s_ResExn\n"
             "\n"
             "    @property\n"
             "    def impl(self) -> "
@@ -1137,7 +1144,7 @@ static void iopc_pystub_dump_server_rpc(sb_t *buf, const iopc_pkg_t *pkg,
             rpc_name, rpc_name, rpc_name,
             rpc_name,
             rpc_name, rpc_name, rpc_name,
-            rpc_name, rpc_name,
+            rpc_name,
             rpc_name, rpc_name, rpc_name,
             rpc_name, rpc_name, rpc_name);
 }
