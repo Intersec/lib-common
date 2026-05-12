@@ -1698,7 +1698,14 @@ def make_dso_pystub(self: TaskGen) -> None:
     # Create the task
     if pystub_node not in self.env.GEN_FILES:
         self.env.GEN_FILES.add(pystub_node)
-        inputs = [shlib_node, ctx.iopy_tgen.link_task.outputs[0]]
+        make_dso_pystub_node = ctx.root.make_node(
+            ctx.env.MAKE_DSO_PYSTUB_PY[0]
+        )
+        inputs = [
+            shlib_node,
+            ctx.iopy_tgen.link_task.outputs[0],
+            make_dso_pystub_node,
+        ]
         dso_pystub_task = self.create_task(
             'DsoPystubTask', inputs, pystub_node
         )
