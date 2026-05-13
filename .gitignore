@@ -8,6 +8,7 @@
 *.iop.json
 *.iop.ts
 *__iop.pyi
+*.iop.rs
 
 .tags
 .syntastic*

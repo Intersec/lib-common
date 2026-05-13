@@ -31,6 +31,7 @@ static struct {
     const char *json_outpath;
     const char *c_outpath;
     const char *typescript_outpath;
+    const char *rust_outpath;
     const char *pystub_outpath;
     const char *depends;
     const char *class_id_range;
@@ -80,6 +81,12 @@ static popt_t options[] = {
     OPT_STR(
         0, "typescript-output-path", &opts.typescript_outpath,
         "base of the compiled hierarchy for TypeScript files"
+    ),
+
+    OPT_GROUP("Rust backend options"),
+    OPT_STR(
+        0, "rust-output-path", &opts.rust_outpath,
+        "base of the compiled hierarchy for Rust files"
     ),
 
     OPT_GROUP("Python stub backend options"),
@@ -190,6 +197,10 @@ static int build_doit_table(qv_t(doit) *doits)
         } else if (lstr_ascii_iequal(lang, LSTR("typescript"))) {
             doit = (struct doit){
                 .cb = &iopc_do_typescript, .outpath = opts.typescript_outpath
+            };
+        } else if (lstr_ascii_iequal(lang, LSTR("rust"))) {
+            doit = (struct doit){
+                .cb = &iopc_do_rust, .outpath = opts.rust_outpath
             };
         } else if (lstr_ascii_iequal(lang, LSTR("pystub"))) {
             doit = (struct doit){

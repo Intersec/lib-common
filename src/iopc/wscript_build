@@ -40,6 +40,7 @@ ctx.stlib(
         'iopc-lang-json.blk',
         'iopc-lang-typescript.c',
         'iopc-lang-pystub.c',
+        'iopc-lang-rust.c',
     ],
 )
 

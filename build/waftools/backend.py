@@ -1464,6 +1464,7 @@ class IopcOptions:
         json_path: Optional[str] = None,
         ts_path: Optional[str] = None,
         pystub_path: Optional[str] = None,
+        rust_path: Optional[str] = None,
     ) -> None:
         self.ctx = ctx
         self.path = path or ctx.path
@@ -1499,6 +1500,12 @@ class IopcOptions:
         else:
             self.pystub_node = None
 
+        # rust path
+        if rust_path:
+            self.rust_node = self.path.make_node(rust_path)
+        else:
+            self.rust_node = None
+
         # Add options in global cache
         assert self.path not in ctx.iopc_options
         ctx.iopc_options[self.path] = self
@@ -1513,6 +1520,8 @@ class IopcOptions:
             res += ',typescript'
         if self.pystub_node:
             res += ',pystub'
+        if self.rust_node:
+            res += ',rust'
         return res
 
     @property
@@ -1541,6 +1550,13 @@ class IopcOptions:
         """Get the pystub-output-path option for iopc"""
         if self.pystub_node:
             return f'--pystub-output-path={self.pystub_node}'
+        return ''
+
+    @property
+    def rust_output_option(self) -> str:
+        """Get the rust-output-path option for iopc"""
+        if self.rust_node:
+            return f'--rust-output-path={self.rust_node}'
         return ''
 
     def get_includes_recursive(
@@ -1627,7 +1643,7 @@ class Iop2c(FirstInputStrTask):
     def run(self) -> int:
         cmd = (
             '{iopc} --Wextra --language {languages} --c-resolve-includes '
-            '{includes} {class_range} {json_output} {ts_output} '
+            '{includes} {class_range} {rust_output} {json_output} {ts_output} '
             '{pystub_output} {source}'
         )
         cmd = cmd.format(
@@ -1638,6 +1654,7 @@ class Iop2c(FirstInputStrTask):
             json_output=self.env.IOP_JSON_OUTPUT,
             ts_output=self.env.IOP_TS_OUTPUT,
             pystub_output=self.env.IOP_PYSTUB_OUTPUT,
+            rust_output=self.env.IOP_RUST_OUTPUT,
             source=self.inputs[0].abspath(),
         )
         self.last_cmd = cmd
@@ -1707,6 +1724,11 @@ def process_iop(self: TaskGen, node: Node) -> None:
             pystub_path = package_path + '__iop.pyi'
             outputs.append(opts.pystub_node.make_node(pystub_path))
 
+        if opts.rust_node:
+            package_path = iop_get_package_path(self, node, '/')
+            rust_path = package_path + '.iop.rs'
+            outputs.append(opts.rust_node.make_node(rust_path))
+
         # Create iopc task (add iopc itself in the inputs so that IOP files
         # are rebuilt if iopc changes)
         inputs = [node, ctx.iopc_tgen.link_task.outputs[0]]
@@ -1720,6 +1742,7 @@ def process_iop(self: TaskGen, node: Node) -> None:
         task.env.IOP_JSON_OUTPUT = opts.json_output_option
         task.env.IOP_TS_OUTPUT = opts.ts_output_option
         task.env.IOP_PYSTUB_OUTPUT = opts.pystub_output_option
+        task.env.IOP_RUST_OUTPUT = opts.rust_output_option
 
     self.source.append(c_node)
 
