@@ -2256,6 +2256,10 @@ httpd_tls_handshake(el_t evh, int fd, short events, data_t priv)
 {
     httpd_t *w = priv.ptr;
 
+    if (events == EL_EVENTS_NOACT) {
+        goto error;
+    }
+
     switch (ssl_do_handshake(w->ssl, evh, fd, NULL)) {
       case SSL_HANDSHAKE_SUCCESS:
         el_fd_set_mask(evh, POLLIN);
@@ -2273,12 +2277,15 @@ httpd_tls_handshake(el_t evh, int fd, short events, data_t priv)
                      "server `%*pM`: ssl handshake error from client `%*pM`",
                      LSTR_FMT_ARG(t_httpd_get_server_address(w)),
                      LSTR_FMT_ARG(httpd_get_peer_address(w)));
-        obj_delete(&w);
-        return -1;
+        goto error;
       }
     }
 
     return 0;
+
+error:
+    obj_delete(&w);
+    return -1;
 }
 
 static int

@@ -3039,6 +3039,10 @@ static int ic_tls_handshake(el_t ev, int fd, short events, data_t priv)
     ichannel_t *ic = priv.ptr;
     X509* cert;
 
+    if (events == EL_EVENTS_NOACT) {
+        goto error;
+    }
+
     switch (ssl_do_handshake(ic->ssl, ev, fd, &ic->rbuf)) {
       case SSL_HANDSHAKE_SUCCESS:
         /* Handshake completed. Double check that the certificate is correct
