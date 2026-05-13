@@ -901,6 +901,7 @@ static void ic_cancel_all(ichannel_t *ic)
     }
     qm_wipe(ic_msg, &h);
     qv_deep_clear(&ic->fds, p_close);
+    ic->queue_len = 0;
 
     /* if that crashes, one of the IC_MSG_ABORT callback reenqueues directly in
      * that ichannel_t which is forbidden, fix the code
@@ -2191,6 +2192,7 @@ void ic_disconnect(ichannel_t *ic)
     ic->queuable = false;
     ic->is_connected = false;
     ic->is_closing = true;
+    ic->is_trusted = false;
 
     if (ic->ssl) {
         SSL_free(ic->ssl);
