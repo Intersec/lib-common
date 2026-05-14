@@ -33,9 +33,9 @@ import time
 import warnings
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, assert_type, cast
 
-from typing_extensions import ParamSpec, assert_type, override
+from typing_extensions import ParamSpec, override
 
 import iopy
 import zpycore as z
@@ -4526,14 +4526,116 @@ class IopyIopStubsTests(z.TestCase):
         # Client
         client = self.plugin_stub.connect(uri)
 
-        res_call_impl_b = call_rpc(
-            client.test_ModuleA.interfaceA.funB,
-            a=self.plugin_stub.test.ClassA(field1=10),
-            _login='plop',
-        )
-        fun_b = self.plugin_stub.test.interfaces.InterfaceA.funB
-        exp_rpc_res_impl_b = fun_b.Res(status='A', res=1000, strField='plop')
-        self.assertEqual(res_call_impl_b, (65538, exp_rpc_res_impl_b))
+        # Tests
+        def _test_with_client(
+            cb: Callable[[], tuple[int, test__iop.InterfaceA_funB_Res]],
+        ) -> None:
+            res_call = cb()
+            fun_b = self.plugin_stub.test.interfaces.InterfaceA.funB
+            exp_rpc_res_impl_b = fun_b.Res(
+                status='A', res=1000, strField='plop'
+            )
+            self.assertEqual(res_call, (65538, exp_rpc_res_impl_b))
+
+        # => With only kwargs
+        def _with_only_kwargs() -> tuple[int, test__iop.InterfaceA_funB_Res]:
+            return call_rpc(
+                client.test_ModuleA.interfaceA.funB,
+                a=self.plugin_stub.test.ClassA(field1=10),
+                _login='plop',
+            )
+
+        _test_with_client(_with_only_kwargs)
+
+        # => With wrong kwargs
+        def _with_wrong_kwargs() -> tuple[int, test__iop.InterfaceA_funB_Res]:
+            with self.assertRaises(iopy.Error):
+                # FIXME: pyrefly should not accept this case
+                call_rpc(
+                    client.test_ModuleA.interfaceA.funB,  # type: ignore[arg-type]
+                    a=self.plugin_stub.test.ClassA(field1=10),
+                    _login='plop',
+                    _login2='wrong_plop',
+                )
+
+            return call_rpc(
+                client.test_ModuleA.interfaceA.funB,  # type: ignore[arg-type]
+                a=self.plugin_stub.test.ClassA(field1=10),
+                _login='plop',
+            )
+
+        _test_with_client(_with_wrong_kwargs)
+
+        # => With dict and IC kwargs
+        def _with_dict_ic_kwargs() -> tuple[
+            int, test__iop.InterfaceA_funB_Res
+        ]:
+            # FIXME: mypy should accept this case
+            return call_rpc(
+                client.test_ModuleA.interfaceA.funB,  # type: ignore[arg-type]
+                {
+                    'a': {'field1': 10},
+                },
+                _login='plop',
+            )
+
+        _test_with_client(_with_dict_ic_kwargs)
+
+        # => With object and IC kwargs as dict
+        def _with_dict_ic_kwargs_dict() -> tuple[
+            int, test__iop.InterfaceA_funB_Res
+        ]:
+            ic_kwargs_dict = {
+                '_login': 'plop',
+            }
+            # FIXME: mypy should accept this case
+            return call_rpc(
+                client.test_ModuleA.interfaceA.funB,  # type: ignore[arg-type]
+                {
+                    'a': {'field1': 10},
+                },
+                **ic_kwargs_dict,
+            )
+
+        _test_with_client(_with_dict_ic_kwargs_dict)
+
+        # => With dict and wrong IC kwargs
+        def _with_dict_wrong_ic_kwargs() -> tuple[
+            int, test__iop.InterfaceA_funB_Res
+        ]:
+            # FIXME: mypy and pyrefly should not accept this case (and the
+            # runtime is a bit broken too)
+            return call_rpc(
+                client.test_ModuleA.interfaceA.funB,  # type: ignore[arg-type]
+                {
+                    'a': {'field1': 10},
+                },
+                _login='plop',
+                _login2='wrong_plop',
+            )
+
+        _test_with_client(_with_dict_wrong_ic_kwargs)
+
+        # => With object and wrong IC kwargs as dict
+        def _with_dict_wrong_ic_kwargs_dict() -> tuple[
+            int, test__iop.InterfaceA_funB_Res
+        ]:
+            ic_kwargs_dict = {
+                '_login': 'plop',
+                '_login2': 'wrong_plop',
+            }
+
+            # FIXME: mypy and pyrefly should not accept this case (and the
+            # runtime is a bit broken too)
+            return call_rpc(
+                client.test_ModuleA.interfaceA.funB,  # type: ignore[arg-type]
+                {
+                    'a': {'field1': 10},
+                },
+                **ic_kwargs_dict,
+            )
+
+        _test_with_client(_with_dict_wrong_ic_kwargs_dict)
 
         # -- Test without RPC call with just the module
 
