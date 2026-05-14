@@ -388,6 +388,20 @@ class IsIopFieldOptional: ...
 
 class ChannelBase: ...
 
+@typing.type_check_only
+class IcHdrKwargs(typing.TypedDict, total=False):
+    _login: str | None
+    _group: str | None
+    _password: str | None
+    _kind: str | None
+    _workspace_id: int | None
+    _dealias: bool | None
+    _hdr: ic__iop.Hdr | None
+
+@typing.type_check_only
+class IcKwargs(IcHdrKwargs, total=False):
+    _timeout: float | None
+
 _TRpcArg = typing.TypeVar('_TRpcArg', bound=StructUnionBase)
 _TRpcRes = typing.TypeVar('_TRpcRes', bound=StructUnionBase)
 _TRpcExn = typing.TypeVar('_TRpcExn', bound=StructUnionBase)
@@ -512,13 +526,7 @@ class Channel(ChannelBase):
         *,
         default_timeout: float = 60.0,
         no_act_timeout: float = 0.0,
-        _login: str | None = None,
-        _group: str | None = None,
-        _password: str | None = None,
-        _kind: str | None = None,
-        _workspace_id: int | None = None,
-        _dealias: bool | None = None,
-        _hdr: ic__iop.Hdr | None = None,
+        **ic_kwargs: typing_extensions.Unpack[IcHdrKwargs],
     ) -> None: ...
     @typing.overload
     def __init__(
@@ -529,26 +537,14 @@ class Channel(ChannelBase):
         port: int,
         default_timeout: float = 60.0,
         no_act_timeout: float = 0.0,
-        _login: str | None = None,
-        _group: str | None = None,
-        _password: str | None = None,
-        _kind: str | None = None,
-        _workspace_id: int | None = None,
-        _dealias: bool | None = None,
-        _hdr: ic__iop.Hdr | None = None,
+        **ic_kwargs: typing_extensions.Unpack[IcHdrKwargs],
     ) -> None: ...
     def connect(self, timeout: float | None = None) -> None: ...
     def is_connected(self) -> bool: ...
     def disconnect(self) -> None: ...
     def change_default_hdr(
         self,
-        _login: str | None = None,
-        _group: str | None = None,
-        _password: str | None = None,
-        _kind: str | None = None,
-        _workspace_id: int | None = None,
-        _dealias: bool | None = None,
-        _hdr: ic__iop.Hdr | None = None,
+        **ic_kwargs: typing_extensions.Unpack[IcHdrKwargs],
     ) -> None: ...
     def get_default_hdr(self) -> ic__iop.Hdr: ...
     @property
@@ -585,30 +581,14 @@ class RPC(
         self,
         obj: _TRpcArg,
         /,
-        *,
-        _timeout: float | None = None,
-        _login: str | None = None,
-        _group: str | None = None,
-        _password: str | None = None,
-        _kind: str | None = None,
-        _workspace_id: int | None = None,
-        _dealias: bool | None = None,
-        _hdr: ic__iop.Hdr | None = None,
+        **ic_kwargs: typing_extensions.Unpack[IcKwargs],
     ) -> _TRpcRes: ...
     @typing.overload
     def call(
         self,
         dct: dict[str, typing.Any],
         /,
-        *,
-        _timeout: float | None = None,
-        _login: str | None = None,
-        _group: str | None = None,
-        _password: str | None = None,
-        _kind: str | None = None,
-        _workspace_id: int | None = None,
-        _dealias: bool | None = None,
-        _hdr: ic__iop.Hdr | None = None,
+        **ic_kwargs: typing_extensions.Unpack[IcKwargs],
     ) -> _TRpcRes: ...
     @typing.overload
     def call(
@@ -629,30 +609,14 @@ class RPC(
         self,
         obj: _TRpcArg,
         /,
-        *,
-        _timeout: float | None = None,
-        _login: str | None = None,
-        _group: str | None = None,
-        _password: str | None = None,
-        _kind: str | None = None,
-        _workspace_id: int | None = None,
-        _dealias: bool | None = None,
-        _hdr: ic__iop.Hdr | None = None,
+        **ic_kwargs: typing_extensions.Unpack[IcKwargs],
     ) -> _TRpcRes: ...
     @typing.overload
     def __call__(
         self,
         dct: dict[str, typing.Any],
         /,
-        *,
-        _timeout: float | None = None,
-        _login: str | None = None,
-        _group: str | None = None,
-        _password: str | None = None,
-        _kind: str | None = None,
-        _workspace_id: int | None = None,
-        _dealias: bool | None = None,
-        _hdr: ic__iop.Hdr | None = None,
+        **ic_kwargs: typing_extensions.Unpack[IcKwargs],
     ) -> _TRpcRes: ...
     @typing.overload
     def __call__(
@@ -692,30 +656,14 @@ class AsyncRPC(
         self,
         obj: _TRpcArg,
         /,
-        *,
-        _timeout: float | None = None,
-        _login: str | None = None,
-        _group: str | None = None,
-        _password: str | None = None,
-        _kind: str | None = None,
-        _workspace_id: int | None = None,
-        _dealias: bool | None = None,
-        _hdr: ic__iop.Hdr | None = None,
+        **ic_kwargs: typing_extensions.Unpack[IcKwargs],
     ) -> asyncio.Future[_TRpcRes]: ...
     @typing.overload
     def call(
         self,
         dct: dict[str, typing.Any],
         /,
-        *,
-        _timeout: float | None = None,
-        _login: str | None = None,
-        _group: str | None = None,
-        _password: str | None = None,
-        _kind: str | None = None,
-        _workspace_id: int | None = None,
-        _dealias: bool | None = None,
-        _hdr: ic__iop.Hdr | None = None,
+        **ic_kwargs: typing_extensions.Unpack[IcKwargs],
     ) -> asyncio.Future[_TRpcRes]: ...
     @typing.overload
     def call(
@@ -736,30 +684,14 @@ class AsyncRPC(
         self,
         obj: _TRpcArg,
         /,
-        *,
-        _timeout: float | None = None,
-        _login: str | None = None,
-        _group: str | None = None,
-        _password: str | None = None,
-        _kind: str | None = None,
-        _workspace_id: int | None = None,
-        _dealias: bool | None = None,
-        _hdr: ic__iop.Hdr | None = None,
+        **ic_kwargs: typing_extensions.Unpack[IcKwargs],
     ) -> asyncio.Future[_TRpcRes]: ...
     @typing.overload
     def __call__(
         self,
         dct: dict[str, typing.Any],
         /,
-        *,
-        _timeout: float | None = None,
-        _login: str | None = None,
-        _group: str | None = None,
-        _password: str | None = None,
-        _kind: str | None = None,
-        _workspace_id: int | None = None,
-        _dealias: bool | None = None,
-        _hdr: ic__iop.Hdr | None = None,
+        **ic_kwargs: typing_extensions.Unpack[IcKwargs],
     ) -> asyncio.Future[_TRpcRes]: ...
     @typing.overload
     def __call__(
@@ -931,15 +863,7 @@ class Plugin:
         default_timeout: float | None = None,
         connect_timeout: float | None = None,
         no_act_timeout: float = 0.0,
-        timeout: float | None = None,
-        _timeout: float | None = None,
-        _login: str | None = None,
-        _group: str | None = None,
-        _password: str | None = None,
-        _kind: str | None = None,
-        _workspace_id: int | None = None,
-        _dealias: bool | None = None,
-        _hdr: ic__iop.Hdr | None = None,
+        **ic_kwargs: typing_extensions.Unpack[IcHdrKwargs],
     ) -> Channel: ...
     @typing.overload
     def connect(
@@ -950,15 +874,7 @@ class Plugin:
         default_timeout: float | None = None,
         connect_timeout: float | None = None,
         no_act_timeout: float = 0.0,
-        timeout: float | None = None,
-        _timeout: float | None = None,
-        _login: str | None = None,
-        _group: str | None = None,
-        _password: str | None = None,
-        _kind: str | None = None,
-        _workspace_id: int | None = None,
-        _dealias: bool | None = None,
-        _hdr: ic__iop.Hdr | None = None,
+        **ic_kwargs: typing_extensions.Unpack[IcHdrKwargs],
     ) -> Channel: ...
     @typing.overload
     def async_connect(
@@ -968,15 +884,7 @@ class Plugin:
         default_timeout: float | None = None,
         connect_timeout: float | None = None,
         no_act_timeout: float = 0.0,
-        timeout: float | None = None,
-        _timeout: float | None = None,
-        _login: str | None = None,
-        _group: str | None = None,
-        _password: str | None = None,
-        _kind: str | None = None,
-        _workspace_id: int | None = None,
-        _dealias: bool | None = None,
-        _hdr: ic__iop.Hdr | None = None,
+        **ic_kwargs: typing_extensions.Unpack[IcHdrKwargs],
     ) -> asyncio.Future[AsyncChannel]: ...
     @typing.overload
     def async_connect(
@@ -987,15 +895,7 @@ class Plugin:
         default_timeout: float | None = None,
         connect_timeout: float | None = None,
         no_act_timeout: float = 0.0,
-        timeout: float | None = None,
-        _timeout: float | None = None,
-        _login: str | None = None,
-        _group: str | None = None,
-        _password: str | None = None,
-        _kind: str | None = None,
-        _workspace_id: int | None = None,
-        _dealias: bool | None = None,
-        _hdr: ic__iop.Hdr | None = None,
+        **ic_kwargs: typing_extensions.Unpack[IcHdrKwargs],
     ) -> asyncio.Future[AsyncChannel]: ...
     def channel_server(self) -> ChannelServer: ...
     @property

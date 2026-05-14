@@ -4712,7 +4712,7 @@ class IopySlowTests(z.TestCase):
                 start_time = time.time()
                 try:
                     # Make a connection that should timeout in 1s
-                    self.p.connect(uri, _timeout=1)
+                    self.p.connect(uri, connect_timeout=1)
                 except iopy.Error:
                     pass
                 else:

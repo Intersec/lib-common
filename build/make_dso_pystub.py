@@ -144,15 +144,7 @@ def dump_connect_methods(plugin: iopy.Plugin, output_file: TextIO) -> None:
         default_timeout: float | None = None,
         connect_timeout: float | None = None,
         no_act_timeout: float = 0.0,
-        timeout: float | None = None,
-        _timeout: float | None = None,
-        _login: str | None = None,
-        _group: str | None = None,
-        _password: str | None = None,
-        _kind: str | None = None,
-        _workspace_id: int | None = None,
-        _dealias: bool | None = None,
-        _hdr: ic__iop.Hdr | None = None,
+        **ic_kwargs: typing_extensions.Unpack[iopy.IcHdrKwargs],
     ) -> Channel: ...
     @typing.overload
     def connect(
@@ -160,15 +152,7 @@ def dump_connect_methods(plugin: iopy.Plugin, output_file: TextIO) -> None:
         default_timeout: float | None = None,
         connect_timeout: float | None = None,
         no_act_timeout: float = 0.0,
-        timeout: float | None = None,
-        _timeout: float | None = None,
-        _login: str | None = None,
-        _group: str | None = None,
-        _password: str | None = None,
-        _kind: str | None = None,
-        _workspace_id: int | None = None,
-        _dealias: bool | None = None,
-        _hdr: ic__iop.Hdr | None = None,
+        **ic_kwargs: typing_extensions.Unpack[iopy.IcHdrKwargs],
     ) -> Channel: ...
     @typing.overload  # type: ignore[override]
     def async_connect(  # type: ignore[bad-override]
@@ -176,15 +160,7 @@ def dump_connect_methods(plugin: iopy.Plugin, output_file: TextIO) -> None:
         default_timeout: float | None = None,
         connect_timeout: float | None = None,
         no_act_timeout: float = 0.0,
-        timeout: float | None = None,
-        _timeout: float | None = None,
-        _login: str | None = None,
-        _group: str | None = None,
-        _password: str | None = None,
-        _kind: str | None = None,
-        _workspace_id: int | None = None,
-        _dealias: bool | None = None,
-        _hdr: ic__iop.Hdr | None = None,
+        **ic_kwargs: typing_extensions.Unpack[iopy.IcHdrKwargs],
     ) -> asyncio.Future[AsyncChannel]: ...
     @typing.overload
     def async_connect(
@@ -192,15 +168,7 @@ def dump_connect_methods(plugin: iopy.Plugin, output_file: TextIO) -> None:
         default_timeout: float | None = None,
         connect_timeout: float | None = None,
         no_act_timeout: float = 0.0,
-        timeout: float | None = None,
-        _timeout: float | None = None,
-        _login: str | None = None,
-        _group: str | None = None,
-        _password: str | None = None,
-        _kind: str | None = None,
-        _workspace_id: int | None = None,
-        _dealias: bool | None = None,
-        _hdr: ic__iop.Hdr | None = None,
+        **ic_kwargs: typing_extensions.Unpack[iopy.IcHdrKwargs],
     ) -> asyncio.Future[AsyncChannel]: ...
     @typing_extensions.override
     def channel_server(self) -> ChannelServer: ...

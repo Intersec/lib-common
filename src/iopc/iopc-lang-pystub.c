@@ -979,16 +979,53 @@ iopc_pystub_dump_rpc_fun_struct_resolved(sb_t *buf, const iopc_pkg_t *pkg,
     }
 }
 
-#define RPC_UNDERSCORE_KWARGS                                                \
-    "        _timeout: float | None = None,\n"                               \
-    "        _login: str | None = None,\n"                                   \
-    "        _group: str | None = None,\n"                                   \
-    "        _password: str | None = None,\n"                                \
-    "        _kind: str | None = None,\n"                                    \
-    "        _workspace_id: int | None = None,\n"                            \
-    "        _dealias: bool | None = None,\n"                                \
-    "        _hdr: ic__iop.Hdr | None = None,"
+/* Dump the merged TypedDict(s) that combine the RPC arg dict type(s) with
+ * `iopy.IcKwargs`. This lets `call(...)` overloads use a single
+ * `**kwargs: Unpack[<Full>DictType]` instead of repeating the IC underscore
+ * kwargs at every call site. */
+static void
+iopc_pystub_dump_rpc_arg_full_dict_types(sb_t *buf, const iopc_fun_t *rpc,
+                                         const char *rpc_name)
+{
+    bool arg_is_void = iopc_fun_struct_is_void(&rpc->arg);
+    bool arg_is_union;
 
+    if (_G.simple_definitions) {
+        return;
+    }
+
+    arg_is_union = !arg_is_void && !rpc->arg.is_anonymous &&
+                   rpc->arg.existing_struct->kind == IOP_T_UNION;
+
+    if (arg_is_union) {
+        const iopc_struct_t *arg_union_st =
+            rpc->arg.existing_struct->struct_def;
+
+        tab_for_each_entry(field, &arg_union_st->fields) {
+            sb_addf(buf,
+                    "@typing.type_check_only\n"
+                    "class %s_Arg_%s_FullDictType("
+                    "%s_%s_DictType, iopy.IcKwargs, total=False):\n"
+                    "    ...\n\n",
+                    rpc_name, field->name,
+                    arg_union_st->name, field->name);
+        }
+    } else if (arg_is_void) {
+        sb_addf(buf,
+                "@typing.type_check_only\n"
+                "class %s_Arg_FullDictType("
+                "iopy.IcKwargs, total=False):\n"
+                "    ...\n\n",
+                rpc_name);
+    } else {
+        sb_addf(buf,
+                "@typing.type_check_only\n"
+                "class %s_Arg_FullDictType("
+                "%s_Arg_DictType, iopy.IcKwargs, total=False):\n"
+                "    ...\n\n",
+                rpc_name, rpc_name);
+    }
+}
 
 static void iopc_pystub_dump_rpc_call_meth(sb_t *buf,
                                            const char *method_name,
@@ -1012,8 +1049,8 @@ static void iopc_pystub_dump_rpc_call_meth(sb_t *buf,
         "\n"
         "    @typing.overload  # type: ignore[override]\n"
         "    def %s(  # type: ignore[bad-overload]\n"
-        "        self, obj: %s, /, *,\n"
-        RPC_UNDERSCORE_KWARGS "\n"
+        "        self, obj: %s, /,\n"
+        "        **ic_kwargs: typing_extensions.Unpack[iopy.IcKwargs],\n"
         "    ) -> %s: ...\n",
         method_name, arg_obj_type, res_type);
 
@@ -1027,11 +1064,11 @@ static void iopc_pystub_dump_rpc_call_meth(sb_t *buf,
                 "\n"
                 "    @typing.overload\n"
                 "    def %s(\n"
-                "        self, *,\n"
-                RPC_UNDERSCORE_KWARGS "\n"
-                "        **kwargs: typing_extensions.Unpack[%s_%s_DictType],\n"
+                "        self,\n"
+                "        **kwargs: typing_extensions.Unpack["
+                "%s_Arg_%s_FullDictType],\n"
                 "    ) -> %s: ...\n",
-                method_name, arg_union_st->name, field->name, res_type);
+                method_name, rpc_name, field->name, res_type);
         }
     } else {
         sb_addf(
@@ -1039,8 +1076,8 @@ static void iopc_pystub_dump_rpc_call_meth(sb_t *buf,
             "\n"
             "    @typing.overload\n"
             "    def %s(\n"
-            "        self, dct: %s_Arg_DictType, *,\n"
-            RPC_UNDERSCORE_KWARGS "\n"
+            "        self, dct: %s_Arg_DictType,\n"
+            "        **ic_kwargs: typing_extensions.Unpack[iopy.IcKwargs],\n"
             "    ) -> %s: ...\n",
             method_name, rpc_name, res_type);
         sb_addf(
@@ -1048,9 +1085,9 @@ static void iopc_pystub_dump_rpc_call_meth(sb_t *buf,
             "\n"
             "    @typing.overload\n"
             "    def %s(\n"
-            "        self, *,\n"
-            RPC_UNDERSCORE_KWARGS "\n"
-            "        **kwargs: typing_extensions.Unpack[%s_Arg_DictType],\n"
+            "        self,\n"
+            "        **kwargs: typing_extensions.Unpack["
+            "%s_Arg_FullDictType],\n"
             "    ) -> %s: ...\n",
             method_name, rpc_name, res_type);
     }
@@ -1196,6 +1233,7 @@ static void iopc_pystub_dump_rpc(sb_t *buf, const iopc_pkg_t *pkg,
     iopc_pystup_dump_fold_begin_extra(buf, rpc_name);
 
     iopc_pystub_dump_rpc_types(buf, pkg, iface, rpc);
+    iopc_pystub_dump_rpc_arg_full_dict_types(buf, rpc, rpc_name);
 
     iopc_pystub_dump_rpc_base(buf, rpc, rpc_name);
     iopc_pystub_dump_client_sync_rpc(buf, pkg, rpc, rpc_name);
