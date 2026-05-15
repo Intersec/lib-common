@@ -1624,9 +1624,6 @@ iopc_iface_dump_hdr(sb_t *buf, const iopc_pkg_t *pkg,
     char *ibase = t_fmt("%s__%s", pkg_name, iname);
     int j = 0;
 
-    if (!iface->funs.len)
-        return;
-
     sb_addf(buf,
             "/*----- interface %s.%s -----*/\n",
             iopc_path_dot(pkg->name), iface->name);

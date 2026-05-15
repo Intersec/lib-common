@@ -424,4 +424,5 @@ interface InterfaceA {
 
 module ModuleA : test.emptystuffs.EmptyModule {
     InterfaceA interfaceA;
+    test.emptystuffs.EmptyIface emptyIface;
 };
