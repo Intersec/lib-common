@@ -16,16 +16,12 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include <lib-common/iop.h>
-#include <lib-common/iop-rpc.h>
-#include <lib-common/core/core.iop.h>
+package test.submodule;
 
-#include "test.iop.h"
-#include "test/submodule.iop.h"
-#include "tst1.iop.h"
-#include "testvoid.iop.h"
-
-IOP_EXPORT_PACKAGES_COMMON(0, NULL);
-
-IOP_EXPORT_PACKAGES(&test__pkg, &test__submodule__pkg, &tst1__pkg, &ic__pkg,
-                    &core__pkg, &testvoid__pkg);
+/* The only foreign dependency of `test.submodule` is via the
+ * inheritance of `ModuleSubA` from `test.ModuleA`. The generated
+ * pystub must still `import test__iop` so that the inherited
+ * `interfaceA` is properly typed instead of falling back to `Any`.
+ */
+module ModuleSubA : test.ModuleA {
+};

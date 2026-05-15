@@ -34,7 +34,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
-from typing_extensions import ParamSpec
+from typing_extensions import ParamSpec, assert_type
 
 import iopy
 import zpycore as z
@@ -4519,6 +4519,22 @@ class IopyIopStubsTests(z.TestCase):
         self.assertEqual(
             res_no_call_fun_toggle_void, (65540, exp_rpc_res_toggle_void)
         )
+
+    def test_submodule_inheritance_typing(self) -> None:
+        """
+        A submodule of `test.ModuleA` defined in a separate package
+        (`test.submodule.ModuleSubA`) must, in its generated pystub,
+        properly type the inherited `interfaceA` field as
+        `test.InterfaceA`.
+
+        The only foreign dependency of `test.submodule` is via the
+        module inheritance, so if the pystub generator omits
+        `import test__iop`, the inherited field falls back to `Any`
+        for static type checkers. `assert_type` asserts that the
+        static type is the expected one.
+        """
+        sub_mod = self.plugin_stub.modules.test_submodule_ModuleSubA
+        assert_type(sub_mod.interfaceA, 'test__iop.InterfaceA_Iface')
 
 
 # }}}

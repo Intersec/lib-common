@@ -1411,7 +1411,8 @@ static void iopc_pystub_dump_imports(sb_t *buf, iopc_pkg_t *pkg)
         sb_adds(buf, "import ic__iop\n");
     }
 
-    iopc_pkg_get_deps(pkg, 0, &t_deps, &t_weak_deps, &i_deps);
+    iopc_pkg_get_deps(pkg, IOPC_PKG_GET_DEPS_INCLUDE_IFACES, &t_deps,
+                      &t_weak_deps, &i_deps);
 
     tab_for_each_entry(dep, &t_deps) {
         t_iopc_pystub_dump_import(buf, dep, &imported);

@@ -30,6 +30,7 @@ ctx.stlib(
     source=[
         'test.iop',
         'test/emptystuffs.iop',
+        'test/submodule.iop',
     ],
 )
 
