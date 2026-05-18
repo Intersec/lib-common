@@ -162,14 +162,27 @@ void t_iop_sb_ypack(sb_t * nonnull sb, const iop_struct_t * nonnull st,
  *                           presentation.
  * \param[out] err        Buffer filled in case of error.
  */
-int iop_ypack_file(const char * nonnull filename, mode_t file_mode,
-                   const iop_struct_t * nonnull st,
-                   const void * nonnull value,
-                   const yaml__document_presentation__t * nullable presentation,
-                   sb_t * nonnull err);
+int iop_ypack_file(
+    const char * nonnull filename, mode_t file_mode,
+    const iop_struct_t * nonnull st, const void * nonnull value,
+    const yaml__document_presentation__t * nullable presentation,
+    sb_t * nonnull err);
 
 #define iop_ypack_file(filename, st, value, presentation, err)               \
     (iop_ypack_file)((filename), 0644, (st), (value), (presentation), (err))
+
+/** Pack an IOP C structure in an IOP-YAML file with custom pack flags.
+ *
+ * Same as iop_ypack_file, but lets the caller control the IOP pack flags
+ * mask. Use with caution: the flags applied by default in iop_ypack_file
+ * are chosen to keep the output safe and stable; the caller takes
+ * responsibility for whichever subset it picks here.
+ */
+int iop_ypack_file_with_flags(
+    const char * nonnull filename, mode_t file_mode,
+    const iop_struct_t * nonnull st, const void * nonnull value,
+    const yaml__document_presentation__t * nullable presentation,
+    unsigned flags, sb_t * nonnull err);
 
 /** Convert an IOP C structure into a YAML data AST. */
 void

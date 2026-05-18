@@ -269,6 +269,46 @@ Z_GROUP_EXPORT(iop_yaml)
 #undef TST_FLAGS
     } Z_TEST_END;
     /* }}} */
+    Z_TEST(pack_file_with_flags) { /* {{{ */
+        t_scope;
+        tstiop__struct_jpack_flags__t orig;
+        void *unpacked = NULL;
+        const char *path;
+        SB_1k(content);
+        SB_1k(err);
+
+        iop_init(tstiop__struct_jpack_flags, &orig);
+
+        /* iop_ypack_file skips defaults: doc is empty. */
+        path = t_fmt("%*pM/tstyaml-default.yml", LSTR_FMT_ARG(z_tmpdir_g));
+        Z_ASSERT_N(iop_ypack_file(path, &tstiop__struct_jpack_flags__s,
+                                  &orig, NULL, &err), "%pL", &err);
+        Z_ASSERT_N(sb_read_file(&content, path));
+        Z_ASSERT_STREQUAL(content.data, "{}\n");
+
+        /* Dropping SKIP_DEFAULT from the mask makes defaults appear. */
+        sb_reset(&content);
+        path = t_fmt("%*pM/tstyaml-full.yml", LSTR_FMT_ARG(z_tmpdir_g));
+        Z_ASSERT_N(iop_ypack_file_with_flags(
+                       path, 0644, &tstiop__struct_jpack_flags__s, &orig,
+                       NULL,
+                       IOP_JPACK_SKIP_EMPTY_ARRAYS
+                       | IOP_JPACK_SKIP_EMPTY_STRUCTS
+                       | IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES,
+                       &err),
+                   "%pL", &err);
+        Z_ASSERT_N(sb_read_file(&content, path));
+        Z_ASSERT_STREQUAL(content.data, "def: 1\n");
+
+        /* The produced YAML still unpacks to the same struct. */
+        Z_ASSERT_N(t_iop_yunpack_ptr_file(path,
+                       &tstiop__struct_jpack_flags__s, &unpacked, 0, NULL,
+                       &err),
+                   "%pL", &err);
+        Z_ASSERT_IOPEQUAL_DESC(&tstiop__struct_jpack_flags__s, &orig,
+                               unpacked);
+    } Z_TEST_END;
+    /* }}} */
     Z_TEST(pack_string) { /* {{{ */
         tstiop__my_union_a__t obj;
         const char invalid_utf8[3] = { 0xC0, 0x21, '\0' };

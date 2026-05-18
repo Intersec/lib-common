@@ -636,7 +636,8 @@ t_yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
 
         val = yaml_data_get_field_value(data, field_desc->name);
         if (val) {
-            if (t_yaml_fill_iop_field(env, val, field_st, field_desc, out) < 0)
+            if (t_yaml_fill_iop_field(env, val, field_st, field_desc,
+                                      out) < 0)
             {
                 goto error;
             }
@@ -1184,11 +1185,11 @@ t_iop_struct_to_yaml_data(const iop_struct_t * nonnull desc,
       | IOP_JPACK_SKIP_EMPTY_STRUCTS                                         \
       | IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES
 
-void t_iop_sb_ypack_with_flags(sb_t * nonnull sb,
-                               const iop_struct_t * nonnull st,
-                               const void * nonnull value,
-                               const yaml__document_presentation__t * nullable pres,
-                               unsigned flags)
+void t_iop_sb_ypack_with_flags(
+    sb_t * nonnull sb, const iop_struct_t * nonnull st,
+    const void * nonnull value,
+    const yaml__document_presentation__t * nullable pres,
+    unsigned flags)
 {
     yaml_data_t data;
     yaml_pack_env_t *env;
@@ -1211,16 +1212,17 @@ void t_iop_sb_ypack(sb_t * nonnull sb, const iop_struct_t * nonnull st,
     t_iop_sb_ypack_with_flags(sb, st, value, pres, DEFAULT_PACK_FLAGS);
 }
 
-int (iop_ypack_file)(const char *filename, mode_t file_mode,
-                     const iop_struct_t *st, const void * nonnull value,
-                     const yaml__document_presentation__t * nullable presentation,
-                     sb_t * nonnull err)
+int iop_ypack_file_with_flags(
+    const char *filename, mode_t file_mode,
+    const iop_struct_t *st, const void * nonnull value,
+    const yaml__document_presentation__t * nullable presentation,
+    unsigned flags, sb_t * nonnull err)
 {
     t_scope;
     yaml_pack_env_t *env;
     yaml_data_t data;
 
-    t_iop_struct_to_yaml_data(st, value, DEFAULT_PACK_FLAGS, &data, true);
+    t_iop_struct_to_yaml_data(st, value, flags, &data, true);
 
     env = t_yaml_pack_env_new();
     yaml_pack_env_set_file_mode(env, file_mode);
@@ -1229,6 +1231,16 @@ int (iop_ypack_file)(const char *filename, mode_t file_mode,
     }
 
     return t_yaml_pack_file(env, filename, &data, err);
+}
+
+int (iop_ypack_file)(
+    const char *filename, mode_t file_mode,
+    const iop_struct_t *st, const void * nonnull value,
+    const yaml__document_presentation__t * nullable presentation,
+    sb_t * nonnull err)
+{
+    return iop_ypack_file_with_flags(filename, file_mode, st, value,
+                                     presentation, DEFAULT_PACK_FLAGS, err);
 }
 
 void
