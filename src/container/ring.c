@@ -18,7 +18,8 @@
 
 #include <lib-common/container-ring.h>
 
-void generic_ring_ensure(generic_ring *r, int newlen, int el_siz)
+void generic_ring_ensure(generic_ring *r, int newlen, int el_siz,
+                         size_t el_align)
 {
     int cursize = r->size;
 
@@ -31,7 +32,7 @@ void generic_ring_ensure(generic_ring *r, int newlen, int el_siz)
     r->size = p_alloc_nr(r->size);
     if (r->size < newlen)
         r->size = newlen;
-    r->tab = irealloc(r->tab, r->len * el_siz, r->size * el_siz, 0,
+    r->tab = irealloc(r->tab, r->len * el_siz, r->size * el_siz, el_align,
                       MEM_RAW | MEM_LIBC);
 
     /* if elements are split in two parts. Move the shortest one */

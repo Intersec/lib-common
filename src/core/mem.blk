@@ -157,6 +157,11 @@ void __imalloc_too_large(void)
     logger_panic(&libc_g.logger, "you cannot allocate that much memory");
 }
 
+void __mem_alignment_unset(void)
+{
+    logger_panic(&libc_g.logger, "memory allocation alignment must be set");
+}
+
 static void core_mem_libc_print_state(void)
 {
 #ifdef __GLIBC__

@@ -28,7 +28,8 @@
     } pfx##_ring
 RING_TYPE(void, generic);
 
-void generic_ring_ensure(generic_ring *r, int newlen, int el_siz)
+void generic_ring_ensure(generic_ring *r, int newlen, int el_siz,
+                         size_t el_align)
     __attr_leaf__;
 
 #define RING_MAP(r, f, ...)                                            \
@@ -72,13 +73,15 @@ void generic_ring_ensure(generic_ring *r, int newlen, int el_siz)
                                                                        \
     __attr_unused__                                                    \
     static inline void pfx##_ring_unshift(pfx##_ring *r, type_t e) {   \
-        generic_ring_ensure((void *)r, ++r->len, sizeof(type_t));      \
+        generic_ring_ensure((void *)r, ++r->len, sizeof(type_t),       \
+                            alignof(type_t));                          \
         r->first = r->first ? r->first - 1 : r->size - 1;              \
         r->tab[r->first] = e;                                          \
     }                                                                  \
     __attr_unused__                                                    \
     static inline void pfx##_ring_push(pfx##_ring *r, type_t e) {      \
-        generic_ring_ensure((void *)r, r->len + 1, sizeof(type_t));    \
+        generic_ring_ensure((void *)r, r->len + 1, sizeof(type_t),     \
+                            alignof(type_t));                          \
         r->tab[pfx##_ring_pos(r, r->len++)] = e;                       \
     }                                                                  \
                                                                        \

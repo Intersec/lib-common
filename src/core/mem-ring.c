@@ -141,7 +141,7 @@ static ring_blk_t *blk_create(ring_pool_t *rp, size_t size_hint)
     }
     blksize = ROUND_UP(blksize, PAGE_SIZE);
     icheck_alloc(blksize);
-    blk = imalloc(blksize, 0, MEM_RAW | MEM_LIBC);
+    blk = imalloc(blksize, alignof(ring_blk_t), MEM_RAW | MEM_LIBC);
     blk->start    = blk->area;
     blk->size     = blksize - sizeof(*blk);
     rp->ringsize += blk->size;

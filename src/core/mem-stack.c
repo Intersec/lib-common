@@ -77,7 +77,7 @@ static mem_stack_blk_t *blk_create(mem_stack_pool_t *sp,
     if (blksize < alloc_target)
         blksize = alloc_target;
     blksize = ROUND_UP(blksize, PAGE_SIZE);
-    blk = imalloc(blksize, 0, MEM_RAW | MEM_LIBC);
+    blk = imalloc(blksize, alignof(mem_stack_blk_t), MEM_RAW | MEM_LIBC);
     blk->size      = blksize - sizeof(*blk);
     dlist_add_after(&cur->blk_list, &blk->blk_list);
 

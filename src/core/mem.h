@@ -329,6 +329,9 @@ __attribute__((error("you cannot allocate that much memory")))
 #endif
 extern void __imalloc_too_large(void);
 
+__attr_noreturn__ __attr_cold__
+extern void __mem_alignment_unset(void);
+
 #ifdef PAGE_SIZE
 # undef PAGE_SIZE
 #endif
@@ -338,9 +341,11 @@ extern void __imalloc_too_large(void);
 static ALWAYS_INLINE
 size_t mem_bit_align(const mem_pool_t * nonnull mp, size_t alignment)
 {
-    assert (bitcountsz(alignment) <= 1);
-    return (alignment ? MAX(mp->min_alignment, alignment)
-            : __BIGGEST_ALIGNMENT__);
+    if (unlikely(alignment == 0)) {
+        __mem_alignment_unset();
+    }
+    assert(bitcountsz(alignment) == 1);
+    return MAX(mp->min_alignment, alignment);
 }
 
 static ALWAYS_INLINE
