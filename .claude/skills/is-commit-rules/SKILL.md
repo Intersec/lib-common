@@ -9,35 +9,48 @@ Apply these rules **on top of** your usual commit message conventions
 (imperative mood, meaningful subject, etc.). They add constraints; they
 don't replace your defaults.
 
-## Rule 1 — 72-column limit
+## Rule 1 — Explain *why*, keep it concise
+
+The subject states *what* changed in imperative mood. The body MUST
+explain *why* — the motivation, constraint, or trade-off that the diff
+alone cannot reveal. Do NOT restate *what* or *how*: those are already
+visible in the modification itself.
+
+Keep the body short. A few lines is usually enough; add length only
+when the *why* genuinely needs it (prior incident, hidden constraint,
+non-obvious decision). A reviewer should grasp the motivation in
+seconds, not paragraphs.
+
+## Rule 2 — 72-column limit
 
 Subject and every body line MUST wrap at 72 columns. Exception: in the
 body, raw pasted content (logs, errors, stack traces, command output)
 may exceed 72 when wrapping would hurt readability.
 
-## Rule 2 — Do NOT generate a `Change-Id` trailer
+## Rule 3 — Do NOT generate a `Change-Id` trailer
 
 Never add `Change-Id:` to a new commit; the project's git hook generates
 it automatically.
 
-## Rule 3 — Preserve existing trailers
+## Rule 4 — Preserve existing trailers
 
 When amending, keep all existing trailers (`Change-Id:`, `Refs:`,
 `Closes:`, any `Key: value` tags at the end) exactly as-is — no
 modification, reordering, or removal.
 
-## Rule 4 — Keep the message up-to-date when amending
+## Rule 5 — Keep the message up-to-date when amending
 
 After amending, update the subject/body if the scope or intent changed
-(still respecting Rules 1 and 3).
+(still respecting Rules 1, 2, 3 and 4). Do not describe the changes
+between patchsets; describe the final state.
 
-## Rule 5 — Always include the `Co-Authored-By` trailer
+## Rule 6 — Always include the `Co-Authored-By` trailer
 
 Every commit MUST end with the `Co-Authored-By:` trailer from your
 system prompt, regardless of repo style. When amending, combine with
-Rule 3: keep an existing one, or add it if missing.
+Rule 4: keep an existing one, or add it if missing.
 
-## Rule 6 — Redmine ticket trailers (`Refs` / `Closes`)
+## Rule 7 — Redmine ticket trailers (`Refs` / `Closes`)
 
 This project links commits to Redmine tickets via:
 
@@ -54,9 +67,9 @@ Applies **only to new commits**, not amends:
    `Refs:`'d or `Closes:`'d, and wait for the answer.
 
 When amending, do not invoke this rule: existing trailers are preserved
-per Rule 3, and no new ones are added unless the user asks.
+per Rule 4, and no new ones are added unless the user asks.
 
-## Rule 7 — `RunTests:` for `@slow` Behave scenarios
+## Rule 8 — `RunTests:` for `@slow` Behave scenarios
 
 When the diff includes Behave `.feature` files, check whether any
 added or modified scenarios carry the `@slow` tag.  If so, a
