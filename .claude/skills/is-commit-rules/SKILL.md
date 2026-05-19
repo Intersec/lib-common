@@ -55,3 +55,19 @@ Applies **only to new commits**, not amends:
 
 When amending, do not invoke this rule: existing trailers are preserved
 per Rule 3, and no new ones are added unless the user asks.
+
+## Rule 7 — `RunTests:` for `@slow` Behave scenarios
+
+When the diff includes Behave `.feature` files, check whether any
+added or modified scenarios carry the `@slow` tag.  If so, a
+`RunTests:` footer is required so those scenarios run during review
+(they are otherwise excluded and run only in nightly campaigns).
+
+Reference the scenario's identifying tag(s) in `RunTests:` (typically
+`@redmine_XXXXX` but may be any tag that uniquely identifies the scenario).
+
+- **1–3 impacted tags** — list them all: `RunTests: @redmine_A @redmine_B`
+- **More than 3** — do not enumerate all tags; list the impacted
+  scenarios, propose a dedicated grouping tag to add to those scenarios
+  in the feature files, and ask the developer whether they want to add
+  that tag to the commit.
