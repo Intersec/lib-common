@@ -21,7 +21,7 @@ from waflib.Build import BuildContext
 ctx: BuildContext
 
 
-ctx.IopcOptions(ctx, json_path='.', ts_path='.')
+ctx.IopcOptions(ctx, json_path='.', ts_path='.', pystub_path='../pystubs')
 
 ctx.set_group('iopc')
 
