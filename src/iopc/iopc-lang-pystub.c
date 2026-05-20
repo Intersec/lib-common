@@ -1418,7 +1418,7 @@ static void iopc_pystub_dump_package(sb_t *buf, const iopc_pkg_t *pkg)
     iopc_pystup_dump_fold_begin_extra(buf, "Package");
 
     sb_adds(buf, "@typing.type_check_only\n");
-    sb_adds(buf, "class Interfaces(iopy.Interfaces):\n");
+    sb_adds(buf, "class _Interfaces(iopy.Interfaces):\n");
 
     if (pkg->ifaces.len) {
         tab_for_each_entry(iface, &pkg->ifaces) {
@@ -1437,9 +1437,9 @@ static void iopc_pystub_dump_package(sb_t *buf, const iopc_pkg_t *pkg)
     sb_adds(buf, "\n");
 
     sb_adds(buf, "@typing.type_check_only\n");
-    sb_adds(buf, "class Package(iopy.Package):\n");
+    sb_adds(buf, "class _Package(iopy.Package):\n");
 
-    sb_adds(buf, "    interfaces: Interfaces  # type: ignore[bad-override]\n\n");
+    sb_adds(buf, "    interfaces: _Interfaces  # type: ignore[bad-override]\n\n");
 
     tab_for_each_entry(en, &pkg->enums) {
         sb_addf(buf, "    %s = %s\n", en->name, en->name);

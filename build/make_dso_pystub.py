@@ -202,7 +202,7 @@ def dump_plugin(
 ) -> None:
     output_file.write('class Plugin(iopy.Plugin):\n')
     output_file.writelines(
-        f'    {pkg_name}: {pkg_name}__iop.Package\n' for pkg_name in packages
+        f'    {pkg_name}: {pkg_name}__iop._Package\n' for pkg_name in packages
     )
 
     # Dump modules
