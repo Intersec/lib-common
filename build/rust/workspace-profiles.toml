@@ -1,0 +1,100 @@
+###########################################################################
+#                                                                         #
+# Copyright 2026 INTERSEC SA                                              #
+#                                                                         #
+# Licensed under the Apache License, Version 2.0 (the "License");         #
+# you may not use this file except in compliance with the License.        #
+# You may obtain a copy of the License at                                 #
+#                                                                         #
+#     http://www.apache.org/licenses/LICENSE-2.0                          #
+#                                                                         #
+# Unless required by applicable law or agreed to in writing, software     #
+# distributed under the License is distributed on an "AS IS" BASIS,       #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.#
+# See the License for the specific language governing permissions and     #
+# limitations under the License.                                          #
+#                                                                         #
+###########################################################################
+
+# Canonical source for the Rust workspace `[profile.*]` sections shared
+# by lib-common and the downstream Intersec workspaces that embed it
+# (mmsx, ...).
+#
+# The content between the `# <fragment>` / `# </fragment>` markers
+# below is spliced verbatim into each consumer Cargo.toml between its
+# `# <include shared:profiles>` / `# </include shared:profiles>`
+# markers by build/rust/sync-cargo-shared.py.
+#
+# Edit this file, then re-run sync-cargo-shared.py in each consumer
+# workspace (or `--check` it from static-checks.py to enforce sync).
+
+# <fragment>
+# TODO: see https://nnethercote.github.io/perf-book/build-configuration.html
+
+[profile.dev]
+# Represents waf profile 'debug'.
+panic = "abort"
+
+[profile.default]
+inherits = "dev"
+opt-level = 3 # Same as 'release'
+
+[profile.release]
+codegen-units = 1
+panic = "abort"
+
+[profile.asan]
+inherits = "dev"
+
+[profile.tsan]
+inherits = "dev"
+
+[profile.mem-bench]
+inherits = "dev"
+
+[profile.coverage]
+inherits = "dev"
+
+[profile.fuzzing]
+inherits = "default"
+
+[profile.fuzzingcov]
+inherits = "dev"
+
+[profile.fuzzingdebug]
+inherits = "dev"
+
+# {{{ 'pic' profiles
+
+[profile.dev-pic]
+inherits = "dev"
+
+[profile.default-pic]
+inherits = "default"
+
+[profile.release-pic]
+inherits = "release"
+
+[profile.asan-pic]
+inherits = "asan"
+
+[profile.tsan-pic]
+inherits = "tsan"
+
+[profile.mem-bench-pic]
+inherits = "mem-bench"
+
+[profile.coverage-pic]
+inherits = "coverage"
+
+[profile.fuzzing-pic]
+inherits = "fuzzing"
+
+[profile.fuzzingcov-pic]
+inherits = "fuzzingcov"
+
+[profile.fuzzingdebug-pic]
+inherits = "fuzzingdebug"
+
+# }}}
+# </fragment>

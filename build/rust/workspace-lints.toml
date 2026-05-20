@@ -16,130 +16,19 @@
 #                                                                         #
 ###########################################################################
 
-# {{{ General options
+# Canonical source for the Rust `[workspace.lints.*]` sections shared
+# by lib-common and the downstream Intersec workspaces that embed it
+# (mmsx, ...).
+#
+# The content between the `# <fragment>` / `# </fragment>` markers
+# below is spliced verbatim into each consumer Cargo.toml between its
+# `# <include shared:lints>` / `# </include shared:lints>` markers by
+# build/rust/sync-cargo-shared.py.
+#
+# Edit this file, then re-run sync-cargo-shared.py in each consumer
+# workspace (or `--check` it from static-checks.py to enforce sync).
 
-[workspace]
-members = [
-    "rust/deps-workspace-hack",
-    "rust/farchc",
-    "rust/libcommon",
-    "rust/libcommon-core",
-    "rust/waf-cargo-build",
-    "rust/waf-cargo-build-macros",
-
-    "tests/iop-rust",
-]
-resolver = "3"
-
-[workspace.package]
-edition = "2024"
-publish = false
-
-# }}}
-# {{{ Dependencies
-
-[workspace.dependencies]
-# Used by waf-cargo-build
-bindgen = { version = "0.72.0", git = "https://github.com/Intersec/rust-bindgen.git", rev = "f819034c69c6abd669e7ef12080d53546fdb1d3b" }
-cc = "1.2.25"
-serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.140"
-proc-macro2 = "1.0"
-syn = { version = "2.0", features = ["full", "visit-mut"] }
-
-# Used by farchc
-clap = { version = "4.5.39", features = ["derive"] }
-rand = "0.9.1"
-
-# Used by waf-cargo-build
-quote = "1.0"
-
-# Used by modules
-paste = "1.0.15"
-
-# Used by waf-cargo-build for IOP code generation
-prettyplease = "0.2"
-
-# }}}
-# {{{ Shared profiles
-
-# <include shared:profiles>
-# Synced from build/rust/workspace-profiles.toml. Edit there, then re-run sync-cargo-shared.py.
-# TODO: see https://nnethercote.github.io/perf-book/build-configuration.html
-
-[profile.dev]
-# Represents waf profile 'debug'.
-panic = "abort"
-
-[profile.default]
-inherits = "dev"
-opt-level = 3 # Same as 'release'
-
-[profile.release]
-codegen-units = 1
-panic = "abort"
-
-[profile.asan]
-inherits = "dev"
-
-[profile.tsan]
-inherits = "dev"
-
-[profile.mem-bench]
-inherits = "dev"
-
-[profile.coverage]
-inherits = "dev"
-
-[profile.fuzzing]
-inherits = "default"
-
-[profile.fuzzingcov]
-inherits = "dev"
-
-[profile.fuzzingdebug]
-inherits = "dev"
-
-# {{{ 'pic' profiles
-
-[profile.dev-pic]
-inherits = "dev"
-
-[profile.default-pic]
-inherits = "default"
-
-[profile.release-pic]
-inherits = "release"
-
-[profile.asan-pic]
-inherits = "asan"
-
-[profile.tsan-pic]
-inherits = "tsan"
-
-[profile.mem-bench-pic]
-inherits = "mem-bench"
-
-[profile.coverage-pic]
-inherits = "coverage"
-
-[profile.fuzzing-pic]
-inherits = "fuzzing"
-
-[profile.fuzzingcov-pic]
-inherits = "fuzzingcov"
-
-[profile.fuzzingdebug-pic]
-inherits = "fuzzingdebug"
-
-# }}}
-# </include shared:profiles>
-
-# }}}
-# {{{ Shared lints
-
-# <include shared:lints>
-# Synced from build/rust/workspace-lints.toml. Edit there, then re-run sync-cargo-shared.py.
+# <fragment>
 [workspace.lints.rust]
 # Deny every rustc warnings
 warnings = "deny"
@@ -246,6 +135,4 @@ cast_sign_loss = "allow"
 implicit_hasher = "allow"
 must_use_candidate = "allow"
 ptr_as_ptr = "allow"
-# </include shared:lints>
-
-# }}}
+# </fragment>

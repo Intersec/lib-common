@@ -178,6 +178,15 @@ def main() -> None:
         run_cmd('ast-grep', 'scan')
         run_cmd('ast-grep', 'test')
 
+    # Check that Cargo.toml's shared profile/lint regions match the
+    # canonical fragments in build/rust/.
+    run_cmd(
+        sys.executable,
+        str(SCRIPT_DIR / 'build' / 'rust' / 'sync-cargo-shared.py'),
+        '--check',
+        str(SCRIPT_DIR / 'Cargo.toml'),
+    )
+
     # Cargo clippy and fmt only work for the entire codebase
     run_cmd('cargo', 'clippy', '--tests')
     run_cmd('cargo', 'fmt', '--check')
