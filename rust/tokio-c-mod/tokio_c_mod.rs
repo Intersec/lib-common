@@ -16,6 +16,51 @@
 /*                                                                         */
 /***************************************************************************/
 
+//! Infrastructure for creating tokio threads able to communicate with C event loop.
+//!
+//! This provides a `TokioCMod` exposed to C with [`c_module!`] as
+//! `tokio_c_module`. A global [`OnceLock`] stores the tokio runtime's [`Handle`]
+//! allowing us to run a thread with a custom [`Future`] object.
+//!
+//! # Overview
+//!
+//! The `tokio_c_module` is implemented with 3 methods:
+//! - `initialize` : initialize the module, with a `shutdown_send` signal and a runtime.
+//! - `on_term` : send the shutdown signal to the Tokio thread when the process
+//!   receives a termination signal.
+//! - `shutdown` : terminate the thread and make sure it is finished.
+//!
+//! The [`spawn`] function allows us to spawn a task using the `tokio_c_module`
+//! runtime and the [`Future`] input. It returns a [`tokio::task::JoinHandle`].
+//!
+//! # Example
+//!
+//! ## Use `tokio_c_module` with `main_c_queue_schedule`
+//! ```
+//! # use tokio_c_mod::tokio_get_module;
+//! # use libcommon_core::bindings::{el_blocker_register, el_loop, el_unregister, ev_t};
+//! # use libcommon_core::module::{module_is_loaded, module_release, module_require};
+//! # use libcommon_core::thr::main_c_queue_schedule;
+//! # struct ElBlocker(*mut ev_t);
+//! # unsafe impl Send for ElBlocker {}
+//! module_require(tokio_get_module());
+//! let blocker = ElBlocker(unsafe { el_blocker_register() });
+//!
+//! tokio_c_mod::spawn(async move {
+//!     main_c_queue_schedule(move || {
+//!         let mut blocker = blocker;
+//!         unsafe {
+//!             el_unregister(&raw mut blocker.0);
+//!         }
+//!     });
+//! });
+//!
+//! unsafe {
+//!     el_loop();
+//! }
+//! module_release(tokio_get_module());
+//! ```
+
 use libcommon_core::bindings::{on_term_method, thr_get_module};
 use libcommon_core::{c_module, thr};
 use std::future::Future;
@@ -26,14 +71,43 @@ use tokio::runtime::{Builder, Handle};
 use tokio::sync::oneshot::{self, Sender};
 use tokio::task::JoinHandle as TokioJoinHandle;
 
+// {{{ TokioCMod
+
+/// Global variable to store Tokio C Module runtime.
 static TOKIO_RUNTIME: OnceLock<Handle> = OnceLock::new();
 
+/// Structure to build a tokio c module.
+///
+/// Fields are Options so the struct can derive Default, since neither
+/// the Sender nor the thread `JoinHandle` exists before initialization.
 #[derive(Default)]
 struct TokioCMod {
     shutdown_send: Option<Sender<()>>,
     tokio_thr: Option<JoinHandle<()>>,
 }
 
+/// Spawn a future on the `tokio_c_module` runtime.
+///
+/// # Arguments
+///
+/// `future` - the async task to execute on the `TOKIO_RUNTIME`
+///
+/// # Returns
+///
+/// Returns a [`tokio::task::JoinHandle`] for the spawned future.
+///
+/// # Example
+///
+/// ```
+/// # use tokio_c_mod::tokio_get_module;
+/// # use libcommon_core::module::{module_require,module_release};
+/// #
+/// # module_require(tokio_get_module());
+///   tokio_c_mod::spawn(async move {
+///      println!("some task");
+///   });
+/// # module_release(tokio_get_module());
+/// ```
 pub fn spawn<F>(future: F) -> TokioJoinHandle<F::Output>
 where
     F: Future + Send + 'static,
@@ -42,6 +116,10 @@ where
     TOKIO_RUNTIME.wait().spawn(future)
 }
 
+// }}}
+// {{{ tokio c module
+
+/// Initialize a `tokio_c_module` and the global variable `TOKIO_RUNTIME`.
 fn tokio_c_mod_initialize(ctx: &mut TokioCMod, _arg: *mut c_void) {
     // Oneshot because tokio_c_mod must be reinitialized after shutdown, not reused.
     let (shutdown_send, shutdown_recv) = oneshot::channel();
@@ -61,6 +139,7 @@ fn tokio_c_mod_initialize(ctx: &mut TokioCMod, _arg: *mut c_void) {
     }));
 }
 
+/// Send a signal to terminate the tokio c mod thread.
 fn send_shutdown(ctx: &mut TokioCMod) {
     if let Some(shutdown_send) = ctx.shutdown_send.take() {
         let _unused: Result<(), ()> = shutdown_send.send(());
@@ -71,6 +150,7 @@ fn tokio_c_mod_on_term(ctx: &mut TokioCMod, _arg: c_int) {
     send_shutdown(ctx);
 }
 
+/// Shutdown the `tokio_c_module` and terminate the thread.
 fn tokio_c_mod_shutdown(ctx: &mut TokioCMod) {
     send_shutdown(ctx);
     if let Some(thread) = ctx.tokio_thr.take() {
@@ -82,6 +162,7 @@ fn tokio_c_mod_shutdown(ctx: &mut TokioCMod) {
     }
 }
 
+// `tokio_c_module` module builder. See `module.rs` for further documentation
 c_module!(tokio, TokioCMod, |builder| {
     builder
         .depends_on(unsafe { thr_get_module() })
@@ -89,6 +170,7 @@ c_module!(tokio, TokioCMod, |builder| {
         .implement_int(&raw const on_term_method, tokio_c_mod_on_term)
         .shutdown(tokio_c_mod_shutdown);
 });
+// }}}
 
 #[cfg(test)]
 mod tests {
