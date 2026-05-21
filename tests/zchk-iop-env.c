@@ -37,6 +37,66 @@ struct {
 } zchk_iop_env_g;
 #define _G zchk_iop_env_g
 
+/* File-local convenience wrappers around the ctx-taking getters: tests
+ * routinely look things up one at a time on a stable env, so wrap the
+ * scope+lookup pattern here to avoid sprinkling
+ * \ref iop_env_ctx_acquire_scoped in every test. Non-test code should not
+ * use these — pin a snapshot via \ref iop_env_ctx_acquire_scoped and call
+ * \ref iop_env_ctx_get_* directly. */
+static ALWAYS_INLINE const iop_struct_t * nullable
+iop_env_get_struct(const iop_env_t *iop_env, lstr_t fullname)
+{
+    const iop_env_ctx_t *iop_env_ctx;
+
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+    return iop_env_ctx_get_struct(iop_env_ctx, fullname);
+}
+
+static ALWAYS_INLINE const iop_enum_t * nullable
+iop_env_get_enum(const iop_env_t *iop_env, lstr_t fullname)
+{
+    const iop_env_ctx_t *iop_env_ctx;
+
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+    return iop_env_ctx_get_enum(iop_env_ctx, fullname);
+}
+
+static ALWAYS_INLINE const iop_typedef_t * nullable
+iop_env_get_typedef(const iop_env_t *iop_env, lstr_t fullname)
+{
+    const iop_env_ctx_t *iop_env_ctx;
+
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+    return iop_env_ctx_get_typedef(iop_env_ctx, fullname);
+}
+
+static ALWAYS_INLINE const iop_iface_t * nullable
+iop_env_get_iface(const iop_env_t *iop_env, lstr_t fullname)
+{
+    const iop_env_ctx_t *iop_env_ctx;
+
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+    return iop_env_ctx_get_iface(iop_env_ctx, fullname);
+}
+
+static ALWAYS_INLINE const iop_mod_t * nullable
+iop_env_get_mod(const iop_env_t *iop_env, lstr_t fullname)
+{
+    const iop_env_ctx_t *iop_env_ctx;
+
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+    return iop_env_ctx_get_mod(iop_env_ctx, fullname);
+}
+
+static ALWAYS_INLINE const iop_pkg_t * nullable
+iop_env_get_pkg(const iop_env_t *iop_env, lstr_t fullname)
+{
+    const iop_env_ctx_t *iop_env_ctx;
+
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+    return iop_env_ctx_get_pkg(iop_env_ctx, fullname);
+}
+
 /* {{{ IOP env testing helpers */
 
 static int z_dso_open(const char *dso_path, bool in_cmddir,

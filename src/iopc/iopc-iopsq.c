@@ -109,6 +109,9 @@ static int iopsq_fill_type(const iop_env_t *iop_env,
                            const iop_full_type_t *ftype, iop__type__t *type)
 {
     lstr_t typename;
+    const iop_env_ctx_t *iop_env_ctx;
+
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
     if (iop_type_to_iop(ftype->type, type) >= 0) {
         return 0;
@@ -117,7 +120,7 @@ static int iopsq_fill_type(const iop_env_t *iop_env,
     if (ftype->type == IOP_T_ENUM) {
         typename = ftype->en->fullname;
 
-        if (iop_env_get_enum(iop_env, typename) == ftype->en) {
+        if (iop_env_ctx_get_enum(iop_env_ctx, typename) == ftype->en) {
             /* The enumeration is registered in the environment so it can
              * be referred to with a type name. */
             *type = IOP_UNION(iop__type, type_name, typename);
@@ -127,7 +130,7 @@ static int iopsq_fill_type(const iop_env_t *iop_env,
         assert (!iop_type_is_scalar(ftype->type));
         typename = ftype->st->fullname;
 
-        if (iop_env_get_struct(iop_env, typename) == ftype->st) {
+        if (iop_env_ctx_get_struct(iop_env_ctx, typename) == ftype->st) {
             /* The struct/union/class is registered in the environment so
              * it can be referred to with a type name. */
             *type = IOP_UNION(iop__type, type_name, typename);
@@ -236,12 +239,14 @@ iopc_field_set_typename(iopc_field_t *nonnull f, const iop_env_t *iop_env,
              * proper type name. */
             const iop_struct_t *st;
             const iop_enum_t *en;
+            const iop_env_ctx_t *iop_env_ctx;
 
-            if ((st = iop_env_get_struct(iop_env, typename))) {
+            iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+            if ((st = iop_env_ctx_get_struct(iop_env_ctx, typename))) {
                 f->external_st = st;
                 f->kind = st->is_union ? IOP_T_UNION : IOP_T_STRUCT;
                 f->has_external_type = true;
-            } else if ((en = iop_env_get_enum(iop_env, typename))) {
+            } else if ((en = iop_env_ctx_get_enum(iop_env_ctx, typename))) {
                 f->external_en = en;
                 f->kind = IOP_T_ENUM;
                 f->has_external_type = true;

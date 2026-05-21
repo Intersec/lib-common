@@ -6523,13 +6523,9 @@ bool iop_class_is_a(const iop_struct_t *cls1, const iop_struct_t *cls2)
     return false;
 }
 
-static const iop_typedef_t * nullable
-iop_env_get_typedef_ctx(const iop_env_ctx_t * nonnull iop_env_ctx,
-                        lstr_t fullname);
-
 static const iop_env_struct_t * nullable
-iop_env_get_env_struct(const iop_env_ctx_t * nonnull iop_env_ctx,
-                       lstr_t fullname);
+iop_env_ctx_get_env_struct(const iop_env_ctx_t * nonnull iop_env_ctx,
+                           lstr_t fullname);
 
 static const iop_struct_t *
 iop_get_class_by_fullname_(const iop_env_ctx_t *iop_env_ctx,
@@ -6539,13 +6535,13 @@ iop_get_class_by_fullname_(const iop_env_ctx_t *iop_env_ctx,
     const iop_typedef_t *td;
 
     /* Test direct reference. */
-    env_struct = iop_env_get_env_struct(iop_env_ctx, fullname);
+    env_struct = iop_env_ctx_get_env_struct(iop_env_ctx, fullname);
     if (env_struct) {
         return env_struct->ancestor == st ? env_struct->st : NULL;
     }
 
     /* Test typedef reference. */
-    td = iop_env_get_typedef_ctx(iop_env_ctx, fullname);
+    td = iop_env_ctx_get_typedef(iop_env_ctx, fullname);
     if (td && td->type == IOP_T_STRUCT) {
         return iop_get_class_by_fullname_(
             iop_env_ctx, st, td->ref_struct->fullname);
@@ -7055,8 +7051,8 @@ void iop_register_packages(iop_env_t *iop_env, const iop_pkg_t * const *pkgs,
     iop_env_ctx_replace(iop_env, &new_ctx);
 }
 
-static const iop_typedef_t * nullable
-iop_env_get_typedef_ctx(const iop_env_ctx_t * nonnull iop_env_ctx,
+const iop_typedef_t * nullable
+iop_env_ctx_get_typedef(const iop_env_ctx_t * nonnull iop_env_ctx,
                         lstr_t fullname)
 {
     return qm_get_def_safe(iop_typedef, &iop_env_ctx->typedef_by_fullname,
@@ -7064,30 +7060,28 @@ iop_env_get_typedef_ctx(const iop_env_ctx_t * nonnull iop_env_ctx,
 }
 
 static const iop_env_struct_t * nullable
-iop_env_get_env_struct(const iop_env_ctx_t * nonnull iop_env_ctx,
-                       lstr_t fullname)
+iop_env_ctx_get_env_struct(const iop_env_ctx_t * nonnull iop_env_ctx,
+                           lstr_t fullname)
 {
     return qm_get_def_p_safe(iop_env_struct, &iop_env_ctx->struct_by_fullname,
                              &fullname, NULL);
 }
 
 const iop_struct_t * nullable
-iop_env_get_struct(const iop_env_t * nonnull iop_env, lstr_t fullname)
+iop_env_ctx_get_struct(const iop_env_ctx_t * nonnull iop_env_ctx,
+                       lstr_t fullname)
 {
-    const iop_env_ctx_t *iop_env_ctx;
     const iop_env_struct_t *env_struct;
     const iop_typedef_t *td;
 
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
-
     /* Test direct reference. */
-    env_struct = iop_env_get_env_struct(iop_env_ctx, fullname);
+    env_struct = iop_env_ctx_get_env_struct(iop_env_ctx, fullname);
     if (env_struct) {
         return env_struct->st;
     }
 
     /* Test typedef reference. */
-    td = iop_env_get_typedef_ctx(iop_env_ctx, fullname);
+    td = iop_env_ctx_get_typedef(iop_env_ctx, fullname);
     if (td && (td->type == IOP_T_STRUCT || td->type == IOP_T_UNION)) {
         return td->ref_struct;
     }
@@ -7097,13 +7091,11 @@ iop_env_get_struct(const iop_env_t * nonnull iop_env, lstr_t fullname)
 }
 
 const iop_enum_t * nullable
-iop_env_get_enum(const iop_env_t * nonnull iop_env, lstr_t fullname)
+iop_env_ctx_get_enum(const iop_env_ctx_t * nonnull iop_env_ctx,
+                     lstr_t fullname)
 {
-    const iop_env_ctx_t *iop_env_ctx;
     const iop_enum_t *en;
     const iop_typedef_t *td;
-
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
     /* Test direct reference. */
     en = qm_get_def_safe(iop_enum, &iop_env_ctx->enum_by_fullname, &fullname,
@@ -7113,7 +7105,7 @@ iop_env_get_enum(const iop_env_t * nonnull iop_env, lstr_t fullname)
     }
 
     /* Test typedef reference. */
-    td = iop_env_get_typedef_ctx(iop_env_ctx, fullname);
+    td = iop_env_ctx_get_typedef(iop_env_ctx, fullname);
     if (td && td->type == IOP_T_ENUM) {
         return td->ref_enum;
     }
@@ -7122,41 +7114,26 @@ iop_env_get_enum(const iop_env_t * nonnull iop_env, lstr_t fullname)
     return NULL;
 }
 
-const iop_typedef_t * nullable
-iop_env_get_typedef(const iop_env_t * nonnull iop_env, lstr_t fullname)
-{
-    const iop_env_ctx_t *iop_env_ctx;
-
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
-    return iop_env_get_typedef_ctx(iop_env_ctx, fullname);
-}
-
 const iop_iface_t * nullable
-iop_env_get_iface(const iop_env_t * nonnull iop_env, lstr_t fullname)
+iop_env_ctx_get_iface(const iop_env_ctx_t * nonnull iop_env_ctx,
+                      lstr_t fullname)
 {
-    const iop_env_ctx_t *iop_env_ctx;
-
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
     return qm_get_def_safe(iop_iface, &iop_env_ctx->iface_by_fullname,
                            &fullname, NULL);
 }
 
 const iop_mod_t * nullable
-iop_env_get_mod(const iop_env_t * nonnull iop_env, lstr_t fullname)
+iop_env_ctx_get_mod(const iop_env_ctx_t * nonnull iop_env_ctx,
+                    lstr_t fullname)
 {
-    const iop_env_ctx_t *iop_env_ctx;
-
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
     return qm_get_def_safe(iop_mod, &iop_env_ctx->mod_by_fullname,
                            &fullname, NULL);
 }
 
 const iop_pkg_t * nullable
-iop_env_get_pkg(const iop_env_t * nonnull iop_env, lstr_t fullname)
+iop_env_ctx_get_pkg(const iop_env_ctx_t * nonnull iop_env_ctx,
+                    lstr_t fullname)
 {
-    const iop_env_ctx_t *iop_env_ctx;
-
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
     return qm_get_def_safe(iop_pkg, &iop_env_ctx->pkg_by_fullname,
                            &fullname, NULL);
 }
@@ -7780,6 +7757,10 @@ get_parents_until_name(const iop_env_t * nonnull iop_env,
                        const iop_struct_t *st, const lstr_t *name,
                        qv_t(iop_struct) *vec)
 {
+    const iop_env_ctx_t *iop_env_ctx;
+
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+
     while ((st = st->class_attrs->parent)) {
         if (name) {
             if (lstr_equal(st->fullname, *name)) {
@@ -7787,7 +7768,7 @@ get_parents_until_name(const iop_env_t * nonnull iop_env,
             } else {
                 const iop_struct_t *st_in_env;
 
-                st_in_env = iop_env_get_struct(iop_env, *name);
+                st_in_env = iop_env_ctx_get_struct(iop_env_ctx, *name);
                 if (st_in_env == st) {
                     return st;
                 }
@@ -8478,10 +8459,13 @@ int iop_pkg_check_backward_compat_ctx(const iop_env_t * nonnull iop_env1,
                                       iop_compat_ctx_t * nonnull ctx,
                                       unsigned flags, sb_t * nonnull err)
 {
+    const iop_env_ctx_t *iop_env_ctx2;
     bool is_same_pkg_name = lstr_equal(pkg1->name, pkg2->name);
     int res = 0;
 
-    assert (flags & IOP_COMPAT_BIN || flags & IOP_COMPAT_JSON);
+    assert(flags & IOP_COMPAT_BIN || flags & IOP_COMPAT_JSON);
+
+    iop_env_ctx_acquire_scoped(iop_env2, iop_env_ctx2);
 
     ctx->err = err;
 
@@ -8518,7 +8502,7 @@ int iop_pkg_check_backward_compat_ctx(const iop_env_t * nonnull iop_env1,
                 LSTR_FMT_ARG(iop_get_name_from_fullname(st1->fullname)));
         }
 
-        st2 = iop_env_get_struct(iop_env2, name);
+        st2 = iop_env_ctx_get_struct(iop_env_ctx2, name);
         if (!st2) {
             iop_compat_add_err(ctx, "%s `%*pM` does not exist anymore",
                                what, LSTR_FMT_ARG(st1->fullname));

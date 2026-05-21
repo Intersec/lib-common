@@ -148,7 +148,9 @@ iop_pkg_get_struct(const iop_pkg_t *pkg, lstr_t fullname)
     return NULL;
 }
 
-static int iopdso_register_struct_ref(iop_dso_t *dso, const iop_struct_t *st,
+static int iopdso_register_struct_ref(iop_dso_t *dso,
+                                      const iop_env_ctx_t *iop_env_ctx,
+                                      const iop_struct_t *st,
                                       const iop_pkg_t *own_pkg, sb_t *err)
 {
     const iop_struct_t *pkg_st;
@@ -156,11 +158,11 @@ static int iopdso_register_struct_ref(iop_dso_t *dso, const iop_struct_t *st,
     const iop_pkg_t *pkg;
     iop_dso_t *dep;
 
-    pkg = iop_env_get_pkg(dso->iop_env, pkgname);
+    pkg = iop_env_ctx_get_pkg(iop_env_ctx, pkgname);
     if (!pkg) {
         lstr_t pkgname2 = iop_pkgname_from_fullname(pkgname);
 
-        pkg = iop_env_get_pkg(dso->iop_env, pkgname2);
+        pkg = iop_env_ctx_get_pkg(iop_env_ctx, pkgname2);
         if (!pkg) {
             e_trace(4, "cannot find package `%*pM` in current environment",
                     LSTR_FMT_ARG(pkgname));
@@ -179,7 +181,8 @@ static int iopdso_register_struct_ref(iop_dso_t *dso, const iop_struct_t *st,
         return 0;
     }
 
-    dep = iop_dso_get_from_pkg(dso->iop_env, pkg);
+    dep = qm_get_def_safe(iop_dso_by_pkg, &iop_env_ctx->dso_by_pkg, pkg,
+                          NULL);
     if (dep && dep != dso) {
         qh_add(ptr, &dso->depends_on, dep);
         qh_add(ptr, &dep->needed_by,  dso);
@@ -189,8 +192,8 @@ static int iopdso_register_struct_ref(iop_dso_t *dso, const iop_struct_t *st,
 }
 
 static int iopdso_register_class_parent_ref(
-    iop_dso_t *dso, const iop_struct_t *desc,
-    const iop_pkg_t *own_pkg, sb_t *err)
+    iop_dso_t *dso, const iop_env_ctx_t *iop_env_ctx,
+    const iop_struct_t *desc, const iop_pkg_t *own_pkg, sb_t *err)
 {
     iop_class_attrs_t *class_attrs;
 
@@ -200,27 +203,30 @@ static int iopdso_register_class_parent_ref(
 
     class_attrs = (iop_class_attrs_t *)desc->class_attrs;
     if (class_attrs->parent) {
-        RETHROW(iopdso_register_struct_ref(dso, class_attrs->parent, own_pkg,
+        RETHROW(iopdso_register_struct_ref(dso, iop_env_ctx,
+                                           class_attrs->parent, own_pkg,
                                            err));
     }
     return 0;
 }
 
-static int iopdso_register_pkg_ref(iop_dso_t *dso, const iop_pkg_t *pkg,
-                                   sb_t *err)
+static int iopdso_register_pkg_ref(iop_dso_t *dso,
+                                   const iop_env_ctx_t *iop_env_ctx,
+                                   const iop_pkg_t *pkg, sb_t *err)
 {
     for (const iop_struct_t *const *it = pkg->structs; *it; it++) {
         const iop_struct_t *desc = *it;
 
-        RETHROW(iopdso_register_struct_ref(dso, desc, pkg, err));
-        RETHROW(iopdso_register_class_parent_ref(dso, desc, pkg, err));
+        RETHROW(iopdso_register_struct_ref(dso, iop_env_ctx, desc, pkg, err));
+        RETHROW(iopdso_register_class_parent_ref(dso, iop_env_ctx, desc, pkg,
+                                                 err));
 
         for (int i = 0; i < desc->fields_len; i++) {
             iop_field_t *f = (iop_field_t *)&desc->fields[i];
 
             if (f->type == IOP_T_STRUCT || f->type == IOP_T_UNION) {
-                RETHROW(iopdso_register_struct_ref(dso, f->u1.st_desc, pkg,
-                                                   err));
+                RETHROW(iopdso_register_struct_ref(dso, iop_env_ctx,
+                                                   f->u1.st_desc, pkg, err));
             }
         }
     }
@@ -228,9 +234,12 @@ static int iopdso_register_pkg_ref(iop_dso_t *dso, const iop_pkg_t *pkg,
         for (int i = 0; i < (*it)->funs_len; i++) {
             iop_rpc_t *rpc = (iop_rpc_t *)&(*it)->funs[i];
 
-            RETHROW(iopdso_register_struct_ref(dso, rpc->args, pkg, err));
-            RETHROW(iopdso_register_struct_ref(dso, rpc->result, pkg, err));
-            RETHROW(iopdso_register_struct_ref(dso, rpc->exn, pkg, err));
+            RETHROW(iopdso_register_struct_ref(dso, iop_env_ctx, rpc->args,
+                                               pkg, err));
+            RETHROW(iopdso_register_struct_ref(dso, iop_env_ctx, rpc->result,
+                                               pkg, err));
+            RETHROW(iopdso_register_struct_ref(dso, iop_env_ctx, rpc->exn,
+                                               pkg, err));
         }
     }
     return 0;
@@ -245,7 +254,7 @@ static int iopdso_register_pkg(iop_dso_t *dso, iop_pkg_t const *pkg,
     if (dso->use_external_packages) {
         e_trace(1, "register package refs `%*pM` (%p)",
                 LSTR_FMT_ARG(pkg->name), pkg);
-        RETHROW(iopdso_register_pkg_ref(dso, pkg, err));
+        RETHROW(iopdso_register_pkg_ref(dso, iop_env_ctx, pkg, err));
     }
     RETHROW(iop_register_packages_ctx(iop_env_ctx, &pkg, 1, dso, err));
     for (const iop_enum_t *const *it = pkg->enums; *it; it++) {

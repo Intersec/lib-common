@@ -111,6 +111,7 @@ static void run_loops(const iop_struct_t *st, int nb_loops, bool new_way)
 int main(int argc, char **argv)
 {
     iop_env_t *iop_env;
+    const iop_env_ctx_t *iop_env_ctx;
     int nb_loops;
     const iop_struct_t *st;
     bool new_way;
@@ -122,7 +123,8 @@ int main(int argc, char **argv)
 
     iop_env = iop_env_new();
     IOP_REGISTER_PACKAGES(iop_env, &tstiop__pkg);
-    st = iop_env_get_struct(iop_env, LSTR(argv[1]));
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+    st = iop_env_ctx_get_struct(iop_env_ctx, LSTR(argv[1]));
     if (!st) {
         fprintf(stderr, "unknown IOP struct/union/class: `%s'\n", argv[1]);
         exit(EXIT_FAILURE);

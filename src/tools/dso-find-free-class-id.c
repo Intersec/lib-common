@@ -82,6 +82,7 @@ int main(int argc, char *argv[])
 {
     iop_env_t *iop_env;
     iop_dso_t *dso;
+    const iop_env_ctx_t *iop_env_ctx;
     const char *arg0 = NEXTARG(argc, argv);
     int class_id_min;
     int class_id_max;
@@ -99,6 +100,8 @@ int main(int argc, char *argv[])
 
     iop_env = iop_env_new();
     dso = open_dso(iop_env, NEXTARG(argc, argv));
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+
     if (!dso) {
         goto end;
     }
@@ -111,7 +114,8 @@ int main(int argc, char *argv[])
     }
 
     fullname = NEXTARG(argc, argv);
-    if (!(obj_st = iop_env_get_struct(iop_env, LSTR(fullname)))) {
+    obj_st = iop_env_ctx_get_struct(iop_env_ctx, LSTR(fullname));
+    if (!obj_st) {
         printf("cannot find IOP struct object `%s`\n", fullname);
         goto end;
     }

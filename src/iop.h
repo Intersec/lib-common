@@ -258,29 +258,46 @@ void iop_env_set_ic_user_version(iop_env_t * nonnull iop_env,
 ic_user_version_t
 iop_env_get_ic_user_version(const iop_env_t * nonnull iop_env);
 
+/* Lookup IOP types in a context snapshot.
+ *
+ * Acquire a snapshot via \ref iop_env_ctx_acquire (typically through the
+ * \ref iop_env_ctx_acquire_scoped macro) and call these on the snapshot.
+ *
+ * Holding a ctx across multiple lookups gives a stable view of the IOP
+ * environment even if a writer installs a new ctx mid-flight, which is
+ * required for long-lived/async operations that flow a snapshot through
+ * callback chains.
+ */
+
 /** Get a IOP structure from its fullname. */
 const iop_struct_t * nullable
-iop_env_get_struct(const iop_env_t * nonnull iop_env, lstr_t fullname);
+iop_env_ctx_get_struct(const iop_env_ctx_t * nonnull iop_env_ctx,
+                       lstr_t fullname);
 
 /** Get a IOP enumeration from its fullname. */
 const iop_enum_t * nullable
-iop_env_get_enum(const iop_env_t * nonnull iop_env, lstr_t fullname);
+iop_env_ctx_get_enum(const iop_env_ctx_t * nonnull iop_env_ctx,
+                     lstr_t fullname);
 
 /** Get a IOP typedef from its fullname. */
 const iop_typedef_t * nullable
-iop_env_get_typedef(const iop_env_t * nonnull iop_env, lstr_t fullname);
+iop_env_ctx_get_typedef(const iop_env_ctx_t * nonnull iop_env_ctx,
+                        lstr_t fullname);
 
 /** Get a IOP interface from its fullname. */
 const iop_iface_t * nullable
-iop_env_get_iface(const iop_env_t * nonnull iop_env, lstr_t fullname);
+iop_env_ctx_get_iface(const iop_env_ctx_t * nonnull iop_env_ctx,
+                      lstr_t fullname);
 
 /** Get a IOP module from its fullname. */
 const iop_mod_t * nullable
-iop_env_get_mod(const iop_env_t * nonnull iop_env, lstr_t fullname);
+iop_env_ctx_get_mod(const iop_env_ctx_t * nonnull iop_env_ctx,
+                    lstr_t fullname);
 
 /** Get a IOP package from its fullname. */
 const iop_pkg_t * nullable
-iop_env_get_pkg(const iop_env_t * nonnull iop_env, lstr_t fullname);
+iop_env_ctx_get_pkg(const iop_env_ctx_t * nonnull iop_env_ctx,
+                    lstr_t fullname);
 
 /* }}} */
 /* {{{ IOP various useful typedefs and functions */

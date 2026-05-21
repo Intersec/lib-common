@@ -50,6 +50,7 @@ static iop_dso_t *z_dso_open(iop_env_t *iop_env, const char *dso_path)
 ZBENCH_GROUP_EXPORT(iop_pack) {
     iop_env_t *iop_env;
     iop_dso_t *dso;
+    const iop_env_ctx_t *iop_env_ctx;
     const iop_struct_t *st_sa;
     /* {{{ */
 
@@ -93,13 +94,13 @@ ZBENCH_GROUP_EXPORT(iop_pack) {
 
     iop_env = iop_env_new();
     dso = z_dso_open(iop_env, "tests/iop/zchk-tstiop-plugin" SO_FILEEXT);
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
-    st_cls2 = iop_env_get_struct(iop_env, LSTR("tstiop.MyClass2"));
+    st_cls2 = iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.MyClass2"));
+    st_sa = iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.MyStructA"));
     iop_init_desc(st_cls2, &cls2);
     cls2.int1 = 1;
     cls2.int2 = 2;
-
-    st_sa = iop_env_get_struct(iop_env, LSTR("tstiop.MyStructA"));
 
     /* }}} */
 

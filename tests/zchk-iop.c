@@ -74,6 +74,24 @@ struct {
 
 /* {{{ IOP testing helpers */
 
+static ALWAYS_INLINE const iop_struct_t * nullable
+iop_env_get_struct(const iop_env_t *iop_env, lstr_t fullname)
+{
+    const iop_env_ctx_t *iop_env_ctx;
+
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+    return iop_env_ctx_get_struct(iop_env_ctx, fullname);
+}
+
+static ALWAYS_INLINE const iop_enum_t * nullable
+iop_env_get_enum(const iop_env_t *iop_env, lstr_t fullname)
+{
+    const iop_env_ctx_t *iop_env_ctx;
+
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+    return iop_env_ctx_get_enum(iop_env_ctx, fullname);
+}
+
 /* {{{ iop_get_field_values() */
 
 static int

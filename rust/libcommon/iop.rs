@@ -26,9 +26,9 @@ use std::os::raw::c_void;
 use std::ptr;
 
 use crate::bindings::{
-    iop_enum_t, iop_env_delete, iop_env_get_struct, iop_env_new, iop_env_t, iop_init_desc,
-    iop_pkg_t, iop_register_packages, iop_sb_jpack, iop_struct_t, t_iop_junpack_ptr_ps,
-    t_iop_new_desc, t_iop_sb_ypack, t_iop_yunpack_ptr_ps,
+    iop_enum_t, iop_env_ctx_acquire, iop_env_ctx_get_struct, iop_env_ctx_release, iop_env_delete,
+    iop_env_new, iop_env_t, iop_init_desc, iop_pkg_t, iop_register_packages, iop_sb_jpack,
+    iop_struct_t, t_iop_junpack_ptr_ps, t_iop_new_desc, t_iop_sb_ypack, t_iop_yunpack_ptr_ps,
 };
 
 use crate::lstr;
@@ -283,7 +283,15 @@ impl Env {
     #[must_use]
     pub fn get_struct_desc(&self, fullname: &str) -> Option<*const iop_struct_t> {
         let fullname_lstr = lstr::from_str(fullname);
-        let res = unsafe { iop_env_get_struct(self.env, fullname_lstr.as_raw()) };
+        // SAFETY: acquire+release a ctx snapshot for the duration of
+        // this lookup; the snapshot keeps the underlying ctx alive even
+        // if a writer installs a new one concurrently.
+        let res = unsafe {
+            let guard = iop_env_ctx_acquire(self.env);
+            let res = iop_env_ctx_get_struct(guard.ctx, fullname_lstr.as_raw());
+            iop_env_ctx_release(guard);
+            res
+        };
 
         if res.is_null() {
             return None;
