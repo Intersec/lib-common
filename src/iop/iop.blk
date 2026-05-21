@@ -6276,7 +6276,6 @@ static iop_env_ctx_t *iop_env_ctx_init(iop_env_ctx_t *iop_env_ctx)
     qm_init(iop_iface, &iop_env_ctx->iface_by_fullname);
     qm_init(iop_mod, &iop_env_ctx->mod_by_fullname);
     qm_init(iop_pkg, &iop_env_ctx->pkg_by_fullname);
-    iop_env_ctx->dso_lmid = LM_ID_BASE;
     return iop_env_ctx;
 }
 
@@ -6293,12 +6292,13 @@ static void iop_env_ctx_wipe(iop_env_ctx_t *iop_env_ctx)
                  IGNORE);
     qm_deep_wipe(iop_mod, &iop_env_ctx->mod_by_fullname, lstr_wipe, IGNORE);
     qm_deep_wipe(iop_pkg, &iop_env_ctx->pkg_by_fullname, lstr_wipe, IGNORE);
-    iop_env_ctx->dso_lmid = LM_ID_BASE;
 }
 
 static iop_env_t *iop_env_init(iop_env_t *iop_env)
 {
     iop_env_ctx_init(&iop_env->ctx);
+    iop_env->dso_lmid = LM_ID_BASE;
+    p_clear(&iop_env->ic_user_version, 1);
     return iop_env;
 }
 
@@ -6359,11 +6359,11 @@ void iop_env_copy(iop_env_t *dst, iop_env_t *src)
 
     /* Use the source LMID as we want to load the DSO in the same namespace or
      * create a new namespace if necessary. */
-    assert(dst_ctx->dso_lmid == LM_ID_BASE);
-    dst_ctx->dso_lmid = src_ctx->dso_lmid;
+    assert(dst->dso_lmid == LM_ID_BASE);
+    dst->dso_lmid = src->dso_lmid;
 
     /* Copy the IC user version so it can be swapped on transfer. */
-    dst_ctx->ic_user_version = src_ctx->ic_user_version;
+    dst->ic_user_version = src->ic_user_version;
 }
 
 void iop_env_transfer(iop_env_t *dst, iop_env_t *src)
@@ -6372,13 +6372,15 @@ void iop_env_transfer(iop_env_t *dst, iop_env_t *src)
      * LMID as the destination LMID. Make sure that the new LMID is indeed a
      * new namespace.
      */
-    if (dst->ctx.dso_lmid != src->ctx.dso_lmid) {
-        assert(src->ctx.dso_lmid != LM_ID_NEWLM);
-        assert(src->ctx.dso_lmid != LM_ID_BASE);
+    if (dst->dso_lmid != src->dso_lmid) {
+        assert(src->dso_lmid != LM_ID_NEWLM);
+        assert(src->dso_lmid != LM_ID_BASE);
     }
 
-    /* Swap the whole context. */
+    /* Swap the whole context and the env-level configuration. */
     SWAP(iop_env_ctx_t, dst->ctx, src->ctx);
+    SWAP(Lmid_t, dst->dso_lmid, src->dso_lmid);
+    SWAP(ic_user_version_t, dst->ic_user_version, src->ic_user_version);
 
     /* Wipe the source. */
     iop_env_wipe(src);
@@ -6392,13 +6394,26 @@ iop_env_get_ctx(const iop_env_t * nonnull iop_env)
 
 void iop_env_set_dso_lmid(iop_env_t * nonnull iop_env, Lmid_t dso_lmid)
 {
-    iop_env->ctx.dso_lmid = dso_lmid;
+    thr_assert_is_main_thread();
+    iop_env->dso_lmid = dso_lmid;
+}
+
+Lmid_t iop_env_get_dso_lmid(const iop_env_t * nonnull iop_env)
+{
+    return iop_env->dso_lmid;
 }
 
 void iop_env_set_ic_user_version(iop_env_t * nonnull iop_env,
                                  ic_user_version_t ic_user_version)
 {
-    iop_env->ctx.ic_user_version = ic_user_version;
+    thr_assert_is_main_thread();
+    iop_env->ic_user_version = ic_user_version;
+}
+
+ic_user_version_t
+iop_env_get_ic_user_version(const iop_env_t * nonnull iop_env)
+{
+    return iop_env->ic_user_version;
 }
 
 /* }}} */

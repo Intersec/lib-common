@@ -163,21 +163,6 @@ typedef struct iop_env_ctx_t {
 
     /** The map of IOP packages by their fullname. */
     qm_t(iop_pkg) pkg_by_fullname;
-
-    /** The Lmid_t for the DSOs loaded in the IOP environment.
-     *
-     * By default, this is set to LM_ID_BASE (the application's namespace).
-     * Set it to LM_ID_NEWLM before opening the first DSO of this IOP
-     * environment to use a separate namespace.
-     */
-    Lmid_t dso_lmid;
-
-    /** IC user version.
-     *
-     * Set it to modify the user version of the IChannels using this IOP
-     * environment.
-     */
-    ic_user_version_t ic_user_version;
 } iop_env_ctx_t;
 
 /** The IOP environment where IOP objects are registered. */
@@ -205,12 +190,27 @@ void iop_env_transfer(iop_env_t * nonnull dst, iop_env_t * nonnull src);
 const iop_env_ctx_t * nonnull
 iop_env_get_ctx(const iop_env_t * nonnull iop_env);
 
-/** Set the DSO LMID of the IOP environment. */
+/** Set the DSO LMID of the IOP environment.
+ *
+ * \warning Must be called on the main thread, before any DSO has been opened
+ *          on the environment.
+ */
 void iop_env_set_dso_lmid(iop_env_t * nonnull iop_env, Lmid_t dso_lmid);
 
-/** Set the IC user version of the IOP environment. */
+/** Get the DSO LMID of the IOP environment. */
+Lmid_t iop_env_get_dso_lmid(const iop_env_t * nonnull iop_env);
+
+/** Set the IC user version of the IOP environment.
+ *
+ * \warning Must be called on the main thread, before any reader on the
+ *          environment exists (typically at startup).
+ */
 void iop_env_set_ic_user_version(iop_env_t * nonnull iop_env,
                                  ic_user_version_t ic_user_version);
+
+/** Get the IC user version of the IOP environment. */
+ic_user_version_t
+iop_env_get_ic_user_version(const iop_env_t * nonnull iop_env);
 
 /** Get a IOP structure from its fullname. */
 const iop_struct_t * nullable

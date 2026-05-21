@@ -35,6 +35,30 @@ struct iop_env_t {
     /* TODO: In order to support multi-threading, protect it with a rw-lock or
      * an arc-swap. */
     iop_env_ctx_t ctx;
+
+    /** The Lmid_t for the DSOs loaded in the IOP environment.
+     *
+     * By default, this is set to LM_ID_BASE (the application's namespace).
+     * Set it to LM_ID_NEWLM before opening the first DSO of this IOP
+     * environment to use a separate namespace.
+     *
+     * \note Lives on the env, not on the ctx, because it is written by
+     *       \ref iop_dso_open after \c dlmopen returns. Keeping it on the
+     *       ctx would force a copy-modify-swap for every DSO open. Always
+     *       accessed from the main thread.
+     */
+    Lmid_t dso_lmid;
+
+    /** IC user version.
+     *
+     * Set it to modify the user version of the IChannels using this IOP
+     * environment.
+     *
+     * \note Lives on the env, not on the ctx, because it is written once at
+     *       startup (before any reader exists). Keeping it on the ctx would
+     *       require copy-modify-swap to update a single field.
+     */
+    ic_user_version_t ic_user_version;
 };
 
 int iop_check_registered_classes(const iop_env_t *iop_env, sb_t *err);
