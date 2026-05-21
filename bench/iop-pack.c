@@ -133,7 +133,7 @@ ZBENCH_GROUP_EXPORT(iop_pack) {
                 tstiop__my_struct_a__t *sa2 = NULL;
 
                 ZBENCH_MEASURE() {
-                    res = t_iop_junpack_ptr_ps(iop_env, &ps, st_sa,
+                    res = t_iop_junpack_ptr_ps(iop_env_ctx, &ps, st_sa,
                                                (void **)&sa2, 0, NULL);
                 } ZBENCH_MEASURE_END
 

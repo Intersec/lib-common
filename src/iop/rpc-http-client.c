@@ -355,8 +355,15 @@ http_iop_on_query_done(httpc_query_t *http_query, httpc_status_t httpc_status)
         }
 
         if (content_type_json) {
-            if (t_iop_junpack_ptr_ps(msg->iop_env, &ps, st, dest, 0,
-                                     &err) < 0)
+            int unpack_res;
+
+            {
+                const iop_env_ctx_t *iop_env_ctx;
+                iop_env_ctx_acquire_scoped(msg->iop_env, iop_env_ctx);
+                unpack_res = t_iop_junpack_ptr_ps(iop_env_ctx, &ps, st, dest,
+                                                  0, &err);
+            }
+            if (unpack_res < 0)
             {
                 logger_error(&_G.logger, "cannot unpack result of query "
                              "`%*pM`: %*pM", LSTR_FMT_ARG(msg->rpc->name),

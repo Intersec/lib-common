@@ -215,12 +215,14 @@ repack_json(const iop_env_t * nonnull iop_env, const char * nullable filename,
     iop_json_subfile__array_t subfiles_array;
     yaml_data_t data;
     int res = 0;
+    const iop_env_ctx_t *iop_env_ctx;
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
     t_qv_init(&subfiles, 0);
 
     /* Unpack json */
     if (filename) {
-        RETHROW(t_iop_junpack_ptr_file(iop_env, filename, st, &value, 0,
+        RETHROW(t_iop_junpack_ptr_file(iop_env_ctx, filename, st, &value, 0,
                                        &subfiles, err));
     } else {
         pstream_t ps;
@@ -231,7 +233,7 @@ repack_json(const iop_env_t * nonnull iop_env, const char * nullable filename,
             goto end;
         }
         ps = ps_initlstr(&file);
-        if (t_iop_junpack_ptr_ps(iop_env, &ps, st, &value, 0, err) < 0) {
+        if (t_iop_junpack_ptr_ps(iop_env_ctx, &ps, st, &value, 0, err) < 0) {
             res = -1;
             goto end;
         }

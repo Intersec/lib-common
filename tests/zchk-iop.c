@@ -846,12 +846,14 @@ static int iop_xml_test_struct_invalid(const iop_struct_t *st, void *v,
 static int iop_json_test_struct(const iop_struct_t *st, void *v,
                                 const char *info)
 {
+    const iop_env_ctx_t *iop_env_ctx;
     iop_json_lex_t jll;
     pstream_t ps;
     int strict = 0;
     uint8_t buf1[20], buf2[20];
 
-    iop_jlex_init(t_pool(), _G.iop_env, &jll);
+    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+    iop_jlex_init(t_pool(), iop_env_ctx, &jll);
     jll.flags = IOP_UNPACK_IGNORE_UNKNOWN;
 
     while (strict < 3) {
@@ -899,11 +901,13 @@ static int iop_json_test_struct(const iop_struct_t *st, void *v,
 static int iop_json_test_struct_invalid(const iop_struct_t *st, void *v,
                                         const char *info)
 {
+    const iop_env_ctx_t *iop_env_ctx;
     iop_json_lex_t jll;
     pstream_t ps;
     int strict = 0;
 
-    iop_jlex_init(t_pool(), _G.iop_env, &jll);
+    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+    iop_jlex_init(t_pool(), iop_env_ctx, &jll);
     jll.flags = IOP_UNPACK_IGNORE_UNKNOWN;
 
     while (strict < 3) {
@@ -942,6 +946,7 @@ static int iop_json_test_json(const iop_struct_t *st, const char *json,
                               const void *expected, const char *info)
 {
     t_scope;
+    const iop_env_ctx_t *iop_env_ctx;
     const char *path;
     iop_json_lex_t jll;
     pstream_t ps;
@@ -950,12 +955,14 @@ static int iop_json_test_json(const iop_struct_t *st, const char *json,
     uint8_t buf1[20], buf2[20];
     sb_t sb;
 
+    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
     /* XXX: Use a small t_sb here to force a realloc during (un)packing and
      *      detect possible illegal usage of the t_pool in the (un)packing
      *      functions. */
     t_sb_init(&sb, 10);
 
-    iop_jlex_init(t_pool(), _G.iop_env, &jll);
+    iop_jlex_init(t_pool(), iop_env_ctx, &jll);
     jll.flags = IOP_UNPACK_IGNORE_UNKNOWN;
 
     ps = ps_initstr(json);
@@ -985,9 +992,9 @@ static int iop_json_test_json(const iop_struct_t *st, const char *json,
     /* Test iop_jpack_file / t_iop_junpack_file */
     path = t_fmt("%*pM/tstjson.json", LSTR_FMT_ARG(z_tmpdir_g));
     sb_reset(&sb);
-    Z_ASSERT_N(iop_jpack_file(_G.iop_env, path, st, res, 0, &sb),
+    Z_ASSERT_N(iop_jpack_file(iop_env_ctx, path, st, res, 0, &sb),
                "%*pM", SB_FMT_ARG(&sb));
-    Z_ASSERT_N(t_iop_junpack_ptr_file(_G.iop_env, path, st, &res, 0, NULL,
+    Z_ASSERT_N(t_iop_junpack_ptr_file(iop_env_ctx, path, st, &res, 0, NULL,
                                       &sb),
                "%*pM", SB_FMT_ARG(&sb));
     Z_ASSERT_IOPEQUAL_DESC(st, res, expected);
@@ -999,18 +1006,21 @@ static int iop_json_test_unpack(const iop_struct_t *st, const char *json,
                                 int flags, bool valid, const char *info)
 {
     t_scope;
+    const iop_env_ctx_t *iop_env_ctx;
     iop_json_lex_t jll;
     pstream_t ps;
     void *res = NULL;
     int ret;
     sb_t sb;
 
+    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
     /* XXX: Use a small t_sb here to force a realloc during (un)packing and
      *      detect possible illegal usage of the t_pool in the (un)packing
      *      functions. */
     t_sb_init(&sb, 10);
 
-    iop_jlex_init(t_pool(), _G.iop_env, &jll);
+    iop_jlex_init(t_pool(), iop_env_ctx, &jll);
     jll.flags = flags;
 
     ps = ps_initstr(json);
@@ -1038,8 +1048,11 @@ static int iop_json_test_pack(const iop_struct_t *st, const void *value,
                               bool must_be_equal, const char *expected)
 {
     t_scope;
+    const iop_env_ctx_t *iop_env_ctx;
     t_SB_1k(sb);
     void *unpacked = NULL;
+
+    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
     Z_ASSERT_N(iop_sb_jpack(&sb, st, value, flags));
     Z_ASSERT_STREQUAL(sb.data, expected);
@@ -1047,7 +1060,7 @@ static int iop_json_test_pack(const iop_struct_t *st, const void *value,
     if (test_unpack) {
         pstream_t ps = ps_initsb(&sb);
 
-        Z_ASSERT_N(t_iop_junpack_ptr_ps(_G.iop_env, &ps, st, &unpacked, 0,
+        Z_ASSERT_N(t_iop_junpack_ptr_ps(iop_env_ctx, &ps, st, &unpacked, 0,
                                         NULL));
         if (must_be_equal) {
             Z_ASSERT(iop_equals_desc(st, value, unpacked));
@@ -1405,11 +1418,14 @@ iop_check_json_include_packing(const iop_struct_t *st, const void *val,
                                const char *exp_err)
 {
     t_scope;
+    const iop_env_ctx_t *iop_env_ctx;
     static int packing_cnt;
     const char *dir;
     const char *path;
     SB_1k(err);
     int res;
+
+    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
     dir = t_fmt("%*pM/packing-%d", LSTR_FMT_ARG(z_tmpdir_g), packing_cnt++);
     mkdir_p(dir, 0755);
@@ -1417,7 +1433,7 @@ iop_check_json_include_packing(const iop_struct_t *st, const void *val,
     /* Pack val in a file, using the sub_files. */
     path = t_fmt("%s/main.json", dir);
 
-    res = __iop_jpack_file(_G.iop_env, path,
+    res = __iop_jpack_file(iop_env_ctx, path,
                            FILE_WRONLY | FILE_CREATE | FILE_TRUNC,
                            0444, st, val, 0, sub_files, &err);
 
@@ -1435,7 +1451,7 @@ iop_check_json_include_packing(const iop_struct_t *st, const void *val,
         void *_val = NULL;                                                   \
                                                                              \
         path = t_fmt("%s/%s", dir, _file);                                   \
-        Z_ASSERT_N(t_iop_junpack_ptr_file(_G.iop_env, path, _st, &_val, 0,  \
+        Z_ASSERT_N(t_iop_junpack_ptr_file(iop_env_ctx, path, _st, &_val, 0, \
                                           NULL, &err),                       \
                    "cannot unpack `%s`: %*pM", path, SB_FMT_ARG(&err));      \
         Z_ASSERT_IOPEQUAL_DESC(_st, _val, _exp);                             \
@@ -1523,11 +1539,11 @@ iop_check_struct_backward_compat(const iop_struct_t *st1,
         iop_sb_jpack(&data, st1, obj1, 0);
         ps = ps_initsb(&data);
         if (exp_err) {
-            Z_ASSERT_NEG(t_iop_junpack_ptr_ps(_G.iop_env, &ps, st2, &obj2, 0,
+            Z_ASSERT_NEG(t_iop_junpack_ptr_ps(iop_env_ctx, &ps, st2, &obj2, 0,
                                               &err),
                          "junpack should fail when testing %s", ctx);
         } else {
-            Z_ASSERT_N(t_iop_junpack_ptr_ps(_G.iop_env, &ps, st2, &obj2, 0,
+            Z_ASSERT_N(t_iop_junpack_ptr_ps(iop_env_ctx, &ps, st2, &obj2, 0,
                                             &err),
                        "unexpected junpack failure when testing %s: %*pM",
                        ctx, SB_FMT_ARG(&err));
@@ -1576,7 +1592,7 @@ static int iop_check_typedef_backward_compat(const iop_struct_t *st,
 
         iop_sb_jpack(&data, td->ref_struct, obj1, 0);
         ps = ps_initsb(&data);
-        Z_ASSERT_N(t_iop_junpack_ptr_ps(_G.iop_env, &ps, st, &obj2, 0, &err),
+        Z_ASSERT_N(t_iop_junpack_ptr_ps(iop_env_ctx, &ps, st, &obj2, 0, &err),
                    "unexpected junpack failure when testing %s: %*pM",
                    ctx, SB_FMT_ARG(&err));
     }
@@ -2808,7 +2824,7 @@ Z_GROUP_EXPORT(iop)
                                           "json_sg_p2"));
 
         /* Test iop_jpack_file failure */
-        Z_ASSERT_NEG(iop_jpack_file(_G.iop_env,
+        Z_ASSERT_NEG(iop_jpack_file(iop_env_ctx,
                                     "/proc/path/to/unknown/dir.json",
                                     st_sk, &json_sk_res, 0,
                                     &err));
@@ -3057,7 +3073,7 @@ Z_GROUP_EXPORT(iop)
 
             /* Decode */
             ps = ps_initsb(&sb);
-            Z_ASSERT_N(t_iop_junpack_ptr_ps(_G.iop_env, &ps, st_string,
+            Z_ASSERT_N(t_iop_junpack_ptr_ps(iop_env_ctx, &ps, st_string,
                                             (void **)&parsed, 0, NULL));
             Z_ASSERT_LSTREQUAL(parsed->test_string, orig.test_string);
 
@@ -3095,7 +3111,7 @@ Z_GROUP_EXPORT(iop)
                 void *res = NULL;
                 int ret;
 
-                ret = t_iop_junpack_ptr_ps(_G.iop_env, &ps, st_string,
+                ret = t_iop_junpack_ptr_ps(iop_env_ctx, &ps, st_string,
                                           &res, 0, NULL);
                 /* Unpaired surrogates should be accepted (WHATWG) */
                 Z_ASSERT_N(ret, "%s should be accepted", t->test_name);
@@ -3157,7 +3173,7 @@ Z_GROUP_EXPORT(iop)
                 tstiop__int_test__t *res = NULL;
                 int ret;
 
-                ret = t_iop_junpack_ptr_ps(_G.iop_env, &ps, st_int,
+                ret = t_iop_junpack_ptr_ps(iop_env_ctx, &ps, st_int,
                                           (void **)&res, 0, NULL);
                 Z_ASSERT_N(ret, "%s should parse", t->test_name);
                 Z_ASSERT_EQ(res->test_int, t->expected,
@@ -3242,6 +3258,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(json_file_include, "test file inclusion in IOP JSon (un)packer") { /* {{{ */
         t_scope;
+        const iop_env_ctx_t *iop_env_ctx;
         SB_1k(err);
         const char *exp_err;
         qv_t(iop_json_subfile) sub_files;
@@ -3255,6 +3272,8 @@ Z_GROUP_EXPORT(iop)
         tstiop__my_struct_c__t     obj_recursion;
         tstiop__my_struct_m__t     obj_first_field;
 
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
         /* {{{ Unpacker tests */
 
 #define T_KO(_type, _file, _exp)  \
@@ -3265,8 +3284,9 @@ Z_GROUP_EXPORT(iop)
                                                                              \
             _path = t_fmt("%*pM/iop/tstiop_file_inclusion_invalid-" _file    \
                           ".json", LSTR_FMT_ARG(z_cmddir_g));                \
-            Z_ASSERT_NEG(t_iop_junpack_file(_G.iop_env, _path, &_type##__s,  \
-                                            &_obj, 0, NULL, &err));          \
+            Z_ASSERT_NEG(t_iop_junpack_file(iop_env_ctx, _path,              \
+                                            &_type##__s, &_obj, 0, NULL,     \
+                                            &err));                          \
             Z_ASSERT(strstr(err.data, _exp), "unexpected error: %s",         \
                      err.data);                                              \
             sb_reset(&err);                                                  \
@@ -3308,13 +3328,13 @@ Z_GROUP_EXPORT(iop)
             t_qv_init(&_subfiles, _subfiles_nb);                             \
             _path = t_fmt("%*pM/iop/tstiop_file_inclusion_" _file ".json",   \
                           LSTR_FMT_ARG(z_cmddir_g));                         \
-            Z_ASSERT_N(t_iop_junpack_file(_G.iop_env, _path, &_type##__s,    \
+            Z_ASSERT_N(t_iop_junpack_file(iop_env_ctx, _path, &_type##__s,   \
                                           _res, 0, &_subfiles, &err),        \
                        "cannot unpack `%s`: %*pM", _path, SB_FMT_ARG(&err)); \
                                                                              \
             _path = t_fmt("%*pM/iop/tstiop_file_inclusion_" _file            \
                           "-exp.json", LSTR_FMT_ARG(z_cmddir_g));            \
-            Z_ASSERT_N(t_iop_junpack_file(_G.iop_env, _path, &_type##__s,    \
+            Z_ASSERT_N(t_iop_junpack_file(iop_env_ctx, _path, &_type##__s,   \
                                           &_exp, 0, NULL, &err),             \
                        "cannot unpack `%s`: %*pM", _path, SB_FMT_ARG(&err)); \
             Z_ASSERT_IOPEQUAL(_type, _res, &_exp);                           \
@@ -3568,6 +3588,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(json_typedef, "test typedef in IOP Json (un)packer") { /* {{{ */
         t_scope;
+        const iop_env_ctx_t *iop_env_ctx;
         SB_1k(err);
         tstiop__struct_with_mandatory_object__t mandatory_object;
         tstiop__struct_with_typedef__t with_typedef;
@@ -3590,6 +3611,8 @@ Z_GROUP_EXPORT(iop)
             { .u32 = 3 }, { .u32 = 2 }, { .u32 = 1 } };
         tstiop_typedef__array_test__t arrays_typedef;
 
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
         /* {{{ Unpacker tests */
 
 #define T_OK(_type, _res, _file)                                             \
@@ -3599,7 +3622,7 @@ Z_GROUP_EXPORT(iop)
                                                                              \
             _path = t_fmt("%*pMiop/" _file ".json",                          \
                           LSTR_FMT_ARG(z_cmddir_g));                         \
-            Z_ASSERT_N(t_iop_junpack_file(_G.iop_env, _path, &_type##__s,    \
+            Z_ASSERT_N(t_iop_junpack_file(iop_env_ctx, _path, &_type##__s,   \
                                           &_exp, 0, NULL, &err),             \
                        "cannot unpack `%s`: %*pM", _path, SB_FMT_ARG(&err)); \
             Z_ASSERT_IOPEQUAL(_type, _res, &_exp);                           \
@@ -6264,6 +6287,7 @@ Z_GROUP_EXPORT(iop)
          * our packer) is already stressed by the other tests.
          */
         t_scope;
+        const iop_env_ctx_t *iop_env_ctx;
         tstiop_inheritance__c1__t *c1 = NULL;
         tstiop_inheritance__d1__t *d1 = NULL;
         tstiop_inheritance__b2__t *b2 = NULL;
@@ -6274,10 +6298,12 @@ Z_GROUP_EXPORT(iop)
         tstiop_inheritance__class_container2__t *class_container2 = NULL;
         SB_1k(err);
 
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
 #define CHECK_OK(_type, _filename)  \
         do {                                                                 \
             Z_ASSERT_N(t_iop_junpack_ptr_file(                               \
-                    _G.iop_env,                                              \
+                    iop_env_ctx,                                             \
                     t_fmt("%*pM/iop/" _filename, LSTR_FMT_ARG(z_cmddir_g)),  \
                     &tstiop_inheritance__##_type##__s,                       \
                     (void **)&_type, 0, NULL, &err),                         \
@@ -6336,7 +6362,7 @@ Z_GROUP_EXPORT(iop)
         do {                                                                 \
             sb_reset(&err);                                                  \
             Z_ASSERT_NEG(t_iop_junpack_ptr_file(                             \
-                    _G.iop_env, t_fmt("%*pM/iop/" _filename,                 \
+                    iop_env_ctx, t_fmt("%*pM/iop/" _filename,                \
                     LSTR_FMT_ARG(z_cmddir_g)),                               \
                     &tstiop_inheritance__##_type##__s,                       \
                     (void **)&_type, _flags, NULL, &err));                   \
@@ -6551,7 +6577,7 @@ Z_GROUP_EXPORT(iop)
             pstream_t ps = ps_initstr(_str);                                 \
                                                                              \
             sb_reset(&err);                                                  \
-            Z_ASSERT_NEG(t_iop_junpack_ptr_ps(_G.iop_env, &ps,               \
+            Z_ASSERT_NEG(t_iop_junpack_ptr_ps(iop_env_ctx, &ps,              \
                                               &tstiop__##_type##__s,         \
                                               &_type, 0, &err));             \
             Z_ASSERT(strstr(err.data, _err), "%s", err.data);                \
@@ -8253,14 +8279,17 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(dup_and_copy, "test duplication/copy functions") { /* {{{ */
         t_scope;
+        const iop_env_ctx_t *iop_env_ctx;
         SB_1k(err);
         const char *path;
         tstiop__full_struct__t fs;
         const iop_struct_t *st = &tstiop__full_struct__s;
 
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
         path = t_fmt("%*pM/samples/z-full-struct.json",
                      LSTR_FMT_ARG(z_cmddir_g));
-        Z_ASSERT_N(t_iop_junpack_file(_G.iop_env, path, st, &fs, 0, NULL,
+        Z_ASSERT_N(t_iop_junpack_file(iop_env_ctx, path, st, &fs, 0, NULL,
                                       &err),
                    "%pL", &err);
         Z_HELPER_RUN(z_test_dup_and_copy(st, &fs),
@@ -9490,7 +9519,7 @@ Z_GROUP_EXPORT(iop)
 
         /* unpack json union with format ":" */
         memset(&dst, 0xFF, sizeof(tstiop__my_union_b__t));
-        ret = t_iop_junpack_ps(_G.iop_env, &json1, &tstiop__my_union_b__s,
+        ret = t_iop_junpack_ps(iop_env_ctx, &json1, &tstiop__my_union_b__s,
                                &dst, 0, NULL);
         Z_ASSERT_EQ(ret, 0);
         Z_ASSERT_EQ(dst.iop_tag, (IOP_UNION_TAG_T(tstiop__my_union_b))
@@ -9498,7 +9527,7 @@ Z_GROUP_EXPORT(iop)
 
         /* unpack json union with format "." */
         memset(&dst, 0xFF, sizeof(tstiop__my_union_b__t));
-        ret = t_iop_junpack_ps(_G.iop_env, &json2, &tstiop__my_union_b__s,
+        ret = t_iop_junpack_ps(iop_env_ctx, &json2, &tstiop__my_union_b__s,
                                &dst, 0, NULL);
         Z_ASSERT_EQ(ret, 0);
         Z_ASSERT_EQ(dst.iop_tag, (IOP_UNION_TAG_T(tstiop__my_union_b))
@@ -9783,6 +9812,7 @@ Z_GROUP_EXPORT(iop)
     } Z_TEST_END;
     /* }}} */
     Z_TEST(json_empty_string, "parsing '' as JSON always returns an error") { /* {{{ */
+        const iop_env_ctx_t *iop_env_ctx;
         tstiop__my_union_a__t union_a;
         tstiop__my_class1__t class1;
         tstiop__my_struct_a_opt__t struct_opt;
@@ -9790,22 +9820,24 @@ Z_GROUP_EXPORT(iop)
         const char *error = "1:1: there is nothing to read";
         SB_1k(err);
 
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
         /* test for an union */
-        Z_ASSERT_NEG(t_iop_junpack_ps(_G.iop_env, &json,
+        Z_ASSERT_NEG(t_iop_junpack_ps(iop_env_ctx, &json,
                                       &tstiop__my_union_a__s, &union_a,
                                       0, &err));
         Z_ASSERT_STREQUAL(err.data, error);
         sb_reset(&err);
 
         /* test for a class */
-        Z_ASSERT_NEG(t_iop_junpack_ps(_G.iop_env, &json,
+        Z_ASSERT_NEG(t_iop_junpack_ps(iop_env_ctx, &json,
                                       &tstiop__my_class1__s, &class1,
                                       0, &err));
         Z_ASSERT_STREQUAL(err.data, error);
         sb_reset(&err);
 
         /* test for a struct with all optional fields */
-        Z_ASSERT_NEG(t_iop_junpack_ps(_G.iop_env, &json,
+        Z_ASSERT_NEG(t_iop_junpack_ps(iop_env_ctx, &json,
                                       &tstiop__my_struct_a_opt__s,
                                       &struct_opt, 0, &err));
         Z_ASSERT_STREQUAL(err.data, error);
@@ -10039,7 +10071,7 @@ Z_GROUP_EXPORT(iop)
 
         my_struct_out = NULL;
         ps = ps_initsb(&buf);
-        Z_ASSERT_N(t_iop_junpack_ptr_ps(_G.iop_env, &ps,
+        Z_ASSERT_N(t_iop_junpack_ptr_ps(iop_env_ctx, &ps,
                                         &tstiop__my_struct_a_opt__s,
                                         (void **)&my_struct_out,
                                         0, &err),
@@ -10078,16 +10110,19 @@ Z_GROUP_EXPORT(iop)
     } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_check_package_examples, "test iop_check_rpc_example") { /* {{{ */
+        const iop_env_ctx_t *iop_env_ctx;
         SB_1k(err);
         const char *exp_err;
 
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
         /* Examples in tstiop_dox.iop should be valid. */
-        Z_ASSERT_N(iop_check_package_examples(_G.iop_env, &tstiop_dox__pkg,
+        Z_ASSERT_N(iop_check_package_examples(iop_env_ctx, &tstiop_dox__pkg,
                                               &err));
 
         /* tstiop_dox_invalid_example_struct should be detected as invalid */
         Z_ASSERT_NEG(iop_check_package_examples(
-                _G.iop_env, &tstiop_dox_invalid_example_struct__pkg,
+                iop_env_ctx, &tstiop_dox_invalid_example_struct__pkg,
                 &err));
         exp_err = "invalid example for "
                   "`tstiop_dox_invalid_example_struct.MyStruct`: "
@@ -10097,7 +10132,7 @@ Z_GROUP_EXPORT(iop)
         /* tstiop_dox_invalid_example_rpc also */
         sb_reset(&err);
         Z_ASSERT_NEG(iop_check_package_examples(
-                _G.iop_env, &tstiop_dox_invalid_example_rpc__pkg,
+                iop_env_ctx, &tstiop_dox_invalid_example_rpc__pkg,
                 &err));
         exp_err = "invalid example for argument of RPC "
                   "`tstiop_dox_invalid_example_rpc.MyIface.funA`: "

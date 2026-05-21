@@ -38,11 +38,12 @@ static iop__package__t *t_load_package_from_file(const char *filename,
                                                  const iop_env_t *iop_env,
                                                  sb_t *err)
 {
+    iop_env_ctx_scope(iop_env, iop_env_ctx);
     const char *path;
     iop__package__t *pkg_desc = NULL;
 
     path = t_get_path(filename);
-    RETHROW_NP(t_iop_junpack_ptr_file(iop_env, path, &iop__package__s,
+    RETHROW_NP(t_iop_junpack_ptr_file(iop_env_ctx, path, &iop__package__s,
                                       (void **)&pkg_desc, 0, NULL, err));
 
     return pkg_desc;
@@ -54,12 +55,13 @@ static iop__package__t *t_load_package_from_file(const char *filename,
 static int t_package_load(iop_pkg_t **pkg, const iop_env_t *iop_env,
                           const char *file)
 {
+    iop_env_ctx_scope(iop_env, iop_env_ctx);
     SB_1k(err);
     const iop__package__t *pkg_desc;
 
     pkg_desc = t_load_package_from_file(file, iop_env, &err);
     Z_ASSERT_P(pkg_desc, "%s: %pL", file, &err);
-    *pkg = mp_iopsq_build_pkg(t_pool(), iop_env, pkg_desc, NULL, &err);
+    *pkg = mp_iopsq_build_pkg(t_pool(), iop_env_ctx, pkg_desc, NULL, &err);
     Z_ASSERT_P(*pkg, "%s: %pL", file, &err);
 
     Z_HELPER_END;
@@ -171,12 +173,10 @@ static int _test_struct(const iop_env_t *iop_env,
                         const iop_struct_t *nullable ref_st_desc)
 {
     t_scope;
-    const iop_env_ctx_t *iop_env_ctx;
     SB_1k(err);
     SB_1k(jbuf);
     SB_1k(jbuf_ref);
-
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+    iop_env_ctx_scope(iop_env, iop_env_ctx);
 
     if (ref_st_desc) {
         Z_HELPER_RUN(z_assert_struct_eq(st_desc, ref_st_desc),
@@ -194,7 +194,7 @@ static int _test_struct(const iop_env_t *iop_env,
         lstr_t bin_ref;
 
         ps = ps_initlstr(&st_json);
-        Z_ASSERT_N(t_iop_junpack_ptr_ps(iop_env, &ps, st_desc, &st_ptr, 0,
+        Z_ASSERT_N(t_iop_junpack_ptr_ps(iop_env_ctx, &ps, st_desc, &st_ptr, 0,
                                         &err),
                    "cannot junpack `%pL': %pL", &err, &st_json);
 
@@ -228,7 +228,7 @@ static int _test_struct(const iop_env_t *iop_env,
                           "with reference description");
 
         ps = ps_initlstr(&st_json);
-        Z_ASSERT_N(t_iop_junpack_ptr_ps(iop_env, &ps, ref_st_desc,
+        Z_ASSERT_N(t_iop_junpack_ptr_ps(iop_env_ctx, &ps, ref_st_desc,
                                         &st_ptr_ref, 0, &err),
                    "unexpected junpacking failure: %pL", &err);
 
@@ -362,13 +362,14 @@ Z_GROUP_EXPORT(iopsq) {
 
         carray_for_each_ptr(t, tests) {
             t_scope;
+            iop_env_ctx_scope(iop_env, iop_env_ctx);
             lstr_t json = t_build_json_pkg(t->pkg_name);
             pstream_t ps = ps_initlstr(&json);
             iop__package__t pkg_desc;
             int res;
 
             sb_reset(&err);
-            res = t_iop_junpack_ps(iop_env, &ps, &iopsq__package__s,
+            res = t_iop_junpack_ps(iop_env_ctx, &ps, &iopsq__package__s,
                                    &pkg_desc, 0, &err);
             if (t->jpack_err) {
                 Z_ASSERT_STREQUAL(err.data, t->jpack_err);
@@ -376,7 +377,7 @@ Z_GROUP_EXPORT(iopsq) {
             }
             Z_ASSERT_N(res);
             Z_ASSERT_P(t->lib_err);
-            Z_ASSERT_NULL(mp_iopsq_build_pkg(t_pool(), iop_env, &pkg_desc,
+            Z_ASSERT_NULL(mp_iopsq_build_pkg(t_pool(), iop_env_ctx, &pkg_desc,
                                              NULL, &err),
                           "unexpected success");
             Z_ASSERT_STREQUAL(err.data, t->lib_err);
@@ -403,6 +404,7 @@ Z_GROUP_EXPORT(iopsq) {
            "iop_struct_mp_build")
     {
         t_scope;
+        iop_env_ctx_scope(iop_env, iop_env_ctx);
         SB_1k(err);
         iop__package__t *pkg_desc;
         const iop__structure__t *st_desc;
@@ -414,13 +416,14 @@ Z_GROUP_EXPORT(iopsq) {
         Z_ASSERT_P(pkg_desc, "%pL", &err);
         Z_ASSERT_EQ(pkg_desc->elems.len, 1);
         st_desc = iop_obj_ccast(iop__structure, pkg_desc->elems.tab[0]);
-        st = mp_iopsq_build_struct(t_pool(), iop_env, st_desc, NULL, &err);
+        st = mp_iopsq_build_struct(t_pool(), iop_env_ctx, st_desc, NULL,
+                                   &err);
         Z_ASSERT_P(st, "%pL", &err);
         Z_HELPER_RUN(z_assert_struct_eq(st, &tstiop__tst_build_struct__s),
                      "struct mismatch");
 
         iopsq_iop_struct_init(&st_mp);
-        Z_ASSERT_N(iopsq_iop_struct_build(&st_mp, iop_env, st_desc, NULL,
+        Z_ASSERT_N(iopsq_iop_struct_build(&st_mp, iop_env_ctx, st_desc, NULL,
                                           &err));
         Z_ASSERT_P(st_mp.st, "%pL", &err);
         Z_HELPER_RUN(z_assert_struct_eq(st_mp.st,
@@ -435,6 +438,7 @@ Z_GROUP_EXPORT(iopsq) {
 
     Z_TEST(error_misc, "struct error cases miscellaneous") {
         t_scope;
+        iop_env_ctx_scope(iop_env, iop_env_ctx);
         SB_1k(err);
         const iop__package__t *pkg_desc;
         const char *errors[] = {
@@ -504,7 +508,7 @@ Z_GROUP_EXPORT(iopsq) {
             t_scope;
 
             Z_ASSERT_NULL(mp_iopsq_build_mono_element_pkg(
-                              t_pool(), iop_env, elem, NULL, &err),
+                              t_pool(), iop_env_ctx, elem, NULL, &err),
                           "unexpected success for struct %*pS "
                           "(expected error: %s)",
                           IOP_OBJ_FMT_ARG(elem), *exp_error);
@@ -516,14 +520,15 @@ Z_GROUP_EXPORT(iopsq) {
 
     Z_TEST(error_duplicated_name, "duplicated type names") {
         t_scope;
+        iop_env_ctx_scope(iop_env, iop_env_ctx);
         SB_1k(err);
         const iop__package__t *pkg_desc;
 
         pkg_desc = t_load_package_from_file("error-duplicated-name.json",
                                             iop_env, &err);
         Z_ASSERT_P(pkg_desc, "%pL", &err);
-        Z_ASSERT_NULL(mp_iopsq_build_pkg(t_pool(), iop_env, pkg_desc, NULL,
-                                         &err),
+        Z_ASSERT_NULL(mp_iopsq_build_pkg(t_pool(), iop_env_ctx, pkg_desc,
+                                         NULL, &err),
                       "unexpected success");
         Z_ASSERT_STREQUAL(err.data, "invalid package `foo': "
                           "already got a thing named `DuplicatedName'");
@@ -583,6 +588,7 @@ Z_GROUP_EXPORT(iopsq) {
     Z_TEST(type_table, "create types using already generated ones") {
         t_scope;
         SB_1k(err);
+        iop_env_ctx_scope(iop_env, iop_env_ctx);
 
         /* TTBasicStruct */
         qv_t(iopsq_field) fields;
@@ -618,6 +624,7 @@ Z_GROUP_EXPORT(iopsq) {
         const iop_struct_t *st_desc;
         IOPSQ_TYPE_TABLE(type_table);
 
+
         /* Build a simple structure manually. */
         t_qv_init(&fields, 16);
         field = iop_init(iop__field, qv_growlen(&fields, 1));
@@ -627,8 +634,8 @@ Z_GROUP_EXPORT(iopsq) {
         iop_init(iop__struct, &st);
         st.name = LSTR("TTBasicStruct");
         st.fields = IOP_TYPED_ARRAY_TAB(iop__field, &fields);
-        basic_st_desc = mp_iopsq_build_struct(t_pool(), iop_env, &st.super, NULL,
-                                              &err);
+        basic_st_desc = mp_iopsq_build_struct(t_pool(), iop_env_ctx,
+                                              &st.super, NULL, &err);
         Z_ASSERT_P(basic_st_desc, "%pL", &err);
 
         /* Build a simple enumeration manually. */
@@ -642,7 +649,7 @@ Z_GROUP_EXPORT(iopsq) {
         iop_init(iop__enum, &en);
         en.name = LSTR("TTBasicEnum");
         en.values = IOP_TYPED_ARRAY_TAB(iop__enum_val, &enum_vals);
-        en_pkg = mp_iopsq_build_mono_element_pkg(t_pool(), iop_env,
+        en_pkg = mp_iopsq_build_mono_element_pkg(t_pool(), iop_env_ctx,
                                                  &en.super, NULL, &err);
         basic_en_desc = en_pkg->enums[0];
         Z_ASSERT_P(basic_en_desc, "the expected enumeration is missing");
@@ -658,7 +665,7 @@ Z_GROUP_EXPORT(iopsq) {
         carray_for_each_ptr(cfield, complex_struct_fields) {
             field = iop_init(iop__field, qv_growlen(&fields, 1));
             field->name = LSTR(cfield->name);
-            iopsq_type_table_fill_type(type_table, iop_env, cfield->type,
+            iopsq_type_table_fill_type(type_table, iop_env_ctx, cfield->type,
                                        &field->type);
         }
 
@@ -666,7 +673,7 @@ Z_GROUP_EXPORT(iopsq) {
         st.name = LSTR("TTComplexStruct");
         st.fields = IOP_TYPED_ARRAY_TAB(iop__field, &fields);
 
-        Z_ASSERT_N(t_iop_junpack_ptr_file(iop_env,
+        Z_ASSERT_N(t_iop_junpack_ptr_file(iop_env_ctx,
                                           t_get_path("type-table.json"),
                                           &iop__struct__s,
                                           (void **)&expected_st, 0, NULL,
@@ -674,10 +681,10 @@ Z_GROUP_EXPORT(iopsq) {
                    "invalid JSON content: %pL", &err);
         Z_ASSERT_IOPEQUAL(iop__struct, &st, expected_st);
 
-        Z_ASSERT_NULL(mp_iopsq_build_struct(t_pool(), iop_env, &st.super,
+        Z_ASSERT_NULL(mp_iopsq_build_struct(t_pool(), iop_env_ctx, &st.super,
                                             NULL, &err),
                       "unexpected success (missing type table)");
-        st_desc = mp_iopsq_build_struct(t_pool(), iop_env, &st.super,
+        st_desc = mp_iopsq_build_struct(t_pool(), iop_env_ctx, &st.super,
                                         type_table, &err);
         Z_ASSERT_P(st_desc, "%pL", &err);
 

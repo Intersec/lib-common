@@ -51,26 +51,32 @@ static int t_parse_json(ichttp_query_t *iq, ichttp_cb_t *cbe, void **vout)
     tcb = container_of(iq->trig_cb, httpd_trigger__ic_t, cb);
 
     *vout = NULL;
-    iop_jlex_init(t_pool(), tcb->iop_env, &jll);
-    ps = ps_initsb(&iq->payload);
-    iop_jlex_attach(&jll, &ps);
+    {
+        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_acquire_scoped(tcb->iop_env, iop_env_ctx);
 
-    jll.flags = tcb->unpack_flags;
+        iop_jlex_init(t_pool(), iop_env_ctx, &jll);
+        ps = ps_initsb(&iq->payload);
+        iop_jlex_attach(&jll, &ps);
 
-    if (iop_junpack_ptr(&jll, st, vout, true)) {
-        sb_reset(&buf);
-        iop_jlex_write_error(&jll, &buf);
+        jll.flags = tcb->unpack_flags;
 
-        __ichttp_err_ctx_set(LSTR_SB_V(&buf));
-        httpd_reject(obj_vcast(httpd_query, iq), BAD_REQUEST, "%s", buf.data);
-        __ichttp_err_ctx_clear();
-        res = -1;
-        goto end;
+        if (iop_junpack_ptr(&jll, st, vout, true)) {
+            sb_reset(&buf);
+            iop_jlex_write_error(&jll, &buf);
+
+            __ichttp_err_ctx_set(LSTR_SB_V(&buf));
+            httpd_reject(obj_vcast(httpd_query, iq), BAD_REQUEST, "%s",
+                         buf.data);
+            __ichttp_err_ctx_clear();
+            res = -1;
+            goto end;
+        }
+        iop_jlex_detach(&jll);
+
+      end:
+        iop_jlex_wipe(&jll);
     }
-    iop_jlex_detach(&jll);
-
-  end:
-    iop_jlex_wipe(&jll);
     return res;
 }
 
