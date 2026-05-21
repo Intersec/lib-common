@@ -489,9 +489,11 @@ cdef class Basic:
     """Base class for all IOPy types."""
     cdef dict __dict__
 
-    def __hash__(Basic self):
-        """IOPy types are not hashable"""
-        raise TypeError('unhashable type')
+    # IOPy types are not hashable. Setting __hash__ to None makes the
+    # class statically unhashable, which is both detectable by type
+    # checkers (mypy reports the use as an error) and enforced at
+    # runtime by CPython (raises TypeError: unhashable type).
+    __hash__ = None
 
 
 @cython.final

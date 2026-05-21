@@ -48,6 +48,11 @@ IopOptField: typing_extensions.TypeAlias = typing.Annotated[
 # {{{ Base
 
 class Basic:
+    # IOPy types are not hashable; the runtime sets `__hash__ = None` so
+    # using an instance in a set/dict (or as a key) is a TypeError. We
+    # mirror that here so type checkers also flag the misuse.
+    __hash__: typing.ClassVar[None]  # type: ignore[assignment]
+
     # Try to auto-deduce the type of an object created from a `Basic` class.
     # `Basic` cannot be instantiated on run-time, by the type checker can
     # still use it, and `Package.__getattr__()` returns a `type[Basic]`.

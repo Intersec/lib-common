@@ -1305,9 +1305,30 @@ class IopyTest(z.TestCase):
         )
 
     def test_unhashable(self) -> None:
-        def _check_unhashable(x: Any) -> None:
+        def _check_unhashable(x: iopy.Basic) -> None:
             with self.assertRaisesRegex(TypeError, 'unhashable type'):
                 hash(x)
+            # Direct `__hash__()` call is caught statically by mypy
+            # because the stub declares `Basic.__hash__: ClassVar[None]`,
+            # hence the `# type: ignore[misc]` ("None not callable").
+            with self.assertRaisesRegex(TypeError, 'not callable'):
+                x.__hash__()  # type: ignore[misc]  # noqa: PLC2801
+            # Set / frozenset / dict membership tries to hash the LHS
+            # first, so it fails at runtime. Mypy catches the misuse
+            # via `[comparison-overlap]` (`Basic` has no `__eq__`, so
+            # it cannot equal a `str` or `int`).
+            with self.assertRaisesRegex(TypeError, 'unhashable type'):
+                _ = x in {0, 1}  # type: ignore[comparison-overlap]
+            with self.assertRaisesRegex(TypeError, 'unhashable type'):
+                _ = x in {'A', 'B'}  # type: ignore[comparison-overlap]
+            with self.assertRaisesRegex(TypeError, 'unhashable type'):
+                _ = x in frozenset([0, 1])  # type: ignore[comparison-overlap]
+            with self.assertRaisesRegex(TypeError, 'unhashable type'):
+                _ = x in {0: 'a', 1: 'b'}  # type: ignore[comparison-overlap]
+            with self.assertRaisesRegex(TypeError, 'unhashable type'):
+                _ = {x}
+            with self.assertRaisesRegex(TypeError, 'unhashable type'):
+                _ = {x: 1}
 
         # Test classes are unhashable
         _check_unhashable(self.r.test.ClassA())
@@ -1421,6 +1442,20 @@ class IopyTest(z.TestCase):
         self.assertEqual(undef4, 4)
         self.assertEqual(int(undef4), 4)
         self.assertEqual(str(undef4), 'undefined')
+
+        # Inclusion in non-hashing containers works (list/tuple iterate
+        # and use `==`).
+        self.assertIn(a1, [0, 1])
+        self.assertIn(a1, ['A', 'B'])
+        self.assertIn(a1, (0, 1))
+        self.assertNotIn(b2, [0, 1])
+        self.assertNotIn(b2, ['A'])
+        self.assertIn(ab3, [3])
+        self.assertIn(ab3, ['A|B'])
+
+        # Inclusion in a set / frozenset does NOT work because the
+        # enum is unhashable. See `test_unhashable` for the runtime
+        # check.
 
         # Aliases
         self.assertEqual(a_alias_upper, a_upper)
