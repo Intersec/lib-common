@@ -30,16 +30,17 @@ typedef struct iop_openapi_t iop_openapi_t;
  * application. Then, a YAML OpenAPI description of the application
  * can be generated.
  *
- * \param[in]  iop_env  The current IOP environment.
- * \param[in]  title    The title of the application
- * \param[in]  version  The version the application, must be a semver string.
- * \param[in]  module   The IOP module used for the OpenAPI application.
- * \param[in]  route    The route name. Every RPCs will be exposed in the
- *                      route `/<route>/<iface_alias>/<rpc_name>`.
+ * \param[in]  iop_env_ctx The current IOP environment.
+ * \param[in]  title       The title of the application
+ * \param[in]  version     The version the application, must be a semver
+ *                         string.
+ * \param[in]  module      The IOP module used for the OpenAPI application.
+ * \param[in]  route       The route name. Every RPCs will be exposed in the
+ *                         route `/<route>/<iface_alias>/<rpc_name>`.
  * \return An IOP OpenAPI application.
  */
 iop_openapi_t * nonnull
-t_new_iop_openapi(const iop_env_t * nonnull iop_env,
+t_new_iop_openapi(const iop_env_ctx_t * nonnull iop_env_ctx,
                   const lstr_t title, const lstr_t version,
                   const iop_mod_t * nullable mod, const lstr_t route);
 

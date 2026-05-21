@@ -147,9 +147,11 @@ generate_openapi(const iop_env_t *iop_env, const iop_mod_t * nonnull module)
     yaml_data_t yaml;
     yaml_pack_env_t *env;
     SB_1k(err);
+    const iop_env_ctx_t *iop_env_ctx;
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
-    oa = t_new_iop_openapi(iop_env, LSTR(opts_g.title), LSTR(opts_g.version),
-                           module, LSTR(opts_g.route));
+    oa = t_new_iop_openapi(iop_env_ctx, LSTR(opts_g.title),
+                           LSTR(opts_g.version), module, LSTR(opts_g.route));
     if (opts_g.description) {
         t_iop_openapi_set_description(oa, LSTR(opts_g.description));
     }
