@@ -50,7 +50,7 @@ mod iop_tests {
 
     // {{{ Test helpers
 
-    fn setup_env_with_packages() -> Env<'static> {
+    fn setup_env_with_packages() -> Env {
         let mut env = Env::new();
         env.register_packages(&[&raw const ic__pkg, &raw const core__pkg]);
         env
@@ -77,7 +77,7 @@ mod iop_tests {
         let ptr = env1.as_ptr().cast_mut();
 
         /* Create non-owned Env from existing pointer */
-        let env2 = Env::from_ptr(ptr);
+        let env2 = unsafe { Env::from_ptr(ptr) };
         assert_eq!(env2.as_ptr(), ptr.cast_const());
 
         /* env2 is non-owned, so dropping it should not free the underlying env */

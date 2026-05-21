@@ -204,49 +204,75 @@ impl StructUnion for GenericStructUnion<'_> {
 // {{{ IOP Env
 
 /// Wrapper around `iop_env_t` for easy manipulation in Rust.
-pub struct Env<'a> {
-    env: &'a mut iop_env_t,
+///
+/// Holds a raw `*mut iop_env_t` rather than a `&'a mut iop_env_t` so the
+/// wrapper can be safely shared across threads. Read methods (`&self`)
+/// internally acquire a refcounted ctx snapshot via the `ArcSwap`; writer
+/// methods (`&mut self`) require unique ownership of the env handle.
+pub struct Env {
+    env: *mut iop_env_t,
     owned: bool,
 }
 
-impl Env<'_> {
+// SAFETY:
+//  - The underlying `iop_env_t` is thread-safe for reads (ctx access goes
+//    through `iop_env_ctx_acquire` which is backed by ArcSwap).
+//  - Writes go through `&mut Env` so the Rust borrow checker forbids
+//    concurrent writes.
+//  - The env handle's refcount stays single-threaded for now: cloning
+//    `Env` is intentionally not provided. Use a borrowed view via
+//    `from_ptr` if you need a non-owning copy.
+unsafe impl Send for Env {}
+unsafe impl Sync for Env {}
+
+impl Env {
     /// Create a new owned IOP env.
     ///
     /// # Panics
     ///
     /// `iop_env_new()` returns a NULL pointer.
+    #[must_use]
     pub fn new() -> Self {
         let env = unsafe { iop_env_new() };
-        Self {
-            env: unsafe { env.as_mut().expect("created env should not be null") },
-            owned: true,
-        }
+        assert!(!env.is_null(), "iop_env_new returned NULL");
+        Self { env, owned: true }
     }
 
     /// Create a non-owned Rust IOP env from an existing C IOP env.
     ///
+    /// The returned `Env` does NOT release the underlying env on drop.
+    ///
     /// # Panics
     ///
-    /// `env` is a NULL pointer.
-    #[allow(clippy::not_unsafe_ptr_arg_deref)]
-    pub fn from_ptr(env: *mut iop_env_t) -> Self {
-        Self {
-            env: unsafe { env.as_mut().expect("env should not be null") },
-            owned: false,
-        }
+    /// Panics if `env` is NULL.
+    ///
+    /// # Safety
+    ///
+    /// `env` must point to a valid `iop_env_t` whose lifetime exceeds the
+    /// returned `Env`.
+    #[must_use]
+    pub unsafe fn from_ptr(env: *mut iop_env_t) -> Self {
+        assert!(!env.is_null(), "Env::from_ptr called with NULL");
+        Self { env, owned: false }
     }
 
     /// Retrieve the C IOP env pointer.
+    #[must_use]
     pub fn as_ptr(&self) -> *const iop_env_t {
         self.env
     }
 
     /// Retrieve the C IOP env pointer as mutable.
+    #[must_use]
     pub fn as_mut_ptr(&mut self) -> *mut iop_env_t {
         self.env
     }
 
     /// Register some IOP packages in the IOP env.
+    ///
+    /// Internally does copy-modify-swap on the underlying `ArcSwap`, so
+    /// concurrent readers on other threads keep seeing the previous
+    /// registered set until the swap commits.
     pub fn register_packages(&mut self, pkgs: &[*const iop_pkg_t]) {
         unsafe {
             iop_register_packages(self.env, pkgs.as_ptr(), pkgs.len() as i32);
@@ -254,6 +280,7 @@ impl Env<'_> {
     }
 
     /// Get a IOP struct or union from its fullname.
+    #[must_use]
     pub fn get_struct_desc(&self, fullname: &str) -> Option<*const iop_struct_t> {
         let fullname_lstr = lstr::from_str(fullname);
         let res = unsafe { iop_env_get_struct(self.env, fullname_lstr.as_raw()) };
@@ -350,20 +377,18 @@ impl Env<'_> {
     }
 }
 
-impl Default for Env<'_> {
+impl Default for Env {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Drop for Env<'_> {
+impl Drop for Env {
     fn drop(&mut self) {
         if self.owned {
-            let mut env_ptr = self.as_mut_ptr();
-            let env_ptr_ptr: *mut *mut iop_env_t = &raw mut env_ptr;
-
+            let mut env_ptr = self.env;
             unsafe {
-                iop_env_delete(env_ptr_ptr);
+                iop_env_delete(&raw mut env_ptr);
             }
         }
     }
@@ -538,6 +563,19 @@ macro_rules! iop_get {
     // Simple field access
     ($obj:expr, $field:ident) => {
         $crate::paste::paste! { ($obj).[<$field __get>]() }
+    };
+}
+
+// }}}
+// {{{ Tests
+
+#[cfg(test)]
+mod env_send_sync_assertions {
+    use super::Env;
+
+    const fn assert_send_sync<T: Send + Sync>() {}
+    const _: () = {
+        assert_send_sync::<Env>();
     };
 }
 
