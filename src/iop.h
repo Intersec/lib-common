@@ -2986,11 +2986,12 @@ void iop_compat_ctx_delete(iop_compat_ctx_t * nullable * nonnull ctx);
  * \warning in case \p st1 and \p st2 are classes, it is not checking the
  *          backward compatibility of their children.
  */
-int iop_struct_check_backward_compat(const iop_env_t * nonnull iop_env1,
-                                     const iop_struct_t * nonnull st1,
-                                     const iop_env_t * nonnull iop_env2,
-                                     const iop_struct_t * nonnull st2,
-                                     unsigned flags, sb_t * nonnull err);
+int
+iop_struct_check_backward_compat(const iop_env_ctx_t * nonnull iop_env_ctx1,
+                                 const iop_struct_t * nonnull st1,
+                                 const iop_env_ctx_t * nonnull iop_env_ctx2,
+                                 const iop_struct_t * nonnull st2,
+                                 unsigned flags, sb_t * nonnull err);
 
 /** Forward declaration to avoid cyclic header inclusion. */
 struct iop_dso_t;
@@ -3007,9 +3008,9 @@ struct iop_dso_t;
  *
  * \warning this function does not check the interfaces/RPCs for now.
  */
-int iop_pkg_check_backward_compat(const iop_env_t * nonnull iop_env1,
+int iop_pkg_check_backward_compat(const iop_env_ctx_t * nonnull iop_env_ctx1,
                                   const iop_pkg_t * nonnull pkg1,
-                                  const iop_env_t * nonnull iop_env2,
+                                  const iop_env_ctx_t * nonnull iop_env_ctx2,
                                   const iop_pkg_t * nonnull pkg2,
                                   unsigned flags, sb_t * nonnull err);
 
@@ -3021,12 +3022,13 @@ int iop_pkg_check_backward_compat(const iop_env_t * nonnull iop_env1,
  * This function introduce a way to provide an external compatibility context
  * \p ctx allowing backward compatibility checks between multiple packages.
  */
-int iop_pkg_check_backward_compat_ctx(const iop_env_t * nonnull iop_env1,
-                                      const iop_pkg_t * nonnull pkg1,
-                                      const iop_env_t * nonnull iop_env2,
-                                      const iop_pkg_t * nonnull pkg2,
-                                      iop_compat_ctx_t * nonnull ctx,
-                                      unsigned flags, sb_t * nonnull err);
+int
+iop_pkg_check_backward_compat_ctx(const iop_env_ctx_t * nonnull iop_env_ctx1,
+                                  const iop_pkg_t * nonnull pkg1,
+                                  const iop_env_ctx_t * nonnull iop_env_ctx2,
+                                  const iop_pkg_t * nonnull pkg2,
+                                  iop_compat_ctx_t * nonnull ctx,
+                                  unsigned flags, sb_t * nonnull err);
 
 /** Get whether a struct is optional or not.
  *

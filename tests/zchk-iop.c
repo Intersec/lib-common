@@ -1499,14 +1499,14 @@ iop_check_struct_backward_compat(const iop_struct_t *st1,
                 LSTR_FMT_ARG(st1->fullname), LSTR_FMT_ARG(st2->fullname));
 
     if (exp_err) {
-        Z_ASSERT_NEG(iop_struct_check_backward_compat(_G.iop_env, st1,
-                                                      _G.iop_env, st2,
+        Z_ASSERT_NEG(iop_struct_check_backward_compat(iop_env_ctx, st1,
+                                                      iop_env_ctx, st2,
                                                       flags, &err),
                      "%s should fail", ctx);
         Z_ASSERT_LSTREQUAL(LSTR_SB_V(&err), LSTR(exp_err));
     } else {
-        Z_ASSERT_N(iop_struct_check_backward_compat(_G.iop_env, st1,
-                                                    _G.iop_env, st2,
+        Z_ASSERT_N(iop_struct_check_backward_compat(iop_env_ctx, st1,
+                                                    iop_env_ctx, st2,
                                                     flags, &err),
                    "unexpected failure of %s: %*pM", ctx, SB_FMT_ARG(&err));
     }
@@ -1567,8 +1567,8 @@ static int iop_check_typedef_backward_compat(const iop_struct_t *st,
     ctx = t_fmt("check_backward_compat from %*pM to %*pM",
                 LSTR_FMT_ARG(td->fullname), LSTR_FMT_ARG(st->fullname));
 
-    Z_ASSERT_N(iop_struct_check_backward_compat(_G.iop_env, st,
-                                                _G.iop_env, td->ref_struct,
+    Z_ASSERT_N(iop_struct_check_backward_compat(iop_env_ctx, st,
+                                                iop_env_ctx, td->ref_struct,
                                                 flags, &err),
                "unexpected failure of %s: %*pM", ctx, SB_FMT_ARG(&err));
 
@@ -1618,8 +1618,16 @@ static int iop_check_pkg_backward_compat(const iop_pkg_t *pkg1,
     IOP_REGISTER_PACKAGES(iop_env2, pkg2);
 
     /* Check the package backward compat */
-    res = iop_pkg_check_backward_compat(iop_env1, pkg1, iop_env2, pkg2,
-                                        flags, &err);
+    {
+        const iop_env_ctx_t *iop_env_ctx1;
+        const iop_env_ctx_t *iop_env_ctx2;
+
+        iop_env_ctx_acquire_scoped(iop_env1, iop_env_ctx1);
+        iop_env_ctx_acquire_scoped(iop_env2, iop_env_ctx2);
+
+        res = iop_pkg_check_backward_compat(iop_env_ctx1, pkg1,
+                                            iop_env_ctx2, pkg2, flags, &err);
+    }
 
     /* Clean up the envs */
     iop_env_delete(&iop_env2);
@@ -9159,9 +9167,14 @@ Z_GROUP_EXPORT(iop)
 #undef T_OK
 #define T_OK(_iop_env1, _pkg1, _iop_env2, _pkg2, _flags)  \
         do {                                                                 \
+            const iop_env_ctx_t *iop_env_ctx1;                               \
+            const iop_env_ctx_t *iop_env_ctx2;                               \
+                                                                             \
             sb_reset(&err);                                                  \
-            Z_ASSERT_N(iop_pkg_check_backward_compat((_iop_env1), (_pkg1),   \
-                                                     (_iop_env2), (_pkg2),   \
+            iop_env_ctx_acquire_scoped((_iop_env1), iop_env_ctx1);           \
+            iop_env_ctx_acquire_scoped((_iop_env2), iop_env_ctx2);           \
+            Z_ASSERT_N(iop_pkg_check_backward_compat(iop_env_ctx1, (_pkg1),  \
+                                                     iop_env_ctx2, (_pkg2),  \
                                                      (_flags), &err),        \
                        "%*pM", SB_FMT_ARG(&err));                            \
         } while (0)

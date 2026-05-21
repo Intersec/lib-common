@@ -7501,7 +7501,7 @@ static void iop_compat_add_err(iop_compat_ctx_t *ctx, const char *fmt, ...)
 static int
 __iop_struct_check_backward_compat(const iop_struct_t *st1,
                                    const iop_struct_t *st2,
-                                   const iop_env_t *iop_env2,
+                                   const iop_env_ctx_t *iop_env_ctx2,
                                    unsigned flags, iop_compat_ctx_t *ctx);
 
 /* Add compat couple into the hash table. A special handler is needed as flags
@@ -7645,7 +7645,7 @@ static bool _iop_struct_is_optional(const iop_struct_t *st,
 static int
 iop_field_check_backward_compat(const iop_field_t *f1,
                                 const iop_field_t *f2,
-                                const iop_env_t *iop_env2,
+                                const iop_env_ctx_t *iop_env_ctx2,
                                 unsigned flags, iop_compat_ctx_t *ctx)
 {
     static int first_call = true;
@@ -7707,7 +7707,7 @@ iop_field_check_backward_compat(const iop_field_t *f1,
         assert (f1->type == f2->type);
         return __iop_struct_check_backward_compat(f1->u1.st_desc,
                                                   f2->u1.st_desc,
-                                                  iop_env2, flags, ctx);
+                                                  iop_env_ctx2, flags, ctx);
 
       case IOP_T_ENUM:
         assert (f1->type == f2->type);
@@ -7753,14 +7753,10 @@ get_parents_until_id(const iop_struct_t *st, const uint16_t *class_id,
 }
 
 static const iop_struct_t *
-get_parents_until_name(const iop_env_t * nonnull iop_env,
+get_parents_until_name(const iop_env_ctx_t * nonnull iop_env_ctx,
                        const iop_struct_t *st, const lstr_t *name,
                        qv_t(iop_struct) *vec)
 {
-    const iop_env_ctx_t *iop_env_ctx;
-
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
-
     while ((st = st->class_attrs->parent)) {
         if (name) {
             if (lstr_equal(st->fullname, *name)) {
@@ -7819,15 +7815,15 @@ check_parent_required_fields(const qv_t(iop_struct) *parents,
 static int
 check_class_parent(const iop_struct_t *st1,
                    const iop_struct_t *parent,
-                   const iop_env_t *iop_env2,
+                   const iop_env_ctx_t *iop_env_ctx2,
                    unsigned flags, iop_compat_ctx_t *ctx)
 {
     int res = 0;
 
     iop_compat_push_err_ctx(ctx, "parent `%*pM`:",
                             LSTR_FMT_ARG(parent->fullname));
-    res = __iop_struct_check_backward_compat(st1->class_attrs->parent,
-                                             parent, iop_env2, flags, ctx);
+    res = __iop_struct_check_backward_compat(st1->class_attrs->parent, parent,
+                                             iop_env_ctx2, flags, ctx);
     iop_compat_pop_err_ctx(ctx);
 
     return res;
@@ -7835,7 +7831,7 @@ check_class_parent(const iop_struct_t *st1,
 
 static int
 check_parent_classes(const iop_struct_t *st1, const iop_struct_t *st2,
-                     const iop_env_t *iop_env2,
+                     const iop_env_ctx_t *iop_env_ctx2,
                      unsigned flags, iop_compat_ctx_t *ctx)
 {
     const iop_struct_t *st2_parent_bin = NULL;
@@ -7877,8 +7873,8 @@ check_parent_classes(const iop_struct_t *st1, const iop_struct_t *st2,
         if (st1->class_attrs->parent) {
             class_name = &st1->class_attrs->parent->fullname;
         }
-        st2_parent_json = get_parents_until_name(iop_env2, st2, class_name,
-                                                 &parents);
+        st2_parent_json = get_parents_until_name(iop_env_ctx2, st2,
+                                                 class_name, &parents);
         if (class_name && !st2_parent_json
         &&  (!are_all_parents_empty(st1) || !are_all_parents_empty(st2)))
         {
@@ -7898,21 +7894,21 @@ check_parent_classes(const iop_struct_t *st1, const iop_struct_t *st2,
     &&  st1->class_attrs->parent)
     {
         if (st2_parent_bin == st2_parent_json) {
-            if (check_class_parent(st1, st2_parent_bin, iop_env2, flags,
+            if (check_class_parent(st1, st2_parent_bin, iop_env_ctx2, flags,
                                    ctx) < 0)
             {
                 res = -1;
             }
         } else {
             if (st2_parent_bin
-            &&  check_class_parent(st1, st2_parent_bin, iop_env2,
+            &&  check_class_parent(st1, st2_parent_bin, iop_env_ctx2,
                                    IOP_COMPAT_BIN, ctx) < 0)
             {
                 res = -1;
             }
 
             if (st2_parent_json
-            &&  check_class_parent(st1, st2_parent_json, iop_env2,
+            &&  check_class_parent(st1, st2_parent_json, iop_env_ctx2,
                                    IOP_COMPAT_JSON, ctx) < 0)
             {
                 res = -1;
@@ -7976,7 +7972,7 @@ static int
 __backward_compat_check_new_field(const iop_struct_t *st1,
                                   const iop_field_t *f1,
                                   const iop_field_t *f2,
-                                  const iop_env_t *iop_env2,
+                                  const iop_env_ctx_t *iop_env_ctx2,
                                   unsigned flags, iop_compat_ctx_t *ctx)
 {
     if (f1) {
@@ -7996,7 +7992,8 @@ __backward_compat_check_new_field(const iop_struct_t *st1,
 
         iop_compat_push_err_ctx(ctx, "field %*pM:", SB_FMT_ARG(&name_fmt));
 
-        if (iop_field_check_backward_compat(f1, f2, iop_env2, flags, ctx) < 0)
+        if (iop_field_check_backward_compat(f1, f2, iop_env_ctx2, flags,
+                                            ctx) < 0)
         {
             res = -1;
         }
@@ -8073,11 +8070,9 @@ iop_iface_compat_ignored(const iop_iface_t *iface, unsigned flags)
 static int
 __iop_struct_check_backward_compat(const iop_struct_t *st1,
                                    const iop_struct_t *st2,
-                                   const iop_env_t *iop_env2,
+                                   const iop_env_ctx_t *iop_env_ctx2,
                                    unsigned flags, iop_compat_ctx_t *ctx)
 {
-    const iop_env_ctx_t *iop_env_ctx2;
-    iop_env_ctx_acquire_scoped(iop_env2, iop_env_ctx2);
     int res = 0;
 
     /* XXX: do not simply test st1 == st2 because it allows to easily write
@@ -8133,19 +8128,15 @@ __iop_struct_check_backward_compat(const iop_struct_t *st1,
             res = -1;
         }
         if (flags & IOP_COMPAT_JSON
-        &&  !lstr_equal(st1->fullname, st2->fullname))
+        &&  !lstr_equal(st1->fullname, st2->fullname)
+        &&  st2 != iop_get_class_by_fullname(iop_env_ctx2, st2,
+                                             st1->fullname))
         {
-            const iop_struct_t *st2_renamed;
-
-            st2_renamed = iop_get_class_by_fullname(iop_env_ctx2, st2,
-                                                    st1->fullname);
-            if (st2 != st2_renamed) {
-                iop_compat_add_err(ctx, "class fullname changed "
-                                   "(`%*pM` != `%*pM`)",
-                                   LSTR_FMT_ARG(st1->fullname),
-                                   LSTR_FMT_ARG(st2->fullname));
-                res = -1;
-            }
+            iop_compat_add_err(ctx, "class fullname changed "
+                               "(`%*pM` != `%*pM`)",
+                               LSTR_FMT_ARG(st1->fullname),
+                               LSTR_FMT_ARG(st2->fullname));
+            res = -1;
         }
     }
 
@@ -8165,7 +8156,7 @@ __iop_struct_check_backward_compat(const iop_struct_t *st1,
 
 #define CHECK_NEW_FIELD(f1, flags)                                           \
         do {                                                                 \
-            if (__backward_compat_check_new_field(st1, f1, f2, iop_env2,     \
+            if (__backward_compat_check_new_field(st1, f1, f2, iop_env_ctx2, \
                                                   flags, ctx) < 0)           \
             {                                                                \
                 got_err = true;                                              \
@@ -8229,7 +8220,7 @@ __iop_struct_check_backward_compat(const iop_struct_t *st1,
 
     /* Specific class checks. */
     if (iop_struct_is_class(st1) && iop_struct_is_class(st2)
-    &&  check_parent_classes(st1, st2, iop_env2, flags, ctx) < 0)
+    &&  check_parent_classes(st1, st2, iop_env_ctx2, flags, ctx) < 0)
     {
             res = -1;
     }
@@ -8237,11 +8228,12 @@ __iop_struct_check_backward_compat(const iop_struct_t *st1,
     return res;
 }
 
-int iop_struct_check_backward_compat(const iop_env_t * nonnull iop_env1,
-                                     const iop_struct_t * nonnull st1,
-                                     const iop_env_t * nonnull iop_env2,
-                                     const iop_struct_t * nonnull st2,
-                                     unsigned flags, sb_t * nonnull err)
+int
+iop_struct_check_backward_compat(const iop_env_ctx_t * nonnull iop_env_ctx1,
+                                 const iop_struct_t * nonnull st1,
+                                 const iop_env_ctx_t * nonnull iop_env_ctx2,
+                                 const iop_struct_t * nonnull st2,
+                                 unsigned flags, sb_t * nonnull err)
 {
     int res;
     iop_compat_ctx_t ctx;
@@ -8256,7 +8248,8 @@ int iop_struct_check_backward_compat(const iop_env_t * nonnull iop_env1,
     iop_compat_ctx_init(&ctx);
     ctx.err = err;
 
-    res = __iop_struct_check_backward_compat(st1, st2, iop_env2, flags, &ctx);
+    res = __iop_struct_check_backward_compat(st1, st2, iop_env_ctx2, flags,
+                                             &ctx);
 
     iop_compat_ctx_wipe(&ctx);
     return res;
@@ -8265,7 +8258,7 @@ int iop_struct_check_backward_compat(const iop_env_t * nonnull iop_env1,
 static int
 __iop_rpc_check_backward_compat(const iop_rpc_t *rpc1,
                                 const iop_rpc_t *rpc2,
-                                const iop_env_t *iop_env2,
+                                const iop_env_ctx_t *iop_env_ctx2,
                                 unsigned flags, iop_compat_ctx_t *ctx)
 {
     int res = 0;
@@ -8275,7 +8268,7 @@ __iop_rpc_check_backward_compat(const iop_rpc_t *rpc1,
         iop_compat_push_err_ctx(ctx, "RPC `%*pM` " TOSTR(_what) ":",         \
                                 LSTR_FMT_ARG(rpc1->name));                   \
         if (__iop_struct_check_backward_compat(rpc1->_what, rpc2->_what,     \
-                                               iop_env2, flags, ctx) < 0)    \
+                                               iop_env_ctx2, flags, ctx) < 0)\
         {                                                                    \
             res = -1;                                                        \
         }                                                                    \
@@ -8317,7 +8310,7 @@ __iop_iface_get_rpc_by_name(const iop_iface_t *iface, lstr_t name)
 static int
 __iop_iface_check_backward_compat(const iop_iface_t *if1,
                                   const iop_iface_t *if2,
-                                  const iop_env_t *iop_env2,
+                                  const iop_env_ctx_t *iop_env_ctx2,
                                   unsigned flags, iop_compat_ctx_t *ctx)
 {
     int res = 0;
@@ -8343,7 +8336,7 @@ __iop_iface_check_backward_compat(const iop_iface_t *if1,
                 unsigned rpc_flags;
 
                 if ((rpc_flags = iop_rpc_compat_ignored(if2, fun2, flags))
-                &&  __iop_rpc_check_backward_compat(fun1, fun2, iop_env2,
+                &&  __iop_rpc_check_backward_compat(fun1, fun2, iop_env_ctx2,
                                                     rpc_flags, ctx) < 0)
                 {
                     res = -1;
@@ -8362,7 +8355,7 @@ __iop_iface_check_backward_compat(const iop_iface_t *if1,
                 unsigned rpc_flags;
 
                 if ((rpc_flags = iop_rpc_compat_ignored(if2, fun2, flags))
-                &&  __iop_rpc_check_backward_compat(fun1, fun2, iop_env2,
+                &&  __iop_rpc_check_backward_compat(fun1, fun2, iop_env_ctx2,
                                                     rpc_flags, ctx) < 0)
                 {
                     res = -1;
@@ -8458,20 +8451,18 @@ static BUILD_GET_BY_NAME(iop_pkg_get_mod_by_name,    iop_mod_t,    mods)
 
 #undef BUILD_GET_BY_NAME
 
-int iop_pkg_check_backward_compat_ctx(const iop_env_t * nonnull iop_env1,
-                                      const iop_pkg_t * nonnull pkg1,
-                                      const iop_env_t * nonnull iop_env2,
-                                      const iop_pkg_t * nonnull pkg2,
-                                      iop_compat_ctx_t * nonnull ctx,
-                                      unsigned flags, sb_t * nonnull err)
+int
+iop_pkg_check_backward_compat_ctx(const iop_env_ctx_t * nonnull iop_env_ctx1,
+                                  const iop_pkg_t * nonnull pkg1,
+                                  const iop_env_ctx_t * nonnull iop_env_ctx2,
+                                  const iop_pkg_t * nonnull pkg2,
+                                  iop_compat_ctx_t * nonnull ctx,
+                                  unsigned flags, sb_t * nonnull err)
 {
-    const iop_env_ctx_t *iop_env_ctx2;
     bool is_same_pkg_name = lstr_equal(pkg1->name, pkg2->name);
     int res = 0;
 
     assert(flags & IOP_COMPAT_BIN || flags & IOP_COMPAT_JSON);
-
-    iop_env_ctx_acquire_scoped(iop_env2, iop_env_ctx2);
 
     ctx->err = err;
 
@@ -8519,8 +8510,8 @@ int iop_pkg_check_backward_compat_ctx(const iop_env_t * nonnull iop_env1,
         iop_compat_push_err_ctx(ctx, "%s `%*pM`:",
                                 what, LSTR_FMT_ARG(st1->fullname));
         if ((st_flags = iop_struct_compat_ignored(st2, flags))
-        &&  __iop_struct_check_backward_compat(st1, st2, iop_env2, st_flags,
-                                               ctx) < 0)
+        &&  __iop_struct_check_backward_compat(st1, st2, iop_env_ctx2,
+                                               st_flags, ctx) < 0)
         {
             res = -1;
         }
@@ -8545,8 +8536,8 @@ int iop_pkg_check_backward_compat_ctx(const iop_env_t * nonnull iop_env1,
         iop_compat_push_err_ctx(ctx, "interface `%*pM`:",
                                 LSTR_FMT_ARG(if1->fullname));
         if ((if_flags = iop_iface_compat_ignored(if2, flags))
-        &&  __iop_iface_check_backward_compat(if1, if2, iop_env2, if_flags,
-                                              ctx) < 0)
+        &&  __iop_iface_check_backward_compat(if1, if2, iop_env_ctx2,
+                                              if_flags, ctx) < 0)
         {
             res = -1;
         }
@@ -8579,9 +8570,9 @@ int iop_pkg_check_backward_compat_ctx(const iop_env_t * nonnull iop_env1,
     return res;
 }
 
-int iop_pkg_check_backward_compat(const iop_env_t * nonnull iop_env1,
+int iop_pkg_check_backward_compat(const iop_env_ctx_t * nonnull iop_env_ctx1,
                                   const iop_pkg_t * nonnull pkg1,
-                                  const iop_env_t * nonnull iop_env2,
+                                  const iop_env_ctx_t * nonnull iop_env_ctx2,
                                   const iop_pkg_t * nonnull pkg2,
                                   unsigned flags, sb_t * nonnull err)
 {
@@ -8590,8 +8581,8 @@ int iop_pkg_check_backward_compat(const iop_env_t * nonnull iop_env1,
 
     iop_compat_ctx_init(&ctx);
 
-    res = iop_pkg_check_backward_compat_ctx(iop_env1, pkg1, iop_env2, pkg2,
-                                            &ctx, flags, err);
+    res = iop_pkg_check_backward_compat_ctx(iop_env_ctx1, pkg1, iop_env_ctx2,
+                                            pkg2, &ctx, flags, err);
 
     iop_compat_ctx_wipe(&ctx);
 

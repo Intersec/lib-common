@@ -75,6 +75,8 @@ int main(int argc, char *argv[])
     lstr_t mode;
     const char *arg0 = NEXTARG(argc, argv);
     qv_t(lstr) sorted_pkg_names;
+    const iop_env_ctx_t *iop_env_ctx_old;
+    const iop_env_ctx_t *iop_env_ctx;
 
     if (!argc) {
         makeusage(EX_USAGE, arg0, "", usage, popt);
@@ -121,6 +123,9 @@ int main(int argc, char *argv[])
     }
     qv_sort(lstr)(&sorted_pkg_names, core_lstr_cmp);
 
+    iop_env_ctx_acquire_scoped(iop_env_old, iop_env_ctx_old);
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+
     tab_for_each_entry(name, &sorted_pkg_names) {
         const iop_pkg_t *pkg_old;
         const iop_pkg_t *pkg;
@@ -134,8 +139,8 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        if (iop_pkg_check_backward_compat_ctx(iop_env_old, pkg_old,
-                                              iop_env, pkg, ctx, flags,
+        if (iop_pkg_check_backward_compat_ctx(iop_env_ctx_old, pkg_old,
+                                              iop_env_ctx, pkg, ctx, flags,
                                               &err) < 0)
         {
             fprintf(stderr, "%*pM\n", SB_FMT_ARG(&err));
