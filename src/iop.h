@@ -2719,39 +2719,40 @@ enum iop_unpack_flags {
  * \warning If needed, iop_bunpack will allocate memory for each field. So if
  * the mem pool is not frame based, you may end up with a memory leak.
  *
- * \param[in] mp      The memory pool to use when memory allocation is needed.
- * \param[in] iop_env The current IOP environment.
- * \param[in] st      The IOP structure definition (__s).
- * \param[in] value   Pointer on the destination structure.
- * \param[in] ps      The pstream_t containing the packed IOP structure.
- * \param[in] flags   A combination of \ref iop_unpack_flags to alter the
- *                    behavior of the unpacker.
+ * \param[in] mp          The memory pool to use when memory allocation is
+ *                        needed.
+ * \param[in] iop_env_ctx The current IOP environment context.
+ * \param[in] st          The IOP structure definition (__s).
+ * \param[in] value       Pointer on the destination structure.
+ * \param[in] ps          The pstream_t containing the packed IOP structure.
+ * \param[in] flags       A combination of \ref iop_unpack_flags to alter the
+ *                        behavior of the unpacker.
  */
 __must_check__
 int iop_bunpack_flags(mem_pool_t * nonnull mp,
-                      const iop_env_t * nonnull iop_env,
+                      const iop_env_ctx_t * nonnull iop_env_ctx,
                       const iop_struct_t * nonnull st,
                       void * nonnull value,
                       pstream_t ps, unsigned flags);
 
 __must_check__
 static inline int iop_bunpack(mem_pool_t * nonnull mp,
-                              const iop_env_t * nonnull iop_env,
+                              const iop_env_ctx_t * nonnull iop_env_ctx,
                               const iop_struct_t * nonnull st,
                               void * nonnull value, pstream_t ps, bool copy)
 {
-    return iop_bunpack_flags(mp, iop_env, st, value, ps,
+    return iop_bunpack_flags(mp, iop_env_ctx, st, value, ps,
                              copy ? IOP_UNPACK_COPY_STRINGS : 0);
 }
 
 /** Unpack a packed IOP structure using the t_pool().
  */
 __must_check__ static inline int
-t_iop_bunpack_ps(const iop_env_t * nonnull iop_env,
+t_iop_bunpack_ps(const iop_env_ctx_t * nonnull iop_env_ctx,
                  const iop_struct_t * nonnull st, void * nonnull value,
                  pstream_t ps, bool copy)
 {
-    return iop_bunpack(t_pool(), iop_env, st, value, ps, copy);
+    return iop_bunpack(t_pool(), iop_env_ctx, st, value, ps, copy);
 }
 
 /** Unpack a packed IOP object and (re)allocates the destination structure.
@@ -2766,32 +2767,32 @@ t_iop_bunpack_ps(const iop_env_t * nonnull iop_env,
  * \warning If needed, iop_bunpack will allocate memory for each field. So if
  * the mem pool is not frame based, you may end up with a memory leak.
  *
- * \param[in] mp      The memory pool to use when memory allocation is needed;
- *                    will be used at least to allocate the destination
- *                    structure.
- * \param[in] iop_env The current IOP environment.
- * \param[in] st      The IOP structure/class definition (__s).
- * \param[in] value   Double pointer on the destination structure.
- *                    If *value is not NULL, it is reallocated.
- * \param[in] ps      The pstream_t containing the packed IOP object.
- * \param[in] flags   A combination of \ref iop_unpack_flags to alter the
- *                    behavior of the unpacker.
+ * \param[in] mp          The memory pool to use when memory allocation is
+ *                        needed; will be used at least to allocate the
+ *                        destination structure.
+ * \param[in] iop_env_ctx The current IOP environment context.
+ * \param[in] st          The IOP structure/class definition (__s).
+ * \param[in] value       Double pointer on the destination structure.
+ *                        If *value is not NULL, it is reallocated.
+ * \param[in] ps          The pstream_t containing the packed IOP object.
+ * \param[in] flags       A combination of \ref iop_unpack_flags to alter the
+ *                        behavior of the unpacker.
  */
 __must_check__
 int iop_bunpack_ptr_flags(mem_pool_t * nonnull mp,
-                          const iop_env_t * nonnull iop_env,
+                          const iop_env_ctx_t * nonnull iop_env_ctx,
                           const iop_struct_t * nonnull st,
                           void * nullable * nonnull value, pstream_t ps,
                           unsigned flags);
 
 __must_check__
 static inline int iop_bunpack_ptr(mem_pool_t * nonnull mp,
-                                  const iop_env_t * nonnull iop_env,
+                                  const iop_env_ctx_t * nonnull iop_env_ctx,
                                   const iop_struct_t * nonnull st,
                                   void * nullable * nonnull value,
                                   pstream_t ps, bool copy)
 {
-    return iop_bunpack_ptr_flags(mp, iop_env, st, value, ps,
+    return iop_bunpack_ptr_flags(mp, iop_env_ctx, st, value, ps,
                                  copy ? IOP_UNPACK_COPY_STRINGS : 0);
 }
 
@@ -2801,41 +2802,42 @@ static inline int iop_bunpack_ptr(mem_pool_t * nonnull mp,
  * check that the pstream has been fully consumed. This allows to unpack
  * a suite of unions.
  *
- * \param[in] mp      The memory pool to use when memory allocation is needed.
- * \param[in] iop_env The current IOP environment.
- * \param[in] st      The IOP structure definition (__s).
- * \param[in] value   Pointer on the destination unpacked IOP union.
- * \param[in] ps      The pstream_t containing the packed IOP union. In case
- *                    of unpacking failure, it is left untouched.
- * \param[in] flags   A combination of \ref iop_unpack_flags to alter the
- *                    behavior of the unpacker.
+ * \param[in] mp          The memory pool to use when memory allocation is
+ *                        needed.
+ * \param[in] iop_env_ctx The current IOP environment context.
+ * \param[in] st          The IOP structure definition (__s).
+ * \param[in] value       Pointer on the destination unpacked IOP union.
+ * \param[in] ps          The pstream_t containing the packed IOP union. In
+ *                        case of unpacking failure, it is left untouched.
+ * \param[in] flags       A combination of \ref iop_unpack_flags to alter the
+ *                        behavior of the unpacker.
  */
 __must_check__
 int iop_bunpack_multi_flags(mem_pool_t * nonnull mp,
-                            const iop_env_t * nonnull iop_env,
+                            const iop_env_ctx_t * nonnull iop_env_ctx,
                             const iop_struct_t * nonnull st,
                             void * nonnull value, pstream_t * nonnull ps,
                             unsigned flags);
 
 __must_check__
 static inline int iop_bunpack_multi(mem_pool_t * nonnull mp,
-                                    const iop_env_t * nonnull iop_env,
+                                    const iop_env_ctx_t * nonnull iop_env_ctx,
                                     const iop_struct_t * nonnull st,
                                     void * nonnull value,
                                     pstream_t * nonnull ps, bool copy)
 {
-    return iop_bunpack_multi_flags(mp, iop_env, st, value, ps,
+    return iop_bunpack_multi_flags(mp, iop_env_ctx, st, value, ps,
                                    copy ? IOP_UNPACK_COPY_STRINGS : 0);
 }
 
 /** Unpack a packed IOP union using the t_pool().
  */
 __must_check__ static inline int
-t_iop_bunpack_multi(const iop_env_t * nonnull iop_env,
+t_iop_bunpack_multi(const iop_env_ctx_t * nonnull iop_env_ctx,
                     const iop_struct_t * nonnull st, void * nonnull value,
                     pstream_t * nonnull ps, bool copy)
 {
-    return iop_bunpack_multi(t_pool(), iop_env, st, value, ps, copy);
+    return iop_bunpack_multi(t_pool(), iop_env_ctx, st, value, ps, copy);
 }
 
 /** Skip a packed IOP union without unpacking it.

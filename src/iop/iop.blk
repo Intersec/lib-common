@@ -5021,17 +5021,17 @@ int iop_skip_absent_field_desc(mem_pool_t *mp, void *value,
 }
 
 static int
-unpack_struct(mem_pool_t *mp, const iop_env_t *iop_env,
+unpack_struct(mem_pool_t *mp, const iop_env_ctx_t *iop_env_ctx,
               const iop_struct_t *desc, void *value, pstream_t *ps,
               unsigned flags, iop_wire_type_t *class_id_wt);
-static int unpack_class(mem_pool_t *mp, const iop_env_t *iop_env,
+static int unpack_class(mem_pool_t *mp, const iop_env_ctx_t *iop_env_ctx,
                         const iop_struct_t *desc, void **value, pstream_t *ps,
                         unsigned flags);
-static int unpack_union(mem_pool_t *mp, const iop_env_t *iop_env,
+static int unpack_union(mem_pool_t *mp, const iop_env_ctx_t *iop_env_ctx,
                         const iop_struct_t *desc, void *value, pstream_t *ps,
                         unsigned flags);
 
-static int unpack_value(mem_pool_t *mp, const iop_env_t *iop_env,
+static int unpack_value(mem_pool_t *mp, const iop_env_ctx_t *iop_env_ctx,
                         iop_wire_type_t wt, const iop_field_t *fdesc, void *v,
                         pstream_t *ps, unsigned flags)
 {
@@ -5070,16 +5070,16 @@ static int unpack_value(mem_pool_t *mp, const iop_env_t *iop_env,
             return __ps_skip(ps, u32);
           case IOP_T_UNION:
             ps_tmp = __ps_get_ps(ps, u32);
-            return unpack_union(mp, iop_env, fdesc->u1.st_desc, v, &ps_tmp,
-                                flags);
+            return unpack_union(mp, iop_env_ctx, fdesc->u1.st_desc, v,
+                                &ps_tmp, flags);
           case IOP_T_STRUCT:
             ps_tmp = __ps_get_ps(ps, u32);
             if (iop_field_is_class(fdesc)) {
                 *(void **)v = NULL;
-                return unpack_class(mp, iop_env, fdesc->u1.st_desc, v,
+                return unpack_class(mp, iop_env_ctx, fdesc->u1.st_desc, v,
                                     &ps_tmp, flags);
             } else {
-                return unpack_struct(mp, iop_env, fdesc->u1.st_desc, v,
+                return unpack_struct(mp, iop_env_ctx, fdesc->u1.st_desc, v,
                                      &ps_tmp, flags, NULL);
             }
           case IOP_T_VOID:
@@ -5133,7 +5133,7 @@ static int unpack_value(mem_pool_t *mp, const iop_env_t *iop_env,
  * * a negative value on error.
  */
 static int
-unpack_struct(mem_pool_t *mp, const iop_env_t *iop_env,
+unpack_struct(mem_pool_t *mp, const iop_env_ctx_t *iop_env_ctx,
               const iop_struct_t *desc, void *value, pstream_t *ps,
               unsigned flags, iop_wire_type_t *class_id_wt)
 {
@@ -5259,7 +5259,9 @@ unpack_struct(mem_pool_t *mp, const iop_env_t *iop_env,
             data->tab = v = mp_imalloc(mp, n * fdesc->size, 8, MEM_RAW);
 
             while (n-- > 1) {
-                if (unpack_value(mp, iop_env, wt, fdesc, v, ps, flags) < 0) {
+                if (unpack_value(mp, iop_env_ctx, wt, fdesc, v, ps, flags)
+                    < 0)
+                {
                     sb_prepend_field(&iop_err_g.path, fdesc,
                                      data->len - n - 1);
                     return -1;
@@ -5268,7 +5270,7 @@ unpack_struct(mem_pool_t *mp, const iop_env_t *iop_env,
                 wt = IOP_WIRE_FMT(__ps_getc(ps));
                 v  = (char *)v + fdesc->size;
             }
-            if (unpack_value(mp, iop_env, wt, fdesc, v, ps, flags) < 0) {
+            if (unpack_value(mp, iop_env_ctx, wt, fdesc, v, ps, flags) < 0) {
                 sb_prepend_field(&iop_err_g.path, fdesc, 0);
                 return -1;
             }
@@ -5284,7 +5286,7 @@ unpack_struct(mem_pool_t *mp, const iop_env_t *iop_env,
             {
                 v = iop_field_set_present(mp, fdesc, v);
             }
-            if (unpack_value(mp, iop_env, wt, fdesc, v, ps, flags) < 0) {
+            if (unpack_value(mp, iop_env_ctx, wt, fdesc, v, ps, flags) < 0) {
                 sb_prepend_field(&iop_err_g.path, fdesc, 0);
                 return -1;
             }
@@ -5344,7 +5346,7 @@ unpack_skip_all_fields(mem_pool_t *mp, const iop_struct_t *desc, void *value)
     return 0;
 }
 
-static int unpack_class(mem_pool_t *mp, const iop_env_t *iop_env,
+static int unpack_class(mem_pool_t *mp, const iop_env_ctx_t *iop_env_ctx,
                         const iop_struct_t *desc, void **value, pstream_t *ps,
                         unsigned flags)
 {
@@ -5370,8 +5372,6 @@ static int unpack_class(mem_pool_t *mp, const iop_env_t *iop_env,
         *ps = saved_ps;
         real_desc = desc;
     } else {
-        const iop_env_ctx_t *iop_env_ctx;
-        iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
         PS_CHECK(__get_class_id(ps, wt, &child_id));
 
@@ -5428,7 +5428,7 @@ static int unpack_class(mem_pool_t *mp, const iop_env_t *iop_env,
         uint16_t class_id = 0;
         int res;
 
-        PS_CHECK((res = unpack_struct(mp, iop_env, real_desc, *value, ps,
+        PS_CHECK((res = unpack_struct(mp, iop_env_ctx, real_desc, *value, ps,
                                       flags, &wt)));
 
         if (!(real_desc = real_desc->class_attrs->parent)) {
@@ -5463,7 +5463,7 @@ static int unpack_class(mem_pool_t *mp, const iop_env_t *iop_env,
 
 /* note: returns 0 on success, -1 on error and 1 if the pstream hasn't been
  * fully consumed. */
-static int unpack_union(mem_pool_t *mp, const iop_env_t *iop_env,
+static int unpack_union(mem_pool_t *mp, const iop_env_ctx_t *iop_env_ctx,
                         const iop_struct_t *desc, void *value, pstream_t *ps,
                         unsigned flags)
 {
@@ -5489,7 +5489,7 @@ static int unpack_union(mem_pool_t *mp, const iop_env_t *iop_env,
 
     e_named_trace(5, "iop/c/unpacker", "unpacking union %*pM field %*pM",
                   LSTR_FMT_ARG(desc->fullname), LSTR_FMT_ARG(fdesc->name));
-    if (unpack_value(mp, iop_env, wt, fdesc, value, ps, flags) < 0) {
+    if (unpack_value(mp, iop_env_ctx, wt, fdesc, value, ps, flags) < 0) {
         sb_prepend_field(&iop_err_g.path, fdesc, 0);
         return -1;
     }
@@ -5499,7 +5499,7 @@ static int unpack_union(mem_pool_t *mp, const iop_env_t *iop_env,
     return ps_done(ps) ? 0 : 1;
 }
 
-int iop_bunpack_flags(mem_pool_t *mp, const iop_env_t *iop_env,
+int iop_bunpack_flags(mem_pool_t *mp, const iop_env_ctx_t *iop_env_ctx,
                       const iop_struct_t *desc, void *value, pstream_t ps,
                       unsigned flags)
 {
@@ -5509,13 +5509,14 @@ int iop_bunpack_flags(mem_pool_t *mp, const iop_env_t *iop_env,
                   LSTR_FMT_ARG(desc->fullname));
     iop_clear_err();
     if (desc->is_union) {
-        return unpack_union(mp, iop_env, desc, value, &ps, flags) ? -1 : 0;
+        return unpack_union(mp, iop_env_ctx, desc, value, &ps, flags)
+               ? -1 : 0;
     }
-    return unpack_struct(mp, iop_env, desc, value, &ps, flags, NULL) < 0 ?
+    return unpack_struct(mp, iop_env_ctx, desc, value, &ps, flags, NULL) < 0 ?
         -1 : 0;
 }
 
-int iop_bunpack_ptr_flags(mem_pool_t *mp, const iop_env_t *iop_env,
+int iop_bunpack_ptr_flags(mem_pool_t *mp, const iop_env_ctx_t *iop_env_ctx,
                           const iop_struct_t *desc, void **value,
                           pstream_t ps, unsigned flags)
 {
@@ -5525,17 +5526,17 @@ int iop_bunpack_ptr_flags(mem_pool_t *mp, const iop_env_t *iop_env,
 
     if (!iop_struct_is_class(desc)) {
         *value = mp_irealloc(mp, *value, 0, desc->size, 8, MEM_RAW);
-        return iop_bunpack_flags(mp, iop_env, desc, *value, ps, flags);
+        return iop_bunpack_flags(mp, iop_env_ctx, desc, *value, ps, flags);
     }
     assert (mp && mp->mem_pool & MEM_BY_FRAME);
 
-    return unpack_class(mp, iop_env, desc, value, &ps, flags);
+    return unpack_class(mp, iop_env_ctx, desc, value, &ps, flags);
 }
 
 /* XXX: this function can unpack only union because the struct can't be
  * delimited in a stream.
  * */
-int iop_bunpack_multi_flags(mem_pool_t *mp, const iop_env_t *iop_env,
+int iop_bunpack_multi_flags(mem_pool_t *mp, const iop_env_ctx_t *iop_env_ctx,
                             const iop_struct_t *desc, void *value,
                             pstream_t *ps, unsigned flags)
 {
@@ -5546,7 +5547,7 @@ int iop_bunpack_multi_flags(mem_pool_t *mp, const iop_env_t *iop_env,
     e_named_trace(5, "iop/c/unpacker", "unpacking IOP union(s) %*pM",
                   LSTR_FMT_ARG(desc->fullname));
     iop_clear_err();
-    if (unpack_union(mp, iop_env, desc, value, ps, flags) < 0) {
+    if (unpack_union(mp, iop_env_ctx, desc, value, ps, flags) < 0) {
         *ps = ps_save;
         return -1;
     }
@@ -8075,6 +8076,8 @@ __iop_struct_check_backward_compat(const iop_struct_t *st1,
                                    const iop_env_t *iop_env2,
                                    unsigned flags, iop_compat_ctx_t *ctx)
 {
+    const iop_env_ctx_t *iop_env_ctx2;
+    iop_env_ctx_acquire_scoped(iop_env2, iop_env_ctx2);
     int res = 0;
 
     /* XXX: do not simply test st1 == st2 because it allows to easily write
@@ -8134,12 +8137,8 @@ __iop_struct_check_backward_compat(const iop_struct_t *st1,
         {
             const iop_struct_t *st2_renamed;
 
-            {
-                const iop_env_ctx_t *iop_env_ctx2;
-                iop_env_ctx_acquire_scoped(iop_env2, iop_env_ctx2);
-                st2_renamed = iop_get_class_by_fullname(iop_env_ctx2, st2,
-                                                        st1->fullname);
-            }
+            st2_renamed = iop_get_class_by_fullname(iop_env_ctx2, st2,
+                                                    st1->fullname);
             if (st2 != st2_renamed) {
                 iop_compat_add_err(ctx, "class fullname changed "
                                    "(`%*pM` != `%*pM`)",

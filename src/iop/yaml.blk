@@ -553,10 +553,12 @@ get_struct_from_tag(yunpack_env_t * nonnull env,
                     const iop_struct_t * nonnull st, const lstr_t tag,
                     sb_t * nonnull err)
 {
+    const iop_env_ctx_t *iop_env_ctx;
+
+    iop_env_ctx_acquire_scoped(env->iop_env, iop_env_ctx);
+
     if (iop_struct_is_class(st)) {
         const iop_struct_t *real_st;
-        const iop_env_ctx_t *iop_env_ctx;
-        iop_env_ctx_acquire_scoped(env->iop_env, iop_env_ctx);
 
         real_st = iop_get_class_by_fullname(iop_env_ctx, st, tag);
         if (!real_st) {

@@ -171,9 +171,12 @@ static int _test_struct(const iop_env_t *iop_env,
                         const iop_struct_t *nullable ref_st_desc)
 {
     t_scope;
+    const iop_env_ctx_t *iop_env_ctx;
     SB_1k(err);
     SB_1k(jbuf);
     SB_1k(jbuf_ref);
+
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
     if (ref_st_desc) {
         Z_HELPER_RUN(z_assert_struct_eq(st_desc, ref_st_desc),
@@ -205,7 +208,7 @@ static int _test_struct(const iop_env_t *iop_env,
         bin = t_iop_bpack_struct_flags(st_desc, st_ptr, IOP_BPACK_STRICT);
         Z_ASSERT_P(bin.s, "bpack error: %s", iop_get_err());
         ps = ps_initlstr(&bin);
-        Z_ASSERT_N(iop_bunpack_ptr(t_pool(), iop_env, st_desc,
+        Z_ASSERT_N(iop_bunpack_ptr(t_pool(), iop_env_ctx, st_desc,
                                    &st_ptr_bunpacked, ps, true),
                    "bunpack error: %s", iop_get_err());
         Z_ASSERT_IOPEQUAL_DESC(st_desc, st_ptr, st_ptr_bunpacked,

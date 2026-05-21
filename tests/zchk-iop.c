@@ -74,154 +74,6 @@ struct {
 
 /* {{{ IOP testing helpers */
 
-static ALWAYS_INLINE const iop_struct_t * nullable
-iop_env_get_struct(const iop_env_t *iop_env, lstr_t fullname)
-{
-    const iop_env_ctx_t *iop_env_ctx;
-
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
-    return iop_env_ctx_get_struct(iop_env_ctx, fullname);
-}
-
-static ALWAYS_INLINE const iop_enum_t * nullable
-iop_env_get_enum(const iop_env_t *iop_env, lstr_t fullname)
-{
-    const iop_env_ctx_t *iop_env_ctx;
-
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
-    return iop_env_ctx_get_enum(iop_env_ctx, fullname);
-}
-
-/* Test-local shim macros that wrap the ctx-taking public API to accept an
- * env, acquiring/releasing a fresh ctx snapshot around each call. The
- * `(name)` syntax disables further macro expansion and resolves to the
- * underlying ctx-taking function.
- *
- * Non-test code should hold a snapshot via
- * \ref iop_env_ctx_acquire_scoped and call the ctx-taking variants
- * directly. */
-#define iop_get_class_by_fullname(env, st, fullname) ({                      \
-        const iop_env_ctx_t *iop_env_ctx;                                    \
-        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
-        (iop_get_class_by_fullname)(iop_env_ctx, (st), (fullname));          \
-    })
-
-#define iop_get_class_by_id(env, st, class_id) ({                            \
-        const iop_env_ctx_t *iop_env_ctx;                                    \
-        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
-        (iop_get_class_by_id)(iop_env_ctx, (st), (class_id));                \
-    })
-
-#define iop_field_path_compile(env, st, path, err) ({                        \
-        const iop_env_ctx_t *iop_env_ctx;                                    \
-        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
-        (iop_field_path_compile)(iop_env_ctx, (st), (path), (err));          \
-    })
-
-#define t_iop_field_path_compile(env, st, path, err) ({                      \
-        const iop_env_ctx_t *iop_env_ctx;                                    \
-        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
-        (t_iop_field_path_compile)(iop_env_ctx, (st), (path), (err));        \
-    })
-
-#define mp_iop_field_path_compile(mp, env, st, path, err) ({                 \
-        const iop_env_ctx_t *iop_env_ctx;                                    \
-        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
-        (mp_iop_field_path_compile)((mp), iop_env_ctx, (st), (path), (err)); \
-    })
-
-#define iop_obj_get_field_type(env, st, value, path, type, is_array, err) ({ \
-        const iop_env_ctx_t *iop_env_ctx;                                    \
-        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
-        (iop_obj_get_field_type)(iop_env_ctx, (st), (value), (path),         \
-                                 (type), (is_array), (err));                 \
-    })
-
-#define iop_get_field(env, ptr, st, path, out_ptr, out_st) ({                \
-        const iop_env_ctx_t *iop_env_ctx;                                    \
-        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
-        (iop_get_field)(iop_env_ctx, (ptr), (st), (path), (out_ptr),         \
-                        (out_st));                                           \
-    })
-
-#define iop_get_field_const(env, ptr, st, path, out_ptr, out_st) ({          \
-        const iop_env_ctx_t *iop_env_ctx;                                    \
-        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
-        (iop_get_field_const)(iop_env_ctx, (ptr), (st), (path), (out_ptr),   \
-                              (out_st));                                     \
-    })
-
-#define iop_struct_get_field(env, st, path, found_st, found_fdesc) ({        \
-        const iop_env_ctx_t *iop_env_ctx;                                    \
-        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
-        (iop_struct_get_field)(iop_env_ctx, (st), (path), (found_st),        \
-                               (found_fdesc));                               \
-    })
-
-#define iop_sort_desc(env, st, vec, len, field_path, flags, err) ({          \
-        const iop_env_ctx_t *iop_env_ctx;                                    \
-        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
-        (iop_sort_desc)(iop_env_ctx, (st), (vec), (len), (field_path),       \
-                        (flags), (err));                                     \
-    })
-
-#define iop_msort_desc(env, st, vec, len, params, err) ({                    \
-        const iop_env_ctx_t *iop_env_ctx;                                    \
-        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
-        (iop_msort_desc)(iop_env_ctx, (st), (vec), (len), (params), (err));  \
-    })
-
-#define iop_filter(env, st, vec, len, field_path, values, values_len,        \
-                   flags, err) ({                                            \
-        const iop_env_ctx_t *iop_env_ctx;                                    \
-        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
-        (iop_filter)(iop_env_ctx, (st), (vec), (len), (field_path),          \
-                     (values), (values_len), (flags), (err));                \
-    })
-
-#define iop_filter_opt(env, st, vec, len, field_path, is_set, err) ({        \
-        const iop_env_ctx_t *iop_env_ctx;                                    \
-        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
-        (iop_filter_opt)(iop_env_ctx, (st), (vec), (len), (field_path),      \
-                         (is_set), (err));                                   \
-    })
-
-#define t_iop_filter_bitmap(env, st, vec, len, field_path, values,           \
-                            values_len, flags, bitmap_op, bitmap, err) ({    \
-        const iop_env_ctx_t *iop_env_ctx;                                    \
-        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
-        (t_iop_filter_bitmap)(iop_env_ctx, (st), (vec), (len), (field_path), \
-                              (values), (values_len), (flags), (bitmap_op), \
-                              (bitmap), (err));                              \
-    })
-
-#define t_iop_filter_opt_bitmap(env, st, vec, len, field_path, is_set,       \
-                                bitmap_op, bitmap, err) ({                   \
-        const iop_env_ctx_t *iop_env_ctx;                                    \
-        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
-        (t_iop_filter_opt_bitmap)(iop_env_ctx, (st), (vec), (len),           \
-                                  (field_path), (is_set), (bitmap_op),       \
-                                  (bitmap), (err));                          \
-    })
-
-#define iop_struct_is_optional(env, st, check_parents) ({                    \
-        const iop_env_ctx_t *iop_env_ctx;                                    \
-        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
-        (iop_struct_is_optional)(iop_env_ctx, (st), (check_parents));        \
-    })
-
-#define iop_for_each_registered_classes(env, cb) do {                        \
-        const iop_env_ctx_t *iop_env_ctx;                                    \
-        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
-        (iop_for_each_registered_classes)(iop_env_ctx, (cb));                \
-    } while (0)
-
-#define iop_for_each_registered_pkgs(env, cb) do {                           \
-        const iop_env_ctx_t *iop_env_ctx;                                    \
-        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
-        (iop_for_each_registered_pkgs)(iop_env_ctx, (cb));                   \
-    } while (0)
-
 /* {{{ iop_get_field_values() */
 
 static int
@@ -229,12 +81,15 @@ z_iop_get_field_values_check(const iop_struct_t *st_desc, const void *st_ptr,
                              const char *fpath, const void *exp_values,
                              int exp_len, bool exp_is_array_of_pointers)
 {
+    const iop_env_ctx_t *iop_env_ctx;
     const iop_field_t *fdesc;
     const void *values;
     int len;
     bool is_array_of_pointers;
 
-    fdesc = iop_get_field_const(_G.iop_env, st_ptr, st_desc, LSTR(fpath),
+    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
+    fdesc = iop_get_field_const(iop_env_ctx, st_ptr, st_desc, LSTR(fpath),
                                 NULL, NULL);
     Z_ASSERT_P(fdesc, "call to 'iop_get_field_const()' failed");
     iop_get_field_values_const(fdesc, st_ptr, &values, &len,
@@ -590,17 +445,20 @@ static int _z_check_field_path_compile(
 {
     t_scope;
     SB_1k(err);
+    const iop_env_ctx_t *iop_env_ctx;
     iop_full_type_t type;
     bool is_array;
     int res;
 
+    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
     if (value) {
-        res = iop_obj_get_field_type(_G.iop_env, st, value, path, &type,
+        res = iop_obj_get_field_type(iop_env_ctx, st, value, path, &type,
                                      &is_array, &err);
     } else {
         const iop_field_path_t *fp = NULL;
 
-        fp = t_iop_field_path_compile(_G.iop_env, st, path, &err);
+        fp = t_iop_field_path_compile(iop_env_ctx, st, path, &err);
         if (exp_error.s) {
             res = fp ? 0 : -1;
         } else {
@@ -693,12 +551,15 @@ static int z_iop_filter_check_filter(const char *field, unsigned flags,
 {
     t_scope;
     SB_1k(err);
+    const iop_env_ctx_t *iop_env_ctx;
     void *values_ptrs;
+
+    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
     values_ptrs = t_z_create_values_ptr_from_values(values, values_len,
                                                     value_size);
 
-    Z_ASSERT_N(iop_filter(_G.iop_env, obj_st, tst_objs, &tst_objs_len,
+    Z_ASSERT_N(iop_filter(iop_env_ctx, obj_st, tst_objs, &tst_objs_len,
                           LSTR(field), values_ptrs, values_len, flags, &err),
                "%*pM", SB_FMT_ARG(&err));
 
@@ -739,12 +600,15 @@ static int t_z_iop_filter_add_bitmap(const char *field, unsigned flags,
                                      byte **bitmap)
 {
     SB_1k(err);
+    const iop_env_ctx_t *iop_env_ctx;
     void *values_ptrs;
+
+    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
     values_ptrs = t_z_create_values_ptr_from_values(values, values_len,
                                                     value_size);
 
-    Z_ASSERT_N(t_iop_filter_bitmap(_G.iop_env, obj_st, tst_objs,
+    Z_ASSERT_N(t_iop_filter_bitmap(iop_env_ctx, obj_st, tst_objs,
                                    tst_objs_len, LSTR(field), values_ptrs,
                                    values_len, flags, op, bitmap, &err),
                "%*pM", SB_FMT_ARG(&err));
@@ -793,8 +657,11 @@ static int z_iop_filter_check_opt(const char *field, bool must_be_set,
                                   int exp_objs_len)
 {
     SB_1k(err);
+    const iop_env_ctx_t *iop_env_ctx;
 
-    Z_ASSERT_N(iop_filter_opt(_G.iop_env, obj_st, tst_objs, &tst_objs_len,
+    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
+    Z_ASSERT_N(iop_filter_opt(iop_env_ctx, obj_st, tst_objs, &tst_objs_len,
                               LSTR(field), must_be_set, &err),
                "%*pM", SB_FMT_ARG(&err));
     Z_HELPER_RUN(z_iop_filter_check_results(obj_st, tst_objs, tst_objs_len,
@@ -847,10 +714,13 @@ static int z_test_iop_struct_get_field(const iop_struct_t *st,
                                        const char *path,
                                        z_iop_get_field_exp_t exp)
 {
+    const iop_env_ctx_t *iop_env_ctx;
     const iop_struct_t *found_st = NULL;
     const iop_field_t *found_fdesc = NULL;
 
-    Z_ASSERT_N(iop_struct_get_field(_G.iop_env, st, LSTR(path), &found_st,
+    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
+    Z_ASSERT_N(iop_struct_get_field(iop_env_ctx, st, LSTR(path), &found_st,
                                     &found_fdesc),
                "field path `%s` not found in `%*pM`",
                path, LSTR_FMT_ARG(st->fullname));
@@ -1224,12 +1094,15 @@ static int iop_std_test_struct_flags(const iop_struct_t *st, void *v,
                                      const unsigned flags, const char *info)
 {
     t_scope;
+    const iop_env_ctx_t *iop_env_ctx;
     int ret;
     void *res = NULL;
     uint8_t buf1[20], buf2[20];
     qv_t(i32) szs, szs2;
     int len, len2;
     byte *dst, *dst2;
+
+    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
     /* XXX: Use a small t_qv here to force a realloc during (un)packing and
      *      detect possible illegal usage of the t_pool in the (un)packing
@@ -1271,7 +1144,7 @@ static int iop_std_test_struct_flags(const iop_struct_t *st, void *v,
     MODULE_RELEASE(thr);
 
     /* unpacking */
-    ret = iop_bunpack_ptr(t_pool(), _G.iop_env, st, &res, ps_init(dst, len),
+    ret = iop_bunpack_ptr(t_pool(), iop_env_ctx, st, &res, ps_init(dst, len),
                           false);
     Z_ASSERT_N(ret, "IOP unpacking error (%s, %s, %s)",
                st->fullname.s, info, iop_get_err());
@@ -1323,10 +1196,13 @@ static int iop_std_test_struct_invalid(const iop_struct_t *st, void *v,
                                        const char *info, const char *err)
 {
     t_scope;
+    const iop_env_ctx_t *iop_env_ctx;
     void *res = NULL;
     qv_t(i32) szs;
     int len, ret;
     byte *dst;
+
+    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
     /* packing with strict flag should fail */
     Z_ASSERT_DATAEQUAL(t_iop_bpack_struct_flags(st, v, IOP_BPACK_STRICT),
@@ -1345,7 +1221,7 @@ static int iop_std_test_struct_invalid(const iop_struct_t *st, void *v,
     iop_bpack(dst, st, v, szs.tab);
 
     /* and unpacking should fail */
-    ret = iop_bunpack_ptr(t_pool(), _G.iop_env, st, &res, ps_init(dst, len),
+    ret = iop_bunpack_ptr(t_pool(), iop_env_ctx, st, &res, ps_init(dst, len),
                           false);
     Z_ASSERT_NEG(ret, "IOP unpacking unexpected success (%s, %s)",
                  st->fullname.s, info);
@@ -1376,14 +1252,19 @@ static int iop_check_retro_compat_roptimized(lstr_t path)
 
     iop_env_t *iop_env;
     iop_dso_t *dso;
+    const iop_env_ctx_t *iop_env_ctx;
     unsigned seed = (unsigned)time(NULL);
 
     iop_env = iop_env_new();
     dso = iop_dso_open(iop_env, path.s, &err);
+
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+
     Z_ASSERT_P(dso, "unable to load zchk-tstiop-plugin: %*pM",
                SB_FMT_ARG(&err));
 
-    Z_ASSERT_P(st = iop_env_get_struct(iop_env, LSTR("tstiop.Repeated")));
+    Z_ASSERT_P(st = iop_env_ctx_get_struct(iop_env_ctx,
+                                           LSTR("tstiop.Repeated")));
 
     /* initialize my arrays */
     {
@@ -1453,7 +1334,7 @@ static int iop_check_retro_compat_roptimized(lstr_t path)
             Z_ASSERT(ps_has(&ps, dlen));
 
             iop_init_desc(st, &sr);
-            Z_ASSERT_N(iop_bunpack(t_pool(), iop_env, st, &sr_res,
+            Z_ASSERT_N(iop_bunpack(t_pool(), iop_env_ctx, st, &sr_res,
                                    __ps_get_ps(&ps, dlen), false),
                        "IOP unpacking error (%s) at offset %zu",
                        st->fullname.s, ps.b - (byte *)file_map.data);
@@ -1476,13 +1357,18 @@ static int iop_check_retro_compat_copy_inv_tab(lstr_t path)
     iop_env_t *iop_env;
     iop_dso_t *dso;
     const iop_struct_t *st_sb;
+    const iop_env_ctx_t *iop_env_ctx;
 
     iop_env = iop_env_new();
     dso = iop_dso_open(iop_env, path.s, &err);
+
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+
     Z_ASSERT_P(dso, "unable to load zchk-tstiop-plugin: %*pM",
                SB_FMT_ARG(&err));
 
-    Z_ASSERT_P(st_sb = iop_env_get_struct(iop_env, LSTR("tstiop.MyStructB")));
+    Z_ASSERT_P(st_sb = iop_env_ctx_get_struct(iop_env_ctx,
+                                              LSTR("tstiop.MyStructB")));
 
     iop_init_desc(st_sb, &sb);
     sb.b.tab = (void *)0x42;
@@ -1582,7 +1468,10 @@ iop_check_struct_backward_compat(const iop_struct_t *st1,
 {
     t_scope;
     SB_1k(err);
+    const iop_env_ctx_t *iop_env_ctx;
     const char *ctx;
+
+    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
     ctx = t_fmt("check_backward_compat from %*pM to %*pM",
                 LSTR_FMT_ARG(st1->fullname), LSTR_FMT_ARG(st2->fullname));
@@ -1609,11 +1498,11 @@ iop_check_struct_backward_compat(const iop_struct_t *st1,
         lstr_t data = t_iop_bpack_struct(st1, obj1);
 
         if (exp_err) {
-            Z_ASSERT_NEG(iop_bunpack_ptr(t_pool(), _G.iop_env, st2, &obj2,
+            Z_ASSERT_NEG(iop_bunpack_ptr(t_pool(), iop_env_ctx, st2, &obj2,
                                          ps_initlstr(&data), false),
                          "bunpack should fail when testing %s", ctx);
         } else {
-            Z_ASSERT_N(iop_bunpack_ptr(t_pool(), _G.iop_env, st2,
+            Z_ASSERT_N(iop_bunpack_ptr(t_pool(), iop_env_ctx, st2,
                                        (void **)&obj2, ps_initlstr(&data),
                                        false),
                        "unexpected bunpack failure when testing %s", ctx);
@@ -1648,7 +1537,10 @@ static int iop_check_typedef_backward_compat(const iop_struct_t *st,
 {
     t_scope;
     SB_1k(err);
+    const iop_env_ctx_t *iop_env_ctx;
     const char *ctx;
+
+    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
     ctx = t_fmt("check_backward_compat from %*pM to %*pM",
                 LSTR_FMT_ARG(td->fullname), LSTR_FMT_ARG(st->fullname));
@@ -1666,7 +1558,7 @@ static int iop_check_typedef_backward_compat(const iop_struct_t *st,
         void *obj2 = NULL;
         lstr_t data = t_iop_bpack_struct(td->ref_struct, obj1);
 
-        Z_ASSERT_N(iop_bunpack_ptr(t_pool(), _G.iop_env, st, (void **)&obj2,
+        Z_ASSERT_N(iop_bunpack_ptr(t_pool(), iop_env_ctx, st, (void **)&obj2,
                                    ps_initlstr(&data), false),
                    "unexpected bunpack failure when testing %s", ctx);
     }
@@ -1786,15 +1678,20 @@ Z_GROUP_EXPORT(iop)
         SB_1k(err);
         iop_dso_t *dso;
         const iop_struct_t *st;
+        const iop_env_ctx_t *iop_env_ctx;
         lstr_t path = t_lstr_cat(z_cmddir_g,
                                  LSTR("zchk-iop-plugin"SO_FILEEXT));
 
-        Z_ASSERT(dso = iop_dso_open(_G.iop_env, path.s, &err),
-                 "%*pM", SB_FMT_ARG(&err));
+        dso = iop_dso_open(_G.iop_env, path.s, &err);
+
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
+        Z_ASSERT(dso, "%*pM", SB_FMT_ARG(&err));
         Z_ASSERT_N(qm_find(iop_struct, &dso->struct_h,
                            &LSTR_IMMED_V("ic.Hdr")));
 
-        Z_ASSERT_P(st = iop_env_get_struct(_G.iop_env, LSTR("ic.SimpleHdr")));
+        Z_ASSERT_P(st = iop_env_ctx_get_struct(iop_env_ctx,
+                                               LSTR("ic.SimpleHdr")));
         Z_ASSERT(st != &ic__simple_hdr__s);
 
         Z_ASSERT_EQ(dso->ic_user_version.current_version, 42U);
@@ -1824,7 +1721,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(hash_sha1, "test whether iop_hash_sha1 is stable wrt ABI change") { /* {{{ */
         t_scope;
-
+        const iop_env_ctx_t *iop_env_ctx;
         int  i_10 = 10, i_11 = 11;
         long j_10 = 10;
 
@@ -1851,9 +1748,11 @@ Z_GROUP_EXPORT(iop)
 
         uint8_t buf1[20], buf2[20];
 
-        Z_ASSERT_P(stv1 = iop_env_get_struct(_G.iop_env,
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
+        Z_ASSERT_P(stv1 = iop_env_ctx_get_struct(iop_env_ctx,
                                              LSTR("tstiop.HashV1")));
-        Z_ASSERT_P(stv2 = iop_env_get_struct(_G.iop_env,
+        Z_ASSERT_P(stv2 = iop_env_ctx_get_struct(iop_env_ctx,
                                              LSTR("tstiop.HashV2")));
 
         iop_hash_sha1(stv1, &v1, buf1, 0);
@@ -2242,7 +2141,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(soap, "test IOP SOAP (un)packer") { /* {{{ */
         t_scope;
-
+        const iop_env_ctx_t *iop_env_ctx;
         int32_t val[] = {15, 30, 45};
 
         tstiop__my_struct_e__t se = {
@@ -2301,18 +2200,20 @@ Z_GROUP_EXPORT(iop)
         const iop_struct_t *st_se, *st_sa, *st_sf, *st_cs, *st_sa_opt;
         const iop_struct_t *st_cls2;
 
-        Z_ASSERT_P(st_se = iop_env_get_struct(
-            _G.iop_env, LSTR("tstiop.MyStructE")));
-        Z_ASSERT_P(st_sa = iop_env_get_struct(
-            _G.iop_env, LSTR("tstiop.MyStructA")));
-        Z_ASSERT_P(st_sf = iop_env_get_struct(
-            _G.iop_env, LSTR("tstiop.MyStructF")));
-        Z_ASSERT_P(st_cs = iop_env_get_struct(
-            _G.iop_env, LSTR("tstiop.ConstraintS")));
-        Z_ASSERT_P(st_sa_opt = iop_env_get_struct(
-            _G.iop_env, LSTR("tstiop.MyStructAOpt")));
-        Z_ASSERT_P(st_cls2 = iop_env_get_struct(
-            _G.iop_env, LSTR("tstiop.MyClass2")));
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
+        Z_ASSERT_P(st_se = iop_env_ctx_get_struct(
+            iop_env_ctx, LSTR("tstiop.MyStructE")));
+        Z_ASSERT_P(st_sa = iop_env_ctx_get_struct(
+            iop_env_ctx, LSTR("tstiop.MyStructA")));
+        Z_ASSERT_P(st_sf = iop_env_ctx_get_struct(
+            iop_env_ctx, LSTR("tstiop.MyStructF")));
+        Z_ASSERT_P(st_cs = iop_env_ctx_get_struct(
+            iop_env_ctx, LSTR("tstiop.ConstraintS")));
+        Z_ASSERT_P(st_sa_opt = iop_env_ctx_get_struct(
+            iop_env_ctx, LSTR("tstiop.MyStructAOpt")));
+        Z_ASSERT_P(st_cls2 = iop_env_ctx_get_struct(
+            iop_env_ctx, LSTR("tstiop.MyClass2")));
 
         iop_init_desc(st_cls2, &cls2);
 
@@ -2510,6 +2411,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(json, "test IOP JSon (un)packer") { /* {{{ */
         t_scope;
+        const iop_env_ctx_t *iop_env_ctx;
         /* {{{ Variable declarations */
 
         SB_1k(err);
@@ -2804,26 +2706,28 @@ Z_GROUP_EXPORT(iop)
                                   "}";
         const char json_uc_p1[] = "{ d_of_c: 3.141592653589793238462643383 }";
 
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
         /* }}} */
 
-        Z_ASSERT_P(st_sa = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.MyStructA")));
-        Z_ASSERT_P(st_sf = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.MyStructF")));
-        Z_ASSERT_P(st_si = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.MyStructI")));
-        Z_ASSERT_P(st_sk = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.MyStructK")));
-        Z_ASSERT_P(st_sn = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.MyStructN")));
-        Z_ASSERT_P(st_sa_opt = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.MyStructAOpt")));
-        Z_ASSERT_P(st_cls2 = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.MyClass2")));
-        Z_ASSERT_P(st_sg = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.MyStructG")));
-        Z_ASSERT_P(st_uc = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.MyUnionC")));
+        Z_ASSERT_P(st_sa = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.MyStructA")));
+        Z_ASSERT_P(st_sf = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.MyStructF")));
+        Z_ASSERT_P(st_si = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.MyStructI")));
+        Z_ASSERT_P(st_sk = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.MyStructK")));
+        Z_ASSERT_P(st_sn = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.MyStructN")));
+        Z_ASSERT_P(st_sa_opt = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.MyStructAOpt")));
+        Z_ASSERT_P(st_cls2 = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.MyClass2")));
+        Z_ASSERT_P(st_sg = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.MyStructG")));
+        Z_ASSERT_P(st_uc = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.MyUnionC")));
 
         iop_init_desc(st_cls2, &cls2);
         cls2.int1 = 1;
@@ -3054,10 +2958,13 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(json_unicode_surrogates, "test JSON Unicode surrogate pairs") { /* {{{ */
         t_scope;
+        const iop_env_ctx_t *iop_env_ctx;
         const iop_struct_t *st_string;
         SB_1k(sb);
 
-        st_string = iop_env_get_struct(_G.iop_env,
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
+        st_string = iop_env_ctx_get_struct(iop_env_ctx,
                                        LSTR("tstiop.StringTest"));
         Z_ASSERT_P(st_string, "Failed to find tstiop.StringTest struct");
 
@@ -3235,7 +3142,7 @@ Z_GROUP_EXPORT(iop)
                 {"{\"testInt\": c'\\uD83D'}", 0xD83D, "unpaired high"},
             };
 
-            st_int = iop_env_get_struct(_G.iop_env,
+            st_int = iop_env_ctx_get_struct(iop_env_ctx,
                                        LSTR("tstiop.IntTest"));
             Z_ASSERT_P(st_int, "Failed to find tstiop.IntTest struct");
 
@@ -3784,7 +3691,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(std, "test IOP std (un)packer") { /* {{{ */
         t_scope;
-
+        const iop_env_ctx_t *iop_env_ctx;
         tstiop__my_class2__t cls2;
 
         tstiop__my_union_a__t un = IOP_UNION(tstiop__my_union_a, ua, 1);
@@ -3837,14 +3744,16 @@ Z_GROUP_EXPORT(iop)
 
         const iop_struct_t *st_sa, *st_sa_opt, *st_se, *st_cls2;
 
-        Z_ASSERT_P(st_sa = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.MyStructA")));
-        Z_ASSERT_P(st_sa_opt = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.MyStructAOpt")));
-        Z_ASSERT_P(st_se = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.MyStructE")));
-        Z_ASSERT_P(st_cls2 = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.MyClass2")));
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
+        Z_ASSERT_P(st_sa = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.MyStructA")));
+        Z_ASSERT_P(st_sa_opt = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.MyStructAOpt")));
+        Z_ASSERT_P(st_se = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.MyStructE")));
+        Z_ASSERT_P(st_cls2 = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.MyClass2")));
 
         iop_init_desc(st_cls2, &cls2);
 
@@ -3908,7 +3817,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(defval, "test IOP std: do not pack default values") { /* {{{ */
         t_scope;
-
+        const iop_env_ctx_t *iop_env_ctx;
         tstiop__my_struct_g__t sg;
         const iop_struct_t *st_sg;
         qv_t(i32) szs;
@@ -3916,8 +3825,10 @@ Z_GROUP_EXPORT(iop)
         lstr_t s;
         const unsigned flags = IOP_BPACK_SKIP_DEFVAL;
 
-        Z_ASSERT_P(st_sg = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.MyStructG")));
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
+        Z_ASSERT_P(st_sg = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.MyStructG")));
 
         t_qv_init(&szs, 1024);
 
@@ -3963,29 +3874,34 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(private, "test private attribute with binary packing") { /* {{{ */
         t_scope;
+        const iop_env_ctx_t *iop_env_ctx;
         void *out = NULL;
         tstiop_inheritance__c5__t c5;
         lstr_t bpacked;
         qv_t(i32) szs;
+
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         iop_init(tstiop_inheritance__c5, &c5);
         bpacked = t_iop_bpack_struct(&tstiop_inheritance__c5__s, &c5);
         Z_ASSERT(bpacked.s);
 
         t_qv_init(&szs, 16);
-        Z_ASSERT_NEG(iop_bunpack_ptr_flags(t_pool(), _G.iop_env,
+        Z_ASSERT_NEG(iop_bunpack_ptr_flags(t_pool(), iop_env_ctx,
                                            &tstiop_inheritance__c5__s,
                                            &out, ps_initlstr(&bpacked),
                                            IOP_UNPACK_FORBID_PRIVATE));
         Z_ASSERT(strstr(iop_get_err(),
                         "class `tstiop_inheritance.C5` is private"),
                  "%s", iop_get_err());
-        Z_ASSERT_N(iop_bunpack_ptr_flags(t_pool(), _G.iop_env,
+        Z_ASSERT_N(iop_bunpack_ptr_flags(t_pool(), iop_env_ctx,
                                          &tstiop_inheritance__c5__s,
                                          &out, ps_initlstr(&bpacked), 0));
     } Z_TEST_END;
     /* }}} */
     Z_TEST(equals_and_cmp, "test iop_equals()/iop_cmp()") { /* {{{ */
+        const iop_env_ctx_t *iop_env_ctx;
+
 #define CHECK_IOP_GT(st, lhs, rhs, ...)                                      \
     Z_HELPER_RUN(z_assert_iop_gt_desc((st), (lhs), (rhs)), ##__VA_ARGS__)
 
@@ -4005,14 +3921,16 @@ Z_GROUP_EXPORT(iop)
 
         const iop_struct_t *st_sg, *st_sa_opt, *st_ua, *st_sr;
 
-        Z_ASSERT_P(st_sg = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.MyStructG")));
-        Z_ASSERT_P(st_sr = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.Repeated")));
-        Z_ASSERT_P(st_sa_opt = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.MyStructAOpt")));
-        Z_ASSERT_P(st_ua = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.MyUnionA")));
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
+        Z_ASSERT_P(st_sg = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.MyStructG")));
+        Z_ASSERT_P(st_sr = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.Repeated")));
+        Z_ASSERT_P(st_sa_opt = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.MyStructAOpt")));
+        Z_ASSERT_P(st_ua = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.MyUnionA")));
 
         /* Test with all the default values */
         iop_init_desc(st_sg, &sg_a);
@@ -4183,7 +4101,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(strict_enum, "test IOP strict enum (un)packing") { /* {{{ */
         t_scope;
-
+        const iop_env_ctx_t *iop_env_ctx;
         tstiop__my_enum_b__t bvals[] = {
             MY_ENUM_B_A, MY_ENUM_B_B, MY_ENUM_B_C
         };
@@ -4227,8 +4145,10 @@ Z_GROUP_EXPORT(iop)
 
         const iop_struct_t *st_sl;
 
-        Z_ASSERT_P(st_sl = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.MyStructL")));
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
+        Z_ASSERT_P(st_sl = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.MyStructL")));
 
         Z_ASSERT_N(iop_check_constraints_desc(st_sl, &sl1));
         Z_ASSERT_N(iop_check_constraints(tstiop__my_struct_l, &sl2));
@@ -4254,7 +4174,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(constraints, "test IOP constraints") { /* {{{ */
         t_scope;
-
+        const iop_env_ctx_t *iop_env_ctx;
         tstiop__constraint_u__t u;
         tstiop__constraint_s__t s, s1, s2;
         tstiop_inheritance__c1__t c;
@@ -4280,12 +4200,14 @@ Z_GROUP_EXPORT(iop)
 
         const iop_struct_t *st_s, *st_u, *st_c;
 
-        Z_ASSERT_P(st_s = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.ConstraintS")));
-        Z_ASSERT_P(st_u = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.ConstraintU")));
-        Z_ASSERT_P(st_c = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop_inheritance.C1")));
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
+        Z_ASSERT_P(st_s = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.ConstraintS")));
+        Z_ASSERT_P(st_u = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.ConstraintU")));
+        Z_ASSERT_P(st_c = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop_inheritance.C1")));
 
 #define CHECK_VALID(st, v, info) \
         Z_ASSERT_N(iop_check_constraints_desc((st), (v)));              \
@@ -4428,6 +4350,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(iop_sort, "test IOP structures/unions sorting") { /* {{{ */
         t_scope;
+        const iop_env_ctx_t *iop_env_ctx;
         qv_t(my_struct_a) vec;
         tstiop__my_union_a__t un[5];
         tstiop__my_struct_a__t a;
@@ -4441,6 +4364,8 @@ Z_GROUP_EXPORT(iop)
         qv_t(my_class2) cls2_vec;
         qv_t(my_struct_f) fvec;
         tstiop__my_struct_f__t *fst;
+
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         qv_init(&vec);
         iop_init(tstiop__my_struct_a, &a);
@@ -4505,7 +4430,7 @@ Z_GROUP_EXPORT(iop)
         qv_append(&vec, a);
 
 #define TST_SORT_VEC(p, f)  \
-        iop_sort(_G.iop_env, tstiop__my_struct_a, vec.tab, vec.len, p, f,   \
+        iop_sort(iop_env_ctx, tstiop__my_struct_a, vec.tab, vec.len, p, f,   \
                  NULL)
 
         /* reverse sort on short e */
@@ -4740,7 +4665,7 @@ Z_GROUP_EXPORT(iop)
         qv_append(&vec2, a2);
 
 #define TST_SORT_VEC(p, f)  \
-        iop_sort(_G.iop_env, tstiop__my_struct_a_opt, vec2.tab, vec2.len, p,\
+        iop_sort(iop_env_ctx, tstiop__my_struct_a_opt, vec2.tab, vec2.len, p,\
                  f, NULL)
 
         /* sort on optional int a */
@@ -4802,7 +4727,7 @@ Z_GROUP_EXPORT(iop)
         qv_append(&mvec, m);
 
 #define TST_SORT_VEC(p, f)  \
-        iop_sort(_G.iop_env, tstiop__my_struct_m, mvec.tab, mvec.len, p,    \
+        iop_sort(iop_env_ctx, tstiop__my_struct_m, mvec.tab, mvec.len, p,    \
                  f, NULL)
 
         /* sort on int cval from MyStructJ j from MyStructK k */
@@ -4837,7 +4762,7 @@ Z_GROUP_EXPORT(iop)
                   t_iop_dup(tstiop__my_class2, &cls2));
 
 #define TST_SORT_VEC(p, f)  \
-        iop_obj_sort(_G.iop_env, tstiop__my_class2, cls2_vec.tab,           \
+        iop_obj_sort(iop_env_ctx, tstiop__my_class2, cls2_vec.tab,           \
                      cls2_vec.len, p, f, NULL)
 
         Z_ASSERT_N(TST_SORT_VEC(LSTR("int1"), 0));
@@ -4883,7 +4808,7 @@ Z_GROUP_EXPORT(iop)
         cast(tstiop__my_class2__t *, fst->e.tab[2])->int2 = 25;
 
 #define TST_SORT_VEC(p, f)  \
-        iop_sort(_G.iop_env, tstiop__my_struct_f, fvec.tab, fvec.len,       \
+        iop_sort(iop_env_ctx, tstiop__my_struct_f, fvec.tab, fvec.len,       \
                  LSTR(p), (f), NULL)
 
         Z_ASSERT_N(TST_SORT_VEC("d[0].ua", 0));
@@ -4945,6 +4870,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(iop_msort, "test IOP structures/unions multi sorting") { /* {{{ */
         t_scope;
+        const iop_env_ctx_t *iop_env_ctx;
         qv_t(my_struct_a) original;
         qv_t(my_struct_a) sorted;
         qv_t(iop_sort) params;
@@ -4957,6 +4883,8 @@ Z_GROUP_EXPORT(iop)
         uint64_t htab2[] = {
             42, 64,
         };
+
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         t_qv_init(&original, 3);
         t_qv_init(&sorted, 3);
@@ -4994,7 +4922,7 @@ Z_GROUP_EXPORT(iop)
     } while (0)
 
 #define SORT_AND_CHECK(p1, p2, p3)  do {                                     \
-        Z_ASSERT_ZERO(iop_msort(_G.iop_env, tstiop__my_struct_a,            \
+        Z_ASSERT_ZERO(iop_msort(iop_env_ctx, tstiop__my_struct_a,            \
                                 sorted.tab, sorted.len, &params, NULL));     \
         Z_ASSERT_EQ(sorted.tab[0].a, original.tab[p1].a);                    \
         Z_ASSERT_EQ(sorted.tab[1].a, original.tab[p2].a);                    \
@@ -5043,6 +4971,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(iop_msort_class_array, "test IOP multi sorting on a class array") { /* {{{ */
         t_scope;
+        const iop_env_ctx_t *iop_env_ctx;
         qv_t(my_struct_f) original;
         qv_t(my_struct_f) sorted;
         qv_t(iop_sort) params;
@@ -5051,6 +4980,8 @@ Z_GROUP_EXPORT(iop)
         tstiop__my_class1__t *class1_1;
         tstiop__my_class3__t *class3_2;
         tstiop__my_class1__t *class1_2;
+
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         t_qv_init(&original, 3);
         t_qv_init(&sorted, 3);
@@ -5088,7 +5019,7 @@ Z_GROUP_EXPORT(iop)
     } while (0)
 
 #define SORT_AND_CHECK(p1, p2, p3)  do {                                     \
-        Z_ASSERT_ZERO(iop_msort(_G.iop_env, tstiop__my_struct_f,            \
+        Z_ASSERT_ZERO(iop_msort(iop_env_ctx, tstiop__my_struct_f,            \
                                 sorted.tab, sorted.len, &params, NULL));     \
         Z_ASSERT_EQ(sorted.tab[0].e.tab[0]->int1,                            \
                     original.tab[p1].e.tab[0]->int1);                        \
@@ -6664,7 +6595,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(iop_get_field_len, "test iop_get_field_len") { /* {{{ */
         t_scope;
-
+        const iop_env_ctx_t *iop_env_ctx;
         tstiop__my_class2__t cls2;
         tstiop__my_union_a__t ua = IOP_UNION(tstiop__my_union_a, ua, 1);
         tstiop__my_struct_a__t sa = {
@@ -6692,10 +6623,12 @@ Z_GROUP_EXPORT(iop)
         byte *dst;
         pstream_t ps;
 
-        Z_ASSERT_P(st_sa = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.MyStructA")));
-        Z_ASSERT_P(st_cls2 = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.MyClass2")));
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
+        Z_ASSERT_P(st_sa = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.MyStructA")));
+        Z_ASSERT_P(st_cls2 = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.MyClass2")));
 
         t_qv_init(&szs, 1024);
         iop_init_desc(st_cls2, &cls2);
@@ -6821,6 +6754,7 @@ Z_GROUP_EXPORT(iop)
     } Z_TEST_END
     /* }}} */
     Z_TEST(iop_get_field, "test iop_get_field function") { /* {{{ */
+        const iop_env_ctx_t *iop_env_ctx;
         tstiop__my_struct_a__t struct_a;
         tstiop__my_struct_b__t struct_b;
         tstiop__my_struct_c__t struct_c;
@@ -6853,6 +6787,8 @@ Z_GROUP_EXPORT(iop)
         tstiop__my_class2__t f_e_cls2;
         tstiop__my_class3__t f_e_cls3;
         tstiop__my_class1__t *f_e_vals[3];
+
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         iop_init(tstiop__my_class1, &f_e_cls1);
         iop_init(tstiop__my_class2, &f_e_cls2);
@@ -6903,66 +6839,66 @@ Z_GROUP_EXPORT(iop)
         struct_f.e = (IOP_ARRAY_T(tstiop__my_class1))
                       IOP_ARRAY(f_e_vals, countof(f_e_vals));
 
-        Z_ASSERT_NULL(iop_get_field_const(_G.iop_env, &struct_a,
+        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
                                           &tstiop__my_struct_a__s,
                                           LSTR("unknown_field"), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(_G.iop_env, &struct_a,
+        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
                                           &tstiop__my_struct_a__s,
                                           LSTR(""), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(_G.iop_env, &struct_a,
+        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
                                           &tstiop__my_struct_a__s,
                                           LSTR("."), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(_G.iop_env, &struct_a,
+        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
                                           &tstiop__my_struct_a__s,
                                           LSTR(".a"), NULL, NULL));
-        Z_ASSERT_P(iop_get_field_const(_G.iop_env, &struct_a,
+        Z_ASSERT_P(iop_get_field_const(iop_env_ctx, &struct_a,
                                        &tstiop__my_struct_a__s,
                                        LSTR("l."), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(_G.iop_env, &struct_a,
+        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
                                           &tstiop__my_struct_a__s,
                                           LSTR("l.."), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(_G.iop_env, &struct_a,
+        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
                                           &tstiop__my_struct_a__s,
                                           LSTR("z[5]"), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(_G.iop_env, &struct_a,
+        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
                                           &tstiop__my_struct_a__s,
                                           LSTR("htab[42]"), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(_G.iop_env, &struct_a,
+        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
                                           &tstiop__my_struct_a__s,
                                           LSTR("htab[]"), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(_G.iop_env, &struct_a,
+        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
                                           &tstiop__my_struct_a__s,
                                           LSTR("htab[]]"), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(_G.iop_env, &struct_a,
+        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
                                           &tstiop__my_struct_a__s,
                                           LSTR("htab[a]"), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(_G.iop_env, &struct_a,
+        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
                                           &tstiop__my_struct_a__s,
                                           LSTR("htab[0a]"), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(_G.iop_env, &struct_a,
+        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
                                           &tstiop__my_struct_a__s,
                                           LSTR("htab[0]a"), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(_G.iop_env, &struct_a,
+        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
                                           &tstiop__my_struct_a__s,
                                           LSTR("htab[-42]"), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(_G.iop_env, &struct_f,
+        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_f,
                                           &tstiop__my_struct_f__s,
                                           LSTR("c.a"), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(_G.iop_env, &struct_f,
+        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_f,
                                           &tstiop__my_struct_f__s,
                                           LSTR("e[0].int2"), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(_G.iop_env, &f_d_vals[0],
+        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &f_d_vals[0],
                                           &tstiop__my_union_a__s,
                                           LSTR("ub"), NULL, NULL));
 
-        Z_ASSERT_P(iop_get_field_const(_G.iop_env, &f_e_cls3,
+        Z_ASSERT_P(iop_get_field_const(iop_env_ctx, &f_e_cls3,
                                        &tstiop__my_class3__s,
                                        LSTR("int3"), NULL, NULL));
-        Z_ASSERT_P(iop_get_field_const(_G.iop_env, &f_e_cls3.super,
+        Z_ASSERT_P(iop_get_field_const(iop_env_ctx, &f_e_cls3.super,
                                        &tstiop__my_class2__s,
                                        LSTR("int3"), NULL, NULL));
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_a,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_a,
                                         &tstiop__my_struct_a__s,
                                         LSTR("a"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -6970,7 +6906,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(out_st == &tstiop__my_struct_a__s);
         Z_ASSERT_EQ(*(int *)out, struct_a.a);
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_a,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_a,
                                         &tstiop__my_struct_a__s,
                                         LSTR("l"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -6978,7 +6914,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(out_st == &tstiop__my_struct_a__s);
         Z_ASSERT_IOPEQUAL(tstiop__my_union_a, out, &struct_a.l);
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_a,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_a,
                                         &tstiop__my_struct_a__s,
                                         LSTR("l.ua"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -6986,7 +6922,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(out_st == &tstiop__my_union_a__s);
         Z_ASSERT_EQ(*(int *)out, struct_a.l.ua);
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_a,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_a,
                                         &tstiop__my_struct_a__s,
                                         LSTR("cls2"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -6995,7 +6931,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_IOPEQUAL(tstiop__my_class2, *(tstiop__my_class2__t **)out,
                           struct_a.cls2);
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_a,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_a,
                                         &tstiop__my_struct_a__s,
                                         LSTR("cls2.int2"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7003,7 +6939,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(out_st == &tstiop__my_class2__s);
         Z_ASSERT_EQ(*(int *)out, struct_a.cls2->int2);
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_a,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_a,
                                         &tstiop__my_struct_a__s,
                                         LSTR("cls2.int1"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7011,7 +6947,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(out_st == &tstiop__my_class1__s);
         Z_ASSERT_EQ(*(int *)out, struct_a.cls2->int1);
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_a,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_a,
                                         &tstiop__my_struct_a__s,
                                         LSTR("cls2.bool1"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7019,7 +6955,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(out_st == &tstiop__my_class3__s);
         Z_ASSERT_EQ(*(bool *)out, cls3.bool1);
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_a,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_a,
                                         &tstiop__my_struct_a__s,
                                         LSTR("j"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7027,11 +6963,11 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(out_st == &tstiop__my_struct_a__s);
         Z_ASSERT_LSTREQUAL(*(lstr_t *)out, struct_a.j);
 
-        Z_ASSERT_NULL(iop_get_field_const(_G.iop_env, &struct_a,
+        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
                                           &tstiop__my_struct_a__s,
                                           LSTR("cls2.bool10"), NULL, NULL));
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_e,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_e,
                                         &tstiop__my_struct_e__s,
                                         LSTR("c"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7039,7 +6975,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(out_st == &tstiop__my_struct_e__s);
         Z_ASSERT_IOPEQUAL(tstiop__my_struct_b, out, &struct_e.c);
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_e,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_e,
                                         &tstiop__my_struct_e__s,
                                         LSTR("c.a"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7047,7 +6983,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(out_st == &tstiop__my_struct_b__s);
         Z_ASSERT_EQ(*(int *)out, OPT_VAL(struct_e.c.a));
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_b,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_b,
                                         &tstiop__my_struct_b__s,
                                         LSTR("a"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7056,11 +6992,11 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(OPT_ISSET(*(opt_i32_t *)out));
         Z_ASSERT_OPT_EQ(*(opt_i32_t *)out, struct_b.a);
 
-        Z_ASSERT_NULL(iop_get_field_const(_G.iop_env, &struct_a,
+        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
                                           &tstiop__my_struct_a__s,
                                           LSTR("a.b"), NULL, NULL));
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_a_opt,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_a_opt,
                                         &tstiop__my_struct_a_opt__s,
                                         LSTR("l"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7069,7 +7005,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_IOPEQUAL(tstiop__my_union_a, *(tstiop__my_union_a__t **)out,
                           struct_a_opt.l);
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_a_opt,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_a_opt,
                                         &tstiop__my_struct_a_opt__s,
                                         LSTR("l.ua"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7077,7 +7013,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(out_st == &tstiop__my_union_a__s);
         Z_ASSERT_EQ(*((int *)out), struct_a_opt.l->ua);
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_c,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_c,
                                         &tstiop__my_struct_c__s,
                                         LSTR("b.a"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7085,7 +7021,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(out_st == &tstiop__my_struct_c__s);
         Z_ASSERT_EQ(*(int *)out, struct_c.b->a);
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_a,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_a,
                                         &tstiop__my_struct_a__s,
                                         LSTR("lr"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7093,11 +7029,11 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(out_st == &tstiop__my_struct_a__s);
         Z_ASSERT_NULL(*((tstiop__my_union_a__t **)out));
 
-        Z_ASSERT_NULL(iop_get_field_const(_G.iop_env, &struct_a,
+        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
                                           &tstiop__my_struct_a__s,
                                           LSTR("lr.ua"), &out, &out_st));
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_ref,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_ref,
                                         &tstiop__my_ref_struct__s,
                                         LSTR("s"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7107,7 +7043,7 @@ Z_GROUP_EXPORT(iop)
                           *(tstiop__my_referenced_struct__t **)out,
                           struct_ref.s);
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_ref,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_ref,
                                         &tstiop__my_ref_struct__s,
                                         LSTR("s.a"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7115,11 +7051,11 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(out_st == &tstiop__my_referenced_struct__s);
         Z_ASSERT_EQ(*(int *)out, struct_ref.s->a);
 
-        Z_ASSERT_NULL(iop_get_field_const(_G.iop_env, &struct_ref,
+        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_ref,
                                           &tstiop__my_ref_struct__s,
                                           LSTR("u.b"), &out, &out_st));
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_c,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_c,
                                         &tstiop__my_struct_c__s,
                                         LSTR("b.b.a"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7127,7 +7063,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(out_st == &tstiop__my_struct_c__s);
         Z_ASSERT_EQ(*(int *)out, struct_c.b->b->a);
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_a,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_a,
                                         &tstiop__my_struct_a__s,
                                         LSTR("htab[0]"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7135,7 +7071,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(out_st == &tstiop__my_struct_a__s);
         Z_ASSERT_EQ(*(uint64_t *)out, struct_a.htab.tab[0]);
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_a,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_a,
                                         &tstiop__my_struct_a__s,
                                         LSTR("htab[1]"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7143,7 +7079,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(out_st == &tstiop__my_struct_a__s);
         Z_ASSERT_EQ(*(uint64_t *)out, struct_a.htab.tab[1]);
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_a,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_a,
                                         &tstiop__my_struct_a__s,
                                         LSTR("htab[-1]"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7151,7 +7087,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(out_st == &tstiop__my_struct_a__s);
         Z_ASSERT(out == tab_last(&struct_a.htab));
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_a,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_a,
                                         &tstiop__my_struct_a__s,
                                         LSTR("htab"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7159,14 +7095,14 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(out_st == &tstiop__my_struct_a__s);
         Z_ASSERT_EQ(((iop_array_u64_t *)out)->len, countof(htab_vals));
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_f,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_f,
                                         &tstiop__my_struct_f__s,
                                         LSTR("a[1]"), &out, &out_st);
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT_LSTREQUAL(*(lstr_t *)out, struct_f.a.tab[1]);
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_f,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_f,
                                         &tstiop__my_struct_f__s,
                                         LSTR("b[1]"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7174,7 +7110,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(out_st == &tstiop__my_struct_f__s);
         Z_ASSERT_LSTREQUAL(*(lstr_t *)out, struct_f.b.tab[1]);
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_f,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_f,
                                         &tstiop__my_struct_f__s,
                                         LSTR("c[1].a"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7183,7 +7119,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_EQ(OPT_ISSET(*(opt_i32_t *)out),
                     OPT_ISSET(struct_f.c.tab[1].a));
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_f,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_f,
                                         &tstiop__my_struct_f__s,
                                         LSTR("c[0].b[1]"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7191,7 +7127,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(out_st == &tstiop__my_struct_b__s);
         Z_ASSERT_EQ(*(int *)out, struct_f.c.tab[0].b.tab[1]);
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_f,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_f,
                                         &tstiop__my_struct_f__s,
                                         LSTR("d[0].ua"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7200,7 +7136,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_EQ(*(int *)out, *IOP_UNION_GET(tstiop__my_union_a,
                                                 &struct_f.d.tab[0], ua));
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_f,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_f,
                                         &tstiop__my_struct_f__s,
                                         LSTR("d[1].ub"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7209,7 +7145,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_EQ(*(int8_t *)out, *IOP_UNION_GET(tstiop__my_union_a,
                                                    &struct_f.d.tab[1], ub));
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_f,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_f,
                                         &tstiop__my_struct_f__s,
                                         LSTR("d[2].us"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7219,7 +7155,7 @@ Z_GROUP_EXPORT(iop)
                                                           &struct_f.d.tab[2],
                                                           us));
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_f,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_f,
                                         &tstiop__my_struct_f__s,
                                         LSTR("e[0].int1"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7227,7 +7163,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(out_st == &tstiop__my_class1__s);
         Z_ASSERT_EQ(*(int *)out, f_e_cls1.int1);
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_f,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_f,
                                         &tstiop__my_struct_f__s,
                                         LSTR("e[1].int1"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7235,7 +7171,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(out_st == &tstiop__my_class1__s);
         Z_ASSERT_EQ(*(int *)out, f_e_cls2.int1);
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_f,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_f,
                                         &tstiop__my_struct_f__s,
                                         LSTR("e[1].int2"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7243,7 +7179,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(out_st == &tstiop__my_class2__s);
         Z_ASSERT_EQ(*(int *)out, f_e_cls2.int2);
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_f,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_f,
                                         &tstiop__my_struct_f__s,
                                         LSTR("e[2].int1"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7251,7 +7187,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(out_st == &tstiop__my_class1__s);
         Z_ASSERT_EQ(*(int *)out, f_e_cls3.int1);
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_f,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_f,
                                         &tstiop__my_struct_f__s,
                                         LSTR("e[2].int2"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7259,7 +7195,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(out_st == &tstiop__my_class2__s);
         Z_ASSERT_EQ(*(int *)out, f_e_cls3.int2);
 
-        iop_field = iop_get_field_const(_G.iop_env, &struct_f,
+        iop_field = iop_get_field_const(iop_env_ctx, &struct_f,
                                         &tstiop__my_struct_f__s,
                                         LSTR("e[2].bool1"), &out, &out_st);
         Z_ASSERT_P(iop_field);
@@ -7269,40 +7205,59 @@ Z_GROUP_EXPORT(iop)
     } Z_TEST_END
     /* }}} */
     Z_TEST(iop_struct_get_field, "test iop_struct_get_field function") { /* {{{ */
+        const iop_env_ctx_t *iop_env_ctx;
+
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
         /* Error cases */
-        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
+                                          &tstiop__my_struct_a__s,
                                           LSTR("unknown_field"), NULL, NULL));
-        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
+                                          &tstiop__my_struct_a__s,
                                           LSTR(""), NULL, NULL));
-        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
+                                          &tstiop__my_struct_a__s,
                                           LSTR("."), NULL, NULL));
-        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
+                                          &tstiop__my_struct_a__s,
                                           LSTR(".a"), NULL, NULL));
-        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
+                                          &tstiop__my_struct_a__s,
                                           LSTR("l.."), NULL, NULL));
-        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
+                                          &tstiop__my_struct_a__s,
                                           LSTR("z[5]"), NULL, NULL));
-        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
+                                          &tstiop__my_struct_a__s,
                                           LSTR("htab[]"), NULL, NULL));
-        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
+                                          &tstiop__my_struct_a__s,
                                           LSTR("htab[]]"), NULL, NULL));
-        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
+                                          &tstiop__my_struct_a__s,
                                           LSTR("htab[a]"), NULL, NULL));
-        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
+                                          &tstiop__my_struct_a__s,
                                           LSTR("htab[0a]"), NULL, NULL));
-        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
+                                          &tstiop__my_struct_a__s,
                                           LSTR("htab[0]a"), NULL, NULL));
-        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_f__s,
+        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
+                                          &tstiop__my_struct_f__s,
                                           LSTR("e[0].int2"), NULL, NULL));
 
-        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_class2__s,
+        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx, &tstiop__my_class2__s,
                                           LSTR("int3"), NULL, NULL));
 
-        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
+                                          &tstiop__my_struct_a__s,
                                           LSTR("cls2.bool10"), NULL, NULL));
-        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
+                                          &tstiop__my_struct_a__s,
                                           LSTR("cls2.int3"), NULL, NULL));
-        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
+                                          &tstiop__my_struct_a__s,
                                           LSTR("cls2.<MyClass2Priv>bool1"),
                                           NULL, NULL));
         /* Success cases */
@@ -7450,10 +7405,13 @@ Z_GROUP_EXPORT(iop)
     } Z_TEST_END
     /* }}} */
     Z_TEST(iop_value_from_field, "test iop_value_from_field") { /* {{{ */
+        const iop_env_ctx_t *iop_env_ctx;
         tstiop__my_struct_g__t sg;
         const iop_struct_t *st;
         const iop_field_t *field;
         iop_value_t value;
+
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         iop_init(tstiop__my_struct_g, &sg);
 
@@ -7609,21 +7567,21 @@ Z_GROUP_EXPORT(iop)
             struct_a.cls2 = &cls2;
             st = &tstiop__my_struct_a__s;
 
-            field = iop_get_field_const(_G.iop_env, &struct_a, st, LSTR("a"),
+            field = iop_get_field_const(iop_env_ctx, &struct_a, st, LSTR("a"),
                                         &ptr, NULL);
             Z_ASSERT_P(field);
             ptr = (const byte *)ptr - field->data_offs;
             Z_ASSERT_N(iop_value_from_field(ptr, field, &value));
             Z_ASSERT_EQ(value.i, struct_a.a);
 
-            field = iop_get_field_const(_G.iop_env, &struct_a, st,
+            field = iop_get_field_const(iop_env_ctx, &struct_a, st,
                                         LSTR("l.ua"), &ptr, NULL);
             Z_ASSERT_P(field);
             ptr = (const byte *)ptr - field->data_offs;
             Z_ASSERT_N(iop_value_from_field(ptr, field, &value));
             Z_ASSERT_EQ(value.i, struct_a.l.ua);
 
-            field = iop_get_field_const(_G.iop_env, &struct_a, st,
+            field = iop_get_field_const(iop_env_ctx, &struct_a, st,
                                         LSTR("lr"), &ptr, NULL);
             Z_ASSERT_P(field);
             ptr = (const byte *)ptr - field->data_offs;
@@ -7631,7 +7589,7 @@ Z_GROUP_EXPORT(iop)
             Z_ASSERT_EQ(((tstiop__my_union_a__t *)value.p)->ua,
                         struct_a.lr->ua);
 
-            field = iop_get_field_const(_G.iop_env, &struct_a, st,
+            field = iop_get_field_const(iop_env_ctx, &struct_a, st,
                                         LSTR("cls2"), &ptr, NULL);
             Z_ASSERT_P(field);
             ptr = (const byte *)ptr - field->data_offs;
@@ -7645,6 +7603,7 @@ Z_GROUP_EXPORT(iop)
     } Z_TEST_END
     /* }}} */
     Z_TEST(iop_value_to_field, "test iop_value_to_field") { /* {{{ */
+        const iop_env_ctx_t *iop_env_ctx;
         tstiop__my_struct_g__t sg;
         tstiop__my_struct_k__t sk;
         tstiop__my_struct_j__t sj;
@@ -7652,6 +7611,8 @@ Z_GROUP_EXPORT(iop)
         const iop_struct_t *st;
         const iop_field_t *field;
         iop_value_t value;
+
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         iop_init(tstiop__my_struct_g, &sg);
         iop_init(tstiop__my_struct_k, &sk);
@@ -7758,7 +7719,7 @@ Z_GROUP_EXPORT(iop)
             st = &tstiop__my_struct_a__s;
 
             value.i = 42;
-            field = iop_get_field_const(_G.iop_env, &struct_a, st, LSTR("a"),
+            field = iop_get_field_const(iop_env_ctx, &struct_a, st, LSTR("a"),
                                         &ptr, NULL);
             Z_ASSERT_P(field);
             ptr = (const byte *)ptr - field->data_offs;
@@ -7766,7 +7727,7 @@ Z_GROUP_EXPORT(iop)
             Z_ASSERT_EQ(value.i, struct_a.a);
 
             value.i = 21;
-            field = iop_get_field_const(_G.iop_env, &struct_a, st,
+            field = iop_get_field_const(iop_env_ctx, &struct_a, st,
                                         LSTR("l.ua"), &ptr, NULL);
             Z_ASSERT_P(field);
             ptr = (const byte *)ptr - field->data_offs;
@@ -7774,7 +7735,7 @@ Z_GROUP_EXPORT(iop)
             Z_ASSERT_EQ(value.i, struct_a.l.ua);
 
             value.p = &struct_a.l;
-            field = iop_get_field_const(_G.iop_env, &struct_a, st,
+            field = iop_get_field_const(iop_env_ctx, &struct_a, st,
                                         LSTR("lr"), &ptr, NULL);
             Z_ASSERT_P(field);
             ptr = (const byte *)ptr - field->data_offs;
@@ -7782,7 +7743,7 @@ Z_GROUP_EXPORT(iop)
             Z_ASSERT_EQ(struct_a.l.ua, struct_a.lr->ua);
 
             value.p = &cls2;
-            field = iop_get_field_const(_G.iop_env, &struct_a, st,
+            field = iop_get_field_const(iop_env_ctx, &struct_a, st,
                                         LSTR("cls2"), &ptr, NULL);
             Z_ASSERT_P(field);
             ptr = (const byte *)ptr - field->data_offs;
@@ -7792,6 +7753,7 @@ Z_GROUP_EXPORT(iop)
     } Z_TEST_END
     /* }}} */
     Z_TEST(nr_47521, "test bug while unpacking json with bunpack") { /* {{{ */
+        const iop_env_ctx_t *iop_env_ctx;
         /* test that bunpack does not crash when trying to unpack json */
         t_scope;
         SB_1k(sb);
@@ -7799,21 +7761,26 @@ Z_GROUP_EXPORT(iop)
         tstiop__my_class1__t c;
         tstiop__my_class1__t *c_ptr = NULL;
 
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
         iop_init(tstiop__my_struct_b, &b);
         Z_ASSERT_N(iop_sb_jpack(&sb, &tstiop__my_struct_b__s, &b, 0));
-        Z_ASSERT_NEG(t_iop_bunpack( _G.iop_env, &LSTR_SB_V(&sb),
+        Z_ASSERT_NEG(t_iop_bunpack(iop_env_ctx, &LSTR_SB_V(&sb),
                                    tstiop__my_struct_b, &b));
 
         iop_init(tstiop__my_class1, &c);
         Z_ASSERT_N(iop_sb_jpack(&sb, &tstiop__my_class1__s, &c, 0));
-        Z_ASSERT_NEG(iop_bunpack_ptr(t_pool(), _G.iop_env,
+        Z_ASSERT_NEG(iop_bunpack_ptr(t_pool(), iop_env_ctx,
                                      &tstiop__my_class1__s,
                                      (void **)&c_ptr, ps_initsb(&sb), false));
     } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_enum, "test iop enums") { /* {{{ */
+        const iop_env_ctx_t *iop_env_ctx;
         bool found = false;
         const iop_enum_t *en;
+
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         Z_ASSERT_EQ(iop_enum_from_str(tstiop__my_enum_a, "A", -1, -1),
                     MY_ENUM_A_A);
@@ -7836,7 +7803,8 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_EQ(iop_enum_from_lstr(tstiop__my_enum_a, LSTR("c"), &found),
                     MY_ENUM_A_C);
 
-        Z_ASSERT_P(en = iop_env_get_enum(_G.iop_env, LSTR("tstiop.MyEnumA")));
+        Z_ASSERT_P(en = iop_env_ctx_get_enum(iop_env_ctx,
+                                             LSTR("tstiop.MyEnumA")));
         Z_ASSERT_LSTREQUAL(en->fullname, LSTR("tstiop.MyEnumA"));
         Z_ASSERT_LSTREQUAL(en->name, LSTR("MyEnumA"));
     } Z_TEST_END
@@ -9172,10 +9140,13 @@ Z_GROUP_EXPORT(iop)
     } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_get_class__typedef, "test iop_get_class with typedef") { /* {{{ */
+        const iop_env_ctx_t *iop_env_ctx;
         const iop_struct_t *st = NULL;
 
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
         Z_ASSERT_P(st = iop_get_class_by_fullname(
-            _G.iop_env,
+            iop_env_ctx,
             &tstiop_typedef__basic_class_child__s,
             tstiop_typedef__basic_class_child__td.fullname));
         Z_ASSERT_LSTREQUAL(st->fullname,
@@ -9192,8 +9163,14 @@ Z_GROUP_EXPORT(iop)
             "iop/backward-compat/new/zchk-tstiop-backward-"
             "compat-typedef-new" SO_FILEEXT, true, _G.iop_env, &dso));
         Z_ASSERT_P(dso);
-        Z_ASSERT_P(en = iop_env_get_enum(_G.iop_env, en_name));
-        Z_ASSERT_LSTREQUAL(en->fullname, en_exp);
+        {
+            const iop_env_ctx_t *iop_env_ctx;
+
+            iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
+            Z_ASSERT_P(en = iop_env_ctx_get_enum(iop_env_ctx, en_name));
+            Z_ASSERT_LSTREQUAL(en->fullname, en_exp);
+        }
         iop_dso_close(&dso);
     } Z_TEST_END;
     /* }}} */
@@ -9208,8 +9185,14 @@ Z_GROUP_EXPORT(iop)
             "iop/backward-compat/new/zchk-tstiop-backward-"
             "compat-typedef-new" SO_FILEEXT, true, _G.iop_env, &dso));
         Z_ASSERT_P(dso);
-        Z_ASSERT_P(st = iop_env_get_struct(_G.iop_env, st_name));
-        Z_ASSERT_LSTREQUAL(st->fullname, st_exp);
+        {
+            const iop_env_ctx_t *iop_env_ctx;
+
+            iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
+            Z_ASSERT_P(st = iop_env_ctx_get_struct(iop_env_ctx, st_name));
+            Z_ASSERT_LSTREQUAL(st->fullname, st_exp);
+        }
         iop_dso_close(&dso);
     } Z_TEST_END;
     /* }}} */
@@ -9279,20 +9262,24 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(iop_struct_is_optional, "test iop_struct_is_optional") { /* {{{ */
 
+        const iop_env_ctx_t *iop_env_ctx;
+
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
         Z_ASSERT(iop_struct_is_optional(
-                    _G.iop_env, &tstiop_backward_compat__abstract_class1__s,
+                    iop_env_ctx, &tstiop_backward_compat__abstract_class1__s,
                     false));
         Z_ASSERT(iop_struct_is_optional(
-                    _G.iop_env, &tstiop_backward_compat__abstract_class1__s,
+                    iop_env_ctx, &tstiop_backward_compat__abstract_class1__s,
                     true));
         Z_ASSERT(!iop_struct_is_optional(
-                    _G.iop_env, &tstiop_backward_compat__child_class41__s,
+                    iop_env_ctx, &tstiop_backward_compat__child_class41__s,
                     true));
         Z_ASSERT(iop_struct_is_optional(
-                    _G.iop_env, &tstiop_backward_compat__child_class41__s,
+                    iop_env_ctx, &tstiop_backward_compat__child_class41__s,
                     false));
         Z_ASSERT(!iop_struct_is_optional(
-                    _G.iop_env, &tstiop_backward_compat__child_class42__s,
+                    iop_env_ctx, &tstiop_backward_compat__child_class42__s,
                     false));
 
     } Z_TEST_END;
@@ -9308,7 +9295,14 @@ Z_GROUP_EXPORT(iop)
                                 _G.iop_env, &dso));
 
         /* Get the struct from the IOP environment */
-        my_struct_env = iop_env_get_struct(_G.iop_env, my_struct_name);
+        {
+            const iop_env_ctx_t *iop_env_ctx;
+
+            iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
+            my_struct_env = iop_env_ctx_get_struct(iop_env_ctx,
+                                                   my_struct_name);
+        }
         Z_ASSERT_P(my_struct_env);
 
         /* Get the struct from the DSO */
@@ -9455,6 +9449,7 @@ Z_GROUP_EXPORT(iop)
     } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_nonreg_ioptag_union_unpack, "test iop_tag all bytes set (i32 vs u16)") { /* {{{ */
+        const iop_env_ctx_t *iop_env_ctx;
         tstiop__my_union_b__t dst;
         tstiop__my_union_b__t src;
         int32_t *i;
@@ -9465,6 +9460,8 @@ Z_GROUP_EXPORT(iop)
         SB_1k(sb);
         t_scope;
 
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
         iop_init(tstiop__my_union_b, &src);
         i = IOP_UNION_SET(tstiop__my_union_b, &src, bval);
         *i = 1234;
@@ -9472,7 +9469,7 @@ Z_GROUP_EXPORT(iop)
 
         /* bunpack to struct (set to 0xFF) */
         memset(&dst, 0xFF, sizeof(tstiop__my_union_b__t));
-        ret = iop_bunpack(t_pool(), _G.iop_env, &tstiop__my_union_b__s,
+        ret = iop_bunpack(t_pool(), iop_env_ctx, &tstiop__my_union_b__s,
                           &dst, ps_initlstr(&data), false);
         Z_ASSERT_EQ(ret, 0);
         Z_ASSERT_EQ(src.iop_tag, dst.iop_tag);
@@ -9509,11 +9506,14 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(iop_void_union, "test iop void in union") { /* {{{ */
         t_scope;
+        const iop_env_ctx_t *iop_env_ctx;
         tstiop_void_type__void_alone__t s;
         lstr_t data;
         int ret;
         tstiop_void_type__void_alone__t dest;
         SB(buff, 100);
+
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         iop_init(tstiop_void_type__void_alone, &s);
 
@@ -9532,7 +9532,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_LSTREQUAL(LSTR_IMMED_V("\x01\x00"), data);
 
         /* check unpacking void field */
-        ret = iop_bunpack(t_pool(), _G.iop_env,
+        ret = iop_bunpack(t_pool(), iop_env_ctx,
                           &tstiop_void_type__void_alone__s,
                           &dest, ps_initlstr(&data), false);
         Z_ASSERT_EQ(ret, 0);
@@ -9575,12 +9575,15 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(iop_void_optional, "test iop void, optional") {/* {{{ */
         t_scope;
+        const iop_env_ctx_t *iop_env_ctx;
         tstiop_void_type__void_optional__t s;
         tstiop_void_type__void_optional__t dest;
         lstr_t data;
         int ret;
         byte buf1[20], buf2[20];
         SB(buff, 100);
+
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         iop_init(tstiop_void_type__void_optional, &s);
 
@@ -9590,7 +9593,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_LSTREQUAL(LSTR_IMMED_V("\x01\x00"), data);
 
         /* unpack enabled optional void */
-        ret = iop_bunpack(t_pool(), _G.iop_env,
+        ret = iop_bunpack(t_pool(), iop_env_ctx,
                           &tstiop_void_type__void_optional__s,
                           &dest, ps_initlstr(&data), false);
         Z_ASSERT_EQ(ret, 0);
@@ -9606,7 +9609,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_LSTREQUAL(LSTR_IMMED_V(""), data);
 
         /* unpack disabled optional void */
-        ret = iop_bunpack(t_pool(), _G.iop_env,
+        ret = iop_bunpack(t_pool(), iop_env_ctx,
                           &tstiop_void_type__void_optional__s,
                           &dest, ps_initlstr(&data), false);
         Z_ASSERT_EQ(ret, 0);
@@ -9657,6 +9660,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(iop_void_required, "test iop void, required") { /* {{{ */
         t_scope;
+        const iop_env_ctx_t *iop_env_ctx;
         int8_t data1[5] = {0, 1, 2, 3, 4};
         int32_t data2[5] = {0, 1, 2, 3, 4};
         tstiop_void_type__void_required__t s;
@@ -9667,6 +9671,8 @@ Z_GROUP_EXPORT(iop)
         tstiop_void_type__double_to_void__t s_double;
         lstr_t packed;
         SB(buff, 10);
+
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         /* pack required void (skipped) */
         iop_init(tstiop_void_type__void_required, &s);
@@ -9682,7 +9688,7 @@ Z_GROUP_EXPORT(iop)
             lstr_t data;                                                     \
             data = t_iop_bpack_struct(                                       \
                 &tstiop_void_type__##type##_to_void__s, &s_##type);          \
-            Z_ASSERT_EQ(iop_bunpack(t_pool(), _G.iop_env,                   \
+            Z_ASSERT_EQ(iop_bunpack(t_pool(), iop_env_ctx,                   \
                                     &tstiop_void_type__void_required__s,     \
                                     &s, ps_initlstr(&data), false), 0);      \
         } while(0)
@@ -9793,11 +9799,14 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(repeated_field_removal, "repeated field removal") { /* {{{ */
         t_scope;
+        const iop_env_ctx_t *iop_env_ctx;
         lstr_t data;
         pstream_t data_ps;
         struct_with_repeated_field__t st;
         struct_without_repeated_field__t *out = NULL;
         lstr_t tab[] = { LSTR_IMMED("toto"), LSTR_IMMED("foo") };
+
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         Z_TEST_FLAGS("redmine_54728");
 
@@ -9810,7 +9819,7 @@ Z_GROUP_EXPORT(iop)
         data = t_iop_bpack_struct(&struct_with_repeated_field__s, &st);
         Z_ASSERT_P(data.s);
         data_ps = ps_initlstr(&data);
-        Z_ASSERT_N(iop_bunpack_ptr(t_pool(), _G.iop_env,
+        Z_ASSERT_N(iop_bunpack_ptr(t_pool(), iop_env_ctx,
                                    &struct_without_repeated_field__s,
                                    (void **)&out, data_ps, false),
                    "unexpected backward incompatibility for repeated field "
@@ -9955,12 +9964,15 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(bpack_error_unregistered_class, "unpacking an instance of an unregistered class") { /* {{{ */
         t_scope;
+        const iop_env_ctx_t *iop_env_ctx;
         lstr_t bin;
         void *instance = NULL;
 
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
         bin = t_iop_bpack_struct(&tstiop_not_registered_class__s,
                                  t_iop_new(tstiop_not_registered_class));
-        Z_ASSERT_NEG(iop_bunpack_ptr(t_pool(), _G.iop_env,
+        Z_ASSERT_NEG(iop_bunpack_ptr(t_pool(), iop_env_ctx,
                                      &tstiop_registered_class__s,
                                      &instance, ps_initlstr(&bin), false));
         Z_ASSERT_STREQUAL(iop_get_err(),
@@ -9970,12 +9982,15 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(bpack_error_unexpected_class_type, "unpacking an instance of an unexpected class type") { /* {{{ */
         t_scope;
+        const iop_env_ctx_t *iop_env_ctx;
         lstr_t bin;
         void *instance = NULL;
 
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
         bin = t_iop_bpack_struct(&tstiop__child_class_a__s,
                                  t_iop_new(tstiop__child_class_a));
-        Z_ASSERT_NEG(iop_bunpack_ptr(t_pool(), _G.iop_env,
+        Z_ASSERT_NEG(iop_bunpack_ptr(t_pool(), iop_env_ctx,
                                      &tstiop__child_class_b__s,
                                      &instance, ps_initlstr(&bin), false));
         Z_ASSERT_STREQUAL(iop_get_err(),

@@ -412,6 +412,7 @@ static int z_test_iop_field_path_htab(const iop_env_t *iop_env)
     tstiop__my_struct_a__t sta;
     const iop_field_path_t *fp;
     const iop_env_ctx_t *iop_env_ctx;
+
     iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
     iop_init(tstiop__my_struct_a, &sta);
@@ -447,6 +448,7 @@ static int z_test_iop_field_path_structs_last_fields(const iop_env_t *iop_env)
     const iop_field_path_t *fp;
     const char *expected[] = { "tata", "c", "42" };
     const iop_env_ctx_t *iop_env_ctx;
+
     iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
     t_qv_init(&structs, 0);
@@ -515,6 +517,7 @@ static int z_test_iop_field_path_class_wildcards(const iop_env_t *iop_env)
     qv_t(cvoid) *values_ptr;
     const iop_field_path_t *fp;
     const iop_env_ctx_t *iop_env_ctx;
+
     iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
     /* Init objects */

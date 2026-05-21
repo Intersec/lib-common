@@ -3224,10 +3224,14 @@ cdef void *t_parse_lstr_bin(const iop_env_t *iop_env, const iop_struct_t *st,
     cdef pstream_t ps
     cdef int ret_code
     cdef void *res = NULL
+    cdef iop_env_ctx_guard_t iop_env_ctx_guard
 
     with nogil:
         ps = ps_initlstr(&val)
-        ret_code = iop_bunpack_ptr(t_pool(), iop_env, st, &res, ps, False)
+        iop_env_ctx_guard = iop_env_ctx_acquire(iop_env)
+        ret_code = iop_bunpack_ptr(t_pool(), iop_env_ctx_guard.ctx, st, &res,
+                                   ps, False)
+        iop_env_ctx_release(iop_env_ctx_guard)
 
     if ret_code < 0:
         raise Error('cannot decode string as an %s bin packed stream' %
@@ -3338,6 +3342,7 @@ cdef void *t_parse_lstr_hex(const iop_env_t *iop_env, const iop_struct_t *st,
     cdef pstream_t ps
     cdef int ret_code = -1
     cdef void *res = NULL
+    cdef iop_env_ctx_guard_t iop_env_ctx_guard
 
     with nogil:
         l = val.len // 2 + 1
@@ -3345,7 +3350,10 @@ cdef void *t_parse_lstr_hex(const iop_env_t *iop_env, const iop_struct_t *st,
         l = strconv_hexdecode(raw, l, val.s, val.len)
         if l >= 0:
             ps = ps_init(raw, l)
-            ret_code = iop_bunpack_ptr(t_pool(), iop_env, st, &res, ps, False)
+            iop_env_ctx_guard = iop_env_ctx_acquire(iop_env)
+            ret_code = iop_bunpack_ptr(t_pool(), iop_env_ctx_guard.ctx, st,
+                                       &res, ps, False)
+            iop_env_ctx_release(iop_env_ctx_guard)
 
     if ret_code < 0:
         raise Error('cannot decode string as an %s hex packed stream' %
@@ -3492,6 +3500,7 @@ cdef list parse_lstr_list_bin_to_py_obj(object cls, const iop_struct_t *st,
     cdef int ret_code
     cdef object py_item
     cdef list res
+    cdef iop_env_ctx_guard_t iop_env_ctx_guard
 
     t_scope_ignore(t_scope_guard)
 
@@ -3500,8 +3509,10 @@ cdef list parse_lstr_list_bin_to_py_obj(object cls, const iop_struct_t *st,
     ps = ps_initlstr(&val_lstr)
     while not ps_done(&ps):
         with nogil:
-            ret_code = iop_bunpack_multi(t_pool(), iop_env, st, data, &ps,
-                                         False)
+            iop_env_ctx_guard = iop_env_ctx_acquire(iop_env)
+            ret_code = iop_bunpack_multi(t_pool(), iop_env_ctx_guard.ctx, st,
+                                         data, &ps, False)
+            iop_env_ctx_release(iop_env_ctx_guard)
 
         if ret_code < 0:
             raise Error('cannot decode string as an %s bin packed stream' %

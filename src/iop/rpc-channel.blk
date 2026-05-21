@@ -175,8 +175,8 @@ static _Bool ic_cmd_is_traced(const iop_env_t *iop_env, int cmd)
 
     if (unlikely(first_call)) {
         const iop_env_ctx_t *iop_env_ctx;
-        iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
+        iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
         /* XXX: The filling of _G.traced_cmds is done lazily because when
          * ic_initialize is called, the IOP packages were likely not
          * registered yet. */
@@ -1343,9 +1343,12 @@ t_get_hdr_of_query(const iop_env_t *iop_env, const ic_msg_t *unpacked_msg,
             *hdr = (ic__hdr__t *)unpacked_msg->hdr;
         }
     } else {
+        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+
         *hdr = t_new_raw(ic__hdr__t, 1);
-        RETHROW(iop_bunpack_multi_flags(t_pool(), iop_env, &ic__hdr__s, *hdr,
-                                        ps, flags));
+        RETHROW(iop_bunpack_multi_flags(t_pool(), iop_env_ctx, &ic__hdr__s,
+                                        *hdr, ps, flags));
     }
     return 0;
 }
@@ -1364,7 +1367,10 @@ t_get_value_of_st(const iop_env_t *iop_env, const iop_struct_t *st,
             *value = unpacked_msg->data;
         }
     } else {
-        RETHROW(iop_bunpack_ptr_flags(t_pool(), iop_env, st, value, ps,
+        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+
+        RETHROW(iop_bunpack_ptr_flags(t_pool(), iop_env_ctx, st, value, ps,
                                       flags));
     }
     return 0;

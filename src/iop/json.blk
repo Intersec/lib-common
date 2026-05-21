@@ -1557,6 +1557,8 @@ static int
 unpack_struct_prepare_class(iop_json_lex_t *ll, const iop_struct_t *desc,
                             const iop_struct_t **real_desc, void **value)
 {
+    const iop_env_ctx_t *iop_env_ctx;
+    iop_env_ctx_acquire_scoped(ll->iop_env, iop_env_ctx);
     const iop_struct_t *desc_it = desc;
     int nb_fields = desc->fields_len;
 
@@ -1580,12 +1582,8 @@ unpack_struct_prepare_class(iop_json_lex_t *ll, const iop_struct_t *desc,
     }
 
     /* Get the iop_struct_t of the instanciated class from its fullname */
-    {
-        const iop_env_ctx_t *iop_env_ctx;
-        iop_env_ctx_acquire_scoped(ll->iop_env, iop_env_ctx);
-        *real_desc = iop_get_class_by_fullname(iop_env_ctx, desc_it,
-                                               LSTR_SB_V(&ll->ctx->b));
-    }
+    *real_desc = iop_get_class_by_fullname(iop_env_ctx, desc_it,
+                                           LSTR_SB_V(&ll->ctx->b));
     if (!*real_desc) {
         e_trace(0, "cannot find child class `%*pM' in the children of "
                 "`%*pM'; missing IOP_REGISTER_PACKAGES in the binary "

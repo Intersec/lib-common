@@ -754,11 +754,14 @@ void __ichttp_proxify(uint64_t slot, int cmd, const void *data, int dlen)
     {
         t_scope;
         httpd_trigger__ic_t *tcb;
+        const iop_env_ctx_t *iop_env_ctx;
 
         tcb = container_of(iq->trig_cb, httpd_trigger__ic_t, cb);
         v  = t_new_raw(char, st->size);
         ps = ps_init(data, dlen);
-        if (unlikely(iop_bunpack(t_pool(), tcb->iop_env, st, v, ps,
+
+        iop_env_ctx_acquire_scoped(tcb->iop_env, iop_env_ctx);
+        if (unlikely(iop_bunpack(t_pool(), iop_env_ctx, st, v, ps,
                                  false) < 0))
         {
             lstr_t err_str = iop_get_err_lstr();

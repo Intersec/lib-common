@@ -168,7 +168,7 @@ ZBENCH_GROUP_EXPORT(iop_pack) {
                 void *sa2 = NULL;
 
                 ZBENCH_MEASURE() {
-                    res = iop_bunpack_ptr_flags(t_pool(), iop_env, st_sa,
+                    res = iop_bunpack_ptr_flags(t_pool(), iop_env_ctx, st_sa,
                                                 &sa2, ps_initlstr(&out), 0);
                 } ZBENCH_MEASURE_END
 

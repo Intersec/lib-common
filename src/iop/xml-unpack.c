@@ -548,11 +548,14 @@ static int
 xunpack_class(xml_reader_t xr, mem_pool_t *mp, const iop_env_t *iop_env,
               const iop_struct_t *desc, void **value, int flags)
 {
+    const iop_env_ctx_t *iop_env_ctx;
     const iop_struct_t *real_desc, *desc_it;
     qv_t(iop_struct) parents;
     qv_t(iop_xfield) fields;
     bool found_desc = false;
     int res;
+
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
     /* Get the real class type. Create a t_scope here because mp could be (and
      * is most of time) t_pool(). */
@@ -578,12 +581,8 @@ xunpack_class(xml_reader_t xr, mem_pool_t *mp, const iop_env_t *iop_env,
         ps = ps_initlstr(&real_type_str);
         /* Skip mandatory namespace */
         ps_skip_afterchr(&ps, ':');
-        {
-            const iop_env_ctx_t *iop_env_ctx;
-            iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
-            real_desc = iop_get_class_by_fullname(iop_env_ctx, desc,
-                                                  LSTR_PS_V(&ps));
-        }
+        real_desc = iop_get_class_by_fullname(iop_env_ctx, desc,
+                                              LSTR_PS_V(&ps));
         if (!real_desc) {
             return xmlr_fail(xr, "class `%*pM' not found",
                              PS_FMT_ARG(&ps));
