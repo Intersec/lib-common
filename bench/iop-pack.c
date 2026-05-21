@@ -239,8 +239,8 @@ ZBENCH_GROUP_EXPORT(iop_pack) {
                 pstream_t ps = ps_initsb(&out);
 
                 ZBENCH_MEASURE() {
-                    res = t_iop_yunpack_ptr_ps(iop_env, &ps, st_sa, &sa2, 0,
-                                               NULL, &err);
+                    res = t_iop_yunpack_ptr_ps(iop_env_ctx, &ps, st_sa, &sa2,
+                                               0, NULL, &err);
                 } ZBENCH_MEASURE_END
 
                 /* FIXME pack/unpack of `.m = 3.14159265,` changes the value

@@ -366,15 +366,18 @@ impl Env {
         let mut out = ptr::null_mut();
 
         let res = unsafe {
-            t_iop_yunpack_ptr_ps(
-                self.env,
+            let guard = iop_env_ctx_acquire(self.env);
+            let res = t_iop_yunpack_ptr_ps(
+                guard.ctx,
                 ps.as_mut_ptr(),
                 st,
                 &raw mut out,
                 flags,
                 ptr::null_mut(),
                 err.as_mut_ptr(),
-            )
+            );
+            iop_env_ctx_release(guard);
+            res
         };
 
         if res < 0 {

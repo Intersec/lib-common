@@ -3197,11 +3197,14 @@ cdef void *t_parse_lstr_yaml(const iop_env_t *iop_env, const iop_struct_t *st,
     cdef pstream_t ps
     cdef int ret_code
     cdef void *res = NULL
+    cdef iop_env_ctx_guard_t iop_env_ctx_guard
 
     with nogil:
         ps = ps_initlstr(&val)
-        ret_code = t_iop_yunpack_ptr_ps(iop_env, &ps, st, &res, flag, NULL,
-                                        &err)
+        iop_env_ctx_guard = iop_env_ctx_acquire(iop_env)
+        ret_code = t_iop_yunpack_ptr_ps(iop_env_ctx_guard.ctx, &ps, st, &res,
+                                        flag, NULL, &err)
+        iop_env_ctx_release(iop_env_ctx_guard)
 
     if ret_code < 0:
         raise Error('%s' % (lstr_to_py_str(LSTR_SB_V(&err))))
@@ -3577,7 +3580,8 @@ cdef StructUnionBase unpack_file_to_py_obj(object cls, const iop_struct_t *st,
                                               &data, flag, NULL, &err)
         else:
             cassert(file_type == IOPY_SPECIAL_KWARGS_YAML)
-            ret_code = t_iop_yunpack_ptr_file(iop_env, filename_lstr.s, st,
+            ret_code = t_iop_yunpack_ptr_file(iop_env_ctx_guard.ctx,
+                                              filename_lstr.s, st,
                                               &data, flag, NULL, &err)
         iop_env_ctx_release(iop_env_ctx_guard)
     if ret_code < 0:

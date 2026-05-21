@@ -24,6 +24,7 @@
 #include "core/core.iop.h"
 
 typedef struct iop_env_t iop_env_t;
+typedef struct iop_env_ctx_t iop_env_ctx_t;
 
 /* {{{ Parsing */
 
@@ -35,21 +36,21 @@ typedef struct iop_env_t iop_env_t;
  * This function cannot be used to unpack a class; use `t_iop_yunpack_ptr_ps`
  * instead.
  *
- * \param[in]  iop_env The IOP environment.
- * \param[in]  ps      The pstream_t to parse.
- * \param[in]  st      The IOP structure description.
- * \param[out] out     Pointer on the IOP structure to write.
- * \param[in]  flags   Bitfield of iop_unpack_flags_t elements. See
- *                     documentation of iop_unpack_flags_t to find out which
- *                     flags are handled.
- * \param[out] pres    If non NULL, it will be set to YAML presentation data
- *                     of the parsed YAML. See yaml.h for details.
- * \param[out] err     If the unpacking fails, this pointer is set to a
- *                     description of the error, allocated on the t_scope.
+ * \param[in]  iop_env_ctx The IOP environment.
+ * \param[in]  ps          The pstream_t to parse.
+ * \param[in]  st          The IOP structure description.
+ * \param[out] out         Pointer on the IOP structure to write.
+ * \param[in]  flags       Bitfield of iop_unpack_flags_t elements. See
+ *                         documentation of iop_unpack_flags_t to find out
+ *                         which flags are handled.
+ * \param[out] pres        If non NULL, it will be set to YAML presentation
+ *                         data of the parsed YAML. See yaml.h for details.
+ * \param[out] err         If the unpacking fails, this pointer is set to a
+ *                         description of the error, allocated on the t_scope.
  */
 __must_check__
 int t_iop_yunpack_ps(
-    const iop_env_t * nonnull iop_env, pstream_t * nonnull ps,
+    const iop_env_ctx_t * nonnull iop_env_ctx, pstream_t * nonnull ps,
     const iop_struct_t * nonnull st,
     void * nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
@@ -66,7 +67,7 @@ int t_iop_yunpack_ps(
  */
 __must_check__
 int t_iop_yunpack_ptr_ps(
-    const iop_env_t * nonnull iop_env, pstream_t * nonnull ps,
+    const iop_env_ctx_t * nonnull iop_env_ctx, pstream_t * nonnull ps,
     const iop_struct_t * nonnull st,
     void * nullable * nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
@@ -79,7 +80,7 @@ int t_iop_yunpack_ptr_ps(
  */
 __must_check__
 int t_iop_yunpack_file(
-    const iop_env_t * nonnull iop_env, const char * nonnull filename,
+    const iop_env_ctx_t * nonnull iop_env_ctx, const char * nonnull filename,
     const iop_struct_t * nonnull st,
     void * nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
@@ -93,7 +94,7 @@ int t_iop_yunpack_file(
 __must_check__
 int
 t_iop_yunpack_ptr_file(
-    const iop_env_t * nonnull iop_env, const char * nonnull filename,
+    const iop_env_ctx_t * nonnull iop_env_ctx, const char * nonnull filename,
     const iop_struct_t * nonnull st,
     void * nullable * nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
@@ -108,7 +109,7 @@ t_iop_yunpack_ptr_file(
  */
 __must_check__
 int
-t_iop_yunpack_yaml_data(const iop_env_t * nonnull iop_env,
+t_iop_yunpack_yaml_data(const iop_env_ctx_t * nonnull iop_env_ctx,
                         const yaml_data_t * nonnull data,
                         const iop_struct_t * nonnull st,
                         void * nonnull out, unsigned flags,
@@ -120,7 +121,7 @@ t_iop_yunpack_yaml_data(const iop_env_t * nonnull iop_env,
  */
 __must_check__
 int
-t_iop_yunpack_ptr_yaml_data(const iop_env_t * nonnull iop_env,
+t_iop_yunpack_ptr_yaml_data(const iop_env_ctx_t * nonnull iop_env_ctx,
                             const yaml_data_t * nonnull data,
                             const iop_struct_t * nonnull st,
                             void * nullable * nonnull out, unsigned flags,
@@ -205,7 +206,7 @@ t_iop_to_yaml_data(const iop_struct_t * nonnull desc,
  */
 yaml__document_presentation__t *
 t_build_yaml_pres_from_json_subfiles(
-    const iop_env_t * nonnull iop_env,
+    const iop_env_ctx_t * nonnull iop_env_ctx,
     const iop_json_subfile__array_t * nonnull subfiles,
     const iop_struct_t * nullable st,
     const void * nullable value

@@ -10101,7 +10101,7 @@ Z_GROUP_EXPORT(iop)
                        NULL);
         my_struct_out = NULL;
         ps = ps_initsb(&buf);
-        Z_ASSERT_N(t_iop_yunpack_ptr_ps(_G.iop_env, &ps,
+        Z_ASSERT_N(t_iop_yunpack_ptr_ps(iop_env_ctx, &ps,
                                         &tstiop__my_struct_a_opt__s,
                                         (void **)&my_struct_out,
                                         0, NULL, &err),

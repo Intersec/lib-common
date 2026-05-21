@@ -44,7 +44,7 @@ typedef struct yunpack_error_t {
 } yunpack_error_t;
 
 typedef struct yunpack_env_t {
-    const iop_env_t *iop_env;
+    const iop_env_ctx_t *iop_env_ctx;
     yunpack_error_t err;
 
     /* Only IOP_UNPACK_FORBID_PRIVATE is handled. */
@@ -553,14 +553,10 @@ get_struct_from_tag(yunpack_env_t * nonnull env,
                     const iop_struct_t * nonnull st, const lstr_t tag,
                     sb_t * nonnull err)
 {
-    const iop_env_ctx_t *iop_env_ctx;
-
-    iop_env_ctx_acquire_scoped(env->iop_env, iop_env_ctx);
-
     if (iop_struct_is_class(st)) {
         const iop_struct_t *real_st;
 
-        real_st = iop_get_class_by_fullname(iop_env_ctx, st, tag);
+        real_st = iop_get_class_by_fullname(env->iop_env_ctx, st, tag);
         if (!real_st) {
             sb_setf(err, "unknown type `%pL` provided in tag, "
                     "or not a child of `%pL`", &tag, &st->fullname);
@@ -867,7 +863,7 @@ static void * nonnull t_alloc_st_out(const iop_struct_t * nonnull st,
     }
 }
 
-int t_iop_yunpack_yaml_data(const iop_env_t * nonnull iop_env,
+int t_iop_yunpack_yaml_data(const iop_env_ctx_t * nonnull iop_env_ctx,
                             const yaml_data_t * nonnull data,
                             const iop_struct_t * nonnull st,
                             void * nonnull out, unsigned flags,
@@ -877,7 +873,7 @@ int t_iop_yunpack_yaml_data(const iop_env_t * nonnull iop_env,
     yunpack_env_t unpack_env;
 
     p_clear(&unpack_env, 1);
-    unpack_env.iop_env = iop_env;
+    unpack_env.iop_env_ctx = iop_env_ctx;
     unpack_env.err.buf = err;
     unpack_env.flags = flags;
     if (t_yaml_data_to_typed_struct(&unpack_env, data, st, out) < 0) {
@@ -903,18 +899,19 @@ int t_iop_yunpack_yaml_data(const iop_env_t * nonnull iop_env,
     return 0;
 }
 
-int t_iop_yunpack_ptr_yaml_data(const iop_env_t * nonnull iop_env,
+int t_iop_yunpack_ptr_yaml_data(const iop_env_ctx_t * nonnull iop_env_ctx,
                                 const yaml_data_t * nonnull data,
                                 const iop_struct_t * nonnull st,
                                 void * nullable * nonnull out, unsigned flags,
                                 sb_t * nonnull out_err)
 {
-    return t_iop_yunpack_yaml_data(iop_env, data, st, t_alloc_st_out(st, out),
-                                   flags, out_err);
+    return t_iop_yunpack_yaml_data(iop_env_ctx, data, st,
+                                   t_alloc_st_out(st, out), flags, out_err);
 }
 
 static int
-t_iop_yunpack(const iop_env_t * nonnull iop_env, yaml_parse_t * nonnull env,
+t_iop_yunpack(const iop_env_ctx_t * nonnull iop_env_ctx,
+              yaml_parse_t * nonnull env,
               const iop_struct_t * nonnull st,
               void * nonnull out, unsigned flags,
               yaml__document_presentation__t * nonnull * nullable pres,
@@ -930,11 +927,12 @@ t_iop_yunpack(const iop_env_t * nonnull iop_env, yaml_parse_t * nonnull env,
         *pres = t_iop_dup(yaml__document_presentation, &doc_pres);
     }
 
-    return t_iop_yunpack_yaml_data(iop_env, &data, st, out, flags, out_err);
+    return t_iop_yunpack_yaml_data(iop_env_ctx, &data, st, out, flags,
+                                   out_err);
 }
 
 int t_iop_yunpack_ps(
-    const iop_env_t * nonnull iop_env, pstream_t * nonnull ps,
+    const iop_env_ctx_t * nonnull iop_env_ctx, pstream_t * nonnull ps,
     const iop_struct_t * nonnull st, void * nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
     sb_t * nonnull out_err)
@@ -950,25 +948,25 @@ int t_iop_yunpack_ps(
     env = t_yaml_parse_new(yaml_flags);
     yaml_parse_attach_ps(env, *ps);
 
-    res = t_iop_yunpack(iop_env, env, st, out, flags, pres, out_err);
+    res = t_iop_yunpack(iop_env_ctx, env, st, out, flags, pres, out_err);
     yaml_parse_delete(&env);
 
     return res;
 }
 
 int t_iop_yunpack_ptr_ps(
-    const iop_env_t * nonnull iop_env, pstream_t * nonnull ps,
+    const iop_env_ctx_t * nonnull iop_env_ctx, pstream_t * nonnull ps,
     const iop_struct_t * nonnull st,
     void * nullable * nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
     sb_t * nonnull out_err)
 {
-    return t_iop_yunpack_ps(iop_env, ps, st, t_alloc_st_out(st, out), flags,
-                            pres, out_err);
+    return t_iop_yunpack_ps(iop_env_ctx, ps, st, t_alloc_st_out(st, out),
+                            flags, pres, out_err);
 }
 
 int t_iop_yunpack_file(
-    const iop_env_t * nonnull iop_env, const char * nonnull filename,
+    const iop_env_ctx_t * nonnull iop_env_ctx, const char * nonnull filename,
     const iop_struct_t * nonnull st,
     void * nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
@@ -985,7 +983,7 @@ int t_iop_yunpack_file(
     env = t_yaml_parse_new(yaml_flags);
     res = t_yaml_parse_attach_file(env, filename, NULL, out_err);
     if (res >= 0) {
-        res = t_iop_yunpack(iop_env, env, st, out, flags, pres, out_err);
+        res = t_iop_yunpack(iop_env_ctx, env, st, out, flags, pres, out_err);
     }
     yaml_parse_delete(&env);
 
@@ -998,15 +996,15 @@ int t_iop_yunpack_file(
  */
 __must_check__
 int t_iop_yunpack_ptr_file(
-    const iop_env_t * nonnull iop_env, const char * nonnull filename, 
+    const iop_env_ctx_t * nonnull iop_env_ctx, const char * nonnull filename,
     const iop_struct_t * nonnull st,
     void * nullable * nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
     sb_t * nonnull out_err
 )
 {
-    return t_iop_yunpack_file(iop_env, filename, st, t_alloc_st_out(st, out),
-                              flags, pres, out_err);
+    return t_iop_yunpack_file(iop_env_ctx, filename, st,
+                              t_alloc_st_out(st, out), flags, pres, out_err);
 }
 
 /* }}} */
@@ -1297,14 +1295,12 @@ static lstr_t t_json_file_to_yaml_file(const lstr_t json_file)
 }
 
 static bool
-included_iop_field_is_raw(const iop_env_t * nonnull iop_env,
+included_iop_field_is_raw(const iop_env_ctx_t * nonnull iop_env_ctx,
                           const iop_struct_t * nonnull st,
                           const void * nullable value, lstr_t iop_path)
 {
     iop_full_type_t type;
     bool is_array;
-    const iop_env_ctx_t *iop_env_ctx;
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
     if (iop_obj_get_field_type(iop_env_ctx, st, value, iop_path, &type,
                                &is_array, NULL) < 0)
@@ -1342,7 +1338,7 @@ static lstr_t t_get_relative_path(const lstr_t from, const lstr_t to)
  */
 static void
 t_gen_mapping_from_common_inc(
-    const iop_env_t * nonnull iop_env,
+    const iop_env_ctx_t * nonnull iop_env_ctx,
     const iop_json_subfile__t * nonnull base,
     const iop_json_subfile__t * nullable parent,
     const qv_t(iop_json_subfile) * nonnull subfiles,
@@ -1368,8 +1364,8 @@ t_gen_mapping_from_common_inc(
             }
             *index += 1;
 
-            t_gen_mapping_from_common_inc(iop_env, subfile, base, subfiles,
-                                          index, st, value,
+            t_gen_mapping_from_common_inc(iop_env_ctx, subfile, base,
+                                          subfiles, index, st, value,
                                           qv_growlen(&mappings, 1));
         } else {
             break;
@@ -1392,7 +1388,9 @@ t_gen_mapping_from_common_inc(
             = IOP_TYPED_ARRAY_TAB(yaml__presentation_node_mapping, &mappings);
     }
 
-    if (st && included_iop_field_is_raw(iop_env, st, value, base->iop_path)) {
+    if (st &&
+        included_iop_field_is_raw(iop_env_ctx, st, value, base->iop_path))
+    {
         /* In IOP-JSON, if the include is done for a string/data/xml field,
          * it is included raw. */
         out->node.included->path = relpath;
@@ -1405,7 +1403,7 @@ t_gen_mapping_from_common_inc(
 
 yaml__document_presentation__t * nonnull
 t_build_yaml_pres_from_json_subfiles(
-    const iop_env_t * nonnull iop_env,
+    const iop_env_ctx_t * nonnull iop_env_ctx,
     const iop_json_subfile__array_t * nonnull subfiles,
     const iop_struct_t * nullable st,
     const void *nullable value
@@ -1455,7 +1453,7 @@ t_build_yaml_pres_from_json_subfiles(
         const iop_json_subfile__t *subfile = &includes.tab[index];
 
         index += 1;
-        t_gen_mapping_from_common_inc(iop_env, subfile, NULL, &includes,
+        t_gen_mapping_from_common_inc(iop_env_ctx, subfile, NULL, &includes,
                                       &index, st, value,
                                       qv_growlen(&mappings, 1));
     }

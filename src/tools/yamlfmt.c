@@ -39,13 +39,11 @@ static int yaml_pack_write_stdout(void * nullable priv,
 }
 
 static const iop_struct_t * nullable
-get_iop_type(const iop_env_t * nonnull iop_env, const lstr_t name,
+get_iop_type(const iop_env_ctx_t * nonnull iop_env_ctx, const lstr_t name,
              sb_t * nonnull err)
 {
     const iop_struct_t *st;
-    const iop_env_ctx_t *iop_env_ctx;
 
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
     st = iop_env_ctx_get_struct(iop_env_ctx, name);
     if (!st) {
         sb_setf(err, "unknown IOP type `%pL`", &name);
@@ -98,7 +96,7 @@ t_get_repacked_yaml_pres_subfiles(const char *main_file,
 }
 
 static int
-t_parse_yaml(yaml_parse_t *env, const iop_env_t * nonnull iop_env,
+t_parse_yaml(yaml_parse_t *env, const iop_env_ctx_t * nonnull iop_env_ctx,
              const iop_struct_t * nullable st,
              yaml_data_t * nonnull data, sb_t * nonnull err)
 {
@@ -110,13 +108,14 @@ t_parse_yaml(yaml_parse_t *env, const iop_env_t * nonnull iop_env,
                     "fullname of the IOP type serialized");
             return -1;
         }
-        st = RETHROW_PN(get_iop_type(iop_env, data->tag, err));
+        st = RETHROW_PN(get_iop_type(iop_env_ctx, data->tag, err));
     }
 
     if (st) {
         void *out = NULL;
 
-        RETHROW(t_iop_yunpack_ptr_yaml_data(iop_env, data, st, &out, 0, err));
+        RETHROW(t_iop_yunpack_ptr_yaml_data(iop_env_ctx, data, st, &out, 0,
+                                            err));
     }
 
     return 0;
@@ -159,7 +158,8 @@ pack_yaml(yaml_data_t * nonnull data,
 }
 
 static int
-repack_yaml(const iop_env_t * nonnull iop_env, const char * nullable filename,
+repack_yaml(const iop_env_ctx_t * nonnull iop_env_ctx,
+            const char * nullable filename,
             const iop_dso_t * nullable dso, const iop_struct_t * nullable st,
             sb_t * nonnull err)
 {
@@ -190,7 +190,7 @@ repack_yaml(const iop_env_t * nonnull iop_env, const char * nullable filename,
         yaml_parse_attach_ps(env, ps_initlstr(&file));
     }
 
-    if (t_parse_yaml(env, iop_env, st, &data, err) < 0) {
+    if (t_parse_yaml(env, iop_env_ctx, st, &data, err) < 0) {
         res = -1;
         goto end;
     }
@@ -204,7 +204,8 @@ repack_yaml(const iop_env_t * nonnull iop_env, const char * nullable filename,
 }
 
 static int
-repack_json(const iop_env_t * nonnull iop_env, const char * nullable filename, 
+repack_json(const iop_env_ctx_t * nonnull iop_env_ctx,
+            const char * nullable filename,
             const iop_struct_t * nonnull st, sb_t * nonnull err)
 {
     t_scope;
@@ -215,8 +216,6 @@ repack_json(const iop_env_t * nonnull iop_env, const char * nullable filename,
     iop_json_subfile__array_t subfiles_array;
     yaml_data_t data;
     int res = 0;
-    const iop_env_ctx_t *iop_env_ctx;
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
     t_qv_init(&subfiles, 0);
 
@@ -241,8 +240,8 @@ repack_json(const iop_env_t * nonnull iop_env, const char * nullable filename,
 
     /* Pack yaml */
     subfiles_array = IOP_TYPED_ARRAY_TAB(iop_json_subfile, &subfiles);
-    pres = t_build_yaml_pres_from_json_subfiles(iop_env, &subfiles_array, st,
-                                                value);
+    pres = t_build_yaml_pres_from_json_subfiles(iop_env_ctx, &subfiles_array,
+                                                st, value);
 
     t_iop_to_yaml_data(st, value, &data);
     res = pack_yaml(&data, pres, err);
@@ -290,15 +289,19 @@ parse_and_repack(const iop_env_t * nonnull iop_env,
                  const iop_dso_t * nullable dso, sb_t * nonnull err)
 {
     const iop_struct_t *st = NULL;
+    const iop_env_ctx_t *iop_env_ctx;
+
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
     if (opts_g.type_name) {
-        st = RETHROW_PN(get_iop_type(iop_env, LSTR(opts_g.type_name), err));
+        st = RETHROW_PN(get_iop_type(iop_env_ctx, LSTR(opts_g.type_name),
+                                     err));
     }
 
     if (opts_g.json_input) {
-        return repack_json(iop_env, filename, st, err);
+        return repack_json(iop_env_ctx, filename, st, err);
     } else {
-        return repack_yaml(iop_env, filename, dso, st, err);
+        return repack_yaml(iop_env_ctx, filename, dso, st, err);
     }
 }
 
