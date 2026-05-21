@@ -752,12 +752,15 @@ static int iop_xml_test_struct(const iop_struct_t *st, void *v,
                                const char *info)
 {
     t_scope;
+    const iop_env_ctx_t *iop_env_ctx;
     int len;
     lstr_t s;
     uint8_t buf1[20], buf2[20];
     void *res = NULL;
     int ret;
     sb_t sb;
+
+    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
     /* XXX: Use a small t_sb here to force a realloc during (un)packing and
      *      detect possible illegal usage of the t_pool in the (un)packing
@@ -780,7 +783,7 @@ static int iop_xml_test_struct(const iop_struct_t *st, void *v,
 
     /* unpacking */
     Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
-    ret = iop_xunpack_ptr(xmlr_g, t_pool(), _G.iop_env, st, &res);
+    ret = iop_xunpack_ptr(xmlr_g, t_pool(), iop_env_ctx, st, &res);
     Z_ASSERT_N(ret, "XML unpacking failure (%s, %s): %s", st->fullname.s,
                info, xmlr_get_err());
 
@@ -808,8 +811,11 @@ static int iop_xml_test_struct_invalid(const iop_struct_t *st, void *v,
                                        const char *info)
 {
     t_scope;
+    const iop_env_ctx_t *iop_env_ctx;
     void *res = NULL;
     sb_t sb;
+
+    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
     /* XXX: Use a small t_sb here to force a realloc during (un)packing and
      *      detect possible illegal usage of the t_pool in the (un)packing
@@ -829,7 +835,7 @@ static int iop_xml_test_struct_invalid(const iop_struct_t *st, void *v,
 
     /* unpacking */
     Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
-    Z_ASSERT_NEG(iop_xunpack_ptr(xmlr_g, t_pool(), _G.iop_env, st, &res),
+    Z_ASSERT_NEG(iop_xunpack_ptr(xmlr_g, t_pool(), iop_env_ctx, st, &res),
                  "XML unpacking unexpected success (%s, %s)", st->fullname.s,
                  info);
 
@@ -2239,14 +2245,14 @@ Z_GROUP_EXPORT(iop)
 
             iop_init_desc(st_sf, &sf_ret);
             Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
-            Z_ASSERT_NEG(iop_xunpack(xmlr_g, t_pool(), _G.iop_env, st_sf,
+            Z_ASSERT_NEG(iop_xunpack(xmlr_g, t_pool(), iop_env_ctx, st_sf,
                                      &sf_ret),
                          "unexpected successful unpacking");
             xmlr_close(&xmlr_g);
 
             iop_init_desc(st_sf, &sf_ret);
             Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
-            Z_ASSERT_N(iop_xunpack_flags(xmlr_g, t_pool(), _G.iop_env, st_sf,
+            Z_ASSERT_N(iop_xunpack_flags(xmlr_g, t_pool(), iop_env_ctx, st_sf,
                                          &sf_ret, IOP_UNPACK_IGNORE_UNKNOWN),
                        "unexpected unpacking failure using IGNORE_UNKNOWN");
             xmlr_close(&xmlr_g);
@@ -2275,14 +2281,14 @@ Z_GROUP_EXPORT(iop)
 
             iop_init_desc(st_sf, &sf_ret);
             Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
-            Z_ASSERT_NEG(iop_xunpack(xmlr_g, t_pool(), _G.iop_env, st_sf,
+            Z_ASSERT_NEG(iop_xunpack(xmlr_g, t_pool(), iop_env_ctx, st_sf,
                                      &sf_ret),
                          "unexpected successful unpacking");
             xmlr_close(&xmlr_g);
 
             iop_init_desc(st_sf, &sf_ret);
             Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
-            Z_ASSERT_N(iop_xunpack_parts(xmlr_g, t_pool(), _G.iop_env, st_sf,
+            Z_ASSERT_N(iop_xunpack_parts(xmlr_g, t_pool(), iop_env_ctx, st_sf,
                                          &sf_ret, 0, &parts),
                        "unexpected unpacking failure with parts");
             xmlr_close(&xmlr_g);
@@ -2305,7 +2311,7 @@ Z_GROUP_EXPORT(iop)
 
             iop_init_desc(st_sa_opt, &sa_opt);
             Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
-            Z_ASSERT_N(iop_xunpack(xmlr_g, t_pool(), _G.iop_env, st_sa_opt,
+            Z_ASSERT_N(iop_xunpack(xmlr_g, t_pool(), iop_env_ctx, st_sa_opt,
                                    &sa_opt));
             xmlr_close(&xmlr_g);
 
@@ -2355,7 +2361,7 @@ Z_GROUP_EXPORT(iop)
             iop_init_desc(st_cs, res);
 
             Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
-            ret = iop_xunpack_flags(xmlr_g, t_pool(), _G.iop_env, st_cs, &cs,
+            ret = iop_xunpack_flags(xmlr_g, t_pool(), iop_env_ctx, st_cs, &cs,
                                     IOP_UNPACK_FORBID_PRIVATE);
             Z_ASSERT_N(ret, "XML unpacking failure (%s, %s): %s",
                        st_cs->fullname.s, "st_cs", xmlr_get_err());
@@ -2373,7 +2379,7 @@ Z_GROUP_EXPORT(iop)
 
             iop_init_desc(st_cs, &cs);
             Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
-            Z_ASSERT_N(iop_xunpack_flags(xmlr_g, t_pool(), _G.iop_env, st_cs,
+            Z_ASSERT_N(iop_xunpack_flags(xmlr_g, t_pool(), iop_env_ctx, st_cs,
                                          &cs, IOP_UNPACK_FORBID_PRIVATE));
             xmlr_close(&xmlr_g);
 
@@ -2387,7 +2393,7 @@ Z_GROUP_EXPORT(iop)
 
             iop_init_desc(st_cs, &cs);
             Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
-            Z_ASSERT_NEG(iop_xunpack_flags(xmlr_g, t_pool(), _G.iop_env,
+            Z_ASSERT_NEG(iop_xunpack_flags(xmlr_g, t_pool(), iop_env_ctx,
                                            st_cs, &cs,
                                            IOP_UNPACK_FORBID_PRIVATE));
             xmlr_close(&xmlr_g);
@@ -2402,7 +2408,7 @@ Z_GROUP_EXPORT(iop)
 
             iop_init_desc(st_cs, &cs);
             Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
-            Z_ASSERT_NEG(iop_xunpack_flags(xmlr_g, t_pool(), _G.iop_env,
+            Z_ASSERT_NEG(iop_xunpack_flags(xmlr_g, t_pool(), iop_env_ctx,
                                            st_cs, &cs,
                                            IOP_UNPACK_FORBID_PRIVATE));
             xmlr_close(&xmlr_g);
@@ -6394,11 +6400,14 @@ Z_GROUP_EXPORT(iop)
          * our packer) is already stressed by the other tests.
          */
         t_scope;
+        const iop_env_ctx_t *iop_env_ctx;
         lstr_t file;
         tstiop_inheritance__c2__t *c2 = NULL;
         tstiop_inheritance__c3__t *c3 = NULL;
         tstiop_inheritance__a3__t *a3 = NULL;
         tstiop_inheritance__c5__t *c5 = NULL;
+
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
 #define MAP(_filename)  \
         do {                                                                 \
@@ -6413,7 +6422,8 @@ Z_GROUP_EXPORT(iop)
             MAP(_filename);                                                  \
             Z_ASSERT_N(xmlr_setup(&xmlr_g, file.s, file.len));               \
             Z_ASSERT_N(t_iop_xunpack_ptr(                                    \
-                    xmlr_g, _G.iop_env, &tstiop_inheritance__##_type##__s,  \
+                    xmlr_g, iop_env_ctx,                                     \
+                    &tstiop_inheritance__##_type##__s,                       \
                     (void **)&_type),                                        \
                     "XML unpacking failure: %s", xmlr_get_err());            \
             lstr_wipe(&file);                                                \
@@ -6424,7 +6434,8 @@ Z_GROUP_EXPORT(iop)
             MAP(_filename);                                                  \
             Z_ASSERT_N(xmlr_setup(&xmlr_g, file.s, file.len));               \
             Z_ASSERT_NEG(t_iop_xunpack_ptr_flags(                            \
-                    xmlr_g, _G.iop_env, &tstiop_inheritance__##_type##__s,  \
+                    xmlr_g, iop_env_ctx,                                     \
+                    &tstiop_inheritance__##_type##__s,                       \
                     (void **)&_type, _flags));                               \
             Z_ASSERT(strstr(xmlr_get_err(), _err), "%s", xmlr_get_err());    \
             lstr_wipe(&file);                                                \
@@ -6497,6 +6508,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(iop_references, "test iop references") { /* {{{ */
         t_scope;
+        const iop_env_ctx_t *iop_env_ctx;
         SB_1k(err);
         tstiop__my_referenced_struct__t rs = { .a = 666 };
         tstiop__my_referenced_union__t ru;
@@ -6507,6 +6519,8 @@ Z_GROUP_EXPORT(iop)
             .u = &ru
         };
 
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+
         uu = IOP_UNION(tstiop__my_ref_union, u, &ru);
         us = IOP_UNION(tstiop__my_ref_union, s, &rs);
         ru = IOP_UNION(tstiop__my_referenced_union, b, 42);
@@ -6516,7 +6530,7 @@ Z_GROUP_EXPORT(iop)
             void *_type = NULL;                                              \
                                                                              \
             Z_ASSERT_N(xmlr_setup(&xmlr_g, _str, strlen(_str)));             \
-            Z_ASSERT_N(t_iop_xunpack_ptr(xmlr_g, _G.iop_env,                \
+            Z_ASSERT_N(t_iop_xunpack_ptr(xmlr_g, iop_env_ctx,                \
                                          &tstiop__##_type##__s, &_type),     \
                        "XML unpacking failure: %s", xmlr_get_err());         \
         } while (0)
@@ -6526,7 +6540,7 @@ Z_GROUP_EXPORT(iop)
             void *_type = NULL;                                              \
                                                                              \
             Z_ASSERT_N(xmlr_setup(&xmlr_g, _str, strlen(_str)));             \
-            Z_ASSERT_NEG(t_iop_xunpack_ptr(xmlr_g, _G.iop_env,              \
+            Z_ASSERT_NEG(t_iop_xunpack_ptr(xmlr_g, iop_env_ctx,              \
                                            &tstiop__##_type##__s, &_type));  \
             Z_ASSERT(strstr(xmlr_get_err(), _err), "%s", xmlr_get_err());    \
         } while (0)
@@ -9498,7 +9512,7 @@ Z_GROUP_EXPORT(iop)
         sb_adds(&sb, IOP_XML_FOOTER);
         memset(&dst, 0xFF, sizeof(tstiop__my_union_b__t));
         Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
-        ret = iop_xunpack(xmlr_g, t_pool(), _G.iop_env,
+        ret = iop_xunpack(xmlr_g, t_pool(), iop_env_ctx,
                           &tstiop__my_union_b__s, &dst);
         Z_ASSERT_EQ(ret, 0);
         Z_ASSERT_EQ(src.iop_tag, dst.iop_tag);
@@ -9568,7 +9582,7 @@ Z_GROUP_EXPORT(iop)
 
         /* test WSDL */
         sb_reset(&buff);
-        iop_xwsdl(&buff, _G.iop_env, tstiop_void_type__void_alone_mod__modp,
+        iop_xwsdl(&buff, iop_env_ctx, tstiop_void_type__void_alone_mod__modp,
                   NULL, "http://example.com/tstiop",
                   "http://localhost:1080/iop/", false, true);
     } Z_TEST_END;
@@ -9652,7 +9666,7 @@ Z_GROUP_EXPORT(iop)
 
         /* test WSDL */
         sb_reset(&buff);
-        iop_xwsdl(&buff, _G.iop_env,
+        iop_xwsdl(&buff, iop_env_ctx,
                   tstiop_void_type__void_optional_mod__modp, NULL,
                   "http://example.com/tstiop",
                   "http://localhost:1080/iop/", false, true);
@@ -9749,7 +9763,7 @@ Z_GROUP_EXPORT(iop)
                       false, false);                                         \
             sb_adds(&sb, IOP_XML_FOOTER);                                    \
             Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));                \
-            ret = iop_xunpack_ptr(xmlr_g, t_pool(), _G.iop_env,             \
+            ret = iop_xunpack_ptr(xmlr_g, t_pool(), iop_env_ctx,            \
                                   &tstiop_void_type__void_required__s, &res);\
             Z_ASSERT_EQ(ret, 0);                                             \
         } while(0)
@@ -9762,7 +9776,7 @@ Z_GROUP_EXPORT(iop)
 
         /* test WSDL */
         sb_reset(&buff);
-        iop_xwsdl(&buff, _G.iop_env,
+        iop_xwsdl(&buff, iop_env_ctx,
                   tstiop_void_type__void_required_mod__modp, NULL,
                   "http://example.com/tstiop",
                   "http://localhost:1080/iop/", false, true);
@@ -9902,15 +9916,18 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(wsdl, "test generation of WSDL") { /* {{{ */
         t_scope;
+        const iop_env_ctx_t *iop_env_ctx;
         SB_1k(buf);
         lstr_t expected;
+
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         Z_ASSERT_N(lstr_init_from_file(&expected,
                                        t_fmt("%*pM/test-data/iop.wsdl",
                                              LSTR_FMT_ARG(z_cmddir_g)),
                                        PROT_READ, MAP_SHARED));
 
-        iop_xwsdl(&buf, _G.iop_env, &tstiop_wsdl__m__mod, NULL,
+        iop_xwsdl(&buf, iop_env_ctx, &tstiop_wsdl__m__mod, NULL,
                   "http://example.com/tstiop",
                   "http://localhost:1080/iop/", false, true);
 
@@ -10004,6 +10021,7 @@ Z_GROUP_EXPORT(iop)
          * double subnormal values is both possible, and gives the same
          * result. */
         t_scope;
+        const iop_env_ctx_t *iop_env_ctx;
         SB_1k(buf);
         SB_1k(err);
         pstream_t ps;
@@ -10011,6 +10029,8 @@ Z_GROUP_EXPORT(iop)
             .m = OPT(4.68120573995851602e-310),
         };
         tstiop__my_struct_a_opt__t *my_struct_out;
+
+        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         /* Test in json. */
         sb_reset(&buf);
@@ -10035,7 +10055,7 @@ Z_GROUP_EXPORT(iop)
 
         my_struct_out = NULL;
         Z_ASSERT_N(xmlr_setup(&xmlr_g, buf.data, buf.len));
-        Z_ASSERT_N(t_iop_xunpack_ptr(xmlr_g, _G.iop_env,
+        Z_ASSERT_N(t_iop_xunpack_ptr(xmlr_g, iop_env_ctx,
                                      &tstiop__my_struct_a_opt__s,
                                      (void **)&my_struct_out),
                    "XML unpacking failure: %s", xmlr_get_err());

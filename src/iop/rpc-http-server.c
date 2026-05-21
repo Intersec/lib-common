@@ -87,8 +87,10 @@ static int t_parse_soap(ichttp_query_t *iq,
     ichttp_cb_t *cbe;
     lstr_t s;
     int pos;
+    const iop_env_ctx_t *iop_env_ctx;
 
     tcb = container_of(iq->trig_cb, httpd_trigger__ic_t, cb);
+    iop_env_ctx_acquire_scoped(tcb->iop_env, iop_env_ctx);
 
     /* Initialize the xmlReader object */
     XCHECK(xmlr_setup(&xr, buf, len));
@@ -105,8 +107,8 @@ static int t_parse_soap(ichttp_query_t *iq,
     }
     iq->cbe = *cbout = cbe = ichttp_cb_retain(tcb->impl.values[pos]);
 
-    XCHECK(iop_xunpack_ptr_flags(xr, t_pool(), tcb->iop_env, cbe->fun->args,
-                                 vout, tcb->unpack_flags));
+    XCHECK(iop_xunpack_ptr_flags(xr, t_pool(), iop_env_ctx,
+                                 cbe->fun->args, vout, tcb->unpack_flags));
     /* Close opened elements */
 
     XCHECK(xmlr_node_close(xr)); /* </Body>     */

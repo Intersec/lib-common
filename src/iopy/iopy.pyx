@@ -3286,6 +3286,8 @@ cdef void *t_parse_lstr_xml(const iop_env_t *iop_env, const iop_struct_t *st,
     cdef cbool soap = False
     cdef cbool exn = False
     cdef void* res = NULL
+    cdef int ret_code
+    cdef iop_env_ctx_guard_t iop_env_ctx_guard
 
     xmlr_setup(&xmlr_g, val.s, val.len)
     if xmlr_check(st, xmlr_node_try_open_s(xmlr_g, 'Envelope')):
@@ -3306,7 +3308,11 @@ cdef void *t_parse_lstr_xml(const iop_env_t *iop_env, const iop_struct_t *st,
 
         soap = True
 
-    xmlr_check(st,t_iop_xunpack_ptr_flags(xmlr_g, iop_env, st, &res, flag))
+    iop_env_ctx_guard = iop_env_ctx_acquire(iop_env)
+    ret_code = t_iop_xunpack_ptr_flags(xmlr_g, iop_env_ctx_guard.ctx, st,
+                                       &res, flag)
+    iop_env_ctx_release(iop_env_ctx_guard)
+    xmlr_check(st, ret_code)
 
     if soap:
         if exn:
