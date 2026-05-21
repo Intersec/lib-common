@@ -11854,6 +11854,7 @@ cdef public object Iopy_make_plugin_iop_env(iop_env_t *iop_env):
         The IOPy plugin.
     """
     cdef Plugin plugin
+    cdef iop_env_ctx_guard_t iop_env_ctx_guard
     cdef const iop_env_ctx_t *iop_env_ctx
     cdef const iop_pkg_t *pkg
     cdef const iop_mod_t *mod
@@ -11865,22 +11866,28 @@ cdef public object Iopy_make_plugin_iop_env(iop_env_t *iop_env):
     # deleted
     plugin.iop_env = iop_env_retain(iop_env)
 
-    iop_env_ctx = iop_env_get_ctx(iop_env)
+    # Acquire a refcounted snapshot of the IOP env's current ctx so the
+    # iteration below sees a stable view even if a writer swaps the env
+    # mid-flight.
+    iop_env_ctx_guard = iop_env_ctx_acquire(iop_env)
+    iop_env_ctx = iop_env_ctx_guard.ctx
+    try:
+        # See comment in plugin_load_dso() with we need to load the packages
+        # first and then the modules
 
-    # See comment in plugin_load_dso() with we need to load the packages first
-    # and then the modules
+        # Load the packages from the IOP environment
+        it = qhash_iter_make(&iop_env_ctx.pkg_by_fullname.qh)
+        while qhash_iter_next(&it):
+            pkg = iop_env_ctx.pkg_by_fullname.values[it.pos]
+            plugin_add_package(plugin, pkg, NULL)
 
-    # Load the packages from the IOP environment
-    it = qhash_iter_make(&iop_env_ctx.pkg_by_fullname.qh)
-    while qhash_iter_next(&it):
-        pkg = iop_env_ctx.pkg_by_fullname.values[it.pos]
-        plugin_add_package(plugin, pkg, NULL)
-
-    # Load the modules
-    it = qhash_iter_make(&iop_env_ctx.mod_by_fullname.qh)
-    while qhash_iter_next(&it):
-        mod = iop_env_ctx.mod_by_fullname.values[it.pos]
-        plugin_add_module(plugin, mod)
+        # Load the modules
+        it = qhash_iter_make(&iop_env_ctx.mod_by_fullname.qh)
+        while qhash_iter_next(&it):
+            mod = iop_env_ctx.mod_by_fullname.values[it.pos]
+            plugin_add_module(plugin, mod)
+    finally:
+        iop_env_ctx_release(iop_env_ctx_guard)
 
     return plugin
 

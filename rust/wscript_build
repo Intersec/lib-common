@@ -23,6 +23,7 @@ ctx: BuildContext
 
 ctx.recurse(
     [
+        'libcommon-iop-arcswap',
         'libcommon-core',
         'libcommon',
         'farchc',

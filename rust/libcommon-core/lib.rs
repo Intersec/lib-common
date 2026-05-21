@@ -35,3 +35,8 @@ pub mod module;
 pub mod pstream;
 pub mod sb;
 pub mod thr;
+
+// Re-export the IOP ArcSwap primitives so every consumer of
+// `libcommon-core` transitively links the `#[no_mangle]` FFI symbols
+// from `libcommon-iop-arcswap`.
+pub use libcommon_iop_arcswap as iop_env_arcswap;

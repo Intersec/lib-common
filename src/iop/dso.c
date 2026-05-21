@@ -237,7 +237,7 @@ static int iopdso_register_pkg_ref(iop_dso_t *dso, const iop_pkg_t *pkg,
 }
 
 static int iopdso_register_pkg(iop_dso_t *dso, iop_pkg_t const *pkg,
-                               iop_env_t *iop_env, sb_t *err)
+                               iop_env_ctx_t *iop_env_ctx, sb_t *err)
 {
     if (qm_add(iop_pkg, &dso->pkg_h, &pkg->name, pkg) < 0) {
         return 0;
@@ -247,7 +247,7 @@ static int iopdso_register_pkg(iop_dso_t *dso, iop_pkg_t const *pkg,
                 LSTR_FMT_ARG(pkg->name), pkg);
         RETHROW(iopdso_register_pkg_ref(dso, pkg, err));
     }
-    RETHROW(iop_register_packages_dso(iop_env, &pkg, 1, dso, err));
+    RETHROW(iop_register_packages_ctx(iop_env_ctx, &pkg, 1, dso, err));
     for (const iop_enum_t *const *it = pkg->enums; *it; it++) {
         qm_add(iop_enum, &dso->enum_h, &(*it)->fullname, *it);
     }
@@ -273,12 +273,15 @@ static int iopdso_register_pkg(iop_dso_t *dso, iop_pkg_t const *pkg,
         qm_add(iop_mod, &dso->mod_h, &(*it)->fullname, *it);
     }
     for (const iop_pkg_t *const *it = pkg->deps; *it; it++) {
+        lstr_t dep_name = (*it)->name;
+
         if (dso->use_external_packages &&
-            iop_env_get_pkg(iop_env, (*it)->name))
+            qm_get_def_safe(iop_pkg, &iop_env_ctx->pkg_by_fullname,
+                            &dep_name, NULL))
         {
             continue;
         }
-        RETHROW(iopdso_register_pkg(dso, *it, iop_env, err));
+        RETHROW(iopdso_register_pkg(dso, *it, iop_env_ctx, err));
     }
     return 0;
 }
@@ -418,18 +421,20 @@ iop_dso_t *iop_dso_open(iop_env_t *iop_env, const char *path, sb_t *err)
     void *handle;
     iop_dso_t *dso;
     iop_dso_lmid_ref_t *lmid_ref = NULL;
+    Lmid_t lmid;
 
-    /* DSO open mutates iop_env->dso_lmid: must be on the main thread. */
+    /* DSO open mutates iop_env's dso_lmid: must be on the main thread. */
     thr_assert_is_main_thread();
 
     p_clear(&dso_stat, 1);
+    lmid = iop_env_get_dso_lmid(iop_env);
 
     /* For LM_ID_BASE, use RTLD_LAZY | RTLD_DEEPBIND | RTLD_GLOBAL */
-    if (iop_env->dso_lmid == LM_ID_BASE) {
+    if (lmid == LM_ID_BASE) {
         flags |= RTLD_GLOBAL;
     }
 
-    if (iop_env->dso_lmid == LM_ID_NEWLM) {
+    if (lmid == LM_ID_NEWLM) {
         uint32_t pos;
 
         /* Try to look for the namespace in the cache for the given DSO. */
@@ -440,7 +445,8 @@ iop_dso_t *iop_dso_open(iop_env_t *iop_env, const char *path, sb_t *err)
             /* If we already have a namespace if this DSO, reuse it and
              * increment the ref counter. */
             lmid_ref = &_G.lmid_by_stat.values[pos ^ QHASH_COLLISION];
-            iop_env->dso_lmid = lmid_ref->lmid;
+            lmid = lmid_ref->lmid;
+            iop_env_set_dso_lmid(iop_env, lmid);
         } else {
             /* Else, create a new ref. */
             lmid_ref = &_G.lmid_by_stat.values[pos];
@@ -450,21 +456,22 @@ iop_dso_t *iop_dso_open(iop_env_t *iop_env, const char *path, sb_t *err)
     }
 
     /* Opening the DSO with the correct flags and LMID */
-    handle = dlmopen(iop_env->dso_lmid, path, flags);
+    handle = dlmopen(lmid, path, flags);
     if (handle == NULL) {
         sb_setf(err, "unable to dlopen `%s`: %s", path, dlerror());
         return NULL;
     }
 
-    if (iop_env->dso_lmid == LM_ID_NEWLM) {
+    if (lmid == LM_ID_NEWLM) {
         /* If we have created a new namespace, get its LMID and store it in
          * the IOP environment and in the cache reference. */
-        if (dlinfo(handle, RTLD_DI_LMID, &iop_env->dso_lmid) < 0) {
+        if (dlinfo(handle, RTLD_DI_LMID, &lmid) < 0) {
             sb_setf(err, "unable to get lmid of plugin `%s`: %s", path,
                     dlerror());
             return NULL;
         }
-        lmid_ref->lmid = iop_env->dso_lmid;
+        iop_env_set_dso_lmid(iop_env, lmid);
+        lmid_ref->lmid = lmid;
     }
 
     /* Load the DSO handle */
@@ -561,8 +568,12 @@ void iop_dso_close(iop_dso_t **dsop)
 
 static int iop_dso_register_(iop_dso_t *dso, sb_t *err)
 {
+    /* Mutates dso->iop_env via copy-modify-install; the install itself
+     * is atomic but the orchestration must run on the main thread. */
+    thr_assert_is_main_thread();
+
     if (!dso->is_registered) {
-        iop_env_t *iop_env;
+        iop_env_ctx_t *new_ctx;
         iop_pkg_t **pkgp = dlsym(dso->handle, "iop_packages");
 
         if (!pkgp) {
@@ -570,17 +581,18 @@ static int iop_dso_register_(iop_dso_t *dso, sb_t *err)
             e_panic("IOP DSO: iop_packages not found when registering DSO");
         }
         qm_clear(iop_pkg, &dso->pkg_h);
-        iop_env = iop_env_new();
-        iop_env_copy(iop_env, dso->iop_env);
+        new_ctx = iop_env_ctx_copy(dso->iop_env);
         while (*pkgp) {
-            if (iopdso_register_pkg(dso, *pkgp++, iop_env, err) < 0) {
-                iop_env_delete(&iop_env);
+            if (iopdso_register_pkg(dso, *pkgp++, new_ctx, err) < 0) {
+                iop_env_ctx_delete(&new_ctx);
                 return -1;
             }
         }
-        RETHROW(iop_check_registered_classes(iop_env, err));
-        iop_env_transfer(dso->iop_env, iop_env);
-        iop_env_delete(&iop_env);
+        if (iop_check_registered_classes_ctx(new_ctx, err) < 0) {
+            iop_env_ctx_delete(&new_ctx);
+            return -1;
+        }
+        iop_env_ctx_replace(dso->iop_env, &new_ctx);
         dso->is_registered = true;
     }
     return 0;
@@ -597,6 +609,8 @@ void iop_dso_register(iop_dso_t *dso)
 
 void iop_dso_unregister(iop_dso_t *dso)
 {
+    thr_assert_is_main_thread();
+
     if (dso->is_registered) {
         t_scope;
         qv_t(cvoid) vec;

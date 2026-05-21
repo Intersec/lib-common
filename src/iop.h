@@ -137,7 +137,8 @@ qm_khptr_ckey_t(iop_dso_by_pkg, iop_pkg_t, iop_dso_t * nonnull);
 
 /** The current IOP environment context where IOP objects are registered.
  *
- * It is owned by \ref iop_env_t, and swapped on \ref iop_env_transfer().
+ * It is owned by \ref iop_env_t and atomically replaced via the
+ * internal copy-modify-install flow.
  */
 typedef struct iop_env_ctx_t {
     /** The map of classes by class base and class id. */
@@ -177,18 +178,63 @@ void iop_env_delete(iop_env_t * nullable * nonnull iop_envp);
 /** Retain a reference to the IOP environment. */
 iop_env_t * nonnull iop_env_retain(iop_env_t * nonnull iop_env);
 
-/** Copy an IOP environment to another one. */
-void iop_env_copy(iop_env_t * nonnull dst, iop_env_t * nonnull src);
-
-/** Transfer an IOP environment to another one.
+/** Guard returned by \ref iop_env_ctx_acquire.
  *
- * The source IOP environment is no longer valid after calling this function.
+ * Carries both the ctx pointer (for reading) and a Rust-side keepalive
+ * for the underlying `Arc<CtxBox>`. The layout must match the
+ * `#[repr(C)]` `iop_env_ctx_guard_t` in
+ * `rust/libcommon-core/iop_env.rs`.
  */
-void iop_env_transfer(iop_env_t * nonnull dst, iop_env_t * nonnull src);
+typedef struct iop_env_ctx_guard_t {
+    const iop_env_ctx_t * nonnull ctx;
+    const void * nullable arc_handle;
+} iop_env_ctx_guard_t;
 
-/** Get the current context of the IOP environment. */
-const iop_env_ctx_t * nonnull
-iop_env_get_ctx(const iop_env_t * nonnull iop_env);
+/** Acquire a refcounted snapshot of the IOP env's current context.
+ *
+ * The returned guard keeps the underlying context alive even if the
+ * writer swaps a new one in concurrently. Must be paired with exactly
+ * one call to \ref iop_env_ctx_release. Prefer the
+ * \ref iop_env_ctx_acquire_scoped macro below.
+ */
+iop_env_ctx_guard_t
+iop_env_ctx_acquire(const iop_env_t * nonnull iop_env);
+
+/** Release a context snapshot previously returned by
+ *  \ref iop_env_ctx_acquire.
+ */
+void iop_env_ctx_release(iop_env_ctx_guard_t guard);
+
+static inline void
+iop_env_ctx_release_cleanup(iop_env_ctx_guard_t * nonnull guardp)
+{
+    if (guardp->arc_handle) {
+        iop_env_ctx_release(*guardp);
+        guardp->arc_handle = NULL;
+    }
+}
+
+/** Scoped acquire of the IOP env's current context into an existing pointer.
+ *
+ * Acquires a refcounted ctx snapshot of \p env and stores it into \p name,
+ * which must already be declared by the caller as `const iop_env_ctx_t *`.
+ *
+ * Usage:
+ * \code
+ * const iop_env_ctx_t *iop_env_ctx;
+ *
+ * iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+ * if (qm_find(iop_struct, &iop_env_ctx->struct_by_fullname, &name) < 0) {
+ *     return NULL;
+ * }
+ * return ...;
+ * \endcode
+ */
+#define iop_env_ctx_acquire_scoped(env, name)                                \
+    iop_env_ctx_guard_t PFX_LINE_SFX(__guard, name)                          \
+        __attribute__((cleanup(iop_env_ctx_release_cleanup)))                \
+        = iop_env_ctx_acquire(env);                                          \
+    name = PFX_LINE_SFX(__guard, name).ctx
 
 /** Set the DSO LMID of the IOP environment.
  *

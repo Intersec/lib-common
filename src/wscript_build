@@ -37,6 +37,7 @@ with ctx.UseGroup(ctx, 'gen_version'):
 # files in its sources.
 libcommon_minimal_use = [
     'libxml',
+    'libcommon-iop-arcswap-rs',
 ]
 if ctx.env.HAVE_VALGRIND:
     libcommon_minimal_use += ['valgrind']

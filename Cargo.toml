@@ -24,6 +24,7 @@ members = [
     "rust/farchc",
     "rust/libcommon",
     "rust/libcommon-core",
+    "rust/libcommon-iop-arcswap",
     "rust/waf-cargo-build",
     "rust/waf-cargo-build-macros",
     "rust/tokio-c-mod",

@@ -16,24 +16,17 @@
 #                                                                         #
 ###########################################################################
 
-[package]
-name = "libcommon-core"
-edition.workspace = true
-publish.workspace = true
+from waflib.Build import BuildContext
 
-[lints]
-workspace = true
+ctx: BuildContext
 
-[lib]
-path = "lib.rs"
-crate-type = ["lib", "staticlib"]
 
-[build-dependencies]
-waf-cargo-build = { path = "../waf-cargo-build" }
-
-[dependencies]
-waf-cargo-build = { path = "../waf-cargo-build" }
-# Transitively re-link the ArcSwap primitives so every binary that uses
-# libcommon-core (farchc, iopc, pxcc, ...) automatically pulls them in.
-libcommon-iop-arcswap = { path = "../libcommon-iop-arcswap" }
-paste.workspace = true
+# This tiny crate provides only the lock-free ArcSwap primitives backing
+# `iop_env_t->ctx_swap`. It has no compile-time dependency on any C code,
+# so `libcommon-minimal` can `use` it without creating a cycle.
+with ctx.UseGroup(ctx, 'libcommon-minimal'):
+    ctx(
+        target='libcommon-iop-arcswap-rs',
+        features='rust',
+        cargo_package='libcommon-iop-arcswap',
+    )

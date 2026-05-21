@@ -1620,8 +1620,9 @@ static int z_check_static_field_type(const iop_struct_t *st,
 
 static int z_iop_env_is_empty(const iop_env_t *iop_env)
 {
-    const iop_env_ctx_t *ctx = iop_env_get_ctx(iop_env);
+    const iop_env_ctx_t *ctx;
 
+    iop_env_ctx_acquire_scoped(iop_env, ctx);
     Z_ASSERT_EQ(qm_len(iop_class_by_id, &ctx->classes_by_id), 0);
     Z_ASSERT_EQ(qm_len(iop_dso_by_pkg, &ctx->dso_by_pkg), 0);
     Z_ASSERT_EQ(qm_len(iop_env_struct, &ctx->struct_by_fullname), 0);

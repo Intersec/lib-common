@@ -17,7 +17,7 @@
 ###########################################################################
 
 [package]
-name = "libcommon-core"
+name = "libcommon-iop-arcswap"
 edition.workspace = true
 publish.workspace = true
 
@@ -28,12 +28,5 @@ workspace = true
 path = "lib.rs"
 crate-type = ["lib", "staticlib"]
 
-[build-dependencies]
-waf-cargo-build = { path = "../waf-cargo-build" }
-
 [dependencies]
-waf-cargo-build = { path = "../waf-cargo-build" }
-# Transitively re-link the ArcSwap primitives so every binary that uses
-# libcommon-core (farchc, iopc, pxcc, ...) automatically pulls them in.
-libcommon-iop-arcswap = { path = "../libcommon-iop-arcswap" }
-paste.workspace = true
+arc-swap.workspace = true

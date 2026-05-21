@@ -6266,7 +6266,7 @@ void iop_field_get_type(const iop_field_t *nonnull field,
 /* }}} */
 /* {{{ IOP environment */
 
-static iop_env_ctx_t *iop_env_ctx_init(iop_env_ctx_t *iop_env_ctx)
+iop_env_ctx_t *iop_env_ctx_init(iop_env_ctx_t *iop_env_ctx)
 {
     qm_init(iop_class_by_id, &iop_env_ctx->classes_by_id);
     qm_init(iop_dso_by_pkg, &iop_env_ctx->dso_by_pkg);
@@ -6279,7 +6279,7 @@ static iop_env_ctx_t *iop_env_ctx_init(iop_env_ctx_t *iop_env_ctx)
     return iop_env_ctx;
 }
 
-static void iop_env_ctx_wipe(iop_env_ctx_t *iop_env_ctx)
+void iop_env_ctx_wipe(iop_env_ctx_t *iop_env_ctx)
 {
     qm_wipe(iop_class_by_id, &iop_env_ctx->classes_by_id);
     qm_wipe(iop_dso_by_pkg, &iop_env_ctx->dso_by_pkg);
@@ -6294,50 +6294,29 @@ static void iop_env_ctx_wipe(iop_env_ctx_t *iop_env_ctx)
     qm_deep_wipe(iop_pkg, &iop_env_ctx->pkg_by_fullname, lstr_wipe, IGNORE);
 }
 
-static iop_env_t *iop_env_init(iop_env_t *iop_env)
+void iop_env_ctx_copy_fields(iop_env_ctx_t *dst, const iop_env_ctx_t *src)
 {
-    iop_env_ctx_init(&iop_env->ctx);
-    iop_env->dso_lmid = LM_ID_BASE;
-    p_clear(&iop_env->ic_user_version, 1);
-    return iop_env;
-}
-
-static void iop_env_wipe(iop_env_t *iop_env)
-{
-    iop_env_ctx_wipe(&iop_env->ctx);
-}
-
-REFCNT_RELEASE(iop_env_t, iop_env);
-REFCNT_EXTERN_RETAIN(iop_env_t, iop_env);
-REFCNT_EXTERN_NEW(iop_env_t, iop_env);
-REFCNT_EXTERN_DELETE(iop_env_t, iop_env);
-
-void iop_env_copy(iop_env_t *dst, iop_env_t *src)
-{
-    iop_env_ctx_t *dst_ctx = &dst->ctx;
-    iop_env_ctx_t *src_ctx = &src->ctx;
-
     /* classes_by_id */
-    qm_set_minsize(iop_class_by_id, &dst_ctx->classes_by_id,
-                   qm_len(iop_class_by_id, &src_ctx->classes_by_id));
+    qm_set_minsize(iop_class_by_id, &dst->classes_by_id,
+                   qm_len(iop_class_by_id, &src->classes_by_id));
     qm_for_each_key_p_value(iop_class_by_id, class_id, class_st,
-                            &src_ctx->classes_by_id)
+                            &src->classes_by_id)
     {
-        qm_add(iop_class_by_id, &dst_ctx->classes_by_id, class_id, class_st);
+        qm_add(iop_class_by_id, &dst->classes_by_id, class_id, class_st);
     }
 
     /* dso_by_pkg */
-    qm_set_minsize(iop_dso_by_pkg, &dst_ctx->dso_by_pkg,
-                   qm_len(iop_dso_by_pkg, &src_ctx->dso_by_pkg));
-    qm_for_each_key_value(iop_dso_by_pkg, pkg, dso, &src_ctx->dso_by_pkg) {
-        qm_add(iop_dso_by_pkg, &dst_ctx->dso_by_pkg, pkg, dso);
+    qm_set_minsize(iop_dso_by_pkg, &dst->dso_by_pkg,
+                   qm_len(iop_dso_by_pkg, &src->dso_by_pkg));
+    qm_for_each_key_value(iop_dso_by_pkg, pkg, dso, &src->dso_by_pkg) {
+        qm_add(iop_dso_by_pkg, &dst->dso_by_pkg, pkg, dso);
     }
 
     /* IOP objects */
 #define QM_COPY_IOP_OBJ(_qm_type, _qm_field)                                 \
     do {                                                                     \
-        qm_t(_qm_type) *__qm_src = &src_ctx->_qm_field;                      \
-        qm_t(_qm_type) *__qm_dst = &dst_ctx->_qm_field;                      \
+        const qm_t(_qm_type) *__qm_src = &src->_qm_field;                    \
+        qm_t(_qm_type) *__qm_dst = &dst->_qm_field;                          \
                                                                              \
         qm_set_minsize(_qm_type, __qm_dst,                                   \
                        qm_len(_qm_type, __qm_src));                          \
@@ -6356,40 +6335,65 @@ void iop_env_copy(iop_env_t *dst, iop_env_t *src)
     QM_COPY_IOP_OBJ(iop_pkg, pkg_by_fullname);
 
 #undef QM_COPY_IOP_OBJ
-
-    /* Use the source LMID as we want to load the DSO in the same namespace or
-     * create a new namespace if necessary. */
-    assert(dst->dso_lmid == LM_ID_BASE);
-    dst->dso_lmid = src->dso_lmid;
-
-    /* Copy the IC user version so it can be swapped on transfer. */
-    dst->ic_user_version = src->ic_user_version;
 }
 
-void iop_env_transfer(iop_env_t *dst, iop_env_t *src)
+static void iop_env_ctx_drop_cb(void *ctx)
 {
-    /* If a new namespace has been created, we need to store the new source
-     * LMID as the destination LMID. Make sure that the new LMID is indeed a
-     * new namespace.
-     */
-    if (dst->dso_lmid != src->dso_lmid) {
-        assert(src->dso_lmid != LM_ID_NEWLM);
-        assert(src->dso_lmid != LM_ID_BASE);
-    }
+    iop_env_ctx_t *env_ctx = ctx;
 
-    /* Swap the whole context and the env-level configuration. */
-    SWAP(iop_env_ctx_t, dst->ctx, src->ctx);
-    SWAP(Lmid_t, dst->dso_lmid, src->dso_lmid);
-    SWAP(ic_user_version_t, dst->ic_user_version, src->ic_user_version);
-
-    /* Wipe the source. */
-    iop_env_wipe(src);
+    iop_env_ctx_delete(&env_ctx);
 }
 
-const iop_env_ctx_t * nonnull
-iop_env_get_ctx(const iop_env_t * nonnull iop_env)
+static iop_env_t *iop_env_init(iop_env_t *iop_env)
 {
-    return &iop_env->ctx;
+    p_clear(iop_env, 1);
+    iop_env->ctx_swap = iop_env_ctx_arcswap_new(
+        iop_env_ctx_new(), iop_env_ctx_drop_cb);
+    iop_env->dso_lmid = LM_ID_BASE;
+    return iop_env;
+}
+
+static void iop_env_wipe(iop_env_t *iop_env)
+{
+    iop_env_ctx_arcswap_free(iop_env->ctx_swap);
+}
+
+REFCNT_EXTERN_NEW(iop_env_t, iop_env);
+
+/* TODO: switch to atomic refcount once env handles are shared across
+ * threads. For now, env handle is owned by the main thread. */
+REFCNT_EXTERN_RETAIN(iop_env_t, iop_env);
+
+REFCNT_RELEASE(iop_env_t, iop_env);
+REFCNT_EXTERN_DELETE(iop_env_t, iop_env);
+
+iop_env_ctx_guard_t
+iop_env_ctx_acquire(const iop_env_t * nonnull iop_env)
+{
+    return iop_env_ctx_arcswap_acquire(iop_env->ctx_swap);
+}
+
+void iop_env_ctx_release(iop_env_ctx_guard_t guard)
+{
+    iop_env_ctx_arcswap_release(guard);
+}
+
+iop_env_ctx_t *iop_env_ctx_copy(const iop_env_t *iop_env)
+{
+    iop_env_ctx_t *new_ctx = iop_env_ctx_new();
+    iop_env_ctx_guard_t guard =
+        iop_env_ctx_arcswap_acquire(iop_env->ctx_swap);
+
+    iop_env_ctx_copy_fields(new_ctx, guard.ctx);
+    iop_env_ctx_arcswap_release(guard);
+    return new_ctx;
+}
+
+void iop_env_ctx_replace(iop_env_t *iop_env, iop_env_ctx_t **new_ctx)
+{
+    iop_env_ctx_arcswap_store(iop_env->ctx_swap, *new_ctx,
+                              iop_env_ctx_drop_cb);
+    *new_ctx = NULL;
 }
 
 void iop_env_set_dso_lmid(iop_env_t * nonnull iop_env, Lmid_t dso_lmid)
@@ -6555,13 +6559,14 @@ const iop_struct_t *
 iop_get_class_by_fullname(const iop_env_t *iop_env, const iop_struct_t *st,
                           lstr_t fullname)
 {
-    const iop_env_ctx_t *iop_env_ctx = iop_env_get_ctx(iop_env);
+    const iop_env_ctx_t *iop_env_ctx;
 
     assert(iop_struct_is_class(st));
     while (st->class_attrs->parent) {
         st = st->class_attrs->parent;
     }
 
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
     return iop_get_class_by_fullname_(iop_env_ctx, st, fullname);
 }
 
@@ -6569,7 +6574,7 @@ const iop_struct_t *
 iop_get_class_by_id(const iop_env_t *iop_env, const iop_struct_t *st,
                     uint16_t class_id)
 {
-    const iop_env_ctx_t *iop_env_ctx = iop_env_get_ctx(iop_env);
+    const iop_env_ctx_t *iop_env_ctx;
     iop_class_id_key_t key = {
         .master   = st,
         .child_id = class_id,
@@ -6583,6 +6588,7 @@ iop_get_class_by_id(const iop_env_t *iop_env, const iop_struct_t *st,
         key.master = key.master->class_attrs->parent;
     }
 
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
     return qm_get_def_safe(iop_class_by_id, &iop_env_ctx->classes_by_id, &key,
                            NULL);
 }
@@ -6590,8 +6596,9 @@ iop_get_class_by_id(const iop_env_t *iop_env, const iop_struct_t *st,
 void iop_for_each_registered_classes(const iop_env_t *iop_env,
                                      iop_for_each_class_b cb)
 {
-    const iop_env_ctx_t *iop_env_ctx = iop_env_get_ctx(iop_env);
+    const iop_env_ctx_t *iop_env_ctx;
 
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
     qm_for_each_value(iop_class_by_id, cls, &iop_env_ctx->classes_by_id) {
         cb(cls);
     }
@@ -6742,8 +6749,8 @@ iop_class_check_parents_are_registered(const iop_struct_t *st,
     return 0;
 }
 
-static int iop_check_registered_classes_ctx(
-    const iop_env_ctx_t *iop_env_ctx, sb_t *err)
+int iop_check_registered_classes_ctx(const iop_env_ctx_t *iop_env_ctx,
+                                     sb_t *err)
 {
     /* Check all the parent classes of the registered classes are also
      * registered. */
@@ -6763,13 +6770,6 @@ static int iop_check_registered_classes_ctx(
     }
 
     return 0;
-}
-
-int iop_check_registered_classes(const iop_env_t *iop_env, sb_t *err)
-{
-    const iop_env_ctx_t *iop_env_ctx = iop_env_get_ctx(iop_env);
-
-    return iop_check_registered_classes_ctx(iop_env_ctx, err);
 }
 
 static const char *iop_struct_type_to_str(const iop_struct_t *st)
@@ -7023,13 +7023,13 @@ static int iop_register_package_env(const iop_pkg_t *pkg, iop_dso_t *dso,
     return 0;
 }
 
-int iop_register_packages_dso(iop_env_t *iop_env,
+int iop_register_packages_ctx(iop_env_ctx_t *iop_env_ctx,
                               const iop_pkg_t * const *pkgs,
                               int len, iop_dso_t *dso, sb_t *err)
 {
-    iop_env_ctx_t *iop_env_ctx = &iop_env->ctx;
-
-    /* Register the packages. */
+    /* Register the packages into the caller-owned staging ctx. The ctx
+     * is the writer-only copy from \ref iop_env_ctx_copy; concurrent
+     * readers of the env's published ctx are unaffected. */
     for (int i = 0; i < len; i++) {
         const iop_pkg_t *pkg = pkgs[i];
 
@@ -7043,10 +7043,16 @@ void iop_register_packages(iop_env_t *iop_env, const iop_pkg_t * const *pkgs,
                            int len)
 {
     SB_1k(err);
+    iop_env_ctx_t *new_ctx;
 
-    if (iop_register_packages_dso(iop_env, pkgs, len, NULL, &err) < 0) {
+    /* Copy-modify-install: build the new ctx on the side, then atomically
+     * install it. Concurrent readers of `iop_env` are unaffected. */
+    new_ctx = iop_env_ctx_copy(iop_env);
+    if (iop_register_packages_ctx(new_ctx, pkgs, len, NULL, &err) < 0) {
+        iop_env_ctx_delete(&new_ctx);
         e_panic("%*pM", SB_FMT_ARG(&err));
     }
+    iop_env_ctx_replace(iop_env, &new_ctx);
 }
 
 static const iop_typedef_t * nullable
@@ -7068,9 +7074,11 @@ iop_env_get_env_struct(const iop_env_ctx_t * nonnull iop_env_ctx,
 const iop_struct_t * nullable
 iop_env_get_struct(const iop_env_t * nonnull iop_env, lstr_t fullname)
 {
-    const iop_env_ctx_t *iop_env_ctx = iop_env_get_ctx(iop_env);
+    const iop_env_ctx_t *iop_env_ctx;
     const iop_env_struct_t *env_struct;
     const iop_typedef_t *td;
+
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
     /* Test direct reference. */
     env_struct = iop_env_get_env_struct(iop_env_ctx, fullname);
@@ -7091,9 +7099,11 @@ iop_env_get_struct(const iop_env_t * nonnull iop_env, lstr_t fullname)
 const iop_enum_t * nullable
 iop_env_get_enum(const iop_env_t * nonnull iop_env, lstr_t fullname)
 {
-    const iop_env_ctx_t *iop_env_ctx = iop_env_get_ctx(iop_env);
+    const iop_env_ctx_t *iop_env_ctx;
     const iop_enum_t *en;
     const iop_typedef_t *td;
+
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
     /* Test direct reference. */
     en = qm_get_def_safe(iop_enum, &iop_env_ctx->enum_by_fullname, &fullname,
@@ -7115,16 +7125,18 @@ iop_env_get_enum(const iop_env_t * nonnull iop_env, lstr_t fullname)
 const iop_typedef_t * nullable
 iop_env_get_typedef(const iop_env_t * nonnull iop_env, lstr_t fullname)
 {
-    const iop_env_ctx_t *iop_env_ctx = iop_env_get_ctx(iop_env);
+    const iop_env_ctx_t *iop_env_ctx;
 
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
     return iop_env_get_typedef_ctx(iop_env_ctx, fullname);
 }
 
 const iop_iface_t * nullable
 iop_env_get_iface(const iop_env_t * nonnull iop_env, lstr_t fullname)
 {
-    const iop_env_ctx_t *iop_env_ctx = iop_env_get_ctx(iop_env);
+    const iop_env_ctx_t *iop_env_ctx;
 
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
     return qm_get_def_safe(iop_iface, &iop_env_ctx->iface_by_fullname,
                            &fullname, NULL);
 }
@@ -7132,8 +7144,9 @@ iop_env_get_iface(const iop_env_t * nonnull iop_env, lstr_t fullname)
 const iop_mod_t * nullable
 iop_env_get_mod(const iop_env_t * nonnull iop_env, lstr_t fullname)
 {
-    const iop_env_ctx_t *iop_env_ctx = iop_env_get_ctx(iop_env);
+    const iop_env_ctx_t *iop_env_ctx;
 
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
     return qm_get_def_safe(iop_mod, &iop_env_ctx->mod_by_fullname,
                            &fullname, NULL);
 }
@@ -7141,8 +7154,9 @@ iop_env_get_mod(const iop_env_t * nonnull iop_env, lstr_t fullname)
 const iop_pkg_t * nullable
 iop_env_get_pkg(const iop_env_t * nonnull iop_env, lstr_t fullname)
 {
-    const iop_env_ctx_t *iop_env_ctx = iop_env_get_ctx(iop_env);
+    const iop_env_ctx_t *iop_env_ctx;
 
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
     return qm_get_def_safe(iop_pkg, &iop_env_ctx->pkg_by_fullname,
                            &fullname, NULL);
 }
@@ -7150,8 +7164,9 @@ iop_env_get_pkg(const iop_env_t * nonnull iop_env, lstr_t fullname)
 iop_dso_t *iop_dso_get_from_pkg(const iop_env_t *iop_env,
                                 const iop_pkg_t *pkg)
 {
-    const iop_env_ctx_t *iop_env_ctx = iop_env_get_ctx(iop_env);
+    const iop_env_ctx_t *iop_env_ctx;
 
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
     return qm_get_def_safe(iop_dso_by_pkg, &iop_env_ctx->dso_by_pkg, pkg,
                            NULL);
 }
@@ -7240,11 +7255,11 @@ static int iop_unregister_pkg(iop_env_ctx_t *iop_env_ctx,
                            &pkg->name, lstr_wipe, IGNORE);
 }
 
-void iop_unregister_packages(iop_env_t *iop_env,
-                             const iop_pkg_t * const *pkgs, int len)
+static void
+iop_unregister_packages_ctx(iop_env_ctx_t *iop_env_ctx,
+                            const iop_pkg_t * const *pkgs, int len)
 {
     SB_1k(err);
-    iop_env_ctx_t *iop_env_ctx = &iop_env->ctx;
 
     for (int i = 0; i < len; i++) {
         const iop_pkg_t *pkg = pkgs[i];
@@ -7325,11 +7340,23 @@ void iop_unregister_packages(iop_env_t *iop_env,
     }
 }
 
+void iop_unregister_packages(iop_env_t *iop_env,
+                             const iop_pkg_t * const *pkgs, int len)
+{
+    iop_env_ctx_t *new_ctx;
+
+    /* Copy-modify-install: mutate a private ctx, then atomically install. */
+    new_ctx = iop_env_ctx_copy(iop_env);
+    iop_unregister_packages_ctx(new_ctx, pkgs, len);
+    iop_env_ctx_replace(iop_env, &new_ctx);
+}
+
 void iop_for_each_registered_pkgs(const iop_env_t *iop_env,
                                   iop_for_each_pkg_b cb)
 {
-    const iop_env_ctx_t *iop_env_ctx = iop_env_get_ctx(iop_env);
+    const iop_env_ctx_t *iop_env_ctx;
 
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
     qm_for_each_value(iop_pkg, pkg, &iop_env_ctx->pkg_by_fullname) {
         cb(pkg);
     }
