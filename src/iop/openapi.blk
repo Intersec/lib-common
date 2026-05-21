@@ -501,6 +501,9 @@ t_class_field_to_schema_object(const iop_env_t *iop_env,
      */
     qv_t(iop_struct) children;
     qv_t(iop_struct) *_children_p = &children;
+    const iop_env_ctx_t *iop_env_ctx;
+
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
     out->type = TYPE_NONE;
     out->discriminator = LSTR("_class");
@@ -516,7 +519,8 @@ t_class_field_to_schema_object(const iop_env_t *iop_env,
     t_qv_init(&children, 0);
 
     /* add all children to the schemas, and build a list of them */
-    iop_for_each_registered_classes(iop_env, ^(const iop_struct_t *st) {
+    iop_for_each_registered_classes(iop_env_ctx,
+                                    ^(const iop_struct_t *st) {
         if (iop_class_is_a(st, class_desc) && !st->class_attrs->is_private &&
             !st->class_attrs->is_abstract)
         {
@@ -859,6 +863,9 @@ static bool field_is_required(const iop_env_t *iop_env,
                               const iop_field_t *desc,
                               const schema_object_t *schema)
 {
+    const iop_env_ctx_t *iop_env_ctx;
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+
     switch (desc->repeat) {
       case IOP_R_OPTIONAL:
       case IOP_R_DEFVAL:
@@ -867,7 +874,7 @@ static bool field_is_required(const iop_env_t *iop_env,
         return OPT_DEFVAL(schema->min_items, 0) > 0;
       case IOP_R_REQUIRED:
         return desc->type != IOP_T_STRUCT
-            || !iop_struct_is_optional(iop_env, desc->u1.st_desc, true);
+            || !iop_struct_is_optional(iop_env_ctx, desc->u1.st_desc, true);
     }
 
     assert (false);

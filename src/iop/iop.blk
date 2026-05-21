@@ -93,7 +93,7 @@ typedef struct iop_field_path_parse_t {
 
 /** Parses a field with syntax described for \ref mp_iop_field_path_compile.
  */
-static int parse_field_from_path(const iop_env_t *iop_env,
+static int parse_field_from_path(const iop_env_ctx_t *iop_env_ctx,
                                  pstream_t *field_path_ps,
                                  const iop_struct_t *st,
                                  iop_field_path_parse_t *field_parse,
@@ -123,7 +123,7 @@ static int parse_field_from_path(const iop_env_t *iop_env,
         }
 
         field_parse->cast_st = iop_get_class_by_fullname(
-            iop_env, st, LSTR_PS_V(&cast_ps));
+            iop_env_ctx, st, LSTR_PS_V(&cast_ps));
         if (!field_parse->cast_st ||
             !iop_class_is_a(field_parse->cast_st, st))
         {
@@ -173,7 +173,7 @@ static int parse_field_from_path(const iop_env_t *iop_env,
 
 /* TODO: factorize it with iop_field_path functions. */
 static const iop_field_t *
-_iop_get_field_const(const iop_env_t * nonnull iop_env,
+_iop_get_field_const(const iop_env_ctx_t * nonnull iop_env_ctx,
                      const void * nullable ptr,
                      const iop_struct_t * nonnull st, lstr_t path,
                      const void ** nullable out_ptr,
@@ -192,7 +192,7 @@ _iop_get_field_const(const iop_env_t * nonnull iop_env,
         }
 
         /* Parse the next field from the path. */
-        RETHROW_NP(parse_field_from_path(iop_env, &ps, st, &field_parse,
+        RETHROW_NP(parse_field_from_path(iop_env_ctx, &ps, st, &field_parse,
                                          NULL));
 
         if (use_ptr && iop_struct_is_class(st)) {
@@ -264,17 +264,17 @@ _iop_get_field_const(const iop_env_t * nonnull iop_env,
 }
 
 const iop_field_t *
-iop_get_field_const(const iop_env_t * nonnull iop_env,
+iop_get_field_const(const iop_env_ctx_t * nonnull iop_env_ctx,
                     const void * nonnull ptr,
                     const iop_struct_t * nonnull st, lstr_t path,
                     const void ** nullable out_ptr,
                     const iop_struct_t ** nullable out_st)
 {
     RETHROW_P(ptr);
-    return _iop_get_field_const(iop_env, ptr, st, path, out_ptr, out_st);
+    return _iop_get_field_const(iop_env_ctx, ptr, st, path, out_ptr, out_st);
 }
 
-int iop_struct_get_field(const iop_env_t * nonnull iop_env,
+int iop_struct_get_field(const iop_env_ctx_t * nonnull iop_env_ctx,
                          const iop_struct_t * nonnull st, lstr_t path,
                          const iop_struct_t * nullable * nullable found_st,
                          const iop_field_t * nullable * nullable found_fdesc)
@@ -282,7 +282,8 @@ int iop_struct_get_field(const iop_env_t * nonnull iop_env,
     const iop_struct_t *out_st = NULL;
     const iop_field_t *out_fdesc;
 
-    out_fdesc = _iop_get_field_const(iop_env, NULL, st, path, NULL, &out_st);
+    out_fdesc = _iop_get_field_const(iop_env_ctx, NULL, st, path, NULL,
+                                     &out_st);
     RETHROW_PN(out_fdesc);
 
     if (found_st) {
@@ -2531,7 +2532,8 @@ field_step_fast_forward(qv_t(field_step) *nonnull steps,
 }
 
 static int
-iop_compile_field_path(const iop_env_t *iop_env, const iop_struct_t *st,
+iop_compile_field_path(const iop_env_ctx_t *iop_env_ctx,
+                       const iop_struct_t *st,
                        lstr_t field_path_s, const void *nullable value,
                        iop_field_path_t *fp, sb_t *nullable err)
 {
@@ -2556,7 +2558,7 @@ iop_compile_field_path(const iop_env_t *iop_env, const iop_struct_t *st,
     while (!ps_done(&field_path_ps)) {
         iop_field_path_parse_t field_parse;
 
-        RETHROW(parse_field_from_path(iop_env, &field_path_ps, it,
+        RETHROW(parse_field_from_path(iop_env_ctx, &field_path_ps, it,
                                       &field_parse, err));
 
         if (field_parse.cast_st) {
@@ -2721,14 +2723,15 @@ iop_compile_field_path(const iop_env_t *iop_env, const iop_struct_t *st,
 /* {{{ IOP field path public API */
 
 const iop_field_path_t *nullable
-mp_iop_field_path_compile(mem_pool_t *nullable mp, const iop_env_t *iop_env,
+mp_iop_field_path_compile(mem_pool_t *nullable mp,
+                          const iop_env_ctx_t *iop_env_ctx,
                           const iop_struct_t *nonnull st, lstr_t path,
                           sb_t *nullable err)
 {
     iop_field_path_t *fp;
 
     fp = mp_iop_field_path_init(mp, mp_new_raw(mp, iop_field_path_t, 1));
-    RETHROW_NP(iop_compile_field_path(iop_env, st, path, NULL, fp, err));
+    RETHROW_NP(iop_compile_field_path(iop_env_ctx, st, path, NULL, fp, err));
     return fp;
 }
 
@@ -2781,7 +2784,7 @@ int iop_field_path_for_each_value(const iop_field_path_t *nonnull fp,
     return 0;
 }
 
-int iop_obj_get_field_type(const iop_env_t *iop_env,
+int iop_obj_get_field_type(const iop_env_ctx_t *iop_env_ctx,
                            const iop_struct_t *nonnull st,
                            const void *nonnull value, lstr_t path,
                            iop_full_type_t *nonnull type,
@@ -2791,7 +2794,7 @@ int iop_obj_get_field_type(const iop_env_t *iop_env,
     iop_field_path_t *fp;
 
     fp = t_iop_field_path_init(t_new_raw(iop_field_path_t, 1));
-    RETHROW(iop_compile_field_path(iop_env, st, path, value, fp, err));
+    RETHROW(iop_compile_field_path(iop_env_ctx, st, path, value, fp, err));
 
     iop_field_path_get_type(fp, type, is_array);
     return 0;
@@ -2938,7 +2941,7 @@ compare_field(const void *d1, const void *d2, const iop_sort_priv_t *priv)
     return priv->flags & IOP_SORT_REVERSE ? -res : res;
 }
 
-int iop_msort_desc(const iop_env_t *iop_env, const iop_struct_t *st,
+int iop_msort_desc(const iop_env_ctx_t *iop_env_ctx, const iop_struct_t *st,
                    void *vec, int len, const qv_t(iop_sort) *params,
                    sb_t *err)
 {
@@ -2957,8 +2960,8 @@ int iop_msort_desc(const iop_env_t *iop_env, const iop_struct_t *st,
         iop_sort_priv_t *priv = &sorts.tab[pos];
 
         t_iop_field_path_init(&priv->fp);
-        RETHROW(iop_compile_field_path(iop_env, st, sort->field_path, NULL,
-                                       &priv->fp, err));
+        RETHROW(iop_compile_field_path(iop_env_ctx, st, sort->field_path,
+                                       NULL, &priv->fp, err));
 
         if (priv->fp.fdesc
         &&  priv->fp.fdesc->type == IOP_T_VOID
@@ -2996,8 +2999,9 @@ int iop_msort_desc(const iop_env_t *iop_env, const iop_struct_t *st,
     return 0;
 }
 
-int iop_sort_desc(const iop_env_t *iop_env, const iop_struct_t *st, void *vec,
-                  int len, lstr_t field_path, int flags, sb_t *err)
+int iop_sort_desc(const iop_env_ctx_t *iop_env_ctx, const iop_struct_t *st,
+                  void *vec, int len, lstr_t field_path, int flags,
+                  sb_t *err)
 {
     qv_t(iop_sort) params;
     iop_sort_t param = {
@@ -3006,7 +3010,7 @@ int iop_sort_desc(const iop_env_t *iop_env, const iop_struct_t *st, void *vec,
     };
 
     qv_init_static(&params, &param, 1);
-    return iop_msort_desc(iop_env, st, vec, len, &params, err);
+    return iop_msort_desc(iop_env_ctx, st, vec, len, &params, err);
 }
 
 /* }}} */
@@ -3245,7 +3249,7 @@ static bool iop_filter_val_matches(const byte *vec_read,
 }
 
 static int
-__t_iop_filter(const iop_env_t *iop_env, const iop_struct_t *st,
+__t_iop_filter(const iop_env_ctx_t *iop_env_ctx, const iop_struct_t *st,
                const void *vec, int len, lstr_t field_path,
                void * const *values, int values_len, opt_bool_t is_set,
                unsigned flags, iop_filter_bitmap_op_t bitmap_op,
@@ -3258,7 +3262,8 @@ __t_iop_filter(const iop_env_t *iop_env, const iop_struct_t *st,
     size_t elem_size = is_pointer ? sizeof(void *) : st->size;
 
     t_iop_field_path_init(&fp);
-    RETHROW(iop_compile_field_path(iop_env, st, field_path, NULL, &fp, err));
+    RETHROW(iop_compile_field_path(iop_env_ctx, st, field_path, NULL, &fp,
+                                   err));
     assert (fp.is_typename || fp.fdesc);
 
     if (OPT_ISSET(is_set)) {
@@ -3339,50 +3344,52 @@ __t_iop_filter(const iop_env_t *iop_env, const iop_struct_t *st,
     return 0;
 }
 
-int iop_filter(const iop_env_t *iop_env, const iop_struct_t *st, void *vec,
-               int *len, lstr_t field_path, void * const *values,
+int iop_filter(const iop_env_ctx_t *iop_env_ctx, const iop_struct_t *st,
+               void *vec, int *len, lstr_t field_path, void * const *values,
                int values_len, unsigned flags, sb_t *err)
 {
     t_scope;
     byte *bitmap = NULL;
 
-    RETHROW(t_iop_filter_bitmap(iop_env, st, vec, *len, field_path,
+    RETHROW(t_iop_filter_bitmap(iop_env_ctx, st, vec, *len, field_path,
                                 values, values_len, flags,
                                 BITMAP_OP_OR, &bitmap, err));
     iop_filter_bitmap_apply(st, vec, len, bitmap);
     return 0;
 }
 
-int iop_filter_opt(const iop_env_t *iop_env, const iop_struct_t *st,
+int iop_filter_opt(const iop_env_ctx_t *iop_env_ctx, const iop_struct_t *st,
                    void *vec, int *len, lstr_t field_path, bool is_set,
                    sb_t *err)
 {
     t_scope;
     byte *bitmap = NULL;
 
-    RETHROW(t_iop_filter_opt_bitmap(iop_env, st, vec, *len, field_path,
+    RETHROW(t_iop_filter_opt_bitmap(iop_env_ctx, st, vec, *len, field_path,
                                     is_set, BITMAP_OP_AND, &bitmap, err));
     iop_filter_bitmap_apply(st, vec, len, bitmap);
     return 0;
 }
 
-int t_iop_filter_bitmap(const iop_env_t *iop_env, const iop_struct_t *st,
+int t_iop_filter_bitmap(const iop_env_ctx_t *iop_env_ctx,
+                        const iop_struct_t *st,
                         const void *vec, int len, lstr_t field_path,
                         void * const *values, int values_len, unsigned flags,
                         iop_filter_bitmap_op_t bitmap_op, byte **bitmap,
                         sb_t *err)
 {
-    return __t_iop_filter(iop_env, st, vec, len, field_path, values,
+    return __t_iop_filter(iop_env_ctx, st, vec, len, field_path, values,
                           values_len, (opt_bool_t)OPT_NONE, flags,
                           bitmap_op, bitmap, err);
 }
 
-int t_iop_filter_opt_bitmap(const iop_env_t *iop_env, const iop_struct_t *st,
+int t_iop_filter_opt_bitmap(const iop_env_ctx_t *iop_env_ctx,
+                            const iop_struct_t *st,
                             const void *vec, int len, lstr_t field_path,
                             bool is_set, iop_filter_bitmap_op_t bitmap_op,
                             byte **bitmap, sb_t *err)
 {
-    return __t_iop_filter(iop_env, st, vec, len, field_path, NULL, 0,
+    return __t_iop_filter(iop_env_ctx, st, vec, len, field_path, NULL, 0,
                           (opt_bool_t)OPT(is_set), 0, bitmap_op, bitmap, err);
 }
 
@@ -5363,9 +5370,12 @@ static int unpack_class(mem_pool_t *mp, const iop_env_t *iop_env,
         *ps = saved_ps;
         real_desc = desc;
     } else {
+        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+
         PS_CHECK(__get_class_id(ps, wt, &child_id));
 
-        real_desc = iop_get_class_by_id(iop_env, desc, child_id);
+        real_desc = iop_get_class_by_id(iop_env_ctx, desc, child_id);
         if (unlikely(!(real_desc))) {
             SB_1k(err);
 
@@ -6552,25 +6562,21 @@ iop_get_class_by_fullname_(const iop_env_ctx_t *iop_env_ctx,
 }
 
 const iop_struct_t *
-iop_get_class_by_fullname(const iop_env_t *iop_env, const iop_struct_t *st,
-                          lstr_t fullname)
+iop_get_class_by_fullname(const iop_env_ctx_t *iop_env_ctx,
+                          const iop_struct_t *st, lstr_t fullname)
 {
-    const iop_env_ctx_t *iop_env_ctx;
-
     assert(iop_struct_is_class(st));
     while (st->class_attrs->parent) {
         st = st->class_attrs->parent;
     }
 
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
     return iop_get_class_by_fullname_(iop_env_ctx, st, fullname);
 }
 
 const iop_struct_t *
-iop_get_class_by_id(const iop_env_t *iop_env, const iop_struct_t *st,
-                    uint16_t class_id)
+iop_get_class_by_id(const iop_env_ctx_t *iop_env_ctx,
+                    const iop_struct_t *st, uint16_t class_id)
 {
-    const iop_env_ctx_t *iop_env_ctx;
     iop_class_id_key_t key = {
         .master   = st,
         .child_id = class_id,
@@ -6584,17 +6590,13 @@ iop_get_class_by_id(const iop_env_t *iop_env, const iop_struct_t *st,
         key.master = key.master->class_attrs->parent;
     }
 
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
     return qm_get_def_safe(iop_class_by_id, &iop_env_ctx->classes_by_id, &key,
                            NULL);
 }
 
-void iop_for_each_registered_classes(const iop_env_t *iop_env,
+void iop_for_each_registered_classes(const iop_env_ctx_t *iop_env_ctx,
                                      iop_for_each_class_b cb)
 {
-    const iop_env_ctx_t *iop_env_ctx;
-
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
     qm_for_each_value(iop_class_by_id, cls, &iop_env_ctx->classes_by_id) {
         cb(cls);
     }
@@ -7328,12 +7330,9 @@ void iop_unregister_packages(iop_env_t *iop_env,
     iop_env_ctx_replace(iop_env, &new_ctx);
 }
 
-void iop_for_each_registered_pkgs(const iop_env_t *iop_env,
+void iop_for_each_registered_pkgs(const iop_env_ctx_t *iop_env_ctx,
                                   iop_for_each_pkg_b cb)
 {
-    const iop_env_ctx_t *iop_env_ctx;
-
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
     qm_for_each_value(iop_pkg, pkg, &iop_env_ctx->pkg_by_fullname) {
         cb(pkg);
     }
@@ -7960,8 +7959,8 @@ bool _iop_struct_is_optional(const iop_struct_t *st, bool forbid_abstract,
     return true;
 }
 
-bool iop_struct_is_optional(const iop_env_t *iop_env, const iop_struct_t *st,
-                            bool check_parents)
+bool iop_struct_is_optional(const iop_env_ctx_t *iop_env_ctx,
+                            const iop_struct_t *st, bool check_parents)
 {
     iop_compat_ctx_t ctx;
     int ret;
@@ -8131,15 +8130,23 @@ __iop_struct_check_backward_compat(const iop_struct_t *st1,
             res = -1;
         }
         if (flags & IOP_COMPAT_JSON
-        && !(lstr_equal(st1->fullname, st2->fullname) ||
-            (st2 == iop_get_class_by_fullname(iop_env2, st2,
-                                              st1->fullname))))
+        &&  !lstr_equal(st1->fullname, st2->fullname))
         {
-            iop_compat_add_err(ctx, "class fullname changed "
-                               "(`%*pM` != `%*pM`)",
-                               LSTR_FMT_ARG(st1->fullname),
-                               LSTR_FMT_ARG(st2->fullname));
-            res = -1;
+            const iop_struct_t *st2_renamed;
+
+            {
+                const iop_env_ctx_t *iop_env_ctx2;
+                iop_env_ctx_acquire_scoped(iop_env2, iop_env_ctx2);
+                st2_renamed = iop_get_class_by_fullname(iop_env_ctx2, st2,
+                                                        st1->fullname);
+            }
+            if (st2 != st2_renamed) {
+                iop_compat_add_err(ctx, "class fullname changed "
+                                   "(`%*pM` != `%*pM`)",
+                                   LSTR_FMT_ARG(st1->fullname),
+                                   LSTR_FMT_ARG(st2->fullname));
+                res = -1;
+            }
         }
     }
 

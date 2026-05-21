@@ -174,10 +174,14 @@ static _Bool ic_cmd_is_traced(const iop_env_t *iop_env, int cmd)
     static bool first_call = true;
 
     if (unlikely(first_call)) {
+        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+
         /* XXX: The filling of _G.traced_cmds is done lazily because when
          * ic_initialize is called, the IOP packages were likely not
          * registered yet. */
-        iop_for_each_registered_pkgs(iop_env, ^void (const iop_pkg_t *pkg) {
+        iop_for_each_registered_pkgs(iop_env_ctx,
+                                     ^void (const iop_pkg_t *pkg) {
             for (const iop_mod_t *const *m = pkg->mods; *m; m++) {
                 const iop_mod_t *mod = *m;
 
@@ -1475,8 +1479,10 @@ static void ic_report_unimplemented_rpc(const iop_env_t *iop_env, int cmd)
     uint32_t rcmd = cmd & 0x7fff;
     SB_1k(sb);
     __block sb_t *psb = &sb;
+    const iop_env_ctx_t *iop_env_ctx;
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
-    iop_for_each_registered_pkgs(iop_env, ^(const iop_pkg_t *pkg) {
+    iop_for_each_registered_pkgs(iop_env_ctx, ^(const iop_pkg_t *pkg) {
         for (const iop_mod_t *const *m = pkg->mods; *m; m++) {
             const iop_mod_t *mod = *m;
 

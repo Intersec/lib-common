@@ -1580,8 +1580,12 @@ unpack_struct_prepare_class(iop_json_lex_t *ll, const iop_struct_t *desc,
     }
 
     /* Get the iop_struct_t of the instanciated class from its fullname */
-    *real_desc = iop_get_class_by_fullname(ll->iop_env, desc_it,
-                                           LSTR_SB_V(&ll->ctx->b));
+    {
+        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_acquire_scoped(ll->iop_env, iop_env_ctx);
+        *real_desc = iop_get_class_by_fullname(iop_env_ctx, desc_it,
+                                               LSTR_SB_V(&ll->ctx->b));
+    }
     if (!*real_desc) {
         e_trace(0, "cannot find child class `%*pM' in the children of "
                 "`%*pM'; missing IOP_REGISTER_PACKAGES in the binary "
@@ -2995,6 +2999,9 @@ static int init_jpack_sub_files(const iop_env_t *iop_env,
                                 const qv_t(iop_json_subfile) *subfiles,
                                 jpack_file_ctx_t *ctx, sb_t *err)
 {
+    const iop_env_ctx_t *iop_env_ctx;
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+
     qm_init(iop_jpack_subfile_paths, &ctx->subfiles_paths);
     qm_init(iop_jpack_subfile_value, &ctx->subfiles_values);
 
@@ -3004,7 +3011,7 @@ static int init_jpack_sub_files(const iop_env_t *iop_env,
         uint32_t pos;
         qm_t(iop_jpack_paths) *paths;
 
-        fdesc = iop_get_field_const(iop_env, value, st, subfile->iop_path,
+        fdesc = iop_get_field_const(iop_env_ctx, value, st, subfile->iop_path,
                                     &ptr, NULL);
         if (!fdesc) {
             if (err) {

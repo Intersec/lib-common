@@ -555,8 +555,10 @@ get_struct_from_tag(yunpack_env_t * nonnull env,
 {
     if (iop_struct_is_class(st)) {
         const iop_struct_t *real_st;
+        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_acquire_scoped(env->iop_env, iop_env_ctx);
 
-        real_st = iop_get_class_by_fullname(env->iop_env, st, tag);
+        real_st = iop_get_class_by_fullname(iop_env_ctx, st, tag);
         if (!real_st) {
             sb_setf(err, "unknown type `%pL` provided in tag, "
                     "or not a child of `%pL`", &tag, &st->fullname);
@@ -1299,9 +1301,11 @@ included_iop_field_is_raw(const iop_env_t * nonnull iop_env,
 {
     iop_full_type_t type;
     bool is_array;
+    const iop_env_ctx_t *iop_env_ctx;
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
-    if (iop_obj_get_field_type(iop_env, st, value, iop_path, &type, &is_array,
-                               NULL) < 0)
+    if (iop_obj_get_field_type(iop_env_ctx, st, value, iop_path, &type,
+                               &is_array, NULL) < 0)
     {
         return false;
     }

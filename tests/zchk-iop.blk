@@ -411,11 +411,13 @@ static int z_test_iop_field_path_htab(const iop_env_t *iop_env)
     qv_t(u64) *values;
     tstiop__my_struct_a__t sta;
     const iop_field_path_t *fp;
+    const iop_env_ctx_t *iop_env_ctx;
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
     iop_init(tstiop__my_struct_a, &sta);
     sta.htab = T_IOP_ARRAY(u64, 2, 42, 51);
 
-    fp = t_iop_field_path_compile(iop_env, &tstiop__my_struct_a__s,
+    fp = t_iop_field_path_compile(iop_env_ctx, &tstiop__my_struct_a__s,
                                   LSTR("htab[*]"), &err);
     Z_ASSERT_P(fp, "%pL", &err);
 
@@ -444,6 +446,8 @@ static int z_test_iop_field_path_structs_last_fields(const iop_env_t *iop_env)
     qv_t(i32) *lengths;
     const iop_field_path_t *fp;
     const char *expected[] = { "tata", "c", "42" };
+    const iop_env_ctx_t *iop_env_ctx;
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
     t_qv_init(&structs, 0);
 
@@ -467,7 +471,7 @@ static int z_test_iop_field_path_structs_last_fields(const iop_env_t *iop_env)
     pkg.structs = IOP_TYPED_ARRAY_TAB(tstiop__struct, &structs);
 
     /* List structs last fields names. */
-    fp = t_iop_field_path_compile(iop_env, &tstiop__package__s,
+    fp = t_iop_field_path_compile(iop_env_ctx, &tstiop__package__s,
                                   LSTR("structs[*].fields[-1].name"), &err);
     Z_ASSERT_P(fp, "%pL", &err);
 
@@ -483,7 +487,7 @@ static int z_test_iop_field_path_structs_last_fields(const iop_env_t *iop_env)
 
     /* List structs fields counts. */
     lengths = t_qv_new(i32, 0);
-    fp = t_iop_field_path_compile(iop_env, &tstiop__package__s,
+    fp = t_iop_field_path_compile(iop_env_ctx, &tstiop__package__s,
                                   LSTR("structs[*].fields.len"), &err);
     Z_ASSERT_P(fp, "%pL", &err);
     iop_field_path_for_each_value(fp, &pkg, ^int (const void *v) {
@@ -510,6 +514,8 @@ static int z_test_iop_field_path_class_wildcards(const iop_env_t *iop_env)
     tstiop__my_class2_bis__t mc2_bis;
     qv_t(cvoid) *values_ptr;
     const iop_field_path_t *fp;
+    const iop_env_ctx_t *iop_env_ctx;
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
     /* Init objects */
     iop_init(tstiop__my_struct_f, &msf);
@@ -526,7 +532,7 @@ static int z_test_iop_field_path_class_wildcards(const iop_env_t *iop_env)
 
     /* Retrieve every objects values with e[*].int1 */
     values_ptr = t_qv_new(cvoid, 4);
-    fp = t_iop_field_path_compile(iop_env, &tstiop__my_struct_f__s,
+    fp = t_iop_field_path_compile(iop_env_ctx, &tstiop__my_struct_f__s,
                                   LSTR("e[*].int1"), &err);
     Z_ASSERT_P(fp, "%pL", &err);
     iop_field_path_for_each_value(fp, &msf, ^int (const void *v) {
@@ -541,7 +547,7 @@ static int z_test_iop_field_path_class_wildcards(const iop_env_t *iop_env)
 
     /* Retrieve values of mc2 and mc3 with e[*].<tstiop.MyClass2>int2 */
     qv_clear(values_ptr);
-    fp = t_iop_field_path_compile(iop_env, &tstiop__my_struct_f__s,
+    fp = t_iop_field_path_compile(iop_env_ctx, &tstiop__my_struct_f__s,
                                   LSTR("e[*].<tstiop.MyClass2>int2"), &err);
     Z_ASSERT_P(fp, "%pL", &err);
     iop_field_path_for_each_value(fp, &msf, ^int (const void *v) {
@@ -554,7 +560,7 @@ static int z_test_iop_field_path_class_wildcards(const iop_env_t *iop_env)
 
     /* Retrieve value of mc3 with e[*].<tstiop.MyClass3>int3 */
     qv_clear(values_ptr);
-    fp = t_iop_field_path_compile(iop_env, &tstiop__my_struct_f__s,
+    fp = t_iop_field_path_compile(iop_env_ctx, &tstiop__my_struct_f__s,
                                   LSTR("e[*].<tstiop.MyClass3>int3"), &err);
     Z_ASSERT_P(fp, "%pL", &err);
     iop_field_path_for_each_value(fp, &msf, ^int (const void *v) {
@@ -566,7 +572,7 @@ static int z_test_iop_field_path_class_wildcards(const iop_env_t *iop_env)
 
     /* Retrieve value of mc2_bis with e[*].<tstiop.MyClass2Bis>int2 */
     qv_clear(values_ptr);
-    fp = t_iop_field_path_compile(iop_env, &tstiop__my_struct_f__s,
+    fp = t_iop_field_path_compile(iop_env_ctx, &tstiop__my_struct_f__s,
                                   LSTR("e[*].<tstiop.MyClass2Bis>int2"),
                                   &err);
     Z_ASSERT_P(fp, "%pL", &err);

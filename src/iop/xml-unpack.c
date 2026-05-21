@@ -578,7 +578,12 @@ xunpack_class(xml_reader_t xr, mem_pool_t *mp, const iop_env_t *iop_env,
         ps = ps_initlstr(&real_type_str);
         /* Skip mandatory namespace */
         ps_skip_afterchr(&ps, ':');
-        real_desc = iop_get_class_by_fullname(iop_env, desc, LSTR_PS_V(&ps));
+        {
+            const iop_env_ctx_t *iop_env_ctx;
+            iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+            real_desc = iop_get_class_by_fullname(iop_env_ctx, desc,
+                                                  LSTR_PS_V(&ps));
+        }
         if (!real_desc) {
             return xmlr_fail(xr, "class `%*pM' not found",
                              PS_FMT_ARG(&ps));

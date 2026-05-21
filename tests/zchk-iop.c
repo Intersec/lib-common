@@ -92,6 +92,136 @@ iop_env_get_enum(const iop_env_t *iop_env, lstr_t fullname)
     return iop_env_ctx_get_enum(iop_env_ctx, fullname);
 }
 
+/* Test-local shim macros that wrap the ctx-taking public API to accept an
+ * env, acquiring/releasing a fresh ctx snapshot around each call. The
+ * `(name)` syntax disables further macro expansion and resolves to the
+ * underlying ctx-taking function.
+ *
+ * Non-test code should hold a snapshot via
+ * \ref iop_env_ctx_acquire_scoped and call the ctx-taking variants
+ * directly. */
+#define iop_get_class_by_fullname(env, st, fullname) ({                      \
+        const iop_env_ctx_t *iop_env_ctx;                                    \
+        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
+        (iop_get_class_by_fullname)(iop_env_ctx, (st), (fullname));          \
+    })
+
+#define iop_get_class_by_id(env, st, class_id) ({                            \
+        const iop_env_ctx_t *iop_env_ctx;                                    \
+        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
+        (iop_get_class_by_id)(iop_env_ctx, (st), (class_id));                \
+    })
+
+#define iop_field_path_compile(env, st, path, err) ({                        \
+        const iop_env_ctx_t *iop_env_ctx;                                    \
+        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
+        (iop_field_path_compile)(iop_env_ctx, (st), (path), (err));          \
+    })
+
+#define t_iop_field_path_compile(env, st, path, err) ({                      \
+        const iop_env_ctx_t *iop_env_ctx;                                    \
+        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
+        (t_iop_field_path_compile)(iop_env_ctx, (st), (path), (err));        \
+    })
+
+#define mp_iop_field_path_compile(mp, env, st, path, err) ({                 \
+        const iop_env_ctx_t *iop_env_ctx;                                    \
+        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
+        (mp_iop_field_path_compile)((mp), iop_env_ctx, (st), (path), (err)); \
+    })
+
+#define iop_obj_get_field_type(env, st, value, path, type, is_array, err) ({ \
+        const iop_env_ctx_t *iop_env_ctx;                                    \
+        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
+        (iop_obj_get_field_type)(iop_env_ctx, (st), (value), (path),         \
+                                 (type), (is_array), (err));                 \
+    })
+
+#define iop_get_field(env, ptr, st, path, out_ptr, out_st) ({                \
+        const iop_env_ctx_t *iop_env_ctx;                                    \
+        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
+        (iop_get_field)(iop_env_ctx, (ptr), (st), (path), (out_ptr),         \
+                        (out_st));                                           \
+    })
+
+#define iop_get_field_const(env, ptr, st, path, out_ptr, out_st) ({          \
+        const iop_env_ctx_t *iop_env_ctx;                                    \
+        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
+        (iop_get_field_const)(iop_env_ctx, (ptr), (st), (path), (out_ptr),   \
+                              (out_st));                                     \
+    })
+
+#define iop_struct_get_field(env, st, path, found_st, found_fdesc) ({        \
+        const iop_env_ctx_t *iop_env_ctx;                                    \
+        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
+        (iop_struct_get_field)(iop_env_ctx, (st), (path), (found_st),        \
+                               (found_fdesc));                               \
+    })
+
+#define iop_sort_desc(env, st, vec, len, field_path, flags, err) ({          \
+        const iop_env_ctx_t *iop_env_ctx;                                    \
+        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
+        (iop_sort_desc)(iop_env_ctx, (st), (vec), (len), (field_path),       \
+                        (flags), (err));                                     \
+    })
+
+#define iop_msort_desc(env, st, vec, len, params, err) ({                    \
+        const iop_env_ctx_t *iop_env_ctx;                                    \
+        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
+        (iop_msort_desc)(iop_env_ctx, (st), (vec), (len), (params), (err));  \
+    })
+
+#define iop_filter(env, st, vec, len, field_path, values, values_len,        \
+                   flags, err) ({                                            \
+        const iop_env_ctx_t *iop_env_ctx;                                    \
+        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
+        (iop_filter)(iop_env_ctx, (st), (vec), (len), (field_path),          \
+                     (values), (values_len), (flags), (err));                \
+    })
+
+#define iop_filter_opt(env, st, vec, len, field_path, is_set, err) ({        \
+        const iop_env_ctx_t *iop_env_ctx;                                    \
+        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
+        (iop_filter_opt)(iop_env_ctx, (st), (vec), (len), (field_path),      \
+                         (is_set), (err));                                   \
+    })
+
+#define t_iop_filter_bitmap(env, st, vec, len, field_path, values,           \
+                            values_len, flags, bitmap_op, bitmap, err) ({    \
+        const iop_env_ctx_t *iop_env_ctx;                                    \
+        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
+        (t_iop_filter_bitmap)(iop_env_ctx, (st), (vec), (len), (field_path), \
+                              (values), (values_len), (flags), (bitmap_op), \
+                              (bitmap), (err));                              \
+    })
+
+#define t_iop_filter_opt_bitmap(env, st, vec, len, field_path, is_set,       \
+                                bitmap_op, bitmap, err) ({                   \
+        const iop_env_ctx_t *iop_env_ctx;                                    \
+        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
+        (t_iop_filter_opt_bitmap)(iop_env_ctx, (st), (vec), (len),           \
+                                  (field_path), (is_set), (bitmap_op),       \
+                                  (bitmap), (err));                          \
+    })
+
+#define iop_struct_is_optional(env, st, check_parents) ({                    \
+        const iop_env_ctx_t *iop_env_ctx;                                    \
+        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
+        (iop_struct_is_optional)(iop_env_ctx, (st), (check_parents));        \
+    })
+
+#define iop_for_each_registered_classes(env, cb) do {                        \
+        const iop_env_ctx_t *iop_env_ctx;                                    \
+        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
+        (iop_for_each_registered_classes)(iop_env_ctx, (cb));                \
+    } while (0)
+
+#define iop_for_each_registered_pkgs(env, cb) do {                           \
+        const iop_env_ctx_t *iop_env_ctx;                                    \
+        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
+        (iop_for_each_registered_pkgs)(iop_env_ctx, (cb));                   \
+    } while (0)
+
 /* {{{ iop_get_field_values() */
 
 static int

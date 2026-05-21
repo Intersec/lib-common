@@ -507,6 +507,7 @@ static void
 iop_xwsdl_put_types(wsdlpp_t *wpp, const iop_env_t *iop_env,
                     const iop_mod_t *mod, const char *ns)
 {
+    const iop_env_ctx_t *iop_env_ctx;
     qh_t(iop_type) h;
     qv_t(iop_type) a;
     qv_t(iop_enum) b;
@@ -516,6 +517,8 @@ iop_xwsdl_put_types(wsdlpp_t *wpp, const iop_env_t *iop_env,
     qh_init(iop_type,  &h);
     qv_inita(&a, 1024);
     qv_inita(&b, 1024);
+
+    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
     scan_types = ^(const iop_iface_alias_t *alias, const iop_rpc_t *rpc) {
         const iop_struct_t *st;
@@ -541,7 +544,7 @@ iop_xwsdl_put_types(wsdlpp_t *wpp, const iop_env_t *iop_env,
     };
     iop_xwsdl_rpc_loop(wpp, mod, scan_types);
 
-    iop_for_each_registered_classes(iop_env, ^(const iop_struct_t *st) {
+    iop_for_each_registered_classes(iop_env_ctx, ^(const iop_struct_t *st) {
         /* A class should appear in the WSDL if one of its parents appears in
          * the WSDL. */
         const iop_struct_t *parent = st;

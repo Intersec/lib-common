@@ -127,10 +127,11 @@ int main(int argc, char *argv[])
     for (int i = class_id_min; i <= class_id_max; i++) {
         const iop_struct_t *st;
 
-        st = iop_get_class_by_id(iop_env, obj_st, i);
+        st = iop_get_class_by_id(iop_env_ctx, obj_st, i);
         if (st) {
             if (!used_ids_hdr_printed) {
-                printf("Used class ids in the family of `%s`:\n", fullname);
+                printf("Used class ids in the family of `%s`:\n",
+                       fullname);
                 used_ids_hdr_printed = true;
             }
             printf("    %d (`%*pM`)\n", i, LSTR_FMT_ARG(st->fullname));

@@ -870,10 +870,12 @@ typedef struct iop_field_path_t iop_field_path_t;
 
 /** Build an IOP field path on a specified memory pool.
  *
- * \param[in] mp      The memory pool on which the allocation will be done.
- *                    Can be NULL to use malloc.
- * \param[in] iop_env The current IOP environment.
- * \param[in] st      The structure type of the values containing the fields.
+ * \param[in] mp          The memory pool on which the allocation will be
+ *                        done. Can be NULL to use malloc.
+ * \param[in] iop_env_ctx Snapshot of the IOP environment to compile against.
+ *                        Pin one via \ref iop_env_ctx_acquire_scoped.
+ * \param[in] st          The structure type of the values containing the
+ *                        fields.
  * \param[in] path    Full path to the field. Can contain:
  *     - Subfields: 'foo.bar'.
  *     - Array indexes: 'elts[0].v', 'a.array[-1]' (negative indexes means
@@ -893,7 +895,7 @@ typedef struct iop_field_path_t iop_field_path_t;
  */
 const iop_field_path_t *nullable
 mp_iop_field_path_compile(mem_pool_t *nullable mp,
-                          const iop_env_t * nonnull iop_env,
+                          const iop_env_ctx_t * nonnull iop_env_ctx,
                           const iop_struct_t *nonnull st,
                           lstr_t path, sb_t *nullable err);
 
@@ -902,11 +904,11 @@ mp_iop_field_path_compile(mem_pool_t *nullable mp,
  * \see mp_iop_field_path_compile.
  */
 static inline const iop_field_path_t *nullable
-t_iop_field_path_compile(const iop_env_t * nonnull iop_env,
+t_iop_field_path_compile(const iop_env_ctx_t * nonnull iop_env_ctx,
                          const iop_struct_t *nonnull st,
                          lstr_t path, sb_t *nullable err)
 {
-    return mp_iop_field_path_compile(t_pool(), iop_env, st, path, err);
+    return mp_iop_field_path_compile(t_pool(), iop_env_ctx, st, path, err);
 }
 
 /** Build an IOP field path on the standard libc allocator.
@@ -914,11 +916,11 @@ t_iop_field_path_compile(const iop_env_t * nonnull iop_env,
  * \see mp_iop_field_path_compile.
  */
 static inline const iop_field_path_t *nullable
-iop_field_path_compile(const iop_env_t * nonnull iop_env,
+iop_field_path_compile(const iop_env_ctx_t * nonnull iop_env_ctx,
                        const iop_struct_t *nonnull st,
                        lstr_t path, sb_t *nullable err)
 {
-    return mp_iop_field_path_compile(NULL, iop_env, st, path, err);
+    return mp_iop_field_path_compile(NULL, iop_env_ctx, st, path, err);
 }
 
 /** Delete an IOP field path allocated on the specfied memory pool.
@@ -962,18 +964,18 @@ void iop_field_path_get_type(const iop_field_path_t *nonnull fp,
  * it will be able to resolve the type, if the given IOP object has the right
  * subclass in this path.
  *
- * \param[in] iop_env    The current IOP environment.
- * \param[in] st         Type of the IOP object.
- * \param[in] value      Pointer to the IOP object.
- * \param[in] path       Path to the IOP field. See
- *                       \ref mp_iop_field_path_compile for the syntax.
- * \param[out] type      Type of the IOP field for the given IOP object.
- * \param[out] is_array  True if the field is an array.
- * \param[out] err  The error description in case of error.
+ * \param[in] iop_env_ctx The current IOP environment context.
+ * \param[in] st          Type of the IOP object.
+ * \param[in] value       Pointer to the IOP object.
+ * \param[in] path        Path to the IOP field. See
+ *                        \ref mp_iop_field_path_compile for the syntax.
+ * \param[out] type       Type of the IOP field for the given IOP object.
+ * \param[out] is_array   True if the field is an array.
+ * \param[out] err        The error description in case of error.
  *
  * \return -1 In case of error, 0 otherwise.
  */
-int iop_obj_get_field_type(const iop_env_t *nonnull iop_env,
+int iop_obj_get_field_type(const iop_env_ctx_t *nonnull iop_env_ctx,
                            const iop_struct_t *nonnull st,
                            const void *nonnull value, lstr_t path,
                            iop_full_type_t *nonnull type,
@@ -1146,7 +1148,7 @@ enum iop_sort_flags {
  * \warning Using wildcard indexes that can match multiple values is undefined
  *          behavour.
  *
- *  \param[in] iop_env     The current IOP environment.
+ *  \param[in] iop_env_ctx The current IOP environment context.
  *  \param[in] st          The IOP structure definition (__s).
  *  \param[in] vec         Array of objects to sort. If st is a class, this
  *                         must be an array of pointers on the elements, and
@@ -1158,21 +1160,21 @@ enum iop_sort_flags {
  *                         iop_sort_flags)
  *  \param[out] err        In case of error, the error description.
  */
-int iop_sort_desc(const iop_env_t * nonnull iop_env,
+int iop_sort_desc(const iop_env_ctx_t * nonnull iop_env_ctx,
                   const iop_struct_t * nonnull st, void * nonnull vec,
                   int len, lstr_t field_path, int flags, sb_t * nullable err);
 
-#define iop_sort(iop_env, pfx, vec, len, field_path, flags, err)  ({         \
+#define iop_sort(iop_env_ctx, pfx, vec, len, field_path, flags, err)  ({     \
         pfx##__t *__vec = (vec);                                             \
                                                                              \
-        iop_sort_desc((iop_env), &pfx##__s, (void *)__vec, (len),            \
+        iop_sort_desc((iop_env_ctx), &pfx##__s, (void *)__vec, (len),        \
                       (field_path),  (flags), (err));                        \
     })
 
-#define iop_obj_sort(iop_env, pfx, vec, len, field_path, flags, err)  ({     \
+#define iop_obj_sort(iop_env_ctx, pfx, vec, len, field_path, flags, err)  ({ \
         pfx##__t **__vec = (vec);                                            \
                                                                              \
-        iop_sort_desc((iop_env), &pfx##__s, (void *)__vec, (len),            \
+        iop_sort_desc((iop_env_ctx), &pfx##__s, (void *)__vec, (len),        \
                       (field_path),  (flags), (err));                        \
     })
 
@@ -1187,7 +1189,7 @@ qvector_t(iop_sort, iop_sort_t);
 /** Sort a vector of IOP as iop_sort, but on multiple fields.
  *
  *
- *  \param[in] iop_env     The current IOP environment.
+ *  \param[in] iop_env_ctx The current IOP environment context.
  *  \param[in] st          The IOP structure definition (__s).
  *  \param[in] vec         The array to sort \see iop_sort.
  *  \param[in] len         Length of the array
@@ -1197,23 +1199,23 @@ qvector_t(iop_sort, iop_sort_t);
  *                         \see iop_sort for field path syntax and flags desc.
  *  \param[out] err        In case of error, the error description.
  */
-int iop_msort_desc(const iop_env_t * nonnull iop_env,
+int iop_msort_desc(const iop_env_ctx_t * nonnull iop_env_ctx,
                    const iop_struct_t * nonnull st, void * nonnull vec,
                    int len, const qv_t(iop_sort) * nonnull params,
                    sb_t * nullable err);
 
-#define iop_msort(iop_env, pfx, vec, len, params, err)  ({                   \
+#define iop_msort(iop_env_ctx, pfx, vec, len, params, err)  ({               \
         pfx##__t *__vec = (vec);                                             \
                                                                              \
-        iop_msort_desc((iop_env), &pfx##__s, (void *)__vec, (len), (params), \
-                       (err));                                               \
+        iop_msort_desc((iop_env_ctx), &pfx##__s, (void *)__vec, (len),       \
+                       (params), (err));                                     \
     })
 
-#define iop_obj_msort(iop_env, pfx, vec, len, params, err)  ({               \
+#define iop_obj_msort(iop_env_ctx, pfx, vec, len, params, err)  ({           \
         pfx##__t **__vec = (vec);                                            \
                                                                              \
-        iop_msort_desc((iop_env), &pfx##__s, (void *)__vec, (len), (params), \
-                       (err));                                               \
+        iop_msort_desc((iop_env_ctx), &pfx##__s, (void *)__vec, (len),       \
+                       (params), (err));                                     \
     })
 
 /** Compare two IOPs in an arbitrary way. */
@@ -1289,7 +1291,7 @@ enum iop_filter_flags {
  * \warning Using wildcard indexes that can match multiple values is undefined
  *          behavour.
  *
- *  \param[in] iop_env        The current IOP environment.
+ *  \param[in] iop_env_ctx    The current IOP environment context.
  *  \param[in] st             The IOP structure definition (__s).
  *  \param[in/out] vec        Array of objects to filter. If st is a class,
  *                            this must be an array of pointers on the
@@ -1308,7 +1310,7 @@ enum iop_filter_flags {
  *  \param[in] flags          A combination of enum iop_filter_flags.
  *  \param[out] err           In case of error, the error description.
  */
-int iop_filter(const iop_env_t * nonnull iop_env,
+int iop_filter(const iop_env_ctx_t * nonnull iop_env_ctx,
                const iop_struct_t * nonnull st,
                void * nonnull vec, int * nonnull len, lstr_t field_path,
                void * const nonnull * nonnull values, int values_len,
@@ -1322,7 +1324,7 @@ int iop_filter(const iop_env_t * nonnull iop_env,
  * must be set (for optional fields) or non-empty (for repeated fields) to be
  * kept.
  */
-int iop_filter_opt(const iop_env_t * nonnull iop_env,
+int iop_filter_opt(const iop_env_ctx_t * nonnull iop_env_ctx,
                    const iop_struct_t * nonnull st, void * nonnull vec,
                    int * nonnull len, lstr_t field_path, bool is_set,
                    sb_t * nullable err);
@@ -1352,7 +1354,7 @@ typedef enum iop_filter_bitmap_op_t {
  * If the bitmap is NULL, it is automatically created. Callers must NOT create
  * it themselves.
  */
-int t_iop_filter_bitmap(const iop_env_t * nonnull iop_env,
+int t_iop_filter_bitmap(const iop_env_ctx_t * nonnull iop_env_ctx,
                         const iop_struct_t * nonnull st,
                         const void * nonnull vec, int len, lstr_t field_path,
                         void * const nonnull * nonnull values,
@@ -1366,7 +1368,7 @@ int t_iop_filter_bitmap(const iop_env_t * nonnull iop_env,
  *
  * Same as \ref iop_filter_bitmap, but based on \ref iop_filter_opt.
  */
-int t_iop_filter_opt_bitmap(const iop_env_t * nonnull iop_env,
+int t_iop_filter_opt_bitmap(const iop_env_ctx_t * nonnull iop_env_ctx,
                             const iop_struct_t * nonnull st,
                             const void * nonnull vec, int len,
                             lstr_t field_path, bool is_set,
@@ -1709,7 +1711,7 @@ void *nullable iop_opt_field_getv(iop_type_t type, void * nonnull data);
 /** Constant version of \ref iop_get_field (below).
  */
 const iop_field_t * nullable
-iop_get_field_const(const iop_env_t * nonnull iop_env,
+iop_get_field_const(const iop_env_ctx_t * nonnull iop_env_ctx,
                     const void * nonnull ptr,
                     const iop_struct_t * nonnull st,
                     lstr_t path, const void * nullable * nullable out_ptr,
@@ -1717,23 +1719,24 @@ iop_get_field_const(const iop_env_t * nonnull iop_env,
 
 /** Find an IOP field description from an IOP object.
  *
- * \param[in]  iop_env  The current IOP environment.
- * \param[in]  ptr      The IOP object.
- * \param[in]  st       The iop_struct_t describing the object.
- * \param[in]  path     The path to the field (separate members with a '.').
- * \param[out] out_ptr  A pointer to the final IOP object.
- * \param[out] out_st   Descriptor of the structure that contains
- *                      the returned field.
+ * \param[in]  iop_env_ctx The current IOP environment.
+ * \param[in]  ptr         The IOP object.
+ * \param[in]  st          The iop_struct_t describing the object.
+ * \param[in]  path        The path to the field (separate members with a
+ *                         '.').
+ * \param[out] out_ptr     A pointer to the final IOP object.
+ * \param[out] out_st      Descriptor of the structure that contains
+ *                         the returned field.
  *
  * \return The iop field description if found, NULL otherwise.
  */
 static inline const iop_field_t * nullable
-iop_get_field(const iop_env_t * nonnull iop_env, void * nonnull ptr,
+iop_get_field(const iop_env_ctx_t * nonnull iop_env_ctx, void * nonnull ptr,
               const iop_struct_t * nonnull st, lstr_t path,
               void * nullable * nullable out_ptr,
               const iop_struct_t * nullable * nullable out_st)
 {
-    return iop_get_field_const(iop_env, (const void *)ptr, st, path,
+    return iop_get_field_const(iop_env_ctx, (const void *)ptr, st, path,
                                (const void **)out_ptr, out_st);
 }
 
@@ -1742,7 +1745,7 @@ iop_get_field(const iop_env_t * nonnull iop_env, void * nonnull ptr,
  * It is similar to iop_field_find_by_name(), but takes a full IOP path
  * instead of just the field name.
  *
- * \param[in]  iop_env     The current IOP environment.
+ * \param[in]  iop_env_ctx The current IOP environment.
  * \param[in]  st          The iop_struct_t in which the field \p path is
  *                         searched.
  * \param[in]  path        The path to the field (separate members with a
@@ -1753,7 +1756,7 @@ iop_get_field(const iop_env_t * nonnull iop_env, void * nonnull ptr,
  *
  * \return  0 if the field is found, -1 otherwise.
  */
-int iop_struct_get_field(const iop_env_t * nonnull iop_env,
+int iop_struct_get_field(const iop_env_ctx_t * nonnull iop_env_ctx,
                          const iop_struct_t * nonnull st, lstr_t path,
                          const iop_struct_t * nullable * nullable found_st,
                          const iop_field_t * nullable * nullable found_fdesc);
@@ -2134,7 +2137,7 @@ iop_obj_is_a_desc(const void * nonnull obj,
  * descriptor.
  */
 __attr_nonnull__((1)) const iop_struct_t * nullable
-iop_get_class_by_fullname(const iop_env_t * nonnull iop_env,
+iop_get_class_by_fullname(const iop_env_ctx_t * nonnull iop_env_ctx,
                           const iop_struct_t * nonnull st, lstr_t fullname);
 
 /** Get the descriptor of a class from its id.
@@ -2143,7 +2146,7 @@ iop_get_class_by_fullname(const iop_env_t * nonnull iop_env,
  * so before using this function, be SURE that you really need it.
  */
 const iop_struct_t * nullable
-iop_get_class_by_id(const iop_env_t * nonnull iop_env,
+iop_get_class_by_id(const iop_env_ctx_t * nonnull iop_env_ctx,
                     const iop_struct_t * nonnull st, uint16_t class_id);
 
 #ifdef __has_blocks
@@ -2152,8 +2155,9 @@ typedef void (BLOCK_CARET iop_for_each_class_b)(const iop_struct_t * nonnull);
 
 /** Loop on all the classes registered by `iop_register_packages`.
  */
-void iop_for_each_registered_classes(const iop_env_t * nonnull iop_env,
-                                     iop_for_each_class_b nonnull cb);
+void
+iop_for_each_registered_classes(const iop_env_ctx_t * nonnull iop_env_ctx,
+                                iop_for_each_class_b nonnull cb);
 
 #endif /* __has_blocks */
 
@@ -2944,7 +2948,7 @@ typedef void (BLOCK_CARET iop_for_each_pkg_b)(const iop_pkg_t * nonnull);
 
 /** Loop on all the pkg registered by `iop_register_packages`.
  */
-void iop_for_each_registered_pkgs(const iop_env_t * nonnull iop_env,
+void iop_for_each_registered_pkgs(const iop_env_ctx_t * nonnull iop_env_ctx,
                                   iop_for_each_pkg_b nonnull cb);
 
 #endif /* __has_blocks */
@@ -3031,7 +3035,7 @@ int iop_pkg_check_backward_compat_ctx(const iop_env_t * nonnull iop_env1,
  * If \ref check_parents is false, parent classes are not checked if \ref st
  * is a class.
  */
-bool iop_struct_is_optional(const iop_env_t *nonnull iop_env,
+bool iop_struct_is_optional(const iop_env_ctx_t *nonnull iop_env_ctx,
                             const iop_struct_t *nonnull st,
                             bool check_parents);
 

@@ -97,6 +97,26 @@ iop_env_get_pkg(const iop_env_t *iop_env, lstr_t fullname)
     return iop_env_ctx_get_pkg(iop_env_ctx, fullname);
 }
 
+/* Test-local shim macros that wrap the ctx-taking public API to accept an
+ * env, acquiring/releasing a fresh ctx snapshot around each call. The
+ * `(name)` syntax disables further macro expansion and resolves to the
+ * underlying ctx-taking function.
+ *
+ * Non-test code should hold a snapshot via
+ * \ref iop_env_ctx_acquire_scoped and call the ctx-taking variants
+ * directly. */
+#define iop_get_class_by_fullname(env, st, fullname) ({                      \
+        const iop_env_ctx_t *iop_env_ctx;                                    \
+        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
+        (iop_get_class_by_fullname)(iop_env_ctx, (st), (fullname));          \
+    })
+
+#define iop_get_class_by_id(env, st, class_id) ({                            \
+        const iop_env_ctx_t *iop_env_ctx;                                    \
+        iop_env_ctx_acquire_scoped((env), iop_env_ctx);                      \
+        (iop_get_class_by_id)(iop_env_ctx, (st), (class_id));                \
+    })
+
 /* {{{ IOP env testing helpers */
 
 static int z_dso_open(const char *dso_path, bool in_cmddir,
