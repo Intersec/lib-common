@@ -3321,6 +3321,11 @@ httpc_tls_handshake(el_t evh, int fd, short events, data_t priv)
     httpc_t *w = priv.ptr;
     X509    *cert;
 
+    if (events == EL_EVENTS_NOACT) {
+        httpc_on_connect_error(w, ETIMEDOUT);
+        return -1;
+    }
+
     switch (ssl_do_handshake(w->ssl, evh, fd, NULL)) {
       case SSL_HANDSHAKE_SUCCESS:
         cert = SSL_get_peer_certificate(w->ssl);
