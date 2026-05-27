@@ -107,6 +107,7 @@ testem.startCI({
     reporter: new ZReporter(),
     framework: 'jasmine',
     bail_on_uncaught_error: true,
+    browser_start_timeout: 60,
     fail_on_zero_tests: true,
     browser_paths: {
         'Chromium': puppeteer.executablePath(),
