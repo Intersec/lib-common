@@ -283,17 +283,10 @@ void httpd_put_date_hdr(outbuf_t *ob, const char *hdr, time_t now)
 /* FIXME: deal with quotes and similar stuff in 'ps' */
 static ALWAYS_INLINE bool http_hdr_equals(pstream_t ps, const char *v)
 {
-    size_t vlen = strlen(v);
-
-    if (ps_len(&ps) != vlen) {
-        return false;
-    }
-    for (size_t i = 0; i < vlen; i++) {
-        if (tolower(ps.b[i]) != v[i]) {
-            return false;
-        }
-    }
-    return true;
+    /* HTTP tokens are compared case-insensitively with ASCII rules;
+     * lstr_ascii_iequal() folds case the ASCII way, independent of the
+     * process locale (unlike tolower()). */
+    return lstr_ascii_iequal(LSTR_PS_V(&ps), LSTR(v));
 }
 
 static bool http_hdr_contains(pstream_t ps, const char *v)
@@ -333,6 +326,12 @@ static int t_urldecode(httpd_qinfo_t *rq, pstream_t ps)
             *p++ = '\0';
             rq->vars = ps;
             break;
+        }
+        if (unlikely(c == '\0')) {
+            /* A decoded NUL (e.g. %00) would truncate the path when it is
+             * later used as a C string (path_simplify2, ps_initstr below),
+             * silently bypassing suffix checks. Reject the request. */
+            return -1;
         }
         *p++ = c;
     }
@@ -410,6 +409,23 @@ t_http_parse_request_line(pstream_t *ps, unsigned max_len, httpd_qinfo_t *req)
     return ps_len(&line) ? PARSE_ERROR : 0;
 }
 
+/* RFC 7230 3.2 / 3.1.2: a header field value and the status reason phrase
+ * may contain VCHAR, SP, HTAB and obs-text, but no other control character.
+ * An embedded CTL (NUL, CR, LF, ...) enables header/response splitting and
+ * request smuggling, so such a value must be rejected. This set is every
+ * CTL except HTAB (0x09), plus DEL (0x7f): word 0 = 0..0x1f minus bit 9,
+ * word 3 bit 31 = 0x7f. */
+static ctype_desc_t const http_invalid_value_chars = {{
+    0xfffffdff,
+    0x00000000,
+    0x00000000,
+    0x80000000,
+    0x00000000,
+    0x00000000,
+    0x00000000,
+    0x00000000,
+}};
+
 /* rfc 2616: §6.1: Status Line */
 
 static inline int
@@ -442,6 +458,9 @@ http_parse_status_line(pstream_t *ps, unsigned max_len, httpc_qinfo_t *qi)
         return PARSE_ERROR;
     }
     qi->reason = line;
+    if (ps_has_char_in_ctype(&qi->reason, &http_invalid_value_chars)) {
+        return PARSE_ERROR;
+    }
     return PARSE_OK;
 }
 
@@ -710,23 +729,19 @@ void httpd_bufferize(httpd_query_t *q, unsigned maxsize)
 
     q->payload_max_size = maxsize;
     q->on_data = &httpd_query_on_data_bufferize;
-    if (!inf) {
+    /* Reuse the Content-Length parsed (and validated) by the request parser
+     * rather than re-parsing the header value here. A value of -1 means no
+     * (usable) Content-Length, so there is nothing to pre-grow. */
+    if (!inf || inf->content_length < 0) {
         return;
     }
-    for (int i = inf->hdrs_len; i-- > 0;) {
-        if (inf->hdrs[i].wkhdr == HTTP_WKHDR_CONTENT_LENGTH) {
-            uint64_t len = strtoull(inf->hdrs[i].val.s, NULL, 0);
-
-            if (unlikely(len > maxsize)) {
-                httpd_reject(
-                    q, REQUEST_ENTITY_TOO_LARGE,
-                    "payload is larger than %d octets", maxsize
-                );
-            } else {
-                sb_grow(&q->payload, len);
-            }
-            return;
-        }
+    if (unlikely((unsigned)inf->content_length > maxsize)) {
+        httpd_reject(
+            q, REQUEST_ENTITY_TOO_LARGE, "payload is larger than %d octets",
+            maxsize
+        );
+    } else {
+        sb_grow(&q->payload, inf->content_length);
     }
 }
 
@@ -1289,6 +1304,8 @@ static int httpd_parse_idle(httpd_t *w, pstream_t *ps)
     pstream_t buf;
     int clen = -1;
     bool chunked = false;
+    bool has_clen = false;
+    bool has_te = false;
     httpd_query_t *q;
     qv_t(qhdr) hdrs;
     httpd_trigger_t *cb = NULL;
@@ -1383,12 +1400,22 @@ static int httpd_parse_idle(httpd_t *w, pstream_t *ps)
             if (ps_done(&buf)) {
                 break;
             }
-            if (buf.s[0] != '\t' && buf.s[0] != ' ') {
-                break;
+            if (buf.s[0] == '\t' || buf.s[0] == ' ') {
+                /* rfc 7230 3.2.4: obsolete line folding (obs-fold) must be
+                 * rejected by a server (a request-smuggling vector), not
+                 * silently stitched back into a single value. */
+                httpd_reject(
+                    q, BAD_REQUEST, "obsolete line folding is not allowed"
+                );
+                goto unrecoverable_error;
             }
-            __ps_skip(&buf, 1);
+            break;
         }
         ps_trim(&qhdr->val);
+        if (ps_has_char_in_ctype(&qhdr->val, &http_invalid_value_chars)) {
+            httpd_reject(q, BAD_REQUEST, "control character in header value");
+            goto unrecoverable_error;
+        }
 
         switch ((qhdr->wkhdr = http_wkhdr_from_ps(qhdr->key))) {
         case HTTP_WKHDR_HOST:
@@ -1407,6 +1434,16 @@ static int httpd_parse_idle(httpd_t *w, pstream_t *ps)
             break;
 
         case HTTP_WKHDR_TRANSFER_ENCODING:
+            if (has_te) {
+                /* rfc 7230 3.3.3: multiple Transfer-Encoding fields make the
+                 * final coding (and thus the framing) ambiguous. A second
+                 * "identity" would also cancel an earlier "chunked" and slip
+                 * past the Transfer-Encoding/Content-Length exclusivity check
+                 * below (request smuggling). */
+                httpd_reject(q, BAD_REQUEST, "Duplicate Transfer-Encoding");
+                goto unrecoverable_error;
+            }
+            has_te = true;
             /* rfc 2616: §4.4: != "identity" means chunked encoding */
             switch (http_get_token_ps(qhdr->val)) {
             case HTTP_TK_IDENTITY:
@@ -1416,18 +1453,35 @@ static int httpd_parse_idle(httpd_t *w, pstream_t *ps)
                 chunked = true;
                 break;
             default:
+                /* rfc 7230 3.3.3: a Transfer-Encoding whose final coding is
+                 * not "chunked" must be rejected and the connection closed,
+                 * otherwise the message framing is ambiguous (smuggling). */
                 httpd_reject(
                     q, NOT_IMPLEMENTED,
                     "Transfer-Encoding %*pM is unimplemented",
                     (int)ps_len(&qhdr->val), qhdr->val.s
                 );
-                break;
+                goto unrecoverable_error;
             }
             break;
 
         case HTTP_WKHDR_CONTENT_LENGTH:
+            if (has_clen) {
+                /* rfc 7230 3.3.3: multiple Content-Length fields make the
+                 * body length ambiguous (request smuggling). */
+                httpd_reject(q, BAD_REQUEST, "Duplicate Content-Length");
+                goto unrecoverable_error;
+            }
+            has_clen = true;
+            errno = 0;
             clen = memtoip(qhdr->val.b, ps_len(&qhdr->val), &p);
-            if (p != qhdr->val.b_end) {
+            /* Content-Length must be 1*DIGIT (rfc 7230 3.3.2): reject a
+             * leading sign or other non-digit, trailing garbage, an empty
+             * value, or an out-of-range value (memtoip saturates). */
+            if (p != qhdr->val.b_end || errno == ERANGE || clen < 0 ||
+                ps_len(&qhdr->val) == 0 || qhdr->val.s[0] < '0' ||
+                qhdr->val.s[0] > '9')
+            {
                 httpd_reject(q, BAD_REQUEST, "Content-Length is unparseable");
                 goto unrecoverable_error;
             }
@@ -1452,6 +1506,17 @@ static int httpd_parse_idle(httpd_t *w, pstream_t *ps)
         }
     }
 
+    if (chunked && has_clen) {
+        /* rfc 7230 3.3.3: a message with both Transfer-Encoding and
+         * Content-Length must be rejected: intermediaries may disagree on
+         * the body length, which enables request smuggling. */
+        httpd_reject(
+            q, BAD_REQUEST,
+            "Transfer-Encoding and Content-Length are exclusive"
+        );
+        goto unrecoverable_error;
+    }
+
     if (chunked) {
         /* rfc 2616: §4.4: if chunked, then ignore any Content-Length */
         w->chunk_length = clen = 0;
@@ -1462,6 +1527,7 @@ static int httpd_parse_idle(httpd_t *w, pstream_t *ps)
     }
     req.hdrs = hdrs.tab;
     req.hdrs_len = hdrs.len;
+    req.content_length = clen;
 
     switch (req.method) {
     case HTTP_METHOD_TRACE:
@@ -1587,6 +1653,12 @@ static int httpd_parse_chunk_hdr(httpd_t *w, pstream_t *ps)
     for (const char *s = hex.s; s < hex.s_end; s++) {
         len = (len << 4) | __str_digit_value[*s + 128];
     }
+    if (unlikely(len > INT32_MAX)) {
+        /* A chunk size that does not fit in a signed 32-bit int would wrap to
+         * a negative chunk length and make the body parser read out of
+         * bounds. */
+        goto cancel_query;
+    }
     w->chunk_length = len;
     w->state = len ? HTTP_PARSER_CHUNK : HTTP_PARSER_CHUNK_TRAILER;
     q->received_body_length += ps->s - orig;
@@ -1606,7 +1678,7 @@ static int httpd_parse_chunk(httpd_t *w, pstream_t *ps)
     ssize_t plen = ps_len(ps);
 
     assert(w->chunk_length >= 0);
-    if (plen >= w->chunk_length + 2) {
+    if (plen >= (ssize_t)w->chunk_length + 2) {
         pstream_t tmp = __ps_get_ps(ps, w->chunk_length);
 
         if (ps_skipstr(ps, "\r\n")) {
@@ -2588,6 +2660,7 @@ static int httpc_parse_idle(httpc_t *w, pstream_t *ps)
     qv_t(qhdr) hdrs;
     httpc_query_t *q;
     bool chunked = false, conn_close = false;
+    bool has_te = false, has_clen = false;
     int clen = -1, res;
 
     if (ps_len(ps) > 0 && dlist_is_empty(&w->query_list)) {
@@ -2639,12 +2712,16 @@ static int httpc_parse_idle(httpc_t *w, pstream_t *ps)
             if (ps_done(&buf)) {
                 break;
             }
-            if (buf.s[0] != '\t' && buf.s[0] != ' ') {
-                break;
+            if (buf.s[0] == '\t' || buf.s[0] == ' ') {
+                /* rfc 7230 3.2.4: reject obsolete line folding (obs-fold). */
+                return PARSE_ERROR;
             }
-            __ps_skip(&buf, 1);
+            break;
         }
         ps_trim(&qhdr->val);
+        if (ps_has_char_in_ctype(&qhdr->val, &http_invalid_value_chars)) {
+            return PARSE_ERROR;
+        }
 
         switch ((qhdr->wkhdr = http_wkhdr_from_ps(qhdr->key))) {
         case HTTP_WKHDR_CONNECTION:
@@ -2659,6 +2736,14 @@ static int httpc_parse_idle(httpc_t *w, pstream_t *ps)
             if (q->is_connect && req.code == HTTP_CODE_OK) {
                 break;
             }
+            if (has_te) {
+                /* rfc 7230 3.3.3: multiple Transfer-Encoding fields make the
+                 * framing ambiguous; a second "identity" would also cancel an
+                 * earlier "chunked" and slip past the exclusivity check below
+                 * (response splitting). */
+                return PARSE_ERROR;
+            }
+            has_te = true;
 
             /* rfc 2616: §4.4: != "identity" means chunked encoding */
             switch (http_get_token_ps(qhdr->val)) {
@@ -2680,8 +2765,23 @@ static int httpc_parse_idle(httpc_t *w, pstream_t *ps)
             if (q->is_connect && req.code == HTTP_CODE_OK) {
                 break;
             }
+            if (has_clen) {
+                /* rfc 7230 3.3.3: multiple Content-Length fields make the
+                 * body length ambiguous (response splitting). */
+                return PARSE_ERROR;
+            }
+            has_clen = true;
+            /* memtoip() would accept a leading sign here;
+             * Content-Length is 1*DIGIT (rfc 7230 3.3.2). */
+            if (ps_len(&qhdr->val) == 0 || qhdr->val.s[0] < '0' ||
+                qhdr->val.s[0] > '9')
+            {
+                return PARSE_ERROR;
+            }
+            errno = 0;
             clen = memtoip(qhdr->val.b, ps_len(&qhdr->val), &p);
-            if (p != qhdr->val.b_end) {
+            /* memtoip() flags overflow via errno. */
+            if (p != qhdr->val.b_end || errno != 0) {
                 return PARSE_ERROR;
             }
             break;
@@ -2703,6 +2803,12 @@ static int httpc_parse_idle(httpc_t *w, pstream_t *ps)
         default:
             break;
         }
+    }
+
+    if (chunked && has_clen) {
+        /* rfc 7230 3.3.3: Transfer-Encoding overrides Content-Length; the
+         * combination is treated as an error (response splitting). */
+        return PARSE_ERROR;
     }
 
     if (chunked) {
@@ -2848,6 +2954,12 @@ static int httpc_parse_chunk_hdr(httpc_t *w, pstream_t *ps)
     for (const char *s = hex.s; s < hex.s_end; s++) {
         len = (len << 4) | __str_digit_value[*s + 128];
     }
+    if (unlikely(len > INT32_MAX)) {
+        /* A chunk size that does not fit in a signed 32-bit int would wrap to
+         * a negative chunk length and make the body parser read out of
+         * bounds. */
+        return PARSE_ERROR;
+    }
     w->chunk_length = len;
     w->state = len ? HTTP_PARSER_CHUNK : HTTP_PARSER_CHUNK_TRAILER;
     q->received_body_length += ps->s - orig;
@@ -2861,7 +2973,7 @@ static int httpc_parse_chunk(httpc_t *w, pstream_t *ps)
     ssize_t plen = ps_len(ps);
 
     assert(w->chunk_length >= 0);
-    if (plen >= w->chunk_length + 2) {
+    if (plen >= (ssize_t)w->chunk_length + 2) {
         pstream_t tmp = __ps_get_ps(ps, w->chunk_length);
 
         if (ps_skipstr(ps, "\r\n")) {
@@ -3891,6 +4003,36 @@ static http2_settings_t http2_default_settings_g = {
     .max_header_list_size = OPT_NONE,
 };
 
+/* HTTP/2 server policy limits we advertise and enforce. Unlike the
+ * HTTP2_LEN_* protocol constants in http2.h, these are our own choices, not
+ * values defined or defaulted by the standard. */
+enum {
+    /* Maximum cumulative size of a (possibly multi-frame) header block, i.e.
+     * a HEADERS/PUSH_PROMISE frame plus its CONTINUATION frames. Bounds the
+     * amount buffered before END_HEADERS, mitigating CONTINUATION floods. */
+    HTTP2_LEN_MAX_HDR_BLOCK_SIZE = 64 << 10,
+    /* Maximum cumulative size of the decoded header list of a single message.
+     * Bounds HPACK output so a small (indexed) header block cannot decompress
+     * into an arbitrarily large header list (decompression bomb). */
+    HTTP2_LEN_MAX_HDR_LIST_SIZE = 64 << 10,
+    /* Advertised SETTINGS_MAX_CONCURRENT_STREAMS: bounds the number of
+     * streams a peer may have open at once, so a peer cannot pin unbounded
+     * per-stream state (and limits rapid-reset, CVE-2023-44487). */
+    HTTP2_LEN_MAX_CONCURRENT_STREAMS = 100,
+    /* Maximum number of peer control frames (PING, SETTINGS) we answer (with
+     * a PING ACK / SETTINGS ACK) while the output buffer is not draining,
+     * before treating it as a flood and aborting with ENHANCE_YOUR_CALM
+     * (CVE-2019-9512 PING flood, CVE-2019-9515 SETTINGS flood). */
+    HTTP2_LEN_MAX_QUEUED_CTRL_FRAMES = 10000,
+    /* Burst of peer stream resets (RST_STREAM) we tolerate before requiring
+     * each further reset to be offset by a completed stream, beyond which we
+     * abort with ENHANCE_YOUR_CALM. Bounds the HTTP/2 "rapid reset" attack
+     * (CVE-2023-44487), where a peer opens then immediately resets streams to
+     * make us dispatch requests whose work is wasted, without ever exceeding
+     * SETTINGS_MAX_CONCURRENT_STREAMS. */
+    HTTP2_LEN_MAX_RESET_STREAMS_BURST = 1000,
+};
+
 typedef struct http2_conn_t http2_conn_t;
 
 typedef struct http2_stream_t {
@@ -3949,9 +4091,15 @@ typedef struct http2_conn_t {
     dlist_t inactive_stream_list;
     /* closed<tracked> streams */
     dlist_t closed_stream_list;
+    /* number of streams currently on closed_stream_list; kept bounded by our
+     * advertised SETTINGS_MAX_CONCURRENT_STREAMS (FIFO eviction on insert) */
+    uint32_t closed_streams;
 
     uint32_t client_streams;
     uint32_t server_streams;
+    /* number of peer-initiated streams currently counting against our
+     * advertised SETTINGS_MAX_CONCURRENT_STREAMS (open + half-closed) */
+    uint32_t peer_streams_open;
     int queries_can_send;
     int queries_can_recv;
     /* backstream contexts */
@@ -3968,6 +4116,22 @@ typedef struct http2_conn_t {
     http2_frame_info_t frame;
     unsigned cont_chunk;
     unsigned promised_id;
+    /* number of peer control frames (PING, SETTINGS) answered (PING/SETTINGS
+     * ACKs queued) and not yet credited by the peer draining our backlog;
+     * bounds PING/SETTINGS floods, see http2_conn_account_control_frame() */
+    unsigned queued_control_frames;
+    /* while > 0, number of output bytes that must still be flushed before
+     * queued_control_frames is credited. Armed to the whole output backlog
+     * once queued_control_frames crosses MAX/2, then decremented as bytes
+     * drain, so a peer that trickle-reads a single byte cannot keep clearing
+     * the flood counter without actually draining our backlog; see
+     * http2_conn_account_control_frame_drain(). */
+    int control_frames_drain;
+    /* number of peer streams the peer reset (RST_STREAM) and number of
+     * streams completed normally; their balance bounds the "rapid reset"
+     * attack (CVE-2023-44487), see http2_conn_account_reset_stream() */
+    uint32_t reset_streams;
+    uint32_t completed_streams;
     uint8_t state;
 
     /** Connection Flags */
@@ -4152,6 +4316,8 @@ static void http2_conn_write(http2_conn_t *w, int fd)
 
 static void
 http2_stream_on_reset(http2_conn_t *w, http2_stream_t *stream, bool remote);
+
+static void http2_stream_close_httpd(http2_conn_t *w, http2_stream_t *stream);
 
 /** Internally closes streams with ids greater than the respective limits.
  *
@@ -4750,10 +4916,29 @@ static http2_stream_t *http2_stream_init(http2_stream_t *stream)
     return stream;
 }
 
+/** True once a stream is fully closed per RFC 9113 §5.1: reset on either
+ * side, or end-of-stream seen both ways. */
+static bool http2_stream_is_closed(const http2_stream_t *stream)
+{
+    unsigned ev = stream->events;
+    bool reset = ev & (HTTP2_STREAM_EV_RST_SENT | HTTP2_STREAM_EV_RST_RECV);
+    bool eos =
+        (ev & HTTP2_STREAM_EV_EOS_SENT) && (ev & HTTP2_STREAM_EV_EOS_RECV);
+
+    return reset || eos;
+}
+
 static void http2_stream_wipe(http2_stream_t *stream)
 {
     if (stream->conn) {
         qm_del_key(qstream, &stream->conn->streams, stream->id);
+        /* Mirror the counter maintained by http2_stream_set_closed(): a
+         * fully-closed (tracked) stream leaving the connection frees one
+         * closed_stream_list slot. An untracked EV_CLOSED stub was never
+         * counted and is excluded by this test. */
+        if (http2_stream_is_closed(stream)) {
+            stream->conn->closed_streams--;
+        }
     }
     dlist_remove(&stream->link);
     dlist_remove(&stream->class_link);
@@ -4848,6 +5033,50 @@ static uint32_t http2_stream_get_idle(http2_conn_t *w)
     return stream_id;
 }
 
+/** Move a fully-closed stream onto the reapable closed list and, the first
+ * time it reaches a closed state, release its slot against our advertised
+ * max_concurrent_streams.
+ *
+ * Note: \ref stream->events still holds the flags *before* the closing event.
+ * A stream can be closed twice (e.g. we send RST_STREAM and the peer also
+ * sends one); the slot must be released only once or the unsigned counter
+ * would underflow. */
+static void http2_stream_set_closed(http2_conn_t *w, http2_stream_t *stream)
+{
+    /* stream->events still holds the flags *before* the closing event (see
+     * the note above), so this is true only if an earlier event already
+     * closed the stream (a double close): the slot must then be released only
+     * once. */
+    bool was_closed = http2_stream_is_closed(stream);
+
+    dlist_move_tail(&w->closed_stream_list, &stream->class_link);
+    if (!was_closed) {
+        w->peer_streams_open -= http2_conn_is_peer_stream_id(w, stream->id);
+        w->closed_streams++;
+    }
+    /* Keep the closed-stream memory bounded by the advertised
+     * SETTINGS_MAX_CONCURRENT_STREAMS: the list keeps recently-closed streams
+     * so late, still-in-flight peer frames are recognized rather than
+     * mistaken for a long-forgotten id, but without a bound it would grow for
+     * the whole lifetime of a keep-alive connection. Evict the oldest (FIFO)
+     * beyond the cap. A listed stream is always detached from its upstream
+     * context (every close path detaches), so freeing the oldest is never a
+     * use-after-free. */
+    {
+        uint32_t cap = OPT_ISSET(w->settings.max_concurrent_streams)
+                           ? OPT_VAL(w->settings.max_concurrent_streams)
+                           : HTTP2_LEN_MAX_CONCURRENT_STREAMS;
+
+        while (w->closed_streams > cap) {
+            http2_stream_t *oldest = dlist_first_entry(
+                &w->closed_stream_list, http2_stream_t, class_link
+            );
+
+            http2_stream_delete(&oldest);
+        }
+    }
+}
+
 /** Handle Stream States according RFC9113 §5.1.
  *
  * Note :\p events are the new events received or transmitted in *one* HTTP/2
@@ -4895,6 +5124,7 @@ static void http2_stream_handle_events(
         } else {
             w->server_streams = new_nb_streams;
         }
+        w->peer_streams_open += http2_conn_is_peer_stream_id(w, stream->id);
         dlist_remove(&stream->class_link) /* from w->inactive_stream_list */;
         stream->events = events;
         stream->recv_window = http2_get_settings(w).initial_window_size;
@@ -4911,6 +5141,8 @@ static void http2_stream_handle_events(
         w->queries_can_recv--;
         if (flags & HTTP2_STREAM_EV_EOS_SENT) {
             http2_stream_trace(w, stream, 2, "stream closed [eos recv]");
+            w->completed_streams++;
+            http2_stream_set_closed(w, stream);
         } else {
             http2_stream_trace(w, stream, 2, "stream half closed (remote)");
         }
@@ -4918,7 +5150,8 @@ static void http2_stream_handle_events(
         w->queries_can_send--;
         if (flags & HTTP2_STREAM_EV_EOS_RECV) {
             http2_stream_trace(w, stream, 2, "stream closed [eos sent]");
-            dlist_move_tail(&w->closed_stream_list, &stream->class_link);
+            w->completed_streams++;
+            http2_stream_set_closed(w, stream);
         } else {
             http2_stream_trace(w, stream, 2, "stream half closed (local)");
         }
@@ -4926,11 +5159,12 @@ static void http2_stream_handle_events(
         w->queries_can_recv -= !(flags & HTTP2_STREAM_EV_EOS_RECV);
         w->queries_can_send -= !(flags & HTTP2_STREAM_EV_EOS_SENT);
         http2_stream_trace(w, stream, 2, "stream closed [reset recv]");
+        http2_stream_set_closed(w, stream);
     } else if (events == HTTP2_STREAM_EV_RST_SENT) {
         w->queries_can_recv -= !(flags & HTTP2_STREAM_EV_EOS_RECV);
         w->queries_can_send -= !(flags & HTTP2_STREAM_EV_EOS_SENT);
         http2_stream_trace(w, stream, 2, "stream closed [reset sent]");
-        dlist_move_tail(&w->closed_stream_list, &stream->class_link);
+        http2_stream_set_closed(w, stream);
     } else {
         assert(0 && "unexpected stream state transition");
     }
@@ -5032,6 +5266,12 @@ static int t_http2_conn_decode_header_block(
                 info.host = val;
             }
             buf->len += len;
+            if (unlikely(buf->len > HTTP2_LEN_MAX_HDR_LIST_SIZE)) {
+                /* Decoded header list too large (decompression bomb): abort
+                 * the decode. The caller maps a decode failure to a
+                 * connection error. */
+                return -1;
+            }
         }
     }
     sb_set_trailing0(buf);
@@ -5082,6 +5322,11 @@ static void http2_conn_pack_single_hdr(
 /* }}} */
 /* {{{ Streaming API */
 
+/* Send an RST_STREAM for the stream, move it to the closed state, and abort
+ * the upstream (http1.x) query (if any), detaching its context. A stream we
+ * reset must not keep an orphaned query running, and a stream put on the
+ * closed list must already be detached so it can be reaped; the detach is
+ * idempotent (a no-op once the stream is already detached). */
 #define http2_stream_error(w, stream, error_code, fmt, ...)                  \
     do {                                                                     \
         http2_conn_t *__w = (w);                                             \
@@ -5092,6 +5337,7 @@ static void http2_conn_pack_single_hdr(
         );                                                                   \
         http2_conn_send_rst_stream(__w, __s->id, HTTP2_CODE_##error_code);   \
         http2_stream_handle_events(__w, __s, HTTP2_STREAM_EV_RST_SENT);      \
+        http2_stream_on_reset(__w, __s, /* remote */ false);                 \
     } while (0)
 
 #define http2_stream_send_reset(w, stream, fmt, ...)                         \
@@ -5358,10 +5604,14 @@ __attribute__((format(printf, 4, 5))) static int http2_stream_conn_error_(
 static void
 http2_stream_maintain_recv_window(http2_conn_t *w, http2_stream_t *stream)
 {
-    int incr;
+    int initial = http2_get_settings(w).initial_window_size;
+    int incr = initial - stream->recv_window;
 
-    incr = http2_get_settings(w).initial_window_size - stream->recv_window;
-    if (incr <= 0) {
+    /* Replenish lazily, like the connection-level window: emit a
+     * WINDOW_UPDATE only once the peer has consumed at least half of the
+     * stream window, rather than topping it back up after every DATA
+     * frame (which left no back-pressure). */
+    if (incr < initial / 2) {
         return;
     }
     http2_conn_send_window_update(w, stream->id, incr);
@@ -5374,8 +5624,17 @@ static int http2_stream_consume_recv_window(
 {
     assert(delta <= http2_get_settings(w).max_frame_size);
 
-    /* maintain the recv window at the initial_window_size settings each time
-     * the peer sends DATA frame */
+    /* rfc 9113 6.9.1: a peer that sends more than the advertised stream
+     * flow-control window is a FLOW_CONTROL_ERROR. */
+    if ((int)delta > stream->recv_window) {
+        return http2_stream_conn_error(
+            w, stream, FLOW_CONTROL_ERROR,
+            "flow control: DATA (%u octets) "
+            "exceeds the stream receive window "
+            "(%d)",
+            delta, stream->recv_window
+        );
+    }
     stream->recv_window -= delta;
     http2_stream_maintain_recv_window(w, stream);
     return 0;
@@ -5413,6 +5672,20 @@ static int http2_stream_check_can_recv(
     return 0;
 }
 
+/* Server early-response: we answered before the request finished, so the
+ * upstream httpd ctx was not detached at response time. Detach it once the
+ * request completes -- a listed (closed) stream must already be detached. */
+static void http2_stream_close_httpd_on_eos(
+    http2_conn_t *w, http2_stream_t *stream, bool eos
+)
+{
+    if (eos && !w->is_client && (stream->events & HTTP2_STREAM_EV_EOS_SENT) &&
+        http2_stream_has_http1_ctx(stream))
+    {
+        http2_stream_close_httpd(w, stream);
+    }
+}
+
 static int http2_stream_do_recv_data(
     http2_conn_t *w, uint32_t stream_id, pstream_t data,
     int initial_payload_len, bool eos
@@ -5429,6 +5702,7 @@ static int http2_stream_do_recv_data(
     if (!(flags & HTTP2_STREAM_EV_RST_SENT)) {
         http2_stream_on_data(w, stream, data, eos);
     }
+    http2_stream_close_httpd_on_eos(w, stream, eos);
     return 0;
 }
 
@@ -5468,6 +5742,7 @@ static int http2_stream_do_recv_headers(
     http2_stream_t *stream = http2_stream_get(w, stream_id);
     unsigned flags = stream->events;
     unsigned events = 0;
+    bool refused = false;
 
     if (http2_stream_id_is_server(stream_id)) {
         if (!(flags & HTTP2_STREAM_EV_PSH_RECV)) {
@@ -5492,7 +5767,19 @@ static int http2_stream_do_recv_headers(
         http2_stream_error(
             w, stream, PROTOCOL_ERROR, "HEADERS with invalid HTTP headers"
         );
-        http2_stream_on_reset(w, stream, false);
+        return 0;
+    }
+    if (!flags && http2_conn_is_peer_stream_id(w, stream_id) &&
+        OPT_ISSET(w->settings.max_concurrent_streams) &&
+        w->peer_streams_open >= OPT_VAL(w->settings.max_concurrent_streams))
+    {
+        /* RFC 9113 5.1.2: refuse a new stream that would exceed the limit we
+         * advertised, as a stream error, without dispatching it. */
+        http2_stream_handle_events(w, stream, HTTP2_STREAM_EV_1ST_HDRS);
+        http2_stream_error(
+            w, stream, REFUSED_STREAM, "max concurrent streams (%u) exceeded",
+            OPT_VAL(w->settings.max_concurrent_streams)
+        );
         return 0;
     }
     if (!flags) {
@@ -5511,15 +5798,19 @@ static int http2_stream_do_recv_headers(
             w, stream, REFUSED_STREAM,
             "server is finalizing, no more stream is accepted"
         );
-        http2_stream_on_reset(w, stream, false);
+        refused = true;
     }
-    if (!(flags & HTTP2_STREAM_EV_RST_SENT)) {
+    /* A stream we just refused (REFUSED_STREAM above) must not be dispatched:
+     * on_accept would spawn an upstream backend for a stream that is already
+     * reset. */
+    if (!refused) {
         if (!flags) {
             /* new stream */
             http2_stream_on_accept(w, stream);
         }
         http2_stream_on_headers(w, stream, info, headerlines, eos);
     }
+    http2_stream_close_httpd_on_eos(w, stream, eos);
     return 0;
 }
 
@@ -5545,6 +5836,8 @@ static int http2_stream_do_recv_priority(
     return 0;
 }
 
+static int http2_conn_account_reset_stream(http2_conn_t *w);
+
 static int http2_stream_do_recv_rst_stream(
     http2_conn_t *w, uint32_t stream_id, uint32_t error_code
 )
@@ -5564,15 +5857,45 @@ static int http2_stream_do_recv_rst_stream(
             error_code
         );
     }
+    if (flags & HTTP2_STREAM_EV_RST_RECV) {
+        /* The peer already reset this stream; the stream is closed from its
+         * side, so another RST_STREAM is a stream-closed protocol error.
+         * Reprocessing it would also re-run the closing transition (a
+         * state-machine inconsistency). */
+        return http2_stream_conn_error(
+            w, stream, STREAM_CLOSED,
+            "RST_STREAM on a peer-reset stream [code %u]", error_code
+        );
+    }
     if (flags & HTTP2_STREAM_EV_RST_SENT) {
         http2_stream_trace(
-            w, stream, 2, "RST_STREAM ingored (rst sent already) [code %u]",
+            w, stream, 2, "RST_STREAM after our own reset [code %u]",
             error_code
         );
-        http2_stream_handle_events(w, stream, HTTP2_STREAM_EV_RST_RECV);
-        return 0;
     }
     http2_stream_handle_events(w, stream, HTTP2_STREAM_EV_RST_RECV);
+    /* Abort the upstream (http1.x) query, if any, and detach its context. */
+    http2_stream_on_reset(w, stream, true);
+    /* After a peer RST_STREAM the peer must not send any further frame for
+     * this stream (RFC 9113 §5.1, bar PRIORITY): there is no in-flight window
+     * to preserve, so delete it now rather than leaving it on the (capped)
+     * closed list. This bounds memory tightly under rapid reset
+     * (CVE-2023-44487); a later stray frame on this id is recreated as an
+     * "untracked closed" stub and rejected like any long-forgotten id. */
+    {
+        /* The peer reset a stream it opened, and we had not already reset it
+         * ourselves: we may have dispatched its request for nothing, so
+         * charge it to the rapid-reset budget. A peer RST that merely echoes
+         * a reset we sent first is not the attack pattern and must not be
+         * charged. */
+        bool charge = http2_conn_is_peer_stream_id(w, stream_id) &&
+                      !(flags & HTTP2_STREAM_EV_RST_SENT);
+
+        http2_stream_delete(&stream);
+        if (charge) {
+            return http2_conn_account_reset_stream(w);
+        }
+    }
     return 0;
 }
 
@@ -5720,21 +6043,35 @@ int http2_parse_frame_hdr(pstream_t *ps, http2_frame_info_t *frame)
 
 static void http2_conn_maintain_recv_window(http2_conn_t *w)
 {
-    int incr = HTTP2_LEN_WINDOW_SIZE_LIMIT - w->recv_window;
+    int incr = HTTP2_LEN_CONN_WINDOW_SIZE_INIT - w->recv_window;
 
-    if (incr <= 0) {
+    /* Replenish the connection receive window lazily: emit a WINDOW_UPDATE
+     * only once the peer has consumed at least half of it. This keeps the
+     * advertised window bounded (real back-pressure) instead of topping it
+     * back up to the 2 GiB protocol maximum after every DATA frame, which
+     * used to disable flow control entirely. */
+    if (incr < HTTP2_LEN_CONN_WINDOW_SIZE_INIT / 2) {
         return;
     }
     http2_conn_send_window_update(w, 0, incr);
     w->recv_window += incr;
 }
 
-static void http2_conn_consume_recv_window(http2_conn_t *w, int len)
+static int http2_conn_consume_recv_window(http2_conn_t *w, int len)
 {
-    /* Maintain the recv window at a specific level each time the peer
-     * sends DATA frame. This effectively disables the flow control. */
+    /* rfc 9113 6.9.1: receiving more data than the advertised connection
+     * flow-control window allows is a connection-level FLOW_CONTROL_ERROR. */
+    if (len > w->recv_window) {
+        HTTP2_THROW_ERR(
+            w, FLOW_CONTROL_ERROR,
+            "flow control: DATA (%d octets) exceeds the "
+            "connection receive window (%d)",
+            len, w->recv_window
+        );
+    }
     w->recv_window -= len;
     http2_conn_maintain_recv_window(w);
+    return 0;
 }
 
 int http2_payload_get_trimmed_chunk(
@@ -5767,7 +6104,7 @@ static int http2_conn_parse_data(
         );
     }
 
-    http2_conn_consume_recv_window(w, initial_payload_len);
+    RETHROW(http2_conn_consume_recv_window(w, initial_payload_len));
     end_stream = flags & HTTP2_FLAG_END_STREAM;
     return http2_stream_do_recv_data(
         w, stream_id, chunk, initial_payload_len, end_stream
@@ -5875,11 +6212,17 @@ static int http2_conn_parse_headers(
     if (flags & HTTP2_FLAG_PRIORITY) {
         uint32_t stream_dependency;
 
-        if (ps_get_be32(&chunk, &stream_dependency) < 0) {
+        /* The priority section is 5 octets: a 4-octet stream dependency
+         * followed by a 1-octet weight. Both must be present, otherwise the
+         * header-block reassembly in http2_conn_construct_hdr_blk() would
+         * skip one byte past the end of the payload. */
+        if (ps_get_be32(&chunk, &stream_dependency) < 0 ||
+            ps_skip(&chunk, 1) < 0)
+        {
             HTTP2_THROW_ERR(
                 w, FRAME_SIZE_ERROR,
                 "frame error: "
-                "HEADERS is too short to read stream dependency"
+                "HEADERS is too short for the priority section"
             );
         }
         stream_dependency &= HTTP2_STREAM_ID_MASK;
@@ -6003,10 +6346,12 @@ static int http2_conn_parse_rst_stream(
 {
     uint32_t error_code;
 
-    if (ps_get_be32(&payload, &error_code) < 0) {
+    if (ps_get_be32(&payload, &error_code) < 0 || !ps_done(&payload)) {
+        /* rfc 9113 6.4: a RST_STREAM frame with a length other than 4 octets
+         * must be treated as a connection error of type FRAME_SIZE_ERROR. */
         HTTP2_THROW_ERR(
             w, FRAME_SIZE_ERROR,
-            "frame error: RST_STREAM with invalid size %jd", ps_len(&payload)
+            "frame error: RST_STREAM with invalid size %u", w->frame.len
         );
     }
     RETHROW(http2_stream_do_recv_rst_stream(w, stream_id, error_code));
@@ -6069,6 +6414,15 @@ http2_conn_process_peer_settings(http2_conn_t *w, uint16_t id, uint32_t val)
                 val
             );
         }
+        if (w->is_client && val != 0) {
+            /* RFC 9113 6.5.2: a server cannot be pushed to, so it must not
+             * set ENABLE_PUSH to a non-zero value; a client that receives
+             * such a value from a server treats it as a connection error. */
+            HTTP2_THROW_ERR(
+                w, PROTOCOL_ERROR,
+                "settings error: server set ENABLE_PUSH (%u)", val
+            );
+        }
         w->peer_settings.enable_push = val;
         break;
 
@@ -6118,6 +6472,53 @@ http2_conn_process_peer_settings(http2_conn_t *w, uint16_t id, uint32_t val)
     return PARSE_OK;
 }
 
+static int http2_conn_account_control_frame(http2_conn_t *w)
+{
+    /* Each peer PING / SETTINGS makes us queue a PING ACK / SETTINGS ACK. A
+     * peer that floods them faster than we drain the output buffer (or never
+     * reads our answers) would otherwise pin unbounded memory. Bound the
+     * answers queued between two full flushes (CVE-2019-9512 PING flood,
+     * CVE-2019-9515 SETTINGS flood). */
+    if (unlikely(
+            ++w->queued_control_frames > HTTP2_LEN_MAX_QUEUED_CTRL_FRAMES
+        ))
+    {
+        HTTP2_THROW_ERR(
+            w, ENHANCE_YOUR_CALM,
+            "too many unacked control frames (%u): "
+            "possible PING/SETTINGS flood",
+            w->queued_control_frames
+        );
+    }
+    return PARSE_OK;
+}
+
+static int http2_conn_account_reset_stream(http2_conn_t *w)
+{
+    /* The HTTP/2 "rapid reset" attack (CVE-2023-44487) opens a stream then
+     * immediately resets it, over and over: each round makes us dispatch a
+     * request whose work is wasted, yet the stream never counts against
+     * SETTINGS_MAX_CONCURRENT_STREAMS (it is closed at once). Tolerate a
+     * burst of resets, then require each further reset to be offset by a
+     * completed stream. A rapid-reset flood completes no stream, so it trips
+     * once the burst is spent; a legitimate client earns budget for every
+     * request it carries to completion and stays far below it. */
+    w->reset_streams++;
+    if (unlikely(
+            w->reset_streams >
+            HTTP2_LEN_MAX_RESET_STREAMS_BURST + w->completed_streams
+        ))
+    {
+        HTTP2_THROW_ERR(
+            w, ENHANCE_YOUR_CALM,
+            "too many stream resets (%u resets, %u completed): "
+            "possible rapid reset attack",
+            w->reset_streams, w->completed_streams
+        );
+    }
+    return PARSE_OK;
+}
+
 static int
 http2_conn_parse_settings(http2_conn_t *w, pstream_t payload, uint8_t flags)
 {
@@ -6160,7 +6561,7 @@ http2_conn_parse_settings(http2_conn_t *w, pstream_t payload, uint8_t flags)
         w, HTTP2_LEN_NO_PAYLOAD, HTTP2_TYPE_SETTINGS, HTTP2_FLAG_ACK,
         HTTP2_ID_NO_STREAM
     );
-    return PARSE_OK;
+    return http2_conn_account_control_frame(w);
 }
 
 static int
@@ -6183,6 +6584,7 @@ http2_conn_parse_ping(http2_conn_t *w, pstream_t payload, uint8_t flags)
             HTTP2_ID_NO_STREAM
         );
         ob_add(&w->ob, payload.p, HTTP2_LEN_PING_PAYLOAD);
+        return http2_conn_account_control_frame(w);
     }
     return PARSE_OK;
 }
@@ -6482,6 +6884,17 @@ static int http2_conn_parse_cont_hdr(http2_conn_t *w, pstream_t ps)
     }
     w->frame.flags |= (frame.flags & HTTP2_FLAG_END_HEADERS);
     w->cont_chunk += HTTP2_LEN_FRAME_HDR + frame.len;
+    if (w->frame.len + w->cont_chunk > HTTP2_LEN_MAX_HDR_BLOCK_SIZE) {
+        /* The whole header block (HEADERS/PUSH_PROMISE + CONTINUATIONs) is
+         * buffered until END_HEADERS, so cap its size to avoid a peer pinning
+         * unbounded memory with a flood of CONTINUATION frames. */
+        HTTP2_THROW_ERR(
+            w, ENHANCE_YOUR_CALM,
+            "header block exceeds %d octets "
+            "(possible CONTINUATION flood)",
+            HTTP2_LEN_MAX_HDR_BLOCK_SIZE
+        );
+    }
     return PARSE_OK;
 }
 
@@ -6642,6 +7055,10 @@ static void http2_conn_process_input_buffer(http2_conn_t *w)
         http2_stream_delete(&stream);
     }
 
+    /* Closed streams are bounded and reaped at close time (FIFO eviction in
+     * http2_stream_set_closed), so no per-read sweep of closed_stream_list is
+     * needed here. */
+
     if (w->abort_in_flight) {
         http2_conn_close_streams_internal(w, 0, 0);
     }
@@ -6771,9 +7188,56 @@ static int http2_conn_process_before_return_ev_loop(http2_conn_t **wp, int fd)
     return 0;
 }
 
+/* Update the control-frame flood drain gate after writing the output buffer.
+ *
+ * \p ob_len_before is the output buffer length captured before the write, \p
+ * ob_len_after its length after. The gate is armed only once
+ * queued_control_frames crosses HTTP2_LEN_MAX_QUEUED_CTRL_FRAMES / 2: it is
+ * then set to the *whole* current backlog, so the peer must drain every ACK
+ * accumulated up to that point before earning any credit. Arming at the
+ * threshold rather than at the first queued ACK is what stops a
+ * trickle-reader from arming the gate on a tiny backlog and then clearing it
+ * with a single byte.
+ *
+ * Once the armed backlog has fully drained we forgive half the budget instead
+ * of resetting the counter to zero: a peer that keeps re-flooding after each
+ * drain therefore climbs back toward the hard limit and trips
+ * ENHANCE_YOUR_CALM, which bounds the memory pinned by un-acked control
+ * frames, while a peer that genuinely reads our answers is credited and never
+ * penalised. Gating on the backlog (not on a fully empty buffer) still avoids
+ * a false positive on a connection that streams responses continuously.
+ */
+static void http2_conn_account_control_frame_drain(
+    http2_conn_t *w, int ob_len_before, int ob_len_after
+)
+{
+    unsigned half_budget = HTTP2_LEN_MAX_QUEUED_CTRL_FRAMES / 2;
+    int flushed = ob_len_before - ob_len_after;
+
+    if (w->queued_control_frames >= half_budget && !w->control_frames_drain) {
+        w->control_frames_drain = ob_len_before;
+    }
+    if (!w->control_frames_drain) {
+        return;
+    }
+    if (w->control_frames_drain <= flushed) {
+        /* The whole armed backlog drained: forgive half the budget rather
+         * than the entire counter, so a peer that re-floods after each drain
+         * keeps climbing toward the hard limit instead of resetting to zero.
+         * The gate is only armed once queued_control_frames >= half_budget
+         * and the counter only grows while it is armed, so the subtraction
+         * cannot underflow the unsigned counter. */
+        w->control_frames_drain = 0;
+        w->queued_control_frames -= half_budget;
+    } else {
+        w->control_frames_drain -= flushed;
+    }
+}
+
 static int http2_conn_on_event(el_t evh, int fd, short events, data_t priv)
 {
     http2_conn_t *w = priv.ptr;
+    int ob_len_before;
 
     http2_conn_trace(w, 4, "events 0x%x", events);
 
@@ -6792,7 +7256,9 @@ static int http2_conn_on_event(el_t evh, int fd, short events, data_t priv)
     http2_conn_process_async_inputs(w);
     http2_conn_process_no_pending_streams(w);
     http2_conn_process_send_last_goaway_if_needed(w);
+    ob_len_before = w->ob.length;
     http2_conn_write(w, fd);
+    http2_conn_account_control_frame_drain(w, ob_len_before, w->ob.length);
     http2_conn_process_before_return_ev_loop(&w, fd);
     return 0;
 }
@@ -7058,6 +7524,11 @@ httpd_spawn_as_http2(int fd, sockunion_t *peer_su, httpd_cfg_t *cfg)
         conn->ssl = SSL_new(cfg->ssl_ctx);
     }
     conn->settings = http2_default_settings_g;
+    /* Advertise (and enforce) a finite concurrency limit on peer streams. */
+    OPT_SET(
+        conn->settings.max_concurrent_streams,
+        HTTP2_LEN_MAX_CONCURRENT_STREAMS
+    );
     cfg->nb_conns++;
     fd_set_features(fd, FD_FEAT_TCP_NODELAY);
     conn->ev = el_fd_register(fd, true, POLLIN, http2_conn_on_connect, conn);
@@ -7829,6 +8300,10 @@ static void http2c_ctx_wipe(http2c_ctx_t *ctx)
         http2_conn_t *w = ctx->owner->conn;
         http2_stream_t *stream = http2_stream_get(w, ctx->stream_id);
 
+        /* Detach the ctx (being wiped) from the stream *before* the reset:
+         * http2_stream_send_reset_cancel() now also runs
+         * http2_stream_on_reset(), which would otherwise re-enter this ctx.
+         */
         stream->http2c_ctx = NULL;
         http2_stream_send_reset_cancel(w, stream, "client disconnect");
     }
@@ -8364,11 +8839,23 @@ void httpc_close_http2_pool(httpc_cfg_t *cfg)
         return;
     }
     qm_for_each_value(qhttp2_clients, client, &cfg->http2_pool->qclients) {
-        client->pool = NULL;
-        client->conn->send_goaway = true;
-        client->conn->async_write = true;
-        http2_conn_trace(client->conn, 4, "send goaway");
-        el_fd_set_mask(client->conn->ev, POLLINOUT);
+        http2_conn_t *conn = client->conn;
+
+        http2_pool_remove_client(client);
+        /* Force-close connections still in TCP CONNECTING state: they have
+         * no streams and will never progress to the GOAWAY exchange, so they
+         * would otherwise linger in the event loop until the noact timer
+         * fires.  Connected connections close gracefully via send_goaway.
+         * Use a local copy: http2_conn_close() frees client through
+         * http2_conn_on_close_client(). */
+        if (!conn->connected) {
+            http2_conn_close(&conn);
+            continue;
+        }
+        conn->send_goaway = true;
+        conn->async_write = true;
+        http2_conn_trace(conn, 4, "send goaway");
+        el_fd_set_mask(conn->ev, POLLINOUT);
     }
     http2_pool_delete(&cfg->http2_pool);
 }
@@ -8433,6 +8920,7 @@ MODULE_DEFINE(http) {
 /* Tests {{{ */
 
 #include <lib-common/z.h>
+#include <locale.h>
 
 static bool has_reply_g;
 static http_code_t code_g;
@@ -8534,6 +9022,88 @@ static int z_reply_no_content(el_t el, int fd, short mask, data_t data)
     return 0;
 }
 
+static int z_reply_chunked_bad_size(el_t el, int fd, short mask, data_t data)
+{
+    SB_1k(buf);
+
+    if (sb_read(&buf, fd, 1000) > 0) {
+        /* The chunk-size 0x80000000 does not fit in a signed 32-bit int: if
+         * accepted it wraps to a negative chunk length and the body parser
+         * performs an out-of-bounds read. It must be rejected instead. */
+        char reply[] = "HTTP/1.1 200 OK\r\n"
+                       "Transfer-Encoding: chunked\r\n"
+                       "\r\n"
+                       "80000000\r\n";
+
+        IGNORE(xwrite(fd, reply, sizeof(reply) - 1));
+    }
+    return 0;
+}
+
+static int z_reply_reason_ctl(el_t el, int fd, short mask, data_t data)
+{
+    SB_1k(buf);
+
+    if (sb_read(&buf, fd, 1000) > 0) {
+        /* A control character (0x01) in the status reason phrase. */
+        char reply[] = "HTTP/1.1 200 O\001K\r\n"
+                       "Content-Length: 0\r\n"
+                       "\r\n";
+
+        IGNORE(xwrite(fd, reply, sizeof(reply) - 1));
+    }
+    return 0;
+}
+
+static int z_reply_header_ctl(el_t el, int fd, short mask, data_t data)
+{
+    SB_1k(buf);
+
+    if (sb_read(&buf, fd, 1000) > 0) {
+        /* A control character (0x01) in a response header value. */
+        char reply[] = "HTTP/1.1 200 OK\r\n"
+                       "X-Bad: a\001b\r\n"
+                       "Content-Length: 0\r\n"
+                       "\r\n";
+
+        IGNORE(xwrite(fd, reply, sizeof(reply) - 1));
+    }
+    return 0;
+}
+
+static int z_reply_negative_clen(el_t el, int fd, short mask, data_t data)
+{
+    SB_1k(buf);
+
+    if (sb_read(&buf, fd, 1000) > 0) {
+        /* A negative Content-Length is not 1*DIGIT and must be rejected: read
+         * verbatim it yields a negative body length (chunk_length). */
+        char reply[] = "HTTP/1.1 200 OK\r\n"
+                       "Content-Length: -5\r\n"
+                       "\r\n";
+
+        IGNORE(xwrite(fd, reply, sizeof(reply) - 1));
+    }
+    return 0;
+}
+
+static int z_reply_dup_clen(el_t el, int fd, short mask, data_t data)
+{
+    SB_1k(buf);
+
+    if (sb_read(&buf, fd, 1000) > 0) {
+        /* Duplicate Content-Length makes the body length ambiguous (response
+         * splitting); it must be rejected. */
+        char reply[] = "HTTP/1.1 200 OK\r\n"
+                       "Content-Length: 0\r\n"
+                       "Content-Length: 0\r\n"
+                       "\r\n";
+
+        IGNORE(xwrite(fd, reply, sizeof(reply) - 1));
+    }
+    return 0;
+}
+
 static int z_accept(el_t el, int fd, short mask, data_t data)
 {
     int (*query_cb)(el_t, int, short, data_t) = data.ptr;
@@ -8568,7 +9138,7 @@ enum z_query_flags {
     Z_QUERY_USE_HTTP2 = (1 << 1),
 };
 
-static int z_query_setup(
+static int z_query_setup_no_check(
     int (*query_cb)(el_t, int, short, el_data_t), enum z_query_flags flags,
     lstr_t host, lstr_t uri
 )
@@ -8614,6 +9184,15 @@ static int z_query_setup(
     while (!has_reply_g) {
         el_loop_timeout(10);
     }
+    Z_HELPER_END;
+}
+
+static int z_query_setup(
+    int (*query_cb)(el_t, int, short, el_data_t), enum z_query_flags flags,
+    lstr_t host, lstr_t uri
+)
+{
+    Z_HELPER_RUN(z_query_setup_no_check(query_cb, flags, host, uri));
     Z_ASSERT_EQ(zstatus_g, HTTPC_STATUS_OK);
     Z_HELPER_END;
 }
@@ -8765,6 +9344,73 @@ Z_GROUP_EXPORT(httpc)
             &z_reply_no_content, 0, LSTR("localhost"), LSTR("/")
         ));
         Z_ASSERT_EQ((http_code_t)HTTP_CODE_NO_CONTENT, code_g);
+        z_query_cleanup();
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        chunked_oversized_size,
+        "a chunked reply with a chunk-size that "
+        "overflows a signed 32-bit int must be rejected, not over-read"
+    )
+    {
+        Z_HELPER_RUN(z_query_setup_no_check(
+            &z_reply_chunked_bad_size, 0, LSTR("localhost"), LSTR("/")
+        ));
+        /* The malformed chunk size must be rejected gracefully (the query is
+         * aborted) instead of crashing the body parser. */
+        Z_ASSERT(has_reply_g);
+        Z_ASSERT_NEG((int)zstatus_g, "the query must end in error, not OK");
+        z_query_cleanup();
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        resp_reason_ctl, "a control character in the response status "
+                         "reason phrase must be rejected (RFC 7230 3.1.2)"
+    )
+    {
+        Z_HELPER_RUN(z_query_setup_no_check(
+            &z_reply_reason_ctl, 0, LSTR("localhost"), LSTR("/")
+        ));
+        Z_ASSERT(has_reply_g);
+        Z_ASSERT_NEG((int)zstatus_g, "the query must end in error, not OK");
+        z_query_cleanup();
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        resp_header_ctl, "a control character in a response header value "
+                         "must be rejected (RFC 7230 3.2)"
+    )
+    {
+        Z_HELPER_RUN(z_query_setup_no_check(
+            &z_reply_header_ctl, 0, LSTR("localhost"), LSTR("/")
+        ));
+        Z_ASSERT(has_reply_g);
+        Z_ASSERT_NEG((int)zstatus_g, "the query must end in error, not OK");
+        z_query_cleanup();
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        resp_content_length_invalid,
+        "a negative or duplicate response Content-Length must be rejected "
+        "(RFC 7230 3.3.2/3.3.3), like the server side"
+    )
+    {
+        Z_HELPER_RUN(z_query_setup_no_check(
+            &z_reply_negative_clen, 0, LSTR("localhost"), LSTR("/")
+        ));
+        Z_ASSERT(has_reply_g);
+        Z_ASSERT_NEG((int)zstatus_g, "a negative Content-Length must error");
+        z_query_cleanup();
+
+        Z_HELPER_RUN(z_query_setup_no_check(
+            &z_reply_dup_clen, 0, LSTR("localhost"), LSTR("/")
+        ));
+        Z_ASSERT(has_reply_g);
+        Z_ASSERT_NEG((int)zstatus_g, "a duplicate Content-Length must error");
         z_query_cleanup();
     }
     Z_TEST_END;
@@ -8955,6 +9601,56 @@ Z_GROUP_EXPORT(httpc_http2)
             Z_ASSERT_EQ(body_g.data[i], 'a' + (i % 8192) % 26);
         }
         z_query_cleanup();
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        pool_wipe_connecting, "force-close connecting connections on "
+                              "http2 pool wipe"
+    )
+    {
+        sockunion_t su;
+        int server;
+        int conn_fd;
+        httpc_t *httpc;
+        http2_conn_t *conn;
+
+        /* A listening socket so the client's connect reaches the TCP
+         * CONNECTING state instead of being refused. */
+        Z_ASSERT_N(addr_resolve("test", LSTR("127.0.0.1:1"), &su));
+        sockunion_setport(&su, 0);
+        server = listenx(-1, &su, 1, SOCK_STREAM, IPPROTO_TCP, 0);
+        Z_ASSERT_N(server);
+        sockunion_setport(&su, getsockport(server, AF_INET));
+
+        httpc_cfg_init(&zcfg_g);
+        zcfg_g.refcnt++;
+        zcfg_g.http_mode = HTTP_MODE_USE_HTTP2_ONLY;
+
+        /* Initiate the connection but never pump the event loop: the socket
+         * stays in TCP CONNECTING state (conn->connected == false), which is
+         * the precondition of the bug. */
+        httpc = httpc_connect(&su, &zcfg_g, NULL);
+        Z_ASSERT_P(httpc);
+        Z_ASSERT_P(zcfg_g.http2_pool);
+
+        conn = httpc->http2_ctx->owner->conn;
+        Z_ASSERT(!conn->connected);
+        conn_fd = el_fd_get_fd(conn->ev);
+        Z_ASSERT_N(conn_fd);
+
+        /* Wiping the pool must force-close the connecting connection and
+         * release its fd, instead of leaving it registered in the event loop
+         * until the noact timeout fires. */
+        httpc_close_http2_pool(&zcfg_g);
+        Z_ASSERT_NULL(zcfg_g.http2_pool);
+        Z_ASSERT_NEG(fcntl(conn_fd, F_GETFD));
+        Z_ASSERT_EQ(errno, EBADF);
+
+        /* The force-close already freed httpc/ctx/client/conn, so httpc must
+         * not be freed again here. */
+        close(server);
+        httpc_cfg_wipe(&zcfg_g);
     }
     Z_TEST_END;
 }
@@ -9211,6 +9907,143 @@ Z_GROUP_EXPORT(httpd)
     }
     Z_TEST_END;
 
+    Z_TEST(
+        smuggling_te_and_cl,
+        "a request with both Transfer-Encoding and "
+        "Content-Length must be rejected (request smuggling)"
+    )
+    {
+        /* rfc 7230 3.3.3: both Transfer-Encoding and Content-Length is an
+         * ambiguous (smuggling) framing. Before the fix the server silently
+         * ignored Content-Length and processed the request. */
+        lstr_t query = LSTR(
+            "GET /zchk HTTP/1.1\r\n"
+            "Host: 127.0.0.1\r\n"
+            "Transfer-Encoding: chunked\r\n"
+            "Content-Length: 5\r\n"
+            "\r\n"
+            "0\r\n"
+            "\r\n"
+        );
+
+        Z_HELPER_RUN(zhttpd_setup(&query, 0));
+
+        Z_ASSERT(lstr_startswith(
+            LSTR_SB_V(&zhttpd_g.read_buf), LSTR("HTTP/1.1 400")
+        ));
+        Z_ASSERT(
+            !lstr_endswith(LSTR_SB_V(&zhttpd_g.read_buf), LSTR("ZHTTPD OK"))
+        );
+
+        zhttpd_cleanup();
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        smuggling_te_identity_cl,
+        "chunked then identity Transfer-Encoding plus Content-Length must "
+        "be rejected: the second TE must not cancel the first and bypass "
+        "the exclusivity check (request smuggling)"
+    )
+    {
+        /* Before the fix the "identity" Transfer-Encoding reset the chunked
+         * flag to false, so the Transfer-Encoding/Content-Length exclusivity
+         * check was skipped and the body was framed by Content-Length, while
+         * a front-end honoring the first "chunked" would frame it as chunked
+         * (request smuggling). */
+        lstr_t query = LSTR(
+            "GET /zchk HTTP/1.1\r\n"
+            "Host: 127.0.0.1\r\n"
+            "Transfer-Encoding: chunked\r\n"
+            "Transfer-Encoding: identity\r\n"
+            "Content-Length: 5\r\n"
+            "\r\n"
+            "0\r\n"
+            "\r\n"
+        );
+
+        Z_HELPER_RUN(zhttpd_setup(&query, 0));
+
+        Z_ASSERT(lstr_startswith(
+            LSTR_SB_V(&zhttpd_g.read_buf), LSTR("HTTP/1.1 400")
+        ));
+        Z_ASSERT(
+            !lstr_endswith(LSTR_SB_V(&zhttpd_g.read_buf), LSTR("ZHTTPD OK"))
+        );
+
+        zhttpd_cleanup();
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        smuggling_unsupported_te,
+        "an unsupported Transfer-Encoding must "
+        "close the connection, not leave it open for a smuggled request"
+    )
+    {
+        /* The second (well-formed) request is pipelined right after the
+         * first one. Before the fix the server replied 501 to the first
+         * request but kept the connection open and then served the smuggled
+         * second request ("ZHTTPD OK"). */
+        lstr_t query = LSTR(
+            "GET /zchk HTTP/1.1\r\n"
+            "Host: 127.0.0.1\r\n"
+            "Transfer-Encoding: cow\r\n"
+            "\r\n"
+            "GET /zchk HTTP/1.1\r\n"
+            "Host: 127.0.0.1\r\n"
+            "Content-Length: 0\r\n"
+            "\r\n"
+        );
+
+        Z_HELPER_RUN(zhttpd_setup(&query, 0));
+
+        Z_ASSERT(lstr_startswith(
+            LSTR_SB_V(&zhttpd_g.read_buf), LSTR("HTTP/1.1 501")
+        ));
+        Z_ASSERT(
+            !lstr_endswith(LSTR_SB_V(&zhttpd_g.read_buf), LSTR("ZHTTPD OK"))
+        );
+
+        zhttpd_cleanup();
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        content_length_invalid, "a duplicate or non-numeric "
+                                "Content-Length must be rejected"
+    )
+    {
+        /* Duplicate Content-Length (rfc 7230 3.3.3): a smuggling vector. */
+        lstr_t dup = LSTR(
+            "GET /zchk HTTP/1.1\r\n"
+            "Host: 127.0.0.1\r\n"
+            "Content-Length: 0\r\n"
+            "Content-Length: 0\r\n"
+            "\r\n"
+        );
+        /* A signed Content-Length is not 1*DIGIT and must be rejected. */
+        lstr_t signed_cl = LSTR(
+            "GET /zchk HTTP/1.1\r\n"
+            "Host: 127.0.0.1\r\n"
+            "Content-Length: +0\r\n"
+            "\r\n"
+        );
+
+        Z_HELPER_RUN(zhttpd_setup(&dup, 0));
+        Z_ASSERT(lstr_startswith(
+            LSTR_SB_V(&zhttpd_g.read_buf), LSTR("HTTP/1.1 400")
+        ));
+        zhttpd_cleanup();
+
+        Z_HELPER_RUN(zhttpd_setup(&signed_cl, 0));
+        Z_ASSERT(lstr_startswith(
+            LSTR_SB_V(&zhttpd_g.read_buf), LSTR("HTTP/1.1 400")
+        ));
+        zhttpd_cleanup();
+    }
+    Z_TEST_END;
+
     Z_TEST(noact_delay, "test the behavior of the noactDelay timeout") {
         uint64_t tstart, tend;
         lstr_t query = LSTR(
@@ -9387,7 +10220,868 @@ Z_GROUP_EXPORT(httpd)
     }
     Z_TEST_END;
 
+    Z_TEST(
+        chunked_oversized_size,
+        "a chunk-size that overflows a signed "
+        "32-bit int must be rejected, not crash the server"
+    )
+    {
+        /* Server-side of the chunk-size truncation: 0x80000000 wraps to a
+         * negative chunk length and, before the fix, drove the body parser
+         * into an out-of-bounds read on a single unauthenticated request. */
+        lstr_t query = LSTR(
+            "GET /zchk HTTP/1.1\r\n"
+            "Host: 127.0.0.1\r\n"
+            "Transfer-Encoding: chunked\r\n"
+            "\r\n"
+            "80000000\r\n"
+        );
+
+        Z_HELPER_RUN(zhttpd_setup(&query, 0));
+
+        Z_ASSERT(lstr_startswith(
+            LSTR_SB_V(&zhttpd_g.read_buf), LSTR("HTTP/1.1 400")
+        ));
+        Z_ASSERT(
+            !lstr_endswith(LSTR_SB_V(&zhttpd_g.read_buf), LSTR("ZHTTPD OK"))
+        );
+
+        zhttpd_cleanup();
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        bufferize_content_length_base10,
+        "httpd_bufferize must parse Content-Length in base 10 like the "
+        "request body parser, not base 0, and reject an over-large "
+        "payload up front"
+    )
+    {
+        /* The default bufferize limit is 1 MiB. Content-Length 04000000 is
+         * four million in base 10 (> 1 MiB, so it must be rejected), but
+         * parsed in base 0 it is the octal value 1048576 (== 1 MiB), which
+         * slipped through. No body is sent, so only the up-front size check
+         * in httpd_bufferize() can produce the rejection here. */
+        lstr_t query = LSTR(
+            "GET /zchk HTTP/1.1\r\n"
+            "Host: 127.0.0.1\r\n"
+            "Content-Length: 04000000\r\n"
+            "\r\n"
+        );
+
+        Z_HELPER_RUN(zhttpd_setup(&query, 0));
+
+        Z_ASSERT(lstr_startswith(
+            LSTR_SB_V(&zhttpd_g.read_buf), LSTR("HTTP/1.1 413")
+        ));
+
+        zhttpd_cleanup();
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        path_decoded_nul,
+        "a percent-encoded NUL (%00) in the path must be rejected, not "
+        "decoded verbatim: a NUL truncates the path when used as a C "
+        "string and bypasses suffix checks"
+    )
+    {
+        /* /zchk%00.txt decodes to \"/zchk\\0.txt\"; read as a C string it is
+         * truncated to \"/zchk\" (which matches the trigger). The request
+         * must be rejected (400) rather than silently served as /zchk. */
+        lstr_t query = LSTR(
+            "GET /zchk%00.txt HTTP/1.1\r\n"
+            "Host: 127.0.0.1\r\n"
+            "\r\n"
+        );
+
+        Z_HELPER_RUN(zhttpd_setup(&query, 0));
+
+        Z_ASSERT(lstr_startswith(
+            LSTR_SB_V(&zhttpd_g.read_buf), LSTR("HTTP/1.1 400")
+        ));
+        Z_ASSERT(
+            !lstr_endswith(LSTR_SB_V(&zhttpd_g.read_buf), LSTR("ZHTTPD OK"))
+        );
+
+        zhttpd_cleanup();
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        header_obs_fold,
+        "an obs-fold (line-folded header value) must be rejected "
+        "(RFC 7230 3.2.4), not silently unfolded"
+    )
+    {
+        /* The X-Folded value continues on a second line starting with a
+         * space. Such obsolete line folding must be rejected (it is a
+         * request-smuggling vector), not stitched back into one value. */
+        lstr_t query = LSTR(
+            "GET /zchk HTTP/1.1\r\n"
+            "Host: 127.0.0.1\r\n"
+            "X-Folded: line1\r\n"
+            " line2\r\n"
+            "\r\n"
+        );
+
+        Z_HELPER_RUN(zhttpd_setup(&query, 0));
+
+        Z_ASSERT(lstr_startswith(
+            LSTR_SB_V(&zhttpd_g.read_buf), LSTR("HTTP/1.1 400")
+        ));
+
+        zhttpd_cleanup();
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        header_value_ctl,
+        "a control character in a request header value must be rejected "
+        "(RFC 7230 3.2)"
+    )
+    {
+        /* The X-Bad value contains a raw 0x01 control character. */
+        lstr_t query = LSTR(
+            "GET /zchk HTTP/1.1\r\n"
+            "Host: 127.0.0.1\r\n"
+            "X-Bad: a\001b\r\n"
+            "\r\n"
+        );
+
+        Z_HELPER_RUN(zhttpd_setup(&query, 0));
+
+        Z_ASSERT(lstr_startswith(
+            LSTR_SB_V(&zhttpd_g.read_buf), LSTR("HTTP/1.1 400")
+        ));
+
+        zhttpd_cleanup();
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        hdr_equals_locale_independent,
+        "http_hdr_equals must compare HTTP tokens with ASCII case rules, "
+        "independent of the C locale: in a Turkish locale 'I' lowercases "
+        "to a dotless i, so a locale-dependent tolower() fails to match"
+    )
+    {
+        bool match;
+
+        if (!setlocale(LC_CTYPE, "tr_TR.utf8") &&
+            !setlocale(LC_CTYPE, "tr_TR"))
+        {
+            Z_SKIP("Turkish locale not available");
+        }
+        match = http_hdr_equals(ps_initstr("100-CONTINUE"), "100-continue");
+        /* Restore the locale before asserting: a failing Z_ASSERT jumps to
+         * the test epilogue, so a restore placed after it would leak the
+         * Turkish locale into the rest of the test binary. */
+        setlocale(LC_CTYPE, "C");
+        Z_ASSERT(
+            match, "ASCII case-insensitive token match must hold under a "
+                   "Turkish locale"
+        );
+    }
+    Z_TEST_END;
+
     zhttpd_cleanup();
+}
+Z_GROUP_END;
+
+static void z_http2_add_frame(
+    sb_t *out, uint32_t len, uint8_t type, uint8_t flags, uint32_t stream_id
+)
+{
+    byte *hdr = (byte *)sb_growlen(out, HTTP2_LEN_FRAME_HDR);
+
+    put_unaligned_be24(hdr, len);
+    hdr[3] = type;
+    hdr[4] = flags;
+    put_unaligned_be32(hdr + 5, stream_id);
+    sb_add0s(out, len);
+}
+
+Z_GROUP_EXPORT(http2_framing)
+{
+    Z_TEST(
+        continuation_flood,
+        "a HEADERS frame followed by CONTINUATION frames whose cumulative "
+        "size exceeds the header-block limit (and that never set "
+        "END_HEADERS) must trigger a connection error, not unbounded "
+        "buffering"
+    )
+    {
+        http2_conn_t w;
+        uint32_t payload = HTTP2_LEN_MAX_FRAME_SIZE_INIT;
+        int total;
+        SB_1k(frames);
+
+        /* Initial HEADERS without END_HEADERS, on a client stream. */
+        z_http2_add_frame(
+            &frames, payload, HTTP2_TYPE_HEADERS, HTTP2_FLAG_NONE, 1
+        );
+        total = payload;
+        /* CONTINUATION frames, none with END_HEADERS, until the cumulative
+         * header-block size exceeds the limit. */
+        while (total <= HTTP2_LEN_MAX_HDR_BLOCK_SIZE) {
+            z_http2_add_frame(
+                &frames, payload, HTTP2_TYPE_CONTINUATION, HTTP2_FLAG_NONE, 1
+            );
+            total += HTTP2_LEN_FRAME_HDR + payload;
+        }
+
+        http2_conn_init(&w);
+        /* Skip the preface/settings handshake and feed frames directly. */
+        w.state = HTTP2_PARSE_COMMON_HDR;
+        sb_add(&w.ibuf, frames.data, frames.len);
+        http2_conn_process_input_buffer(&w);
+        Z_ASSERT(
+            w.abort_in_flight,
+            "the CONTINUATION flood must trigger a connection error"
+        );
+        http2_conn_wipe(&w);
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        rst_stream_bad_length,
+        "a RST_STREAM frame whose length is not 4 octets must be a frame "
+        "error (rfc 9113 6.4)"
+    )
+    {
+        http2_conn_t w;
+        /* A 4-octet error code followed by one extra octet (length 5). */
+        static const byte payload[5] = {0, 0, 0, 0, 0};
+        int res;
+
+        http2_conn_init(&w);
+        /* Open client stream 1 so the RST targets a resettable stream: an
+         * idle-stream RST would already be a protocol error and would mask
+         * the length check. */
+        http2_stream_handle_events(
+            &w, http2_stream_get(&w, 1), HTTP2_STREAM_EV_1ST_HDRS
+        );
+        res = http2_conn_parse_rst_stream(
+            &w, 1, ps_init(payload, sizeof(payload)), HTTP2_FLAG_NONE
+        );
+        Z_ASSERT_NEG(res, "RST_STREAM with length != 4 must be rejected");
+        http2_conn_close_streams_internal(&w, 0, 0);
+        http2_conn_wipe(&w);
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        max_header_list_size,
+        "a header block that decodes to more than the header-list limit "
+        "must be rejected (HPACK decompression bomb)"
+    )
+    {
+        t_scope;
+        http2_conn_t enc;
+        http2_conn_t dec;
+        http2_header_info_t info;
+        char bigbuf[1024];
+        lstr_t big = LSTR_INIT_V(bigbuf, sizeof(bigbuf));
+        SB_1k(blk);
+        SB_1k(headerlines);
+        int rc;
+
+        memset(bigbuf, 'x', sizeof(bigbuf));
+        http2_conn_init(&enc);
+        http2_conn_init(&dec);
+        /* ~81 KiB of decoded headers from a small compressed block: the
+         * repeated header is held in the HPACK dynamic table, so each
+         * occurrence after the first is a tiny indexed reference. */
+        for (int i = 0; i < 81; i++) {
+            http2_conn_pack_single_hdr(&enc, LSTR("x-pad"), big, &blk);
+        }
+        rc = t_http2_conn_decode_header_block(
+            &dec, ps_initsb(&blk), &info, &headerlines
+        );
+        Z_ASSERT_NEG(rc, "an over-large decoded header list must be refused");
+        http2_conn_wipe(&enc);
+        http2_conn_wipe(&dec);
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        headers_priority_missing_weight,
+        "a HEADERS frame with the PRIORITY flag but a priority section "
+        "truncated to 4 bytes (missing the weight byte) must be rejected "
+        "as a frame error rather than triggering an out-of-bounds read"
+    )
+    {
+        http2_conn_t w;
+        /* The priority section is 5 octets: a 4-octet stream dependency
+         * followed by a 1-octet weight. Provide only the 4-octet dependency
+         * so that, before the fix, the missing weight byte made the header
+         * block reassembly read one byte past the end of the payload. */
+        static const byte payload[4] = {0, 0, 0, 0};
+        int res;
+
+        http2_conn_init(&w);
+        res = http2_conn_parse_headers(
+            &w, 1, ps_init(payload, sizeof(payload)),
+            HTTP2_FLAG_PRIORITY | HTTP2_FLAG_END_HEADERS
+        );
+        Z_ASSERT_NEG(res, "truncated priority section must be a frame error");
+        http2_conn_wipe(&w);
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        rst_stream_reaped,
+        "a stream that the peer resets must be reaped (removed from the "
+        "connection's stream table), not retained for the whole lifetime "
+        "of the connection (rapid-reset memory growth, cve-2023-44487)"
+    )
+    {
+        http2_conn_t w;
+        SB_1k(frames);
+
+        http2_conn_init(&w);
+        /* Open peer (client) stream 1 directly: feeding a real HEADERS frame
+         * would reach http2_stream_on_accept(), which needs a server backend
+         * that this framing-level unit test does not set up. */
+        http2_stream_handle_events(
+            &w, http2_stream_get(&w, 1), HTTP2_STREAM_EV_1ST_HDRS
+        );
+        Z_ASSERT_EQ(qm_len(qstream, &w.streams), 1);
+
+        /* The peer resets stream 1 (payload is a 4-octet NO_ERROR code). */
+        z_http2_add_frame(
+            &frames, HTTP2_LEN_RST_STREAM_PAYLOAD, HTTP2_TYPE_RST_STREAM,
+            HTTP2_FLAG_NONE, 1
+        );
+        w.state = HTTP2_PARSE_COMMON_HDR;
+        sb_add(&w.ibuf, frames.data, frames.len);
+        http2_conn_process_input_buffer(&w);
+
+        Z_ASSERT(!w.abort_in_flight, "a valid RST_STREAM is not an error");
+        Z_ASSERT_ZERO(
+            qm_len(qstream, &w.streams),
+            "a peer-reset stream must be reaped, not retained"
+        );
+        http2_conn_close_streams_internal(&w, 0, 0);
+        http2_conn_wipe(&w);
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        rst_stream_twice,
+        "two RST_STREAM frames on the same stream (rapid reset) must be a "
+        "clean protocol error, not a state-machine inconsistency"
+    )
+    {
+        http2_conn_t w;
+        SB_1k(frames);
+
+        http2_conn_init(&w);
+        http2_stream_handle_events(
+            &w, http2_stream_get(&w, 1), HTTP2_STREAM_EV_1ST_HDRS
+        );
+        /* The peer resets stream 1 twice in the same input buffer. The first
+         * RST deletes the stream (the peer must send no further frame after
+         * its RST); the second is then a frame on an untracked closed id, a
+         * clean connection PROTOCOL_ERROR (not a state-machine
+         * inconsistency). */
+        z_http2_add_frame(
+            &frames, HTTP2_LEN_RST_STREAM_PAYLOAD, HTTP2_TYPE_RST_STREAM,
+            HTTP2_FLAG_NONE, 1
+        );
+        z_http2_add_frame(
+            &frames, HTTP2_LEN_RST_STREAM_PAYLOAD, HTTP2_TYPE_RST_STREAM,
+            HTTP2_FLAG_NONE, 1
+        );
+        w.state = HTTP2_PARSE_COMMON_HDR;
+        sb_add(&w.ibuf, frames.data, frames.len);
+        http2_conn_process_input_buffer(&w);
+        Z_ASSERT(
+            w.abort_in_flight,
+            "a second RST_STREAM must trigger a connection error"
+        );
+        http2_conn_close_streams_internal(&w, 0, 0);
+        http2_conn_wipe(&w);
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        closed_streams_bounded,
+        "fully-closed streams must not accumulate for the whole lifetime "
+        "of the connection: the closed-stream table is bounded by "
+        "max-concurrent-streams, evicting the oldest (FIFO)"
+    )
+    {
+        http2_conn_t w;
+
+        http2_conn_init(&w);
+        /* Cap the closed-stream memory at a small value for the test. */
+        OPT_SET(w.settings.max_concurrent_streams, 4);
+        /* Simulate 1000 completed GET-like requests: opened with END_STREAM
+         * from the peer and answered with END_STREAM from us. */
+        for (uint32_t id = 1; id <= 1999; id += 2) {
+            http2_stream_t *stream = http2_stream_get(&w, id);
+
+            http2_stream_handle_events(
+                &w, stream, HTTP2_STREAM_EV_1ST_HDRS_EOS_RECV
+            );
+            http2_stream_handle_events(&w, stream, HTTP2_STREAM_EV_EOS_SENT);
+        }
+        Z_ASSERT_EQ(
+            qm_len(qstream, &w.streams), 4,
+            "the closed-stream table must stay bounded by the cap"
+        );
+        http2_conn_close_streams_internal(&w, 0, 0);
+        http2_conn_wipe(&w);
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        max_concurrent_streams,
+        "at the advertised max-concurrent-streams limit a new peer "
+        "stream must be refused (REFUSED_STREAM), not accepted "
+        "(RFC 9113 5.1.2; bounds concurrency / rapid reset)"
+    )
+    {
+        http2_conn_t w;
+        http2_header_info_t info = {
+            .flags = HTTP2_HDR_FLAG_HAS_SCHEME | HTTP2_HDR_FLAG_HAS_PATH |
+                     HTTP2_HDR_FLAG_HAS_METHOD,
+        };
+        http2_stream_t *stream;
+        pstream_t rst;
+        http2_frame_info_t frame;
+        uint32_t error_code = 0;
+        int res;
+
+        http2_conn_init(&w);
+        /* Advertise a small limit of 2 concurrent streams. */
+        OPT_SET(w.settings.max_concurrent_streams, 2);
+        /* Two peer (client) streams already open -> at the limit. */
+        http2_stream_handle_events(
+            &w, http2_stream_get(&w, 1), HTTP2_STREAM_EV_1ST_HDRS
+        );
+        http2_stream_handle_events(
+            &w, http2_stream_get(&w, 3), HTTP2_STREAM_EV_1ST_HDRS
+        );
+        Z_ASSERT_EQ(w.peer_streams_open, 2U);
+
+        /* A third HEADERS must be refused without being dispatched (no
+         * on_accept), so the connection stays healthy. */
+        res = http2_stream_do_recv_headers(
+            &w, 5, &info, ps_init(NULL, 0), true
+        );
+        Z_ASSERT_N(res, "a refused stream is not a connection error");
+        stream = http2_stream_get(&w, 5);
+        Z_ASSERT(
+            stream->events & HTTP2_STREAM_EV_RST_SENT,
+            "the over-limit stream must be reset"
+        );
+        Z_ASSERT_NULL(
+            stream->http2_ctx, "the over-limit stream must not be accepted"
+        );
+        Z_ASSERT_EQ(
+            w.peer_streams_open, 2U,
+            "a refused stream must not consume a slot"
+        );
+
+        /* The wire carries a RST_STREAM(REFUSED_STREAM) for stream 5. */
+        rst = ps_initsb(&w.ob.sb);
+        Z_ASSERT_N(http2_parse_frame_hdr(&rst, &frame));
+        Z_ASSERT_EQ(frame.type, (uint8_t)HTTP2_TYPE_RST_STREAM);
+        Z_ASSERT_EQ(frame.stream_id, 5U);
+        Z_ASSERT_N(ps_get_be32(&rst, &error_code));
+        Z_ASSERT_EQ(error_code, (uint32_t)HTTP2_CODE_REFUSED_STREAM);
+
+        http2_conn_close_streams_internal(&w, 0, 0);
+        http2_conn_wipe(&w);
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        goaway_refuses_new_stream,
+        "after a GOAWAY a new peer stream must be refused "
+        "(REFUSED_STREAM), not dispatched: the refuse path must skip "
+        "on_accept (which would spawn an upstream backend)"
+    )
+    {
+        http2_conn_t w;
+        http2_header_info_t info = {
+            .flags = HTTP2_HDR_FLAG_HAS_SCHEME | HTTP2_HDR_FLAG_HAS_PATH |
+                     HTTP2_HDR_FLAG_HAS_METHOD,
+        };
+        http2_stream_t *stream;
+        pstream_t rst;
+        http2_frame_info_t frame;
+        uint32_t error_code;
+        int res;
+
+        http2_conn_init(&w);
+        /* The connection is finalizing (a GOAWAY was received). */
+        w.goaway_recv = true;
+
+        /* A new peer HEADERS must be refused without being dispatched. Before
+         * the fix the refuse path tested a stale local snapshot of the stream
+         * flags instead of the live state, so it still ran on_accept on the
+         * just-reset stream. */
+        res = http2_stream_do_recv_headers(
+            &w, 1, &info, ps_init(NULL, 0), true
+        );
+        Z_ASSERT_N(res, "a refused stream is not a connection error");
+        stream = http2_stream_get(&w, 1);
+        Z_ASSERT(
+            stream->events & HTTP2_STREAM_EV_RST_SENT,
+            "the refused stream must be reset"
+        );
+        Z_ASSERT_NULL(
+            stream->http2_ctx, "the refused stream must not be accepted"
+        );
+
+        /* The wire carries a RST_STREAM(REFUSED_STREAM) for stream 1. */
+        rst = ps_initsb(&w.ob.sb);
+        Z_ASSERT_N(http2_parse_frame_hdr(&rst, &frame));
+        Z_ASSERT_EQ(frame.type, (uint8_t)HTTP2_TYPE_RST_STREAM);
+        Z_ASSERT_EQ(frame.stream_id, 1U);
+        Z_ASSERT_N(ps_get_be32(&rst, &error_code));
+        Z_ASSERT_EQ(error_code, (uint32_t)HTTP2_CODE_REFUSED_STREAM);
+
+        http2_conn_close_streams_internal(&w, 0, 0);
+        http2_conn_wipe(&w);
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        rst_after_local_reset,
+        "a peer RST_STREAM after we already reset the stream must release "
+        "its concurrency slot exactly once (no counter underflow)"
+    )
+    {
+        http2_conn_t w;
+        http2_stream_t *stream;
+
+        http2_conn_init(&w);
+        OPT_SET(w.settings.max_concurrent_streams, 2);
+        stream = http2_stream_get(&w, 1);
+        http2_stream_handle_events(&w, stream, HTTP2_STREAM_EV_1ST_HDRS);
+        Z_ASSERT_EQ(w.peer_streams_open, 1U);
+        /* We reset the stream ourselves (e.g. an error response). */
+        http2_stream_error(&w, stream, CANCEL, "local reset");
+        Z_ASSERT_EQ(w.peer_streams_open, 0U);
+        /* The peer also resets it (race): the slot must not be released a
+         * second time, otherwise the unsigned counter would underflow and
+         * wedge the connection (every later stream refused). */
+        Z_ASSERT_N(
+            http2_stream_do_recv_rst_stream(&w, 1, HTTP2_CODE_NO_ERROR)
+        );
+        Z_ASSERT_EQ(
+            w.peer_streams_open, 0U, "the slot must be released exactly once"
+        );
+        Z_ASSERT_ZERO(
+            w.reset_streams,
+            "a peer RST that merely echoes our own reset must not "
+            "be charged to the rapid-reset budget"
+        );
+        http2_conn_close_streams_internal(&w, 0, 0);
+        http2_conn_wipe(&w);
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        rapid_reset_flood,
+        "a peer that keeps opening streams then immediately resetting them "
+        "(rapid reset, cve-2023-44487) must be aborted "
+        "(enhance_your_calm) once its resets outpace the streams it "
+        "completes, even though it never exceeds max-concurrent-streams"
+    )
+    {
+        http2_conn_t w;
+        pstream_t goaway;
+        http2_frame_info_t frame = {.type = 0};
+        uint32_t last_stream_id;
+        uint32_t error_code;
+        sb_t frames;
+
+        sb_init(&frames);
+        http2_conn_init(&w);
+        w.state = HTTP2_PARSE_COMMON_HDR;
+        /* One reset more than the burst we tolerate without any completed
+         * stream to offset it. Each peer stream is opened directly (feeding a
+         * real HEADERS frame would reach http2_stream_on_accept(), which
+         * needs a server backend) then reset by the peer on the wire. */
+        for (uint32_t i = 0; i <= HTTP2_LEN_MAX_RESET_STREAMS_BURST; i++) {
+            uint32_t id = 2 * i + 1;
+
+            http2_stream_handle_events(
+                &w, http2_stream_get(&w, id), HTTP2_STREAM_EV_1ST_HDRS
+            );
+            z_http2_add_frame(
+                &frames, HTTP2_LEN_RST_STREAM_PAYLOAD, HTTP2_TYPE_RST_STREAM,
+                HTTP2_FLAG_NONE, id
+            );
+        }
+        sb_add(&w.ibuf, frames.data, frames.len);
+        http2_conn_process_input_buffer(&w);
+
+        Z_ASSERT(
+            w.abort_in_flight, "a rapid-reset flood must abort the connection"
+        );
+        /* Walk past any queued frames to the final GOAWAY. */
+        goaway = ps_initsb(&w.ob.sb);
+        while (!ps_done(&goaway)) {
+            Z_ASSERT_N(http2_parse_frame_hdr(&goaway, &frame));
+            if (frame.type == HTTP2_TYPE_GOAWAY) {
+                break;
+            }
+            Z_ASSERT_N(ps_skip(&goaway, frame.len));
+        }
+        Z_ASSERT_EQ(frame.type, (uint8_t)HTTP2_TYPE_GOAWAY);
+        Z_ASSERT_N(ps_get_be32(&goaway, &last_stream_id));
+        Z_ASSERT_N(ps_get_be32(&goaway, &error_code));
+        Z_ASSERT_EQ(error_code, (uint32_t)HTTP2_CODE_ENHANCE_YOUR_CALM);
+
+        sb_wipe(&frames);
+        http2_conn_close_streams_internal(&w, 0, 0);
+        http2_conn_wipe(&w);
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        data_exceeds_recv_window,
+        "DATA that overruns the advertised connection receive window "
+        "must be a connection error (FLOW_CONTROL_ERROR, RFC 9113 6.9.1), "
+        "not silently accepted with the window topped back up"
+    )
+    {
+        http2_conn_t w;
+        pstream_t goaway;
+        http2_frame_info_t frame;
+        uint32_t last_stream_id;
+        uint32_t error_code;
+        SB_1k(frames);
+
+        http2_conn_init(&w);
+        /* Open peer (client) stream 1 so the DATA targets a live stream. */
+        http2_stream_handle_events(
+            &w, http2_stream_get(&w, 1), HTTP2_STREAM_EV_1ST_HDRS
+        );
+        /* Shrink the connection receive window so the next DATA frame
+         * overruns it: a peer ignoring the window we advertised. */
+        w.recv_window = 4;
+        /* A DATA frame of 8 octets exceeds the 4-octet window. */
+        z_http2_add_frame(&frames, 8, HTTP2_TYPE_DATA, HTTP2_FLAG_NONE, 1);
+        w.state = HTTP2_PARSE_COMMON_HDR;
+        sb_add(&w.ibuf, frames.data, frames.len);
+        http2_conn_process_input_buffer(&w);
+
+        Z_ASSERT(
+            w.abort_in_flight,
+            "DATA beyond the connection window must abort the "
+            "connection"
+        );
+        /* The wire carries a GOAWAY(FLOW_CONTROL_ERROR). */
+        goaway = ps_initsb(&w.ob.sb);
+        Z_ASSERT_N(http2_parse_frame_hdr(&goaway, &frame));
+        Z_ASSERT_EQ(frame.type, (uint8_t)HTTP2_TYPE_GOAWAY);
+        Z_ASSERT_N(ps_get_be32(&goaway, &last_stream_id));
+        Z_ASSERT_N(ps_get_be32(&goaway, &error_code));
+        Z_ASSERT_EQ(error_code, (uint32_t)HTTP2_CODE_FLOW_CONTROL_ERROR);
+
+        http2_conn_close_streams_internal(&w, 0, 0);
+        http2_conn_wipe(&w);
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        data_exceeds_stream_recv_window,
+        "DATA that overruns the advertised stream receive window must be "
+        "a FLOW_CONTROL_ERROR (RFC 9113 6.9.1) too, even when the "
+        "connection window still has room"
+    )
+    {
+        http2_conn_t w;
+        http2_stream_t *stream;
+        pstream_t goaway;
+        http2_frame_info_t frame;
+        uint32_t last_stream_id;
+        uint32_t error_code;
+        SB_1k(frames);
+
+        http2_conn_init(&w);
+        stream = http2_stream_get(&w, 1);
+        http2_stream_handle_events(&w, stream, HTTP2_STREAM_EV_1ST_HDRS);
+        /* Leave the connection window large (checked first) but shrink the
+         * stream window so the DATA frame overruns the stream window. */
+        stream->recv_window = 4;
+        /* A DATA frame of 8 octets exceeds the 4-octet stream window. */
+        z_http2_add_frame(&frames, 8, HTTP2_TYPE_DATA, HTTP2_FLAG_NONE, 1);
+        w.state = HTTP2_PARSE_COMMON_HDR;
+        sb_add(&w.ibuf, frames.data, frames.len);
+        http2_conn_process_input_buffer(&w);
+
+        Z_ASSERT(
+            w.abort_in_flight,
+            "DATA beyond the stream window must abort the connection"
+        );
+        goaway = ps_initsb(&w.ob.sb);
+        Z_ASSERT_N(http2_parse_frame_hdr(&goaway, &frame));
+        Z_ASSERT_EQ(frame.type, (uint8_t)HTTP2_TYPE_GOAWAY);
+        Z_ASSERT_N(ps_get_be32(&goaway, &last_stream_id));
+        Z_ASSERT_N(ps_get_be32(&goaway, &error_code));
+        Z_ASSERT_EQ(error_code, (uint32_t)HTTP2_CODE_FLOW_CONTROL_ERROR);
+
+        http2_conn_close_streams_internal(&w, 0, 0);
+        http2_conn_wipe(&w);
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        ping_flood,
+        "a flood of PING frames, each echoed as a PING ACK, must be "
+        "treated as a flood and aborted (ENHANCE_YOUR_CALM, "
+        "CVE-2019-9512), not answered without bound"
+    )
+    {
+        http2_conn_t w;
+        pstream_t goaway;
+        http2_frame_info_t frame = {.type = 0};
+        uint32_t last_stream_id;
+        uint32_t error_code;
+        sb_t frames;
+
+        sb_init(&frames);
+        http2_conn_init(&w);
+        w.state = HTTP2_PARSE_COMMON_HDR;
+        /* One PING more than we are willing to answer before a flush. */
+        for (int i = 0; i <= HTTP2_LEN_MAX_QUEUED_CTRL_FRAMES; i++) {
+            z_http2_add_frame(
+                &frames, HTTP2_LEN_PING_PAYLOAD, HTTP2_TYPE_PING,
+                HTTP2_FLAG_NONE, 0
+            );
+        }
+        sb_add(&w.ibuf, frames.data, frames.len);
+        http2_conn_process_input_buffer(&w);
+
+        Z_ASSERT(w.abort_in_flight, "a PING flood must abort the connection");
+        /* Walk past the queued PING ACKs to the final GOAWAY. */
+        goaway = ps_initsb(&w.ob.sb);
+        while (!ps_done(&goaway)) {
+            Z_ASSERT_N(http2_parse_frame_hdr(&goaway, &frame));
+            if (frame.type == HTTP2_TYPE_GOAWAY) {
+                break;
+            }
+            Z_ASSERT_N(ps_skip(&goaway, frame.len));
+        }
+        Z_ASSERT_EQ(frame.type, (uint8_t)HTTP2_TYPE_GOAWAY);
+        Z_ASSERT_N(ps_get_be32(&goaway, &last_stream_id));
+        Z_ASSERT_N(ps_get_be32(&goaway, &error_code));
+        Z_ASSERT_EQ(error_code, (uint32_t)HTTP2_CODE_ENHANCE_YOUR_CALM);
+
+        sb_wipe(&frames);
+        http2_conn_close_streams_internal(&w, 0, 0);
+        http2_conn_wipe(&w);
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        ping_flood_trickle_read,
+        "a peer that trickle-reads a single byte must not be able to clear "
+        "the PING/SETTINGS flood counter: the drain gate arms only once the "
+        "queue crosses MAX/2 and then credits half the budget per fully "
+        "drained backlog, so reading one byte between bursts cannot defeat "
+        "the flood guard"
+    )
+    {
+        const unsigned half = HTTP2_LEN_MAX_QUEUED_CTRL_FRAMES / 2;
+        const unsigned near_limit = HTTP2_LEN_MAX_QUEUED_CTRL_FRAMES - 1;
+        http2_conn_t w;
+
+        http2_conn_init(&w);
+        w.state = HTTP2_PARSE_COMMON_HDR;
+
+        /* Below the threshold the gate stays disarmed and the counter is left
+         * untouched -- even a flush that empties the buffer must not credit a
+         * peer that is nowhere near flooding. */
+        w.queued_control_frames = half - 1;
+        http2_conn_account_control_frame_drain(&w, 1000, 0);
+        Z_ASSERT_EQ(
+            w.control_frames_drain, 0,
+            "below MAX/2 the drain gate must not arm"
+        );
+        Z_ASSERT_EQ(
+            w.queued_control_frames, half - 1,
+            "below MAX/2 the counter must be left untouched"
+        );
+
+        /* Model a near-flood: the counter sits just under the hard limit with
+         * a 1000-byte backlog of un-acked ACKs. A single-byte flush (a peer
+         * trickle-reading our answers) arms the gate to the *whole* backlog
+         * and nibbles one byte off; it must not credit the counter. */
+        w.queued_control_frames = near_limit;
+        http2_conn_account_control_frame_drain(&w, 1000, 999);
+        Z_ASSERT_EQ(
+            w.control_frames_drain, 999,
+            "the gate is armed to the backlog, minus the byte flushed"
+        );
+        Z_ASSERT_EQ(
+            w.queued_control_frames, near_limit,
+            "a single-byte read must not credit the flood counter"
+        );
+
+        /* Further partial flushes only decrement the gate. */
+        http2_conn_account_control_frame_drain(&w, 999, 1);
+        Z_ASSERT_EQ(w.control_frames_drain, 1);
+        Z_ASSERT_EQ(w.queued_control_frames, near_limit);
+
+        /* Only once the whole armed backlog has drained is the peer credited,
+         * and then by half the budget -- not a full reset -- so a peer that
+         * re-floods after each drain still climbs toward the hard limit. */
+        http2_conn_account_control_frame_drain(&w, 1, 0);
+        Z_ASSERT_EQ(
+            w.control_frames_drain, 0, "the armed backlog has fully drained"
+        );
+        Z_ASSERT_EQ(
+            w.queued_control_frames, near_limit - half,
+            "draining the backlog credits only half the budget"
+        );
+
+        http2_conn_close_streams_internal(&w, 0, 0);
+        http2_conn_wipe(&w);
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        enable_push_directional,
+        "SETTINGS_ENABLE_PUSH is directional (RFC 9113 6.5.2): a server "
+        "may receive 0 or 1 from a client, but a client must reject a "
+        "non-zero value from a server (a server cannot enable push)"
+    )
+    {
+        http2_conn_t w;
+
+        /* As a server, ENABLE_PUSH=1 from the peer (a client) is valid. */
+        http2_conn_init(&w);
+        Z_ASSERT_N(
+            http2_conn_process_peer_settings(&w, HTTP2_ID_ENABLE_PUSH, 1)
+        );
+        Z_ASSERT(!w.abort_in_flight, "a client may set ENABLE_PUSH=1");
+        http2_conn_close_streams_internal(&w, 0, 0);
+        http2_conn_wipe(&w);
+
+        /* As a client, ENABLE_PUSH!=0 from the peer (a server) is an error.
+         */
+        http2_conn_init(&w);
+        w.is_client = true;
+        Z_ASSERT_NEG(
+            http2_conn_process_peer_settings(&w, HTTP2_ID_ENABLE_PUSH, 1)
+        );
+        Z_ASSERT(
+            w.abort_in_flight, "a server must not enable push on the client"
+        );
+        http2_conn_close_streams_internal(&w, 0, 0);
+        http2_conn_wipe(&w);
+    }
+    Z_TEST_END;
 }
 Z_GROUP_END;
 
