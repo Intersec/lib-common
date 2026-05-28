@@ -461,40 +461,74 @@ def add_custom_install(self: TaskGen) -> None:
 # {{{ python checkers
 
 
-def run_python_checker(ctx: BuildContext, checker_exec: str) -> None:
-    # Reset the build
-    groups: List[List[TaskGen]] = []
-    ctx.groups = groups
-
-    # Get the launch directory
-    path = ctx.launch_node()
-
+def _get_python_files(ctx: BuildContext) -> List[str]:
+    """
+    Return the file list to check: positional CLI args, or all tracked
+    python and ``wscript*`` files.
+    """
     # Steal the optional list of files passed as arguments.
     # Waf store the arguments in `Options.commands` and use them to run each
     # individual commands.
     # But here, the remaining arguments are not commands, but files.
     # So we need to steal the remaining arguments in `Options.commands`.
-    files_args = Options.commands[:]
+    files_args = cast(List[str], Options.commands[:])
     Options.commands.clear()
 
     if files_args:
-        # If we have some files passed as arguments, use them.
-        files_list = files_args
-    else:
-        # Else, get list of committed python files under the launch directory
-        files_str = ctx.cmd_and_log(
+        return files_args
+
+    files_str = cast(
+        str,
+        ctx.cmd_and_log(
             'git ls-files "*.py" "**/*.py" "*.pyi" "**/*.pyi" '
             '"wscript*" "**/wscript*"',
-            cwd=path,
+            cwd=ctx.launch_node(),
             quiet=Context.BOTH,
-        ).strip()
-        files_list = files_str.splitlines()
+        ),
+    ).strip()
+    return files_str.splitlines()
 
-    # Create tasks to check them using the checker
-    rule = checker_exec + ' ${SRC}'
-    for f in files_list:
-        node = path.make_node(f)
-        ctx(rule=rule, source=node, path=path, cwd=ctx.srcnode, always=True)
+
+def run_python_checker(
+    ctx: BuildContext, checker_cmd: List[str], *, per_file: bool = False
+) -> None:
+    """
+    Run ``checker_cmd`` on tracked Python files and ``wscript*`` files.
+
+    ``checker_cmd`` is the argv prefix (executable plus flags); files are
+    appended as additional argv entries — no shell interpolation. By
+    default the file list is passed in a single invocation. Set
+    ``per_file=True`` to spawn one invocation per file (needed for mypy,
+    which can't accept multiple ``wscript*`` files at once: they all map
+    to module ``__main__`` and collide).
+    """
+    # Reset the build: we don't want waf to perform its normal build.
+    groups: List[List[TaskGen]] = []
+    ctx.groups = groups
+
+    files_list = _get_python_files(ctx)
+    if not files_list:
+        return
+
+    if per_file:
+        path = ctx.launch_node()
+        rule = ' '.join(checker_cmd) + ' ${SRC}'
+        for f in files_list:
+            node = path.make_node(f)
+            ctx(
+                rule=rule,
+                source=node,
+                path=path,
+                cwd=ctx.srcnode,
+                always=True,
+            )
+        return
+
+    argv = [*checker_cmd, *files_list]
+    if ctx.exec_command(
+        argv, cwd=ctx.launch_node(), stdout=None, stderr=None
+    ):
+        ctx.fatal(f'`{checker_cmd[0]}` reported errors')
 
 
 # }}}
@@ -505,36 +539,10 @@ def run_ruff(ctx: BuildContext) -> None:
     if ctx.cmd not in {'ruff', 'ruff-fix'}:
         return
 
-    # Reset the build
-    groups: List[List[TaskGen]] = []
-    ctx.groups = groups
-
-    # Steal the optional list of files passed as arguments.
-    # Waf store the arguments in `Options.commands` and use them to run each
-    # individual commands.
-    # But here, the remaining arguments are not commands, but files.
-    # So we need to steal the remaining arguments in `Options.commands`.
-    files_args = Options.commands[:]
-    Options.commands.clear()
-
-    fix = '--fix --unsafe-fixes' if ctx.cmd == 'ruff-fix' else ''
-
-    if files_args:
-        # If files are passed manually, use them directly
-        file_args = ' '.join(f'"{f}"' for f in files_args)
-        rule = f'ruff check {fix} --force-exclude {file_args}'
-    else:
-        # Use shell pipeline to get files and check them
-        rule = (
-            'git ls-files "*.py" "**/*.py" "*.pyi" "**/*.pyi" '
-            f'"wscript*" "**/wscript*" | '
-            f'xargs ruff check --force-exclude {fix}'
-        )
-
-    # One task, run everything at once
-    ctx.cmd_and_log(
-        cmd=rule, cwd=ctx.launch_node(), shell=True, stdout=None, stderr=None
-    )
+    cmd = ['ruff', 'check', '--force-exclude']
+    if ctx.cmd == 'ruff-fix':
+        cmd += ['--fix', '--unsafe-fixes']
+    run_python_checker(ctx, cmd)
 
 
 class RuffClass(BuildContext):  # type: ignore[misc]
@@ -557,13 +565,84 @@ def run_mypy(ctx: BuildContext) -> None:
     if ctx.cmd != 'mypy':
         return
 
-    run_python_checker(ctx, 'mypy')
+    run_python_checker(ctx, ['mypy'], per_file=True)
 
 
 class MypyClass(BuildContext):  # type: ignore[misc]
     """run mypy checks on committed python files"""
 
     cmd = 'mypy'
+
+
+# }}}
+# {{{ pyrefly
+
+
+def _read_pyrefly_project_excludes(pyproject_path: str) -> List[str]:
+    """
+    Return the `project-excludes` patterns from the `[tool.pyrefly]`
+    section of ``pyproject_path``, or an empty list if absent.
+    """
+    # Deferred to keep `common.py` importable on Python 3.6 (waf
+    # bootstrap); `waf pyrefly` only runs in the 3.9+ phase.
+    try:
+        import tomllib  # noqa: PLC0415
+    except ImportError:
+        import tomli as tomllib  # type: ignore[no-redef, import-not-found]  # noqa: PLC0415
+    try:
+        with open(pyproject_path, 'rb') as f:
+            data = tomllib.load(f)
+    except FileNotFoundError:
+        return []
+    pyrefly_cfg = data.get('tool', {}).get('pyrefly', {})
+    return list(pyrefly_cfg.get('project-excludes', []))
+
+
+def run_pyrefly(ctx: BuildContext) -> None:
+    if ctx.cmd != 'pyrefly':
+        return
+
+    # `run_python_checker` passes the file list as argv, putting pyrefly
+    # in single-file mode. In that mode pyrefly silently:
+    #   - drops the config's `project-excludes`, so explicitly-listed
+    #     files get checked even when the config excludes them (e.g.
+    #     the intentionally-broken `one/ci/data/web-api/invalid.py`);
+    #   - does config-finding *per-file*, which for a project that
+    #     vendors `lib-common` as a submodule means lib-common's own
+    #     `[tool.pyrefly]` section gets applied to files reached via
+    #     import resolution. The two configs each pick their own
+    #     search-path for `iopy` and the resulting two `iopy.Channel`
+    #     classes fail to unify, producing spurious
+    #     `Channel is not assignable to Channel` errors.
+    # Workarounds:
+    #   `-c <pyproject>`            pins the config and disables the
+    #                               per-file config-finding;
+    #   `--project-excludes <pat>`  re-applies the config's excludes,
+    #                               which `-c` alone does not.
+    # The excludes need to be absolute: pyrefly resolves
+    # `--project-excludes` patterns against its own cwd, so a TOML
+    # pattern like `one/ci/data/web-api/invalid.py` would silently fail
+    # to match when waf is invoked from `one/` (cwd=one/, file shows up
+    # as `ci/data/web-api/invalid.py`).
+    cmd = ['pyrefly', 'check']
+    pyproject_node = ctx.srcnode.find_node('pyproject.toml')
+    if pyproject_node is not None:
+        pyproject_path = pyproject_node.abspath()
+        cmd += ['-c', pyproject_path]
+        config_dir = os.path.dirname(pyproject_path)
+        for pattern in _read_pyrefly_project_excludes(pyproject_path):
+            cmd += ['--project-excludes', os.path.join(config_dir, pattern)]
+
+    # Pyrefly's `project-includes` only matches `.py`/`.pyi` paths, so
+    # `wscript*` files are silently skipped in project-checking mode. The
+    # file list passed by `run_python_checker` includes them explicitly.
+    run_python_checker(ctx, cmd)
+
+
+class PyreflyClass(BuildContext):  # type: ignore[misc]
+    """run pyrefly checks on committed python files"""
+
+    cmd = 'pyrefly'
 
 
 # }}}
@@ -654,6 +733,7 @@ def build(ctx: BuildContext) -> None:
     ctx.add_pre_fun(add_scan_in_signature)
     ctx.add_pre_fun(run_ruff)
     ctx.add_pre_fun(run_mypy)
+    ctx.add_pre_fun(run_pyrefly)
     ctx.add_post_fun(run_checks)
 
 

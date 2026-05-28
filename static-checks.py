@@ -174,7 +174,7 @@ def main() -> None:
         run_cmd('waf', 'ruff')
         run_cmd('ruff', 'format', '--check')
         run_cmd('waf', 'mypy')
-        run_cmd('pyrefly', 'check')
+        run_cmd('waf', 'pyrefly')
         run_cmd('ast-grep', 'scan')
         run_cmd('ast-grep', 'test')
 
