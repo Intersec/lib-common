@@ -204,9 +204,22 @@ static void iopc_pystub_dump_enums(sb_t *buf, const iopc_pkg_t *pkg)
 /* }}} */
 /* {{{ Struct/Union */
 
+/* Mode controlling how a field's Python type annotation is rendered. */
+typedef enum iopc_pystub_field_mode_t {
+    /* Class attribute access type (e.g. `iopy.IopOptField[int]`, `list[T]`,
+     * the IOPy object for nested structs/unions/enums). */
+    PYSTUB_FIELD_ATTR,
+
+    /* Strict dict type, matching the output of `to_dict()`. */
+    PYSTUB_FIELD_DICT,
+
+    /* Wide "param" dict type, accepted as constructor/keyword input. */
+    PYSTUB_FIELD_PARAM,
+} iopc_pystub_field_mode_t;
+
 static void iopc_pystub_dump_field_basetype(sb_t *buf, const iopc_pkg_t *pkg,
                                             const iopc_field_t *field,
-                                            bool is_param_type)
+                                            iopc_pystub_field_mode_t mode)
 {
     switch (field->kind) {
     case IOP_T_I8:
@@ -217,7 +230,7 @@ static void iopc_pystub_dump_field_basetype(sb_t *buf, const iopc_pkg_t *pkg,
     case IOP_T_U32:
     case IOP_T_I64:
     case IOP_T_U64:
-        if (is_param_type) {
+        if (mode == PYSTUB_FIELD_PARAM) {
             sb_adds(buf, "int | float");
         } else {
             sb_adds(buf, "int");
@@ -229,7 +242,7 @@ static void iopc_pystub_dump_field_basetype(sb_t *buf, const iopc_pkg_t *pkg,
         break;
 
     case IOP_T_DOUBLE:
-        if (is_param_type) {
+        if (mode == PYSTUB_FIELD_PARAM) {
             sb_adds(buf, "int | float");
         } else {
             sb_adds(buf, "float");
@@ -246,7 +259,7 @@ static void iopc_pystub_dump_field_basetype(sb_t *buf, const iopc_pkg_t *pkg,
 
     case IOP_T_STRING:
     case IOP_T_XML:
-        if (is_param_type) {
+        if (mode == PYSTUB_FIELD_PARAM) {
             sb_adds(buf, "str | bytes");
         } else {
             sb_adds(buf, "str");
@@ -254,19 +267,33 @@ static void iopc_pystub_dump_field_basetype(sb_t *buf, const iopc_pkg_t *pkg,
         break;
 
     case IOP_T_DATA:
-        if (is_param_type) {
+        if (mode == PYSTUB_FIELD_PARAM) {
             sb_adds(buf, "bytes | str");
         } else {
             sb_adds(buf, "bytes");
         }
         break;
 
-    case IOP_T_STRUCT:
-    case IOP_T_UNION:
     case IOP_T_ENUM:
+        if (mode == PYSTUB_FIELD_DICT) {
+            /* `to_dict()` exports enums as their string name. */
+            sb_adds(buf, "str");
+            break;
+        }
         iopc_pystub_dump_package_member(buf, pkg, field->type_pkg,
                                         field->type_path, field->type_name);
-        if (is_param_type) {
+        if (mode == PYSTUB_FIELD_PARAM) {
+            sb_adds(buf, "_ParamType");
+        }
+        break;
+
+    case IOP_T_STRUCT:
+    case IOP_T_UNION:
+        iopc_pystub_dump_package_member(buf, pkg, field->type_pkg,
+                                        field->type_path, field->type_name);
+        if (mode == PYSTUB_FIELD_DICT) {
+            sb_adds(buf, "_DictType");
+        } else if (mode == PYSTUB_FIELD_PARAM) {
             sb_adds(buf, "_ParamType");
         }
         break;
@@ -275,17 +302,17 @@ static void iopc_pystub_dump_field_basetype(sb_t *buf, const iopc_pkg_t *pkg,
 
 static void iopc_pystub_dump_field_type(sb_t *buf, const iopc_pkg_t *pkg,
                                         const iopc_field_t *field,
-                                        bool is_param_type)
+                                        iopc_pystub_field_mode_t mode)
 {
     switch (field->repeat) {
     case IOP_R_OPTIONAL:
-        if (!is_param_type) {
+        if (mode == PYSTUB_FIELD_ATTR) {
             sb_adds(buf, "iopy.IopOptField[");
         }
         break;
 
     case IOP_R_REPEATED:
-        if (is_param_type) {
+        if (mode == PYSTUB_FIELD_PARAM) {
             sb_adds(buf, "typing.Sequence[");
         } else {
             sb_adds(buf, "list[");
@@ -297,24 +324,32 @@ static void iopc_pystub_dump_field_type(sb_t *buf, const iopc_pkg_t *pkg,
         break;
     }
 
-    iopc_pystub_dump_field_basetype(buf, pkg, field, is_param_type);
+    iopc_pystub_dump_field_basetype(buf, pkg, field, mode);
 
     switch (field->repeat) {
     case IOP_R_OPTIONAL:
-        if (is_param_type) {
+        switch (mode) {
+        case PYSTUB_FIELD_ATTR:
+            sb_adds(buf, "]");
+            break;
+        case PYSTUB_FIELD_PARAM:
             /* Avoid 'None | None' for optional void */
             if (field->kind != IOP_T_VOID) {
                 sb_adds(buf, " | None");
             }
-        } else {
-            sb_adds(buf, "]");
+            break;
+        case PYSTUB_FIELD_DICT:
+            /* Strict dict: bare value type; the `NotRequired` is applied
+             * at the dict entry level, and a set optional value is never
+             * None. */
+            break;
         }
         break;
 
     case IOP_R_REPEATED:
-        if (is_param_type) {
+        if (mode == PYSTUB_FIELD_PARAM) {
             sb_adds(buf, "] | ");
-            iopc_pystub_dump_field_basetype(buf, pkg, field, is_param_type);
+            iopc_pystub_dump_field_basetype(buf, pkg, field, mode);
         } else {
             sb_adds(buf, "]");
         }
@@ -340,7 +375,7 @@ iopc_pystub_dump_fields(sb_t *buf, const iopc_pkg_t *pkg,
                 sb_adds(buf, "# ");
             }
             sb_addf(buf, "%s: ", field->name);
-            iopc_pystub_dump_field_type(buf, pkg, field, false);
+            iopc_pystub_dump_field_type(buf, pkg, field, PYSTUB_FIELD_ATTR);
 
             if (is_field_name_a_keyword) {
                 sb_addf(buf, " -- `%s` is a reserved Python keyword",
@@ -437,9 +472,12 @@ iopc_pystub_field_dict_is_optional(const iopc_field_t *field)
     if (field->kind == IOP_T_STRUCT) {
         /* Check that all the fields of a struct/class are optional.
          *
-         * XXX: Unlike iop_struct_is_optional(), we cannot consider the class
-         * as required for abstract classes since '_class' is always an
-         * optional dict type field.
+         * XXX: Unlike iop_struct_is_optional(), we do not let the synthetic
+         * '_class' field make a class required here: in the param dict
+         * '_class' is NotRequired, so a class with only optional data fields
+         * is still empty-constructible and may be omitted. (In the strict
+         * dict '_class' is required, which only makes this result loose, not
+         * unsound.)
          */
         const iopc_struct_t *st = field->struct_def;
 
@@ -460,39 +498,46 @@ iopc_pystub_field_dict_is_optional(const iopc_field_t *field)
     return false;
 }
 
+/* Dump one TypedDict variant of a struct/class.
+ *
+ * `mode`/`suffix` select the strict `DictType` (PYSTUB_FIELD_DICT) or the
+ * wide `ParamDictType` (PYSTUB_FIELD_PARAM) flavor. */
 static void
-iopc_pystub_dump_struct_dict_type(sb_t *buf, const iopc_pkg_t *pkg,
-                                  const iopc_struct_t *st,
-                                  const char *st_name)
+iopc_pystub_dump_struct_dict_type_variant(sb_t *buf, const iopc_pkg_t *pkg,
+                                          const iopc_struct_t *st,
+                                          const char *st_name,
+                                          iopc_pystub_field_mode_t mode,
+                                          const char *suffix)
 {
     /* Intermediary fields TypeDict with function-call syntax to support
      * invalid field names in Python. */
-    sb_addf(buf, "%s_fields_DictType = typing.TypedDict("
-            "'%s_fields_DictType', {\n",
-            st_name, st_name);
+    sb_addf(buf, "%s_fields_%s = typing.TypedDict('%s_fields_%s', {\n",
+            st_name, suffix, st_name, suffix);
 
     if (iopc_is_class(st->type) && !st->extends.len) {
         /* Root class, add '_class' field.
          *
-         * Ideally, we should have "root" '_class: str' field and have literal
-         * '_class: Literal[""]' field with the IOP full path for each class.
+         * For the strict dict type, '_class' is always present in the
+         * `to_dict()` output (unless 'skip_class_names' is used, which we
+         * cannot express here), so we make it required.
          *
-         * Unfortunately, it is not possible in Python to have inheritance on
-         * TypedDict, and restrict the literal value on each level, and
-         * discriminate on this value, and have it optional or not
-         * depending on if we want to use Unpack or not.
+         * For the wide param dict type it is optional: callers may omit it
+         * and trust that the runtime '_class' value is valid (like we did
+         * before).
          *
-         * Currently, the best thing is to trust the user that the '_class'
-         * value is valid at runtime (like we did before).
-         * What we could do is use 'Annotated' and use a Mypy plugin, but
-         * this is complicated.
-         *
-         * See
+         * Ideally, we should have a literal '_class: Literal[<path>]' for
+         * each class and discriminate on it, but TypedDict inheritance does
+         * not allow restricting the literal value per level. See
          * https://github.com/python/typing/issues/1467
          * https://discuss.python.org/t/pep-589-inheritance-rules-and-typing-literal-pep-586/7721/2
          */
-        sb_adds(buf,
-                "    '_class': typing_extensions.NotRequired[str | None],\n");
+        if (mode == PYSTUB_FIELD_DICT) {
+            sb_adds(buf, "    '_class': str,\n");
+        } else {
+            sb_adds(buf,
+                    "    '_class': typing_extensions.NotRequired[str | None],"
+                    "\n");
+        }
     }
 
     tab_for_each_entry(field, &st->fields) {
@@ -502,7 +547,7 @@ iopc_pystub_dump_struct_dict_type(sb_t *buf, const iopc_pkg_t *pkg,
         if (is_optional) {
             sb_adds(buf, "typing_extensions.NotRequired[");
         }
-        iopc_pystub_dump_field_type(buf, pkg, field, true);
+        iopc_pystub_dump_field_type(buf, pkg, field, mode);
         if (is_optional) {
             sb_adds(buf, "]");
         }
@@ -513,7 +558,7 @@ iopc_pystub_dump_struct_dict_type(sb_t *buf, const iopc_pkg_t *pkg,
 
     /* Final dict type with class syntax for inheritance. */
     sb_adds(buf, "@typing.type_check_only\n");
-    sb_addf(buf, "class %s_DictType(", st_name);
+    sb_addf(buf, "class %s_%s(", st_name, suffix);
 
     if (iopc_is_class(st->type) && st->extends.len) {
         /* Inherit parent dict type */
@@ -522,11 +567,25 @@ iopc_pystub_dump_struct_dict_type(sb_t *buf, const iopc_pkg_t *pkg,
 
         iopc_pystub_dump_package_member(buf, pkg, parent_pkg,
                                         parent_pkg->name, parent->name);
-        sb_adds(buf, "_DictType, ");
+        sb_addf(buf, "_%s, ", suffix);
     }
 
-    sb_addf(buf, "%s_fields_DictType):\n"
-            "    ...\n\n", st_name);
+    sb_addf(buf, "%s_fields_%s):\n"
+            "    ...\n\n", st_name, suffix);
+}
+
+static void
+iopc_pystub_dump_struct_dict_type(sb_t *buf, const iopc_pkg_t *pkg,
+                                  const iopc_struct_t *st,
+                                  const char *st_name)
+{
+    /* Strict dict type, matching the output of `to_dict()`. */
+    iopc_pystub_dump_struct_dict_type_variant(buf, pkg, st, st_name,
+                                              PYSTUB_FIELD_DICT, "DictType");
+    /* Wide "param" dict type, accepted as constructor/keyword input. */
+    iopc_pystub_dump_struct_dict_type_variant(buf, pkg, st, st_name,
+                                              PYSTUB_FIELD_PARAM,
+                                              "ParamDictType");
 }
 
 static void iopc_pystub_dump_struct_inits(sb_t *buf, const char *st_name)
@@ -535,7 +594,7 @@ static void iopc_pystub_dump_struct_inits(sb_t *buf, const char *st_name)
         buf,
         "    @typing.overload\n"
         "    def __init__(self, "
-        "**kwargs: typing_extensions.Unpack[%s_DictType]) -> None: ...\n"
+        "**kwargs: typing_extensions.Unpack[%s_ParamDictType]) -> None: ...\n"
         "\n",
         st_name
     );
@@ -546,6 +605,8 @@ iopc_pystub_dump_struct_simple(sb_t *buf, const iopc_pkg_t *pkg,
                                const iopc_struct_t *st, const char *st_name)
 {
     sb_addf(buf, "%s_DictType: typing_extensions.TypeAlias = "
+            "dict[str, typing.Any]\n", st_name);
+    sb_addf(buf, "%s_ParamDictType: typing_extensions.TypeAlias = "
             "dict[str, typing.Any]\n\n", st_name);
 
     sb_adds(buf, "@typing.type_check_only\n");
@@ -562,8 +623,8 @@ iopc_pystub_dump_struct_simple(sb_t *buf, const iopc_pkg_t *pkg,
     sb_adds(buf,"):\n    ...\n");
 
     sb_addf(buf, "\n%s_ParamType: typing_extensions.TypeAlias = "
-            "%s | %s_DictType\n",
-            st_name, st_name, st_name);
+            "%s | %s_ParamDictType | %s_DictType\n",
+            st_name, st_name, st_name, st_name);
 }
 
 static void
@@ -604,8 +665,8 @@ iopc_pystub_dump_struct_intern(sb_t *buf, const iopc_pkg_t *pkg,
     iopc_pystub_dump_no_setattr(buf, is_child_class);
 
     sb_addf(buf, "\n%s_ParamType: typing_extensions.TypeAlias = "
-            "%s | %s_DictType\n",
-            st_name, st_name, st_name);
+            "%s | %s_ParamDictType | %s_DictType\n",
+            st_name, st_name, st_name, st_name);
 }
 
 static void iopc_pystub_dump_struct(sb_t *buf, const iopc_pkg_t *pkg,
@@ -771,23 +832,29 @@ static qv_t(lstr) t_iopc_pystub_build_unambiguous_types(
     return res;
 }
 
+/* Dump one TypedDict variant of a union: a per-field TypedDict for each field
+ * plus the union alias of those.
+ *
+ * `mode`/`suffix` select the strict `DictType` (PYSTUB_FIELD_DICT) or the
+ * wide `ParamDictType` (PYSTUB_FIELD_PARAM) flavor. */
 static void
-iopc_pystub_dump_union_dict_types(sb_t *buf, const iopc_pkg_t *pkg,
-                                  const iopc_struct_t *st)
+iopc_pystub_dump_union_dict_types_variant(sb_t *buf, const iopc_pkg_t *pkg,
+                                          const iopc_struct_t *st,
+                                          iopc_pystub_field_mode_t mode,
+                                          const char *suffix)
 {
     const char *st_name = st->name;
 
     tab_for_each_entry(field, &st->fields) {
-        sb_addf(buf, "%s_%s_DictType = typing.TypedDict('%s_%s_DictType', "
-                "{\n",
-                st_name, field->name,
-                st_name, field->name);
+        sb_addf(buf, "%s_%s_%s = typing.TypedDict('%s_%s_%s', {\n",
+                st_name, field->name, suffix,
+                st_name, field->name, suffix);
         sb_addf(buf, "    '%s': ",field->name);
-        iopc_pystub_dump_field_type(buf, pkg, field, true);
+        iopc_pystub_dump_field_type(buf, pkg, field, mode);
         sb_adds(buf, ",\n})\n\n");
     }
 
-    sb_addf(buf, "%s_DictType: typing_extensions.TypeAlias = ", st_name);
+    sb_addf(buf, "%s_%s: typing_extensions.TypeAlias = ", st_name, suffix);
 
     tab_for_each_pos(pos, &st->fields) {
         const iopc_field_t *field = st->fields.tab[pos];
@@ -796,10 +863,25 @@ iopc_pystub_dump_union_dict_types(sb_t *buf, const iopc_pkg_t *pkg,
             sb_adds(buf, " | ");
         }
 
-        sb_addf(buf, "%s_%s_DictType", st_name, field->name);
+        sb_addf(buf, "%s_%s_%s", st_name, field->name, suffix);
     }
 
     sb_adds(buf, "\n\n");
+}
+
+static void
+iopc_pystub_dump_union_dict_types(sb_t *buf, const iopc_pkg_t *pkg,
+                                  const iopc_struct_t *st)
+{
+    /* Strict per-field dict types + strict union dict type (to_dict
+     * output). */
+    iopc_pystub_dump_union_dict_types_variant(buf, pkg, st,
+                                              PYSTUB_FIELD_DICT, "DictType");
+    /* Wide per-field dict types + wide union param dict type (kwargs
+     * input). */
+    iopc_pystub_dump_union_dict_types_variant(buf, pkg, st,
+                                              PYSTUB_FIELD_PARAM,
+                                              "ParamDictType");
 }
 
 static void
@@ -834,7 +916,7 @@ static void iopc_pystub_dump_union_inits(sb_t *buf, const iopc_pkg_t *pkg,
             buf,
             "    @typing.overload\n"
             "    def __init__(self, **kwargs: typing_extensions.Unpack["
-            "%s_%s_DictType]) -> None: ...\n\n" ,
+            "%s_%s_ParamDictType]) -> None: ...\n\n",
             st->name, field->name
         );
     }
@@ -845,6 +927,8 @@ static void iopc_pystub_dump_union_simple(sb_t *buf, const iopc_pkg_t *pkg,
                                           const char *st_name)
 {
     sb_addf(buf, "%s_DictType: typing_extensions.TypeAlias = "
+            "dict[str, typing.Any]\n", st_name);
+    sb_addf(buf, "%s_ParamDictType: typing_extensions.TypeAlias = "
             "dict[str, typing.Any]\n\n", st_name);
 
     sb_adds(buf, "@typing.type_check_only\n");
@@ -852,8 +936,8 @@ static void iopc_pystub_dump_union_simple(sb_t *buf, const iopc_pkg_t *pkg,
     sb_adds(buf, "    ...\n");
 
     sb_addf(buf, "\n%s_ParamType: typing_extensions.TypeAlias = "
-            "%s | %s_DictType\n",
-            st_name, st_name, st_name);
+            "%s | %s_ParamDictType | %s_DictType\n",
+            st_name, st_name, st_name, st_name);
 }
 
 static void iopc_pystub_dump_union_intern(sb_t *buf, const iopc_pkg_t *pkg,
@@ -902,8 +986,8 @@ static void iopc_pystub_dump_union_intern(sb_t *buf, const iopc_pkg_t *pkg,
 
     /* Dump param class type */
     sb_addf(buf, "\n%s_ParamType: typing_extensions.TypeAlias = "
-            "%s | %s_DictType",
-            st_name, st_name, st_name);
+            "%s | %s_ParamDictType | %s_DictType",
+            st_name, st_name, st_name, st_name);
     if (unambiguous_types.len) {
         sb_addf(buf, " | %s_UnambiguousType", st_name);
     }
@@ -958,8 +1042,10 @@ iopc_pystub_dump_rpc_fun_struct(sb_t *buf, const iopc_pkg_t *pkg,
         sb_addf(buf,
                 "%s: typing_extensions.TypeAlias = iopy.Void\n"
                 "%s_DictType: typing_extensions.TypeAlias = "
+                "iopy.EmptyTypedDict\n"
+                "%s_ParamDictType: typing_extensions.TypeAlias = "
                 "iopy.EmptyTypedDict\n",
-                st_name, st_name);
+                st_name, st_name, st_name);
     } else if (fun_st->is_anonymous) {
         iopc_pystub_dump_struct_intern(buf, pkg, fun_st->anonymous_struct,
                                        st_name);
@@ -967,11 +1053,14 @@ iopc_pystub_dump_rpc_fun_struct(sb_t *buf, const iopc_pkg_t *pkg,
         SB_1k(type_buf);
 
         iopc_pystub_dump_field_basetype(&type_buf, pkg,
-                                        fun_st->existing_struct, false);
+                                        fun_st->existing_struct,
+                                        PYSTUB_FIELD_ATTR);
         sb_addf(buf, "%s: typing_extensions.TypeAlias = %*pM\n",
                 st_name, SB_FMT_ARG(&type_buf));
         sb_addf(buf, "%s_DictType: typing_extensions.TypeAlias = "
                 "%*pM_DictType\n", st_name, SB_FMT_ARG(&type_buf));
+        sb_addf(buf, "%s_ParamDictType: typing_extensions.TypeAlias = "
+                "%*pM_ParamDictType\n", st_name, SB_FMT_ARG(&type_buf));
         sb_addf(buf, "%s_ParamType: typing_extensions.TypeAlias = "
                 "%*pM_ParamType\n", st_name, SB_FMT_ARG(&type_buf));
     }
@@ -992,7 +1081,7 @@ iopc_pystub_dump_rpc_fun_struct_resolved(sb_t *buf, const iopc_pkg_t *pkg,
         sb_adds(buf, st_name);
     } else {
         iopc_pystub_dump_field_basetype(buf, pkg, fun_st->existing_struct,
-                                        false);
+                                        PYSTUB_FIELD_ATTR);
     }
 }
 
@@ -1022,7 +1111,7 @@ iopc_pystub_dump_rpc_arg_full_dict_types(sb_t *buf, const iopc_fun_t *rpc,
             sb_addf(buf,
                     "@typing.type_check_only\n"
                     "class %s_Arg_%s_FullDictType("
-                    "%s_%s_DictType, iopy.IcKwargs, total=False):\n"
+                    "%s_%s_ParamDictType, iopy.IcKwargs, total=False):\n"
                     "    ...\n\n",
                     rpc_name, field->name,
                     arg_union_st->name, field->name);
@@ -1038,7 +1127,7 @@ iopc_pystub_dump_rpc_arg_full_dict_types(sb_t *buf, const iopc_fun_t *rpc,
         sb_addf(buf,
                 "@typing.type_check_only\n"
                 "class %s_Arg_FullDictType("
-                "%s_Arg_DictType, iopy.IcKwargs, total=False):\n"
+                "%s_Arg_ParamDictType, iopy.IcKwargs, total=False):\n"
                 "    ...\n\n",
                 rpc_name, rpc_name);
     }
@@ -1093,7 +1182,7 @@ static void iopc_pystub_dump_rpc_call_meth(sb_t *buf,
             "\n"
             "    @typing.overload\n"
             "    def %s(\n"
-            "        self, dct: %s_Arg_DictType,\n"
+            "        self, dct: %s_Arg_ParamDictType,\n"
             "        **ic_kwargs: typing_extensions.Unpack[iopy.IcKwargs],\n"
             "    ) -> %s: ...\n",
             method_name, rpc_name, res_type);

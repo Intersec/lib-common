@@ -2499,7 +2499,7 @@ class IopyIfaceTests(z.TestCase):
         c = self.r.connect(self.uri)
         iface = c.test_ModuleA.interfaceA
 
-        kwargs: test__iop.InterfaceA_funA_Arg_DictType = {
+        kwargs: test__iop.InterfaceA_funA_Arg_ParamDictType = {
             'a': self.r.test.ClassA(),
         }
         iface.funA(**kwargs)
