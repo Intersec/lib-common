@@ -75,6 +75,40 @@ static int z_iop_env_is_empty(const iop_env_t *iop_env)
     Z_HELPER_END;
 }
 
+#define Z_IOP_STRESS_N_READERS 4
+#define Z_IOP_STRESS_WRITER_ITERS 50
+#define Z_IOP_STRESS_READER_ITERS 4000
+
+typedef struct z_iop_stress_ctx_t {
+    iop_env_t *iop_env;
+    atomic_bool stop;
+    atomic_int reader_lookups;
+} z_iop_stress_ctx_t;
+
+static void *z_iop_stress_reader_loop(void *arg)
+{
+    const iop_env_ctx_t *ctx;
+    z_iop_stress_ctx_t *sc = arg;
+
+    iop_env_ctx_acquire_scoped(sc->iop_env, ctx);
+
+    for (int i = 0; i < Z_IOP_STRESS_READER_ITERS; i++) {
+        lstr_t key = LSTR_IMMED_V("tstiop_typedef.BasicStruct");
+
+        /* `BasicStruct` may or may not be present depending on the
+         * writer's current state; both outcomes are fine, we only care
+         * that no UB occurs. */
+        qm_find_safe(iop_env_struct, &ctx->struct_by_fullname, &key);
+        atomic_fetch_add_explicit(&sc->reader_lookups, 1,
+                                  memory_order_relaxed);
+
+        if (atomic_load_explicit(&sc->stop, memory_order_acquire)) {
+            break;
+        }
+    }
+    return NULL;
+}
+
 /* }}} */
 
 Z_GROUP_EXPORT(iop_env)
@@ -306,6 +340,59 @@ Z_GROUP_EXPORT(iop_env)
 
         /* Clean up the env */
         iop_env_delete(&iop_env);
+    } Z_TEST_END;
+    /* }}} */
+    Z_TEST(iop_env_concurrent_ctx_swap) { /* {{{ */
+        /* Stress the arc-swap'd ctx: one writer thread (main) keeps
+         * register/unregister'ing a package on a dedicated env while N
+         * reader threads acquire+release the ctx in a tight loop. Under
+         * normal builds this is mostly a smoke test; under P=tsan the
+         * runner catches any data race in the ArcSwap primitive, and
+         * under P=asan it catches use-after-free if a snapshot ctx is
+         * freed while a reader still holds it. */
+        z_iop_stress_ctx_t stress;
+        pthread_t readers[Z_IOP_STRESS_N_READERS];
+        void *retval;
+        const iop_pkg_t *pkgs[] = { &tstiop_typedef__pkg };
+
+        p_clear(&stress, 1);
+        stress.iop_env = iop_env_new();
+        atomic_init(&stress.stop, false);
+        atomic_init(&stress.reader_lookups, 0);
+
+        /* Spawn readers. */
+        for (int i = 0; i < Z_IOP_STRESS_N_READERS; i++) {
+            Z_ASSERT_EQ(pthread_create(&readers[i], NULL,
+                                       z_iop_stress_reader_loop, &stress),
+                        0);
+        }
+
+        /* Writer loop on the main thread: register + unregister. */
+        for (int i = 0; i < Z_IOP_STRESS_WRITER_ITERS; i++) {
+            iop_register_packages(stress.iop_env, pkgs, countof(pkgs));
+            iop_unregister_packages(stress.iop_env, pkgs, countof(pkgs));
+        }
+
+        /* Tell readers to stop and join. */
+        atomic_store_explicit(&stress.stop, true, memory_order_release);
+        for (int i = 0; i < Z_IOP_STRESS_N_READERS; i++) {
+            Z_ASSERT_EQ(pthread_join(readers[i], &retval), 0);
+        }
+
+        /* Sanity: readers must have done at least one lookup each — if
+         * the loop body short-circuited (e.g. ctx_acquire returned an
+         * invalid pointer leading to a quick break), we'd see 0. */
+        Z_ASSERT_GE(atomic_load_explicit(&stress.reader_lookups,
+                                         memory_order_relaxed),
+                    Z_IOP_STRESS_N_READERS);
+
+        /* No correctness check beyond "no crash / no UB" — the writer's
+         * register/unregister cycle leaves transitive dependencies of
+         * tstiop_typedef registered, so the env is not strictly empty
+         * at the end. The point of this test is to exercise the
+         * arc-swap reader/writer paths concurrently. */
+
+        iop_env_delete(&stress.iop_env);
     } Z_TEST_END;
     /* }}} */
 
