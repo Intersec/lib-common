@@ -54,6 +54,7 @@ ctx.program(
         'zchk-qps-bitmap.c',
         'zchk-iop.blk',
         'zchk-iop.c',
+        'zchk-iop-env.c',
         'zchk-iop-core-obj.blk',
         'zchk-iop-rpc.c',
         'zchk-iop-yaml.c',
