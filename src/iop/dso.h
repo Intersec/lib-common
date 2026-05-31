@@ -82,6 +82,10 @@ typedef struct iop_dso_t {
  * namespace is reused instead of creating a new one depending on the DSO.
  * See notes in dso.c for more explanation why it is required.
  *
+ * The returned DSO owns a single reference. Once you are done with it, call
+ * \ref iop_dso_close (NOT \ref iop_dso_delete): closing both unregisters its
+ * packages from the IOP environment and releases that reference.
+ *
  * \param[in]  iop_env the current IOP environment.
  * \param[in]  path    path to the DSO.
  * \param[out] err     error description in case of error.
@@ -90,13 +94,33 @@ iop_dso_t * nullable iop_dso_open(iop_env_t * nonnull iop_env,
                                   const char * nonnull path,
                                   sb_t * nonnull err);
 
-static ALWAYS_INLINE iop_dso_t * nonnull iop_dso_dup(iop_dso_t * nonnull dso)
-{
-    dso->refcnt++;
-    return dso;
-}
+/** Take an additional reference on a DSO.
+ *
+ * Each reference taken this way must be released with \ref iop_dso_release.
+ */
+REFCNT_RETAIN(iop_dso_t, iop_dso);
 
-/** Close a DSO and unregister its packages. */
+/** Release one reference to a DSO (counterpart of \ref iop_dso_retain).
+ *
+ * This is memory-only: it does NOT unregister the DSO's packages from the
+ * IOP environment (that is done eagerly by \ref iop_dso_close /
+ * \ref iop_dso_unregister). The shared object is unmapped (dlclose'd) only
+ * once the DSO's last reference is dropped, which lets an \ref iop_env_ctx_t
+ * snapshot keep a DSO's descriptors mapped for as long as the snapshot is
+ * held.
+ *
+ * To dispose of a DSO obtained from \ref iop_dso_open, use \ref iop_dso_close
+ * instead: that one also unregisters the packages. Use this function only to
+ * release extra references acquired with \ref iop_dso_retain.
+ */
+void iop_dso_release(iop_dso_t * nullable * nonnull dsop);
+
+/** Close a DSO (counterpart of \ref iop_dso_open).
+ *
+ * Unregisters the DSO's packages from the IOP environment (reloading the DSOs
+ * that depend on it) and releases the reference held by the caller. This is
+ * what owners of a DSO opened with \ref iop_dso_open must call.
+ */
 void iop_dso_close(iop_dso_t * nullable * nonnull dsop);
 
 /** Register the packages contained in a DSO.

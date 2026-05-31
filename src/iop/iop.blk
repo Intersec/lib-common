@@ -6293,7 +6293,8 @@ iop_env_ctx_t *iop_env_ctx_init(iop_env_ctx_t *iop_env_ctx)
 void iop_env_ctx_wipe(iop_env_ctx_t *iop_env_ctx)
 {
     qm_wipe(iop_class_by_id, &iop_env_ctx->classes_by_id);
-    qm_wipe(iop_dso_by_pkg, &iop_env_ctx->dso_by_pkg);
+    qm_deep_wipe(iop_dso_by_pkg, &iop_env_ctx->dso_by_pkg, IGNORE,
+                 iop_dso_release);
     qm_deep_wipe(iop_env_struct, &iop_env_ctx->struct_by_fullname, lstr_wipe,
                  IGNORE);
     qm_deep_wipe(iop_enum, &iop_env_ctx->enum_by_fullname, lstr_wipe, IGNORE);
@@ -6320,7 +6321,7 @@ void iop_env_ctx_copy_fields(iop_env_ctx_t *dst, const iop_env_ctx_t *src)
     qm_set_minsize(iop_dso_by_pkg, &dst->dso_by_pkg,
                    qm_len(iop_dso_by_pkg, &src->dso_by_pkg));
     qm_for_each_key_value(iop_dso_by_pkg, pkg, dso, &src->dso_by_pkg) {
-        qm_add(iop_dso_by_pkg, &dst->dso_by_pkg, pkg, dso);
+        qm_add(iop_dso_by_pkg, &dst->dso_by_pkg, pkg, iop_dso_retain(dso));
     }
 
     /* IOP objects */
@@ -6964,7 +6965,11 @@ static int iop_register_package_env(const iop_pkg_t *pkg, iop_dso_t *dso,
         return 0;
     }
     if (dso) {
-        qm_add(iop_dso_by_pkg, &iop_env_ctx->dso_by_pkg, pkg, dso);
+        /* The ctx owns a reference on the DSO (released in iop_env_ctx_wipe()
+         * or in iop_unregister_packages_ctx()) so its descriptors stay mapped
+         * while any ctx snapshot referencing them is alive. */
+        qm_add(iop_dso_by_pkg, &iop_env_ctx->dso_by_pkg, pkg,
+               iop_dso_retain(dso));
     }
 
     /* Register its structs/union/classes. */
@@ -7244,7 +7249,7 @@ iop_unregister_packages_ctx(iop_env_ctx_t *iop_env_ctx,
     for (int i = 0; i < len; i++) {
         const iop_pkg_t *pkg = pkgs[i];
         int pos;
-        const iop_dso_t *dso = NULL;
+        iop_dso_t *dso = NULL;
 
         /* Unregister the package itself. */
         if (iop_unregister_pkg(iop_env_ctx, pkg) < 0) {
@@ -7313,6 +7318,11 @@ iop_unregister_packages_ctx(iop_env_ctx_t *iop_env_ctx,
 
             iop_unregister_mod(iop_env_ctx, mod);
         }
+
+        /* Drop the reference this ctx held on the package's DSO on
+         * iop_register_package_env(); its descriptor memory is reclaimed once
+         * no ctx snapshot references it anymore. */
+        iop_dso_release(&dso);
     }
 
     if (iop_check_registered_classes_ctx(iop_env_ctx, &err) < 0) {

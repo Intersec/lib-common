@@ -312,11 +312,16 @@ static iop_dso_t *iop_dso_init(iop_dso_t *dso)
     return dso;
 }
 
-static void iop_dso_unload(iop_dso_t *dso)
+/* Unregister the DSO's packages from the IOP environment and fix up the
+ * DSOs that depend on it (reload them). This detaches the DSO from the env
+ * but does NOT unload (dlclose) it: the shared object is unmapped later, by
+ * iop_dso_wipe(), once the DSO's last reference is dropped. */
+static void iop_dso_detach_from_env(iop_dso_t *dso)
 {
     SB_1k(err);
 
-    e_trace(1, "close dso %p (%*pM)", dso, LSTR_FMT_ARG(dso->path));
+    e_trace(1, "detach dso %p (%*pM) from env",
+            dso, LSTR_FMT_ARG(dso->path));
 
     /* Delete references of this DSO in depends_on. */
     qh_for_each_pos(ptr, pos, &dso->depends_on) {
@@ -374,8 +379,12 @@ static void iop_dso_unregister_ref(const iop_dso_file_stat_t *dso_stat)
 
 static void iop_dso_wipe(iop_dso_t *dso)
 {
-    iop_dso_unload(dso);
-
+    /* NB: the env-unregistration is NOT done here on purpose. It is done
+     * eagerly by iop_dso_close()/iop_dso_unregister(), so that the DSO's
+     * refcount governs only when its descriptor memory is reclaimed. This
+     * lets an iop_env_ctx_t snapshot keep a DSO's descriptors mapped while
+     * it is still referenced, and avoids re-entering the env (ctx swap)
+     * from a context free. */
     qm_wipe(iop_pkg,     &dso->pkg_h);
     qm_wipe(iop_enum,    &dso->enum_h);
     qm_wipe(iop_struct,  &dso->struct_h);
@@ -390,9 +399,9 @@ static void iop_dso_wipe(iop_dso_t *dso)
         dlclose(dso->handle);
     }
 }
+
 REFCNT_NEW(iop_dso_t, iop_dso);
-REFCNT_RELEASE(iop_dso_t, iop_dso);
-REFCNT_DELETE(iop_dso_t, iop_dso);
+REFCNT_EXTERN_RELEASE(iop_dso_t, iop_dso);
 
 static iop_dso_file_stat_t iop_dso_file_get_stat(const char *path)
 {
@@ -544,7 +553,7 @@ static iop_dso_t *iop_dso_load_handle(iop_env_t *iop_env, void *handle,
 
     if (iop_dso_register_(dso, err) < 0) {
         dso->handle = NULL;
-        iop_dso_delete(&dso);
+        iop_dso_release(&dso);
         return NULL;
     }
 
@@ -555,7 +564,7 @@ static int iop_dso_reopen(iop_dso_t *dso, sb_t *err)
 {
     e_trace(1, "reopen dso %p (%*pM)", dso, LSTR_FMT_ARG(dso->path));
 
-    iop_dso_unload(dso);
+    iop_dso_detach_from_env(dso);
 
     qm_clear(iop_pkg,     &dso->pkg_h);
     qm_clear(iop_enum,    &dso->enum_h);
@@ -572,7 +581,17 @@ static int iop_dso_reopen(iop_dso_t *dso, sb_t *err)
 
 void iop_dso_close(iop_dso_t **dsop)
 {
-    iop_dso_delete(dsop);
+    iop_dso_t *dso = *dsop;
+
+    if (dso) {
+        /* Detach the DSO from the env now (unregister its packages and reload
+         * the DSOs that depend on it), then drop the caller's reference. The
+         * descriptor memory is reclaimed later (dlclose in iop_dso_wipe),
+         * when the last reference -- including any held by an iop_env_ctx
+         * snapshot -- is dropped. */
+        iop_dso_detach_from_env(dso);
+        iop_dso_release(dsop);
+    }
 }
 
 static int iop_dso_register_(iop_dso_t *dso, sb_t *err)
