@@ -33,6 +33,7 @@ void ichttp_cb_wipe(ichttp_cb_t *rpc)
 static void ichttp_query_wipe(ichttp_query_t *q)
 {
     ichttp_cb_delete(&q->cbe);
+    iop_env_ctx_release_cleanup(&q->iop_env_ctx_guard);
 }
 
 OBJ_VTABLE(ichttp_query)
@@ -51,32 +52,27 @@ static int t_parse_json(ichttp_query_t *iq, ichttp_cb_t *cbe, void **vout)
     tcb = container_of(iq->trig_cb, httpd_trigger__ic_t, cb);
 
     *vout = NULL;
-    {
-        const iop_env_ctx_t *iop_env_ctx;
-        iop_env_ctx_acquire_scoped(tcb->iop_env, iop_env_ctx);
+    iop_jlex_init(t_pool(), iq->iop_env_ctx_guard.ctx, &jll);
+    ps = ps_initsb(&iq->payload);
+    iop_jlex_attach(&jll, &ps);
 
-        iop_jlex_init(t_pool(), iop_env_ctx, &jll);
-        ps = ps_initsb(&iq->payload);
-        iop_jlex_attach(&jll, &ps);
+    jll.flags = tcb->unpack_flags;
 
-        jll.flags = tcb->unpack_flags;
+    if (iop_junpack_ptr(&jll, st, vout, true)) {
+        sb_reset(&buf);
+        iop_jlex_write_error(&jll, &buf);
 
-        if (iop_junpack_ptr(&jll, st, vout, true)) {
-            sb_reset(&buf);
-            iop_jlex_write_error(&jll, &buf);
-
-            __ichttp_err_ctx_set(LSTR_SB_V(&buf));
-            httpd_reject(obj_vcast(httpd_query, iq), BAD_REQUEST, "%s",
-                         buf.data);
-            __ichttp_err_ctx_clear();
-            res = -1;
-            goto end;
-        }
-        iop_jlex_detach(&jll);
-
-      end:
-        iop_jlex_wipe(&jll);
+        __ichttp_err_ctx_set(LSTR_SB_V(&buf));
+        httpd_reject(obj_vcast(httpd_query, iq), BAD_REQUEST, "%s",
+                     buf.data);
+        __ichttp_err_ctx_clear();
+        res = -1;
+        goto end;
     }
+    iop_jlex_detach(&jll);
+
+  end:
+    iop_jlex_wipe(&jll);
     return res;
 }
 
@@ -93,10 +89,8 @@ static int t_parse_soap(ichttp_query_t *iq,
     ichttp_cb_t *cbe;
     lstr_t s;
     int pos;
-    const iop_env_ctx_t *iop_env_ctx;
 
     tcb = container_of(iq->trig_cb, httpd_trigger__ic_t, cb);
-    iop_env_ctx_acquire_scoped(tcb->iop_env, iop_env_ctx);
 
     /* Initialize the xmlReader object */
     XCHECK(xmlr_setup(&xr, buf, len));
@@ -113,7 +107,7 @@ static int t_parse_soap(ichttp_query_t *iq,
     }
     iq->cbe = *cbout = cbe = ichttp_cb_retain(tcb->impl.values[pos]);
 
-    XCHECK(iop_xunpack_ptr_flags(xr, t_pool(), iop_env_ctx,
+    XCHECK(iop_xunpack_ptr_flags(xr, t_pool(), iq->iop_env_ctx_guard.ctx,
                                  cbe->fun->args, vout, tcb->unpack_flags));
     /* Close opened elements */
 
@@ -335,13 +329,16 @@ void __t_ichttp_query_on_done_stage2(httpd_query_t *q, ichttp_cb_t *cbe,
 static void ichttp_query_on_done(httpd_query_t *q)
 {
     t_scope;
-
     ichttp_query_t *iq = obj_vcast(ichttp_query, q);
+    httpd_trigger__ic_t *tcb = container_of(
+        iq->trig_cb, httpd_trigger__ic_t, cb);
 
     int             res;
     bool            soap = false;
     ichttp_cb_t    *cbe = NULL;
     void           *value = NULL;
+
+    iq->iop_env_ctx_guard = iop_env_ctx_acquire(tcb->iop_env);
 
     res = __t_ichttp_query_on_done_stage1(q, &cbe, &value, &soap);
     if (unlikely(res < 0))
@@ -761,16 +758,12 @@ void __ichttp_proxify(uint64_t slot, int cmd, const void *data, int dlen)
 
     {
         t_scope;
-        httpd_trigger__ic_t *tcb;
-        const iop_env_ctx_t *iop_env_ctx;
 
-        tcb = container_of(iq->trig_cb, httpd_trigger__ic_t, cb);
         v  = t_new_raw(char, st->size);
         ps = ps_init(data, dlen);
 
-        iop_env_ctx_acquire_scoped(tcb->iop_env, iop_env_ctx);
-        if (unlikely(iop_bunpack(t_pool(), iop_env_ctx, st, v, ps,
-                                 false) < 0))
+        if (unlikely(iop_bunpack(t_pool(), iq->iop_env_ctx_guard.ctx, st, v,
+                                 ps, false) < 0))
         {
             lstr_t err_str = iop_get_err_lstr();
 #ifndef NDEBUG

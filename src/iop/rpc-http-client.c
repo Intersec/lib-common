@@ -46,6 +46,7 @@ static void http_iop_msg_wipe(http_iop_msg_t *query)
     lstr_wipe(&query->password);
     lstr_wipe(&query->http_headers);
     p_delete(&query->args);
+    iop_env_ctx_release_cleanup(&query->iop_env_ctx_guard);
 }
 
 http_iop_msg_t *http_iop_msg_new(int len)
@@ -355,15 +356,8 @@ http_iop_on_query_done(httpc_query_t *http_query, httpc_status_t httpc_status)
         }
 
         if (content_type_json) {
-            int unpack_res;
-
-            {
-                const iop_env_ctx_t *iop_env_ctx;
-                iop_env_ctx_acquire_scoped(msg->iop_env, iop_env_ctx);
-                unpack_res = t_iop_junpack_ptr_ps(iop_env_ctx, &ps, st, dest,
-                                                  0, &err);
-            }
-            if (unpack_res < 0)
+            if (t_iop_junpack_ptr_ps(msg->iop_env_ctx_guard.ctx, &ps, st,
+                                     dest, 0, &err) < 0)
             {
                 logger_error(&_G.logger, "cannot unpack result of query "
                              "`%*pM`: %*pM", LSTR_FMT_ARG(msg->rpc->name),
@@ -409,6 +403,10 @@ static void http_iop_start_msg(http_iop_channel_t *channel,
         httpc_bufferize(&msg->query, channel->response_max_size);
     }
     msg->iop_env = channel->iop_env;
+    /* Pin a ctx snapshot for the in-flight query so `msg->rpc` stays mapped
+     * until the async reply is unpacked (re-pinned on each retry). */
+    iop_env_ctx_release_cleanup(&msg->iop_env_ctx_guard);
+    msg->iop_env_ctx_guard = iop_env_ctx_acquire(channel->iop_env);
     msg->query.on_done = http_iop_on_query_done;
     httpc_query_attach(&msg->query, httpc);
     if (channel->encode_url) {

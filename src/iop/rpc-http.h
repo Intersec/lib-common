@@ -77,6 +77,7 @@ DO_REFCNT(ichttp_cb_t, ichttp_cb);
 #define ICHTTP_QUERY_FIELDS(pfx)                                             \
     HTTPD_QUERY_FIELDS(pfx);                                                 \
     ichttp_cb_t * nonnull cbe;                                               \
+    iop_env_ctx_guard_t iop_env_ctx_guard;                                   \
     ic__hdr__t * nullable ic_hdr;                                            \
     size_t iop_res_size;                                                     \
     bool   json;                                                             \
@@ -601,6 +602,9 @@ struct http_iop_msg_t {
 
     /** The IOP environment. */
     const iop_env_t *iop_env;
+
+    /** Pinned IOP env ctx snapshot for the query's in-flight lifetime. */
+    iop_env_ctx_guard_t iop_env_ctx_guard;
 
     /** IOP interface alias. */
     const iop_iface_alias_t *iface_alias;

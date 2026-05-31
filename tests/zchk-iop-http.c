@@ -377,6 +377,84 @@ static void z_iop_http_tests(http_mode_t http_mode)
 
 Z_GROUP_EXPORT(iop_http) {
     z_iop_http_tests(HTTP_MODE_USE_HTTP1X_ONLY);
+
+    Z_TEST(ichttp_query_rpc_use_after_free) { /* {{{ */
+        /* An in-flight ichttp_query_t dereferences cbe->fun (an iop_rpc_t
+         * owned by the registered package) across event-loop turns, so a
+         * concurrent iop_dso_close() would free it under the query.
+         * ichttp_query_on_done() guards against this by pinning an
+         * iop_env_ctx snapshot, which holds a reference on its DSOs and
+         * defers the dlclose. This test pins a snapshot as the query does,
+         * then closes the DSO under it. */
+        t_scope;
+        SB_1k(err);
+        iop_env_t *iop_env = iop_env_new();
+        iop_dso_t *dso;
+        lstr_t path = t_lstr_fmt("%*pM/iop/zchk-tstiop-plugin" SO_FILEEXT,
+                                 LSTR_FMT_ARG(z_cmddir_g));
+        httpd_trigger__ic_t *tcb;
+        const iop_mod_t *mod;
+        const iop_iface_alias_t *alias;
+        const iop_rpc_t *fun;
+        ic_cb_entry_t entry;
+        ichttp_cb_t *cbe;
+        lstr_t rpc_name;
+        int pos;
+
+        /* Load `tstiop` from a DSO so its descriptors are unmapped on
+         * unload. */
+        dso = iop_dso_open(iop_env, path.s, &err);
+        Z_ASSERT_P(dso, "cannot load plugin `%s`: %*pM", path.s,
+                   SB_FMT_ARG(&err));
+
+        {
+            const iop_env_ctx_t *iop_env_ctx;
+
+            iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+            mod = iop_env_ctx_get_mod(iop_env_ctx, LSTR("tstiop.T"));
+            Z_ASSERT_P(mod, "module tstiop.T not registered by the DSO");
+        }
+        alias = &mod->ifaces[0];
+        Z_ASSERT_EQ(alias->iface->funs_len, 1);
+        fun = &alias->iface->funs[0];
+
+        /* Build the trigger and register the DSO's rpc; cbe->fun now points
+         * into DSO memory. */
+        tcb = httpd_trigger__ic_new(iop_env, mod, "test-schema", 1 << 20);
+        p_clear(&entry, 1);
+        entry.cb_type = IC_CB_NORMAL;
+        entry.rpc = fun;
+        __ichttp_register(tcb, alias, fun,
+                          (int32_t)((alias->tag << 16) | fun->tag), &entry);
+
+        /* Mirror __t_ichttp_query_on_done_stage1: the query retains the cb. */
+        rpc_name = t_lstr_fmt("%s.%sReq", alias->name.s, fun->name.s);
+        pos = qm_find(ichttp_cbs, &tcb->impl, &rpc_name);
+        Z_ASSERT_N(pos, "rpc `%pL` not registered in the trigger", &rpc_name);
+        cbe = ichttp_cb_retain(tcb->impl.values[pos]);
+
+        {
+            /* Pin a ctx snapshot for the query's lifetime, exactly as
+             * ichttp_query_on_done() does. */
+            iop_env_ctx_guard_t guard = iop_env_ctx_acquire(iop_env);
+
+            /* Concurrent unload: the query's pinned snapshot keeps the
+             * descriptor mapped (deferred dlclose). */
+            iop_dso_close(&dso);
+
+            Z_ASSERT_LSTREQUAL(cbe->fun->name, LSTR("f"),
+                               "cbe->fun must stay valid while the query "
+                               "pins a ctx snapshot referencing its DSO");
+            iop_env_ctx_release(guard);
+        }
+
+        /* Teardown (mirrors httpd_trigger__ic_destroy). */
+        ichttp_cb_release(&cbe);
+        qm_deep_wipe(ichttp_cbs, &tcb->impl, IGNORE, ichttp_cb_delete);
+        p_delete(&tcb);
+        iop_env_delete(&iop_env);
+    } Z_TEST_END;
+    /* }}} */
 } Z_GROUP_END;
 
 Z_GROUP_EXPORT(iop_http2) {
