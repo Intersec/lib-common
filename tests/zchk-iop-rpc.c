@@ -682,6 +682,83 @@ Z_GROUP_EXPORT(iop_rpc)
         MODULE_RELEASE(thr);
     } Z_TEST_END;
 
+    Z_TEST(ic_server_rpc_use_after_free) { /* {{{ */
+        /* The IC server keeps raw iop_rpc_t descriptors in its `impl`
+         * (ic_cb_entry_t.rpc), dereferenced while a query is dispatched.
+         * When a plugin registers the RPC, that descriptor lives in the
+         * plugin's DSO, so a concurrent iop_dso_close() would free it.
+         *
+         * The fix: ic_read_process_query() pins an iop_env_ctx snapshot for
+         * the synchronous dispatch, and an awaiting-reply ic_msg_t pins one
+         * until its reply; since a ctx snapshot now owns a reference on the
+         * DSOs it maps, the descriptor stays mapped across the close. This
+         * test reproduces the server case by pinning a snapshot as the
+         * dispatch does, then closing the DSO under it. The same `impl`
+         * holds IC_CB_WS_SHARED entries, so WS shared handlers are covered
+         * too. Refs: #118398. */
+        t_scope;
+        SB_1k(err);
+        iop_env_t *iop_env = iop_env_new();
+        iop_dso_t *dso;
+        lstr_t path = t_lstr_fmt("%*pM/iop/zchk-tstiop-plugin" SO_FILEEXT,
+                                 LSTR_FMT_ARG(z_cmddir_g));
+        const iop_mod_t *mod;
+        const iop_iface_alias_t *alias;
+        const iop_rpc_t *fun;
+        ic_cb_entry_t entry;
+        qm_t(ic_cbs) impl = QM_INIT(ic_cbs, impl);
+        ichannel_t ic;
+        uint32_t cmd;
+        int pos;
+
+        dso = iop_dso_open(iop_env, path.s, &err);
+        Z_ASSERT_P(dso, "cannot load plugin `%s`: %*pM", path.s,
+                   SB_FMT_ARG(&err));
+
+        {
+            const iop_env_ctx_t *iop_env_ctx;
+
+            iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+            mod = iop_env_ctx_get_mod(iop_env_ctx, LSTR("tstiop.T"));
+            Z_ASSERT_P(mod, "module tstiop.T not registered by the DSO");
+        }
+        alias = &mod->ifaces[0];
+        Z_ASSERT_EQ(alias->iface->funs_len, 1);
+        fun = &alias->iface->funs[0];
+        cmd = (alias->tag << 16) | fun->tag;
+
+        /* Register the DSO's rpc into the server impl, as a plugin would;
+         * entry.rpc now points into DSO memory. */
+        p_clear(&entry, 1);
+        entry.cb_type = IC_CB_NORMAL;
+        entry.rpc = fun;
+        qm_add(ic_cbs, &impl, cmd, entry);
+
+        ic_init(&ic);
+        ic.iop_env = iop_env;
+        ic.impl = &impl;
+
+        {
+            /* Pin a ctx snapshot for the dispatch, exactly as
+             * ic_read_process_query() does. */
+            iop_env_ctx_guard_t guard = iop_env_ctx_acquire(iop_env);
+
+            iop_dso_close(&dso);
+
+            pos = qm_find_safe(ic_cbs, ic.impl, cmd);
+            Z_ASSERT_N(pos);
+            Z_ASSERT_LSTREQUAL(ic.impl->values[pos].rpc->name, LSTR("f"),
+                               "e->rpc must stay valid while the dispatch "
+                               "pins a ctx snapshot referencing its DSO");
+            iop_env_ctx_release(guard);
+        }
+
+        ic_wipe(&ic);
+        qm_wipe(ic_cbs, &impl);
+        iop_env_delete(&iop_env);
+    } Z_TEST_END;
+    /* }}} */
+
     MODULE_RELEASE(ic);
     iop_env_delete(&_G.iop_env);
 } Z_GROUP_END;

@@ -169,14 +169,11 @@ bool __ic_rpc_is_traced(const iop_iface_t *iface, const iop_rpc_t *rpc)
 
 /* This function can return false positives, because several RPCs can have the
  * same cmd... */
-static _Bool ic_cmd_is_traced(const iop_env_t *iop_env, int cmd)
+static _Bool ic_cmd_is_traced(const iop_env_ctx_t *iop_env_ctx, int cmd)
 {
     static bool first_call = true;
 
     if (unlikely(first_call)) {
-        const iop_env_ctx_t *iop_env_ctx;
-
-        iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
         /* XXX: The filling of _G.traced_cmds is done lazily because when
          * ic_initialize is called, the IOP packages were likely not
          * registered yet. */
@@ -578,6 +575,7 @@ void ic_msg_delete(ic_msg_t **msgp)
     }
 
     el_unregister(&msg->timeout_timer);
+    iop_env_ctx_release_cleanup(&msg->iop_env_ctx_guard);
     p_delete(msgp);
 }
 
@@ -1164,7 +1162,7 @@ static void ic_parse_cmsg(ichannel_t *ic, struct msghdr *msgh)
 }
 
 static int
-t_get_value_of_st(const iop_env_t *iop_env, const iop_struct_t *st,
+t_get_value_of_st(const iop_env_ctx_t *iop_env_ctx, const iop_struct_t *st,
                   const ic_msg_t *unpacked_msg, pstream_t ps, unsigned flags,
                   void **value);
 
@@ -1237,8 +1235,9 @@ ic_read_process_answer(ichannel_t *ic, int cmd, uint32_t slot,
         pstream_t ps = tmp->raw_res;
         unsigned unpack_flags = ic->is_public ? IOP_UNPACK_FORBID_PRIVATE : 0;
 
-        if (unlikely(t_get_value_of_st(ic->iop_env, st, unpacked_msg, ps,
-                                       unpack_flags, &value) < 0))
+        if (unlikely(t_get_value_of_st(tmp->iop_env_ctx_guard.ctx, st,
+                                       unpacked_msg, ps, unpack_flags,
+                                       &value) < 0))
         {
             if (tmp->trace) {
                 const char *err = iop_get_err();
@@ -1332,7 +1331,8 @@ static inline void ic_update_pending(ichannel_t *ic, uint32_t slot)
 }
 
 static int
-t_get_hdr_of_query(const iop_env_t *iop_env, const ic_msg_t *unpacked_msg,
+t_get_hdr_of_query(const iop_env_ctx_t *iop_env_ctx,
+                   const ic_msg_t *unpacked_msg,
                    pstream_t *ps, unsigned flags, ic__hdr__t **hdr)
 {
     if (unpacked_msg) {
@@ -1343,9 +1343,6 @@ t_get_hdr_of_query(const iop_env_t *iop_env, const ic_msg_t *unpacked_msg,
             *hdr = (ic__hdr__t *)unpacked_msg->hdr;
         }
     } else {
-        const iop_env_ctx_t *iop_env_ctx;
-        iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
-
         *hdr = t_new_raw(ic__hdr__t, 1);
         RETHROW(iop_bunpack_multi_flags(t_pool(), iop_env_ctx, &ic__hdr__s,
                                         *hdr, ps, flags));
@@ -1354,7 +1351,7 @@ t_get_hdr_of_query(const iop_env_t *iop_env, const ic_msg_t *unpacked_msg,
 }
 
 static int
-t_get_value_of_st(const iop_env_t *iop_env, const iop_struct_t *st,
+t_get_value_of_st(const iop_env_ctx_t *iop_env_ctx, const iop_struct_t *st,
                   const ic_msg_t *unpacked_msg, pstream_t ps, unsigned flags,
                   void **value)
 {
@@ -1367,9 +1364,6 @@ t_get_value_of_st(const iop_env_t *iop_env, const iop_struct_t *st,
             *value = unpacked_msg->data;
         }
     } else {
-        const iop_env_ctx_t *iop_env_ctx;
-        iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
-
         RETHROW(iop_bunpack_ptr_flags(t_pool(), iop_env_ctx, st, value, ps,
                                       flags));
     }
@@ -1377,8 +1371,8 @@ t_get_value_of_st(const iop_env_t *iop_env, const iop_struct_t *st,
 }
 
 static int
-t_get_hdr_value_of_query(ichannel_t *ic, int cmd,
-                         uint32_t slot, uint32_t flags,
+t_get_hdr_value_of_query(ichannel_t *ic, const iop_env_ctx_t *iop_env_ctx,
+                         int cmd, uint32_t slot, uint32_t flags,
                          const void *data, int dlen,
                          const ic_msg_t *unpacked_msg, const iop_struct_t *st,
                          int *packed_hdr_len, ic__hdr__t **hdr, void **value)
@@ -1397,7 +1391,7 @@ t_get_hdr_value_of_query(ichannel_t *ic, int cmd,
     }
 
     if (unlikely(flags & IC_MSG_HAS_HDR)) {
-        if (unlikely(t_get_hdr_of_query(ic->iop_env, unpacked_msg, &ps,
+        if (unlikely(t_get_hdr_of_query(iop_env_ctx, unpacked_msg, &ps,
                                         unpack_flags, hdr) < 0))
         {
             logger_warning(&_G.logger, QUERY_FMT "invalid header encoding",
@@ -1446,7 +1440,7 @@ t_get_hdr_value_of_query(ichannel_t *ic, int cmd,
     }
 
     if (value) {
-        if (unlikely(t_get_value_of_st(ic->iop_env, st, unpacked_msg, ps,
+        if (unlikely(t_get_value_of_st(iop_env_ctx, st, unpacked_msg, ps,
                                        unpack_flags, value) < 0))
         {
             const char *err = iop_get_err();
@@ -1479,14 +1473,13 @@ t_get_hdr_value_of_query(ichannel_t *ic, int cmd,
 #undef QUERY_FMT_ARG
 }
 
-static void ic_report_unimplemented_rpc(const iop_env_t *iop_env, int cmd)
+static void
+ic_report_unimplemented_rpc(const iop_env_ctx_t *iop_env_ctx, int cmd)
 {
     uint32_t icmd = cmd >> 16 & 0x7fff;
     uint32_t rcmd = cmd & 0x7fff;
     SB_1k(sb);
     __block sb_t *psb = &sb;
-    const iop_env_ctx_t *iop_env_ctx;
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
     iop_for_each_registered_pkgs(iop_env_ctx, ^(const iop_pkg_t *pkg) {
         for (const iop_mod_t *const *m = pkg->mods; *m; m++) {
@@ -1525,7 +1518,9 @@ static void ic_report_unimplemented_rpc(const iop_env_t *iop_env, int cmd)
 }
 
 static int
-t_get_details_of_query(ichannel_t *ic, int cmd, uint32_t slot,
+t_get_details_of_query(ichannel_t *ic,
+                       const iop_env_ctx_t * nonnull iop_env_ctx,
+                       int cmd, uint32_t slot,
                        uint32_t flags, const void *data, int dlen,
                        const ic_msg_t * nullable unpacked_msg,
                        const iop_struct_t * nonnull st,
@@ -1538,23 +1533,24 @@ t_get_details_of_query(ichannel_t *ic, int cmd, uint32_t slot,
       case IC_CB_NORMAL:
       case IC_CB_NORMAL_BLK:
       case IC_CB_WS_SHARED:
-        return t_get_hdr_value_of_query(ic, cmd, slot, flags, data, dlen,
-                                        unpacked_msg, st, NULL, hdr,
-                                        value);
+        return t_get_hdr_value_of_query(ic, iop_env_ctx, cmd, slot, flags,
+                                        data, dlen, unpacked_msg, st, NULL,
+                                        hdr, value);
 
       case IC_CB_PROXY_P:
       case IC_CB_PROXY_PP:
         /* need the hdr for the pre hook */
         if (e->t_pre_hook) {
-            return t_get_hdr_value_of_query(ic, cmd, slot, flags, data, dlen,
-                                            unpacked_msg, st, hlen, hdr,
-                                            NULL);
+            return t_get_hdr_value_of_query(ic, iop_env_ctx, cmd, slot, flags,
+                                            data, dlen, unpacked_msg, st, hlen,
+                                            hdr, NULL);
         }
         return 0;
 
       case IC_CB_DYNAMIC_PROXY:
-        return t_get_hdr_value_of_query(ic, cmd, slot, flags, data, dlen,
-                                        unpacked_msg, st, hlen, hdr, NULL);
+        return t_get_hdr_value_of_query(ic, iop_env_ctx, cmd, slot, flags,
+                                        data, dlen, unpacked_msg, st, hlen,
+                                        hdr, NULL);
 
       default:
         logger_panic(&_G.logger, "should not happen");
@@ -1569,6 +1565,7 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
                       const ic_msg_t * nullable unpacked_msg)
 {
     t_scope;
+    const iop_env_ctx_t *iop_env_ctx;
     const ic_cb_entry_t *e;
     const iop_struct_t *st;
     ic__hdr__t *hdr = NULL;
@@ -1582,10 +1579,12 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
     int pos;
     void *value = NULL;
 
+    iop_env_ctx_acquire_scoped(ic->iop_env, iop_env_ctx);
+
     pos = likely(ic->impl) ? qm_find_safe(ic_cbs, ic->impl, cmd) : -1;
     if (unlikely(pos < 0)) {
         if (logger_is_traced(&_G.logger, 0)) {
-            ic_report_unimplemented_rpc(ic->iop_env, cmd);
+            ic_report_unimplemented_rpc(iop_env_ctx, cmd);
         }
         if (slot) {
             ic_reply_err(ic, MAKE64(ic->id, slot), IC_MSG_UNIMPLEMENTED);
@@ -1599,7 +1598,7 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
     /* Flag as traced incoming queries that are not traced but should be in
      * our process. */
     if (!ic_slot_is_traced(slot, flags) &&
-        unlikely(ic_cmd_is_traced(ic->iop_env, cmd)))
+        unlikely(ic_cmd_is_traced(iop_env_ctx, cmd)))
     {
         flags |= IC_MSG_IS_TRACED;
     }
@@ -1609,8 +1608,8 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
 
     /* get details from the data of the msg. Each type of callback has
      * different details to retrieve. */
-    if (t_get_details_of_query(ic, cmd, slot ,flags, data, dlen, unpacked_msg,
-                               st, e, &hlen, &hdr, &value) < 0)
+    if (t_get_details_of_query(ic, iop_env_ctx, cmd, slot, flags, data, dlen,
+                               unpacked_msg, st, e, &hlen, &hdr, &value) < 0)
     {
          goto invalid_iop;
     }
@@ -2609,6 +2608,14 @@ void __ic_query_flags(ichannel_t *ic, ic_msg_t *msg, uint32_t flags)
 
     if (!msg->async) {
         unsigned start = ic->nextslot;
+
+        /* This query awaits a reply that dereferences `msg->rpc` in a later
+         * event-loop turn. Pin a ctx snapshot so the descriptor stays mapped
+         * until then, even across a concurrent iop_dso_close(). Released in
+         * ic_msg_delete(); release-then-acquire so a re-enqueued query
+         * replaces its prior snapshot instead of leaking it. */
+        iop_env_ctx_release_cleanup(&msg->iop_env_ctx_guard);
+        msg->iop_env_ctx_guard = iop_env_ctx_acquire(ic->iop_env);
 
         do {
             if (ic->nextslot == IC_MSG_SLOT_MASK) {

@@ -386,6 +386,9 @@ struct ic_msg_t {
     void    * nullable data;
     pstream_t raw_res;
 
+    /** Pinned IOP env ctx snapshot for a query awaiting its reply. */
+    iop_env_ctx_guard_t iop_env_ctx_guard;
+
     /* user provided fields */
     const iop_rpc_t  * nullable rpc;
     const ic__hdr__t * nullable hdr;
