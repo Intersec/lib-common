@@ -30,7 +30,7 @@ pub mod bindings {
 #[cfg(test)]
 mod iop_tests {
     use libcommon::iop::{
-        CEnum, CStruct, CStructUnion as _, CUnion, Enum as _, Env, StructUnion as _,
+        CEnum, CStruct, CStructUnion as _, CUnion, Enum as _, Env, EnvCtx, StructUnion as _,
     };
     use libcommon::mem_stack::TScope;
     use libcommon::{iop_get, iop_new, iop_set, lstr};
@@ -50,10 +50,10 @@ mod iop_tests {
 
     // {{{ Test helpers
 
-    fn setup_env_with_packages() -> Env {
+    fn setup_env_with_packages() -> EnvCtx {
         let mut env = Env::new();
         env.register_packages(&[&raw const ic__pkg, &raw const core__pkg]);
-        env
+        env.acquire()
     }
 
     // }}}
@@ -107,7 +107,7 @@ mod iop_tests {
         env.register_packages(&[&raw const ic__pkg, &raw const core__pkg]);
 
         /* Verify packages are registered by looking up a known struct */
-        let desc = env.get_struct_desc("ic.SimpleHdr");
+        let desc = env.acquire().get_struct_desc("ic.SimpleHdr");
         assert!(desc.is_some());
     }
 

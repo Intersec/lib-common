@@ -26,9 +26,10 @@ use std::os::raw::c_void;
 use std::ptr;
 
 use crate::bindings::{
-    iop_enum_t, iop_env_ctx_acquire, iop_env_ctx_get_struct, iop_env_ctx_release, iop_env_delete,
-    iop_env_new, iop_env_t, iop_init_desc, iop_pkg_t, iop_register_packages, iop_sb_jpack,
-    iop_struct_t, t_iop_junpack_ptr_ps, t_iop_new_desc, t_iop_sb_ypack, t_iop_yunpack_ptr_ps,
+    iop_enum_t, iop_env_ctx_acquire, iop_env_ctx_get_struct, iop_env_ctx_guard_t,
+    iop_env_ctx_release, iop_env_delete, iop_env_new, iop_env_t, iop_init_desc, iop_pkg_t,
+    iop_register_packages, iop_sb_jpack, iop_struct_t, t_iop_junpack_ptr_ps, t_iop_new_desc,
+    t_iop_sb_ypack, t_iop_yunpack_ptr_ps,
 };
 
 use crate::lstr;
@@ -203,27 +204,19 @@ impl StructUnion for GenericStructUnion<'_> {
 // }}}
 // {{{ IOP Env
 
-/// Wrapper around `iop_env_t` for easy manipulation in Rust.
+/// Main-thread handle to an `iop_env_t`.
 ///
-/// Holds a raw `*mut iop_env_t` rather than a `&'a mut iop_env_t` so the
-/// wrapper can be safely shared across threads. Read methods (`&self`)
-/// internally acquire a refcounted ctx snapshot via the `ArcSwap`; writer
-/// methods (`&mut self`) require unique ownership of the env handle.
+/// `iop_env_t` is **not** itself thread-safe: package registration and the
+/// handle's (non-atomic) refcount are main-thread-only. The thread-safe unit
+/// is a *context snapshot* — obtain one with [`Env::acquire`] and share that
+/// [`EnvCtx`] across threads for read-only IOP operations.
+///
+/// `Env` holds a raw `*mut iop_env_t` and is therefore neither `Send` nor
+/// `Sync`: it stays on the thread that owns the env (registration, drop).
 pub struct Env {
     env: *mut iop_env_t,
     owned: bool,
 }
-
-// SAFETY:
-//  - The underlying `iop_env_t` is thread-safe for reads (ctx access goes
-//    through `iop_env_ctx_acquire` which is backed by ArcSwap).
-//  - Writes go through `&mut Env` so the Rust borrow checker forbids
-//    concurrent writes.
-//  - The env handle's refcount stays single-threaded for now: cloning
-//    `Env` is intentionally not provided. Use a borrowed view via
-//    `from_ptr` if you need a non-owning copy.
-unsafe impl Send for Env {}
-unsafe impl Sync for Env {}
 
 impl Env {
     /// Create a new owned IOP env.
@@ -279,19 +272,40 @@ impl Env {
         };
     }
 
+    /// Acquire a refcounted snapshot of the env's current IOP context.
+    ///
+    /// The returned [`EnvCtx`] is a thread-safe, immutable view of the IOP
+    /// objects registered at acquisition time. It can be moved/shared to
+    /// other threads for read-only IOP operations and keeps its descriptors
+    /// valid until dropped, even if the env registers/unregisters packages
+    /// (or a backing DSO is closed) concurrently.
+    #[must_use]
+    pub fn acquire(&self) -> EnvCtx {
+        let guard = unsafe { iop_env_ctx_acquire(self.env) };
+        EnvCtx { guard }
+    }
+}
+
+/// A thread-safe, refcounted snapshot of an [`Env`]'s IOP context.
+///
+/// Obtained via [`Env::acquire`]. It owns an immutable, atomically-refcounted
+/// `ArcSwap` snapshot of the registered IOP objects, so it is `Send + Sync`
+/// and may be handed to worker threads while the (main-thread-bound) [`Env`]
+/// keeps being updated. The snapshot — and every descriptor reachable through
+/// it — stays valid until the `EnvCtx` is dropped.
+pub struct EnvCtx {
+    guard: iop_env_ctx_guard_t,
+}
+
+unsafe impl Send for EnvCtx {}
+unsafe impl Sync for EnvCtx {}
+
+impl EnvCtx {
     /// Get a IOP struct or union from its fullname.
     #[must_use]
     pub fn get_struct_desc(&self, fullname: &str) -> Option<*const iop_struct_t> {
         let fullname_lstr = lstr::from_str(fullname);
-        // SAFETY: acquire+release a ctx snapshot for the duration of
-        // this lookup; the snapshot keeps the underlying ctx alive even
-        // if a writer installs a new one concurrently.
-        let res = unsafe {
-            let guard = iop_env_ctx_acquire(self.env);
-            let res = iop_env_ctx_get_struct(guard.ctx, fullname_lstr.as_raw());
-            iop_env_ctx_release(guard);
-            res
-        };
+        let res = unsafe { iop_env_ctx_get_struct(self.guard.ctx, fullname_lstr.as_raw()) };
 
         if res.is_null() {
             return None;
@@ -321,17 +335,14 @@ impl Env {
         let mut out = ptr::null_mut();
 
         let res = unsafe {
-            let guard = iop_env_ctx_acquire(self.env);
-            let res = t_iop_junpack_ptr_ps(
-                guard.ctx,
+            t_iop_junpack_ptr_ps(
+                self.guard.ctx,
                 ps.as_mut_ptr(),
                 st,
                 &raw mut out,
                 flags as i32,
                 err.as_mut_ptr(),
-            );
-            iop_env_ctx_release(guard);
-            res
+            )
         };
 
         if res < 0 {
@@ -366,18 +377,15 @@ impl Env {
         let mut out = ptr::null_mut();
 
         let res = unsafe {
-            let guard = iop_env_ctx_acquire(self.env);
-            let res = t_iop_yunpack_ptr_ps(
-                guard.ctx,
+            t_iop_yunpack_ptr_ps(
+                self.guard.ctx,
                 ps.as_mut_ptr(),
                 st,
                 &raw mut out,
                 flags,
                 ptr::null_mut(),
                 err.as_mut_ptr(),
-            );
-            iop_env_ctx_release(guard);
-            res
+            )
         };
 
         if res < 0 {
@@ -388,6 +396,14 @@ impl Env {
         }
 
         Ok(GenericStructUnion::new(st, out))
+    }
+}
+
+impl Drop for EnvCtx {
+    fn drop(&mut self) {
+        unsafe {
+            iop_env_ctx_release(self.guard);
+        }
     }
 }
 
@@ -585,12 +601,13 @@ macro_rules! iop_get {
 
 #[cfg(test)]
 mod env_send_sync_assertions {
-    use super::Env;
+    use super::EnvCtx;
 
     const fn assert_send_sync<T: Send + Sync>() {}
-    const _: () = {
-        assert_send_sync::<Env>();
-    };
+    // The env *handle* is intentionally !Send + !Sync (main-thread
+    // bound); the shareable, thread-safe unit is the ctx snapshot.
+    // Statically check that iop::Env implements Send + Sync.
+    const _: () = assert_send_sync::<EnvCtx>();
 }
 
 // }}}
