@@ -26,7 +26,7 @@ use std::os::raw::c_void;
 use std::ptr;
 
 use crate::bindings::{
-    iop_enum_t, iop_env_ctx_acquire, iop_env_ctx_get_struct, iop_env_ctx_guard_t,
+    iop_enum_t, iop_env_ctx_acquire, iop_env_ctx_dup, iop_env_ctx_get_struct, iop_env_ctx_guard_t,
     iop_env_ctx_release, iop_env_delete, iop_env_new, iop_env_t, iop_init_desc, iop_pkg_t,
     iop_register_packages, iop_sb_jpack, iop_struct_t, t_iop_junpack_ptr_ps, t_iop_new_desc,
     t_iop_sb_ypack, t_iop_yunpack_ptr_ps,
@@ -168,18 +168,39 @@ pub trait CStruct: Struct + CStructUnion {
 /// Generic struct or union that contains a pointer and its description.
 ///
 /// It implements the IOP `StructUnion` trait.
+///
+/// `_ctx` keeps the ctx snapshot `cdesc` was resolved from alive, or is
+/// `None` for a static / caller-owned descriptor (via `new`).
 pub struct GenericStructUnion<'a> {
     cdesc: *const iop_struct_t,
     cptr: *mut c_void,
+    _ctx: Option<EnvCtx>,
     _phantom: PhantomData<&'a c_void>,
 }
 
 impl GenericStructUnion<'_> {
-    /// Create a new `GenericStructUnion`
+    /// Create a new `GenericStructUnion`.
+    ///
+    /// `cdesc` must outlive the returned value; this is the case for static
+    /// (compiled-in) descriptors. For a descriptor resolved from an
+    /// [`EnvCtx`], build the value through that `EnvCtx` (e.g.
+    /// [`EnvCtx::t_junpack_desc`]) so the snapshot is kept alive.
     pub fn new(cdesc: *const iop_struct_t, cptr: *mut c_void) -> Self {
         Self {
             cdesc,
             cptr,
+            _ctx: None,
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Like [`new`](Self::new) but keeps `ctx` alive so a descriptor resolved
+    /// from that snapshot stays valid for the returned value's lifetime.
+    fn new_with_ctx(cdesc: *const iop_struct_t, cptr: *mut c_void, ctx: EnvCtx) -> Self {
+        Self {
+            cdesc,
+            cptr,
+            _ctx: Some(ctx),
             _phantom: PhantomData,
         }
     }
@@ -352,7 +373,7 @@ impl EnvCtx {
                 .to_owned());
         }
 
-        Ok(GenericStructUnion::new(st, out))
+        Ok(GenericStructUnion::new_with_ctx(st, out, self.clone()))
     }
 
     /// Unpack an IOP struct or union as YAML on a `t_scope`.
@@ -395,7 +416,14 @@ impl EnvCtx {
                 .to_owned());
         }
 
-        Ok(GenericStructUnion::new(st, out))
+        Ok(GenericStructUnion::new_with_ctx(st, out, self.clone()))
+    }
+}
+
+impl Clone for EnvCtx {
+    fn clone(&self) -> Self {
+        let guard = unsafe { iop_env_ctx_dup(self.guard) };
+        EnvCtx { guard }
     }
 }
 

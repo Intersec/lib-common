@@ -112,6 +112,9 @@ iop_env_ctx_arcswap_acquire(const iop_env_ctx_arcswap_t * nonnull arcswap);
 
 void iop_env_ctx_arcswap_release(iop_env_ctx_guard_t guard);
 
+iop_env_ctx_guard_t
+iop_env_ctx_arcswap_guard_dup(iop_env_ctx_guard_t guard);
+
 void iop_env_ctx_arcswap_store(iop_env_ctx_arcswap_t * nonnull arcswap,
                                void * nonnull new_ctx,
                                iop_env_ctx_drop_f nonnull drop_fn);

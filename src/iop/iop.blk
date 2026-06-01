@@ -6385,6 +6385,11 @@ iop_env_ctx_acquire(const iop_env_t * nonnull iop_env)
     return iop_env_ctx_arcswap_acquire(iop_env->ctx_swap);
 }
 
+iop_env_ctx_guard_t iop_env_ctx_dup(iop_env_ctx_guard_t guard)
+{
+    return iop_env_ctx_arcswap_guard_dup(guard);
+}
+
 void iop_env_ctx_release(iop_env_ctx_guard_t guard)
 {
     iop_env_ctx_arcswap_release(guard);

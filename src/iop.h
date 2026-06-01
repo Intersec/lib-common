@@ -200,8 +200,20 @@ typedef struct iop_env_ctx_guard_t {
 iop_env_ctx_guard_t
 iop_env_ctx_acquire(const iop_env_t * nonnull iop_env);
 
+/** Duplicate a context snapshot guard.
+ *
+ * Returns a second guard onto the *same* context snapshot as \p guard,
+ * keeping it alive independently. Each returned guard must be paired with
+ * its own \ref iop_env_ctx_release. The input guard is left untouched.
+ *
+ * Useful to extend a snapshot's lifetime beyond the scope that acquired it
+ * (e.g. to attach it to a longer-lived value that references the snapshot's
+ * descriptors).
+ */
+iop_env_ctx_guard_t iop_env_ctx_dup(iop_env_ctx_guard_t guard);
+
 /** Release a context snapshot previously returned by
- *  \ref iop_env_ctx_acquire.
+ *  \ref iop_env_ctx_acquire (or \ref iop_env_ctx_dup).
  */
 void iop_env_ctx_release(iop_env_ctx_guard_t guard);
 

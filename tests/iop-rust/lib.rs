@@ -175,6 +175,29 @@ mod iop_tests {
         assert_eq!(cptr, cptr_mut.cast_const());
     }
 
+    #[test]
+    fn generic_struct_union_outlives_source_ctx() {
+        // A GenericStructUnion keeps alive (a clone of) the EnvCtx it was
+        // unpacked from, so its descriptor stays valid even after the
+        // source ctx is dropped. Exercises EnvCtx::clone + the dup/release
+        // balance (ASAN-checked).
+        let ctx = setup_env_with_packages();
+        let t_scope = TScope::new_scope();
+
+        let desc = ctx
+            .get_struct_desc("ic.Tracer")
+            .expect("ic.Tracer should exist");
+        let obj = ctx
+            .t_junpack_desc(&t_scope, r#"{"token": 1, "epoch": 2}"#, desc, 0)
+            .expect("valid JSON should unpack");
+
+        // Drop the ctx we resolved `desc` from; `obj` holds its own clone.
+        drop(ctx);
+
+        // `obj`'s descriptor is still valid (read by `as_json`).
+        assert_eq!(obj.as_json(), "{\n    \"token\": 1,\n    \"epoch\": 2\n}\n");
+    }
+
     // }}}
     // {{{ Generic JSON pack/unpack tests
 

@@ -35,6 +35,7 @@
 #![allow(non_camel_case_types)]
 
 use std::ffi::c_void;
+use std::ptr;
 use std::sync::Arc;
 
 use arc_swap::ArcSwap;
@@ -159,6 +160,39 @@ pub unsafe extern "C" fn iop_env_ctx_arcswap_release(guard: iop_env_ctx_guard_t)
         return;
     }
     drop(unsafe { Arc::from_raw(guard.arc_handle) });
+}
+
+/// Duplicate a guard previously returned by [`iop_env_ctx_arcswap_acquire`],
+/// yielding a second guard onto the *same* ctx snapshot.
+///
+/// Bumps the snapshot's strong count so the returned guard owns an
+/// independent reference; it must be paired with its own
+/// [`iop_env_ctx_arcswap_release`]. The input guard is left untouched.
+///
+/// # Safety
+///
+/// `guard.arc_handle` must come from `iop_env_ctx_arcswap_acquire` and not
+/// have been released.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn iop_env_ctx_arcswap_guard_dup(
+    guard: iop_env_ctx_guard_t,
+) -> iop_env_ctx_guard_t {
+    if guard.arc_handle.is_null() {
+        return iop_env_ctx_guard_t {
+            ctx: ptr::null(),
+            arc_handle: ptr::null(),
+        };
+    }
+    // Add one strong count for the returned guard, without consuming the
+    // input guard's reference. The returned guard reclaims its count with a
+    // matching `iop_env_ctx_arcswap_release`.
+    unsafe {
+        Arc::increment_strong_count(guard.arc_handle);
+    }
+    iop_env_ctx_guard_t {
+        ctx: guard.ctx,
+        arc_handle: guard.arc_handle,
+    }
 }
 
 /// Atomically install a new ctx in the `ArcSwap`, dropping the previous
