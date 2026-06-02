@@ -36,7 +36,12 @@ typedef struct iop_dso_file_stat_t {
 } iop_dso_file_stat_t;
 
 typedef struct iop_dso_t {
-    int               refcnt;
+    /* Refcount. Atomically manipulated (\ref iop_dso_dup /
+     * \ref iop_dso_delete): a held iop_env_ctx_t snapshot owns a DSO
+     * reference and may be released from any thread, so the final
+     * \ref iop_dso_delete that reclaims the DSO can run off the main
+     * thread, concurrently with main-thread (un)registration. */
+    atomic_int        refcnt;
     void             * nonnull handle;
     lstr_t            path;
     uint32_t          version;
@@ -98,7 +103,7 @@ iop_dso_t * nullable iop_dso_open(iop_env_t * nonnull iop_env,
  *
  * Each reference taken this way must be released with \ref iop_dso_release.
  */
-REFCNT_RETAIN(iop_dso_t, iop_dso);
+ATOMIC_REFCNT_RETAIN(iop_dso_t, iop_dso);
 
 /** Release one reference to a DSO (counterpart of \ref iop_dso_retain).
  *

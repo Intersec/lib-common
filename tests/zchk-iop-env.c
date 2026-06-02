@@ -87,15 +87,21 @@ typedef struct z_iop_stress_ctx_t {
 
 static void *z_iop_stress_reader_loop(void *arg)
 {
-    const iop_env_ctx_t *ctx;
     z_iop_stress_ctx_t *sc = arg;
 
-    iop_env_ctx_acquire_scoped(sc->iop_env, ctx);
-
     for (int i = 0; i < Z_IOP_STRESS_READER_ITERS; i++) {
-        lstr_t key = LSTR_IMMED_V("tstiop_typedef.BasicStruct");
+        const iop_env_ctx_t *ctx;
+        lstr_t key = LSTR_IMMED_V("tstiop.MyClass1");
 
-        /* `BasicStruct` may or may not be present depending on the
+        /* Pin a *fresh* snapshot every iteration: this also exercises the
+         * acquire path and, crucially, *releases* a snapshot concurrently
+         * with the writer. The last release of a superseded ctx frees it --
+         * and drops the references it owns on the DSOs it maps -- here, on a
+         * worker thread, concurrently with the writer's register/unregister.
+         */
+        iop_env_ctx_acquire_scoped(sc->iop_env, ctx);
+
+        /* `tstiop.MyClass1` may or may not be present depending on the
          * writer's current state; both outcomes are fine, we only care
          * that no UB occurs. */
         qm_find_safe(iop_env_struct, &ctx->struct_by_fullname, &key);
@@ -362,22 +368,31 @@ Z_GROUP_EXPORT(iop_env)
     } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_env_concurrent_ctx_swap) { /* {{{ */
-        /* Stress the arc-swap'd ctx: one writer thread (main) keeps
-         * register/unregister'ing a package on a dedicated env while N
-         * reader threads acquire+release the ctx in a tight loop. Under
-         * normal builds this is mostly a smoke test; under P=tsan the
-         * runner catches any data race in the ArcSwap primitive, and
-         * under P=asan it catches use-after-free if a snapshot ctx is
-         * freed while a reader still holds it. */
+        /* Stress the arc-swap'd ctx with a DSO-backed package: one writer
+         * thread (main) keeps register/unregister'ing the DSO's packages on a
+         * dedicated env while N reader threads pin+release ctx snapshots in a
+         * tight loop. Because the package is DSO-backed, a pinned ctx owns a
+         * reference on the DSO, so the readers exercise the (atomic) DSO
+         * refcount -- iop_dso_dup on the writer's register, iop_dso_delete
+         * when a reader drops a superseded snapshot. Under P=tsan the runner
+         * catches any data race (on the ctx ArcSwap and on the DSO refcount),
+         * and under P=asan it catches use-after-free if a snapshot ctx (or a
+         * DSO it maps) is freed while a reader still holds it. */
         z_iop_stress_ctx_t stress;
         pthread_t readers[Z_IOP_STRESS_N_READERS];
         void *retval;
-        const iop_pkg_t *pkgs[] = { &tstiop_typedef__pkg };
+        iop_dso_t *dso = NULL;
 
         p_clear(&stress, 1);
         stress.iop_env = iop_env_new();
         atomic_init(&stress.stop, false);
         atomic_init(&stress.reader_lookups, 0);
+
+        /* Load a DSO-backed package so the env's ctx maps a DSO (populating
+         * dso_by_pkg); this is what makes the readers exercise the DSO
+         * refcount, not just the ctx ArcSwap. */
+        Z_HELPER_RUN(z_dso_open("iop/zchk-tstiop-plugin" SO_FILEEXT, true,
+                                stress.iop_env, &dso));
 
         /* Spawn readers. */
         for (int i = 0; i < Z_IOP_STRESS_N_READERS; i++) {
@@ -386,11 +401,21 @@ Z_GROUP_EXPORT(iop_env)
                         0);
         }
 
-        /* Writer loop on the main thread: register + unregister. */
+        /* Writer loop on the main thread: toggle the DSO's packages in and
+         * out of the env. Each cycle is a copy-modify-swap that dups then
+         * deletes the DSO reference owned by the ctx, racing the readers'
+         * snapshot releases on dso->refcnt. */
         for (int i = 0; i < Z_IOP_STRESS_WRITER_ITERS; i++) {
-            iop_register_packages(stress.iop_env, pkgs, countof(pkgs));
-            iop_unregister_packages(stress.iop_env, pkgs, countof(pkgs));
+            iop_dso_unregister(dso);
+            iop_dso_register(dso);
         }
+
+        /* Drop the opener's reference while the readers are still running:
+         * the last reference is now likely held by a reader's pinned
+         * snapshot, so the final iop_dso_wipe (refcount-0 reclamation, incl.
+         * dlclose) runs on a worker thread -- the scenario the atomic
+         * refcount makes safe. */
+        iop_dso_close(&dso);
 
         /* Tell readers to stop and join. */
         atomic_store_explicit(&stress.stop, true, memory_order_release);
@@ -405,11 +430,9 @@ Z_GROUP_EXPORT(iop_env)
                                          memory_order_relaxed),
                     Z_IOP_STRESS_N_READERS);
 
-        /* No correctness check beyond "no crash / no UB" — the writer's
-         * register/unregister cycle leaves transitive dependencies of
-         * tstiop_typedef registered, so the env is not strictly empty
-         * at the end. The point of this test is to exercise the
-         * arc-swap reader/writer paths concurrently. */
+        /* No correctness check beyond "no crash / no UB": the point of this
+         * test is to exercise the arc-swap reader/writer paths and the DSO
+         * refcount concurrently. */
 
         iop_env_delete(&stress.iop_env);
     } Z_TEST_END;

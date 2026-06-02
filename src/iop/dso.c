@@ -91,6 +91,12 @@ static struct {
      * See notes above why it is required.
      */
     qm_t(iop_dso_lmid_by_stat) lmid_by_stat;
+
+    /** Protects \ref lmid_by_stat. The cache is mutated on the main thread
+     * (\ref iop_dso_open) but also from \ref iop_dso_wipe, which can run on a
+     * worker thread when the last DSO reference is held by a released
+     * iop_env_ctx_t snapshot. */
+    spinlock_t lmid_by_stat_lock;
 } iop_dso_g;
 #define _G  iop_dso_g
 
@@ -359,10 +365,15 @@ static void iop_dso_unregister_ref(const iop_dso_file_stat_t *dso_stat)
     int pos;
     iop_dso_lmid_ref_t *lmid_ref;
 
+    /* May run on a worker thread (from iop_dso_wipe); serialize cache access
+     * with the main-thread mutations done in iop_dso_open. */
+    spin_lock(&_G.lmid_by_stat_lock);
+
     /* Look for the DSO in the cache. */
     pos = qm_find(iop_dso_lmid_by_stat, &_G.lmid_by_stat, dso_stat);
     if (pos < 0) {
         /* If not found, this is not a DSO using a separate namespace. */
+        spin_unlock(&_G.lmid_by_stat_lock);
         return;
     }
 
@@ -375,6 +386,8 @@ static void iop_dso_unregister_ref(const iop_dso_file_stat_t *dso_stat)
     if (lmid_ref->refcnt <= 0) {
         qm_del_at(iop_dso_lmid_by_stat, &_G.lmid_by_stat, pos);
     }
+
+    spin_unlock(&_G.lmid_by_stat_lock);
 }
 
 static void iop_dso_wipe(iop_dso_t *dso)
@@ -400,8 +413,8 @@ static void iop_dso_wipe(iop_dso_t *dso)
     }
 }
 
-REFCNT_NEW(iop_dso_t, iop_dso);
-REFCNT_EXTERN_RELEASE(iop_dso_t, iop_dso);
+ATOMIC_REFCNT_NEW(iop_dso_t, iop_dso);
+ATOMIC_REFCNT_EXTERN_RELEASE(iop_dso_t, iop_dso);
 
 static iop_dso_file_stat_t iop_dso_file_get_stat(const char *path)
 {
@@ -438,7 +451,6 @@ iop_dso_t *iop_dso_open(iop_env_t *iop_env, const char *path, sb_t *err)
     iop_dso_file_stat_t dso_stat;
     void *handle;
     iop_dso_t *dso;
-    iop_dso_lmid_ref_t *lmid_ref = NULL;
     Lmid_t lmid;
 
     /* DSO open mutates iop_env's dso_lmid: must be on the main thread. */
@@ -453,24 +465,39 @@ iop_dso_t *iop_dso_open(iop_env_t *iop_env, const char *path, sb_t *err)
     }
 
     if (lmid == LM_ID_NEWLM) {
+        iop_dso_lmid_ref_t *lmid_ref;
         uint32_t pos;
 
-        /* Try to look for the namespace in the cache for the given DSO. */
+        /* Try to look for the namespace in the cache for the given DSO.
+         *
+         * The cache value pointer must NOT be kept across dlmopen(): a
+         * concurrent iop_dso_unregister_ref() (from a worker-thread
+         * iop_dso_wipe) could rehash the qm and invalidate it. We therefore
+         * only touch the cache under the lock here, bump the refcount so the
+         * entry cannot be evicted, and re-find it under the lock after
+         * dlmopen() to record the resolved LMID. */
         dso_stat = iop_dso_file_get_stat(path);
-        pos = qm_reserve(iop_dso_lmid_by_stat, &_G.lmid_by_stat, &dso_stat, 0);
 
+        spin_lock(&_G.lmid_by_stat_lock);
+        pos = qm_reserve(iop_dso_lmid_by_stat, &_G.lmid_by_stat,
+                         &dso_stat, 0);
         if (pos & QHASH_COLLISION) {
-            /* If we already have a namespace if this DSO, reuse it and
+            /* If we already have a namespace for this DSO, reuse it and
              * increment the ref counter. */
             lmid_ref = &_G.lmid_by_stat.values[pos ^ QHASH_COLLISION];
             lmid = lmid_ref->lmid;
-            iop_env_set_dso_lmid(iop_env, lmid);
         } else {
             /* Else, create a new ref. */
             lmid_ref = &_G.lmid_by_stat.values[pos];
             p_clear(lmid_ref, 1);
         }
         lmid_ref->refcnt++;
+        spin_unlock(&_G.lmid_by_stat_lock);
+
+        if (lmid != LM_ID_NEWLM) {
+            /* Reused an existing namespace. */
+            iop_env_set_dso_lmid(iop_env, lmid);
+        }
     }
 
     /* Opening the DSO with the correct flags and LMID */
@@ -481,15 +508,27 @@ iop_dso_t *iop_dso_open(iop_env_t *iop_env, const char *path, sb_t *err)
     }
 
     if (lmid == LM_ID_NEWLM) {
-        /* If we have created a new namespace, get its LMID and store it in
-         * the IOP environment and in the cache reference. */
+        iop_dso_lmid_ref_t *lmid_ref;
+
+        /* We created a new namespace: resolve its LMID and store it in the
+         * IOP environment and in the cache reference. Re-find the entry
+         * under the lock -- we still hold a reference on it, so it cannot
+         * have been evicted, but a concurrent unregister may have rehashed
+         * the qm. */
         if (dlinfo(handle, RTLD_DI_LMID, &lmid) < 0) {
             sb_setf(err, "unable to get lmid of plugin `%s`: %s", path,
                     dlerror());
             return NULL;
         }
         iop_env_set_dso_lmid(iop_env, lmid);
-        lmid_ref->lmid = lmid;
+
+        spin_lock(&_G.lmid_by_stat_lock);
+        lmid_ref = qm_get_def_p(iop_dso_lmid_by_stat, &_G.lmid_by_stat,
+                                &dso_stat, NULL);
+        if (lmid_ref) {
+            lmid_ref->lmid = lmid;
+        }
+        spin_unlock(&_G.lmid_by_stat_lock);
     }
 
     /* Load the DSO handle */
