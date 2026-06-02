@@ -982,6 +982,11 @@ class Blk2c(Task):  # type: ignore[misc]
     ]
     ext_out = ['.c']
     color = 'CYAN'
+    after = 'Iop2c'
+    # The rewriter expands the macros included by the .blk (e.g. IOP_RPC_CB),
+    # so the .blk.c must be regenerated when any included header changes, not
+    # only when the .blk itself does. Scan includes like a C-like file.
+    scan = c_preproc.scan
 
     @classmethod
     def keyword(cls: Type['Blk2c']) -> str:
@@ -1051,6 +1056,10 @@ class Blkk2cc(Task):  # type: ignore[misc]
     ]
     ext_out = ['.cc']
     color = 'CYAN'
+    after = 'Iop2c'
+    # See Blk2c: regenerate when an included header changes, not only the
+    # .blkk. Scan includes like a C-like file.
+    scan = c_preproc.scan
 
     @classmethod
     def keyword(cls: Type['Blkk2cc']) -> str:
