@@ -32,7 +32,7 @@ typedef int spinlock_t;
 #define spin_unlock(ptr)   __sync_lock_release(ptr)
 
 /* }}} */
-/* {{{1 Refcount */
+/* {{{ Refcount */
 
 #define REFCNT_EXTERN_NEW(type, pfx)                                         \
      __attribute__((malloc))                                                 \
@@ -102,7 +102,89 @@ typedef int spinlock_t;
     REFCNT_EXTERN_RELEASE(type, pfx)                                         \
     REFCNT_EXTERN_DELETE(type, pfx)
 
-/* 1}}} */
+/* }}} */
+/* {{{ Atomic refcount */
+
+/* Atomic counterparts of the REFCNT_* helpers, for objects whose last
+ * reference may be dropped from a different thread than the one that took it
+ * (e.g. an object shared across threads through a refcounted snapshot). The
+ * refcount field must be declared as an atomic integer (\ref atomic_int).
+ *
+ * _retain increments with a relaxed ordering: taking a reference does not
+ * publish anything, it only requires the counter not to be lost. _release
+ * decrements with an acquire-release ordering: the thread that brings the
+ * counter down to 0 is guaranteed to observe every prior write made to the
+ * object under the other references before it runs the wipe and frees it. */
+
+#define ATOMIC_REFCNT_EXTERN_NEW(type, pfx)                                  \
+     __attribute__((malloc))                                                 \
+    type *nonnull pfx##_new(void)                                            \
+    {                                                                        \
+        type *res = pfx##_init(p_new_raw(type, 1));                          \
+        atomic_init(&res->refcnt, 1);                                        \
+        return res;                                                          \
+    }
+#define ATOMIC_REFCNT_NEW(type, pfx)                                         \
+    __attr_unused__ static inline ATOMIC_REFCNT_EXTERN_NEW(type, pfx)
+
+#define ATOMIC_REFCNT_EXTERN_RETAIN(type, pfx)                               \
+    __attr_nonnull__((1))                                                    \
+    type *nonnull pfx##_retain(type *nonnull t)                              \
+    {                                                                        \
+        int prev = atomic_fetch_add_explicit(&t->refcnt, 1,                  \
+                                             memory_order_relaxed);          \
+                                                                             \
+        if (unlikely(prev < 1)) {                                            \
+            e_panic("memory corruption: dead object revival detected");      \
+        }                                                                    \
+        return t;                                                            \
+    }
+#define ATOMIC_REFCNT_RETAIN(type, pfx)                                      \
+    __attr_unused__ static inline ATOMIC_REFCNT_EXTERN_RETAIN(type, pfx)
+
+#define ATOMIC_REFCNT_EXTERN_RELEASE(type, pfx)                              \
+    void __attr_nonnull__((1))                                               \
+    pfx##_release(type *nullable *nonnull tp)                                \
+    {                                                                        \
+        type * const t = *tp;                                                \
+                                                                             \
+        if (t) {                                                             \
+            int prev = atomic_fetch_sub_explicit(&t->refcnt, 1,              \
+                                                 memory_order_acq_rel);      \
+                                                                             \
+            if (unlikely(prev <= 0)) {                                       \
+                e_panic("memory corruption: double free detected");          \
+            }                                                                \
+            if (prev == 1) {                                                 \
+                pfx##_wipe(t);                                               \
+                assert(likely(t == *tp) && "pointer corruption detected");   \
+                p_delete(tp);                                                \
+            }                                                                \
+        }                                                                    \
+    }
+#define ATOMIC_REFCNT_RELEASE(type, pfx)                                     \
+    __attr_unused__ static inline ATOMIC_REFCNT_EXTERN_RELEASE(type, pfx)
+
+/* _delete does not touch the refcount itself (it only nulls the caller's
+ * pointer after _release), so these are plain aliases for the non-atomic
+ * REFCNT_*_DELETE helpers. */
+#define ATOMIC_REFCNT_EXTERN_DELETE(type, pfx)                               \
+    REFCNT_EXTERN_DELETE(type, pfx)
+#define ATOMIC_REFCNT_DELETE(type, pfx)         REFCNT_DELETE(type, pfx)
+
+#define DO_ATOMIC_REFCNT(type, pfx)                                          \
+    ATOMIC_REFCNT_NEW(type, pfx)                                             \
+    ATOMIC_REFCNT_RETAIN(type, pfx)                                          \
+    ATOMIC_REFCNT_RELEASE(type, pfx)                                         \
+    ATOMIC_REFCNT_DELETE(type, pfx)
+
+#define DO_ATOMIC_REFCNT_EXTERN(type, pfx)                                   \
+    ATOMIC_REFCNT_EXTERN_NEW(type, pfx)                                      \
+    ATOMIC_REFCNT_EXTERN_RETAIN(type, pfx)                                   \
+    ATOMIC_REFCNT_EXTERN_RELEASE(type, pfx)                                  \
+    ATOMIC_REFCNT_EXTERN_DELETE(type, pfx)
+
+/* }}} */
 /* {{{ Optional scalar types */
 
 #define OPT_OF(type_t)     struct { type_t v; bool has_field; }
