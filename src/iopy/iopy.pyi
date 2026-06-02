@@ -55,7 +55,8 @@ class Basic:
 
     # Try to auto-deduce the type of an object created from a `Basic` class.
     # `Basic` cannot be instantiated on run-time, by the type checker can
-    # still use it, and `Package.__getattr__()` returns a `type[Basic]`.
+    # still use it, and `Plugin.get_type_from_fullname()` returns a
+    # `type[Basic]`.
     # Depending on the arguments passed onto the constructor, we can try to
     # deduce the type of the created object:
     # - If we try to do a copy of the IOPy object, return the same type of the
@@ -297,15 +298,6 @@ class StructUnionBase(Basic):
     def get_desc(cls) -> str: ...
     @classmethod
     def get_values(cls) -> dict[str, type]: ...
-    # Every unknown attributes of a StructUnionBase is potentially an IOP
-    # field, so an attribute of type Any.
-    # It is also possible to set any attributes in a StructUnionBase as they
-    # potentially are some IOP fields.
-    # These methods are reset when generating the specific struct and union
-    # IOPy stubs.
-    def __getattr__(self, name: str) -> typing.Any: ...
-    @typing_extensions.override
-    def __setattr__(self, name: str, val: typing.Any) -> None: ...
 
 class IopStructUnionFieldDescription:
     help: IopHelpDescription
@@ -460,52 +452,25 @@ class IfaceBase:
     def get_iop_module_fullname(self) -> str: ...
     def get_py_module_fullname(self) -> str: ...
 
-class Iface(IfaceBase):
-    # Every unknown attributes of an Iface is potentially a RPC.
-    # This method is reset when generating the specific IOP stubs.
-    def __getattr__(
-        self,
-        name: str,
-    ) -> RPC[_TRpcArg, _TRpcRes, _TRpcExn]: ...
+class Iface(IfaceBase): ...
 
 @typing.type_check_only
-class AsyncIface(IfaceBase):
-    # Every unknown attributes of an AsyncIface is potentially an AsyncRPC.
-    # This method is reset when generating the specific IOP stubs.
-    def __getattr__(
-        self,
-        name: str,
-    ) -> AsyncRPC[_TRpcArg, _TRpcRes, _TRpcExn]: ...
+class AsyncIface(IfaceBase): ...
 
 @typing.type_check_only
-class IfaceServer(IfaceBase):
-    # Every unknown attributes of an IfaceServer is potentially a RPCServer.
-    # This method is reset when generating the specific IOP stubs.
-    def __getattr__(
-        self,
-        name: str,
-    ) -> RPCServer[_TRpcArg, _TRpcRes, _TRpcExn]: ...
+class IfaceServer(IfaceBase): ...
 
 class Module:
     @classmethod
     def get_iop_fullname(cls) -> str: ...
     @classmethod
     def get_py_fullname(cls) -> str: ...
-    # Every unknown attributes of a Module is potentially an Iface.
-    # This method is reset when generating the specific IOP stubs.
-    def __getattr__(self, name: str) -> Iface: ...
 
 @typing.type_check_only
-class AsyncModule(Module):
-    # Every unknown attributes of an AsyncModule is potentially an AsyncIface.
-    # This method is reset when generating the specific IOP stubs.
-    def __getattr__(self, name: str) -> AsyncIface: ...  # type: ignore[override]
+class AsyncModule(Module): ...
 
 @typing.type_check_only
-class ModuleServer(Module):
-    # Every unknown attributes of a ModuleServer is potentially a IfaceServer.
-    # This method is reset when generating the specific IOP stubs.
-    def __getattr__(self, name: str) -> IfaceServer: ...  # type: ignore[override]
+class ModuleServer(Module): ...
 
 # {{{ Client RPC
 
@@ -570,9 +535,6 @@ class Channel(ChannelBase):
     def on_exception(self, value: ChannelOnExceptionCb | None) -> None: ...
     @on_exception.deleter
     def on_exception(self) -> None: ...
-    # Every unknown attributes of a Channel is potentially a Module.
-    # This method is reset when generating the specific IOP stubs.
-    def __getattr__(self, name: str) -> Module: ...
 
 class RPC(
     RPCBase[_TRpcArg, _TRpcRes, _TRpcExn],
@@ -643,11 +605,6 @@ class AsyncChannel(Channel):
         self,
         timeout: float | None = None,
     ) -> asyncio.Future[None]: ...
-    # Every unknown attributes of an AsyncChannel is potentially an
-    # AsyncModule.
-    # This method is reset when generating the specific IOP stubs.
-    @typing_extensions.override
-    def __getattr__(self, name: str) -> AsyncModule: ...
 
 class AsyncRPC(
     RPCBase[_TRpcArg, _TRpcRes, _TRpcExn],
@@ -771,10 +728,6 @@ class ChannelServer(ChannelBase):
     def on_exception(self) -> None: ...
     @property
     def is_listening(self) -> bool: ...
-    # Every unknown attributes of a ChannelServer is potentially a
-    # ModuleServer.
-    # This method is reset when generating the specific IOP stubs.
-    def __getattr__(self, name: str) -> ModuleServer: ...
 
 RPCServerImplCb: typing_extensions.TypeAlias = typing.Callable[
     [RPCArgs[_TRpcArg, _TRpcRes, _TRpcExn]],
@@ -825,24 +778,14 @@ class RPCServer(RPCBase[_TRpcArg, _TRpcRes, _TRpcExn]):
 # }}}
 # {{{ Plugin
 
-class Interfaces:
-    # Every unknown attributes of an Interfaces is potentially a IfaceBase.
-    # This method is reset when generating the specific IOP stubs.
-    def __getattr__(self, name: str) -> IfaceBase: ...
-
-class Modules:
-    # Every unknown attributes of a Modules is potentially a Module.
-    # This method is reset when generating the specific IOP stubs.
-    def __getattr__(self, name: str) -> Module: ...
+class Interfaces: ...
+class Modules: ...
 
 class Package:
     interfaces: Interfaces
 
     def get_iop_name(self) -> str: ...
     def get_py_name(self) -> str: ...
-    # Every unknown attributes of a Package is potentially a type[Basic].
-    # This method is reset when generating the specific IOP stubs.
-    def __getattr__(self, name: str) -> type[Basic]: ...
 
 @typing.type_check_only
 class Void(Struct): ...
@@ -917,9 +860,6 @@ class Plugin:
     def default_post_hook(self) -> None: ...
     def load_dso(self, key: str, dso_path: str | bytes) -> None: ...
     def unload_dso(self, key: str) -> None: ...
-    # Every unknown attributes of a Plugin is potentially a Package.
-    # This method is reset when generating the specific IOP stubs.
-    def __getattr__(self, name: str) -> Package: ...
 
 # }}}
 # {{{ Module functions

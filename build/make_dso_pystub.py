@@ -94,14 +94,6 @@ def dump_import_packages(packages: list[str], output_file: TextIO) -> None:
     output_file.write('\n')
 
 
-def dump_no_getattr(output_file: TextIO) -> None:
-    output_file.write(
-        '    __getattr__ = None  '
-        '# type: ignore[misc, assignment] '
-        '# noqa: PYI026 (type-alias-without-annotation)\n',
-    )
-
-
 def dump_channel_type(
     plugin: iopy.Plugin,
     channel_type: str,
@@ -116,7 +108,8 @@ def dump_channel_type(
         f'{module_name_comp.module_name}_{module_type}\n'
         for module_name_comp in module_names
     )
-    dump_no_getattr(output_file)
+    if not module_names:
+        output_file.write('    ...\n')
     output_file.write('\n')
 
 
@@ -189,7 +182,8 @@ def dump_modules(
         f'{module_name_comp.module_name}_Module\n'
         for module_name_comp in module_names
     )
-    dump_no_getattr(output_file)
+    if not module_names:
+        output_file.write('    ...\n')
     output_file.write('\n')
 
 
@@ -212,7 +206,6 @@ def dump_plugin(
     )
 
     dump_connect_methods(plugin, output_file)
-    dump_no_getattr(output_file)
 
 
 def process_dso(dso_path: pathlib.Path, output_pystub: pathlib.Path) -> None:

@@ -4399,30 +4399,35 @@ class IopyIopStubsTests(z.TestCase):
 
     def test_object_typing_without_stub(self) -> None:
         """Test IOP object typing without stub typing"""
+        # Without stubs the plugin is typed as the bare `iopy.Plugin`,
+        # which no longer exposes a catch-all `__getattr__`, so every
+        # dynamic access is an error for the type checker even though it
+        # works at runtime. Once the first hop is ignored the rest of the
+        # chain is `Any`, so no further suppression is needed.
         with self.assertRaises(AttributeError):
-            _ = self.plugin_no_stub.invalid_attr
+            _ = self.plugin_no_stub.invalid_attr  # type: ignore[attr-defined]
         with self.assertRaises(AttributeError):
-            _ = self.plugin_no_stub.test.invalid_attr
+            _ = self.plugin_no_stub.test.invalid_attr  # type: ignore[attr-defined]
 
-        cls_a = self.plugin_no_stub.test.ClassA(field1=10)
+        cls_a = self.plugin_no_stub.test.ClassA(field1=10)  # type: ignore[attr-defined]
         self.assertEqual(cls_a.field1, 10)
         with self.assertRaises(AttributeError):
             _ = cls_a.invalid_attr
         cls_a.field1 = 20
         cls_a.custom_attr = 30
 
-        union_a = self.plugin_no_stub.test.UnionA(s='plop')
+        union_a = self.plugin_no_stub.test.UnionA(s='plop')  # type: ignore[attr-defined]
         self.assertEqual(union_a.s, 'plop')
         with self.assertRaises(AttributeError):
             _ = union_a.invalid_attr
         union_a.s = 'plop'
         union_a.custom_attr = 40
 
-        enum_a = self.plugin_no_stub.test.EnumA('A')
+        enum_a = self.plugin_no_stub.test.EnumA('A')  # type: ignore[attr-defined]
         self.assertEqual(enum_a.get_as_str(), 'A')
         with self.assertRaises(AttributeError):
-            _ = enum_a.invalid_attr  # type: ignore[attr-defined]
-        enum_a.custom_attr = 50  # type: ignore[attr-defined]
+            _ = enum_a.invalid_attr
+        enum_a.custom_attr = 50
 
     def test_object_typing_with_stub(self) -> None:
         """Test IOP object typing with stub typing"""
@@ -4468,25 +4473,27 @@ class IopyIopStubsTests(z.TestCase):
 
         # Client
         client = self.plugin_no_stub.connect(uri)
-        res = client.test_ModuleA.interfaceA.funA(
-            a=self.plugin_no_stub.test.ClassA(field1=10)
+        res = client.test_ModuleA.interfaceA.funA(  # type: ignore[attr-defined]
+            a=self.plugin_no_stub.test.ClassA(field1=10)  # type: ignore[attr-defined]
         )
         assert res is not None
         self.assertEqual(res.status, 'A')
 
-        # Test invalid attributes
+        # Test invalid attributes. Without stubs `server`/`client` are the
+        # bare `iopy.ChannelServer`/`iopy.Channel`, which no longer expose a
+        # catch-all `__getattr__`, so every dynamic access is a type error.
         with self.assertRaises(AttributeError):
-            _ = server.invalid_attr
+            _ = server.invalid_attr  # type: ignore[attr-defined]
         with self.assertRaises(AttributeError):
-            _ = server.test_ModuleA.invalid_attr
+            _ = server.test_ModuleA.invalid_attr  # type: ignore[attr-defined]
         with self.assertRaises(AttributeError):
-            _ = server.test_ModuleA.funA.invalid_attr
+            _ = server.test_ModuleA.funA.invalid_attr  # type: ignore[attr-defined]
         with self.assertRaises(AttributeError):
-            _ = client.invalid_attr
+            _ = client.invalid_attr  # type: ignore[attr-defined]
         with self.assertRaises(AttributeError):
-            _ = client.test_ModuleA.invalid_attr
+            _ = client.test_ModuleA.invalid_attr  # type: ignore[attr-defined]
         with self.assertRaises(AttributeError):
-            _ = client.test_ModuleA.funA.invalid_attr
+            _ = client.test_ModuleA.funA.invalid_attr  # type: ignore[attr-defined]
 
         server.stop()
 
