@@ -646,13 +646,13 @@ def gen_tags(ctx: BuildContext) -> None:
     ctx.groups = groups
 
 
-class TagsClass(BuildContext):  # type: ignore[misc]
+class TagsClass(BuildContext):
     """generate tags using ctags"""
 
     cmd = 'tags'
 
 
-class EtagsClass(BuildContext):  # type: ignore[misc]
+class EtagsClass(BuildContext):
     """generate tags for emacs using ctags"""
 
     cmd = 'etags'
@@ -800,13 +800,13 @@ def old_gen_files_detect(ctx: BuildContext) -> None:
             node.delete()
 
 
-class OldGenFilesDetect(BuildContext):  # type: ignore[misc]
+class OldGenFilesDetect(BuildContext):
     """detect old generated files on disk"""
 
     cmd = 'old-gen-files-detect'
 
 
-class OldGenFilesDelete(BuildContext):  # type: ignore[misc]
+class OldGenFilesDelete(BuildContext):
     """delete old generated files on disk"""
 
     cmd = 'old-gen-files-delete'
@@ -848,7 +848,7 @@ def coverage_start_cmd(ctx: BuildContext) -> None:
     ctx.groups = groups
 
 
-class CoverageStartClass(BuildContext):  # type: ignore[misc]
+class CoverageStartClass(BuildContext):
     """start a coverage session (requires coverage profile)"""
 
     cmd = 'coverage-start'
@@ -932,7 +932,7 @@ def coverage_end_cmd(ctx: BuildContext) -> None:
     ctx.groups = groups
 
 
-class CoverageReportClass(BuildContext):  # type: ignore[misc]
+class CoverageReportClass(BuildContext):
     """end a coverage session and produce a report"""
 
     cmd = 'coverage-end'
@@ -970,7 +970,7 @@ def compute_clang_extra_cflags(
     return [flag for flag in cflags if keep_flag(flag)]
 
 
-class Blk2c(Task):  # type: ignore[misc]
+class Blk2c(Task):
     run_str = [
         'rm -f ${TGT}',
         (
@@ -1045,7 +1045,7 @@ def process_blk(self: TaskGen, node: Node) -> None:
 # {{{ BLKK
 
 
-class Blkk2cc(Task):  # type: ignore[misc]
+class Blkk2cc(Task):
     run_str = [
         'rm -f ${TGT}',
         (
@@ -1113,7 +1113,7 @@ def process_blkk(self: TaskGen, node: Node) -> None:
 # {{{ PERF
 
 
-class Perf2c(Task):  # type: ignore[misc]
+class Perf2c(Task):
     run_str = '${GPERF} --language ANSI-C --output-file ${TGT} ${SRC}'
     color = 'BLUE'
 
@@ -1137,7 +1137,7 @@ def process_perf(self: TaskGen, node: Node) -> None:
 # {{{ LEX
 
 
-class Lex2c(Task):  # type: ignore[misc]
+class Lex2c(Task):
     run_str = ['rm -f ${TGT}', '${FLEX_SH} ${SRC} ${TGT}']
     color = 'BLUE'
 
@@ -1161,7 +1161,7 @@ def process_lex(self: TaskGen, node: Node) -> None:
 # {{{ FC
 
 
-class FirstInputStrTask(Task):  # type: ignore[misc]
+class FirstInputStrTask(Task):
     # pyrefly: ignore[missing-override-decorator]
     def __str__(self) -> str:
         node = self.inputs[0]
@@ -1231,7 +1231,7 @@ def process_fc(self: TaskGen, node: Node) -> None:
 # {{{ TOKENS
 
 
-class Tokens2c(Task):  # type: ignore[misc]
+class Tokens2c(Task):
     run_str = (
         '${TOKENS_SH} ${SRC[0].abspath()} ${TGT[0]} && '
         '${TOKENS_SH} ${SRC[0].abspath()} ${TGT[1]}'
@@ -1591,7 +1591,7 @@ def process_pxcc(self: TaskGen, node: Node) -> None:
 # {{{ .c checks using clang
 
 
-class ClangCheck(Task):  # type: ignore[misc]
+class ClangCheck(Task):
     run_str = (
         '${CLANG} -x c -O0 -fsyntax-only ${CLANG_FLAGS} '
         '${CLANG_CFLAGS} ${CLANG_EXTRA_CFLAGS} ${CPPPATH_ST:INCPATHS} '
@@ -1657,7 +1657,7 @@ def process_c_for_check(self: TaskGen, node: Node) -> None:
 # {{{ DSO PYSTUB
 
 
-class DsoPystubTask(Task):  # type: ignore[misc]
+class DsoPystubTask(Task):
     run_str = [
         (
             '${MAKE_DSO_PYSTUB_PY} --dso-path ${SRC[0].abspath()} '
@@ -2201,7 +2201,7 @@ def configure(ctx: ConfigurationContext) -> None:
     ctx.load('rust')
 
 
-class IsConfigurationContext(ConfigurationContext):  # type: ignore[misc]
+class IsConfigurationContext(ConfigurationContext):
     def execute(self) -> None:
         # Run configure
         ConfigurationContext.execute(self)

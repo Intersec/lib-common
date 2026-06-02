@@ -408,7 +408,7 @@ static void iopc_pystub_dump_to_dict(sb_t *buf, const char *st_name)
 {
     sb_addf(
         buf,
-        "    def to_dict(  # type: ignore[override]\n"
+        "    def to_dict(  # pyrefly: ignore\n"
         "        self, skip_private: bool | None = None,\n"
         "        skip_default: bool | None = None,\n"
         "        skip_empty_arrays: bool | None = None,\n"
@@ -1036,13 +1036,14 @@ iopc_pystub_dump_rpc_arg_full_dict_types(sb_t *buf, const iopc_fun_t *rpc,
 }
 
 static void iopc_pystub_dump_rpc_call_meth(sb_t *buf,
-                                           const char *method_name,
+                                           bool is_dunder,
                                            const iopc_pkg_t *pkg,
                                            const iopc_fun_t *rpc,
                                            const char *rpc_name,
                                            const char *res_type)
 {
     t_scope;
+    const char *method_name = is_dunder ? "__call__" : "call";
     bool arg_is_void = iopc_fun_struct_is_void(&rpc->arg);
     bool arg_is_union;
     const char *arg_obj_type;
@@ -1052,15 +1053,20 @@ static void iopc_pystub_dump_rpc_call_meth(sb_t *buf,
 
     arg_obj_type = arg_is_void ? "None" : t_fmt("%s_Arg_ParamType", rpc_name);
 
+    /* Only the `call` overrides flag bad-override/missing-override-decorator
+     * against `iopy.RPC`; `__call__` and the `@typing.overload` decorator do
+     * not, so suppress only there to avoid `unused-ignore`. */
     sb_addf(
         buf,
         "\n"
-        "    @typing.overload  # type: ignore[override]\n"
-        "    def %s(  # type: ignore[bad-overload]\n"
+        "    @typing.overload\n"
+        "    def %s(%s\n"
         "        self, obj: %s, /,\n"
         "        **ic_kwargs: typing_extensions.Unpack[iopy.IcKwargs],\n"
         "    ) -> %s: ...\n",
-        method_name, arg_obj_type, res_type);
+        method_name,
+        is_dunder ? "" : "  # pyrefly: ignore",
+        arg_obj_type, res_type);
 
     if (arg_is_union) {
         const iopc_struct_t *arg_union_st =
@@ -1106,9 +1112,8 @@ static void iopc_pystub_dump_rpc_call(sb_t *buf, const iopc_pkg_t *pkg,
                                       const char *rpc_name,
                                       const char *res_type)
 {
-    iopc_pystub_dump_rpc_call_meth(buf, "call", pkg, rpc, rpc_name, res_type);
-    iopc_pystub_dump_rpc_call_meth(buf, "__call__", pkg, rpc, rpc_name,
-                                   res_type);
+    iopc_pystub_dump_rpc_call_meth(buf, false, pkg, rpc, rpc_name, res_type);
+    iopc_pystub_dump_rpc_call_meth(buf, true, pkg, rpc, rpc_name, res_type);
 }
 
 static void iopc_pystub_dump_rpc_types(sb_t *buf, const iopc_pkg_t *pkg,
@@ -1210,7 +1215,7 @@ static void iopc_pystub_dump_server_rpc(sb_t *buf, const iopc_pkg_t *pkg,
             "    @property\n"
             "    def impl(self) -> "
             "iopy.RPCServerImplCb[%s_Arg, %s_Res, %s_Exn] | None: ...  "
-            "# type: ignore[missing-override-decorator]\n"
+            "# pyrefly: ignore\n"
             "\n"
             "    @impl.setter\n"
             "    def impl(self, value: "
@@ -1434,7 +1439,7 @@ static void iopc_pystub_dump_package(sb_t *buf, const iopc_pkg_t *pkg)
     sb_adds(buf, "@typing.type_check_only\n");
     sb_adds(buf, "class _Package(iopy.Package):\n");
 
-    sb_adds(buf, "    interfaces: _Interfaces  # type: ignore[bad-override]\n\n");
+    sb_adds(buf, "    interfaces: _Interfaces  # pyrefly: ignore\n\n");
 
     tab_for_each_entry(en, &pkg->enums) {
         sb_addf(buf, "    %s = %s\n", en->name, en->name);

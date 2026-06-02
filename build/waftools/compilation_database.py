@@ -83,7 +83,7 @@ ClangDbEntry = Dict[str, Union[str, List[str]]]
 ClangDb = Dict[str, ClangDbEntry]
 
 
-class CompileDbContext(Build.BuildContext):  # type: ignore[misc]
+class CompileDbContext(Build.BuildContext):
     """generates compile_commands.json by request"""
 
     cmd = 'compiledb'

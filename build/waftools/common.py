@@ -203,46 +203,46 @@ def run_checks(ctx: BuildContext) -> None:
         ctx.fatal('')
 
 
-class CheckClass(BuildContext):  # type: ignore[misc]
+class CheckClass(BuildContext):
     """run tests (no web)"""
 
     cmd = 'check'
     has_jasmine_tests = True
 
 
-class CheckRetryClass(BuildContext):  # type: ignore[misc]
+class CheckRetryClass(BuildContext):
     """retry failed run tests (no web)"""
 
     cmd = 'check-retry'
 
 
-class FastCheckClass(BuildContext):  # type: ignore[misc]
+class FastCheckClass(BuildContext):
     """run tests in fast mode (no web)"""
 
     cmd = 'fast-check'
     has_jasmine_tests = True
 
 
-class WwwCheckClass(BuildContext):  # type: ignore[misc]
+class WwwCheckClass(BuildContext):
     """run jasmine tests"""
 
     cmd = 'www-check'
     has_jasmine_tests = True
 
 
-class SeleniumCheckClass(BuildContext):  # type: ignore[misc]
+class SeleniumCheckClass(BuildContext):
     """run selenium tests (including slow ones)"""
 
     cmd = 'selenium'
 
 
-class FastSeleniumCheckClass(BuildContext):  # type: ignore[misc]
+class FastSeleniumCheckClass(BuildContext):
     """run selenium tests (without slow ones)"""
 
     cmd = 'fast-selenium'
 
 
-class FastSeleniumCheckRetryClass(BuildContext):  # type: ignore[misc]
+class FastSeleniumCheckRetryClass(BuildContext):
     """retry selenium tests (without slow ones)"""
 
     cmd = 'fast-selenium-retry'
@@ -393,7 +393,7 @@ def remove_default_install_tasks(self: TaskGen) -> None:
         del self.install_task
 
 
-class CustomInstall(Task):  # type: ignore[misc]
+class CustomInstall(Task):
     """Task to start custom shell commands on install."""
 
     color = 'PINK'
@@ -526,13 +526,13 @@ def run_ruff(ctx: BuildContext) -> None:
     run_python_checker(ctx, cmd)
 
 
-class RuffClass(BuildContext):  # type: ignore[misc]
+class RuffClass(BuildContext):
     """run ruff checks on committed python files"""
 
     cmd = 'ruff'
 
 
-class RuffFixClass(BuildContext):  # type: ignore[misc]
+class RuffFixClass(BuildContext):
     """run ruff check fixes on committed python files"""
 
     cmd = 'ruff-fix'
@@ -603,7 +603,7 @@ def run_pyrefly(ctx: BuildContext) -> None:
     run_python_checker(ctx, cmd)
 
 
-class PyreflyClass(BuildContext):  # type: ignore[misc]
+class PyreflyClass(BuildContext):
     """run pyrefly checks on committed python files"""
 
     cmd = 'pyrefly'

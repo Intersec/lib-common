@@ -126,7 +126,7 @@ def ZGroup(cls: type[T]) -> type[T]:  # noqa: N802 (invalid-function-name)
     m = sys.modules[cls.__module__]
 
     if getattr(m, 'load_tests', None) is None:
-        m.load_tests = _LoadTests()  # type: ignore[attr-defined]
+        m.load_tests = _LoadTests()  # pyrefly: ignore[missing-attribute]
 
     if issubclass(cls, DocTestModule):
         m.load_tests.add_docsuite(cls)
@@ -152,7 +152,7 @@ class ZTestSuite(unittest.TestSuite):
             result.reset()
             result.print_suite_summary(self)
 
-    def run(  # type: ignore[override]
+    def run(  # pyrefly: ignore[bad-override, missing-override-decorator]
         self,
         result: _ZTestResult,
         debug: bool = False,
@@ -205,7 +205,7 @@ class DocTestModule(ZTestSuite):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         # upgrade doc test runner to our custom one
         if not isinstance(doctest.DocTestCase, IopDocTestRunner):
-            doctest.DocTestRunner = IopDocTestRunner  # type: ignore[misc]
+            doctest.DocTestRunner = IopDocTestRunner
 
         test_finder = doctest.DocTestFinder()
         tests = test_finder.find(self.module, extraglobs=self.extraglobs())
@@ -249,12 +249,12 @@ def ZFlags(*flags: str) -> Callable[[T], T]:  # noqa: N802 (invalid-function-nam
         func_flags.extend(flags)
         fl = set(func_flags) & _FLAGS
         if any(f in _TAG_OR for f in func_flags) and 'wip' not in fl:
-            func.__unittest_skip__ = False  # type: ignore[attr-defined]
+            func.__unittest_skip__ = False  # pyrefly: ignore[missing-attribute]
             return func
         if fl:
             skip_msg = f'skipping tests flagged with {" ".join(fl)}'
             skip_wrapper = unittest.skip(skip_msg)
-            return skip_wrapper(func)  # type: ignore[type-var]
+            return skip_wrapper(func)  # pyrefly: ignore[bad-specialization]
         return func
 
     return wrap
@@ -432,7 +432,7 @@ class _ZTestResult(unittest.TestResult):
         self.global_errors.append(
             (
                 test,
-                self._exc_info_to_string(err, test),  # type: ignore[attr-defined]
+                self._exc_info_to_string(err, test),  # pyrefly: ignore[missing-attribute]
             )
         )
         self._put_st('fail', test)
@@ -449,7 +449,7 @@ class _ZTestResult(unittest.TestResult):
         self.global_failures.append(
             (
                 test,
-                self._exc_info_to_string(err, test),  # type: ignore[attr-defined]
+                self._exc_info_to_string(err, test),  # pyrefly: ignore[missing-attribute]
             )
         )
         self._put_st('fail', test)
@@ -540,7 +540,7 @@ class ZTestRunner(unittest.TextTestRunner):
     failfast: bool
     buffer: bool
 
-    def run(  # type: ignore[override]
+    def run(  # pyrefly: ignore[bad-override, missing-override-decorator]
         self,
         test: unittest.TestSuite | unittest.TestCase,
     ) -> unittest.TestResult:

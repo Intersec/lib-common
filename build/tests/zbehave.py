@@ -36,7 +36,7 @@ except ImportError:
     from behave.formatter.formatters import register as behave_register
 
 
-class ZFormatter(Formatter):  # type: ignore[misc]
+class ZFormatter(Formatter):
     """
     Provide a behave formatter that support the z format
     """

@@ -146,8 +146,8 @@ def dump_connect_methods(plugin: iopy.Plugin, output_file: TextIO) -> None:
         no_act_timeout: float = 0.0,
         **ic_kwargs: typing_extensions.Unpack[iopy.IcHdrKwargs],
     ) -> Channel: ...
-    @typing.overload  # type: ignore[override]
-    def async_connect(  # type: ignore[bad-override]
+    @typing.overload
+    def async_connect(  # pyrefly: ignore
         self, uri: str, *,
         default_timeout: float | None = None,
         connect_timeout: float | None = None,
@@ -200,10 +200,7 @@ def dump_plugin(
 
     # Dump modules
     output_file.write('\n')
-    output_file.write(
-        '    modules: Modules'
-        '  # type: ignore[bad-override-mutable-attribute]\n'
-    )
+    output_file.write('    modules: Modules  # pyrefly: ignore\n')
 
     dump_connect_methods(plugin, output_file)
 

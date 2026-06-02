@@ -16,8 +16,7 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# ruff: noqa: PGH003
-# type: ignore
+# pyrefly: ignore-errors
 
 """
 Utility to read mem-bench logs.

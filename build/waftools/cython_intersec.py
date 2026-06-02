@@ -93,7 +93,7 @@ def add_cython_file(self: BuildContext, node: Node) -> None:
 # {{{ CythonC compilation task
 
 
-class CythonC(c_tool.c):  # type: ignore[misc]
+class CythonC(c_tool.c):
     def get_cwd(self) -> Node:
         """
         Execute the compiler's commands from the project root instead of the
@@ -184,7 +184,7 @@ RE_INCLUDE_CYT = re.compile(
 )
 
 
-class Cython(Task.Task):  # type: ignore[misc]
+class Cython(Task.Task):
     class ScannerState:
         """Class to hold the state on scan method."""
 

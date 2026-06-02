@@ -43,7 +43,7 @@ from typing import Any
 
 import requests
 import urllib3
-from gerrit import GerritClient  # type: ignore[import-untyped]
+from gerrit import GerritClient
 
 # Private Gerrit instance, bypass certificate checks
 GERRIT_URL = 'https://git.corp'

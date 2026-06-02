@@ -51,7 +51,7 @@ class Basic:
     # IOPy types are not hashable; the runtime sets `__hash__ = None` so
     # using an instance in a set/dict (or as a key) is a TypeError. We
     # mirror that here so type checkers also flag the misuse.
-    __hash__: typing.ClassVar[None]  # type: ignore[assignment]
+    __hash__: typing.ClassVar[None]
 
     # Try to auto-deduce the type of an object created from a `Basic` class.
     # `Basic` cannot be instantiated on run-time, by the type checker can
@@ -601,7 +601,7 @@ class RPC(
     ) -> _TRpcRes: ...
 
 class AsyncChannel(Channel):
-    def connect(  # type: ignore[override]
+    def connect(  # pyrefly: ignore[bad-override, missing-override-decorator]
         self,
         timeout: float | None = None,
     ) -> asyncio.Future[None]: ...

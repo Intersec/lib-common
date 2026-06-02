@@ -15,8 +15,7 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# ruff: noqa: PGH003
-# type: ignore
+# pyrefly: ignore-errors
 
 
 def test_add_iop_package(plugin):

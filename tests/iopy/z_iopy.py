@@ -244,9 +244,9 @@ class IopyTest(z.TestCase):
 
     def test_fields(self) -> None:
         a = self.r.test.ClassA()
-        a.a = 'a'  # type: ignore[attr-defined]
+        a.a = 'a'  # pyrefly: ignore[missing-attribute]
         self.assertEqual(a.field1, 0)
-        self.assertEqual(a.a, 'a', 'append field failed')  # type: ignore[attr-defined]
+        self.assertEqual(a.a, 'a', 'append field failed')  # pyrefly: ignore[missing-attribute]
 
     def test_ignore_unkwnon(self) -> None:
         a = self.r.tst1.A(
@@ -536,13 +536,13 @@ class IopyTest(z.TestCase):
         @z_monkey_patch(self.r.test.ClassA)
         class test_ClassA:  # noqa: N801 (invalid-class-name)
             def fun(self) -> int:
-                res: int = self.field1  # type: ignore[attr-defined]
+                res: int = self.field1  # pyrefly: ignore[missing-attribute]
                 return res
 
         b = self.r.test.ClassB(field1=1)
         self.assertTrue(hasattr(b, 'fun'), 'method inheritance failed')
         self.assertEqual(
-            b.fun(),  # type: ignore[attr-defined]
+            b.fun(),
             1,
             'method inheritance failed',
         )
@@ -695,7 +695,7 @@ class IopyTest(z.TestCase):
         self.assertTrue(u1 == u2)
         self.assertTrue(u1 != u3)
         self.assertTrue(u1 != u4)
-        self.assertTrue(u1 != u1.a)  # type: ignore[comparison-overlap]
+        self.assertTrue(u1 != u1.a)
 
         e1 = self.r.test.EnumA(0)
         e2 = self.r.test.EnumA(0)
@@ -738,7 +738,7 @@ class IopyTest(z.TestCase):
         self.assertEqual(a, self.r.test.StructA(_json=j))
         # check struct field init from union and packing
         # XXX: This is a weird case not worth to be supported with typing.
-        a = self.r.test.StructA(a=u)  # type: ignore[call-overload]
+        a = self.r.test.StructA(a=u)  # pyrefly: ignore[no-matching-overload]
         j = a.to_json()
         self.assertEqual(a, self.r.test.StructA(_json=j))
         # check enum field init from cast and packing
@@ -751,7 +751,7 @@ class IopyTest(z.TestCase):
 
         # check compact option is working
         # XXX: 'compact' is obsolete
-        j = a.to_json(compact=True)  # type: ignore[call-arg]
+        j = a.to_json(compact=True)  # pyrefly: ignore[unexpected-keyword]
         self.assertEqual(a, self.r.test.StructA(_json=j))
 
         # check that private fields are skipped
@@ -822,7 +822,7 @@ class IopyTest(z.TestCase):
         u_b = self.r.test.UnionB(a=100)
         self.assertTrue(hasattr(u_b, 'a'))
         self.assertEqual(getattr(u_b.a, 'i', None), 100)
-        u_b.a = 1  # type: ignore[assignment]
+        u_b.a = 1  # pyrefly: ignore[bad-assignment]
         exp = (
             r'^error when parsing test\.UnionB: '
             r'invalid selected union field .+a.+: in a of type '
@@ -832,7 +832,7 @@ class IopyTest(z.TestCase):
         with self.assertRaisesRegex(iopy.Error, exp):
             self.r.test.UnionB(a=101)
         with self.assertRaisesRegex(iopy.Error, exp):
-            u_b.a = 101  # type: ignore[assignment]
+            u_b.a = 101  # pyrefly: ignore[bad-assignment]
         self.assertEqual(getattr(u_b.a, 'i', None), 1)
 
         c_b = self.r.test.ClassB(field1=1000)
@@ -854,7 +854,7 @@ class IopyTest(z.TestCase):
             r'field i \(type: ?int\[\]\) is not allowed: empty array$'
         )
         with self.assertRaisesRegex(iopy.Error, exp):
-            self.r.test.StructF()  # type: ignore[call-overload]
+            self.r.test.StructF()  # pyrefly: ignore[missing-argument]
 
         s_a = self.r.test.StructA()
         self.assertEqual(s_a, self.r.test.StructA(tu=[]))
@@ -918,7 +918,7 @@ class IopyTest(z.TestCase):
             r'required but absent$'
         )
         with self.assertRaisesRegex(iopy.Error, exp):
-            self.r.test.StructB(b='')  # type: ignore[call-overload]
+            self.r.test.StructB(b='')  # pyrefly: ignore[no-matching-overload]
 
     def test_unspecified_optional_fields(self) -> None:
         d = self.r.test.StructD()
@@ -977,7 +977,7 @@ class IopyTest(z.TestCase):
             'custom init method has not been called from iop creation',
         )
 
-        a = self.r.test.ClassA(  # type: ignore[call-overload]
+        a = self.r.test.ClassA(  # pyrefly: ignore[no-matching-overload]
             field1=42, _my_field='test'
         )
         self.assertEqual(
@@ -1049,7 +1049,7 @@ class IopyTest(z.TestCase):
                 self.class_a = self.r.test.ClassA(**kwargs)
                 super(test_StructA, self).__init__()
 
-        sta: test_StructA = self.r.test.StructA(field1=5)  # type: ignore[call-overload]
+        sta: test_StructA = self.r.test.StructA(field1=5)  # pyrefly: ignore[bad-assignment, no-matching-overload]
         self.assertIsNotNone(
             getattr(sta, 'class_a', None), 'custom init with kwargs failed'
         )
@@ -1076,9 +1076,9 @@ class IopyTest(z.TestCase):
                 self.common_val2 = 12
 
         st = self.r.test.StructA()
-        st.foo()  # type: ignore[attr-defined]
-        self.assertEqual(st.common_val1, 42)  # type: ignore[attr-defined]
-        self.assertEqual(st.common_val2, 12)  # type: ignore[attr-defined]
+        st.foo()  # pyrefly: ignore[missing-attribute]
+        self.assertEqual(st.common_val1, 42)  # pyrefly: ignore[missing-attribute]
+        self.assertEqual(st.common_val2, 12)  # pyrefly: ignore[missing-attribute]
 
         class BaseCommonClass1:
             common_val2: int
@@ -1101,9 +1101,9 @@ class IopyTest(z.TestCase):
         del test_StructA1.foo
 
         st = self.r.test.StructA()
-        st.foo()  # type: ignore[attr-defined]
-        self.assertEqual(st.common_val1, 84)  # type: ignore[attr-defined]
-        self.assertEqual(st.common_val2, 7777)  # type: ignore[attr-defined]
+        st.foo()  # pyrefly: ignore[missing-attribute]
+        self.assertEqual(st.common_val1, 84)  # pyrefly: ignore[missing-attribute]
+        self.assertEqual(st.common_val2, 7777)  # pyrefly: ignore[missing-attribute]
 
         class CommonClass3:
             def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -1115,7 +1115,7 @@ class IopyTest(z.TestCase):
             pass
 
         st = self.r.test.StructA()
-        self.assertEqual(st.common_val1, 10)  # type: ignore[attr-defined]
+        self.assertEqual(st.common_val1, 10)  # pyrefly: ignore[missing-attribute]
 
         @z_monkey_patch(self.r.test.StructA)
         class test_StructA4:  # noqa: N801 (invalid-class-name)
@@ -1136,15 +1136,15 @@ class IopyTest(z.TestCase):
         structa = self.r.test.StructA()
         # XXX: This is supported in IOPy, but very hard to represent with
         # types
-        structa.tu.append(self.r.test.ClassA())  # type: ignore[arg-type]
+        structa.tu.append(self.r.test.ClassA())  # pyrefly: ignore[bad-argument-type]
         structa.u = self.r.test.UnionA(s='toto')
         copy_struct_from_plugin = self.p.test.StructA(_json=str(structa))
         copy_struct_from_register = self.r.test.StructA(_json=str(structa))
 
         self.assertEqual(str(structa), str(copy_struct_from_plugin))
         self.assertEqual(
-            structa.var1,  # type: ignore[attr-defined]
-            copy_struct_from_register.var1,  # type: ignore[attr-defined]
+            structa.var1,  # pyrefly: ignore[missing-attribute]
+            copy_struct_from_register.var1,  # pyrefly: ignore[missing-attribute]
         )
         self.assertEqual(str(structa), str(copy_struct_from_register))
 
@@ -1165,82 +1165,79 @@ class IopyTest(z.TestCase):
                 self.__dict__.update(kwargs)
 
         err = self.r.test.Error(code=42, desc='test')
-        structa = self.r.test.StructA(  # type: ignore[call-overload]
+        structa = self.r.test.StructA(  # pyrefly: ignore[no-matching-overload]
             val=5, foo=err
         )
         structa.tu.append(self.r.test.UnionA(self.r.test.ClassA()))
         structa.u = self.r.test.UnionA('toto')
-        structa.r = self.r.test.Error(code=42, desc='test')  # type: ignore[attr-defined]
+        structa.r = self.r.test.Error(code=42, desc='test')  # pyrefly: ignore[missing-attribute]
         enuma = self.r.test.EnumA('B')
-        enuma.baz = self.r.test.ClassB()  # type: ignore[attr-defined]
+        enuma.baz = self.r.test.ClassB()  # pyrefly: ignore[missing-attribute]
         structa.e = enuma
-        structa.bar = 24  # type: ignore[attr-defined]
+        structa.bar = 24  # pyrefly: ignore[missing-attribute]
 
         copy_structa = copy_method(structa)
         self.assertEqual(structa, copy_structa)
-        self.assertEqual(structa.val, copy_structa.val)  # type: ignore[attr-defined]
-        self.assertEqual(structa.foo, copy_structa.foo)  # type: ignore[attr-defined]
-        self.assertEqual(structa.bar, copy_structa.bar)  # type: ignore[attr-defined]
-        self.assertEqual(structa.e.baz, copy_structa.e.baz)  # type: ignore[attr-defined]
+        self.assertEqual(structa.val, copy_structa.val)  # pyrefly: ignore[missing-attribute]
+        self.assertEqual(structa.foo, copy_structa.foo)  # pyrefly: ignore[missing-attribute]
+        self.assertEqual(structa.bar, copy_structa.bar)  # pyrefly: ignore[missing-attribute]
+        self.assertEqual(structa.e.baz, copy_structa.e.baz)  # pyrefly: ignore[missing-attribute]
         self.assertEqual(str(structa), str(copy_structa))
         self.assertNotEqual(id(structa), id(copy_structa))
         self.assertNotEqual(
             is_deepcopy,
-            id(structa.foo) == id(copy_structa.foo),  # type: ignore[attr-defined]
+            id(structa.foo) == id(copy_structa.foo),  # pyrefly: ignore[missing-attribute]
         )
         self.assertNotEqual(
             is_deepcopy, id(structa.tu[0]) == id(copy_structa.tu[0])
         )
         self.assertNotEqual(is_deepcopy, id(structa.u) == id(copy_structa.u))
         self.assertNotEqual(is_deepcopy, id(structa.e) == id(copy_structa.e))
-        self.assertNotEqual(is_deepcopy, id(structa.r) == id(copy_structa.r))  # type: ignore[attr-defined]
+        self.assertNotEqual(is_deepcopy, id(structa.r) == id(copy_structa.r))  # pyrefly: ignore[missing-attribute]
         self.assertNotEqual(
             is_deepcopy,
-            id(structa.e.baz) == id(copy_structa.e.baz),  # type: ignore[attr-defined]
+            id(structa.e.baz) == id(copy_structa.e.baz),  # pyrefly: ignore[missing-attribute]
         )
 
         classb = self.r.test.ClassB(field1=42, field2=20)
-        classb.plop = err  # type: ignore[attr-defined]
+        classb.plop = err  # pyrefly: ignore[missing-attribute]
 
         copy_classb = copy_method(classb)
         self.assertEqual(classb, copy_classb)
         self.assertEqual(classb.field1, copy_classb.field1)
         self.assertEqual(classb.field2, copy_classb.field2)
-        self.assertEqual(classb.plop, copy_classb.plop)  # type: ignore[attr-defined]
+        self.assertEqual(classb.plop, copy_classb.plop)  # pyrefly: ignore[missing-attribute]
         self.assertEqual(str(classb), str(copy_classb))
         self.assertNotEqual(id(classb), id(copy_classb))
         self.assertNotEqual(
             is_deepcopy,
-            id(classb.plop)  # type: ignore[attr-defined]
-            == id(copy_classb.plop),  # type: ignore[attr-defined]
+            id(classb.plop) == id(copy_classb.plop),  # pyrefly: ignore[missing-attribute]
         )
 
         enuma = self.r.test.EnumA('A')
-        enuma.plop = err  # type: ignore[attr-defined]
+        enuma.plop = err  # pyrefly: ignore[missing-attribute]
 
         copy_enuma = copy_method(enuma)
         self.assertEqual(enuma, copy_enuma)
-        self.assertEqual(enuma.plop, copy_enuma.plop)  # type: ignore[attr-defined]
+        self.assertEqual(enuma.plop, copy_enuma.plop)  # pyrefly: ignore[missing-attribute]
         self.assertEqual(str(enuma), str(copy_enuma))
         self.assertNotEqual(id(enuma), id(copy_enuma))
         self.assertNotEqual(
             is_deepcopy,
-            id(enuma.plop)  # type: ignore[attr-defined]
-            == id(copy_enuma.plop),  # type: ignore[attr-defined]
+            id(enuma.plop) == id(copy_enuma.plop),  # pyrefly: ignore[missing-attribute]
         )
 
         uniona = self.r.test.UnionA('A')
-        uniona.plop = err  # type: ignore[attr-defined]
+        uniona.plop = err  # pyrefly: ignore[missing-attribute]
 
         copy_uniona = copy_method(uniona)
         self.assertEqual(uniona, copy_uniona)
-        self.assertEqual(uniona.plop, copy_uniona.plop)  # type: ignore[attr-defined]
+        self.assertEqual(uniona.plop, copy_uniona.plop)  # pyrefly: ignore[missing-attribute]
         self.assertEqual(str(uniona), str(copy_uniona))
         self.assertNotEqual(id(uniona), id(copy_uniona))
         self.assertNotEqual(
             is_deepcopy,
-            id(uniona.plop)  # type: ignore[attr-defined]
-            == id(copy_uniona.plop),  # type: ignore[attr-defined]
+            id(uniona.plop) == id(copy_uniona.plop),  # pyrefly: ignore[missing-attribute]
         )
 
         structg1 = self.r.test.StructG(a=2)
@@ -1279,15 +1276,15 @@ class IopyTest(z.TestCase):
         self.assertEqual(a0, a1)
         a2 = self.r.test.StructA(tu=[])
         # XXX: too complicated for the type system
-        a2.tu = 42  # type: ignore[assignment]
+        a2.tu = 42  # pyrefly: ignore[bad-assignment]
         self.assertEqual(a0, a2)
 
     def test_cast_and_no_cast(self) -> None:
         tab = [1, self.r.test.UnionA(i=2)]
         # XXX: too complicated for the type system
-        self.r.test.StructA(tu=tab)  # type: ignore[arg-type]
+        self.r.test.StructA(tu=tab)
         tab = [self.r.test.UnionA(i=1), 2]
-        self.r.test.StructA(tu=tab)  # type: ignore[arg-type]
+        self.r.test.StructA(tu=tab)
 
     def test_static_attrs(self) -> None:
         exp_static_attrs = {'intAttr': 999, 'strAttr': 'truc'}
@@ -1295,11 +1292,11 @@ class IopyTest(z.TestCase):
         self.assertEqual(class_attrs['statics'], exp_static_attrs)
         # TODO: support static attrs though class in type system
         self.assertEqual(
-            self.r.test.StaticAttrsB.intAttr,  # type: ignore[attr-defined]
+            self.r.test.StaticAttrsB.intAttr,  # pyrefly: ignore[missing-attribute]
             999,
         )
         self.assertEqual(
-            self.r.test.StaticAttrsB.strAttr,  # type: ignore[attr-defined]
+            self.r.test.StaticAttrsB.strAttr,  # pyrefly: ignore[missing-attribute]
             'plop',
         )
 
@@ -1309,19 +1306,20 @@ class IopyTest(z.TestCase):
                 hash(x)
             # Direct `__hash__()` call is caught statically by pyrefly
             # because the stub declares `Basic.__hash__: ClassVar[None]`,
-            # hence the `# type: ignore[misc]` ("None not callable").
+            # hence the `not-callable` suppression below ("None not
+            # callable").
             with self.assertRaisesRegex(TypeError, 'not callable'):
-                x.__hash__()  # type: ignore[misc]  # noqa: PLC2801
+                x.__hash__()  # noqa: PLC2801  # pyrefly: ignore[not-callable]
             # Set / frozenset / dict membership tries to hash the LHS
             # first, so it fails at runtime (pyrefly does not flag this).
             with self.assertRaisesRegex(TypeError, 'unhashable type'):
-                _ = x in {0, 1}  # type: ignore[comparison-overlap]
+                _ = x in {0, 1}
             with self.assertRaisesRegex(TypeError, 'unhashable type'):
-                _ = x in {'A', 'B'}  # type: ignore[comparison-overlap]
+                _ = x in {'A', 'B'}
             with self.assertRaisesRegex(TypeError, 'unhashable type'):
-                _ = x in frozenset([0, 1])  # type: ignore[comparison-overlap]
+                _ = x in frozenset([0, 1])
             with self.assertRaisesRegex(TypeError, 'unhashable type'):
-                _ = x in {0: 'a', 1: 'b'}  # type: ignore[comparison-overlap]
+                _ = x in {0: 'a', 1: 'b'}
             with self.assertRaisesRegex(TypeError, 'unhashable type'):
                 _ = {x}
             with self.assertRaisesRegex(TypeError, 'unhashable type'):
@@ -1508,11 +1506,11 @@ class IopyTest(z.TestCase):
                 return 'bar'
 
         a1 = self.p.test.EnumA('A')
-        self.assertEqual(a1.foo(), 'foo')  # type: ignore[attr-defined]
-        self.assertEqual(a1.bar(), 'bar')  # type: ignore[attr-defined]
-        a2 = test_EnumA1('A')  # type: ignore[call-arg]
+        self.assertEqual(a1.foo(), 'foo')  # pyrefly: ignore[missing-attribute]
+        self.assertEqual(a1.bar(), 'bar')  # pyrefly: ignore[missing-attribute]
+        a2 = test_EnumA1('A')  # pyrefly: ignore[bad-argument-count]
         self.assertEqual(a2.foo(), 'foo')
-        self.assertEqual(a2.bar(), 'bar')  # type: ignore[attr-defined]
+        self.assertEqual(a2.bar(), 'bar')  # pyrefly: ignore[missing-attribute]
         self.assertEqual(a1, a2)
 
         class test_ClassA1:  # noqa: N801 (invalid-class-name)
@@ -1533,12 +1531,12 @@ class IopyTest(z.TestCase):
                 return 'baz'
 
         b1 = self.p.test.ClassB()
-        self.assertEqual(b1.foo(), 'foo')  # type: ignore[attr-defined]
-        self.assertEqual(b1.bar(), 'bar')  # type: ignore[attr-defined]
-        self.assertEqual(b1.baz(), 'baz')  # type: ignore[attr-defined]
+        self.assertEqual(b1.foo(), 'foo')  # pyrefly: ignore[missing-attribute]
+        self.assertEqual(b1.bar(), 'bar')  # pyrefly: ignore[missing-attribute]
+        self.assertEqual(b1.baz(), 'baz')  # pyrefly: ignore[missing-attribute]
         b2 = ClassB()
-        self.assertEqual(b2.foo(), 'foo')  # type: ignore[attr-defined]
-        self.assertEqual(b2.bar(), 'bar')  # type: ignore[attr-defined]
+        self.assertEqual(b2.foo(), 'foo')  # pyrefly: ignore[missing-attribute]
+        self.assertEqual(b2.bar(), 'bar')  # pyrefly: ignore[missing-attribute]
         self.assertEqual(b2.baz(), 'baz')
         self.assertEqual(b1, b2)
 
@@ -2095,21 +2093,21 @@ class IopyTest(z.TestCase):
 
         # Fail test multiple args
         with self.assertRaises(TypeError):
-            self.r.test.StructA(  # type: ignore[call-overload]
+            self.r.test.StructA(  # pyrefly: ignore[no-matching-overload]
                 {'e': 'A'}, {'e': 'B'}
             )
 
         # Fail test with dict arg and kwargs
         with self.assertRaises(TypeError):
-            self.r.test.StructA(  # type: ignore[call-overload]
+            self.r.test.StructA(  # pyrefly: ignore[no-matching-overload]
                 {'e': 'A'}, e='B'
             )
 
         # Fail test not a class
         exp = r'IOPy type `test.StructA` is not a class'
         with self.assertRaisesRegex(TypeError, exp):
-            self.r.test.StructA(  # type: ignore[call-overload]
-                {'_class': 'test.ClassA'}  # type: ignore[bad-argument-type]
+            self.r.test.StructA(
+                {'_class': 'test.ClassA'}  # pyrefly: ignore[bad-argument-type]
             )
 
         # Fail test unknown type
@@ -2210,7 +2208,7 @@ class IopyTest(z.TestCase):
 
             # Get the typedef description
             # TODO: Add typedef stubs
-            td_desc = td_type.get_typedef_description()  # type: ignore[missing-attribute]
+            td_desc = td_type.get_typedef_description()  # pyrefly: ignore[missing-attribute]
 
             # Check the typedef description fullname
             self.assertEqual(td_desc.fullname, f'test.{td_name}')
@@ -2269,7 +2267,7 @@ class IopyTest(z.TestCase):
         self.assertFalse(hasattr(c, 'nonlocal'))
 
     def test_manual_inheritance(self) -> None:
-        class ManualEnum(self.r.test.EnumA):  # type: ignore[misc, name-defined]
+        class ManualEnum(self.r.test.EnumA):
             pass
 
         enum = ManualEnum('A')
@@ -2277,7 +2275,7 @@ class IopyTest(z.TestCase):
         self.assertEqual(enum, 1)
         self.assertEqual(enum, ManualEnum('A'))
 
-        class ManualStruct(self.r.test.StructB):  # type: ignore[misc, name-defined]
+        class ManualStruct(self.r.test.StructB):
             pass
 
         struct = ManualStruct(a='test', b='foo')
@@ -2291,7 +2289,7 @@ class IopyTest(z.TestCase):
         )
         self.assertEqual(struct, ManualStruct(a='test', b='foo'))
 
-        class ManualUnion(self.r.test.UnionA):  # type: ignore[misc, name-defined]
+        class ManualUnion(self.r.test.UnionA):
             pass
 
         union = ManualUnion(i=20)
@@ -2303,7 +2301,7 @@ class IopyTest(z.TestCase):
         )
         self.assertEqual(union, ManualUnion(i=20))
 
-        class ManualClass(self.r.test.ClassB):  # type: ignore[misc, name-defined]
+        class ManualClass(self.r.test.ClassB):
             pass
 
         klass = ManualClass(optField=1)
@@ -2353,7 +2351,7 @@ class IopyIfaceTests(z.TestCase):
 
         self.s = self.r.channel_server()
         _rpcs = (
-            self.s.test_ModuleA.interfaceA._rpcs  # type: ignore[attr-defined] # noqa: SLF001 (private-member-access)
+            self.s.test_ModuleA.interfaceA._rpcs  # noqa: SLF001 (private-member-access)  # pyrefly: ignore[missing-attribute]
         )
         _rpcs.funA.impl = rpc_impl_a
         self.s.test_ModuleA.interfaceA.funB.impl = rpc_impl_b
@@ -2379,7 +2377,7 @@ class IopyIfaceTests(z.TestCase):
                 **kwargs: Any,
             ) -> test__iop.InterfaceA_funA_RPCServer.RpcRes:
                 self.attr1 = kwargs.get('a')
-                rpcs = self._rpcs  # type: ignore[attr-defined]
+                rpcs = self._rpcs  # pyrefly: ignore[missing-attribute]
                 res: test__iop.InterfaceA_funA_Res = rpcs.funA(
                     *args, **kwargs
                 )
@@ -2391,7 +2389,7 @@ class IopyIfaceTests(z.TestCase):
                 *args: Any,
                 **kwargs: Any,
             ) -> test__iop.InterfaceA_funToggleVoid_RPCServer.RpcRes:
-                rpcs = self._rpcs  # type: ignore[attr-defined]
+                rpcs = self._rpcs  # pyrefly: ignore[missing-attribute]
                 res: test__iop.InterfaceA_funToggleVoid_Res = (
                     rpcs.funToggleVoid(*args, **kwargs)
                 )
@@ -2416,7 +2414,7 @@ class IopyIfaceTests(z.TestCase):
         self.assertTrue(
             hasattr(iface, 'my_method'), 'custom method not added'
         )
-        ret = iface.my_method()  # type: ignore[attr-defined]
+        ret = iface.my_method()
         self.assertEqual(
             ret, 1, f'custom method failed; result: {ret}, expected: 1,'
         )
@@ -2561,7 +2559,7 @@ class IopyIfaceTests(z.TestCase):
             ) -> int:
                 return 0
 
-        ret = iface.funA(0, x=0, y=0)  # type: ignore[call-overload]
+        ret = iface.funA(0, x=0, y=0)  # pyrefly: ignore[no-matching-overload]
         self.assertEqual(
             ret,
             0,
@@ -2591,7 +2589,7 @@ class IopyIfaceTests(z.TestCase):
             ) -> int:
                 return 0
 
-        ret = iface.funA(0, x=0, y=0)  # type: ignore[call-overload]
+        ret = iface.funA(0, x=0, y=0)  # pyrefly: ignore[no-matching-overload]
         self.assertEqual(
             ret,
             0,
@@ -2605,14 +2603,14 @@ class IopyIfaceTests(z.TestCase):
             *args: Any,
             **kwargs: Any,
         ) -> None:
-            self.attr1 = 1  # type: ignore[attr-defined]
+            self.attr1 = 1  # pyrefly: ignore[missing-attribute, implicitly-defined-attribute]
 
         def default_post_hook(
             self: iopy.IfaceBase,
             rpc: iopy.RPCBase[Any, Any, Any],
             res: iopy.StructUnionBase,
         ) -> None:
-            self.attr2 = 1  # type: ignore[attr-defined]
+            self.attr2 = 1  # pyrefly: ignore[missing-attribute, implicitly-defined-attribute]
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
         class test_InterfaceA4:  # noqa: N801 (invalid-class-name)
@@ -2705,14 +2703,14 @@ class IopyIfaceTests(z.TestCase):
             *args: Any,
             **kwargs: Any,
         ) -> None:
-            self.attr1 = 3  # type: ignore[attr-defined]
+            self.attr1 = 3  # pyrefly: ignore[missing-attribute]
 
         def iface_post_hook_1(
             self: iopy.IfaceBase,
             rpc: iopy.RPCBase[Any, Any, Any],
             res: iopy.StructUnionBase,
         ) -> None:
-            self.attr2 = 3  # type: ignore[attr-defined]
+            self.attr2 = 3  # pyrefly: ignore[missing-attribute]
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
         class test_InterfaceA7:  # noqa: N801 (invalid-class-name)
@@ -2743,14 +2741,14 @@ class IopyIfaceTests(z.TestCase):
             *args: Any,
             **kwargs: Any,
         ) -> None:
-            self.attr1 = 4  # type: ignore[attr-defined]
+            self.attr1 = 4  # pyrefly: ignore[missing-attribute]
 
         def iface_post_hook_2(
             self: iopy.IfaceBase,
             rpc: iopy.RPCBase[Any, Any, Any],
             res: iopy.StructUnionBase,
         ) -> None:
-            self.attr2 = 4  # type: ignore[attr-defined]
+            self.attr2 = 4  # pyrefly: ignore[missing-attribute]
 
         # Delete previous hooks due to test_InterfaceA7 monkey-patch
         del test_InterfaceA7.__pre_hook__
@@ -2782,8 +2780,8 @@ class IopyIfaceTests(z.TestCase):
         # reset default pre/post hooks
         del self.r.default_pre_hook
         del self.r.default_post_hook
-        iface.attr1 = None  # type: ignore[attr-defined]
-        iface.attr2 = None  # type: ignore[attr-defined]
+        iface.attr1 = None  # pyrefly: ignore[missing-attribute]
+        iface.attr2 = None  # pyrefly: ignore[missing-attribute]
 
         # iface should still have its custom pre/post hooks
         iface.funA(a=self.r.test.ClassA())
@@ -2803,8 +2801,8 @@ class IopyIfaceTests(z.TestCase):
         )
 
         # reset iface pre/post hooks
-        iface.attr1 = None  # type: ignore[attr-defined]
-        iface.attr2 = None  # type: ignore[attr-defined]
+        iface.attr1 = None  # pyrefly: ignore[missing-attribute]
+        iface.attr2 = None  # pyrefly: ignore[missing-attribute]
         del type(iface).__pre_hook__
         del type(iface).__post_hook__
 
@@ -2847,9 +2845,9 @@ class IopyIfaceTests(z.TestCase):
                 super(test_InterfaceA1, self).foo()
                 self.common_val2 = 12
 
-        iface.foo()  # type: ignore[attr-defined]
-        self.assertEqual(iface.common_val1, 42)  # type: ignore[attr-defined]
-        self.assertEqual(iface.common_val2, 12)  # type: ignore[attr-defined]
+        iface.foo()  # pyrefly: ignore[missing-attribute]
+        self.assertEqual(iface.common_val1, 42)  # pyrefly: ignore[missing-attribute]
+        self.assertEqual(iface.common_val2, 12)  # pyrefly: ignore[missing-attribute]
 
         class BaseCommonClass1:
             common_val2: int
@@ -2871,9 +2869,9 @@ class IopyIfaceTests(z.TestCase):
         # Delete previous foo() method due to test_InterfaceA1 monkey-patch
         del test_InterfaceA1.foo
 
-        iface.foo()  # type: ignore[attr-defined]
-        self.assertEqual(iface.common_val1, 84)  # type: ignore[attr-defined]
-        self.assertEqual(iface.common_val2, 7777)  # type: ignore[attr-defined]
+        iface.foo()  # pyrefly: ignore[missing-attribute]
+        self.assertEqual(iface.common_val1, 84)
+        self.assertEqual(iface.common_val2, 7777)
 
         c.disconnect()
         c = self.r.connect(self.uri)
@@ -2916,7 +2914,7 @@ class IopyIfaceTests(z.TestCase):
     def test_module_short_name(self) -> None:
         """Test we add modules with short name when not ambiguous"""
         # XXX: Deprecated, and not exposed with the type system
-        self.assertIs(self.s.test_ModuleA, self.s.ModuleA)  # type: ignore[attr-defined]
+        self.assertIs(self.s.test_ModuleA, self.s.ModuleA)  # pyrefly: ignore[missing-attribute]
 
     def test_iface_double_upgrade(self) -> None:
         """Test iface with double level of upgrade"""
@@ -2934,11 +2932,11 @@ class IopyIfaceTests(z.TestCase):
                 return 'bar'
 
         iface1 = self.p.test.interfaces.InterfaceA
-        self.assertEqual(iface1.foo(), 'foo')  # type: ignore[attr-defined]
-        self.assertEqual(iface1.bar(), 'bar')  # type: ignore[attr-defined]
+        self.assertEqual(iface1.foo(), 'foo')  # pyrefly: ignore[missing-attribute]
+        self.assertEqual(iface1.bar(), 'bar')  # pyrefly: ignore[missing-attribute]
         iface2 = test_InterfaceA1
         self.assertEqual(iface2.foo(), 'foo')
-        self.assertEqual(iface2.bar(), 'bar')  # type: ignore[attr-defined]
+        self.assertEqual(iface2.bar(), 'bar')  # pyrefly: ignore[missing-attribute]
         self.assertEqual(str(iface1), str(iface2))
 
     def test_iface_with_dict_arg(self) -> None:
@@ -3555,7 +3553,7 @@ class IopyIfaceTests(z.TestCase):
             self.assertIs(rpc_args.exn, iface_cls.funErrOnly.Exn)
             self.assertIs(rpc_args.res, self.p.Void)
             # Exercise the server-side `None` → void result path.
-            return None  # type: ignore[return-value]
+            return None  # pyrefly: ignore[bad-return]
 
         uri = make_uri()
         server = self.p.channel_server()
@@ -3659,7 +3657,7 @@ class IopyVoidTest(z.TestCase):
 
         msg = r'[Ii]nvalid argument .plumbus.'
         with self.assertRaisesRegex(iopy.Error, msg):
-            _ = self.r.testvoid.VoidUnion(  # type: ignore[call-overload]
+            _ = self.r.testvoid.VoidUnion(  # pyrefly: ignore[no-matching-overload]
                 plumbus=666
             )
 
@@ -3704,7 +3702,7 @@ class IopyVoidTest(z.TestCase):
         self.assertFalse(hasattr(s, 'a'))
 
         # Setting to anything but None behave the same way
-        s.a = 'toto'  # type: ignore[assignment]
+        s.a = 'toto'  # pyrefly: ignore[bad-assignment]
         self.assertEqual(str(s), '{\n    "a": null\n}\n')
         self.assertIsNone(s.a)
 
@@ -3765,10 +3763,10 @@ class IopyDsoTests(z.TestCase):
         uri = make_uri()
         s = self.r.channel_server()
         s.listen(uri=uri)
-        s_mod: test_dso__iop.ModuleTest_ModuleServer = s.test_dso_ModuleTest  # type: ignore[attr-defined]
+        s_mod: test_dso__iop.ModuleTest_ModuleServer = s.test_dso_ModuleTest  # pyrefly: ignore[missing-attribute]
         s_mod.interfaceTest.fun.impl = rpc_impl_fun
         c = self.r.connect(uri)
-        c_mod: test_dso__iop.ModuleTest_Module = c.test_dso_ModuleTest  # type: ignore[attr-defined]
+        c_mod: test_dso__iop.ModuleTest_Module = c.test_dso_ModuleTest  # pyrefly: ignore[missing-attribute]
         self.assertEqual(21, c_mod.interfaceTest.fun().val)
 
         # load the same plugin twice, it should be ok
@@ -3788,7 +3786,7 @@ class IopyDsoTests(z.TestCase):
             hasattr(self.r, 'test'), 'package "test" should be loaded'
         )
         c = self.r.connect(uri)
-        c_mod = c.test_dso_ModuleTest  # type: ignore[attr-defined]
+        c_mod = c.test_dso_ModuleTest  # pyrefly: ignore[missing-attribute]
         self.assertEqual(21, c_mod.interfaceTest.fun().val)
 
         # unload additional plugin
@@ -3808,7 +3806,7 @@ class IopyDsoTests(z.TestCase):
             hasattr(self.r, 'test'), 'package "test" should be loaded'
         )
         c = self.r.connect(uri)
-        c_mod = c.test_dso_ModuleTest  # type: ignore[attr-defined]
+        c_mod = c.test_dso_ModuleTest  # pyrefly: ignore[missing-attribute]
         self.assertEqual(21, c_mod.interfaceTest.fun().val)
 
         # unload additional plugin
@@ -3869,15 +3867,13 @@ class IopyDsoTests(z.TestCase):
 
         # The package-level `interfaces` attribute keeps a single class
         # per iface local name; check it is reachable.
-        self.assertTrue(hasattr(self.p.test_dso.interfaces, 'InterfaceTest'))  # type: ignore[attr-defined]
+        self.assertTrue(hasattr(self.p.test_dso.interfaces, 'InterfaceTest'))  # pyrefly: ignore[missing-attribute]
 
         # The two modules must yield distinct interface classes, so that
         # each carries its own alias tag and produces unique command
         # numbers.
-        iface_cls = self.p.modules.test_dso_ModuleTest.interfaceTest  # type: ignore[attr-defined]
-        iface_cls_bis = (
-            self.p.modules.test_dso_ModuleTestBis.interfaceTestBis  # type: ignore[attr-defined]
-        )
+        iface_cls = self.p.modules.test_dso_ModuleTest.interfaceTest
+        iface_cls_bis = self.p.modules.test_dso_ModuleTestBis.interfaceTestBis
         self.assertIsNot(iface_cls, iface_cls_bis)
 
         # Independently register a server impl on each module and check
@@ -3888,20 +3884,20 @@ class IopyDsoTests(z.TestCase):
         s = self.r.channel_server()
         s.listen(uri=uri)
         s_mod: test_dso__iop.ModuleTest_ModuleServer = (
-            s.test_dso_ModuleTest  # type: ignore[attr-defined]
+            s.test_dso_ModuleTest  # pyrefly: ignore[missing-attribute]
         )
         s_mod_bis: test_dso__iop.ModuleTestBis_ModuleServer = (
-            s.test_dso_ModuleTestBis  # type: ignore[attr-defined]
+            s.test_dso_ModuleTestBis  # pyrefly: ignore[missing-attribute]
         )
         s_mod.interfaceTest.fun.impl = rpc_impl_fun
         s_mod_bis.interfaceTestBis.fun.impl = rpc_impl_fun_bis
 
         c = self.r.connect(uri)
         c_mod: test_dso__iop.ModuleTest_Module = (
-            c.test_dso_ModuleTest  # type: ignore[attr-defined]
+            c.test_dso_ModuleTest  # pyrefly: ignore[missing-attribute]
         )
         c_mod_bis: test_dso__iop.ModuleTestBis_Module = (
-            c.test_dso_ModuleTestBis  # type: ignore[attr-defined]
+            c.test_dso_ModuleTestBis  # pyrefly: ignore[missing-attribute]
         )
         self.assertEqual(21, c_mod.interfaceTest.fun().val)
         self.assertEqual(42, c_mod_bis.interfaceTestBis.fun().val)
@@ -3931,20 +3927,20 @@ class IopyCompatibilityTests(z.TestCase):
         """Test iface __name__ works as a property and as a method"""
         iface = self.p.test.interfaces.InterfaceA
         self.assertEqual(iface.__name__, 'test.InterfaceA')
-        self.assertEqual(iface.__name__(), 'test.InterfaceA')  # type: ignore[operator]
+        self.assertEqual(iface.__name__(), 'test.InterfaceA')  # pyrefly: ignore[not-callable]
 
         c = cast(
             'test_iop_plugin__iop.Channel', iopy.Channel(self.p, make_uri())
         )
         self.assertEqual(
-            c.test_ModuleA.interfaceA.__name__(),  # type: ignore[attr-defined]
+            c.test_ModuleA.interfaceA.__name__(),  # pyrefly: ignore[missing-attribute]
             'interfaceA',
         )
 
     def test_package_fullname(self) -> None:
         """Test deprecated package __name__ matches get_iop_name"""
         pkg = self.p.test
-        self.assertEqual(pkg.__name__(), pkg.get_iop_name())  # type: ignore[attr-defined]
+        self.assertEqual(pkg.__name__(), pkg.get_iop_name())  # pyrefly: ignore[missing-attribute]
 
     def test_enum_name_values_ranges(self) -> None:
         """
@@ -3952,20 +3948,20 @@ class IopyCompatibilityTests(z.TestCase):
         get_name/get_values/get_ranges.
         """
         enum_cls = self.p.test.EnumA
-        self.assertEqual(enum_cls.name(), enum_cls.get_name())  # type: ignore[attr-defined]
-        self.assertEqual(enum_cls.values(), enum_cls.get_values())  # type: ignore[attr-defined]
-        self.assertEqual(enum_cls.ranges(), enum_cls.get_ranges())  # type: ignore[attr-defined]
+        self.assertEqual(enum_cls.name(), enum_cls.get_name())  # pyrefly: ignore[missing-attribute]
+        self.assertEqual(enum_cls.values(), enum_cls.get_values())  # pyrefly: ignore[missing-attribute]
+        self.assertEqual(enum_cls.ranges(), enum_cls.get_ranges())  # pyrefly: ignore[missing-attribute]
 
     def test_iface_fullname(self) -> None:
         """Test deprecated iface __fullname__ matches get_iop_fullname"""
         iface = self.p.test.interfaces.InterfaceA
-        self.assertEqual(iface.__fullname__(), iface.get_iop_fullname())  # type: ignore[attr-defined]
+        self.assertEqual(iface.__fullname__(), iface.get_iop_fullname())  # pyrefly: ignore[missing-attribute]
 
         c = cast(
             'test_iop_plugin__iop.Channel', iopy.Channel(self.p, make_uri())
         )
         self.assertEqual(
-            c.test_ModuleA.interfaceA.__fullname__(),  # type: ignore[attr-defined]
+            c.test_ModuleA.interfaceA.__fullname__(),  # pyrefly: ignore[missing-attribute]
             c.test_ModuleA.interfaceA.get_iop_fullname(),
         )
 
@@ -3975,24 +3971,24 @@ class IopyCompatibilityTests(z.TestCase):
             'test_iop_plugin__iop.Channel', iopy.Channel(self.p, make_uri())
         )
         self.assertEqual(
-            c.test_ModuleA.__fullname__(),  # type: ignore[attr-defined]
+            c.test_ModuleA.__fullname__(),  # pyrefly: ignore[missing-attribute]
             c.test_ModuleA.get_iop_fullname(),
         )
         self.assertEqual(
-            self.p.modules.test_ModuleA.__fullname__(),  # type: ignore[attr-defined]
+            self.p.modules.test_ModuleA.__fullname__(),  # pyrefly: ignore[missing-attribute]
             self.p.modules.test_ModuleA.get_iop_fullname(),
         )
 
     def test_plugin_get_plugin(self) -> None:
         """Test deprecated plugin _get_plugin returns the plugin itself"""
         self.assertIs(
-            self.p._get_plugin(),  # type: ignore[attr-defined] # noqa: SLF001 (private-member-access)
+            self.p._get_plugin(),  # noqa: SLF001 (private-member-access)  # pyrefly: ignore[missing-attribute]
             self.p,
         )
 
     def test_plugin_channel_server(self) -> None:
         """Test deprecated plugin ChannelServer creates a channel server"""
-        server = self.p.ChannelServer()  # type: ignore[attr-defined]
+        server = self.p.ChannelServer()  # pyrefly: ignore[missing-attribute]
         self.assertIsInstance(server, iopy.ChannelServer)
 
     def test_iface_types(self) -> None:
@@ -4010,7 +4006,7 @@ class IopyCompatibilityTests(z.TestCase):
         This keeps some compatibility with IOPyV1 where types where
         instances and not real python types.
         """
-        a = self.p.test.StructA(  # type: ignore[call-overload]
+        a = self.p.test.StructA(  # pyrefly: ignore[no-matching-overload]
             a=self.p.test.ClassA
         )
         self.assertEqual(a.a.field1, 0)
@@ -4072,13 +4068,13 @@ class IopyCompatibilityTests(z.TestCase):
                 old_method_name = method[0]
                 new_method_name = method[1]
                 try:
-                    args = method[2]  # type: ignore[misc]
+                    args = method[2]  # pyrefly: ignore[bad-index]
                 except IndexError:
                     args = ()
 
                 kwargs: dict[str, Any]
                 try:
-                    kwargs = method[3]  # type: ignore[misc]
+                    kwargs = method[3]  # pyrefly: ignore[bad-index]
                 except IndexError:
                     kwargs = {}
                 old_res = getattr(obj, old_method_name)(*args, **kwargs)
@@ -4154,11 +4150,11 @@ class IopyCompatibilityTests(z.TestCase):
                 ),
             ],
         )
-        self.assertEqual(self.p.__dsopath__, self.p.dsopath)  # type: ignore[attr-defined]
+        self.assertEqual(self.p.__dsopath__, self.p.dsopath)  # pyrefly: ignore[missing-attribute]
 
         self.assertIs(
             self.p.modules.test_ModuleA,
-            self.p.__modules__['test.ModuleA'],  # type: ignore[attr-defined]
+            self.p.__modules__['test.ModuleA'],  # pyrefly: ignore[missing-attribute]
         )
 
 
@@ -4184,7 +4180,7 @@ class IopyAsyncTests(z.TestCase):
         self.hdr = self.p.ic.Hdr(simple=shdr)
 
         def check_hdr(rpc_args: iopy.RPCArgs[Any, Any, Any]) -> None:
-            assert rpc_args.hdr and rpc_args.hdr.simple  # type: ignore[not-callable]
+            assert rpc_args.hdr and rpc_args.hdr.simple
             assert rpc_args.hdr.simple.login == self.hdr.simple.login
             assert rpc_args.hdr.simple.password == self.hdr.simple.password
 
@@ -4347,7 +4343,7 @@ class IopyIopEnvironmentTests(z.TestCase):
         # Cannot create ClassDso as the additional DSO is not already loaded
         msg = "object has no attribute 'test_dso'"
         with self.assertRaisesRegex(AttributeError, msg):
-            plugin.test_dso.ClassDso()  # type: ignore[attr-defined]
+            plugin.test_dso.ClassDso()  # pyrefly: ignore[missing-attribute]
 
         # Load the additional DSO
         plugin.load_dso(
@@ -4356,7 +4352,7 @@ class IopyIopEnvironmentTests(z.TestCase):
         )
 
         # We can now create ClassDso objects
-        _ = plugin.test_dso.ClassDso()  # type: ignore[attr-defined]
+        _ = plugin.test_dso.ClassDso()  # pyrefly: ignore[missing-attribute]
 
         # Also in JSON
         json_str = '{"_class": "test.dso.ClassDso"}'
@@ -4368,7 +4364,7 @@ class IopyIopEnvironmentTests(z.TestCase):
         # Cannot create ClassDso anymore
         msg = "object has no attribute 'test_dso'"
         with self.assertRaisesRegex(AttributeError, msg):
-            plugin.test_dso.ClassDso()  # type: ignore[attr-defined]
+            plugin.test_dso.ClassDso()  # pyrefly: ignore[missing-attribute]
 
         # Also in JSON
         msg = 'expected a child of `test.ClassA\', got `"test.dso.ClassDso"\''
@@ -4405,25 +4401,25 @@ class IopyIopStubsTests(z.TestCase):
         # works at runtime. Once the first hop is ignored the rest of the
         # chain is `Any`, so no further suppression is needed.
         with self.assertRaises(AttributeError):
-            _ = self.plugin_no_stub.invalid_attr  # type: ignore[attr-defined]
+            _ = self.plugin_no_stub.invalid_attr  # pyrefly: ignore[missing-attribute]
         with self.assertRaises(AttributeError):
-            _ = self.plugin_no_stub.test.invalid_attr  # type: ignore[attr-defined]
+            _ = self.plugin_no_stub.test.invalid_attr  # pyrefly: ignore[missing-attribute]
 
-        cls_a = self.plugin_no_stub.test.ClassA(field1=10)  # type: ignore[attr-defined]
+        cls_a = self.plugin_no_stub.test.ClassA(field1=10)  # pyrefly: ignore[missing-attribute]
         self.assertEqual(cls_a.field1, 10)
         with self.assertRaises(AttributeError):
             _ = cls_a.invalid_attr
         cls_a.field1 = 20
         cls_a.custom_attr = 30
 
-        union_a = self.plugin_no_stub.test.UnionA(s='plop')  # type: ignore[attr-defined]
+        union_a = self.plugin_no_stub.test.UnionA(s='plop')  # pyrefly: ignore[missing-attribute]
         self.assertEqual(union_a.s, 'plop')
         with self.assertRaises(AttributeError):
             _ = union_a.invalid_attr
         union_a.s = 'plop'
         union_a.custom_attr = 40
 
-        enum_a = self.plugin_no_stub.test.EnumA('A')  # type: ignore[attr-defined]
+        enum_a = self.plugin_no_stub.test.EnumA('A')  # pyrefly: ignore[missing-attribute]
         self.assertEqual(enum_a.get_as_str(), 'A')
         with self.assertRaises(AttributeError):
             _ = enum_a.invalid_attr
@@ -4432,29 +4428,29 @@ class IopyIopStubsTests(z.TestCase):
     def test_object_typing_with_stub(self) -> None:
         """Test IOP object typing with stub typing"""
         with self.assertRaises(AttributeError):
-            _ = self.plugin_stub.invalid_attr  # type: ignore[attr-defined]
+            _ = self.plugin_stub.invalid_attr  # pyrefly: ignore[missing-attribute]
         with self.assertRaises(AttributeError):
-            _ = self.plugin_stub.test.invalid_attr  # type: ignore[attr-defined]
+            _ = self.plugin_stub.test.invalid_attr  # pyrefly: ignore[missing-attribute]
 
         cls_a = self.plugin_stub.test.ClassA(field1=10)
         self.assertEqual(cls_a.field1, 10)
         with self.assertRaises(AttributeError):
-            _ = cls_a.invalid_attr  # type: ignore[attr-defined]
+            _ = cls_a.invalid_attr  # pyrefly: ignore[missing-attribute]
         cls_a.field1 = 20
-        cls_a.custom_attr = 30  # type: ignore[attr-defined]
+        cls_a.custom_attr = 30  # pyrefly: ignore[missing-attribute]
 
         union_a = self.plugin_stub.test.UnionA(s='plop')
         self.assertEqual(union_a.s, 'plop')
         with self.assertRaises(AttributeError):
-            _ = union_a.invalid_attr  # type: ignore[attr-defined]
+            _ = union_a.invalid_attr  # pyrefly: ignore[missing-attribute]
         union_a.s = 'plop'
-        union_a.custom_attr = 40  # type: ignore[attr-defined]
+        union_a.custom_attr = 40  # pyrefly: ignore[missing-attribute]
 
         enum_a = self.plugin_stub.test.EnumA('A')
         self.assertEqual(enum_a.get_as_str(), 'A')
         with self.assertRaises(AttributeError):
-            _ = enum_a.invalid_attr  # type: ignore[attr-defined]
-        enum_a.custom_attr = 50  # type: ignore[attr-defined]
+            _ = enum_a.invalid_attr  # pyrefly: ignore[missing-attribute]
+        enum_a.custom_attr = 50  # pyrefly: ignore[missing-attribute]
 
     def test_rpc_typing_without_stub(self) -> None:
         """Test IOP RPC typing with and without stub typing"""
@@ -4468,13 +4464,13 @@ class IopyIopStubsTests(z.TestCase):
 
         uri = make_uri()
         server = self.plugin_no_stub.channel_server()
-        server.test_ModuleA.interfaceA.funA.impl = rpc_impl_a  # type: ignore[assignment]
+        server.test_ModuleA.interfaceA.funA.impl = rpc_impl_a  # pyrefly: ignore[missing-attribute]
         server.listen(uri=uri)
 
         # Client
         client = self.plugin_no_stub.connect(uri)
-        res = client.test_ModuleA.interfaceA.funA(  # type: ignore[attr-defined]
-            a=self.plugin_no_stub.test.ClassA(field1=10)  # type: ignore[attr-defined]
+        res = client.test_ModuleA.interfaceA.funA(  # pyrefly: ignore[missing-attribute]
+            a=self.plugin_no_stub.test.ClassA(field1=10)  # pyrefly: ignore[missing-attribute]
         )
         assert res is not None
         self.assertEqual(res.status, 'A')
@@ -4483,17 +4479,17 @@ class IopyIopStubsTests(z.TestCase):
         # bare `iopy.ChannelServer`/`iopy.Channel`, which no longer expose a
         # catch-all `__getattr__`, so every dynamic access is a type error.
         with self.assertRaises(AttributeError):
-            _ = server.invalid_attr  # type: ignore[attr-defined]
+            _ = server.invalid_attr  # pyrefly: ignore[missing-attribute]
         with self.assertRaises(AttributeError):
-            _ = server.test_ModuleA.invalid_attr  # type: ignore[attr-defined]
+            _ = server.test_ModuleA.invalid_attr  # pyrefly: ignore[missing-attribute]
         with self.assertRaises(AttributeError):
-            _ = server.test_ModuleA.funA.invalid_attr  # type: ignore[attr-defined]
+            _ = server.test_ModuleA.funA.invalid_attr  # pyrefly: ignore[missing-attribute]
         with self.assertRaises(AttributeError):
-            _ = client.invalid_attr  # type: ignore[attr-defined]
+            _ = client.invalid_attr  # pyrefly: ignore[missing-attribute]
         with self.assertRaises(AttributeError):
-            _ = client.test_ModuleA.invalid_attr  # type: ignore[attr-defined]
+            _ = client.test_ModuleA.invalid_attr  # pyrefly: ignore[missing-attribute]
         with self.assertRaises(AttributeError):
-            _ = client.test_ModuleA.funA.invalid_attr  # type: ignore[attr-defined]
+            _ = client.test_ModuleA.funA.invalid_attr  # pyrefly: ignore[missing-attribute]
 
         server.stop()
 
@@ -4520,17 +4516,17 @@ class IopyIopStubsTests(z.TestCase):
 
         # Test invalid attributes
         with self.assertRaises(AttributeError):
-            _ = server.invalid_attr  # type: ignore[attr-defined]
+            _ = server.invalid_attr  # pyrefly: ignore[missing-attribute]
         with self.assertRaises(AttributeError):
-            _ = server.test_ModuleA.invalid_attr  # type: ignore[attr-defined]
+            _ = server.test_ModuleA.invalid_attr  # pyrefly: ignore[missing-attribute]
         with self.assertRaises(AttributeError):
-            _ = server.test_ModuleA.funA.invalid_attr  # type: ignore[attr-defined]
+            _ = server.test_ModuleA.funA.invalid_attr  # pyrefly: ignore[missing-attribute]
         with self.assertRaises(AttributeError):
-            _ = client.invalid_attr  # type: ignore[attr-defined]
+            _ = client.invalid_attr  # pyrefly: ignore[missing-attribute]
         with self.assertRaises(AttributeError):
-            _ = client.test_ModuleA.invalid_attr  # type: ignore[attr-defined]
+            _ = client.test_ModuleA.invalid_attr  # pyrefly: ignore[missing-attribute]
         with self.assertRaises(AttributeError):
-            _ = client.test_ModuleA.funA.invalid_attr  # type: ignore[attr-defined]
+            _ = client.test_ModuleA.funA.invalid_attr  # pyrefly: ignore[missing-attribute]
 
         server.stop()
 
@@ -4591,14 +4587,14 @@ class IopyIopStubsTests(z.TestCase):
             with self.assertRaises(iopy.Error):
                 # FIXME: pyrefly should not accept this case
                 call_rpc(
-                    client.test_ModuleA.interfaceA.funB,  # type: ignore[arg-type]
+                    client.test_ModuleA.interfaceA.funB,
                     a=self.plugin_stub.test.ClassA(field1=10),
                     _login='plop',
                     _login2='wrong_plop',
                 )
 
             return call_rpc(
-                client.test_ModuleA.interfaceA.funB,  # type: ignore[arg-type]
+                client.test_ModuleA.interfaceA.funB,
                 a=self.plugin_stub.test.ClassA(field1=10),
                 _login='plop',
             )
@@ -4611,7 +4607,7 @@ class IopyIopStubsTests(z.TestCase):
         ]:
             # FIXME: pyrefly should accept this case
             return call_rpc(
-                client.test_ModuleA.interfaceA.funB,  # type: ignore[arg-type]
+                client.test_ModuleA.interfaceA.funB,
                 {
                     'a': {'field1': 10},
                 },
@@ -4629,7 +4625,7 @@ class IopyIopStubsTests(z.TestCase):
             }
             # FIXME: pyrefly should accept this case
             return call_rpc(
-                client.test_ModuleA.interfaceA.funB,  # type: ignore[arg-type]
+                client.test_ModuleA.interfaceA.funB,
                 {
                     'a': {'field1': 10},
                 },
@@ -4645,7 +4641,7 @@ class IopyIopStubsTests(z.TestCase):
             # FIXME: pyrefly should not accept this case (and the
             # runtime is a bit broken too)
             return call_rpc(
-                client.test_ModuleA.interfaceA.funB,  # type: ignore[arg-type]
+                client.test_ModuleA.interfaceA.funB,
                 {
                     'a': {'field1': 10},
                 },
@@ -4667,7 +4663,7 @@ class IopyIopStubsTests(z.TestCase):
             # FIXME: pyrefly should not accept this case (and the
             # runtime is a bit broken too)
             return call_rpc(
-                client.test_ModuleA.interfaceA.funB,  # type: ignore[arg-type]
+                client.test_ModuleA.interfaceA.funB,
                 {
                     'a': {'field1': 10},
                 },
