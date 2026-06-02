@@ -214,7 +214,9 @@ ignore-missing-imports = [
 [tool.pyrefly.errors]
 # Default severity: warn -> error
 deprecated = "error"
+division-by-zero = "error"
 implicit-import = "error"
+name-mismatch = "error"
 non-exhaustive-match = "error"
 redundant-cast = "error"
 redundant-condition = "error"
