@@ -708,6 +708,12 @@ static int t_register_type(CXType type, qv_t(cstr) *type_stack)
             type = clang_getArrayElementType(type);
             break;
 
+          case CXType_Atomic:
+            /* _Atomic(T) has the same representation as T as far as the
+             * generated bindings are concerned: unwrap to the value type. */
+            type = clang_Type_getValueType(type);
+            break;
+
 #ifdef PXCC_HAS_ELABORATED_TYPE
           case CXType_Elaborated:
             type = clang_Type_getNamedType(type);
@@ -1103,6 +1109,12 @@ static void t_print_field_type(CXType type, pxcc_print_field_t *ctx)
           case CXType_VariableArray:
           case CXType_DependentSizedArray:
             type = t_print_array_type(type, ctx);
+            break;
+
+          case CXType_Atomic:
+            /* _Atomic(T) shares T's representation: print it as the bare
+             * value type (Cython has no notion of atomicity). */
+            type = clang_Type_getValueType(type);
             break;
 
           case CXType_FunctionNoProto:
