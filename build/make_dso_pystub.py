@@ -75,7 +75,6 @@ def dump_preamble(output_file: TextIO) -> None:
         ######################################################
         # ruff: noqa: CPY001, E501, F401, I001, N801, N802, N815, PYI015, \
 RUF012, RUF100
-        # mypy: disable-error-code="unused-ignore"
 
         import asyncio
         import typing

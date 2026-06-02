@@ -150,22 +150,23 @@ $ ruff check tests/iopy/z_iopy.py
 All checks passed!
 
 
-== Type hints / Mypy
+== Type hints / Pyrefly
 
 === Support
 
-Type hints are supported and enforced in `lib-common` with `mypy` with strict
-settings.
+Type hints are supported and enforced in `lib-common` with `pyrefly` with
+strict settings.
 
 Any python scripts in `lib-common` must be valid according to the strict rules
-of `mypy`.
+of `pyrefly`.
 
 === IOP
 
 Type hints are supported for IOPs in Python.
 However, with IOPy, Python classes are created dynamically on run-time when
 loading a DSO.
-And this mechanism is not compatible with static type checking such as `mypy`.
+And this mechanism is not compatible with static type checking such as
+`pyrefly`.
 
 To solve this issue, IOPc/waf can generate
 [Python stub files](https://typing.python.org/en/latest/spec/distributing.html#stub-files)
@@ -273,8 +274,8 @@ acts as always present fields on usage.
 IOP union acts the same way with the different possible fields typed as
 required fields.
 
-A Mypy plugin could be considered to handle these cases, but it is not an easy
-task.
+A pyrefly plugin could be considered to handle these cases, but it is not an
+easy task.
 
 ==== Cannot assign fields from a dict or an unambiguous field of an union
 
@@ -364,7 +365,7 @@ this value, and have it optional or not depending on if we want to use
 
 Currently, the best thing is to trust the user that the '_class' value is
 valid at runtime (like we did before).
-What we could do is use 'Annotated' and use a Mypy plugin, but this is
+What we could do is use 'Annotated' and use a pyrefly plugin, but this is
 complicated.
 
 See

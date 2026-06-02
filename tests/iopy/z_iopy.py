@@ -16,7 +16,6 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# mypy: disable-error-code="unused-ignore"
 from __future__ import annotations
 
 import asyncio
@@ -1308,15 +1307,13 @@ class IopyTest(z.TestCase):
         def _check_unhashable(x: iopy.Basic) -> None:
             with self.assertRaisesRegex(TypeError, 'unhashable type'):
                 hash(x)
-            # Direct `__hash__()` call is caught statically by mypy
+            # Direct `__hash__()` call is caught statically by pyrefly
             # because the stub declares `Basic.__hash__: ClassVar[None]`,
             # hence the `# type: ignore[misc]` ("None not callable").
             with self.assertRaisesRegex(TypeError, 'not callable'):
                 x.__hash__()  # type: ignore[misc]  # noqa: PLC2801
             # Set / frozenset / dict membership tries to hash the LHS
-            # first, so it fails at runtime. Mypy catches the misuse
-            # via `[comparison-overlap]` (`Basic` has no `__eq__`, so
-            # it cannot equal a `str` or `int`).
+            # first, so it fails at runtime (pyrefly does not flag this).
             with self.assertRaisesRegex(TypeError, 'unhashable type'):
                 _ = x in {0, 1}  # type: ignore[comparison-overlap]
             with self.assertRaisesRegex(TypeError, 'unhashable type'):
@@ -4605,7 +4602,7 @@ class IopyIopStubsTests(z.TestCase):
         def _with_dict_ic_kwargs() -> tuple[
             int, test__iop.InterfaceA_funB_Res
         ]:
-            # FIXME: mypy should accept this case
+            # FIXME: pyrefly should accept this case
             return call_rpc(
                 client.test_ModuleA.interfaceA.funB,  # type: ignore[arg-type]
                 {
@@ -4623,7 +4620,7 @@ class IopyIopStubsTests(z.TestCase):
             ic_kwargs_dict = {
                 '_login': 'plop',
             }
-            # FIXME: mypy should accept this case
+            # FIXME: pyrefly should accept this case
             return call_rpc(
                 client.test_ModuleA.interfaceA.funB,  # type: ignore[arg-type]
                 {
@@ -4638,7 +4635,7 @@ class IopyIopStubsTests(z.TestCase):
         def _with_dict_wrong_ic_kwargs() -> tuple[
             int, test__iop.InterfaceA_funB_Res
         ]:
-            # FIXME: mypy and pyrefly should not accept this case (and the
+            # FIXME: pyrefly should not accept this case (and the
             # runtime is a bit broken too)
             return call_rpc(
                 client.test_ModuleA.interfaceA.funB,  # type: ignore[arg-type]
@@ -4660,7 +4657,7 @@ class IopyIopStubsTests(z.TestCase):
                 '_login2': 'wrong_plop',
             }
 
-            # FIXME: mypy and pyrefly should not accept this case (and the
+            # FIXME: pyrefly should not accept this case (and the
             # runtime is a bit broken too)
             return call_rpc(
                 client.test_ModuleA.interfaceA.funB,  # type: ignore[arg-type]

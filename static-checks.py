@@ -20,8 +20,8 @@
 """
 Static checks script.
 
-Runs linters (ruff, mypy, ast-grep) on either the full codebase or only
-on files staged for commit / unstaged modified files.
+Runs linters (ruff, pyrefly, ast-grep) on either the full codebase or
+only on files staged for commit / unstaged modified files.
 """
 
 import argparse
@@ -160,7 +160,6 @@ def main() -> None:
                 '--force-exclude',
                 *python_modified_files,
             )
-            run_cmd('waf', 'mypy', *python_modified_files)
             run_cmd('pyrefly', 'check', *python_modified_files)
 
         if all_modified_files:
@@ -173,7 +172,6 @@ def main() -> None:
         # Run the linters on the entire codebase.
         run_cmd('waf', 'ruff')
         run_cmd('ruff', 'format', '--check')
-        run_cmd('waf', 'mypy')
         run_cmd('waf', 'pyrefly')
         run_cmd('ast-grep', 'scan')
         run_cmd('ast-grep', 'test')

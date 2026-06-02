@@ -489,18 +489,13 @@ def _get_python_files(ctx: BuildContext) -> List[str]:
     return files_str.splitlines()
 
 
-def run_python_checker(
-    ctx: BuildContext, checker_cmd: List[str], *, per_file: bool = False
-) -> None:
+def run_python_checker(ctx: BuildContext, checker_cmd: List[str]) -> None:
     """
     Run ``checker_cmd`` on tracked Python files and ``wscript*`` files.
 
     ``checker_cmd`` is the argv prefix (executable plus flags); files are
-    appended as additional argv entries — no shell interpolation. By
-    default the file list is passed in a single invocation. Set
-    ``per_file=True`` to spawn one invocation per file (needed for mypy,
-    which can't accept multiple ``wscript*`` files at once: they all map
-    to module ``__main__`` and collide).
+    appended as additional argv entries — no shell interpolation. The
+    file list is passed in a single invocation.
     """
     # Reset the build: we don't want waf to perform its normal build.
     groups: List[List[TaskGen]] = []
@@ -508,20 +503,6 @@ def run_python_checker(
 
     files_list = _get_python_files(ctx)
     if not files_list:
-        return
-
-    if per_file:
-        path = ctx.launch_node()
-        rule = ' '.join(checker_cmd) + ' ${SRC}'
-        for f in files_list:
-            node = path.make_node(f)
-            ctx(
-                rule=rule,
-                source=node,
-                path=path,
-                cwd=ctx.srcnode,
-                always=True,
-            )
         return
 
     argv = [*checker_cmd, *files_list]
@@ -555,23 +536,6 @@ class RuffFixClass(BuildContext):  # type: ignore[misc]
     """run ruff check fixes on committed python files"""
 
     cmd = 'ruff-fix'
-
-
-# }}}
-# {{{ mypy
-
-
-def run_mypy(ctx: BuildContext) -> None:
-    if ctx.cmd != 'mypy':
-        return
-
-    run_python_checker(ctx, ['mypy'], per_file=True)
-
-
-class MypyClass(BuildContext):  # type: ignore[misc]
-    """run mypy checks on committed python files"""
-
-    cmd = 'mypy'
 
 
 # }}}
@@ -732,7 +696,6 @@ def build(ctx: BuildContext) -> None:
     # Register pre/post functions
     ctx.add_pre_fun(add_scan_in_signature)
     ctx.add_pre_fun(run_ruff)
-    ctx.add_pre_fun(run_mypy)
     ctx.add_pre_fun(run_pyrefly)
     ctx.add_post_fun(run_checks)
 

@@ -491,7 +491,7 @@ cdef class Basic:
 
     # IOPy types are not hashable. Setting __hash__ to None makes the
     # class statically unhashable, which is both detectable by type
-    # checkers (mypy reports the use as an error) and enforced at
+    # checkers (pyrefly reports the use as an error) and enforced at
     # runtime by CPython (raises TypeError: unhashable type).
     __hash__ = None
 

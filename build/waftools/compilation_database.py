@@ -59,7 +59,7 @@ from waflib import Build, Logs, Scripting, Task
 from waflib.Node import Node
 
 if TYPE_CHECKING:
-    # mypy wants the import to be relative ¯\_(ツ)_/¯
+    # the type checker wants the import to be relative ¯\_(ツ)_/¯
     from .backend import compute_clang_extra_cflags
 else:
     from backend import compute_clang_extra_cflags

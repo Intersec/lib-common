@@ -35,7 +35,6 @@ struct {
     "######################################################\n"               \
     "# ruff: noqa: CPY001, E501, F401, I001, N801, N802, N815, RUF036, "     \
     "RUF100, UP013\n"                                                        \
-    "# mypy: disable-error-code=\"unused-ignore\"\n"                         \
     "\n"                                                                     \
     "import asyncio\n"                                                       \
     "import typing\n"                                                        \

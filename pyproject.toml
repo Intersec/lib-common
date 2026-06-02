@@ -38,8 +38,16 @@ dev = [
     "ruff==0.15.12",
 
     # static typing for Python
-    "mypy==1.20.1",
     "pyrefly==1.0.0",
+
+    # Backports of typing features (`override`, `Self`, `Unpack`,
+    # `assert_type`, `ParamSpec`, ...) used by the tracked sources and
+    # stubs; none exist in 3.9's stdlib `typing`.
+    "typing-extensions~=4.15.0",
+
+    # TOML parser used by `waf pyrefly` to read the pyrefly config. The
+    # stdlib `tomllib` is 3.11+, so `tomli` is needed on older versions.
+    "tomli~=2.2.1; python_version < '3.11'",
 
     # Linter that uses the AST of languages. Its configuration
     # resides in `ast-grep/` and sgconfig.yml.
