@@ -929,7 +929,12 @@ static inline bool ic_is_ready(const ichannel_t * nonnull ic) {
 }
 
 static inline bool ic_slot_is_async(uint64_t slot) {
-    return !(slot & IC_MSG_SLOT_MASK);
+    /* Only a native IC slot (IC_SLOT_FOREIGN_IC) uses slot number 0 to mark
+     * an async query. A foreign slot (e.g. IC_SLOT_FOREIGN_HTTP) stores an
+     * encoded pointer in the slot-number bits, which may legitimately be
+     * zero, so it must never be classified as async. */
+    return (slot & IC_SLOT_FOREIGN_MASK) == IC_SLOT_FOREIGN_IC &&
+           !(slot & IC_MSG_SLOT_MASK);
 }
 
 /** \brief watch the incoming activity of an ichannel.
