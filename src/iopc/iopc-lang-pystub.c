@@ -22,8 +22,6 @@
 
 struct {
     qh_t(lstr) python_keywords;
-    /* TODO: Remove this when ty or pyrefly are feature complete. */
-    bool simple_definitions;
 } iopc_pystub_g;
 #define _G iopc_pystub_g
 
@@ -600,43 +598,11 @@ static void iopc_pystub_dump_struct_inits(sb_t *buf, const char *st_name)
 }
 
 static void
-iopc_pystub_dump_struct_simple(sb_t *buf, const iopc_pkg_t *pkg,
-                               const iopc_struct_t *st, const char *st_name)
-{
-    sb_addf(buf, "%s_DictType: typing_extensions.TypeAlias = "
-            "dict[str, typing.Any]\n", st_name);
-    sb_addf(buf, "%s_ParamDictType: typing_extensions.TypeAlias = "
-            "dict[str, typing.Any]\n\n", st_name);
-
-    sb_adds(buf, "@typing.type_check_only\n");
-    sb_addf(buf, "class %s(", st_name);
-    if (iopc_is_class(st->type) && st->extends.len) {
-        const iopc_pkg_t *parent_pkg = st->extends.tab[0]->pkg;
-        const iopc_struct_t *parent = st->extends.tab[0]->st;
-
-        iopc_pystub_dump_package_member(buf, pkg, parent_pkg,
-                                        parent_pkg->name, parent->name);
-    } else {
-        sb_adds(buf, "iopy.Struct");
-    }
-    sb_adds(buf,"):\n    ...\n");
-
-    sb_addf(buf, "\n%s_ParamType: typing_extensions.TypeAlias = "
-            "%s | %s_ParamDictType | %s_DictType\n",
-            st_name, st_name, st_name, st_name);
-}
-
-static void
 iopc_pystub_dump_struct_intern(sb_t *buf, const iopc_pkg_t *pkg,
                                const iopc_struct_t *st, const char *st_name)
 {
     bool is_child_class;
     assert(st_name);
-
-    if (_G.simple_definitions) {
-        iopc_pystub_dump_struct_simple(buf, pkg, st, st_name);
-        return;
-    }
 
     is_child_class = iopc_is_class(st->type) && st->extends.len;
 
@@ -921,24 +887,6 @@ static void iopc_pystub_dump_union_inits(sb_t *buf, const iopc_pkg_t *pkg,
     }
 }
 
-static void iopc_pystub_dump_union_simple(sb_t *buf, const iopc_pkg_t *pkg,
-                                          const iopc_struct_t *st,
-                                          const char *st_name)
-{
-    sb_addf(buf, "%s_DictType: typing_extensions.TypeAlias = "
-            "dict[str, typing.Any]\n", st_name);
-    sb_addf(buf, "%s_ParamDictType: typing_extensions.TypeAlias = "
-            "dict[str, typing.Any]\n\n", st_name);
-
-    sb_adds(buf, "@typing.type_check_only\n");
-    sb_addf(buf, "class %s(iopy.Union):\n", st_name);
-    sb_adds(buf, "    ...\n");
-
-    sb_addf(buf, "\n%s_ParamType: typing_extensions.TypeAlias = "
-            "%s | %s_ParamDictType | %s_DictType\n",
-            st_name, st_name, st_name, st_name);
-}
-
 static void iopc_pystub_dump_union_intern(sb_t *buf, const iopc_pkg_t *pkg,
                                           const iopc_struct_t *st,
                                           const char *st_name)
@@ -947,11 +895,6 @@ static void iopc_pystub_dump_union_intern(sb_t *buf, const iopc_pkg_t *pkg,
     qv_t(lstr) unambiguous_types;
 
     assert(st_name);
-
-    if (_G.simple_definitions) {
-        iopc_pystub_dump_union_simple(buf, pkg, st, st_name);
-        return;
-    }
 
     /* Get the unambiguous types */
     unambiguous_types = t_iopc_pystub_build_unambiguous_types(pkg, st);
@@ -1095,10 +1038,6 @@ iopc_pystub_dump_rpc_arg_full_dict_types(sb_t *buf, const iopc_fun_t *rpc,
     bool arg_is_void = iopc_fun_struct_is_void(&rpc->arg);
     bool arg_is_union;
 
-    if (_G.simple_definitions) {
-        return;
-    }
-
     arg_is_union = !arg_is_void && !rpc->arg.is_anonymous &&
                    rpc->arg.existing_struct->kind == IOP_T_UNION;
 
@@ -1203,11 +1142,6 @@ static void iopc_pystub_dump_rpc_call(sb_t *buf, const iopc_pkg_t *pkg,
                                       const char *rpc_name,
                                       const char *res_type)
 {
-    if (_G.simple_definitions) {
-        sb_adds(buf, "    ...\n");
-        return;
-    }
-
     iopc_pystub_dump_rpc_call_meth(buf, "call", pkg, rpc, rpc_name, res_type);
     iopc_pystub_dump_rpc_call_meth(buf, "__call__", pkg, rpc, rpc_name,
                                    res_type);
@@ -1637,11 +1571,6 @@ int iopc_do_pystub(iopc_pkg_t *pkg, const char *outdir)
     iopc_pystub_dump_package(&buf, pkg);
 
     return iopc_write_file(&buf, path);
-}
-
-void iopc_pystub_set_simple_definitons(bool simple_definitions)
-{
-    _G.simple_definitions = simple_definitions;
 }
 
 /* }}} */

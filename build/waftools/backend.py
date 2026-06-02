@@ -1272,7 +1272,6 @@ class IopcOptions:
         json_path: Optional[str] = None,
         ts_path: Optional[str] = None,
         pystub_path: Optional[str] = None,
-        pystub_simple_definitions: bool = False,
     ) -> None:
         self.ctx = ctx
         self.path = path or ctx.path
@@ -1307,9 +1306,6 @@ class IopcOptions:
             self.pystub_node = self.path.make_node(pystub_path)
         else:
             self.pystub_node = None
-
-        # TODO: Remove this when ty or pyrefly are feature complete.
-        self.pystub_simple_definitions = pystub_simple_definitions
 
         # Add options in global cache
         assert self.path not in ctx.iopc_options
@@ -1353,13 +1349,6 @@ class IopcOptions:
         """Get the pystub-output-path option for iopc"""
         if self.pystub_node:
             return f'--pystub-output-path={self.pystub_node}'
-        return ''
-
-    # TODO: Remove this when ty or pyrefly are feature complete.
-    @property
-    def pystub_simple_definitions_option(self) -> str:
-        if self.pystub_simple_definitions:
-            return '--pystub-simple-definitions'
         return ''
 
     def get_includes_recursive(
@@ -1447,7 +1436,7 @@ class Iop2c(FirstInputStrTask):
         cmd = (
             '{iopc} --Wextra --language {languages} --c-resolve-includes '
             '{includes} {class_range} {json_output} {ts_output} '
-            '{pystub_output} {pystub_simple_definitions} {source}'
+            '{pystub_output} {source}'
         )
         cmd = cmd.format(
             iopc=self.inputs[1].abspath(),
@@ -1457,9 +1446,6 @@ class Iop2c(FirstInputStrTask):
             json_output=self.env.IOP_JSON_OUTPUT,
             ts_output=self.env.IOP_TS_OUTPUT,
             pystub_output=self.env.IOP_PYSTUB_OUTPUT,
-            pystub_simple_definitions=(
-                self.env.IOP_PYSTUB_SIMPLE_DEFINITIONS
-            ),
             source=self.inputs[0].abspath(),
         )
         self.last_cmd = cmd
@@ -1542,9 +1528,6 @@ def process_iop(self: TaskGen, node: Node) -> None:
         task.env.IOP_JSON_OUTPUT = opts.json_output_option
         task.env.IOP_TS_OUTPUT = opts.ts_output_option
         task.env.IOP_PYSTUB_OUTPUT = opts.pystub_output_option
-        task.env.IOP_PYSTUB_SIMPLE_DEFINITIONS = (
-            opts.pystub_simple_definitions_option
-        )
 
     self.source.append(c_node)
 
