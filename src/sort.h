@@ -89,6 +89,9 @@ static inline size_t uniq_i64(int64_t base[], size_t n)
     return uniq64((uint64_t *)base, n);
 }
 
+void dsort_cptr(uintptr_t base[], size_t n);
+size_t uniq_cptr(uintptr_t base[], size_t n);
+
 #define type_t uint8_t
 #define bisect bisect8
 #define contains contains8

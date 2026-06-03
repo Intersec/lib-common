@@ -64,6 +64,11 @@
 #define dsort dsort_i64
 #include "sort-numeric.in.c"
 
+#define type_t uintptr_t
+#define dsort dsort_cptr
+#define uniq uniq_cptr
+#include "sort-numeric.in.c"
+
 #define t(ptr, p) (((byte *)(ptr)) + (size * (p)))
 
 size_t uniq(

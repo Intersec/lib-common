@@ -250,6 +250,27 @@ Z_GROUP_EXPORT(sort)
     }
     Z_TEST_END;
 
+    Z_TEST(cptr, "optimized cptr") {
+        for (int i = 0; i < countof(vals64); i++) {
+            uintptr_t sorted_cptr[countof(vals64)];
+            uintptr_t uniqed_cptr[countof(vals64)];
+            uintptr_t v[countof(vals64)];
+            size_t len = 0;
+
+            for (int j = 0; j < countof(vals64); j++) {
+                v[j] = vals64[j];
+                sorted_cptr[j] = sorted64[i][j];
+                uniqed_cptr[j] = uniqed64[i][j + 1];
+            }
+
+            dsort_cptr(v, i);
+            Z_ASSERT_EQUAL(sorted_cptr, i, v, i);
+            len = uniq_cptr(v, i);
+            Z_ASSERT_EQUAL(uniqed_cptr, uniqed64[i][0], v, len);
+        }
+    }
+    Z_TEST_END;
+
     Z_TEST(8, "optimized 8") {
         uint8_t vals8[countof(vals64)];
 
