@@ -1,6 +1,6 @@
 id: no-preincrement-stmt
 language: c
-severity: warning
+severity: error
 message: "Use i++ not ++i as a statement (preincrement marks intentionally tricky code)"
 
 rule:

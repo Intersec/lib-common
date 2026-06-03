@@ -1,6 +1,6 @@
 id: no-while-true
 language: c
-severity: warning
+severity: error
 message: "Use for (;;) for endless loops, not while (true) or while (1)"
 rule:
   any:
