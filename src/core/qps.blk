@@ -4125,58 +4125,31 @@ static void qps_dissect_get_handle_free_list(qps_dissect_ctx_t *ctx)
     }
 }
 
-qm_k32_t(handle_id, uint32_t);
+qhm_k32_t(handle_info, 16, qv_t(qps_ptr));
 
-typedef struct handle_info_vec_t {
-    qps_ptr_t *tab;
-    int len;
-} handle_info_vec_t;
-
-#define HANDLE_INFO_ALLOC (&mem_pool_libc)
-
-GENERIC_MP_NEW_INIT(HANDLE_INFO_ALLOC, handle_info_vec_t, handle_info);
-
-static void handle_info_wipe(handle_info_vec_t *handle_info_vec)
-{
-    if (handle_info_vec) {
-        mp_delete(HANDLE_INFO_ALLOC, &handle_info_vec->tab);
-    }
-}
-
-GENERIC_MP_DELETE(HANDLE_INFO_ALLOC, handle_info_vec_t, handle_info);
-
-qvector_t(handle_info, handle_info_vec_t *);
-
-static void qps_dissect_add_handle_info(qps_handle_t h, qps_ptr_t handle_ptr,
-                                        qm_t(handle_id) *h_map,
-                                        qv_t(handle_info) *h_vec)
+/* FIXME The use of t_stack here is questionable because we could loose a lot
+ * of memory with the successive reallocs, making the memory blocks in our
+ * t_stack really sparse. To check and fix if needed.
+ */
+static ALWAYS_INLINE void
+t_qps_dissect_add_handle_info(qps_handle_t h, qps_ptr_t handle_ptr,
+                              qhm_t(handle_info) *h_map)
 {
     uint64_t pos;
-    handle_info_vec_t *h_info_vec;
-    const size_t qps_ptr_sz = __qv_sz(h_info_vec);
-    const size_t qps_ptr_align = __qv_align(h_info_vec);
+    qv_t(qps_ptr) *val_h_map;
 
     if (!h) {
         return;
     }
 
-    pos = qm_reserve(handle_id, h_map, h, 0);
+    pos = qhm_reserve(handle_info, h_map, h, 0);
     if (pos & QHASH_COLLISION) {
-        pos ^= QHASH_COLLISION;
-        h_info_vec = h_vec->tab[h_map->values[pos]];
+        val_h_map = qhm_value_p(handle_info, h_map, pos ^ QHASH_COLLISION);
     } else {
-        int pos_vec = h_vec->len;
-
-        h_info_vec = handle_info_new();
-        qv_append(h_vec, h_info_vec);
-        h_map->values[pos] = pos_vec;
+        val_h_map = qhm_value_p(handle_info, h_map, pos);
+        t_qv_init(val_h_map, 1);
     }
-
-    h_info_vec->tab = mp_irealloc(
-        HANDLE_INFO_ALLOC, h_info_vec->tab, h_info_vec->len * qps_ptr_sz,
-        (h_info_vec->len + 1) * qps_ptr_sz, qps_ptr_align, MEM_RAW);
-    h_info_vec->tab[h_info_vec->len] = handle_ptr;
-    h_info_vec->len += 1;
+    qv_append(val_h_map, handle_ptr);
 }
 static ALWAYS_INLINE void qps_dissect_list_handle_page(qps_dissect_ctx_t *ctx,
                                                        const qps_pghdr_t *hdr,
@@ -4240,9 +4213,9 @@ qps_dissect_list_handles_from_container(qps_dissect_ctx_t *ctx, qps_pg_t pg,
     }
 }
 
-static void qps_dissect_pg_map_handles(qps_dissect_ctx_t *ctx, qps_map_t *map,
-                                       qm_t(handle_id) *h_map,
-                                       qv_t(handle_info) *h_vec)
+static void t_qps_dissect_pg_map_handles(qps_dissect_ctx_t *ctx,
+                                         qps_map_t *map,
+                                         qhm_t(handle_info) *h_map)
 {
     uint32_t mapno = map->hdr.mapno;
     uint32_t nbr_pg = 0;
@@ -4299,8 +4272,8 @@ static void qps_dissect_pg_map_handles(qps_dissect_ctx_t *ctx, qps_map_t *map,
             }
             if (qps_dissect_is_handle_used(ctx, h)) {
                 /* Flag this handle as used and record associated data */
-                qps_dissect_add_handle_info(
-                    h, qps_encode(map[QPS_PG_IDX(pg)].data), h_map, h_vec);
+                t_qps_dissect_add_handle_info(
+                    h, qps_encode(map[QPS_PG_IDX(pg)].data), h_map);
             } else {
                 /* Handle was supposed to be freed (because it is already in
                  * free list of handles). */
@@ -4338,10 +4311,9 @@ static void qps_dissect_pg_map_handles(qps_dissect_ctx_t *ctx, qps_map_t *map,
     }
 }
 
-static void qps_dissect_tlsf_map_handles(qps_dissect_ctx_t *ctx,
-                                         qps_map_t *map,
-                                         qm_t(handle_id) *h_map,
-                                         qv_t(handle_info) *h_vec)
+static void t_qps_dissect_tlsf_map_handles(qps_dissect_ctx_t *ctx,
+                                           qps_map_t *map,
+                                           qhm_t(handle_info) *h_map)
 {
     qps_mhdr_t *blk;
     qps_mhdr_t *blk_end;
@@ -4417,8 +4389,7 @@ static void qps_dissect_tlsf_map_handles(qps_dissect_ctx_t *ctx,
                                           blk->data);
         } else if (qps_dissect_is_handle_used(ctx, blk->handle)) {
             /* Flag this handle as used and record associated data. */
-            qps_dissect_add_handle_info(h, qps_encode(blk->data), h_map,
-                                        h_vec);
+            t_qps_dissect_add_handle_info(h, qps_encode(blk->data), h_map);
         } else if (ctx->qps->generation == map->hdr.generation) {
             /* Consistency error: considered as freed in handle list but used
              * in TLSF map with an up-to-date generation value. */
@@ -4449,7 +4420,7 @@ static inline bool qps_dissect_qps_pointers_are_equal(const qps_ptr_t *ptr1,
  * parameter. */
 static void qps_dissect_check_handle_unicity(qps_dissect_ctx_t *ctx,
                                              qps_handle_t h,
-                                             handle_info_vec_t *handle_info)
+                                             qv_t(qps_ptr) *handle_info)
 {
     t_scope;
     const qps_ptr_t *h_ref = qps_handle_slot(ctx->qps, h);
@@ -4524,11 +4495,10 @@ static void qps_dissect_check_handle_unicity(qps_dissect_ctx_t *ctx,
 
 void qps_dissect_maps_and_handles(qps_dissect_ctx_t *ctx)
 {
-    qm_t(handle_id) h_map;
-    qv_t(handle_info) h_vec;
+    t_scope;
+    qhm_t(handle_info) h_map;
 
-    qm_init(handle_id, &h_map);
-    qv_init(&h_vec);
+    qhm_init(handle_info, &h_map, false);
 
     logger_notice(&_G.logger,
                   "dissecting maps and handles for %*pM (%u "
@@ -4556,26 +4526,26 @@ void qps_dissect_maps_and_handles(qps_dissect_ctx_t *ctx)
             qps_dissect_save_and_add_owner_ctx(ctx, "pg-map-%02u", mapno);
             logger_notice(&_G.logger, "dissecting %*pM",
                           SB_FMT_ARG(&ctx->owner.owner_path));
-            qps_dissect_pg_map_handles(ctx, map, &h_map, &h_vec);
+            t_qps_dissect_pg_map_handles(ctx, map, &h_map);
         } else {
             qps_dissect_save_and_add_owner_ctx(ctx, "tlsf-map-%02u", mapno);
             logger_notice(&_G.logger, "dissecting %*pM",
                           SB_FMT_ARG(&ctx->owner.owner_path));
-            qps_dissect_tlsf_map_handles(ctx, map, &h_map, &h_vec);
+            t_qps_dissect_tlsf_map_handles(ctx, map, &h_map);
         }
     }
 
     /* Check results. */
-    logger_notice(&_G.logger, "checking unicity of %u handle(s)",
+    logger_notice(&_G.logger, "checking unicity of %lu handle(s)",
                   h_map.hdr.len);
-    qm_for_each_pos(handle_id, pos, &h_map) {
-        qps_handle_t h = h_map.keys[pos];
-        handle_info_vec_t *value = h_vec.tab[h_map.values[pos]];
+    qhm_for_each_pos(handle_info, pos, &h_map)
+    {
+        qps_handle_t h = *qhm_key_p(handle_info, &h_map, pos);
+        qv_t(qps_ptr) *value = qhm_value_p(handle_info, &h_map, pos);
 
         qps_dissect_check_handle_unicity(ctx, h, value);
     }
-    qm_wipe(handle_id, &h_map);
-    qv_deep_wipe(&h_vec, handle_info_delete);
+    qhm_deep_wipe(handle_info, &h_map, IGNORE, qv_wipe);
 
     logger_notice(&_G.logger, "dissect of maps and handles for %*pM done",
                   SB_FMT_ARG(&ctx->owner.owner_path));
@@ -4688,8 +4658,7 @@ static void qps_dissect_check_object_usage(qps_dissect_ctx_t *ctx,
 static void qps_dissect_track_lost_handles(qps_dissect_ctx_t *ctx)
 {
     t_scope;
-    qm_t(handle_id) h_map;
-    qv_t(handle_info) h_vec;
+    qhm_t(handle_info) h_map;
 
     const uint64_t remaining = qps_dissect_get_nbr_remaining_h(ctx);
 
@@ -4702,8 +4671,7 @@ static void qps_dissect_track_lost_handles(qps_dissect_ctx_t *ctx)
     logger_notice(&_G.logger, "still %zu handle(s) to track for %*pM",
                   remaining, SB_FMT_ARG(&ctx->owner.owner_path));
 
-    qm_init(handle_id, &h_map);
-    qv_init(&h_vec);
+    qhm_init(handle_info, &h_map, false);
     for (size_t i = 1; i < ctx->h_processing.len; i++) {
         qps_ptr_t *hptr;
 
@@ -4711,13 +4679,19 @@ static void qps_dissect_track_lost_handles(qps_dissect_ctx_t *ctx)
             continue;
         }
         hptr = qps_handle_slot(ctx->qps, i);
-        qps_dissect_add_handle_info(i, *hptr, &h_map, &h_vec);
+        if (qps_dissect_handle(ctx, i, hptr, true) < 0) {
+            /* Never dereference the slot of a lost handle before checking
+             * it: nothing has validated it so far. */
+            continue;
+        }
+        t_qps_dissect_add_handle_info(i, *hptr, &h_map);
     }
 
     /* Check results. */
-    qm_for_each_pos(handle_id, pos, &h_map) {
-        qps_handle_t h = h_map.keys[pos];
-        qps_ptr_t *val = &h_vec.tab[h_map.values[pos]]->tab[0];
+    qhm_for_each_pos(handle_info, pos, &h_map)
+    {
+        qps_handle_t h = *qhm_key_p(handle_info, &h_map, pos);
+        qps_ptr_t *val = &qhm_value_p(handle_info, &h_map, pos)->tab[0];
         void *ptr = (uint8_t *)qps_pg_deref(ctx->qps, val->pgno) + val->addr;
         size_t sz_obj = qps_sizeof(ctx->qps, ptr);
 
@@ -4729,8 +4703,7 @@ static void qps_dissect_track_lost_handles(qps_dissect_ctx_t *ctx)
                                       ptr);
     }
 
-    qm_wipe(handle_id, &h_map);
-    qv_deep_wipe(&h_vec, handle_info_delete);
+    qhm_deep_wipe(handle_info, &h_map, IGNORE, qv_wipe);
 
     logger_notice(&_G.logger, "done tracking %zu handle(s) for %*pM",
                   remaining, SB_FMT_ARG(&ctx->owner.owner_path));
