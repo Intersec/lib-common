@@ -386,6 +386,17 @@ static void qps_pg_check_hdrs(qps_t *qps)
 #endif
 }
 
+int qps_pg_check_range(const qps_t *qps, qps_pg_t pg, sb_t *err)
+{
+    if (likely(qps_pg_is_in_range(qps, pg))) {
+        return 0;
+    }
+
+    sb_setf(err, "page " QPS_PG_FMT " not in QPS maps range [0, %u[",
+            QPS_PG_ARG(pg), qps->maps.len);
+    return -1;
+}
+
 /* }}} */
 /** @} */
 /** @{ \name Internal: tlsf allocator helpers */
@@ -2479,6 +2490,16 @@ static void qps_handle_free(qps_t *qps, qps_handle_t id)
      * there is none). */
     *ptr = (qps_ptr_t){.addr = qps->handles_freelist};
     qps->handles_freelist = id;
+}
+
+int qps_handle_check_range(const qps_t *qps, qps_handle_t h, sb_t *err)
+{
+    if (likely(qps_handle_is_in_range(qps, h))) {
+        return 0;
+    }
+
+    sb_setf(err, "handle %d expected in range [0, %u[", h, qps->handles_max);
+    return -1;
 }
 
 void *qps_alloc(qps_t *qps, qps_handle_t *id, size_t size)

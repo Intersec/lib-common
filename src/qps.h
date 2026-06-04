@@ -455,12 +455,16 @@ static ALWAYS_INLINE qps_pg_t qps_pg_of(const void *ptr_)
 static ALWAYS_INLINE bool qps_pg_is_in_range(const qps_t *qps, qps_pg_t pg)
 {
     int idx = QPS_PG_MAP_IDX(pg);
-    return idx < qps->maps.len;
+    return idx < qps->maps.len && qps->maps.tab[idx];
 }
+
+int qps_pg_check_range(const qps_t *qps, qps_pg_t pg, sb_t *err);
 
 static ALWAYS_INLINE void *qps_pg_deref(const qps_t *qps, qps_pg_t pg)
 {
-    return pg ? qps->maps.tab[QPS_PG_MAP_IDX(pg)][QPS_PG_IDX(pg)].data : NULL;
+    THROW_NULL_IF(!pg);
+    assert(qps_pg_is_in_range(qps, pg));
+    return qps->maps.tab[QPS_PG_MAP_IDX(pg)][QPS_PG_IDX(pg)].data;
 }
 
 #if !defined(__doxygen_mode__)
@@ -471,9 +475,17 @@ static ALWAYS_INLINE void *qps_w_deref(qps_t *qps, qps_handle_t id, void *ptr)
     return qps_is_ro(qps, qps_map_of(ptr)) ? qps_w_deref_(qps, id, ptr) : ptr;
 }
 
+static ALWAYS_INLINE bool qps_handle_is_in_range(const qps_t *qps,
+                                                 qps_handle_t h)
+{
+    return h && h < qps->handles_max;
+}
+
+int qps_handle_check_range(const qps_t *qps, qps_handle_t h, sb_t *err);
+
 static ALWAYS_INLINE qps_ptr_t *qps_handle_slot(qps_t *qps, qps_handle_t id)
 {
-    assert(id && id < qps->handles_max);
+    assert(qps_handle_is_in_range(qps, id));
     return &qps->handles[id / QPS_HANDLES_COUNT][id % QPS_HANDLES_COUNT];
 }
 
