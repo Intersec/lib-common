@@ -446,3 +446,66 @@ void qps_bitmap_debug_print(qps_bitmap_t *map)
 }
 
 /* }}} */
+/* {{{ QPS dissect functions */
+
+void qps_bitmap_init_dissect(qps_dissect_ctx_t *ctx, qps_handle_t handle)
+{
+    qps_bitmap_t map;
+
+    p_clear(&map, 1);
+    map.root_cache.handle = handle;
+
+    return qps_bitmap_dissect(ctx, &map);
+}
+
+void qps_bitmap_dissect(qps_dissect_ctx_t *ctx, qps_bitmap_t *map)
+{
+    qps_dissect_save_owner_ctx(ctx);
+    if (qps_dissect_used_handle(ctx, map->root_cache.handle) < 0 ||
+        qps_dissect_check_handle_size(ctx, map->root_cache.handle,
+                                      sizeof(qps_bitmap_root_t)) < 0)
+    {
+        return;
+    }
+    qps_hptr_init(ctx->qps, map->root_cache.handle, &map->root_cache);
+
+    if (!strequal(QPS_BITMAP_SIG, (const char *)map->root->sig)) {
+        sb_setf(ctx->err,
+                "invalid qps_bitmap signature found, hex is: \""
+                "%*pX\"",
+                (int)sizeof(map->root->sig), map->root->sig);
+        qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_INVALID_H_REF_CONTENT,
+                                      &map->root_cache.handle);
+        return;
+    }
+
+    for (int root_idx = 0; root_idx < QPS_BITMAP_ROOTS; root_idx++) {
+        int node_idx = 0;
+        struct qps_bitmap_dispatch_node *d_node;
+        struct qps_bitmap_dispatch_node *d_end;
+        qps_bitmap_node_t *root = &map->root->roots[root_idx];
+
+        qps_dissect_save_and_add_owner_ctx(ctx, "root[%d]", root_idx);
+        if (!(*root)) {
+            continue;
+        }
+
+        if (qps_dissect_page(ctx, *root, root) < 0) {
+            continue;
+        }
+
+        d_node = qps_pg_deref(ctx->qps, *root);
+        d_end = &d_node[QPS_BITMAP_DISPATCH];
+        for (; d_node < d_end; d_node++, node_idx++) {
+            if (!d_node->node) {
+                continue;
+            } else {
+                qps_dissect_save_and_add_owner_ctx(ctx, "nodes[%d]",
+                                                   node_idx);
+                qps_dissect_page(ctx, d_node->node, d_node);
+            }
+        }
+    }
+}
+
+/* }}} */

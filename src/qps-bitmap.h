@@ -654,6 +654,17 @@ void qps_bitmap_get_qps_roots(
 void qps_bitmap_debug_print(qps_bitmap_t *map) __attr_leaf__;
 
 /* }}} */
+/* {{{ QPS dissect functions */
+
+/** Wrapper function which dissects a QPS bitmap from an initial QPS handle.
+ *  qps_bitmap_t structure is created locally before dissection.
+ */
+void qps_bitmap_init_dissect(qps_dissect_ctx_t *ctx, qps_handle_t handle);
+
+/** Function which dissects a qps bitmap object in QPS storage. */
+void qps_bitmap_dissect(qps_dissect_ctx_t *ctx, qps_bitmap_t *map);
+
+/* }}} */
 
 /** \} */
 #endif

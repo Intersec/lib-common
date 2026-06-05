@@ -796,6 +796,17 @@ static ALWAYS_INLINE qhat_t *qhat_enumerator_get_hat(qhat_enumerator_t *en)
 #define qhat_for_each qhat_for_each_safe
 
 /* }}} */
+/* {{{ QPS dissect functions */
+
+/** Wrapper function which dissects a qhat from an initial QPS handle. qhat_t
+ *  structure is created locally before dissection.
+ */
+void qhat_init_dissect(qps_dissect_ctx_t *ctx, qps_handle_t handle);
+
+/** Function which dissects a qhat object in QPS storage. */
+void qhat_dissect(qps_dissect_ctx_t *ctx, qhat_t *hat);
+
+/* }}} */
 /* Debugging tools
  */
 

@@ -3685,6 +3685,122 @@ static ALWAYS_INLINE void qps_dissect_set_handle_freed(qps_dissect_ctx_t *ctx,
     ctx->stats.nbr_free_handles++;
 }
 
+static int qps_dissect_handle(qps_dissect_ctx_t *ctx, qps_handle_t h,
+                              qps_ptr_t *hptr, bool notify)
+{
+    if (hptr->addr & ~QPS_PAGE_MASK) {
+        sb_setf(ctx->err, "invalid address for handle %d (0x%08x)", h,
+                hptr->addr);
+    } else if (qps_pg_check_range(ctx->qps, hptr->pgno, ctx->err) < 0) {
+        sb_prependf(ctx->err, "for handle %d, ", h);
+    } else {
+        return 0;
+    }
+
+    if (notify) {
+        qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_INVALID_H_REF_PTR, &h);
+    }
+    return -1;
+}
+
+int qps_dissect_used_handle(qps_dissect_ctx_t *ctx, qps_handle_t h)
+{
+    qps_ptr_t *hptr;
+    qps_map_t *map;
+    qps_anomaly_t type_err = QPS_ANOMALY_INVALID_H_REF;
+    uint32_t flags;
+    qps_handle_t handle_hdr;
+    size_t tlsf_sz = 0;
+
+    if (qps_handle_check_range(ctx->qps, h, ctx->err) < 0) {
+        goto notify_err;
+    }
+    if (!qps_dissect_is_handle_used(ctx, h)) {
+        type_err = QPS_ANOMALY_DANGLING_H_REF;
+        sb_setf(ctx->err, "referencing a freed handle with id %u", h);
+        goto notify_err;
+    }
+
+    /* hptr value checked in handle container, so just exits if issue occurs
+     * now.
+     */
+    hptr = qps_handle_slot(ctx->qps, h);
+    RETHROW(qps_dissect_handle(ctx, h, hptr, false));
+
+    /* At least memory and memory block header or qps page is reachable at
+     * this stage, so check now that handle in memory/page header is the same
+     * as the one requested by qps_handle_slot, and slot is still in use.
+     */
+    type_err = QPS_ANOMALY_INVALID_H_REF_HEADER;
+    map = ctx->qps->maps.tab[QPS_PG_MAP_IDX(hptr->pgno)];
+
+    /* Based on QPS_M_ALLOC_MAX define, handles can be allocated in TLSF map
+     * or QPS pages map. Get information from the right header managing this
+     * memory.
+     */
+    if (qps_map_is_pg(map)) {
+        qps_pghdr_t *hdr = &ctx->qps->hdrs[hptr->pgno];
+
+        flags = hdr->flags;
+        handle_hdr = hdr->handle;
+    } else {
+        void *h_data =
+            (uint8_t *)qps_pg_deref(ctx->qps, hptr->pgno) + hptr->addr;
+        qps_mhdr_t *blk = container_of(h_data, qps_mhdr_t, data);
+
+        tlsf_sz = qps_m_blk_size(blk);
+        flags = blk->flags;
+        handle_hdr = blk->handle;
+    }
+
+    if (flags & QPS_BLK_FREE) {
+        sb_setf(ctx->err,
+                "invalid block header for handle %d (flag free set)", h);
+        goto notify_err;
+    } else if (handle_hdr != h) {
+        sb_setf(ctx->err,
+                "invalid block header for handle %d (handle id in "
+                "header is %d)",
+                h, handle_hdr);
+        goto notify_err;
+    } else if (tlsf_sz &&
+               (tlsf_sz % (1 << QPS_ML2_OFFSET) != 0 ||
+                tlsf_sz < QPS_ALLOC_MIN || tlsf_sz >= QPS_ALLOC_MAX))
+    {
+        sb_setf(ctx->err,
+                "invalid block header for handle %d (size %zu not in"
+                " [%u:%u[ range or modulo is invalid)",
+                h, tlsf_sz, QPS_ALLOC_MIN, QPS_ALLOC_MAX);
+        goto notify_err;
+    }
+    return 0;
+
+notify_err:
+    qps_dissect_notify_handle_err(ctx, type_err, &h);
+    return -1;
+}
+
+int qps_dissect_check_handle_size(qps_dissect_ctx_t *ctx, qps_handle_t h,
+                                  size_t minimum_size)
+{
+    qps_ptr_t *ptr = qps_handle_slot(ctx->qps, h);
+    void *adr_inside_qps;
+    size_t bsz;
+
+    adr_inside_qps = (uint8_t *)qps_pg_deref(ctx->qps, ptr->pgno) + ptr->addr;
+    bsz = qps_sizeof(ctx->qps, adr_inside_qps);
+    if (bsz < minimum_size) {
+        sb_setf(ctx->err,
+                "invalid size for handle %d (%zu below minimum size"
+                " of %zu)",
+                h, bsz, minimum_size);
+        qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_INVALID_H_REF_SIZE,
+                                      &h);
+        return -1;
+    }
+    return 0;
+}
+
 static void qps_dissect_get_handle_free_list(qps_dissect_ctx_t *ctx)
 {
     qps_handle_t free_handle = ctx->qps->handles_freelist;
@@ -4090,6 +4206,20 @@ void qps_dissect_maps_and_handles(qps_dissect_ctx_t *ctx)
 
     logger_notice(&_G.logger, "dissect of maps and handles for %*pM done",
                   SB_FMT_ARG(&ctx->owner.owner_path));
+}
+
+/* }}} */
+/* {{{ QPS dissect functions for page analysis */
+
+int qps_dissect_page(qps_dissect_ctx_t *ctx, qps_pg_t pg,
+                     void *adr_inside_qps)
+{
+    if (qps_pg_check_range(ctx->qps, pg, ctx->err) < 0) {
+        qps_dissect_notify_page_err(ctx, QPS_ANOMALY_INVALID_QPS_PAGE_REF,
+                                    &pg);
+        return -1;
+    }
+    return 0;
 }
 
 /* }}} */

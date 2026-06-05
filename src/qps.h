@@ -602,12 +602,18 @@ typedef struct qps_dissect_stats_t {
 
 typedef enum qps_anomaly_t {
     QPS_ANOMALY_MAP_INTEGRITY_FAILED,
+    QPS_ANOMALY_INVALID_QPS_PAGE_REF,
     QPS_ANOMALY_INVALID_H_REF,
     QPS_ANOMALY_INVALID_H_REF_PTR,
+    QPS_ANOMALY_INVALID_H_REF_SIZE,
     QPS_ANOMALY_INVALID_H_REF_HEADER,
+    QPS_ANOMALY_INVALID_H_REF_CONTENT,
     QPS_ANOMALY_DANGLING_H_REF,
     QPS_ANOMALY_MANY_BLKS_FOR_H_REF,
     QPS_ANOMALY_CIRCULAR_FREE_LIST,
+    QPS_ANOMALY_QHAT_NODE_SUBOPTIMAL,
+    QPS_ANOMALY_QHAT_DESC_CORRUPTED,
+    QPS_ANOMALY_QHAT_ISSUE,
 } qps_anomaly_t;
 
 typedef struct qps_dissect_owner_mgmt_t {
@@ -679,6 +685,36 @@ GENERIC_DELETE(qps_dissect_ctx_t, qps_dissect_ctx);
  */
 void qps_dissect_maps_and_handles(qps_dissect_ctx_t *ctx);
 
+/** This function dissects QPS used handles referenced externally (for example
+ *  in a QKV shard). The following checks are performed:
+ *   - handle range validity
+ *   - handle in handle free list
+ *   - qps pointer for this handle has a valid address and QPS TLSF or page
+ *     location
+ *   - block allocated is really in use, linked to this handle
+ *   - for handles located in TLSF maps, ensure size stored is valid with
+ *     TLSF map behavior (min, max size and modulo)
+ *
+ * Any anomaly is notified through the block callback, registered during
+ * dissect context creation.
+ */
+int qps_dissect_used_handle(qps_dissect_ctx_t *ctx, qps_handle_t h);
+
+/** This function checks allocated size of handle in QPS against its expected
+ *  minimum size referenced externally.
+ *
+ * Any anomaly is notified through the block callback, registered during
+ * dissect context creation.
+ */
+int qps_dissect_check_handle_size(qps_dissect_ctx_t *ctx, qps_handle_t h,
+                                  size_t minimum_size);
+
+/* }}} */
+/* {{{ qps dissect functions for page analysis */
+
+int qps_dissect_page(qps_dissect_ctx_t *ctx, qps_pg_t pg,
+                     void *adr_inside_qps);
+
 /* }}} */
 /* {{{ QPS dissect notify function and helpers */
 
@@ -725,6 +761,18 @@ void qps_dissect_notify_(qps_dissect_ctx_t *ctx, qps_notify_anomaly_t *item);
 #define qps_dissect_notify_handle_err(_ctx, _type, _h_ptr)                   \
     qps_dissect_notify_err(_ctx, _type, LSTR_SB_V(&_ctx->owner.owner_path),  \
                            handle, _h_ptr)
+
+/** Format and notify anomalies dedicated to QPS pages. */
+#define qps_dissect_notify_page_err(_ctx, _type, _pg_ptr)                    \
+    qps_dissect_notify_err(_ctx, _type, LSTR_SB_V(&_ctx->owner.owner_path),  \
+                           page, _pg_ptr)
+
+/** Format and notify anomalies dedicated to qhat objects stored in QPS (non
+ *  optimal node or all kind of integrity issues which could come from a QPS
+ *  corruption). */
+#define qps_dissect_notify_qhat_err(_ctx, _type)                             \
+    qps_dissect_notify_err(_ctx, _type, LSTR_SB_V(&_ctx->owner.owner_path),  \
+                           ptr, NULL)
 
 /* }}} */
 /* {{{ qps dissect functions for owner management of qps objects */
