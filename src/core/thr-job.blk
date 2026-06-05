@@ -780,6 +780,13 @@ bool thr_is_on_queue(thr_queue_t *q)
            (q == thr_queue_main_g && thr_id() == 0);
 }
 
+bool thr_main_queue_is_draining(void)
+{
+    /* Same running_on decode as the first clause of thr_is_on_queue(); the
+     * two must stay in sync if the running_on protocol ever changes. */
+    return atomic_load(&thr_queue_main_g->running_on) == (ssize_t)thr_id();
+}
+
 /* }}} */
 /* thread run loop {{{ */
 

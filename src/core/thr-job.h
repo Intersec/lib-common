@@ -152,6 +152,25 @@ void thr_queue_destroy(thr_queue_t *q, bool wait) __attr_leaf__;
  */
 bool thr_is_on_queue(thr_queue_t *q) __attr_leaf__;
 
+/** Return true while the current thread is executing within
+ * thr_queue_drain() of the main queue.
+ *
+ * This stays true for the whole time a main-queue job runs on the current
+ * thread (running_on is held across the job body), not only while the drain
+ * loop itself is the active frame.
+ *
+ * Unlike thr_is_on_queue(thr_queue_main_g), which is also true for thread 0
+ * sitting idle at the top-level event loop, this is true *only* while a
+ * drain is actually in progress.
+ *
+ * Use it to avoid block-waiting (e.g. thr_syn_wait) from inside a main-queue
+ * job for work whose completion is itself queued on thr_queue_main_g: with
+ * THR_SYN_WAIT_NO_MAIN_DRAIN such a wait hangs forever (the main queue is
+ * never pumped), and otherwise it re-enters thr_queue_drain() and trips an
+ * assertion.
+ */
+bool thr_main_queue_is_draining(void) __attr_leaf__;
+
 /** \brief Queue one job on a serial queue
  *
  * For simplicity, #q can be NULL and then thr_queue* is similar to calling

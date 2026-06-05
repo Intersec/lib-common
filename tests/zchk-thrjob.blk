@@ -597,6 +597,41 @@ static int z_thr_syn_wait_flags_test(void)
 }
 
 /* }}} */
+/* {{{ Test thr_main_queue_is_draining */
+
+static int z_main_queue_is_draining_test(void)
+{
+    thr_syn_t syn;
+    bool inside_drain = false;
+    bool *inside_drain_p = &inside_drain;
+
+    /* At the top-level event loop, thread 0 is "on" the main queue, but no
+     * drain is in progress: the two predicates must therefore disagree.
+     * (This assertion passing also confirms the test runs on thread 0, since
+     * the only way thr_is_on_queue(main) is true with running_on unset is the
+     * thr_id() == 0 clause.) */
+    Z_ASSERT(thr_is_on_queue(thr_queue_main_g));
+    Z_ASSERT(!thr_main_queue_is_draining());
+
+    /* Queue a job on the main queue asynchronously (so it is not run inline
+     * via the thr_queue_sync() fast path) and let thr_syn_wait() pump the
+     * main queue from thread 0. The job then runs inside thr_queue_drain(),
+     * where the predicate must be true. */
+    thr_syn_init(&syn);
+    thr_syn_queue_b(&syn, thr_queue_main_g, ^{
+        *inside_drain_p = thr_main_queue_is_draining();
+    });
+    thr_syn_wait(&syn);
+    thr_syn_wipe(&syn);
+    Z_ASSERT(inside_drain);
+
+    /* The drain is over: back to false. */
+    Z_ASSERT(!thr_main_queue_is_draining());
+
+    Z_HELPER_END;
+}
+
+/* }}} */
 
 Z_GROUP_EXPORT(thrjobs)
 {
@@ -780,6 +815,11 @@ Z_GROUP_EXPORT(thrjobs)
 
     Z_TEST(syn_wait_flags) {
         Z_HELPER_RUN(z_thr_syn_wait_flags_test());
+    }
+    Z_TEST_END;
+
+    Z_TEST(main_queue_is_draining) {
+        Z_HELPER_RUN(z_main_queue_is_draining_test());
     }
     Z_TEST_END;
 
