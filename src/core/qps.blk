@@ -3583,6 +3583,9 @@ qps_dissect_ctx_t *qps_dissect_ctx_init(qps_dissect_ctx_t *ctx, qps_t *qps,
 {
     p_clear(ctx, 1);
 
+    sb_init(&ctx->owner.owner_path);
+    qv_init(&ctx->owner.clip_owner_stack);
+    qv_init(&ctx->owner.saved_owner_ctx);
     bb_init(&ctx->h_processing);
     ctx->priv = qps_dissect_ctx_priv_new();
     ctx->qps = qps;
@@ -3605,6 +3608,9 @@ qps_dissect_ctx_t *qps_dissect_ctx_new(qps_t *qps, sb_t *err)
 
 void qps_dissect_ctx_wipe(qps_dissect_ctx_t *ctx)
 {
+    sb_wipe(&ctx->owner.owner_path);
+    qv_wipe(&ctx->owner.clip_owner_stack);
+    qv_wipe(&ctx->owner.saved_owner_ctx);
     bb_wipe(&ctx->h_processing);
     qps_dissect_ctx_priv_delete(&ctx->priv);
 }
@@ -3617,6 +3623,48 @@ void qps_dissect_notify_(qps_dissect_ctx_t *ctx, qps_notify_anomaly_t *item)
 {
     if (ctx->priv->on_notify_blk) {
         ctx->priv->on_notify_blk(item);
+    }
+}
+
+/* }}} */
+/* {{{ QPS dissect: functions for owner management of qps objects */
+
+void qps_dissect_set_owner(qps_dissect_ctx_t *ctx, const char *fmt, ...)
+{
+    va_list args;
+
+    qv_clear(&ctx->owner.saved_owner_ctx);
+    va_start(args, fmt);
+    sb_setvf(&ctx->owner.owner_path, fmt, args);
+    va_end(args);
+
+    if (ctx->owner.clip_owner_stack.len) {
+        qv_clip(&ctx->owner.clip_owner_stack, 1);
+        ctx->owner.clip_owner_stack.tab[0] = ctx->owner.owner_path.len;
+    } else {
+        qv_append(&ctx->owner.clip_owner_stack, ctx->owner.owner_path.len);
+    }
+}
+
+void qps_dissect_add_sub_owner(qps_dissect_ctx_t *ctx, const char *fmt, ...)
+{
+    va_list args;
+
+    sb_addc(&ctx->owner.owner_path, ':');
+    va_start(args, fmt);
+    sb_addvf(&ctx->owner.owner_path, fmt, args);
+    va_end(args);
+    qv_append(&ctx->owner.clip_owner_stack, ctx->owner.owner_path.len);
+}
+
+void qps_dissect_remove_last_owner(qps_dissect_ctx_t *ctx)
+{
+    qv_remove_last(&ctx->owner.clip_owner_stack);
+    if (ctx->owner.clip_owner_stack.len) {
+        sb_clip(&ctx->owner.owner_path,
+                *tab_last(&ctx->owner.clip_owner_stack));
+    } else {
+        sb_reset(&ctx->owner.owner_path);
     }
 }
 
@@ -3641,6 +3689,7 @@ static void qps_dissect_get_handle_free_list(qps_dissect_ctx_t *ctx)
 {
     qps_handle_t free_handle = ctx->qps->handles_freelist;
 
+    qps_dissect_save_and_add_owner_ctx(ctx, "handle-freelist");
     if (ctx->qps->handles_max <= 1) {
         return;
     }
@@ -3926,6 +3975,8 @@ static void qps_dissect_check_handle_unicity(qps_dissect_ctx_t *ctx,
     bool entry_found = false;
     qps_anomaly_t type;
 
+    qps_dissect_save_and_add_owner_ctx(ctx, "qps-handle-slots");
+
     if (qps_pg_check_range(ctx->qps, h_ref->pgno, ctx->err) < 0) {
         sb_setf(ctx->err,
                 "handle id %u references an invalid page (" QPS_PTR_FMT ")",
@@ -3990,20 +4041,37 @@ void qps_dissect_maps_and_handles(qps_dissect_ctx_t *ctx)
     qm_init(handle_id, &h_map);
     qv_init(&h_vec);
 
+    logger_notice(&_G.logger,
+                  "dissecting maps and handles for %*pM (%u "
+                  "handles recorded)",
+                  SB_FMT_ARG(&ctx->owner.owner_path),
+                  ctx->qps->handles_max - 1);
+
     /* First of all, start with handle free list, so we can later discard
      * those handles which should not have content in TLSF or qps page maps.
      */
     qps_dissect_get_handle_free_list(ctx);
 
     /* Analyze maps and list handles from TLSF maps and QPS pages. */
+    logger_notice(&_G.logger, "%d maps to dissect for %*pM",
+                  ctx->qps->maps.len, SB_FMT_ARG(&ctx->owner.owner_path));
     tab_for_each_entry(map, &ctx->qps->maps) {
+        uint32_t mapno;
+
         if (!map || map->hdr.generation == 0) {
             continue;
         }
 
+        mapno = map->hdr.mapno;
         if (qps_map_is_pg(map)) {
+            qps_dissect_save_and_add_owner_ctx(ctx, "pg-map-%02u", mapno);
+            logger_notice(&_G.logger, "dissecting %*pM",
+                          SB_FMT_ARG(&ctx->owner.owner_path));
             qps_dissect_pg_map_handles(ctx, map, &h_map, &h_vec);
         } else {
+            qps_dissect_save_and_add_owner_ctx(ctx, "tlsf-map-%02u", mapno);
+            logger_notice(&_G.logger, "dissecting %*pM",
+                          SB_FMT_ARG(&ctx->owner.owner_path));
             qps_dissect_tlsf_map_handles(ctx, map, &h_map, &h_vec);
         }
     }
@@ -4017,9 +4085,11 @@ void qps_dissect_maps_and_handles(qps_dissect_ctx_t *ctx)
 
         qps_dissect_check_handle_unicity(ctx, h, value);
     }
-
     qm_wipe(handle_id, &h_map);
     qv_deep_wipe(&h_vec, handle_info_delete);
+
+    logger_notice(&_G.logger, "dissect of maps and handles for %*pM done",
+                  SB_FMT_ARG(&ctx->owner.owner_path));
 }
 
 /* }}} */

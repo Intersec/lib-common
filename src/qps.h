@@ -610,10 +610,17 @@ typedef enum qps_anomaly_t {
     QPS_ANOMALY_CIRCULAR_FREE_LIST,
 } qps_anomaly_t;
 
+typedef struct qps_dissect_owner_mgmt_t {
+    sb_t owner_path;
+    qv_i32_t clip_owner_stack;
+    qv_i32_t saved_owner_ctx;
+} qps_dissect_owner_mgmt_t;
+
 typedef struct qps_dissect_ctx_priv_t qps_dissect_ctx_priv_t;
 
 typedef struct qps_dissect_ctx_t {
     struct qps_t *qps;
+    qps_dissect_owner_mgmt_t owner;
     sb_t *err;
     qps_dissect_stats_t stats;
 
@@ -631,6 +638,7 @@ typedef struct qps_dissect_ctx_t {
 typedef struct qps_notify_anomaly_t {
     qps_anomaly_t type;
     lstr_t details;
+    lstr_t owner;
     union {
         void *ptr;
         qps_handle_t *handle;
@@ -682,10 +690,11 @@ void qps_dissect_notify_(qps_dissect_ctx_t *ctx, qps_notify_anomaly_t *item);
 /** Format generic anomaly item and send it through the block callback (if
  * registered).
  */
-#define qps_dissect_notify_err(_ctx, _type, _item_field, _ptr)               \
+#define qps_dissect_notify_err(_ctx, _type, _owner, _item_field, _ptr)       \
     ({                                                                       \
         qps_notify_anomaly_t __value = {.type = (_type),                     \
                                         .details = LSTR_SB_V(_ctx->err),     \
+                                        .owner = _owner,                     \
                                         {._item_field = (_ptr)}};            \
         qps_dissect_notify_(_ctx, &__value);                                 \
         sb_reset(_ctx->err);                                                 \
@@ -695,7 +704,8 @@ void qps_dissect_notify_(qps_dissect_ctx_t *ctx, qps_notify_anomaly_t *item);
  * (in the same map or within different maps).
  */
 #define qps_dissect_notify_handle_unicity_err(_ctx, _type, _qps_ptrs)        \
-    qps_dissect_notify_err(_ctx, _type, qps_entries, _qps_ptrs)
+    qps_dissect_notify_err(_ctx, _type, LSTR_SB_V(&_ctx->owner.owner_path),  \
+                           qps_entries, _qps_ptrs)
 
 /** Format and notify anomalies dedicated to map integrity issues (like
  *  invalid metadata or flags issues around the management of blocks in these
@@ -704,14 +714,84 @@ void qps_dissect_notify_(qps_dissect_ctx_t *ctx, qps_notify_anomaly_t *item);
 #define qps_dissect_notify_map_err(_ctx, _type, ...)                         \
     do {                                                                     \
         sb_setf(_ctx->err, ##__VA_ARGS__);                                   \
-        qps_dissect_notify_err(_ctx, _type, ptr, NULL);                      \
+        qps_dissect_notify_err(_ctx, _type,                                  \
+                               LSTR_SB_V(&_ctx->owner.owner_path), ptr,     \
+                               NULL);                                        \
     } while (0)
 
 /** Format and notify anomalies dedicated to handles (except handle unicity
  *  check).
  */
 #define qps_dissect_notify_handle_err(_ctx, _type, _h_ptr)                   \
-    qps_dissect_notify_err(_ctx, _type, handle, _h_ptr)
+    qps_dissect_notify_err(_ctx, _type, LSTR_SB_V(&_ctx->owner.owner_path),  \
+                           handle, _h_ptr)
+
+/* }}} */
+/* {{{ qps dissect functions for owner management of qps objects */
+
+/* When qps dissect functions manipulate ownership of object, the following
+ * actions/rules are followed:
+ *  - A lstr contains at any time the current owner with the variable
+ *    qps_dissect_owner_mgmt_t::owner_path.
+ *  - The ownership tree is described with ':' character, so a full ownership
+ *    path of qps object could be shard-1:_gops(14):qbitmap(26)
+ *  - When possible, handle associated with owner should be inserted in
+ *    parenthesis: this helps investigation where the handle is linked
+ *    directly to the owner, so tree of handles can also be easily tracked.
+ *  - To facilitate owner path management and restore the parent owner in the
+ *    ownership tree, a first stack containing indexes of ':' separators and
+ *    a second stack of saved contexts per scope is used.
+ */
+
+/** Restore the parent owner in the current ownership tree context.
+ */
+static ALWAYS_INLINE void
+qps_dissect_restore_owner_ctx(qps_dissect_owner_mgmt_t **ctx)
+{
+    if ((*ctx)->saved_owner_ctx.len) {
+        int idx = (*ctx)->saved_owner_ctx.len - 1;
+        int saved = (*ctx)->saved_owner_ctx.tab[idx];
+
+        qv_clip(&(*ctx)->clip_owner_stack, saved);
+        sb_clip(&(*ctx)->owner_path,
+                saved ? (*ctx)->clip_owner_stack.tab[saved - 1] : 0);
+        qv_remove_last(&(*ctx)->saved_owner_ctx);
+    }
+}
+
+/** Set the root owner in the current ownership tree context. */
+__attribute__((format(printf, 2, 3))) void
+qps_dissect_set_owner(qps_dissect_ctx_t *ctx, const char *fmt, ...);
+__attribute__((format(printf, 2, 3)))
+
+/** Set the owner/subowner in the current ownership tree context. */
+void qps_dissect_add_sub_owner(qps_dissect_ctx_t *nonnull ctx,
+                               const char * nonnull fmt, ...);
+
+/** Restore the parent owner in the current ownership tree context. */
+void qps_dissect_remove_last_owner(qps_dissect_ctx_t *ctx);
+
+/** Helper to temporarily save the current owner context for dedicated scope,
+ * so it can be restored when leaving it. */
+#define qps_dissect_save_owner_ctx(_main_ctx)                                \
+    qps_dissect_owner_mgmt_t *PFX_LINE(owner_ctx_)                           \
+        __attribute__((unused, cleanup(qps_dissect_restore_owner_ctx))) =    \
+            &((_main_ctx)->owner);                                           \
+    qv_append(&(_main_ctx)->owner.saved_owner_ctx,                           \
+              (_main_ctx)->owner.clip_owner_stack.len)
+
+/** Helper to add temporarily a subowner in a scope (and restore the parent
+ *  owner when leaving it). */
+#define qps_dissect_save_and_add_owner_ctx(_main_ctx, ...)                   \
+    qps_dissect_save_owner_ctx(_main_ctx);                                   \
+    qps_dissect_add_sub_owner(_main_ctx, ##__VA_ARGS__)
+
+/** Helper to change last owner for another one in the ownership tree. */
+#define qps_dissect_change_last_owner(_ctx, ...)                             \
+    do {                                                                     \
+        qps_dissect_remove_last_owner(_ctx);                                 \
+        qps_dissect_add_sub_owner(_ctx, ##__VA_ARGS__);                      \
+    } while (0)
 
 /* }}} */
 /* }}} */
