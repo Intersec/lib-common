@@ -24,6 +24,7 @@
 #include <lib-common/log.h>
 #include <lib-common/thr.h>
 #include <lib-common/el.h>
+#include <lib-common/bit-buf.h>
 
 /* define this flag to 1 to allow valgrind/asan to potentially detect incorect
  * QPS API usage (WARNING: the QPS spool storage format is not compatible with
@@ -589,6 +590,103 @@ GENERIC_DELETE(qps_roots_t, qps_roots);
  */
 int qps_check_leaks(qps_t *qps, qps_roots_t *roots);
 
+/* }}} */
+/* {{{ QPS dissect: definitions and functions */
+
+typedef struct qps_dissect_stats_t {
+    size_t nbr_free_handles;
+} qps_dissect_stats_t;
+
+typedef enum qps_anomaly_t {
+    QPS_ANOMALY_INVALID_H_REF,
+    QPS_ANOMALY_INVALID_H_REF_PTR,
+    QPS_ANOMALY_CIRCULAR_FREE_LIST,
+} qps_anomaly_t;
+
+typedef struct qps_dissect_ctx_priv_t qps_dissect_ctx_priv_t;
+
+typedef struct qps_dissect_ctx_t {
+    struct qps_t *qps;
+    sb_t *err;
+    qps_dissect_stats_t stats;
+
+    /* The bit H contains information about the handle with id=H.
+     * Bit value 0: the handle is freed or has been processed.
+     * Bit value 1: the handle is used and processing has still to be done on
+     *              it.
+     */
+    bb_t h_processing;
+
+    /* Private context data and callback. */
+    qps_dissect_ctx_priv_t *priv;
+} qps_dissect_ctx_t;
+
+typedef struct qps_notify_anomaly_t {
+    qps_anomaly_t type;
+    lstr_t details;
+    union {
+        qps_handle_t handle;
+        qps_pg_t page;
+    };
+} qps_notify_anomaly_t;
+
+#ifdef __has_blocks
+
+typedef void(BLOCK_CARET on_notify_anomaly_b)(qps_notify_anomaly_t *anomaly);
+
+qps_dissect_ctx_t *qps_dissect_ctx_init(qps_dissect_ctx_t *ctx, qps_t *qps,
+                                        sb_t *err);
+
+__attribute__((malloc)) qps_dissect_ctx_t *qps_dissect_ctx_new(qps_t *qps,
+                                                               sb_t *err);
+
+/** Register (or replace) the notify callback block on a dissect context.
+ * The block is copied and released on wipe. */
+void qps_dissect_register_on_notify_blk(qps_dissect_ctx_t *ctx,
+                                        on_notify_anomaly_b blk);
+
+void qps_dissect_ctx_wipe(qps_dissect_ctx_t *ctx);
+GENERIC_DELETE(qps_dissect_ctx_t, qps_dissect_ctx);
+
+#endif /* __has_blocks */
+
+/* {{{ QPS dissect functions for handle and map analysis */
+
+/** Dissect TLSF and QPS page maps used by QPS and register used/free handles
+ * in them.
+ *
+ * This function uses QPS meta data and handle containers in QPS
+ * pages (entry point for qps_handle_slot()) for achieving this analysis. Any
+ * anomaly is notified through the block callback, registered during dissect
+ * context creation.
+ */
+void qps_dissect_maps_and_handles(qps_dissect_ctx_t *ctx);
+
+/* }}} */
+/* {{{ QPS dissect notify function and helpers */
+
+/** Notify any anomaly seen during dissection. The block callback called has
+ * been registered initially during dissect context creation.
+ */
+void qps_dissect_notify_(qps_dissect_ctx_t *ctx, qps_notify_anomaly_t *item);
+
+/** Format generic anomaly item and send it through the block callback (if
+ * registered).
+ */
+#define qps_dissect_notify_err(_ctx, _type, _item_field, _ptr)               \
+    ({                                                                       \
+        qps_notify_anomaly_t __value = {.type = (_type),                     \
+                                        .details = LSTR_SB_V(_ctx->err),     \
+                                        {._item_field = (_ptr)}};            \
+        qps_dissect_notify_(_ctx, &__value);                                 \
+        sb_reset(_ctx->err);                                                 \
+    })
+
+/** Format and send anomalies dedicated to handles. */
+#define qps_dissect_notify_handle_err(_ctx, _type, _h_ptr)                   \
+    qps_dissect_notify_err(_ctx, _type, handle, _h_ptr)
+
+/* }}} */
 /* }}} */
 /** \} */
 #endif

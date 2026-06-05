@@ -3545,6 +3545,157 @@ void qps_get_usage(const qps_t *qps, struct qps_stats *st)
 }
 
 /* }}} */
+/* {{{ QPS dissect: internal definitions and functions */
+/* {{{ QPS dissect: internal definitions */
+
+struct qps_dissect_ctx_priv_t {
+    /* Store block callback internally, so it can be called from original C
+     * code through this file.
+     */
+    on_notify_anomaly_b on_notify_blk;
+};
+
+GENERIC_NEW_INIT(qps_dissect_ctx_priv_t, qps_dissect_ctx_priv);
+
+static ALWAYS_INLINE void
+qps_dissect_ctx_priv_wipe(qps_dissect_ctx_priv_t *priv_ctx)
+{
+    if (priv_ctx->on_notify_blk) {
+        Block_release(priv_ctx->on_notify_blk);
+        priv_ctx->on_notify_blk = NULL;
+    }
+}
+
+GENERIC_DELETE(qps_dissect_ctx_priv_t, qps_dissect_ctx_priv);
+
+void qps_dissect_register_on_notify_blk(qps_dissect_ctx_t *ctx,
+                                        on_notify_anomaly_b blk)
+{
+    if (ctx->priv->on_notify_blk) {
+        Block_release(ctx->priv->on_notify_blk);
+    }
+    ctx->priv->on_notify_blk = blk ? Block_copy(blk) : NULL;
+}
+
+qps_dissect_ctx_t *qps_dissect_ctx_init(qps_dissect_ctx_t *ctx, qps_t *qps,
+                                        sb_t *err)
+{
+    p_clear(ctx, 1);
+
+    bb_init(&ctx->h_processing);
+    ctx->priv = qps_dissect_ctx_priv_new();
+    ctx->qps = qps;
+    ctx->err = err;
+
+    /* Handles not processed are set to 1 by default, except handle
+     * QPS_HANDLE_NULL which cannot be used. */
+    if (likely(ctx->qps->handles_max)) {
+        bb_add1s(&ctx->h_processing, ctx->qps->handles_max);
+        CLR_BIT(ctx->h_processing.data, QPS_HANDLE_NULL);
+    }
+
+    return ctx;
+}
+
+qps_dissect_ctx_t *qps_dissect_ctx_new(qps_t *qps, sb_t *err)
+{
+    return qps_dissect_ctx_init(p_new_raw(qps_dissect_ctx_t, 1), qps, err);
+}
+
+void qps_dissect_ctx_wipe(qps_dissect_ctx_t *ctx)
+{
+    bb_wipe(&ctx->h_processing);
+    qps_dissect_ctx_priv_delete(&ctx->priv);
+}
+
+/* }}} */
+/* {{{ QPS dissect: functions */
+/* {{{ QPS dissect: notify function */
+
+void qps_dissect_notify_(qps_dissect_ctx_t *ctx, qps_notify_anomaly_t *item)
+{
+    if (ctx->priv->on_notify_blk) {
+        ctx->priv->on_notify_blk(item);
+    }
+}
+
+/* }}} */
+/* {{{ QPS dissect: functions for handle and map analysis */
+
+static ALWAYS_INLINE bool qps_dissect_is_handle_used(qps_dissect_ctx_t *ctx,
+                                                     qps_handle_t h)
+{
+    return TST_BIT(ctx->h_processing.data, h);
+}
+
+static ALWAYS_INLINE void qps_dissect_set_handle_freed(qps_dissect_ctx_t *ctx,
+                                                       qps_handle_t h)
+{
+    assert(TST_BIT(ctx->h_processing.data, h));
+    CLR_BIT(ctx->h_processing.data, h);
+    ctx->stats.nbr_free_handles++;
+}
+
+static void qps_dissect_get_handle_free_list(qps_dissect_ctx_t *ctx)
+{
+    qps_handle_t free_handle = ctx->qps->handles_freelist;
+
+    if (ctx->qps->handles_max <= 1) {
+        return;
+    }
+
+    /** Register handles which are supposed to be freed, so we
+     *  can check later all which are supposed to be in use and discard those
+     *  ones. 0 means invalid handle = no free handle remaining.
+     */
+    while (free_handle) {
+        qps_ptr_t *hptr;
+
+        if (qps_handle_check_range(ctx->qps, free_handle, ctx->err) < 0) {
+            sb_setf(ctx->err,
+                    "referencing an invalid handle id (%u) in free "
+                    "list of handles",
+                    free_handle);
+            qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_INVALID_H_REF,
+                                          free_handle);
+            return;
+        }
+        if (!qps_dissect_is_handle_used(ctx, free_handle)) {
+            /* Already referenced as a free handle, there is an issue in the
+             * handle free list.
+             */
+            sb_setf(ctx->err,
+                    "unexpected circular chained list for list of "
+                    "free handles, starting at id %u",
+                    free_handle);
+            qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_CIRCULAR_FREE_LIST,
+                                          free_handle);
+            return;
+        }
+        hptr = qps_handle_slot(ctx->qps, free_handle);
+        if (hptr->pgno) {
+            sb_setf(ctx->err,
+                    "not expecting a page for free handle id %u ("
+                    "found " QPS_PG_FMT ")",
+                    free_handle, QPS_PG_ARG(hptr->pgno));
+            qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_INVALID_H_REF_PTR,
+                                          free_handle);
+        }
+
+        qps_dissect_set_handle_freed(ctx, free_handle);
+        free_handle = hptr->addr;
+    }
+}
+
+void qps_dissect_maps_and_handles(qps_dissect_ctx_t *ctx)
+{
+    /* First of all, start with handle free list, so we can later discard
+     * those handles which should not have content in TLSF or qps page maps.
+     */
+    qps_dissect_get_handle_free_list(ctx);
+}
+
+/* }}} */
 
 static int qps_initialize(void *arg)
 {
