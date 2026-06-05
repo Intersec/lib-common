@@ -16,13 +16,84 @@
 /*                                                                         */
 /***************************************************************************/
 
+//! Infrastructure to run functions that need `callback` in `main C event loop`
+//!
+//! This provides a `run_callback` function. `run_callback` launches a function
+//! in the `main C event loop` and then awaits its termination to return the result
+//! or the produced error.
+//!
+//! # Example
+//!
+//! ## Use `run_callback` with a `main C event loop` timer
+//!
+//! ```
+//! # use run_callback::run_callback;
+//! # use libcommon_core::{
+//! #     bindings::{
+//! #         data_t, el_blocker_register, el_loop, el_timer_register, el_unregister, ev_t,
+//! #         ev_timer_flags_t,
+//! #     },
+//! #     module::{module_release, module_require},
+//! #     thr::main_c_queue_schedule,
+//! # };
+//! # use tokio_c_mod::tokio_get_module;
+//! #
+//! # struct ElBlocker(*mut ev_t);
+//! # unsafe impl Send for ElBlocker {}
+//! # unsafe extern "C" fn on_el_timer_fire(_el: *mut ev_t, data: data_t) {
+//! #    let promise_cb = unsafe { *Box::from_raw(data.ptr.cast::<Box<dyn FnOnce(()) + Send>>()) };
+//! #    promise_cb(());
+//! # }
+//! # fn run_timer(promise_cb: Box<dyn FnOnce(()) + Send>) {
+//! #    let ptr = Box::into_raw(Box::new(promise_cb)).cast();
+//! #    let flag: ev_timer_flags_t = ev_timer_flags_t::EL_TIMER_NOMISS;
+//! #    unsafe {
+//! #       el_timer_register(10, 0, flag, Some(on_el_timer_fire), ptr);
+//! #    }
+//! # }
+//!
+//! module_require(tokio_get_module());
+//!
+//!        let blocker = ElBlocker(unsafe { el_blocker_register() });
+//!
+//!        tokio_c_mod::spawn(async move {
+//!            run_callback(run_timer).await.expect("run_callback did not complete");
+//!
+//!            main_c_queue_schedule(move || {
+//!                let mut blocker = blocker;
+//!
+//!                unsafe {
+//!                    el_unregister(&raw mut blocker.0);
+//!                }
+//!            });
+//!        });
+//!
+//!        unsafe {
+//!            el_loop();
+//!        }
+//!
+//!        module_release(tokio_get_module());
+//! ```
+
 use libcommon_core::thr::main_c_queue_schedule;
 use tokio::sync::oneshot::{self, error::RecvError};
 
 // {{{ run_callback
 
-#[allow(clippy::missing_errors_doc)]
-// will add doc in a dedicated commit
+/// Run the input function in `main C event loop` and await its result
+///
+/// # Arguments
+///
+/// `run_fun` - a non-async function to run on `main C event loop`
+///
+/// # Returns
+///
+/// Return `Ok(T)` holding the value the completion callback was invoked with.
+///
+/// # Errors
+///
+/// Returns [`RecvError`] if `run_fun` drops the completion callback without
+/// invoking it, since the channel's sender half is then dropped.
 pub async fn run_callback<F, T>(run_fun: F) -> Result<T, RecvError>
 where
     F: FnOnce(Box<dyn FnOnce(T) + Send>) + Send + 'static,
@@ -80,7 +151,9 @@ mod tests {
         let blocker = ElBlocker(unsafe { el_blocker_register() });
 
         tokio_c_mod::spawn(async move {
-            run_callback(run_timer).await.expect("nested task panicked");
+            run_callback(run_timer)
+                .await
+                .expect("run_callback did not complete");
 
             main_c_queue_schedule(move || {
                 let mut blocker = blocker;
