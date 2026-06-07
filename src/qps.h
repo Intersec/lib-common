@@ -178,6 +178,9 @@ typedef struct qps_ptr_t {
      */
     qps_pg_t pgno;
 } qps_ptr_t;
+
+qvector_t(qps_ptr, qps_ptr_t);
+
 /** Format to use in printf() when pretty printing a #qps_ptr_t. */
 #define QPS_PTR_FMT "%d:%04x:%08x"
 /** Format argument to use in printf(), counterpart to #QPS_PTR_FMT. */
@@ -598,8 +601,12 @@ typedef struct qps_dissect_stats_t {
 } qps_dissect_stats_t;
 
 typedef enum qps_anomaly_t {
+    QPS_ANOMALY_MAP_INTEGRITY_FAILED,
     QPS_ANOMALY_INVALID_H_REF,
     QPS_ANOMALY_INVALID_H_REF_PTR,
+    QPS_ANOMALY_INVALID_H_REF_HEADER,
+    QPS_ANOMALY_DANGLING_H_REF,
+    QPS_ANOMALY_MANY_BLKS_FOR_H_REF,
     QPS_ANOMALY_CIRCULAR_FREE_LIST,
 } qps_anomaly_t;
 
@@ -625,8 +632,10 @@ typedef struct qps_notify_anomaly_t {
     qps_anomaly_t type;
     lstr_t details;
     union {
-        qps_handle_t handle;
-        qps_pg_t page;
+        void *ptr;
+        qps_handle_t *handle;
+        qps_pg_t *page;
+        qv_t(qps_ptr) *qps_entries;
     };
 } qps_notify_anomaly_t;
 
@@ -682,7 +691,25 @@ void qps_dissect_notify_(qps_dissect_ctx_t *ctx, qps_notify_anomaly_t *item);
         sb_reset(_ctx->err);                                                 \
     })
 
-/** Format and send anomalies dedicated to handles. */
+/** Format and notify anomalies related to handles referenced multiple times
+ * (in the same map or within different maps).
+ */
+#define qps_dissect_notify_handle_unicity_err(_ctx, _type, _qps_ptrs)        \
+    qps_dissect_notify_err(_ctx, _type, qps_entries, _qps_ptrs)
+
+/** Format and notify anomalies dedicated to map integrity issues (like
+ *  invalid metadata or flags issues around the management of blocks in these
+ *  maps).
+ */
+#define qps_dissect_notify_map_err(_ctx, _type, ...)                         \
+    do {                                                                     \
+        sb_setf(_ctx->err, ##__VA_ARGS__);                                   \
+        qps_dissect_notify_err(_ctx, _type, ptr, NULL);                      \
+    } while (0)
+
+/** Format and notify anomalies dedicated to handles (except handle unicity
+ *  check).
+ */
 #define qps_dissect_notify_handle_err(_ctx, _type, _h_ptr)                   \
     qps_dissect_notify_err(_ctx, _type, handle, _h_ptr)
 

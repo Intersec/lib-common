@@ -24,6 +24,7 @@
 #include <lib-common/unix.h>
 #include <lib-common/qlzo.h>
 #include <lib-common/thr.h>
+#include <lib-common/container-qhash.h>
 #include <lib-common/qps.h>
 #include <lib-common/sort.h>
 #include <lib-common/hash.h>
@@ -3657,7 +3658,7 @@ static void qps_dissect_get_handle_free_list(qps_dissect_ctx_t *ctx)
                     "list of handles",
                     free_handle);
             qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_INVALID_H_REF,
-                                          free_handle);
+                                          &free_handle);
             return;
         }
         if (!qps_dissect_is_handle_used(ctx, free_handle)) {
@@ -3669,7 +3670,7 @@ static void qps_dissect_get_handle_free_list(qps_dissect_ctx_t *ctx)
                     "free handles, starting at id %u",
                     free_handle);
             qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_CIRCULAR_FREE_LIST,
-                                          free_handle);
+                                          &free_handle);
             return;
         }
         hptr = qps_handle_slot(ctx->qps, free_handle);
@@ -3679,7 +3680,7 @@ static void qps_dissect_get_handle_free_list(qps_dissect_ctx_t *ctx)
                     "found " QPS_PG_FMT ")",
                     free_handle, QPS_PG_ARG(hptr->pgno));
             qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_INVALID_H_REF_PTR,
-                                          free_handle);
+                                          &free_handle);
         }
 
         qps_dissect_set_handle_freed(ctx, free_handle);
@@ -3687,12 +3688,338 @@ static void qps_dissect_get_handle_free_list(qps_dissect_ctx_t *ctx)
     }
 }
 
+qm_k32_t(handle_id, uint32_t);
+
+typedef struct handle_info_vec_t {
+    qps_ptr_t *tab;
+    int len;
+} handle_info_vec_t;
+
+#define HANDLE_INFO_ALLOC (&mem_pool_libc)
+
+GENERIC_MP_NEW_INIT(HANDLE_INFO_ALLOC, handle_info_vec_t, handle_info);
+
+static void handle_info_wipe(handle_info_vec_t *handle_info_vec)
+{
+    if (handle_info_vec) {
+        mp_delete(HANDLE_INFO_ALLOC, &handle_info_vec->tab);
+    }
+}
+
+GENERIC_MP_DELETE(HANDLE_INFO_ALLOC, handle_info_vec_t, handle_info);
+
+qvector_t(handle_info, handle_info_vec_t *);
+
+static void qps_dissect_add_handle_info(qps_handle_t h, qps_ptr_t handle_ptr,
+                                        qm_t(handle_id) *h_map,
+                                        qv_t(handle_info) *h_vec)
+{
+    uint64_t pos;
+    handle_info_vec_t *h_info_vec;
+    const size_t qps_ptr_sz = __qv_sz(h_info_vec);
+    const size_t qps_ptr_align = __qv_align(h_info_vec);
+
+    if (!h) {
+        return;
+    }
+
+    pos = qm_reserve(handle_id, h_map, h, 0);
+    if (pos & QHASH_COLLISION) {
+        pos ^= QHASH_COLLISION;
+        h_info_vec = h_vec->tab[h_map->values[pos]];
+    } else {
+        int pos_vec = h_vec->len;
+
+        h_info_vec = handle_info_new();
+        qv_append(h_vec, h_info_vec);
+        h_map->values[pos] = pos_vec;
+    }
+
+    h_info_vec->tab = mp_irealloc(
+        HANDLE_INFO_ALLOC, h_info_vec->tab, h_info_vec->len * qps_ptr_sz,
+        (h_info_vec->len + 1) * qps_ptr_sz, qps_ptr_align, MEM_RAW);
+    h_info_vec->tab[h_info_vec->len] = handle_ptr;
+    h_info_vec->len += 1;
+}
+
+static void qps_dissect_pg_map_handles(qps_dissect_ctx_t *ctx, qps_map_t *map,
+                                       qm_t(handle_id) *h_map,
+                                       qv_t(handle_info) *h_vec)
+{
+    uint32_t mapno = map->hdr.mapno;
+    uint32_t nbr_pg = 0;
+    const uint32_t first_pg = QPS_PG(mapno, 1);
+
+    /* Execute the basic check routine on this QPS page map. */
+    if (qps_pg_check_map_hdrs(ctx->qps, mapno, false) < 0) {
+        qps_dissect_notify_map_err(ctx, QPS_ANOMALY_MAP_INTEGRITY_FAILED,
+                                   "check on map integrity failed");
+    }
+
+    /* Loop on all blocks defined in current QPS page map. These blocks are
+     * processed with a qps_pghdr_t structure for each page which is defined
+     * in RAM only.
+     */
+    for (qps_pg_t pg = first_pg; QPS_PG_MAP_IDX(pg) == mapno; pg += nbr_pg) {
+        const qps_pghdr_t pg_hdr = ctx->qps->hdrs[pg];
+        qps_handle_t h = pg_hdr.handle;
+
+        nbr_pg = pg_hdr.size;
+        if (unlikely(!nbr_pg)) {
+            /* A null block size never advances the loop (pg += nbr_pg), so a
+             * corrupted page map would spin forever here. Report it and stop
+             * walking this map. */
+            qps_dissect_notify_map_err(ctx, QPS_ANOMALY_MAP_INTEGRITY_FAILED,
+                                       "null block size for page " QPS_PG_FMT,
+                                       QPS_PG_ARG(pg));
+            break;
+        }
+
+        if (pg_hdr.flags & QPS_BLK_FREE) {
+            continue;
+        }
+
+        /* This page in QPS page map is currently the entry point of one or
+         * several used pages. Check if this memory is allocated for a handle.
+         */
+        if (!h) {
+            continue;
+        }
+
+        if (qps_handle_check_range(ctx->qps, h, ctx->err) < 0) {
+            sb_setf(ctx->err,
+                    "referencing an invalid handle id (%u) in "
+                    "used pg " QPS_PG_FMT,
+                    h, QPS_PG_ARG(pg));
+            qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_INVALID_H_REF, &h);
+            continue;
+        }
+
+        if (qps_dissect_is_handle_used(ctx, h)) {
+            /* Flag this handle as used and record associated data. */
+            qps_dissect_add_handle_info(
+                h, qps_encode(map[QPS_PG_IDX(pg)].data), h_map, h_vec);
+        } else {
+            /* Handle was supposed to be freed (because it is already in free
+             * list of handles). */
+            sb_setf(ctx->err,
+                    "not expecting a used block for free handle"
+                    " id %u (found in pg " QPS_PG_FMT ")",
+                    h, QPS_PG_ARG(pg));
+            qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_DANGLING_H_REF,
+                                          &h);
+        }
+    }
+}
+
+static void qps_dissect_tlsf_map_handles(qps_dissect_ctx_t *ctx,
+                                         qps_map_t *map,
+                                         qm_t(handle_id) *h_map,
+                                         qv_t(handle_info) *h_vec)
+{
+    qps_mhdr_t *blk;
+    qps_mhdr_t *blk_end;
+    uint32_t mapno = map->hdr.mapno;
+    size_t nbr_m_blk_map = 0; /* First memory block in map not counted. */
+    size_t bsz = 0;
+
+    if (qps_is_ro(ctx->qps, map) && !map->hdr.remaining) {
+        /* The payload of a fully-freed RO map has been madvise()'d away and
+         * its block headers are stale (see qps_free_ro()), so there is
+         * nothing meaningful to walk. */
+        return;
+    }
+
+    if (qps_m_check_map(ctx->qps, map, false) < 0) {
+        qps_dissect_notify_map_err(ctx, QPS_ANOMALY_MAP_INTEGRITY_FAILED,
+                                   "check on map integrity failed");
+    }
+
+    /* Unlike QPS page map, blocks are recorded inside TLSF maps. Jump from
+     * one block to the next one until the last/end block has been reached.
+     *
+     * The first and last block are always used, so the allocator can manage
+     * blocks between these two. */
+    blk = qps_m_blk_next((qps_mhdr_t *)&map[1], QPS_MBLK_HDRSZ);
+    blk_end = container_of((void *)&map[QPS_MAP_PAGES], qps_mhdr_t, data);
+    for (; blk < blk_end; blk = qps_m_blk_next(blk, bsz)) {
+        qps_handle_t h = blk->handle;
+
+        bsz = qps_m_blk_size(blk);
+        nbr_m_blk_map++;
+
+        if (unlikely(!bsz)) {
+            /* A null block size never advances the loop (blk += bsz), so a
+             * corrupted TLSF map would spin forever here. Report it and stop
+             * walking this map. */
+            qps_dissect_notify_map_err(ctx, QPS_ANOMALY_MAP_INTEGRITY_FAILED,
+                                       "null block size in "
+                                       "tlsf map %u at block index %zu",
+                                       mapno, nbr_m_blk_map);
+            break;
+        }
+
+        if (blk->flags & QPS_BLK_FREE) {
+            continue;
+        }
+
+        /* Process used block in TLSF map. Each block must have a reference to
+         * a valid handle id if this handle is stored with a map generation
+         * value == QPS generation. For all other cases, we cannot yet make a
+         * conclusion because block might actually be freed but block header
+         * is not updated if map is RO (only the map header and the
+         * "remaining" variable).
+         */
+        if (!h) {
+            sb_setf(ctx->err,
+                    "not expecting a used block with handle id 0 "
+                    "(found in tlsf map %u at block index %zu, %zu bytes)",
+                    map->hdr.mapno, nbr_m_blk_map, bsz);
+            qps_dissect_notify_handle_err(
+                ctx, QPS_ANOMALY_INVALID_H_REF_HEADER, &h);
+        } else if (qps_handle_check_range(ctx->qps, h, ctx->err) < 0) {
+            sb_setf(ctx->err,
+                    "referencing an invalid handle id (%u) in "
+                    "used block (tlsf map %u at block index %zu)",
+                    h, mapno, nbr_m_blk_map);
+            qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_INVALID_H_REF, &h);
+        } else if (qps_dissect_is_handle_used(ctx, blk->handle)) {
+            /* Flag this handle as used and record associated data. */
+            qps_dissect_add_handle_info(h, qps_encode(blk->data), h_map,
+                                        h_vec);
+        } else if (ctx->qps->generation == map->hdr.generation) {
+            /* Consistency error: considered as freed in handle list but used
+             * in TLSF map with an up-to-date generation value. */
+            sb_setf(ctx->err,
+                    "not expecting a used block for free handle "
+                    "id %u (found in tlsf map %u at block index %zu, %zu "
+                    "bytes)",
+                    h, map->hdr.mapno, nbr_m_blk_map, bsz);
+            qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_DANGLING_H_REF,
+                                          &h);
+        }
+    }
+}
+
+static inline bool qps_dissect_qps_pointers_are_equal(const qps_ptr_t *ptr1,
+                                                      const qps_ptr_t *ptr2)
+{
+    return ptr1->pgno == ptr2->pgno && ptr1->addr == ptr2->addr;
+}
+
+/* This function checks that handle pointers stored in TLSF maps and QPS page
+ * maps are referring to one up to date qps pointer, by checking that:
+ *  - the reference is valid and seen in one map (through qps_handle_slot() )
+ *  - the map generation of older locations are below the generation of the
+ *    map containing the reference.
+ *
+ * All QPS pointers used for these verifications are stored in handle_info
+ * parameter. */
+static void qps_dissect_check_handle_unicity(qps_dissect_ctx_t *ctx,
+                                             qps_handle_t h,
+                                             handle_info_vec_t *handle_info)
+{
+    t_scope;
+    const qps_ptr_t *h_ref = qps_handle_slot(ctx->qps, h);
+    qps_map_t *map_ref;
+    qv_t(qps_ptr) bad_h_ptrs;
+    bool entry_found = false;
+    qps_anomaly_t type;
+
+    if (qps_pg_check_range(ctx->qps, h_ref->pgno, ctx->err) < 0) {
+        sb_setf(ctx->err,
+                "handle id %u references an invalid page (" QPS_PTR_FMT ")",
+                h, QPS_PTR_ARG((*h_ref)));
+        qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_INVALID_H_REF_PTR, &h);
+        return;
+    }
+    map_ref = ctx->qps->maps.tab[QPS_PG_MAP_IDX(h_ref->pgno)];
+
+    t_qv_init(&bad_h_ptrs, handle_info->len);
+
+    tab_for_each_pos(pos, handle_info) {
+        qps_ptr_t *entry = &handle_info->tab[pos];
+        qps_map_t *map = ctx->qps->maps.tab[QPS_PG_MAP_IDX(entry->pgno)];
+
+        if (qps_dissect_qps_pointers_are_equal(entry, h_ref)) {
+            entry_found = true;
+            continue;
+        } else if (map_ref && map &&
+                   map->hdr.generation < map_ref->hdr.generation)
+        {
+            /* This current entry is referring to an old TLSF map (but doesn't
+             * mean it is invalid, it is just outdated). */
+            continue;
+        }
+
+        /* Invalid entry found. */
+        qv_append(&bad_h_ptrs, *entry);
+    }
+
+    /* Check if no issue occurred, so we can leave now. */
+    if (entry_found && bad_h_ptrs.len == 0) {
+        return;
+    }
+
+    if (!entry_found) {
+        type = QPS_ANOMALY_INVALID_H_REF_PTR;
+        sb_setf(ctx->err,
+                "dangling handle found with id %u, entry not found "
+                "is " QPS_PTR_FMT,
+                h, QPS_PTR_ARG((*h_ref)));
+    } else {
+        type = QPS_ANOMALY_MANY_BLKS_FOR_H_REF;
+        sb_setf(ctx->err,
+                "%d invalid handle(s) found with id %u, recorded "
+                "entry is " QPS_PTR_FMT,
+                bad_h_ptrs.len, h, QPS_PTR_ARG((*h_ref)));
+    }
+
+    tab_for_each_entry(entry, &bad_h_ptrs) {
+        sb_addf(ctx->err, "\n\t\twrong entry at " QPS_PTR_FMT,
+                QPS_PTR_ARG(entry));
+    }
+    qps_dissect_notify_handle_unicity_err(ctx, type, &bad_h_ptrs);
+}
+
 void qps_dissect_maps_and_handles(qps_dissect_ctx_t *ctx)
 {
+    qm_t(handle_id) h_map;
+    qv_t(handle_info) h_vec;
+
+    qm_init(handle_id, &h_map);
+    qv_init(&h_vec);
+
     /* First of all, start with handle free list, so we can later discard
      * those handles which should not have content in TLSF or qps page maps.
      */
     qps_dissect_get_handle_free_list(ctx);
+
+    /* Analyze maps and list handles from TLSF maps and QPS pages. */
+    tab_for_each_entry(map, &ctx->qps->maps) {
+        if (!map || map->hdr.generation == 0) {
+            continue;
+        }
+
+        if (qps_map_is_pg(map)) {
+            qps_dissect_pg_map_handles(ctx, map, &h_map, &h_vec);
+        } else {
+            qps_dissect_tlsf_map_handles(ctx, map, &h_map, &h_vec);
+        }
+    }
+
+    /* Check results. */
+    logger_notice(&_G.logger, "checking unicity of %u handle(s)",
+                  h_map.hdr.len);
+    qm_for_each_pos(handle_id, pos, &h_map) {
+        qps_handle_t h = h_map.keys[pos];
+        handle_info_vec_t *value = h_vec.tab[h_map.values[pos]];
+
+        qps_dissect_check_handle_unicity(ctx, h, value);
+    }
+
+    qm_wipe(handle_id, &h_map);
+    qv_deep_wipe(&h_vec, handle_info_delete);
 }
 
 /* }}} */
