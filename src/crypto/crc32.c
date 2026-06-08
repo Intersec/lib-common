@@ -42,8 +42,8 @@
 /* Simplistic crc32 calculator, almost compatible with zlib version,
  * except for crc type as uint32_t instead of unsigned long
  */
-static ALWAYS_INLINE
-uint32_t naive_icrc32(uint32_t crc, const uint8_t *buf, ssize_t len)
+static ALWAYS_INLINE uint32_t
+naive_icrc32(uint32_t crc, const uint8_t *buf, ssize_t len)
 {
     if (len) {
         do {
@@ -75,32 +75,27 @@ static uint32_t fast_icrc32(uint32_t crc, const uint8_t *buf, size_t size)
         crc ^= *(uint32_t *)(buf);
         buf += 4;
 
-        crc = crc32table[7][A(crc)]
-            ^ crc32table[6][B(crc)]
-            ^ crc32table[5][C(crc)]
-            ^ crc32table[4][D(crc)];
+        crc = crc32table[7][A(crc)] ^ crc32table[6][B(crc)] ^
+              crc32table[5][C(crc)] ^ crc32table[4][D(crc)];
 
-        tmp  = *(uint32_t *)(buf);
+        tmp = *(uint32_t *)(buf);
         buf += 4;
 
         // At least with some compilers, it is critical for
         // performance, that the crc variable is XORed
         // between the two table-lookup pairs.
-        crc = crc32table[3][A(tmp)]
-            ^ crc32table[2][B(tmp)]
-            ^ crc
-            ^ crc32table[1][C(tmp)]
-            ^ crc32table[0][D(tmp)];
+        crc = crc32table[3][A(tmp)] ^ crc32table[2][B(tmp)] ^ crc ^
+              crc32table[1][C(tmp)] ^ crc32table[0][D(tmp)];
     } while (--words);
 
     return naive_icrc32(crc, buf, size & (size_t)7);
 }
 
-__attr_flatten__
-uint32_t icrc32(uint32_t crc, const void *data, ssize_t len)
+__attr_flatten__ uint32_t icrc32(uint32_t crc, const void *data, ssize_t len)
 {
     crc = ~le_to_cpu32(crc);
-    if (len < 64)
+    if (len < 64) {
         return ~le_to_cpu32(naive_icrc32(crc, data, len));
+    }
     return ~le_to_cpu32(fast_icrc32(crc, data, len));
 }

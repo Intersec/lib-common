@@ -26,18 +26,18 @@ static struct {
     el_t blocker;
 
     /* Prometheus metrics */
-    prom_counter_t   *counter_no_label;
-    prom_counter_t   *counter_labels;
-    prom_gauge_t     *gauge_labels;
+    prom_counter_t *counter_no_label;
+    prom_counter_t *counter_labels;
+    prom_gauge_t *gauge_labels;
     prom_histogram_t *histo_no_label;
     prom_histogram_t *histo_timing;
     el_t metrics_cron;
 
     /* Command-line options */
     bool opt_help;
-    int  opt_port;
+    int opt_port;
 } ex_prometheus_client_g = {
-#define _G  ex_prometheus_client_g
+#define _G ex_prometheus_client_g
     .opt_port = 8080,
 };
 
@@ -48,8 +48,9 @@ static void prom_gauge_random(int min, int max)
     t_scope;
     prom_gauge_t *child;
 
-    child = prom_gauge_labels(_G.gauge_labels,
-                              t_fmt("%d", min), t_fmt("%d", max));
+    child = prom_gauge_labels(
+        _G.gauge_labels, t_fmt("%d", min), t_fmt("%d", max)
+    );
     obj_vcall(child, set, rand_ranged(min, max));
 }
 
@@ -73,8 +74,8 @@ static void metrics_cron(el_t el, data_t data)
     child->value += 4;
 
     /* Have 3 gauge children, with random numbers */
-    prom_gauge_random(-100,   0);
-    prom_gauge_random(   0, 100);
+    prom_gauge_random(-100, 0);
+    prom_gauge_random(0, 100);
     prom_gauge_random(-100, 100);
 
     /* Observe the histogram with a random number */
@@ -94,8 +95,8 @@ static void metrics_cron(el_t el, data_t data)
 
 static popt_t popts_g[] = {
     OPT_GROUP("Options:"),
-    OPT_FLAG('h', "help",  &_G.opt_help, "show this help"),
-    OPT_INT( 'p', "port",  &_G.opt_port, "listening port (default 8080)"),
+    OPT_FLAG('h', "help", &_G.opt_help, "show this help"),
+    OPT_INT('p', "port", &_G.opt_port, "listening port (default 8080)"),
     OPT_END(),
 };
 
@@ -124,7 +125,7 @@ int main(int argc, char **argv)
     /* Register signals & blocker */
     _G.blocker = el_blocker_register();
     el_signal_register(SIGTERM, &prom_client_on_term, NULL);
-    el_signal_register(SIGINT,  &prom_client_on_term, NULL);
+    el_signal_register(SIGINT, &prom_client_on_term, NULL);
     el_signal_register(SIGQUIT, &prom_client_on_term, NULL);
 
     /* Initialize the prometheus client library */
@@ -167,8 +168,8 @@ int main(int argc, char **argv)
 
     /* Register the cron that will be called every second to update the
      * metrics values */
-    _G.metrics_cron = el_timer_register(1000, 1000, EL_TIMER_LOWRES,
-                                        &metrics_cron, NULL);
+    _G.metrics_cron =
+        el_timer_register(1000, 1000, EL_TIMER_LOWRES, &metrics_cron, NULL);
 
     /* Run event loop */
     el_loop();

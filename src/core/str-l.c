@@ -21,7 +21,7 @@
 
 /* {{{ Base helpers */
 
-void (lstr_munmap)(lstr_t *dst)
+void(lstr_munmap)(lstr_t *dst)
 {
     if (munmap(dst->v, dst->len) < 0) {
         e_panic("bad munmap: %m");
@@ -33,8 +33,7 @@ void mp_lstr_copy_(mem_pool_t *mp, lstr_t *dst, const void *s, int len)
     mp = mp ?: &mem_pool_libc;
     if (dst->mem_pool == (mp->mem_pool & MEM_POOL_MASK)) {
         mp_delete(mp, &dst->v);
-    } else
-    if (dst->mem_pool == MEM_MMAP) {
+    } else if (dst->mem_pool == MEM_MMAP) {
         (lstr_munmap)(dst);
     } else {
         ifree(dst->v, dst->mem_pool);
@@ -91,10 +90,10 @@ lstr_t mp_lstr_dup(mem_pool_t *mp, const lstr_t s)
 void mp_lstr_persists(mem_pool_t *mp, lstr_t *s)
 {
     mp = mp ?: &mem_pool_libc;
-    if (s->mem_pool != MEM_LIBC
-    &&  s->mem_pool != (mp->mem_pool & MEM_POOL_MASK))
+    if (s->mem_pool != MEM_LIBC &&
+        s->mem_pool != (mp->mem_pool & MEM_POOL_MASK))
     {
-        s->s        = (char *)mp_dupz(mp, s->s, s->len);
+        s->s = (char *)mp_dupz(mp, s->s, s->len);
         s->mem_pool = mp->mem_pool & MEM_POOL_MASK;
     }
 }
@@ -142,9 +141,9 @@ lstr_t mp_lstr_dup_utf8_reversed(mem_pool_t *mp, const lstr_t v)
 
 lstr_t mp_lstr_cat(mem_pool_t *mp, const lstr_t s1, const lstr_t s2)
 {
-    int    len;
+    int len;
     lstr_t res;
-    void  *s;
+    void *s;
 
     if (unlikely(!s1.s && !s2.s)) {
         return LSTR_NULL_V;
@@ -158,12 +157,13 @@ lstr_t mp_lstr_cat(mem_pool_t *mp, const lstr_t s1, const lstr_t s2)
     return res;
 }
 
-lstr_t mp_lstr_cat3(mem_pool_t *mp, const lstr_t s1, const lstr_t s2,
-                    const lstr_t s3)
+lstr_t mp_lstr_cat3(
+    mem_pool_t *mp, const lstr_t s1, const lstr_t s2, const lstr_t s3
+)
 {
-    int    len;
+    int len;
     lstr_t res;
-    void  *s;
+    void *s;
 
     if (unlikely(!s1.s && !s2.s && !s3.s)) {
         return LSTR_NULL_V;
@@ -266,7 +266,7 @@ int lstr_init_from_file(lstr_t *dst, const char *path, int prot, int flags)
     int ret = 0;
 
     if (flags & MAP_ANONYMOUS) {
-        assert (false);
+        assert(false);
         errno = EINVAL;
         return -1;
     }
@@ -276,11 +276,10 @@ int lstr_init_from_file(lstr_t *dst, const char *path, int prot, int flags)
         } else {
             fd_flags = O_RDONLY;
         }
-    } else
-    if (prot & PROT_WRITE) {
+    } else if (prot & PROT_WRITE) {
         fd_flags = O_WRONLY;
     } else {
-        assert (false);
+        assert(false);
         *dst = LSTR_NULL_V;
         errno = EINVAL;
         return -1;
@@ -314,7 +313,6 @@ void lstr_transfer_sb(lstr_t *dst, sb_t *sb, bool keep_pool)
     }
 }
 
-
 /* }}} */
 /* {{{ Comparisons */
 
@@ -340,7 +338,8 @@ bool lstr_ascii_iequal(const lstr_t s1, const lstr_t s2)
         return false;
     }
     for (int i = 0; i < s1.len; i++) {
-        if (tolower((unsigned char)s1.s[i]) != tolower((unsigned char)s2.s[i]))
+        if (tolower((unsigned char)s1.s[i]) !=
+            tolower((unsigned char)s2.s[i]))
         {
             return false;
         }
@@ -377,8 +376,8 @@ int lstr_dlevenshtein(const lstr_t cs1, const lstr_t cs2, int max_dist)
         return (s1.len <= max_dist) ? s1.len : -1;
     }
 
-    cur   = t_new_raw(int, 3 * (s2.len + 1));
-    prev  = cur + 1 * (s2.len + 1);
+    cur = t_new_raw(int, 3 * (s2.len + 1));
+    prev = cur + 1 * (s2.len + 1);
     prev2 = cur + 2 * (s2.len + 1);
 
     for (int j = 0; j <= s2.len; j++) {
@@ -386,27 +385,26 @@ int lstr_dlevenshtein(const lstr_t cs1, const lstr_t cs2, int max_dist)
     }
 
     for (int i = 0; i < s1.len; i++) {
-        int  min_dist;
+        int min_dist;
         int *tmp = prev2;
 
         prev2 = prev;
-        prev  = cur;
-        cur   = tmp;
+        prev = cur;
+        cur = tmp;
 
         cur[0] = min_dist = i + 1;
 
         for (int j = 0; j < s2.len; j++) {
-            int cost              = (s1.s[i] == s2.s[j]) ? 0 : 1;
-            int deletion_cost     = prev[j + 1] + 1;
-            int insertion_cost    =  cur[j    ] + 1;
-            int substitution_cost = prev[j    ] + cost;
+            int cost = (s1.s[i] == s2.s[j]) ? 0 : 1;
+            int deletion_cost = prev[j + 1] + 1;
+            int insertion_cost = cur[j] + 1;
+            int substitution_cost = prev[j] + cost;
 
-            cur[j + 1] = MIN3(deletion_cost, insertion_cost,
-                              substitution_cost);
+            cur[j + 1] =
+                MIN3(deletion_cost, insertion_cost, substitution_cost);
 
-            if (i > 0 && j > 0
-            &&  (s1.s[i    ] == s2.s[j - 1])
-            &&  (s1.s[i - 1] == s2.s[j    ]))
+            if (i > 0 && j > 0 && (s1.s[i] == s2.s[j - 1]) &&
+                (s1.s[i - 1] == s2.s[j]))
             {
                 int transposition_cost = prev2[j - 1] + cost;
 
@@ -488,7 +486,7 @@ lstr_t t_lstr_ascii_reverse(lstr_t s)
 
 int lstr_to_int(lstr_t lstr, int *out)
 {
-    int         tmp = errno;
+    int tmp = errno;
     const byte *endp;
 
     lstr = lstr_rtrim(lstr);
@@ -509,7 +507,7 @@ int lstr_to_int(lstr_t lstr, int *out)
 
 int lstr_to_int64(lstr_t lstr, int64_t *out)
 {
-    int         tmp = errno;
+    int tmp = errno;
     const byte *endp;
 
     lstr = lstr_rtrim(lstr);
@@ -530,7 +528,7 @@ int lstr_to_int64(lstr_t lstr, int64_t *out)
 
 int lstr_to_uint64(lstr_t lstr, uint64_t *out)
 {
-    int         tmp = errno;
+    int tmp = errno;
     const byte *endp;
 
     lstr = lstr_trim(lstr);
@@ -566,7 +564,7 @@ int lstr_to_uint(lstr_t lstr, uint32_t *out)
 
 int lstr_to_double(lstr_t lstr, double *out)
 {
-    int         tmp = errno;
+    int tmp = errno;
     const byte *endp;
 
     lstr = lstr_rtrim(lstr);
@@ -591,7 +589,7 @@ lstr_t t_lstr_hexdecode(lstr_t lstr)
     int len;
 
     len = lstr.len / 2;
-    s   = t_new_raw(char, len + 1);
+    s = t_new_raw(char, len + 1);
 
     if (strconv_hexdecode(s, len, lstr.s, lstr.len) < 0) {
         return LSTR_NULL_V;
@@ -607,7 +605,7 @@ lstr_t t_lstr_hexencode(lstr_t lstr)
     int len;
 
     len = lstr.len * 2;
-    s   = t_new_raw(char, len + 1);
+    s = t_new_raw(char, len + 1);
 
     if (strconv_hexencode(s, len + 1, lstr.s, lstr.len) < 0) {
         return LSTR_NULL_V;
@@ -629,9 +627,7 @@ lstr_t lstr_trim_pkcs7_padding(lstr_t padded)
 {
     int nb_padding_bytes;
 
-    if (padded.len <= 0
-    ||  padded.len % 8 != 0)
-    {
+    if (padded.len <= 0 || padded.len % 8 != 0) {
         return LSTR_NULL_V;
     }
 
@@ -673,33 +669,29 @@ static inline int ps_utf8_complete(int c, pstream_t *ps)
         /* 00...7F: US-ASCII */
         /* 80...BF: Non UTF-8 leading byte */
         /* C0...C1: Non canonical 2 byte UTF-8 encoding */
-      case 0xC2 ... 0xDF:
+    case 0xC2 ... 0xDF:
         /* 2 byte UTF-8 sequence */
-        if (ps_has(ps, 1)
-        &&  (unsigned)(c1 = ps->b[0] - 0x80) < 0x40)
-        {
+        if (ps_has(ps, 1) && (unsigned)(c1 = ps->b[0] - 0x80) < 0x40) {
             c = ((c & 0x3F) << 6) + c1;
             ps->b += 1;
         }
         break;
 
-      case 0xE0 ... 0xEF:
+    case 0xE0 ... 0xEF:
         /* 3 byte UTF-8 sequence */
-        if (ps_has(ps, 2)
-        &&  (unsigned)(c1 = ps->b[0] - 0x80) < 0x40
-        &&  (unsigned)(c2 = ps->b[1] - 0x80) < 0x40)
+        if (ps_has(ps, 2) && (unsigned)(c1 = ps->b[0] - 0x80) < 0x40 &&
+            (unsigned)(c2 = ps->b[1] - 0x80) < 0x40)
         {
             c = ((c & 0x3F) << 12) + (c1 << 6) + c2;
             ps->b += 2;
         }
         break;
 
-      case 0xF0 ... 0xF4:
+    case 0xF0 ... 0xF4:
         /* 3 byte UTF-8 sequence */
-        if (ps_has(ps, 3)
-        &&  (unsigned)(c1 = ps->b[0] - 0x80) < 0x40
-        &&  (unsigned)(c2 = ps->b[1] - 0x80) < 0x40
-        &&  (unsigned)(c3 = ps->b[2] - 0x80) < 0x40)
+        if (ps_has(ps, 3) && (unsigned)(c1 = ps->b[0] - 0x80) < 0x40 &&
+            (unsigned)(c2 = ps->b[1] - 0x80) < 0x40 &&
+            (unsigned)(c3 = ps->b[2] - 0x80) < 0x40)
         {
             c = ((c & 0x3F) << 18) + (c1 << 12) + (c2 << 6) + c3;
             ps->b += 3;
@@ -714,8 +706,8 @@ static inline int ps_utf8_complete(int c, pstream_t *ps)
     return c;
 }
 
-#define COLLATE_MASK      0xffff
-#define COLLATE_SHIFT(c)  ((unsigned)(c) >> 16)
+#define COLLATE_MASK 0xffff
+#define COLLATE_SHIFT(c) ((unsigned)(c) >> 16)
 
 /* XXX: extracted from QDB (was named qdb_strlike), Do not change behavior! */
 static bool ps_is_like(pstream_t ps, pstream_t pattern)
@@ -830,7 +822,7 @@ static bool ps_is_like(pstream_t ps, pstream_t pattern)
         c1 = __str_unicode_general_ci[c1];
         c2 = __str_unicode_general_ci[c2];
 
-      again:
+    again:
         if ((c1 & COLLATE_MASK) != (c2 & COLLATE_MASK)) {
             break;
         }
@@ -858,8 +850,7 @@ static bool ps_is_like(pstream_t ps, pstream_t pattern)
             }
             c1 = __str_unicode_general_ci[c1];
             goto again;
-        } else
-        if (c2 == 0) {
+        } else if (c2 == 0) {
             /* c1 is non zero */
             if (ps_done(&ps)) {
                 break;
@@ -871,8 +862,7 @@ static bool ps_is_like(pstream_t ps, pstream_t pattern)
             }
             c2 = __str_unicode_general_ci[c2];
             goto again;
-        } else
-        if (c1 == c2) {
+        } else if (c1 == c2) {
             /* both collation chars are dual and identical */
             continue;
         } else {

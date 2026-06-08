@@ -20,20 +20,20 @@
 #define IS_LIB_INET_HTTP_H
 #ifndef __cplusplus
 
-#include <lib-common/zlib-wrapper.h>
-#include <lib-common/el.h>
-#include <lib-common/net.h>
-#include <lib-common/container-qhash.h>
-#include <lib-common/ssl.h>
-#include <lib-common/core/core.iop.h>
+#  include <lib-common/zlib-wrapper.h>
+#  include <lib-common/el.h>
+#  include <lib-common/net.h>
+#  include <lib-common/container-qhash.h>
+#  include <lib-common/ssl.h>
+#  include <lib-common/core/core.iop.h>
 
-#if __has_feature(nullability)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic error "-Wnullability-completeness"
-#if __has_warning("-Wnullability-completeness-on-arrays")
-#pragma GCC diagnostic ignored "-Wnullability-completeness-on-arrays"
-#endif
-#endif
+#  if __has_feature(nullability)
+#    pragma GCC diagnostic push
+#    pragma GCC diagnostic error "-Wnullability-completeness"
+#    if __has_warning("-Wnullability-completeness-on-arrays")
+#      pragma GCC diagnostic ignored "-Wnullability-completeness-on-arrays"
+#    endif
+#  endif
 
 typedef enum http_mode_t {
     HTTP_MODE_USE_HTTP1X_ONLY,
@@ -62,14 +62,13 @@ extern lstr_t const http_method_str[];
 /* Definition moved in core.iop */
 typedef http_code__t http_code_t;
 
-__attribute__((pure))
-lstr_t http_code_to_str(http_code_t code);
+__attribute__((pure)) lstr_t http_code_to_str(http_code_t code);
 
 typedef enum http_wkhdr_t {
     HTTP_WKHDR_OTHER_HEADER = -1,
 
-    /* rfc 2616: §4.5: General Header Fields */
-#define HTTP_WKHDR__GENERAL_FIRST  HTTP_WKHDR_CACHE_CONTROL
+/* rfc 2616: §4.5: General Header Fields */
+#  define HTTP_WKHDR__GENERAL_FIRST HTTP_WKHDR_CACHE_CONTROL
     HTTP_WKHDR_CACHE_CONTROL,
     HTTP_WKHDR_CONNECTION,
     HTTP_WKHDR_DATE,
@@ -79,9 +78,9 @@ typedef enum http_wkhdr_t {
     HTTP_WKHDR_UPGRADE,
     HTTP_WKHDR_VIA,
     HTTP_WKHDR_WARNING,
-#define HTTP_WKHDR__GENERAL_LAST   HTTP_WKHDR_WARNING
+#  define HTTP_WKHDR__GENERAL_LAST HTTP_WKHDR_WARNING
 
-#define HTTP_WKHDR__REQRES_FIRST   HTTP_WKHDR_ACCEPT
+#  define HTTP_WKHDR__REQRES_FIRST HTTP_WKHDR_ACCEPT
     /* rfc 2616: §5.3: Request Header Fields */
     HTTP_WKHDR_ACCEPT,
     HTTP_WKHDR_ACCEPT_CHARSET,
@@ -113,10 +112,10 @@ typedef enum http_wkhdr_t {
     HTTP_WKHDR_SERVER,
     HTTP_WKHDR_VARY,
     HTTP_WKHDR_WWW_AUTHENTICATE,
-#define HTTP_WKHDR__REQRES_LAST    HTTP_WKHDR_WWW_AUTHENTICATE
+#  define HTTP_WKHDR__REQRES_LAST HTTP_WKHDR_WWW_AUTHENTICATE
 
-    /* rfc 2616: §7.1: Entity Header Fields */
-#define HTTP_WKHDR__ENTITY_FIRST   HTTP_WKHDR_ALLOW
+/* rfc 2616: §7.1: Entity Header Fields */
+#  define HTTP_WKHDR__ENTITY_FIRST HTTP_WKHDR_ALLOW
     HTTP_WKHDR_ALLOW,
     HTTP_WKHDR_CONTENT_ENCODING,
     HTTP_WKHDR_CONTENT_LANGUAGE,
@@ -127,24 +126,24 @@ typedef enum http_wkhdr_t {
     HTTP_WKHDR_CONTENT_TYPE,
     HTTP_WKHDR_EXPIRES,
     HTTP_WKHDR_LAST_MODIFIED,
-#define HTTP_WKHDR__ENTITY_LAST    HTTP_WKHDR_LAST_MODIFIED
+#  define HTTP_WKHDR__ENTITY_LAST HTTP_WKHDR_LAST_MODIFIED
 
     /* Useful headers */
     HTTP_WKHDR_SOAPACTION,
 
     HTTP_WKHDR__MAX,
 } http_wkhdr_t;
-extern char const * nonnull const http_whdr_str[HTTP_WKHDR__MAX];
+extern char const *nonnull const http_whdr_str[HTTP_WKHDR__MAX];
 http_wkhdr_t http_wkhdr_from_ps(pstream_t ps);
 
-#define HTTP_MK_VERSION(M, m)  (((M) << 8) | (m))
-#define HTTP_1_0               HTTP_MK_VERSION(1, 0)
-#define HTTP_1_1               HTTP_MK_VERSION(1, 1)
-#define HTTP_MINOR(v)          ((v) & 0xf)
-#define HTTP_MAJOR(v)          ((uint16_t)(v) >> 8)
+#  define HTTP_MK_VERSION(M, m) (((M) << 8) | (m))
+#  define HTTP_1_0 HTTP_MK_VERSION(1, 0)
+#  define HTTP_1_1 HTTP_MK_VERSION(1, 1)
+#  define HTTP_MINOR(v) ((v) & 0xf)
+#  define HTTP_MAJOR(v) ((uint16_t)(v) >> 8)
 
 typedef struct http_qhdr_t {
-    int       wkhdr;
+    int wkhdr;
     pstream_t key;
     pstream_t val;
 } http_qhdr_t;
@@ -158,23 +157,24 @@ enum http_parser_state {
     HTTP_PARSER_CLOSE,
 };
 
-static inline const http_qhdr_t * nullable
-http_qhdr_find(const http_qhdr_t * nonnull tab, size_t len, http_wkhdr_t wkhdr)
+static inline const http_qhdr_t *nullable
+http_qhdr_find(const http_qhdr_t *nonnull tab, size_t len, http_wkhdr_t wkhdr)
 {
     /* scan from the end because the last header prevails */
-    for (size_t i = len; i-- > 0; ) {
-        if (tab[i].wkhdr == wkhdr)
+    for (size_t i = len; i-- > 0;) {
+        if (tab[i].wkhdr == wkhdr) {
             return tab + i;
+        }
     }
     return NULL;
 }
 
-static inline const http_qhdr_t * nullable
-http_qhdr_find_from_key(const http_qhdr_t * nonnull tab, size_t len,
-                        lstr_t key)
+static inline const http_qhdr_t *nullable http_qhdr_find_from_key(
+    const http_qhdr_t *nonnull tab, size_t len, lstr_t key
+)
 {
     /* scan from the end because the last header prevails */
-    for (size_t i = len; i-- > 0; ) {
+    for (size_t i = len; i-- > 0;) {
         if (lstr_ascii_iequal(key, LSTR_PS_V(&tab[i].key))) {
             return tab + i;
         }
@@ -187,12 +187,14 @@ http_qhdr_find_from_key(const http_qhdr_t * nonnull tab, size_t len,
 struct httpd_query_t;
 typedef struct httpd_qinfo_t httpd_qinfo_t;
 
-typedef struct httpd_cfg_t          httpd_cfg_t;
+typedef struct httpd_cfg_t httpd_cfg_t;
 typedef struct httpd_trigger_node_t httpd_trigger_node_t;
-typedef struct httpd_trigger_t      httpd_trigger_t;
+typedef struct httpd_trigger_t httpd_trigger_t;
 
-qm_kvec_t(http_path, lstr_t, httpd_trigger_node_t * nonnull,
-          qhash_lstr_hash, qhash_lstr_equal);
+qm_kvec_t(
+    http_path, lstr_t, httpd_trigger_node_t *nonnull, qhash_lstr_hash,
+    qhash_lstr_equal
+);
 
 enum httpd_query_status {
     HTTPD_QUERY_STATUS_CANCEL,
@@ -218,46 +220,44 @@ typedef struct httpd_http2_ctx_t httpd_http2_ctx_t;
  *     disconnected while still having pending queries.
  * - httpd_t#on_disconnect is called whenever the connection get closed.
  */
-#define HTTPD_FIELDS(pfx) \
-    OBJECT_FIELDS(pfx);                                                      \
-    dlist_t            httpd_link;                                           \
-    httpd_http2_ctx_t * nullable http2_ctx;                                  \
-    httpd_cfg_t       * nonnull cfg;                                         \
-    el_t               nonnull ev; /* actually NULL for http2 */             \
-    sb_t               ibuf;                                                 \
-    z_stream           zs;                                                   \
+#  define HTTPD_FIELDS(pfx)                                                  \
+      OBJECT_FIELDS(pfx);                                                    \
+      dlist_t httpd_link;                                                    \
+      httpd_http2_ctx_t *nullable http2_ctx;                                 \
+      httpd_cfg_t *nonnull cfg;                                              \
+      el_t nonnull ev; /* actually NULL for http2 */                         \
+      sb_t ibuf;                                                             \
+      z_stream zs;                                                           \
                                                                              \
-    bool               connection_close   : 1;                               \
-    bool               compressed         : 1;                               \
-    bool               want_write         : 1;                               \
-    /* True iff transported by http2. */                                     \
-    bool               use_http2          : 1;                               \
+      bool connection_close : 1;                                             \
+      bool compressed : 1;                                                   \
+      bool want_write : 1;                                                   \
+      /* True iff transported by http2. */                                   \
+      bool use_http2 : 1;                                                    \
                                                                              \
-    uint8_t            state;                                                \
-    uint16_t           queries;                                              \
-    uint16_t           queries_done;                                         \
-    unsigned           max_queries;                                          \
-    int                chunk_length;                                         \
+      uint8_t state;                                                         \
+      uint16_t queries;                                                      \
+      uint16_t queries_done;                                                 \
+      unsigned max_queries;                                                  \
+      int chunk_length;                                                      \
                                                                              \
-    dlist_t            query_list;                                           \
-    outbuf_t           ob;                                                   \
-    lstr_t             peer_address;/* do not use directly. Use the          \
-                                     * httpd_get_peer_address function       \
-                                     * instead */                            \
-    sockunion_t        peer_su;                                              \
-    SSL               * nullable ssl;                                        \
+      dlist_t query_list;                                                    \
+      outbuf_t ob;                                                           \
+      lstr_t peer_address; /* do not use directly. Use the                   \
+                            * httpd_get_peer_address function                \
+                            * instead */                                     \
+      sockunion_t peer_su;                                                   \
+      SSL *nullable ssl;                                                     \
                                                                              \
-    void             (*nullable on_accept)(httpd_t * nonnull w);             \
-    void             (*nullable on_disconnect)(httpd_t * nonnull w);         \
+      void (*nullable on_accept)(httpd_t * nonnull w);                       \
+      void (*nullable on_disconnect)(httpd_t * nonnull w);                   \
                                                                              \
-    __attribute__((format(printf, 4, 0)))                                    \
-    void (* nullable on_status)(httpd_t * nonnull w,                         \
-                                const struct httpd_query_t * nonnull q,      \
-                                int status, const char * nonnull fmt,        \
-                                va_list va);
+      __attribute__((format(printf, 4, 0))) void (*nullable on_status)(      \
+          httpd_t * nonnull w, const struct httpd_query_t *nonnull q,        \
+          int status, const char *nonnull fmt, va_list va                    \
+      );
 
-#define HTTPD_METHODS(type_t) \
-    OBJECT_METHODS(type_t)
+#  define HTTPD_METHODS(type_t) OBJECT_METHODS(type_t)
 
 OBJ_CLASS(httpd, object, HTTPD_FIELDS, HTTPD_METHODS);
 
@@ -289,9 +289,10 @@ OBJ_CLASS(httpd, object, HTTPD_FIELDS, HTTPD_METHODS);
  * \param[in]  user "user" part of the basic Authorization field.
  * \param[in]  pw   "password" part of the basic Authorization field.
  */
-typedef void (httpd_trigger_basic_auth_f)(httpd_trigger_t * nonnull cb,
-                                          struct httpd_query_t * nonnull q,
-                                          pstream_t user, pstream_t pw);
+typedef void(httpd_trigger_basic_auth_f)(
+    httpd_trigger_t *nonnull cb, struct httpd_query_t *nonnull q,
+    pstream_t user, pstream_t pw
+);
 
 /** type for HTTPD authentication callbacks when a bearer token.
  *
@@ -306,9 +307,10 @@ typedef void (httpd_trigger_basic_auth_f)(httpd_trigger_t * nonnull cb,
  * \param[in]  q     the descriptor of the incoming query.
  * \param[in]  token "token" part of the bearer Authorization field.
  */
-typedef void (httpd_trigger_bearer_auth_f)(httpd_trigger_t * nonnull cb,
-                                           struct httpd_query_t * nonnull q,
-                                           pstream_t token);
+typedef void(httpd_trigger_bearer_auth_f)(
+    httpd_trigger_t *nonnull cb, struct httpd_query_t *nonnull q,
+    pstream_t token
+);
 
 /** an HTTP trigger that can be fired on given path fragments.
  *
@@ -337,40 +339,41 @@ typedef void (httpd_trigger_bearer_auth_f)(httpd_trigger_t * nonnull cb,
  * </code>
  */
 struct httpd_trigger_t {
-    unsigned              refcnt;
-    lstr_t                auth_realm;
+    unsigned refcnt;
+    lstr_t auth_realm;
 
     /* Called before main callback with authentication information. */
-    httpd_trigger_basic_auth_f * nullable basic_auth;
-    httpd_trigger_bearer_auth_f * nullable bearer_auth;
-    const object_class_t * nullable query_cls;
+    httpd_trigger_basic_auth_f *nullable basic_auth;
+    httpd_trigger_bearer_auth_f *nullable bearer_auth;
+    const object_class_t *nullable query_cls;
 
     /* Main callback, called each time the path fragment is queried. */
-    void (* nonnull cb)(httpd_trigger_t * nonnull,
-                        struct httpd_query_t * nonnull,
-                        const httpd_qinfo_t * nonnull);
+    void (*nonnull cb)(
+        httpd_trigger_t *nonnull, struct httpd_query_t *nonnull,
+        const httpd_qinfo_t *nonnull
+    );
 
     /* Called when trigger is destroyed for cleaning purpose. */
-    void (* nullable destroy)(httpd_trigger_t * nonnull);
+    void (*nullable destroy)(httpd_trigger_t *nonnull);
 
     /* Called after each query on the path fragment for cleaning purpose. */
-    void (* nullable on_query_wipe)(struct httpd_query_t * nonnull q);
+    void (*nullable on_query_wipe)(struct httpd_query_t *nonnull q);
 
     /* Callback on http query exception, it can modify the HTTP error code. */
-    void (* nullable on_query_exn)(struct httpd_query_t * nonnull q,
-                                   const iop_struct_t * nullable st,
-                                   const void * nullable exn,
-                                   http_code_t * nonnull code);
+    void (*nullable on_query_exn)(
+        struct httpd_query_t *nonnull q, const iop_struct_t *nullable st,
+        const void *nullable exn, http_code_t *nonnull code
+    );
 };
 
 struct httpd_trigger_node_t {
-    qm_t(http_path)  childs;
-    httpd_trigger_t * nullable cb;
-    char             path[];
+    qm_t(http_path) childs;
+    httpd_trigger_t *nullable cb;
+    char path[];
 };
 
 struct httpd_cfg_t {
-    int      refcnt;
+    int refcnt;
     unsigned nb_conns;
 
     http_mode_t mode;
@@ -385,26 +388,27 @@ struct httpd_cfg_t {
     lstr_t cert;
     lstr_t key;
 
-    SSL_CTX * nullable ssl_ctx;
+    SSL_CTX *nullable ssl_ctx;
     dlist_t httpd_list;
     dlist_t http2_httpd_list; /* httpds backed http2 streams */
-    const object_class_t * nullable httpd_cls;
-    httpd_trigger_node_t  roots[HTTP_METHOD__MAX];
+    const object_class_t *nullable httpd_cls;
+    httpd_trigger_node_t roots[HTTP_METHOD__MAX];
 };
 
 struct core__httpd_cfg__t;
 
-httpd_cfg_t * nonnull httpd_cfg_init(httpd_cfg_t * nonnull cfg);
-int httpd_cfg_from_iop(httpd_cfg_t * nonnull cfg,
-                       const struct core__httpd_cfg__t * nonnull iop_cfg);
-void httpd_cfg_wipe(httpd_cfg_t * nonnull cfg);
+httpd_cfg_t *nonnull httpd_cfg_init(httpd_cfg_t *nonnull cfg);
+int httpd_cfg_from_iop(
+    httpd_cfg_t *nonnull cfg, const struct core__httpd_cfg__t *nonnull iop_cfg
+);
+void httpd_cfg_wipe(httpd_cfg_t *nonnull cfg);
 DO_REFCNT(httpd_cfg_t, httpd_cfg);
 
 void httpd_cfg_set_ssl_ctx(httpd_cfg_t *nonnull cfg, SSL_CTX *nullable ctx);
 
-el_t nullable httpd_listen(sockunion_t * nonnull su, httpd_cfg_t * nonnull);
-void httpd_unlisten(el_t nullable * nonnull ev);
-httpd_t * nonnull httpd_spawn(int fd, httpd_cfg_t * nonnull);
+el_t nullable httpd_listen(sockunion_t *nonnull su, httpd_cfg_t *nonnull);
+void httpd_unlisten(el_t nullable *nonnull ev);
+httpd_t *nonnull httpd_spawn(int fd, httpd_cfg_t *nonnull);
 
 /** gently close an httpd connection.
  *
@@ -412,33 +416,35 @@ httpd_t * nonnull httpd_spawn(int fd, httpd_cfg_t * nonnull);
  * consistent behavior. Instead it is scheduled for "writing" so that the
  * event loop destroys it in its next iteration.
  */
-void     httpd_close_gently(httpd_t * nonnull w);
+void httpd_close_gently(httpd_t *nonnull w);
 
 /** retrieve the peer address as a string */
-lstr_t   httpd_get_peer_address(httpd_t * nonnull w);
+lstr_t httpd_get_peer_address(httpd_t *nonnull w);
 
 /** retrieve the server address as a string */
-lstr_t t_httpd_get_server_address(httpd_t * nonnull w);
+lstr_t t_httpd_get_server_address(httpd_t *nonnull w);
 
 GENERIC_NEW_INIT(httpd_trigger_t, httpd_trigger);
-void httpd_trigger_persist(httpd_trigger_t * nonnull);
-void httpd_trigger_loose(httpd_trigger_t * nonnull);
-httpd_trigger_t * nonnull httpd_trigger_dup(httpd_trigger_t * nonnull cb);
+void httpd_trigger_persist(httpd_trigger_t *nonnull);
+void httpd_trigger_loose(httpd_trigger_t *nonnull);
+httpd_trigger_t *nonnull httpd_trigger_dup(httpd_trigger_t *nonnull cb);
 void httpd_trigger_delete(httpd_trigger_t * nullable * nonnull cbp);
 
-bool httpd_trigger_register_flags(httpd_trigger_node_t * nonnull,
-                                  const char * nonnull path,
-                                  httpd_trigger_t * nonnull cb,
-                                  bool overwrite);
-bool httpd_trigger_unregister_(httpd_trigger_node_t * nonnull,
-                               const char * nonnull path,
-                               httpd_trigger_t * nullable cb);
+bool httpd_trigger_register_flags(
+    httpd_trigger_node_t *nonnull, const char *nonnull path,
+    httpd_trigger_t *nonnull cb, bool overwrite
+);
+bool httpd_trigger_unregister_(
+    httpd_trigger_node_t *nonnull, const char *nonnull path,
+    httpd_trigger_t *nullable cb
+);
 
-static inline void
-httpd_trigger_set_auth(httpd_trigger_t * nonnull cb,
-                       httpd_trigger_basic_auth_f * nullable basic_auth,
-                       httpd_trigger_bearer_auth_f * nullable bearer_auth,
-                       const char * nullable auth_realm)
+static inline void httpd_trigger_set_auth(
+    httpd_trigger_t *nonnull cb,
+    httpd_trigger_basic_auth_f *nullable basic_auth,
+    httpd_trigger_bearer_auth_f *nullable bearer_auth,
+    const char *nullable auth_realm
+)
 {
     lstr_t s = LSTR(auth_realm ?: "Intersec HTTP Server");
 
@@ -449,41 +455,45 @@ httpd_trigger_set_auth(httpd_trigger_t * nonnull cb,
     cb->bearer_auth = bearer_auth;
 }
 
-#define httpd_trigger_register2(cfg, m, p, cb, fl)                           \
-    do {                                                                     \
-        STATIC_ASSERT(HTTP_METHOD_##m <= HTTP_METHOD_DELETE ||               \
-                      HTTP_METHOD_##m == HTTP_METHOD_PATCH);                 \
-        httpd_trigger_register_flags(&(cfg)->roots[HTTP_METHOD_##m],         \
-                                     p, cb, fl);                             \
-    } while(0)
-#define httpd_trigger_register(cfg, m, p, cb)                                \
-    httpd_trigger_register2(cfg, m, p, cb, true)
+#  define httpd_trigger_register2(cfg, m, p, cb, fl)                         \
+      do {                                                                   \
+          STATIC_ASSERT(                                                     \
+              HTTP_METHOD_##m <= HTTP_METHOD_DELETE ||                       \
+              HTTP_METHOD_##m == HTTP_METHOD_PATCH                           \
+          );                                                                 \
+          httpd_trigger_register_flags(                                      \
+              &(cfg)->roots[HTTP_METHOD_##m], p, cb, fl                      \
+          );                                                                 \
+      } while (0)
+#  define httpd_trigger_register(cfg, m, p, cb)                              \
+      httpd_trigger_register2(cfg, m, p, cb, true)
 
-#define httpd_trigger_unregister2(cfg, m, p, cb) \
-    do {                                                                     \
-        STATIC_ASSERT(HTTP_METHOD_##m <= HTTP_METHOD_DELETE ||               \
-                      HTTP_METHOD_##m == HTTP_METHOD_PATCH);                 \
-        httpd_trigger_unregister_(&(cfg)->roots[HTTP_METHOD_##m], p, cb);    \
-    } while(0)
-#define httpd_trigger_unregister(cfg, m, p)                                  \
-    httpd_trigger_unregister2(cfg, m, p, NULL)
-
+#  define httpd_trigger_unregister2(cfg, m, p, cb)                           \
+      do {                                                                   \
+          STATIC_ASSERT(                                                     \
+              HTTP_METHOD_##m <= HTTP_METHOD_DELETE ||                       \
+              HTTP_METHOD_##m == HTTP_METHOD_PATCH                           \
+          );                                                                 \
+          httpd_trigger_unregister_(&(cfg)->roots[HTTP_METHOD_##m], p, cb);  \
+      } while (0)
+#  define httpd_trigger_unregister(cfg, m, p)                                \
+      httpd_trigger_unregister2(cfg, m, p, NULL)
 
 /* }}} */
 /* {{{ HTTP Server Queries Related */
 
 struct httpd_qinfo_t {
     http_method_t method;
-    uint16_t      http_version;
-    uint16_t      hdrs_len;
+    uint16_t http_version;
+    uint16_t hdrs_len;
 
-    pstream_t     host;
-    pstream_t     prefix;
-    pstream_t     query;
-    pstream_t     vars;
+    pstream_t host;
+    pstream_t prefix;
+    pstream_t query;
+    pstream_t vars;
 
-    pstream_t     hdrs_ps;
-    http_qhdr_t  * nonnull hdrs;
+    pstream_t hdrs_ps;
+    http_qhdr_t *nonnull hdrs;
 };
 
 /** \typedef http_query_t.
@@ -530,55 +540,53 @@ struct httpd_qinfo_t {
  *   #obj_release() the query and go away since anything that would else be
  *   answered would be discarded anyway.
  */
-#define HTTPD_QUERY_FIELDS(pfx)                                              \
-    OBJECT_FIELDS(pfx);                                                      \
+#  define HTTPD_QUERY_FIELDS(pfx)                                            \
+      OBJECT_FIELDS(pfx);                                                    \
                                                                              \
-    httpd_t            * nonnull owner;                                      \
-    httpd_trigger_t    * nullable trig_cb;                                   \
-    dlist_t             query_link;                                          \
+      httpd_t *nonnull owner;                                                \
+      httpd_trigger_t *nullable trig_cb;                                     \
+      dlist_t query_link;                                                    \
                                                                              \
-    /* User flags    */                                                      \
-    bool                traced        : 1;                                   \
+      /* User flags    */                                                    \
+      bool traced : 1;                                                       \
                                                                              \
-    /* Input related */                                                      \
-    bool                expect100cont : 1;                                   \
-    bool                parsed        : 1;                                   \
+      /* Input related */                                                    \
+      bool expect100cont : 1;                                                \
+      bool parsed : 1;                                                       \
                                                                              \
-    /* Output related */                                                     \
-    bool                own_ob        : 1;                                   \
-    bool                hdrs_started  : 1;                                   \
-    bool                hdrs_done     : 1;                                   \
-    bool                chunk_started : 1;                                   \
-    bool                clength_hack  : 1;                                   \
-    bool                answered      : 1;                                   \
-    bool                chunked       : 1;                                   \
-    bool                conn_close    : 1;                                   \
-    bool                status_sent   : 1;                                   \
+      /* Output related */                                                   \
+      bool own_ob : 1;                                                       \
+      bool hdrs_started : 1;                                                 \
+      bool hdrs_done : 1;                                                    \
+      bool chunk_started : 1;                                                \
+      bool clength_hack : 1;                                                 \
+      bool answered : 1;                                                     \
+      bool chunked : 1;                                                      \
+      bool conn_close : 1;                                                   \
+      bool status_sent : 1;                                                  \
                                                                              \
-    uint16_t            answer_code;                                         \
-    uint16_t            http_version;                                        \
-    time_t              query_sec;                                           \
-    unsigned            query_usec;                                          \
-    unsigned            received_hdr_length;                                 \
-    unsigned            received_body_length;                                \
+      uint16_t answer_code;                                                  \
+      uint16_t http_version;                                                 \
+      time_t query_sec;                                                      \
+      unsigned query_usec;                                                   \
+      unsigned received_hdr_length;                                          \
+      unsigned received_body_length;                                         \
                                                                              \
-    int                 chunk_hdr_offs;                                      \
-    int                 chunk_prev_length;                                   \
-    unsigned            payload_max_size;                                    \
-    int                 ready_threshold;                                     \
+      int chunk_hdr_offs;                                                    \
+      int chunk_prev_length;                                                 \
+      unsigned payload_max_size;                                             \
+      int ready_threshold;                                                   \
                                                                              \
-    sb_t                payload;                                             \
-    outbuf_t           * nullable ob;                                        \
-    httpd_qinfo_t      * nullable qinfo;                                     \
-    void               * nullable priv;                                      \
+      sb_t payload;                                                          \
+      outbuf_t *nullable ob;                                                 \
+      httpd_qinfo_t *nullable qinfo;                                         \
+      void *nullable priv;                                                   \
                                                                              \
-    void              (*nullable on_data)(httpd_query_t * nonnull q,         \
-                                          pstream_t ps);                     \
-    void              (*nullable on_done)(httpd_query_t * nonnull q);        \
-    void              (*nullable on_ready)(httpd_query_t * nonnull q)
+      void (*nullable on_data)(httpd_query_t * nonnull q, pstream_t ps);     \
+      void (*nullable on_done)(httpd_query_t * nonnull q);                   \
+      void (*nullable on_ready)(httpd_query_t * nonnull q)
 
-#define HTTPD_QUERY_METHODS(type_t) \
-    OBJECT_METHODS(type_t)
+#  define HTTPD_QUERY_METHODS(type_t) OBJECT_METHODS(type_t)
 
 OBJ_CLASS(httpd_query, object, HTTPD_QUERY_FIELDS, HTTPD_QUERY_METHODS);
 
@@ -601,13 +609,13 @@ OBJ_CLASS(httpd_query, object, HTTPD_QUERY_FIELDS, HTTPD_QUERY_METHODS);
  *   httpd_bufferize(q, 10);
  *   ... no more method setting for the query ...
  */
-void httpd_bufferize(httpd_query_t * nonnull q, unsigned maxsize);
+void httpd_bufferize(httpd_query_t *nonnull q, unsigned maxsize);
 
 /*---- headers utils ----*/
 
-httpd_qinfo_t * nonnull httpd_qinfo_dup(const httpd_qinfo_t * nonnull info);
-static inline
-void httpd_qinfo_delete(httpd_qinfo_t * nullable * nonnull infop)
+httpd_qinfo_t *nonnull httpd_qinfo_dup(const httpd_qinfo_t *nonnull info);
+static inline void
+httpd_qinfo_delete(httpd_qinfo_t * nullable * nonnull infop)
 {
     p_delete(infop);
 }
@@ -617,35 +625,37 @@ void httpd_qinfo_delete(httpd_qinfo_t * nullable * nonnull infop)
  * password can be set to ps_initptr(NULL, NULL) if authorization section is
  * not found.
  */
-int t_httpd_qinfo_get_basic_auth(const httpd_qinfo_t * nonnull info,
-                                 pstream_t * nonnull user,
-                                 pstream_t * nonnull pw);
+int t_httpd_qinfo_get_basic_auth(
+    const httpd_qinfo_t *nonnull info, pstream_t *nonnull user,
+    pstream_t *nonnull pw
+);
 
 /** Parse HTTP header and try to retrieve a token from \ref
  * HTTP_WKHDR_AUTHORIZATION (bearer authentication). Note that \a bearer_token
  * can be set to ps_initptr(NULL, NULL) if authorization section is not found.
  */
-int httpd_qinfo_get_bearer_auth(const httpd_qinfo_t * nonnull info,
-                                pstream_t *nonnull bearer_token);
+int httpd_qinfo_get_bearer_auth(
+    const httpd_qinfo_t *nonnull info, pstream_t *nonnull bearer_token
+);
 
 enum {
-    HTTPD_ACCEPT_ENC_GZIP     = 1U << 0,
-    HTTPD_ACCEPT_ENC_DEFLATE  = 1U << 1,
+    HTTPD_ACCEPT_ENC_GZIP = 1U << 0,
+    HTTPD_ACCEPT_ENC_DEFLATE = 1U << 1,
     HTTPD_ACCEPT_ENC_COMPRESS = 1U << 2,
 
-    HTTPD_ACCEPT_ENC_ANY      = 7U,
+    HTTPD_ACCEPT_ENC_ANY = 7U,
 };
 
 /* returns an HTTPD_ACCEPT_ENC* mask, or 0 if not header was preset */
-int httpd_qinfo_accept_enc_get(const httpd_qinfo_t * nonnull info);
+int httpd_qinfo_accept_enc_get(const httpd_qinfo_t *nonnull info);
 
 /*---- low level httpd_query reply functions ----*/
 
-static inline outbuf_t * nonnull httpd_get_ob(httpd_query_t * nonnull q)
+static inline outbuf_t *nonnull httpd_get_ob(httpd_query_t *nonnull q)
 {
     if (unlikely(!q->ob)) {
         q->own_ob = true;
-        q->ob     = ob_new();
+        q->ob = ob_new();
     }
     return q->ob;
 }
@@ -658,10 +668,12 @@ static inline outbuf_t * nonnull httpd_get_ob(httpd_query_t * nonnull q)
  *   When set to true, add cache control headers to ensure the answer won't
  *   be cached by the client.
  */
-outbuf_t * nonnull httpd_reply_hdrs_start(httpd_query_t * nonnull q,
-                                          int code, bool force_uncacheable);
-void httpd_put_date_hdr(outbuf_t * nonnull ob, const char * nonnull hdr,
-                        time_t now);
+outbuf_t *nonnull httpd_reply_hdrs_start(
+    httpd_query_t *nonnull q, int code, bool force_uncacheable
+);
+void httpd_put_date_hdr(
+    outbuf_t *nonnull ob, const char *nonnull hdr, time_t now
+);
 
 /** Ends the headers, setups for the body streaming.
  *
@@ -687,30 +699,31 @@ void httpd_put_date_hdr(outbuf_t * nonnull ob, const char * nonnull hdr,
  *   connection to be closed at the end of the answer, which is wrong but is
  *   the sole thing we can do.
  */
-void httpd_reply_hdrs_done(httpd_query_t * nonnull q, int content_length,
-                           bool chunked);
-void httpd_reply_done(httpd_query_t * nonnull q);
-void httpd_signal_write(httpd_query_t * nonnull q);
+void httpd_reply_hdrs_done(
+    httpd_query_t *nonnull q, int content_length, bool chunked
+);
+void httpd_reply_done(httpd_query_t *nonnull q);
+void httpd_signal_write(httpd_query_t *nonnull q);
 
 /** starts a new chunk.
  * Note that the http chunk has to be ended with #httpd_reply_chunk_done()
  * before going back to the event loop.
  */
-static inline void httpd_reply_chunk_start(httpd_query_t * nonnull q,
-                                           outbuf_t * nonnull ob)
+static inline void
+httpd_reply_chunk_start(httpd_query_t *nonnull q, outbuf_t *nonnull ob)
 {
-    if (!q->chunked)
+    if (!q->chunked) {
         return;
-    assert (!q->chunk_started);
-    q->chunk_started     = true;
-    q->chunk_hdr_offs    = ob_reserve(ob, 12);
+    }
+    assert(!q->chunk_started);
+    q->chunk_started = true;
+    q->chunk_hdr_offs = ob_reserve(ob, 12);
     q->chunk_prev_length = ob->length;
 }
 
-void httpd_reply_chunk_done_(httpd_query_t * nonnull q,
-                             outbuf_t * nonnull ob);
-static inline void httpd_reply_chunk_done(httpd_query_t * nonnull q,
-                                          outbuf_t * nonnull ob)
+void httpd_reply_chunk_done_(httpd_query_t *nonnull q, outbuf_t *nonnull ob);
+static inline void
+httpd_reply_chunk_done(httpd_query_t *nonnull q, outbuf_t *nonnull ob)
 {
     if (q->chunked) {
         httpd_reply_chunk_done_(q, ob);
@@ -746,30 +759,30 @@ static inline void httpd_reply_chunk_done(httpd_query_t * nonnull q,
  * \return 0 on success, -1 if the content of the pstream does not starts with
  *         a valid URL key/value pair.
  */
-int t_ps_get_http_var(pstream_t * nonnull ps, lstr_t * nonnull key,
-                      lstr_t * nonnull value);
+int t_ps_get_http_var(
+    pstream_t *nonnull ps, lstr_t *nonnull key, lstr_t *nonnull value
+);
 
 /*---- high level httpd_query reply functions ----*/
 
-void httpd_reply_100continue(httpd_query_t * nonnull q);
-void httpd_reply_202accepted(httpd_query_t * nonnull q);
+void httpd_reply_100continue(httpd_query_t *nonnull q);
+void httpd_reply_202accepted(httpd_query_t *nonnull q);
 
-__attribute__((format(printf, 3, 4)))
-void httpd_reject_(httpd_query_t * nonnull q, int code,
-                   const char * nonnull fmt, ...);
-#define httpd_reject(q, code, fmt, ...) \
-    httpd_reject_(q, HTTP_CODE_##code, fmt, ##__VA_ARGS__)
-void httpd_reject_unauthorized(httpd_query_t * nonnull q, lstr_t auth_realm);
-
+__attribute__((format(printf, 3, 4))) void httpd_reject_(
+    httpd_query_t *nonnull q, int code, const char *nonnull fmt, ...
+);
+#  define httpd_reject(q, code, fmt, ...)                                    \
+      httpd_reject_(q, HTTP_CODE_##code, fmt, ##__VA_ARGS__)
+void httpd_reject_unauthorized(httpd_query_t *nonnull q, lstr_t auth_realm);
 
 /*---- http-srv-static.c ----*/
-void httpd_reply_make_index(httpd_query_t * nonnull q, int dirfd, bool head);
-void httpd_reply_file(httpd_query_t * nonnull q, int dirfd,
-                      const char * nonnull file, bool head);
+void httpd_reply_make_index(httpd_query_t *nonnull q, int dirfd, bool head);
+void httpd_reply_file(
+    httpd_query_t *nonnull q, int dirfd, const char *nonnull file, bool head
+);
 
-httpd_trigger_t * nonnull
-httpd_trigger__static_dir_new(const char * nonnull path);
-
+httpd_trigger_t *nonnull
+httpd_trigger__static_dir_new(const char *nonnull path);
 
 /* }}} */
 /* {{{ HTTP Client */
@@ -779,44 +792,43 @@ typedef struct httpc_query_t httpc_query_t;
 typedef struct http2_pool_t http2_pool_t;
 
 typedef struct httpc_cfg_t {
-    int          refcnt;
-    http_mode_t  http_mode;
+    int refcnt;
+    http_mode_t http_mode;
 
-    bool         use_proxy : 1;
-    http_url_t   proxy_url;
-    uint16_t     pipeline_depth;
-    unsigned     noact_delay;
-    unsigned     max_queries;
-    unsigned     on_data_threshold;
-    unsigned     header_line_max;
-    unsigned     header_size_max;
-    lstr_t       client_tls_cert;
-    lstr_t       client_tls_key;
-    bool         check_server_cert;
+    bool use_proxy : 1;
+    http_url_t proxy_url;
+    uint16_t pipeline_depth;
+    unsigned noact_delay;
+    unsigned max_queries;
+    unsigned on_data_threshold;
+    unsigned header_line_max;
+    unsigned header_size_max;
+    lstr_t client_tls_cert;
+    lstr_t client_tls_key;
+    bool check_server_cert;
 
-    lstr_t       tls_server_name;
-    SSL_CTX      * nullable ssl_ctx;
-    http2_pool_t * nullable http2_pool;
+    lstr_t tls_server_name;
+    SSL_CTX *nullable ssl_ctx;
+    http2_pool_t *nullable http2_pool;
 
-    const object_class_t * nonnull httpc_cls;
+    const object_class_t *nonnull httpc_cls;
 } httpc_cfg_t;
 
 struct core__httpc_cfg__t;
 
-httpc_cfg_t * nonnull httpc_cfg_init(httpc_cfg_t * nonnull cfg);
-__must_check__
-int httpc_cfg_from_iop(httpc_cfg_t * nonnull cfg,
-                       const struct core__httpc_cfg__t * nonnull iop_cfg);
-void httpc_cfg_wipe(httpc_cfg_t * nonnull cfg);
+httpc_cfg_t *nonnull httpc_cfg_init(httpc_cfg_t *nonnull cfg);
+__must_check__ int httpc_cfg_from_iop(
+    httpc_cfg_t *nonnull cfg, const struct core__httpc_cfg__t *nonnull iop_cfg
+);
+void httpc_cfg_wipe(httpc_cfg_t *nonnull cfg);
 DO_REFCNT(httpc_cfg_t, httpc_cfg);
 
 void httpc_cfg_set_ssl_ctx(httpc_cfg_t *nonnull cfg, SSL_CTX *nullable ctx);
 
-__must_check__
-int httpc_cfg_tls_init(httpc_cfg_t * nonnull cfg, sb_t * nonnull err);
-void httpc_cfg_tls_wipe(httpc_cfg_t * nonnull cfg);
-int
-httpc_cfg_tls_add_verify_file(httpc_cfg_t * nonnull cfg, lstr_t cert_path);
+__must_check__ int
+httpc_cfg_tls_init(httpc_cfg_t *nonnull cfg, sb_t *nonnull err);
+void httpc_cfg_tls_wipe(httpc_cfg_t *nonnull cfg);
+int httpc_cfg_tls_add_verify_file(httpc_cfg_t *nonnull cfg, lstr_t cert_path);
 void httpc_close_http2_pool(httpc_cfg_t *nonnull cfg);
 
 struct httpc_t;
@@ -829,60 +841,61 @@ struct httpc_t;
  * errno set by the getsockopt system call. EINTR and EINPROGRESS are not
  * considered as error.
  */
-typedef void (on_connect_error_f)(const struct httpc_t * nonnull httpc,
-                                  int errnum);
+typedef void(on_connect_error_f)(
+    const struct httpc_t *nonnull httpc, int errnum
+);
 
 typedef struct http2c_ctx_t http2c_ctx_t;
 
-#define HTTPC_FIELDS(pfx) \
-    OBJECT_FIELDS(pfx);                                                      \
-    httpc_pool_t * nullable pool;                                            \
-    httpc_cfg_t  * nonnull cfg;                                              \
-    dlist_t       pool_link;                                                 \
-    http2c_ctx_t *nullable http2_ctx;                                        \
-    el_t          nullable ev;                                               \
-    sb_t          ibuf;                                                      \
-    z_stream      zs;                                                        \
+#  define HTTPC_FIELDS(pfx)                                                  \
+      OBJECT_FIELDS(pfx);                                                    \
+      httpc_pool_t *nullable pool;                                           \
+      httpc_cfg_t *nonnull cfg;                                              \
+      dlist_t pool_link;                                                     \
+      http2c_ctx_t *nullable http2_ctx;                                      \
+      el_t nullable ev;                                                      \
+      sb_t ibuf;                                                             \
+      z_stream zs;                                                           \
                                                                              \
-    bool          connection_close : 1;                                      \
-    bool          busy             : 1;                                      \
-    bool          compressed       : 1;                                      \
-    bool          connected_as_http2 : 1;                                    \
-    bool          is_connected       : 1;                                    \
-    uint8_t       state;                                                     \
-    uint16_t      queries;                                                   \
-    int           chunk_length;                                              \
-    unsigned      max_queries;                                               \
-    unsigned      received_hdr_length;                                       \
-    unsigned      received_body_length;                                      \
+      bool connection_close : 1;                                             \
+      bool busy : 1;                                                         \
+      bool compressed : 1;                                                   \
+      bool connected_as_http2 : 1;                                           \
+      bool is_connected : 1;                                                 \
+      uint8_t state;                                                         \
+      uint16_t queries;                                                      \
+      int chunk_length;                                                      \
+      unsigned max_queries;                                                  \
+      unsigned received_hdr_length;                                          \
+      unsigned received_body_length;                                         \
                                                                              \
-    dlist_t       query_list;                                                \
-    outbuf_t      ob;                                                        \
+      dlist_t query_list;                                                    \
+      outbuf_t ob;                                                           \
                                                                              \
-    SSL * nullable ssl;                                                      \
+      SSL *nullable ssl;                                                     \
                                                                              \
-    void (*nullable on_query_done)(httpc_t * nonnull,                        \
-                                   const httpc_query_t * nonnull,            \
-                                   int status);                              \
-    on_connect_error_f * nullable on_connect_error;
+      void (*nullable on_query_done)(                                        \
+          httpc_t * nonnull, const httpc_query_t *nonnull, int status        \
+      );                                                                     \
+      on_connect_error_f *nullable on_connect_error;
 
-#define HTTPC_METHODS(type_t)                                                \
-    OBJECT_METHODS(type_t);                                                  \
-    void (*nonnull set_ready)(type_t * nonnull, bool first);                 \
-    void (*nonnull set_busy)(type_t * nonnull);                              \
-    void (*nonnull disconnect)(type_t * nonnull)
+#  define HTTPC_METHODS(type_t)                                              \
+      OBJECT_METHODS(type_t);                                                \
+      void (*nonnull set_ready)(type_t * nonnull, bool first);               \
+      void (*nonnull set_busy)(type_t * nonnull);                            \
+      void (*nonnull disconnect)(type_t * nonnull)
 
 OBJ_CLASS(httpc, object, HTTPC_FIELDS, HTTPC_METHODS);
 
-httpc_t * nonnull httpc_spawn(int fd, httpc_cfg_t * nonnull,
-                              httpc_pool_t * nullable);
-httpc_t * nullable httpc_connect_as(const sockunion_t * nonnull,
-                                    const sockunion_t * nullable src_addr,
-                                    httpc_cfg_t * nonnull,
-                                    httpc_pool_t * nullable);
-httpc_t * nullable httpc_connect(const sockunion_t * nonnull,
-                                 httpc_cfg_t * nonnull,
-                                 httpc_pool_t * nullable);
+httpc_t *nonnull
+httpc_spawn(int fd, httpc_cfg_t *nonnull, httpc_pool_t *nullable);
+httpc_t *nullable httpc_connect_as(
+    const sockunion_t *nonnull, const sockunion_t *nullable src_addr,
+    httpc_cfg_t *nonnull, httpc_pool_t *nullable
+);
+httpc_t *nullable httpc_connect(
+    const sockunion_t *nonnull, httpc_cfg_t *nonnull, httpc_pool_t *nullable
+);
 
 /** gently close an httpc connection.
  *
@@ -890,10 +903,10 @@ httpc_t * nullable httpc_connect(const sockunion_t * nonnull,
  * consistent behavior. Instead it is scheduled for "writing" so that the
  * event loop destroys it in its next iteration.
  */
-void     httpc_close_gently(httpc_t * nonnull);
+void httpc_close_gently(httpc_t *nonnull);
 
 struct httpc_pool_t {
-    httpc_cfg_t * nonnull cfg;
+    httpc_cfg_t *nonnull cfg;
 
     /** Name of the httpc pool.
      *
@@ -926,25 +939,25 @@ struct httpc_pool_t {
     bool resolve_on_connect;
 
     /** To connect using a specific network interface. */
-    sockunion_t * nullable su_src;
+    sockunion_t *nullable su_src;
 
-    int          len;
-    int          max_len;
-    int         * nullable len_global;
-    int          max_len_global;
-    dlist_t      ready_list;
-    dlist_t      busy_list;
+    int len;
+    int max_len;
+    int *nullable len_global;
+    int max_len_global;
+    dlist_t ready_list;
+    dlist_t busy_list;
 
-    void (* nullable on_ready)(httpc_pool_t * nonnull, httpc_t * nonnull);
-    on_connect_error_f * nullable on_connect_error;
+    void (*nullable on_ready)(httpc_pool_t *nonnull, httpc_t *nonnull);
+    on_connect_error_f *nullable on_connect_error;
 };
 
-httpc_pool_t * nonnull httpc_pool_init(httpc_pool_t * nonnull);
-void httpc_pool_close_clients(httpc_pool_t * nonnull);
-void httpc_pool_wipe(httpc_pool_t * nonnull, bool wipe_conns);
+httpc_pool_t *nonnull httpc_pool_init(httpc_pool_t *nonnull);
+void httpc_pool_close_clients(httpc_pool_t *nonnull);
+void httpc_pool_wipe(httpc_pool_t *nonnull, bool wipe_conns);
 GENERIC_NEW(httpc_pool_t, httpc_pool);
-static inline void httpc_pool_delete(httpc_pool_t * nullable * nonnull hpcp,
-                                     bool wipe_conns)
+static inline void
+httpc_pool_delete(httpc_pool_t * nullable * nonnull hpcp, bool wipe_conns)
 {
     if (*hpcp) {
         httpc_pool_wipe(*hpcp, wipe_conns);
@@ -952,9 +965,9 @@ static inline void httpc_pool_delete(httpc_pool_t * nullable * nonnull hpcp,
     }
 }
 
-void httpc_pool_detach(httpc_t * nonnull w, bool full_detach);
-void httpc_pool_attach(httpc_t * nonnull w, httpc_pool_t * nonnull pool);
-httpc_t * nullable httpc_pool_launch(httpc_pool_t * nonnull pool);
+void httpc_pool_detach(httpc_t *nonnull w, bool full_detach);
+void httpc_pool_attach(httpc_t *nonnull w, httpc_pool_t *nonnull pool);
+httpc_t *nullable httpc_pool_launch(httpc_pool_t *nonnull pool);
 
 /** Get a ready to use connection.
  *
@@ -969,7 +982,7 @@ httpc_t * nullable httpc_pool_launch(httpc_pool_t * nonnull pool);
  *
  * \return httpc_t connection ready to use or NULL if no httpc_t available.
  */
-httpc_t * nullable httpc_pool_get(httpc_pool_t * nonnull pool);
+httpc_t *nullable httpc_pool_get(httpc_pool_t *nonnull pool);
 
 /** Check if the pool has a connection ready.
  *
@@ -977,7 +990,7 @@ httpc_t * nullable httpc_pool_get(httpc_pool_t * nonnull pool);
  *
  * \return true if there is at least one connection ready.
  */
-bool httpc_pool_has_ready(httpc_pool_t * nonnull pool);
+bool httpc_pool_has_ready(httpc_pool_t *nonnull pool);
 
 /** Check if the pool has either a connection ready or if a new
  *  connection can be done.
@@ -987,17 +1000,17 @@ bool httpc_pool_has_ready(httpc_pool_t * nonnull pool);
  * \return true if there is at least one connection ready or if a new
  *         connection can be done.
  */
-bool httpc_pool_can_query(httpc_pool_t * nonnull pool);
+bool httpc_pool_can_query(httpc_pool_t *nonnull pool);
 
 /* }}} */
 /* {{{ HTTP Client Queries */
 
 typedef enum httpc_status_t {
     HTTPC_STATUS_OK,
-    HTTPC_STATUS_INVALID    = -1,
-    HTTPC_STATUS_ABORT      = -2,
-    HTTPC_STATUS_TOOLARGE   = -3,
-    HTTPC_STATUS_TIMEOUT    = -4,
+    HTTPC_STATUS_INVALID = -1,
+    HTTPC_STATUS_ABORT = -2,
+    HTTPC_STATUS_TOOLARGE = -3,
+    HTTPC_STATUS_TIMEOUT = -4,
     HTTPC_STATUS_EXP100CONT = -5,
 } httpc_status_t;
 
@@ -1008,13 +1021,13 @@ typedef enum httpc_status_t {
 lstr_t httpc_status_to_str(httpc_status_t status);
 
 typedef struct httpc_qinfo_t {
-    http_code_t  code;
-    uint16_t     http_version;
-    uint16_t     hdrs_len;
+    http_code_t code;
+    uint16_t http_version;
+    uint16_t hdrs_len;
 
-    pstream_t    reason;
-    pstream_t    hdrs_ps;
-    http_qhdr_t * nonnull hdrs;
+    pstream_t reason;
+    pstream_t hdrs_ps;
+    http_qhdr_t *nonnull hdrs;
 } httpc_qinfo_t;
 
 struct httpc_query_t {
@@ -1022,35 +1035,34 @@ struct httpc_query_t {
         httpc_t *nullable owner;
         void *nullable priv_owner;
     };
-    dlist_t        query_link;
-    httpc_qinfo_t * nullable qinfo;
-    sb_t           payload;
-    unsigned       id;
-    unsigned       payload_max_size;
-    unsigned       received_hdr_length;
-    unsigned       received_body_length;
+    dlist_t query_link;
+    httpc_qinfo_t *nullable qinfo;
+    sb_t payload;
+    unsigned id;
+    unsigned payload_max_size;
+    unsigned received_hdr_length;
+    unsigned received_body_length;
 
-    int            chunk_hdr_offs;
-    int            chunk_prev_length;
-    bool           hdrs_started  : 1;
-    bool           hdrs_done     : 1;
-    bool           chunked       : 1;
-    bool           chunk_started : 1;
-    bool           clength_hack  : 1;
-    bool           query_done    : 1;
-    bool           expect100cont : 1;
-    bool           is_connect    : 1;
+    int chunk_hdr_offs;
+    int chunk_prev_length;
+    bool hdrs_started : 1;
+    bool hdrs_done : 1;
+    bool chunked : 1;
+    bool chunk_started : 1;
+    bool clength_hack : 1;
+    bool query_done : 1;
+    bool expect100cont : 1;
+    bool is_connect : 1;
 
-    void (*nullable on_100cont)(httpc_query_t * nonnull q);
-    int (*nullable on_hdrs)(httpc_query_t * nonnull q);
-    int (*nullable on_data)(httpc_query_t * nonnull q, pstream_t ps);
-    void (*nullable on_done)(httpc_query_t * nonnull q,
-                             httpc_status_t status);
+    void (*nullable on_100cont)(httpc_query_t *nonnull q);
+    int (*nullable on_hdrs)(httpc_query_t *nonnull q);
+    int (*nullable on_data)(httpc_query_t *nonnull q, pstream_t ps);
+    void (*nullable on_done)(httpc_query_t *nonnull q, httpc_status_t status);
 };
 
-void httpc_query_init(httpc_query_t * nonnull q);
-void httpc_query_reset(httpc_query_t * nonnull q);
-void httpc_query_wipe(httpc_query_t * nonnull q);
+void httpc_query_init(httpc_query_t *nonnull q);
+void httpc_query_reset(httpc_query_t *nonnull q);
+void httpc_query_wipe(httpc_query_t *nonnull q);
 /** Call this to schedule a given allocated #httpc_query_t on a #httpc_t.
  *
  * It is up to the caller to ensure that the httpc_t isn't disconnected
@@ -1058,20 +1070,21 @@ void httpc_query_wipe(httpc_query_t * nonnull q);
  *
  * The #httpc_query_t must not have been serialized yet.
  */
-void httpc_query_attach(httpc_query_t * nonnull q, httpc_t * nonnull w);
+void httpc_query_attach(httpc_query_t *nonnull q, httpc_t *nonnull w);
 
-void httpc_bufferize(httpc_query_t * nonnull q, unsigned maxsize);
+void httpc_bufferize(httpc_query_t *nonnull q, unsigned maxsize);
 
-static ALWAYS_INLINE outbuf_t * nonnull
-httpc_get_ob(httpc_query_t * nonnull q)
+static ALWAYS_INLINE outbuf_t *nonnull httpc_get_ob(httpc_query_t *nonnull q)
 {
     return &q->owner->ob;
 }
 
-void httpc_query_start_flags(httpc_query_t * nonnull q, http_method_t m,
-                             lstr_t host, lstr_t uri, bool httpc_encode_url);
-#define httpc_query_start(q, m, host, uri) \
-    httpc_query_start_flags(q, m, host, uri, true)
+void httpc_query_start_flags(
+    httpc_query_t *nonnull q, http_method_t m, lstr_t host, lstr_t uri,
+    bool httpc_encode_url
+);
+#  define httpc_query_start(q, m, host, uri)                                 \
+      httpc_query_start_flags(q, m, host, uri, true)
 
 /** Ends the headers, setups for the body streaming.
  *
@@ -1092,31 +1105,32 @@ void httpc_query_start_flags(httpc_query_t * nonnull q, http_method_t m,
  * chunked (except maybe for the additional space it takes) since we're an
  * HTTP/1.1 client.
  */
-void httpc_query_hdrs_done(httpc_query_t * nonnull q, int clen, bool chunked);
-void httpc_query_done(httpc_query_t * nonnull q);
+void httpc_query_hdrs_done(httpc_query_t *nonnull q, int clen, bool chunked);
+void httpc_query_done(httpc_query_t *nonnull q);
 
 /** starts a new chunk.
  * Note that the http chunk has to be ended with #httpc_query_chunk_done()
  * before going back to the event loop.
  */
-static inline void httpc_query_chunk_start(httpc_query_t * nonnull q,
-                                           outbuf_t * nonnull ob)
+static inline void
+httpc_query_chunk_start(httpc_query_t *nonnull q, outbuf_t *nonnull ob)
 {
-    if (!q->chunked)
+    if (!q->chunked) {
         return;
-    assert (!q->chunk_started);
-    q->chunk_started     = true;
-    q->chunk_hdr_offs    = ob_reserve(ob, 12);
+    }
+    assert(!q->chunk_started);
+    q->chunk_started = true;
+    q->chunk_hdr_offs = ob_reserve(ob, 12);
     q->chunk_prev_length = ob->length;
 }
 
-void httpc_query_chunk_done_(httpc_query_t * nonnull q,
-                             outbuf_t * nonnull ob);
-static inline void httpc_query_chunk_done(httpc_query_t * nonnull q,
-                                          outbuf_t * nonnull ob)
+void httpc_query_chunk_done_(httpc_query_t *nonnull q, outbuf_t *nonnull ob);
+static inline void
+httpc_query_chunk_done(httpc_query_t *nonnull q, outbuf_t *nonnull ob)
 {
-    if (q->chunked)
+    if (q->chunked) {
         httpc_query_chunk_done_(q, ob);
+    }
 }
 
 /** Add "Authorization" header field using basic authentication.
@@ -1125,8 +1139,9 @@ static inline void httpc_query_chunk_done(httpc_query_t * nonnull q,
  * \param[in]  login  the login
  * \param[in]  passwd the password
  */
-void httpc_query_hdrs_add_auth(httpc_query_t * nonnull q, lstr_t login,
-                               lstr_t passwd);
+void httpc_query_hdrs_add_auth(
+    httpc_query_t *nonnull q, lstr_t login, lstr_t passwd
+);
 
 /** Add "Proxy-Authorization" header field using basic authentication.
  *
@@ -1134,20 +1149,21 @@ void httpc_query_hdrs_add_auth(httpc_query_t * nonnull q, lstr_t login,
  * \param[in]  login  the login
  * \param[in]  passwd the password
  */
-void httpc_query_hdrs_add_proxy_auth(httpc_query_t * nonnull q, lstr_t login,
-                                     lstr_t passwd);
+void httpc_query_hdrs_add_proxy_auth(
+    httpc_query_t *nonnull q, lstr_t login, lstr_t passwd
+);
 
-static inline void httpc_query_hdrs_add(httpc_query_t * nonnull q, lstr_t hdr)
+static inline void httpc_query_hdrs_add(httpc_query_t *nonnull q, lstr_t hdr)
 {
     outbuf_t *ob = &q->owner->ob;
 
-    assert (q->hdrs_started && !q->hdrs_done);
+    assert(q->hdrs_started && !q->hdrs_done);
     ob_add(ob, hdr.s, hdr.len);
     ob_adds(ob, "\r\n");
 }
 
-static inline void httpc_query_hdrs_adds(httpc_query_t * nonnull q,
-                                         const char * nonnull hdr)
+static inline void
+httpc_query_hdrs_adds(httpc_query_t *nonnull q, const char *nonnull hdr)
 {
     httpc_query_hdrs_add(q, LSTR(hdr));
 }
@@ -1159,9 +1175,9 @@ MODULE_DECLARE(http);
 
 /* }}} */
 
-#if __has_feature(nullability)
-#pragma GCC diagnostic pop
-#endif
+#  if __has_feature(nullability)
+#    pragma GCC diagnostic pop
+#  endif
 
 #endif
 #endif

@@ -19,61 +19,63 @@
 #include <lib-common/sort.h>
 
 #define SIMPLE_SORT
-#define type_t   uint8_t
-#define dsort    dsort8
-#define uniq     uniq8
+#define type_t uint8_t
+#define dsort dsort8
+#define uniq uniq8
 #include "sort-numeric.in.c"
 
 #define SIMPLE_SORT
-#define type_t    int8_t
-#define utype_t   uint8_t
-#define TYPE_MIN  INT8_MIN
-#define dsort     dsort_i8
+#define type_t int8_t
+#define utype_t uint8_t
+#define TYPE_MIN INT8_MIN
+#define dsort dsort_i8
 #include "sort-numeric.in.c"
 
-#define type_t   uint16_t
-#define dsort    dsort16
-#define uniq     uniq16
+#define type_t uint16_t
+#define dsort dsort16
+#define uniq uniq16
 #include "sort-numeric.in.c"
 
-#define type_t    int16_t
-#define utype_t   uint16_t
-#define TYPE_MIN  INT16_MIN
-#define dsort     dsort_i16
+#define type_t int16_t
+#define utype_t uint16_t
+#define TYPE_MIN INT16_MIN
+#define dsort dsort_i16
 #include "sort-numeric.in.c"
 
-#define type_t   uint32_t
-#define dsort    dsort32
-#define uniq     uniq32
+#define type_t uint32_t
+#define dsort dsort32
+#define uniq uniq32
 #include "sort-numeric.in.c"
 
-#define type_t    int32_t
-#define utype_t   uint32_t
-#define TYPE_MIN  INT32_MIN
-#define dsort     dsort_i32
+#define type_t int32_t
+#define utype_t uint32_t
+#define TYPE_MIN INT32_MIN
+#define dsort dsort_i32
 #include "sort-numeric.in.c"
 
-#define type_t   uint64_t
-#define dsort    dsort64
-#define uniq     uniq64
+#define type_t uint64_t
+#define dsort dsort64
+#define uniq uniq64
 #include "sort-numeric.in.c"
 
-#define type_t    int64_t
-#define utype_t   uint64_t
-#define TYPE_MIN  INT64_MIN
-#define dsort     dsort_i64
+#define type_t int64_t
+#define utype_t uint64_t
+#define TYPE_MIN INT64_MIN
+#define dsort dsort_i64
 #include "sort-numeric.in.c"
 
-#define t(ptr, p)  (((byte *)(ptr)) + (size * (p)))
+#define t(ptr, p) (((byte *)(ptr)) + (size * (p)))
 
-size_t uniq(void *data, size_t size, size_t nmemb, cmp_r_t *cmp,
-            void *cmp_arg, del_r_t * nullable del, void *del_arg)
+size_t uniq(
+    void *data, size_t size, size_t nmemb, cmp_r_t *cmp, void *cmp_arg,
+    del_r_t *nullable del, void *del_arg
+)
 {
     for (size_t i = 1; i < nmemb; i++) {
         if (unlikely(cmp(t(data, i), t(data, i - 1), cmp_arg) == 0)) {
             void *end = t(data, nmemb);
-            void *w   = t(data, i);
-            void *r   = t(data, i + 1);
+            void *w = t(data, i);
+            void *r = t(data, i + 1);
 
             if (del) {
                 del(w, del_arg);
@@ -107,8 +109,10 @@ size_t uniq(void *data, size_t size, size_t nmemb, cmp_r_t *cmp,
     return nmemb;
 }
 
-size_t bisect(const void *what, const void *data, size_t size, size_t nmemb,
-              bool *found, cmp_r_t *cmp, void *arg)
+size_t bisect(
+    const void *what, const void *data, size_t size, size_t nmemb,
+    bool *found, cmp_r_t *cmp, void *arg
+)
 {
     size_t l = 0, r = nmemb;
 
@@ -134,8 +138,10 @@ size_t bisect(const void *what, const void *data, size_t size, size_t nmemb,
     return r;
 }
 
-bool contains(const void *what, const void *data, size_t size, size_t nmemb,
-              cmp_r_t *cmp, void *arg)
+bool contains(
+    const void *what, const void *data, size_t size, size_t nmemb,
+    cmp_r_t *cmp, void *arg
+)
 {
     size_t l = 0, r = nmemb;
 
@@ -143,8 +149,9 @@ bool contains(const void *what, const void *data, size_t size, size_t nmemb,
         size_t i = (l + r) / 2;
         int d = cmp(what, t(data, i), arg);
 
-        if (d == 0)
+        if (d == 0) {
             return true;
+        }
         if (d < 0) {
             r = i;
         } else {
@@ -168,22 +175,25 @@ static void del_blk(void *v, void *arg)
     del(v);
 }
 
-size_t uniq_blk(void *data, size_t size, size_t nmemb, cmp_b cmp,
-                del_b nullable del)
+size_t
+uniq_blk(void *data, size_t size, size_t nmemb, cmp_b cmp, del_b nullable del)
 {
     del_r_t *del_cb = del ? &del_blk : NULL;
 
     return uniq(data, size, nmemb, &cmp_blk, cmp, del_cb, del);
 }
 
-size_t bisect_blk(const void *what, const void *data, size_t size,
-                  size_t nmemb, bool *found, cmp_b cmp)
+size_t bisect_blk(
+    const void *what, const void *data, size_t size, size_t nmemb,
+    bool *found, cmp_b cmp
+)
 {
     return bisect(what, data, size, nmemb, found, &cmp_blk, cmp);
 }
 
-bool contains_blk(const void *what, const void *data, size_t size,
-                  size_t nmemb, cmp_b cmp)
+bool contains_blk(
+    const void *what, const void *data, size_t size, size_t nmemb, cmp_b cmp
+)
 {
     return contains(what, data, size, nmemb, &cmp_blk, cmp);
 }

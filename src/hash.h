@@ -23,39 +23,39 @@
 #include <lib-common/arith.h>
 
 #if __has_feature(nullability)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic error "-Wnullability-completeness"
-#if __has_warning("-Wnullability-completeness-on-arrays")
-#pragma GCC diagnostic ignored "-Wnullability-completeness-on-arrays"
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic error "-Wnullability-completeness"
+#  if __has_warning("-Wnullability-completeness-on-arrays")
+#    pragma GCC diagnostic ignored "-Wnullability-completeness-on-arrays"
+#  endif
 #endif
-#endif
 
-#define SHA1_DIGEST_SIZE    (160 / 8)
-#define SHA224_DIGEST_SIZE  (224 / 8)
-#define SHA256_DIGEST_SIZE  (256 / 8)
-#define SHA384_DIGEST_SIZE  (384 / 8)
-#define SHA512_DIGEST_SIZE  (512 / 8)
-#define MD5_DIGEST_SIZE     (128 / 8)
+#define SHA1_DIGEST_SIZE (160 / 8)
+#define SHA224_DIGEST_SIZE (224 / 8)
+#define SHA256_DIGEST_SIZE (256 / 8)
+#define SHA384_DIGEST_SIZE (384 / 8)
+#define SHA512_DIGEST_SIZE (512 / 8)
+#define MD5_DIGEST_SIZE (128 / 8)
 
-#define MD5_HEX_DIGEST_SIZE     (MD5_DIGEST_SIZE    * 2 + 1)
-#define SHA1_HEX_DIGEST_SIZE    (SHA1_DIGEST_SIZE   * 2 + 1)
-#define SHA224_HEX_DIGEST_SIZE  (SHA224_DIGEST_SIZE * 2 + 1)
-#define SHA256_HEX_DIGEST_SIZE  (SHA256_DIGEST_SIZE * 2 + 1)
-#define SHA384_HEX_DIGEST_SIZE  (SHA384_DIGEST_SIZE * 2 + 1)
-#define SHA512_HEX_DIGEST_SIZE  (SHA512_DIGEST_SIZE * 2 + 1)
+#define MD5_HEX_DIGEST_SIZE (MD5_DIGEST_SIZE * 2 + 1)
+#define SHA1_HEX_DIGEST_SIZE (SHA1_DIGEST_SIZE * 2 + 1)
+#define SHA224_HEX_DIGEST_SIZE (SHA224_DIGEST_SIZE * 2 + 1)
+#define SHA256_HEX_DIGEST_SIZE (SHA256_DIGEST_SIZE * 2 + 1)
+#define SHA384_HEX_DIGEST_SIZE (SHA384_DIGEST_SIZE * 2 + 1)
+#define SHA512_HEX_DIGEST_SIZE (SHA512_DIGEST_SIZE * 2 + 1)
 
-#define SHA1_BLOCK_SIZE     ( 512 / 8)
-#define SHA256_BLOCK_SIZE   ( 512 / 8)
-#define SHA512_BLOCK_SIZE   (1024 / 8)
-#define SHA384_BLOCK_SIZE   SHA512_BLOCK_SIZE
-#define SHA224_BLOCK_SIZE   SHA256_BLOCK_SIZE
+#define SHA1_BLOCK_SIZE (512 / 8)
+#define SHA256_BLOCK_SIZE (512 / 8)
+#define SHA512_BLOCK_SIZE (1024 / 8)
+#define SHA384_BLOCK_SIZE SHA512_BLOCK_SIZE
+#define SHA224_BLOCK_SIZE SHA256_BLOCK_SIZE
 
-#define DES3_BLOCK_SIZE  (64 / 8)
+#define DES3_BLOCK_SIZE (64 / 8)
 
-#define GET_U32_LE(n,b,i)    ((n) = cpu_to_le32pu((b) + (i)))
-#define PUT_U32_LE(n,b,i)    (*acast(le32_t, (b) + (i)) = cpu_to_le32(n))
-#define GET_U32_BE(n,b,i)    ((n) = cpu_to_be32pu((b) + (i)))
-#define PUT_U32_BE(n,b,i)    (*acast(be32_t, (b) + (i)) = cpu_to_be32(n))
+#define GET_U32_LE(n, b, i) ((n) = cpu_to_le32pu((b) + (i)))
+#define PUT_U32_LE(n, b, i) (*acast(le32_t, (b) + (i)) = cpu_to_le32(n))
+#define GET_U32_BE(n, b, i) ((n) = cpu_to_be32pu((b) + (i)))
+#define PUT_U32_BE(n, b, i) (*acast(be32_t, (b) + (i)) = cpu_to_be32(n))
 
 #include "crypto/aes.h"
 #include "crypto/des.h"
@@ -69,33 +69,36 @@ typedef struct jenkins_ctx {
     uint32_t hash;
 } jenkins_ctx;
 
-void jenkins_starts(jenkins_ctx * nonnull ctx) __attr_leaf__;
-void jenkins_update(jenkins_ctx * nonnull ctx, const void * nonnull input,
-                    ssize_t len) __attr_leaf__;
-void jenkins_update_ascii_lower(jenkins_ctx *nonnull ctx,
-                                const void *nonnull input,
-                                ssize_t len) __attr_leaf__;
-void jenkins_finish(jenkins_ctx * nonnull ctx, byte output[4]) __attr_leaf__;
+void jenkins_starts(jenkins_ctx *nonnull ctx) __attr_leaf__;
+void jenkins_update(
+    jenkins_ctx *nonnull ctx, const void *nonnull input, ssize_t len
+) __attr_leaf__;
+void jenkins_update_ascii_lower(
+    jenkins_ctx *nonnull ctx, const void *nonnull input, ssize_t len
+) __attr_leaf__;
+void jenkins_finish(jenkins_ctx *nonnull ctx, byte output[4]) __attr_leaf__;
 
 typedef struct murmur_hash3_x86_32_ctx {
     uint32_t h1;
     uint32_t tail;
-    size_t   len;
-    uint8_t  tail_len;
+    size_t len;
+    uint8_t tail_len;
 } murmur_hash3_x86_32_ctx;
 
-void murmur_hash3_x86_32_starts(murmur_hash3_x86_32_ctx * nonnull ctx,
-                                uint32_t seed) __attr_leaf__;
-void murmur_hash3_x86_32_update(murmur_hash3_x86_32_ctx * nonnull ctx,
-                                const void * nonnull key, size_t len)
-    __attr_leaf__;
-void murmur_hash3_x86_32_finish(murmur_hash3_x86_32_ctx * nonnull ctx,
-                                byte output[4]) __attr_leaf__;
+void murmur_hash3_x86_32_starts(
+    murmur_hash3_x86_32_ctx *nonnull ctx, uint32_t seed
+) __attr_leaf__;
+void murmur_hash3_x86_32_update(
+    murmur_hash3_x86_32_ctx *nonnull ctx, const void *nonnull key, size_t len
+) __attr_leaf__;
+void murmur_hash3_x86_32_finish(
+    murmur_hash3_x86_32_ctx *nonnull ctx, byte output[4]
+) __attr_leaf__;
 
 #ifdef __cplusplus
-#define murmur_128bits_buf byte out[]
+#  define murmur_128bits_buf byte out[]
 #else
-#define murmur_128bits_buf byte out[static 16]
+#  define murmur_128bits_buf byte out[static 16]
 #endif
 
 typedef union murmur_128_blk_t {
@@ -110,68 +113,71 @@ typedef struct murmur_hash3_x64_128_ctx_t {
     uint64_t h1;
     uint64_t h2;
     murmur_128_blk_t tail;
-    size_t   len;
-    int      tail_len;
+    size_t len;
+    int tail_len;
 } murmur_hash3_x64_128_ctx_t;
 
-__attr_nonnull__((1)) static ALWAYS_INLINE void
-murmur_hash3_x64_128_starts(murmur_hash3_x64_128_ctx_t *nonnull ctx,
-                            const uint32_t seed)
+__attr_nonnull__((1)) static ALWAYS_INLINE void murmur_hash3_x64_128_starts(
+    murmur_hash3_x64_128_ctx_t *nonnull ctx, const uint32_t seed
+)
 {
     *ctx = (murmur_hash3_x64_128_ctx_t){
         .h1 = seed,
         .h2 = seed,
-        .tail = { .blk = 0 },
+        .tail = {.blk = 0},
         .len = 0,
         .tail_len = 0,
     };
 }
 
-__attr_nonnull__((1)) void
-murmur_hash3_x64_128_update(murmur_hash3_x64_128_ctx_t *nonnull ctx,
-                            const void *nullable key, size_t len)
-    __attr_leaf__;
-__attr_nonnull__((1)) void
-murmur_hash3_x64_128_finish(murmur_hash3_x64_128_ctx_t *nonnull ctx,
-                            murmur_128bits_buf) __attr_leaf__;
+__attr_nonnull__((1)) void murmur_hash3_x64_128_update(
+    murmur_hash3_x64_128_ctx_t *nonnull ctx, const void *nullable key,
+    size_t len
+) __attr_leaf__;
+__attr_nonnull__((1)) void murmur_hash3_x64_128_finish(
+    murmur_hash3_x64_128_ctx_t *nonnull ctx, murmur_128bits_buf
+) __attr_leaf__;
 
-#define MEM_HASH32_MURMUR_SEED  0xdeadc0de
+#define MEM_HASH32_MURMUR_SEED 0xdeadc0de
 
 #define HASH32_IMPL(method, ...)                                             \
-typedef struct hash32_ctx {                                                  \
-    method##_ctx ctx;                                                        \
-} hash32_ctx;                                                                \
-static inline void hash32_starts(hash32_ctx *nonnull ctx)                    \
-{                                                                            \
-    method##_starts(&ctx->ctx, ##__VA_ARGS__);                               \
-}                                                                            \
-static inline void hash32_update(hash32_ctx *nonnull ctx,                    \
-                                 const void *nonnull input, ssize_t len)     \
-{                                                                            \
-    method##_update(&ctx->ctx, input, len);                                  \
-}                                                                            \
-static inline void hash32_finish(hash32_ctx *nonnull ctx, byte output[4])    \
-{                                                                            \
-    method##_finish(&ctx->ctx, output);                                      \
-}
+    typedef struct hash32_ctx {                                              \
+        method##_ctx ctx;                                                    \
+    } hash32_ctx;                                                            \
+    static inline void hash32_starts(hash32_ctx *nonnull ctx)                \
+    {                                                                        \
+        method##_starts(&ctx->ctx, ##__VA_ARGS__);                           \
+    }                                                                        \
+    static inline void hash32_update(                                        \
+        hash32_ctx *nonnull ctx, const void *nonnull input, ssize_t len      \
+    )                                                                        \
+    {                                                                        \
+        method##_update(&ctx->ctx, input, len);                              \
+    }                                                                        \
+    static inline void hash32_finish(                                        \
+        hash32_ctx *nonnull ctx, byte output[4]                              \
+    )                                                                        \
+    {                                                                        \
+        method##_finish(&ctx->ctx, output);                                  \
+    }
 
 #if defined(__x86_64__) || defined(__i386__)
-    HASH32_IMPL(murmur_hash3_x86_32, MEM_HASH32_MURMUR_SEED);
+HASH32_IMPL(murmur_hash3_x86_32, MEM_HASH32_MURMUR_SEED);
 #else
-    HASH32_IMPL(jenkins);
+HASH32_IMPL(jenkins);
 #endif
 
 #undef HASH32_IMPL
 
 #include "crypto/iop.h"
 
-uint32_t icrc32(uint32_t crc, const void * nonnull data, ssize_t len)
-    __attr_leaf__;
-uint64_t icrc64(uint64_t crc, const void * nonnull data, ssize_t len)
-    __attr_leaf__;
+uint32_t
+icrc32(uint32_t crc, const void *nonnull data, ssize_t len) __attr_leaf__;
+uint64_t
+icrc64(uint64_t crc, const void *nonnull data, ssize_t len) __attr_leaf__;
 
-uint32_t hsieh_hash(const void * nonnull s, ssize_t len) __attr_leaf__;
-uint32_t jenkins_hash(const void * nonnull s, ssize_t len) __attr_leaf__;
+uint32_t hsieh_hash(const void *nonnull s, ssize_t len) __attr_leaf__;
+uint32_t jenkins_hash(const void *nonnull s, ssize_t len) __attr_leaf__;
 
 /** Variant of jenkins_hash() but lowering the input ASCII string.
  *
@@ -179,22 +185,24 @@ uint32_t jenkins_hash(const void * nonnull s, ssize_t len) __attr_leaf__;
  * case-insensitive ASCII strings. It will apply the tolower() function on
  * every character of the input string when computing the hash.
  */
-uint32_t jenkins_hash_ascii_lower(const void *nonnull s, ssize_t len)
-    __attr_leaf__;
+uint32_t
+jenkins_hash_ascii_lower(const void *nonnull s, ssize_t len) __attr_leaf__;
 
-uint32_t murmur_hash3_x86_32(const void * nonnull key, size_t len,
-                             uint32_t seed) __attr_leaf__;
-void     murmur_hash3_x86_128(const void * nonnull key, size_t len,
-                              uint32_t seed, murmur_128bits_buf)
-    __attr_leaf__;
-void     murmur_hash3_x64_128(const void * nonnull key, size_t len,
-                              uint32_t seed, murmur_128bits_buf)
-    __attr_leaf__;
+uint32_t murmur_hash3_x86_32(
+    const void *nonnull key, size_t len, uint32_t seed
+) __attr_leaf__;
+void murmur_hash3_x86_128(
+    const void *nonnull key, size_t len, uint32_t seed, murmur_128bits_buf
+) __attr_leaf__;
+void murmur_hash3_x64_128(
+    const void *nonnull key, size_t len, uint32_t seed, murmur_128bits_buf
+) __attr_leaf__;
 
-static inline uint32_t mem_hash32(const void * nonnull data, ssize_t len)
+static inline uint32_t mem_hash32(const void *nonnull data, ssize_t len)
 {
-    if (unlikely(len < 0))
+    if (unlikely(len < 0)) {
         len = strlen((const char *)data);
+    }
 #if defined(__x86_64__) || defined(__i386__)
     return murmur_hash3_x86_32(data, len, MEM_HASH32_MURMUR_SEED);
 #else
@@ -207,22 +215,22 @@ static inline uint32_t u64_hash32(uint64_t u64)
     return mem_hash32(&u64, sizeof(u64));
 }
 
-uint64_t identity_hash_64(const void * nonnull data, ssize_t len);
+uint64_t identity_hash_64(const void *nonnull data, ssize_t len);
 
-uint64_t murmur3_128_hash_64(const void * nonnull data, ssize_t len);
+uint64_t murmur3_128_hash_64(const void *nonnull data, ssize_t len);
 
-static inline uint64_t crc64_hash_64(const void * nonnull data, ssize_t len)
+static inline uint64_t crc64_hash_64(const void *nonnull data, ssize_t len)
 {
     return icrc64(0, data, len);
 }
 
-static inline uint64_t hsieh_hash_64(const void * nonnull data, ssize_t len)
+static inline uint64_t hsieh_hash_64(const void *nonnull data, ssize_t len)
 {
     return hsieh_hash(data, len);
 }
 
 #if __has_feature(nullability)
-#pragma GCC diagnostic pop
+#  pragma GCC diagnostic pop
 #endif
 
 #endif

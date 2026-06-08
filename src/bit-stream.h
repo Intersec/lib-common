@@ -37,7 +37,7 @@
 
 struct bit_ptroff {
     union {
-        const byte     *b;
+        const byte *b;
         const uint64_t *p;
     };
     size_t offset;
@@ -54,7 +54,7 @@ static inline void bit_ptroff_add(struct bit_ptroff *s, size_t offset)
 {
     s->offset += offset;
     if (s->offset >= 64) {
-        s->p      += s->offset / 64;
+        s->p += s->offset / 64;
         s->offset %= 64;
     }
 }
@@ -89,23 +89,24 @@ static inline void bit_ptroff_normalize(struct bit_ptroff *s)
     bit_ptroff_add(s, 0);
 }
 
-#define BIT_PTROFF_INIT(Ptr, Offset)    { { (const byte *)(Ptr) }, (Offset) }
-#define BIT_PTROFF_NORMALIZED(Ptr, Offset) ({                                \
+#define BIT_PTROFF_INIT(Ptr, Offset) {{(const byte *)(Ptr)}, (Offset)}
+#define BIT_PTROFF_NORMALIZED(Ptr, Offset)                                   \
+    ({                                                                       \
         struct bit_ptroff __poff = BIT_PTROFF_INIT(Ptr, Offset);             \
         bit_ptroff_normalize(&__poff);                                       \
         __poff;                                                              \
     })
 
-#define BIT_PTROFF_CMP(P1, P2)  \
+#define BIT_PTROFF_CMP(P1, P2)                                               \
     (CMP((P1)->p, (P2)->p) ?: CMP((P1)->offset, (P2)->offset))
-#define BIT_PTROFF_LEN(P1, P2)  \
+#define BIT_PTROFF_LEN(P1, P2)                                               \
     (((P2)->p - (P1)->p) * 64 - (P1)->offset + (P2)->offset)
 
 /* }}} */
 /* Init {{{ */
 
-static inline bit_stream_t bs_init_ptroff(const void *s, size_t s_offset,
-                                          const void *e, size_t e_offset)
+static inline bit_stream_t
+bs_init_ptroff(const void *s, size_t s_offset, const void *e, size_t e_offset)
 {
     bit_stream_t bs = {
         BIT_PTROFF_NORMALIZED(s, s_offset),
@@ -114,21 +115,18 @@ static inline bit_stream_t bs_init_ptroff(const void *s, size_t s_offset,
     return bs;
 }
 
-static ALWAYS_INLINE
-bit_stream_t bs_init_ptr(const void *s, const void *e)
+static ALWAYS_INLINE bit_stream_t bs_init_ptr(const void *s, const void *e)
 {
     return bs_init_ptroff(s, 0, e, 0);
 }
 
-static ALWAYS_INLINE
-bit_stream_t bs_init(const void *data, size_t bstart, size_t blen)
+static ALWAYS_INLINE bit_stream_t
+bs_init(const void *data, size_t bstart, size_t blen)
 {
     return bs_init_ptroff(data, bstart, data, bstart + blen);
 }
 
-
-static ALWAYS_INLINE
-bit_stream_t bs_init_ps(const pstream_t *ps, size_t pad)
+static ALWAYS_INLINE bit_stream_t bs_init_ps(const pstream_t *ps, size_t pad)
 {
     return bs_init_ptroff(ps->p, 0, ps->p, ps_len(ps) * 8 - pad);
 }
@@ -141,8 +139,8 @@ static inline bit_stream_t bs_init_bb(const bb_t *bb)
 /* }}} */
 /* Checking constraints {{{ */
 
-#define BS_WANT(c)   PS_WANT(c)
-#define BS_CHECK(c)  PS_CHECK(c)
+#define BS_WANT(c) PS_WANT(c)
+#define BS_CHECK(c) PS_CHECK(c)
 
 static inline size_t bs_len(const bit_stream_t *bs)
 {
@@ -164,15 +162,14 @@ static inline bool bs_done(const bit_stream_t *bs)
     return BIT_PTROFF_CMP(&bs->s, &bs->e) >= 0;
 }
 
-static inline bool __bs_contains(const bit_stream_t *bs,
-                                 const struct bit_ptroff *p)
+static inline bool
+__bs_contains(const bit_stream_t *bs, const struct bit_ptroff *p)
 {
-    return BIT_PTROFF_CMP(&bs->s, p) <= 0
-        && BIT_PTROFF_CMP(p, &bs->e) <= 0;
+    return BIT_PTROFF_CMP(&bs->s, p) <= 0 && BIT_PTROFF_CMP(p, &bs->e) <= 0;
 }
 
-static inline bool bs_contains(const bit_stream_t *bs, const void *p,
-                               size_t off)
+static inline bool
+bs_contains(const bit_stream_t *bs, const void *p, size_t off)
 {
     struct bit_ptroff poff = BIT_PTROFF_NORMALIZED(p, off);
 
@@ -206,7 +203,8 @@ static inline ssize_t bs_align(bit_stream_t *bs)
     return 0;
 }
 
-static inline ssize_t __bs_skip_upto(bit_stream_t *bs, const struct bit_ptroff *p)
+static inline ssize_t
+__bs_skip_upto(bit_stream_t *bs, const struct bit_ptroff *p)
 {
     size_t skipped = BIT_PTROFF_LEN(&bs->s, p);
 
@@ -214,7 +212,8 @@ static inline ssize_t __bs_skip_upto(bit_stream_t *bs, const struct bit_ptroff *
     return skipped;
 }
 
-static inline ssize_t bs_skip_upto(bit_stream_t *bs, const void *p, size_t off)
+static inline ssize_t
+bs_skip_upto(bit_stream_t *bs, const void *p, size_t off)
 {
     struct bit_ptroff poff = BIT_PTROFF_NORMALIZED(p, off);
 
@@ -233,7 +232,6 @@ static inline ssize_t bs_shrink(bit_stream_t *bs, size_t len)
     return unlikely(!bs_has(bs, len)) ? -1 : __bs_shrink(bs, len);
 }
 
-
 static inline ssize_t __bs_clip(bit_stream_t *bs, size_t blen)
 {
     ssize_t skipped = bs_len(bs) - blen;
@@ -249,8 +247,8 @@ static inline ssize_t bs_clip(bit_stream_t *bs, size_t blen)
     return unlikely(!bs_has(bs, blen)) ? -1 : __bs_clip(bs, blen);
 }
 
-
-static inline ssize_t __bs_clip_at(bit_stream_t *bs, const struct bit_ptroff *p)
+static inline ssize_t
+__bs_clip_at(bit_stream_t *bs, const struct bit_ptroff *p)
 {
     ssize_t skipped = BIT_PTROFF_LEN(p, &bs->e);
 
@@ -268,15 +266,15 @@ static inline ssize_t bs_clip_at(bit_stream_t *bs, const void *p, size_t off)
 /* }}} */
 /* Bulk extraction {{{ */
 
-static inline bit_stream_t __bs_extract_after(const bit_stream_t *bs,
-                                              const struct bit_ptroff *p)
+static inline bit_stream_t
+__bs_extract_after(const bit_stream_t *bs, const struct bit_ptroff *p)
 {
-    return (bit_stream_t){ *p, bs->e };
+    return (bit_stream_t){*p, bs->e};
 }
 
-static inline
-int bs_extract_after(const bit_stream_t *bs, const void *p, size_t off,
-                     bit_stream_t *out)
+static inline int bs_extract_after(
+    const bit_stream_t *bs, const void *p, size_t off, bit_stream_t *out
+)
 {
     struct bit_ptroff poff = BIT_PTROFF_NORMALIZED(p, off);
 
@@ -285,17 +283,17 @@ int bs_extract_after(const bit_stream_t *bs, const void *p, size_t off,
     return 0;
 }
 
-static inline
-bit_stream_t __bs_get_bs_upto(bit_stream_t *bs, const struct bit_ptroff *p)
+static inline bit_stream_t
+__bs_get_bs_upto(bit_stream_t *bs, const struct bit_ptroff *p)
 {
-    bit_stream_t n = { bs->s, *p };
+    bit_stream_t n = {bs->s, *p};
 
     bs->s = *p;
     return n;
 }
 
-static inline int bs_get_bs_upto(bit_stream_t *bs, const void *p, size_t off,
-                                 bit_stream_t *out)
+static inline int
+bs_get_bs_upto(bit_stream_t *bs, const void *p, size_t off, bit_stream_t *out)
 {
     struct bit_ptroff poff = BIT_PTROFF_NORMALIZED(p, off);
 
@@ -306,9 +304,9 @@ static inline int bs_get_bs_upto(bit_stream_t *bs, const void *p, size_t off,
 
 static inline bit_stream_t __bs_get_bs(bit_stream_t *bs, size_t blen)
 {
-    struct bit_ptroff poff = BIT_PTROFF_NORMALIZED(bs->s.p,
-                                                   bs->s.offset + blen);
-    bit_stream_t sub = { bs->s, poff };
+    struct bit_ptroff poff =
+        BIT_PTROFF_NORMALIZED(bs->s.p, bs->s.offset + blen);
+    bit_stream_t sub = {bs->s, poff};
 
     bs->s = poff;
     return sub;
@@ -367,11 +365,12 @@ static inline uint64_t __bs_peek_bits(const bit_stream_t *bs, size_t blen)
 {
     uint64_t res;
 
-    assert (blen <= 64);
-    if (unlikely(!blen))
+    assert(blen <= 64);
+    if (unlikely(!blen)) {
         return 0;
+    }
 
-    assert (bs_has(bs, blen));
+    assert(bs_has(bs, blen));
 
     if (bs->e.p == bs->s.p) {
         mem_tool_allow_memory(bs->s.p, 8, true);
@@ -517,8 +516,8 @@ static inline int bs_be_get_bits(bit_stream_t *bs, size_t blen, uint64_t *out)
 static inline int __bs_be_peek_last_bit(const bit_stream_t *bs)
 {
     if (bs->e.offset) {
-        int offset = ((bs->e.offset - 1) & ~7ul) + 7
-            - ((bs->e.offset - 1) % 8);
+        int offset =
+            ((bs->e.offset - 1) & ~7ul) + 7 - ((bs->e.offset - 1) % 8);
 
         return (*bs->e.p >> offset) & 1;
     } else {
@@ -561,9 +560,9 @@ bs_be_get_last_bits(bit_stream_t *bs, size_t blen, uint64_t *out)
 /* }}} */
 /* Scans {{{ */
 
-static inline int __bs_scan_forward(const bit_stream_t *bs, bool b,
-                                    struct bit_ptroff *poff,
-                                    ssize_t max_len)
+static inline int __bs_scan_forward(
+    const bit_stream_t *bs, bool b, struct bit_ptroff *poff, ssize_t max_len
+)
 {
     size_t pos;
 
@@ -577,7 +576,7 @@ static inline int __bs_scan_forward(const bit_stream_t *bs, bool b,
 static inline ssize_t
 bs_skip_upto_bit(bit_stream_t *bs, bool b, ssize_t max_len)
 {
-    struct bit_ptroff poff = { { NULL }, 0 };
+    struct bit_ptroff poff = {{NULL}, 0};
 
     BS_CHECK(__bs_scan_forward(bs, b, &poff, max_len));
     return __bs_skip_upto(bs, &poff);
@@ -591,24 +590,22 @@ bs_skip_after_bit(bit_stream_t *bs, bool b, ssize_t max_len)
 
 static inline int bs_get_bs_bit(bit_stream_t *bs, bool b, bit_stream_t *out)
 {
-    struct bit_ptroff poff = { { NULL }, 0 };
+    struct bit_ptroff poff = {{NULL}, 0};
 
     BS_CHECK(__bs_scan_forward(bs, b, &poff, -1));
     *out = __bs_get_bs_upto(bs, &poff);
     return 0;
 }
 
-static inline int bs_get_bs_bit_and_skip(bit_stream_t *bs, bool b,
-                                         bit_stream_t *out)
+static inline int
+bs_get_bs_bit_and_skip(bit_stream_t *bs, bool b, bit_stream_t *out)
 {
     return BS_CHECK(bs_get_bs_bit(bs, b, out)) + __bs_skip(bs, 1);
 }
 
-
-
-static inline int __bs_scan_reverse(const bit_stream_t *bs, bool b,
-                                    struct bit_ptroff *poffp,
-                                    ssize_t max_len)
+static inline int __bs_scan_reverse(
+    const bit_stream_t *bs, bool b, struct bit_ptroff *poffp, ssize_t max_len
+)
 {
     size_t pos, len = bs_len(bs);
     struct bit_ptroff poff = bs->s;
@@ -626,7 +623,7 @@ static inline int __bs_scan_reverse(const bit_stream_t *bs, bool b,
 static inline ssize_t
 bs_shrink_downto_bit(bit_stream_t *bs, bool b, ssize_t max_len)
 {
-    struct bit_ptroff poff = { { NULL }, 0 };
+    struct bit_ptroff poff = {{NULL}, 0};
 
     BS_CHECK(__bs_scan_reverse(bs, b, &poff, max_len));
     bit_ptroff_add(&poff, 1);
@@ -636,7 +633,7 @@ bs_shrink_downto_bit(bit_stream_t *bs, bool b, ssize_t max_len)
 static inline ssize_t
 bs_shrink_before_bit(bit_stream_t *bs, bool b, ssize_t max_len)
 {
-    struct bit_ptroff poff = { { NULL }, 0 };
+    struct bit_ptroff poff = {{NULL}, 0};
 
     BS_CHECK(__bs_scan_reverse(bs, b, &poff, max_len));
     return __bs_clip_at(bs, &poff);
@@ -650,8 +647,9 @@ static inline bool bs_equals(bit_stream_t bs1, bit_stream_t bs2)
 {
     size_t len = bs_len(&bs1);
 
-    if (len != bs_len(&bs2))
+    if (len != bs_len(&bs2)) {
         return false;
+    }
 
     while (!bs_done(&bs1)) {
         if (__bs_get_bit(&bs1) != __bs_get_bit(&bs2)) {
@@ -704,31 +702,35 @@ static inline char *t_print_bs(bit_stream_t bs, size_t *len)
 }
 
 #ifndef NDEBUG
-#  define e_trace_be_bs(lvl, bs, fmt, ...)  \
-    ({                                                                     \
-        t_scope;                                                           \
-        static const char spaces[] = "         ";                          \
-                                                                           \
-        uint8_t start_blank = bs_is_aligned(bs) ? 0                        \
-                                                : ((bs)->s.offset % 8) + 1;\
-                                                                           \
-        e_trace(lvl, "[ %s%s%s ] --(%2zu) " fmt, spaces + 9 - start_blank, \
-                t_print_be_bs(*(bs), NULL), spaces + 9 - ((bs)->e.offset % 8),\
-                bs_len(bs), ##__VA_ARGS__);                                \
-    })
+#  define e_trace_be_bs(lvl, bs, fmt, ...)                                   \
+      ({                                                                     \
+        t_scope;                                                             \
+        static const char spaces[] = "         ";                            \
+                                                                             \
+        uint8_t start_blank =                                                \
+            bs_is_aligned(bs) ? 0 : ((bs)->s.offset % 8) + 1;                \
+                                                                             \
+        e_trace(                                                             \
+            lvl, "[ %s%s%s ] --(%2zu) " fmt, spaces + 9 - start_blank,       \
+            t_print_be_bs(*(bs), NULL), spaces + 9 - ((bs)->e.offset % 8),   \
+            bs_len(bs), ##__VA_ARGS__                                        \
+        );                                                                   \
+      })
 
-#  define e_trace_bs(lvl, bs, fmt, ...)  \
-    ({                                                                     \
-        t_scope;                                                           \
-        static const char spaces[] = "         ";                          \
-                                                                           \
-        uint8_t start_blank = bs_is_aligned(bs) ? 0                        \
-                                                : ((bs)->s.offset % 8) + 1;\
-                                                                           \
-        e_trace(lvl, "[ %s%s%s ] --(%2zu) " fmt, spaces + 9 - start_blank, \
-                t_print_bs(*(bs), NULL), spaces + 9 - ((bs)->e.offset % 8),\
-                bs_len(bs), ##__VA_ARGS__);                                \
-    })
+#  define e_trace_bs(lvl, bs, fmt, ...)                                      \
+      ({                                                                     \
+        t_scope;                                                             \
+        static const char spaces[] = "         ";                            \
+                                                                             \
+        uint8_t start_blank =                                                \
+            bs_is_aligned(bs) ? 0 : ((bs)->s.offset % 8) + 1;                \
+                                                                             \
+        e_trace(                                                             \
+            lvl, "[ %s%s%s ] --(%2zu) " fmt, spaces + 9 - start_blank,       \
+            t_print_bs(*(bs), NULL), spaces + 9 - ((bs)->e.offset % 8),      \
+            bs_len(bs), ##__VA_ARGS__                                        \
+        );                                                                   \
+      })
 
 #else
 #  define e_trace_be_bs(...)

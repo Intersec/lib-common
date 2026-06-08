@@ -88,13 +88,13 @@ qvector_t(z_cbs, z_cb_f);
 
 struct z_export {
     struct z_export *prev;
-    const char      *file;
-    z_cb_f           cb;
+    const char *file;
+    z_cb_f cb;
 };
 
 #ifdef __has_blocks
 struct z_blktst {
-    lstr_t  name;
+    lstr_t name;
     block_t run;
 };
 
@@ -102,14 +102,14 @@ struct z_blkgrp {
     lstr_t name;
     lstr_t file;
 
-    int  (BLOCK_CARET before)(void);
+    int(BLOCK_CARET before)(void);
     block_t after;
 
     block_t setup;
     block_t teardown;
 
     struct z_blktst *tests;
-    size_t           len;
+    size_t len;
 };
 
 qvector_t(z_blk, struct z_blkgrp);
@@ -123,18 +123,18 @@ void z_blkgrp_wipe(struct z_blkgrp *, bool delete_tests);
 
 /** Name of the scratch directory, has a trailing '/' */
 extern lstr_t z_tmpdir_g;
-extern int    z_tmpdfd_g;
+extern int z_tmpdfd_g;
 extern lstr_t z_grpdir_g;
-extern int    z_grpdfd_g;
+extern int z_grpdfd_g;
 extern lstr_t z_cmddir_g;
-extern int    z_cmddfd_g;
+extern int z_cmddfd_g;
 extern uint32_t z_modes_g;
 
 enum z_mode {
     Z_MODE_FAST,
 };
 
-#define Z_HAS_MODE(Name)  TST_BIT(&z_modes_g, Z_MODE_##Name)
+#define Z_HAS_MODE(Name) TST_BIT(&z_modes_g, Z_MODE_##Name)
 
 /* private implementations {{{ */
 
@@ -163,7 +163,7 @@ typedef struct z_val_t {
     };
 } z_val_t;
 
-#define _Z_VAL_TEST(type_t)  \
+#define _Z_VAL_TEST(type_t)                                                  \
     __builtin_types_compatible_p(typeof(_z_val_build_v), type_t)
 
 /* Detect the type for '_v' and fill a 'z_val_t' structure. */
@@ -173,38 +173,34 @@ typedef struct z_val_t {
         typeof(_v) _z_val_build_v = (_v);                                    \
                                                                              \
         p_clear(&_z_val_build_res, 1);                                       \
-        if (_Z_VAL_TEST(int8_t) || _Z_VAL_TEST(int16_t)                      \
-        ||  _Z_VAL_TEST(int32_t) || _Z_VAL_TEST(int64_t)                     \
-        ||  _Z_VAL_TEST(int) || _Z_VAL_TEST(long) || _Z_VAL_TEST(long long)) \
+        if (_Z_VAL_TEST(int8_t) || _Z_VAL_TEST(int16_t) ||                   \
+            _Z_VAL_TEST(int32_t) || _Z_VAL_TEST(int64_t) ||                  \
+            _Z_VAL_TEST(int) || _Z_VAL_TEST(long) || _Z_VAL_TEST(long long)) \
         {                                                                    \
             _z_val_build_res.type = Z_VAL_TYPE_I;                            \
             _z_val_build_res.i = _z_val_build_v;                             \
-        } else                                                               \
-        if (_Z_VAL_TEST(uint8_t) || _Z_VAL_TEST(uint16_t)                    \
-        ||  _Z_VAL_TEST(uint32_t) || _Z_VAL_TEST(uint64_t)                   \
-        ||  _Z_VAL_TEST(unsigned) || _Z_VAL_TEST(unsigned long)              \
-        ||  _Z_VAL_TEST(unsigned long long))                                 \
+        } else if (                                                          \
+            _Z_VAL_TEST(uint8_t) || _Z_VAL_TEST(uint16_t) ||                 \
+            _Z_VAL_TEST(uint32_t) || _Z_VAL_TEST(uint64_t) ||                \
+            _Z_VAL_TEST(unsigned) || _Z_VAL_TEST(unsigned long) ||           \
+            _Z_VAL_TEST(unsigned long long)                                  \
+        )                                                                    \
         {                                                                    \
             _z_val_build_res.type = Z_VAL_TYPE_U;                            \
             _z_val_build_res.u = _z_val_build_v;                             \
-        } else                                                               \
-        if (_Z_VAL_TEST(float) || _Z_VAL_TEST(double)) {                     \
+        } else if (_Z_VAL_TEST(float) || _Z_VAL_TEST(double)) {              \
             _z_val_build_res.type = Z_VAL_TYPE_D;                            \
             _z_val_build_res.d = _z_val_build_v;                             \
-        } else                                                               \
-        if (_Z_VAL_TEST(bool)) {                                             \
+        } else if (_Z_VAL_TEST(bool)) {                                      \
             _z_val_build_res.type = Z_VAL_TYPE_B;                            \
             _z_val_build_res.b = _z_val_build_v;                             \
-        } else                                                               \
-        if (_Z_VAL_TEST(char)) {                                             \
+        } else if (_Z_VAL_TEST(char)) {                                      \
             _z_val_build_res.type = Z_VAL_TYPE_C;                            \
             _z_val_build_res.c = _z_val_build_v;                             \
-        } else                                                               \
-        if (_Z_VAL_TEST(int128_t)) {                                         \
+        } else if (_Z_VAL_TEST(int128_t)) {                                  \
             _z_val_build_res.type = Z_VAL_TYPE_I128;                         \
             _z_val_build_res.i128 = _z_val_build_v;                          \
-        } else                                                               \
-        if (_Z_VAL_TEST(uint128_t)) {                                        \
+        } else if (_Z_VAL_TEST(uint128_t)) {                                 \
             _z_val_build_res.type = Z_VAL_TYPE_U128;                         \
             _z_val_build_res.u128 = _z_val_build_v;                          \
         } else {                                                             \
@@ -215,62 +211,55 @@ typedef struct z_val_t {
 
 /* }}} */
 
-
 extern struct z_export *z_exports_g;
 
 void _z_group_start(const char *name);
 bool _z_group_process(void);
 void _z_group_done(void);
 
-int  _z_step_run(const char *name);
+int _z_step_run(const char *name);
 bool _z_step_is_skipped(int unused, ...) __attribute__((sentinel));
 void _z_step_skip(const char *reason, ...) __attr_printf__(1, 2);
 void _z_step_todo(const char *reason, ...) __attr_printf__(1, 2);
 void _z_step_report(void);
 
-__attr_printf__(9, 10)
-bool _z_assert_cmp(const char *file, int lno, const char *op, bool res,
-                   const char *lvs, z_val_t lv,
-                   const char *rvs, z_val_t rv,
-                   const char *fmt, ...);
+__attr_printf__(9, 10) bool _z_assert_cmp(
+    const char *file, int lno, const char *op, bool res, const char *lvs,
+    z_val_t lv, const char *rvs, z_val_t rv, const char *fmt, ...
+);
 
-__attr_printf__(8, 9)
-bool _z_assert_lstrequal(const char *file, int lno, bool use_hex,
-                         const char *lhs, lstr_t lh,
-                         const char *rhs, lstr_t rh,
-                         const char *fmt, ...);
+__attr_printf__(8, 9) bool _z_assert_lstrequal(
+    const char *file, int lno, bool use_hex, const char *lhs, lstr_t lh,
+    const char *rhs, lstr_t rh, const char *fmt, ...
+);
 
 typedef struct iop_env_t iop_env_t;
 typedef struct iop_struct_t iop_struct_t;
 
-__attr_printf__(8, 9)
-bool _z_assert_iopequal(const char *file, int lno,
-                        const iop_struct_t *st,
-                        const char *lhs, const void *lh,
-                        const char *rhs, const void *rh,
-                        const char *fmt, ...);
+__attr_printf__(8, 9) bool _z_assert_iopequal(
+    const char *file, int lno, const iop_struct_t *st, const char *lhs,
+    const void *lh, const char *rhs, const void *rh, const char *fmt, ...
+);
 
-__attr_printf__(9, 10)
-bool _z_assert_iopjsonequal(const char *file, int lno,
-                            const iop_env_t *iop_env,
-                            const iop_struct_t *st,
-                            const char *lhs, const void *lh,
-                            const char *rhs, lstr_t json,
-                            const char *fmt, ...);
+__attr_printf__(9, 10) bool _z_assert_iopjsonequal(
+    const char *file, int lno, const iop_env_t *iop_env,
+    const iop_struct_t *st, const char *lhs, const void *lh, const char *rhs,
+    lstr_t json, const char *fmt, ...
+);
 
-__attr_printf__(8, 9)
-bool _z_assert_dblequal(const char *file, int lno,
-                        const char *lhs, double lh,
-                        const char *rhs, double rh,
-                        uint8_t precision, const char *fmt, ...);
+__attr_printf__(8, 9) bool _z_assert_dblequal(
+    const char *file, int lno, const char *lhs, double lh, const char *rhs,
+    double rh, uint8_t precision, const char *fmt, ...
+);
 
-__attr_printf__(5, 6)
-bool _z_assert(const char *file, int lno, const char *expr, bool res,
-               const char *fmt, ...);
+__attr_printf__(5, 6) bool _z_assert(
+    const char *file, int lno, const char *expr, bool res, const char *fmt,
+    ...
+);
 
-__attr_printf__(4, 5)
-void _z_helper_failed(const char *file, int lno, const char *expr,
-                      const char *fmt, ...);
+__attr_printf__(4, 5) void _z_helper_failed(
+    const char *file, int lno, const char *expr, const char *fmt, ...
+);
 
 /* }}} */
 
@@ -280,69 +269,66 @@ void _z_helper_failed(const char *file, int lno, const char *expr,
 
 #ifdef __has_blocks
 
-#define Z_BLKGROUP(_grp)                                                  \
-    __attr_cold__ static void z_##_grp(void) {                            \
-        static struct z_blkgrp *grp = &_grp;                              \
-                                                                          \
-        z_register_blkgroup(grp, __FILE__);                               \
-    }
+#  define Z_BLKGROUP(_grp)                                                   \
+      __attr_cold__ static void z_##_grp(void)                               \
+      {                                                                      \
+          static struct z_blkgrp *grp = &_grp;                               \
+                                                                             \
+          z_register_blkgroup(grp, __FILE__);                                \
+      }
 
-#ifdef NDEBUG
-#define Z_BLKGROUP_EXPORT(_grp)  \
-    __attribute__((unused)) Z_BLKGROUP(_grp)
-#else
-#define Z_BLKGROUP_EXPORT(_grp)  \
-    __attribute__((constructor)) Z_BLKGROUP(_grp)
-#endif /* NDEBUG */
+#  ifdef NDEBUG
+#    define Z_BLKGROUP_EXPORT(_grp) __attribute__((unused)) Z_BLKGROUP(_grp)
+#  else
+#    define Z_BLKGROUP_EXPORT(_grp)                                          \
+        __attribute__((constructor)) Z_BLKGROUP(_grp)
+#  endif /* NDEBUG */
 
 #endif /* __has_blocks */
 
-#define Z_GROUP(name) \
-    __attr_cold__ static void z_##name(void)                              \
-    {                                                                     \
-        _z_group_start(#name);                                            \
+#define Z_GROUP(name)                                                        \
+    __attr_cold__ static void z_##name(void)                                 \
+    {                                                                        \
+        _z_group_start(#name);                                               \
         while (_z_group_process()) {
 
 #ifdef NDEBUG
-#define Z_GROUP_EXPORT(name) \
-    __attribute__((unused)) Z_GROUP(name)
+#  define Z_GROUP_EXPORT(name) __attribute__((unused)) Z_GROUP(name)
 #else
-#define Z_GROUP_EXPORT(name) \
-    static void z_##name(void);                                           \
-    static __attribute__((constructor)) void z_##name##_export(void) {    \
-        static struct z_export ex = { .cb = z_##name, .file = __FILE__ }; \
-                                                                          \
-        ex.prev = z_exports_g;                                            \
-        z_exports_g = &ex;                                                \
-    }                                                                     \
-    Z_GROUP(name)
+#  define Z_GROUP_EXPORT(name)                                               \
+      static void z_##name(void);                                            \
+      static __attribute__((constructor)) void z_##name##_export(void)       \
+      {                                                                      \
+          static struct z_export ex = {.cb = z_##name, .file = __FILE__};    \
+                                                                             \
+          ex.prev = z_exports_g;                                             \
+          z_exports_g = &ex;                                                 \
+      }                                                                      \
+      Z_GROUP(name)
 #endif
 
-#define Z_GROUP_END \
-        }                                                                 \
-        _z_group_done();                                                  \
+#define Z_GROUP_END                                                          \
+    }                                                                        \
+    _z_group_done();                                                         \
     }
-
 
 /* We don't want to use step blocks when in the blocks rewriter and not in the
  * final compiler because the block rewriter has issues when mixing blocks and
  * macros, and clang does not support nested functions. */
 #ifndef IS_CLANG_BLOCKS_REWRITER
-# ifdef __BLOCKS__
+#  ifdef __BLOCKS__
 
 /* For clang, we use a block. */
-#  define _Z_TEST_MAKE_BLOCK(_block_name) \
-    void (^_block_name)(void) = ^(void)
+#    define _Z_TEST_MAKE_BLOCK(_block_name)                                  \
+        void (^_block_name)(void) = ^(void)
 
-# elif !defined(__cplusplus) && defined(__GNUC__)
+#  elif !defined(__cplusplus) && defined(__GNUC__)
 
 /* For GCC, we use a nested function, that is a GNU extension. */
-#  define _Z_TEST_MAKE_BLOCK(_block_name) \
-    void _block_name(void)
+#    define _Z_TEST_MAKE_BLOCK(_block_name) void _block_name(void)
 
-# endif
+#  endif
 #endif
-
 
 #ifdef _Z_TEST_MAKE_BLOCK
 
@@ -351,30 +337,30 @@ void _z_helper_failed(const char *file, int lno, const char *expr,
  * It takes a mandatory name (used as an identifier) and an optional
  * description (used as documentation only).
  */
-# define Z_TEST(name, ...) \
-    {                                                                     \
-        int _z_step_run_res = _z_step_run(#name);                         \
-        _Z_TEST_MAKE_BLOCK(_z_step_block)                                 \
-        {                                                                 \
-            __label__ _z_step_end;                                        \
-            {
+#  define Z_TEST(name, ...)                                                  \
+      {                                                                      \
+          int _z_step_run_res = _z_step_run(#name);                          \
+          _Z_TEST_MAKE_BLOCK(_z_step_block)                                  \
+          {                                                                  \
+              __label__ _z_step_end;                                         \
+              {
 
-# define Z_TEST_END \
-            }                                                             \
-          _z_step_end:                                                    \
-            ;                                                             \
-        };                                                                \
-        switch (_z_step_run_res) {                                        \
-          case 0:                                                         \
-            break;                                                        \
-          case 1:                                                         \
-            _z_step_block();                                              \
-            /* FALLTHROUGH */                                             \
-          default:                                                        \
-            _z_step_report();                                             \
-            break;                                                        \
-        }                                                                 \
-    }
+#  define Z_TEST_END                                                         \
+      }                                                                      \
+  _z_step_end:;                                                              \
+      }                                                                      \
+      ;                                                                      \
+      switch (_z_step_run_res) {                                             \
+      case 0:                                                                \
+          break;                                                             \
+      case 1:                                                                \
+          _z_step_block();                                                   \
+          /* FALLTHROUGH */                                                  \
+      default:                                                               \
+          _z_step_report();                                                  \
+          break;                                                             \
+      }                                                                      \
+      }
 
 #else
 
@@ -383,28 +369,29 @@ void _z_helper_failed(const char *file, int lno, const char *expr,
  * It takes a mandatory name (used as an identifier) and an optional
  * description (used as documentation only).
  */
-# define Z_TEST(name, ...) \
-    switch (_z_step_run(#name)) {                                         \
-        __label__ _z_step_end;                                            \
-      case 0:                                                             \
-        break;                                                            \
-      case 1:                                                             \
-        {
+#  define Z_TEST(name, ...)                                                  \
+      switch (_z_step_run(#name)) {                                          \
+          __label__ _z_step_end;                                             \
+      case 0:                                                                \
+          break;                                                             \
+      case 1: {
 
-# define Z_TEST_END \
-        }                                                                 \
-        /* FALLTHROUGH */                                                 \
-      default:                                                            \
-      _z_step_end:                                                        \
-        _z_step_report();                                                 \
-        break;                                                            \
-    }
+#  define Z_TEST_END                                                         \
+      }                                                                      \
+      /* FALLTHROUGH */                                                      \
+  default:                                                                   \
+  _z_step_end:                                                               \
+      _z_step_report();                                                      \
+      break;                                                                 \
+      }
 
 #endif
 
-#define Z_TEST_FLAGS(...) \
-    ({ if (_z_step_is_skipped(0, ##__VA_ARGS__, NULL)) goto _z_step_end; })
-
+#define Z_TEST_FLAGS(...)                                                    \
+    ({                                                                       \
+        if (_z_step_is_skipped(0, ##__VA_ARGS__, NULL))                      \
+            goto _z_step_end;                                                \
+    })
 
 /** Trailer to use in a sub-function where you want to use.
  *
@@ -417,32 +404,44 @@ void _z_helper_failed(const char *file, int lno, const char *expr,
  *   }
  *   \endcode
  */
-#define Z_HELPER_END        return 0; _z_step_end: return -1
-#define Z_HELPER_RUN(expr, ...) \
-    ({  if ((expr) < 0) {                                                 \
-            _z_helper_failed(__FILE__, __LINE__, #expr, ""__VA_ARGS__);   \
-            goto _z_step_end;                                             \
-        }                                                                 \
+#define Z_HELPER_END                                                         \
+    return 0;                                                                \
+_z_step_end:                                                                 \
+    return -1
+#define Z_HELPER_RUN(expr, ...)                                              \
+    ({                                                                       \
+        if ((expr) < 0) {                                                    \
+            _z_helper_failed(__FILE__, __LINE__, #expr, ""__VA_ARGS__);      \
+            goto _z_step_end;                                                \
+        }                                                                    \
     })
 
-#define Z_BLKTEST_END  { _z_step_end: return; }
+#define Z_BLKTEST_END                                                        \
+    {                                                                        \
+    _z_step_end:                                                             \
+        return;                                                              \
+    }
 
-#define Z_SKIP(fmt, ...) \
-    ({ _z_step_skip(fmt, ##__VA_ARGS__); goto _z_step_end; })
-
-#define Z_TODO(fmt, ...)  _z_step_todo(fmt, ##__VA_ARGS__)
-
-#define Z_ASSERT(e, ...) \
-    ({  bool _z_res = (e);                                                \
-        if (_z_assert(__FILE__, __LINE__, #e, _z_res, ""__VA_ARGS__))     \
-            goto _z_step_end;                                             \
-        assert (_z_res);                                                  \
+#define Z_SKIP(fmt, ...)                                                     \
+    ({                                                                       \
+        _z_step_skip(fmt, ##__VA_ARGS__);                                    \
+        goto _z_step_end;                                                    \
     })
 
-#define Z_ASSERT_N(e, ...)     Z_ASSERT((e) >= 0, ##__VA_ARGS__)
-#define Z_ASSERT_P(e, ...)     Z_ASSERT((e) != NULL, ##__VA_ARGS__)
-#define Z_ASSERT_NEG(e, ...)   Z_ASSERT((e) < 0, ##__VA_ARGS__)
-#define Z_ASSERT_NULL(e, ...)  Z_ASSERT((e) == NULL, ##__VA_ARGS__)
+#define Z_TODO(fmt, ...) _z_step_todo(fmt, ##__VA_ARGS__)
+
+#define Z_ASSERT(e, ...)                                                     \
+    ({                                                                       \
+        bool _z_res = (e);                                                   \
+        if (_z_assert(__FILE__, __LINE__, #e, _z_res, ""__VA_ARGS__))        \
+            goto _z_step_end;                                                \
+        assert(_z_res);                                                      \
+    })
+
+#define Z_ASSERT_N(e, ...) Z_ASSERT((e) >= 0, ##__VA_ARGS__)
+#define Z_ASSERT_P(e, ...) Z_ASSERT((e) != NULL, ##__VA_ARGS__)
+#define Z_ASSERT_NEG(e, ...) Z_ASSERT((e) < 0, ##__VA_ARGS__)
+#define Z_ASSERT_NULL(e, ...) Z_ASSERT((e) == NULL, ##__VA_ARGS__)
 
 #define Z_ASSERT_CMP(lhs, op, rhs, ...)                                      \
     ({                                                                       \
@@ -452,21 +451,22 @@ void _z_helper_failed(const char *file, int lno, const char *expr,
         z_val_t _z_assert_cmp_rv = _Z_VAL_BUILD(_z_assert_cmp_r);            \
         bool _z_res = _z_assert_cmp_l op _z_assert_cmp_r;                    \
                                                                              \
-        if (_z_assert_cmp(__FILE__, __LINE__, #op, _z_res, #lhs,             \
-                          _z_assert_cmp_lv, #rhs, _z_assert_cmp_rv,          \
-                          ""__VA_ARGS__))                                    \
+        if (_z_assert_cmp(                                                   \
+                __FILE__, __LINE__, #op, _z_res, #lhs, _z_assert_cmp_lv,     \
+                #rhs, _z_assert_cmp_rv, ""__VA_ARGS__                        \
+            ))                                                               \
         {                                                                    \
             goto _z_step_end;                                                \
         }                                                                    \
-        assert (_z_res); /* avoid false positive in clang-analyzer */        \
+        assert(_z_res); /* avoid false positive in clang-analyzer */         \
     })
-#define Z_ASSERT_EQ(lhs, rhs, ...)  Z_ASSERT_CMP(lhs, ==, rhs, ##__VA_ARGS__)
-#define Z_ASSERT_NE(lhs, rhs, ...)  Z_ASSERT_CMP(lhs, !=, rhs, ##__VA_ARGS__)
-#define Z_ASSERT_LT(lhs, rhs, ...)  Z_ASSERT_CMP(lhs, <,  rhs, ##__VA_ARGS__)
-#define Z_ASSERT_LE(lhs, rhs, ...)  Z_ASSERT_CMP(lhs, <=, rhs, ##__VA_ARGS__)
-#define Z_ASSERT_GT(lhs, rhs, ...)  Z_ASSERT_CMP(lhs, >,  rhs, ##__VA_ARGS__)
-#define Z_ASSERT_GE(lhs, rhs, ...)  Z_ASSERT_CMP(lhs, >=, rhs, ##__VA_ARGS__)
-#define Z_ASSERT_ZERO(e, ...)       Z_ASSERT_EQ(e, (typeof(e))0, ##__VA_ARGS__)
+#define Z_ASSERT_EQ(lhs, rhs, ...) Z_ASSERT_CMP(lhs, ==, rhs, ##__VA_ARGS__)
+#define Z_ASSERT_NE(lhs, rhs, ...) Z_ASSERT_CMP(lhs, !=, rhs, ##__VA_ARGS__)
+#define Z_ASSERT_LT(lhs, rhs, ...) Z_ASSERT_CMP(lhs, <, rhs, ##__VA_ARGS__)
+#define Z_ASSERT_LE(lhs, rhs, ...) Z_ASSERT_CMP(lhs, <=, rhs, ##__VA_ARGS__)
+#define Z_ASSERT_GT(lhs, rhs, ...) Z_ASSERT_CMP(lhs, >, rhs, ##__VA_ARGS__)
+#define Z_ASSERT_GE(lhs, rhs, ...) Z_ASSERT_CMP(lhs, >=, rhs, ##__VA_ARGS__)
+#define Z_ASSERT_ZERO(e, ...) Z_ASSERT_EQ(e, (typeof(e))0, ##__VA_ARGS__)
 
 /** Compare two printable strings.
  *
@@ -474,96 +474,122 @@ void _z_helper_failed(const char *file, int lno, const char *expr,
  * get with this macro contains only UTF-8 gibberish, then maybe you should
  * use \p Z_ASSERT_DATAEQUAL instead.
  */
-#define Z_ASSERT_LSTREQUAL(lhs, rhs, ...) \
-    ({ if (_z_assert_lstrequal(__FILE__, __LINE__, false,                    \
-                               #lhs, lhs, #rhs, rhs,                         \
-                               ""__VA_ARGS__))                               \
-        goto _z_step_end; })
+#define Z_ASSERT_LSTREQUAL(lhs, rhs, ...)                                    \
+    ({                                                                       \
+        if (_z_assert_lstrequal(                                             \
+                __FILE__, __LINE__, false, #lhs, lhs, #rhs, rhs,             \
+                ""__VA_ARGS__                                                \
+            ))                                                               \
+            goto _z_step_end;                                                \
+    })
 
 /** Compare two null-terminated printable strings. */
-#define Z_ASSERT_STREQUAL(lhs, rhs, ...) \
+#define Z_ASSERT_STREQUAL(lhs, rhs, ...)                                     \
     ({                                                                       \
         /* XXX Prevent issues if lhs/rhs use themselves macros. */           \
         const char *PFX_LINE(lhs_str) = (lhs);                               \
         const char *PFX_LINE(rhs_str) = (rhs);                               \
                                                                              \
-        if (_z_assert_lstrequal(__FILE__, __LINE__, false,                   \
-                                #lhs, LSTR(PFX_LINE(lhs_str)),               \
-                                #rhs, LSTR(PFX_LINE(rhs_str)),               \
-                               ""__VA_ARGS__))                               \
+        if (_z_assert_lstrequal(                                             \
+                __FILE__, __LINE__, false, #lhs, LSTR(PFX_LINE(lhs_str)),    \
+                #rhs, LSTR(PFX_LINE(rhs_str)), ""__VA_ARGS__                 \
+            ))                                                               \
         {                                                                    \
             goto _z_step_end;                                                \
         }                                                                    \
     })
 
 /** Compare two non-printable strings. */
-#define Z_ASSERT_DATAEQUAL(lhs, rhs, ...) \
-    ({ if (_z_assert_lstrequal(__FILE__, __LINE__, true,                     \
-                               #lhs, lhs, #rhs, rhs,                         \
-                               ""__VA_ARGS__))                               \
-        goto _z_step_end; })
-
-#define Z_ASSERT_EQUAL(lt, ll, rt, rl, ...) \
-    ({  STATIC_ASSERT(__builtin_types_compatible_p(                       \
-               typeof(*(lt)) const *, typeof(*(rt)) const *));            \
-        if (_z_assert_lstrequal(__FILE__, __LINE__, false,                \
-               #lt, LSTR_INIT_V((void *)(lt), sizeof((lt)[0]) * (ll)),    \
-               #rt, LSTR_INIT_V((void *)(rt), sizeof((rt)[0]) * (rl)),    \
-               ""__VA_ARGS__))                                            \
-            goto _z_step_end; })
-
-#define Z_ASSERT_IOPEQUAL(st, _lhs, _rhs, ...) \
-    ({  const st##__t *lhs = _lhs;                                        \
-        const st##__t *rhs = _rhs;                                        \
-                                                                          \
-        if (_z_assert_iopequal(__FILE__, __LINE__, &st##__s,              \
-                               #_lhs, lhs, #_rhs, rhs, ""__VA_ARGS__))    \
-        {                                                                 \
-            goto _z_step_end;                                             \
-        }                                                                 \
+#define Z_ASSERT_DATAEQUAL(lhs, rhs, ...)                                    \
+    ({                                                                       \
+        if (_z_assert_lstrequal(                                             \
+                __FILE__, __LINE__, true, #lhs, lhs, #rhs, rhs,              \
+                ""__VA_ARGS__                                                \
+            ))                                                               \
+            goto _z_step_end;                                                \
     })
 
-#define Z_ASSERT_IOPEQUAL_DESC(st, lhs, rhs, ...) \
-    ({  if (_z_assert_iopequal(__FILE__, __LINE__, st,                    \
-                               #lhs, lhs, #rhs, rhs, ""__VA_ARGS__))      \
-        {                                                                 \
-            goto _z_step_end;                                             \
-        }                                                                 \
+#define Z_ASSERT_EQUAL(lt, ll, rt, rl, ...)                                  \
+    ({                                                                       \
+        STATIC_ASSERT(__builtin_types_compatible_p(                          \
+            typeof(*(lt)) const *, typeof(*(rt)) const *                     \
+        ));                                                                  \
+        if (_z_assert_lstrequal(                                             \
+                __FILE__, __LINE__, false, #lt,                              \
+                LSTR_INIT_V((void *)(lt), sizeof((lt)[0]) * (ll)), #rt,      \
+                LSTR_INIT_V((void *)(rt), sizeof((rt)[0]) * (rl)),           \
+                ""__VA_ARGS__                                                \
+            ))                                                               \
+            goto _z_step_end;                                                \
     })
 
-#define Z_ASSERT_IOPJSONEQUAL(iop_env, st, lhs, rhs, ...) \
-    ({  if (_z_assert_iopjsonequal(__FILE__, __LINE__, (iop_env),         \
-                                   &st##__s, #lhs, lhs, #rhs, rhs,        \
-                                   ""__VA_ARGS__))                        \
-        {                                                                 \
-            goto _z_step_end;                                             \
-        }                                                                 \
+#define Z_ASSERT_IOPEQUAL(st, _lhs, _rhs, ...)                               \
+    ({                                                                       \
+        const st##__t *lhs = _lhs;                                           \
+        const st##__t *rhs = _rhs;                                           \
+                                                                             \
+        if (_z_assert_iopequal(                                              \
+                __FILE__, __LINE__, &st##__s, #_lhs, lhs, #_rhs, rhs,        \
+                ""__VA_ARGS__                                                \
+            ))                                                               \
+        {                                                                    \
+            goto _z_step_end;                                                \
+        }                                                                    \
     })
 
-#define Z_ASSERT_IOPJSONEQUAL_DESC(iop_env, st, lhs, rhs, ...) \
-    ({  if (_z_assert_iopjsonequal(__FILE__, __LINE__, (iop_env), st,     \
-                               #lhs, lhs, #rhs, rhs, ""__VA_ARGS__))      \
-        {                                                                 \
-            goto _z_step_end;                                             \
-        }                                                                 \
+#define Z_ASSERT_IOPEQUAL_DESC(st, lhs, rhs, ...)                            \
+    ({                                                                       \
+        if (_z_assert_iopequal(                                              \
+                __FILE__, __LINE__, st, #lhs, lhs, #rhs, rhs, ""__VA_ARGS__  \
+            ))                                                               \
+        {                                                                    \
+            goto _z_step_end;                                                \
+        }                                                                    \
     })
 
-#define Z_ASSERT_OPT_EQ(lhs, rhs, ...)                                    \
-    ({  bool _z_res = OPT_EQUAL(lhs, rhs);                                \
-        if (_z_assert(__FILE__, __LINE__, #lhs " == " #rhs, _z_res,       \
-                      ""__VA_ARGS__))                                     \
-        {                                                                 \
-            goto _z_step_end;                                             \
-        }                                                                 \
-        assert (_z_res);                                                  \
+#define Z_ASSERT_IOPJSONEQUAL(iop_env, st, lhs, rhs, ...)                    \
+    ({                                                                       \
+        if (_z_assert_iopjsonequal(                                          \
+                __FILE__, __LINE__, (iop_env), &st##__s, #lhs, lhs, #rhs,    \
+                rhs, ""__VA_ARGS__                                           \
+            ))                                                               \
+        {                                                                    \
+            goto _z_step_end;                                                \
+        }                                                                    \
     })
 
-#define Z_ASSERT_DBL_EQ(lhs, rhs, precision, ...)                         \
-    ({  if (_z_assert_dblequal(__FILE__, __LINE__, #lhs, lhs, #rhs, rhs,  \
-                               precision, ""__VA_ARGS__))                 \
-        {                                                                 \
-            goto _z_step_end;                                             \
-        }                                                                 \
+#define Z_ASSERT_IOPJSONEQUAL_DESC(iop_env, st, lhs, rhs, ...)               \
+    ({                                                                       \
+        if (_z_assert_iopjsonequal(                                          \
+                __FILE__, __LINE__, (iop_env), st, #lhs, lhs, #rhs, rhs,     \
+                ""__VA_ARGS__                                                \
+            ))                                                               \
+        {                                                                    \
+            goto _z_step_end;                                                \
+        }                                                                    \
+    })
+
+#define Z_ASSERT_OPT_EQ(lhs, rhs, ...)                                       \
+    ({                                                                       \
+        bool _z_res = OPT_EQUAL(lhs, rhs);                                   \
+        if (_z_assert(                                                       \
+                __FILE__, __LINE__, #lhs " == " #rhs, _z_res, ""__VA_ARGS__  \
+            ))                                                               \
+        {                                                                    \
+            goto _z_step_end;                                                \
+        }                                                                    \
+        assert(_z_res);                                                      \
+    })
+
+#define Z_ASSERT_DBL_EQ(lhs, rhs, precision, ...)                            \
+    ({                                                                       \
+        if (_z_assert_dblequal(                                              \
+                __FILE__, __LINE__, #lhs, lhs, #rhs, rhs, precision,         \
+                ""__VA_ARGS__                                                \
+            ))                                                               \
+        {                                                                    \
+            goto _z_step_end;                                                \
+        }                                                                    \
     })
 
 /****************************************************************************/
@@ -584,16 +610,17 @@ void z_todo_end(void);
  * \param[in] diff_opts  Options to pass to the diff command.
  *                       If not set, the default options "-urNw" will be used.
  */
-int z_show_diff(lstr_t got, lstr_t exp, const char *nullable diff_opts,
-                sb_t *diff);
+int z_show_diff(
+    lstr_t got, lstr_t exp, const char *nullable diff_opts, sb_t *diff
+);
 
-int  z_setup(int argc, char **argv);
+int z_setup(int argc, char **argv);
 void z_register_exports(const char *prefix);
 void z_register_group(z_cb_f cb);
 #ifdef __has_blocks
 void z_register_blkgroup(struct z_blkgrp const *, const char *file);
 #endif
-int  z_run(void);
+int z_run(void);
 bool z_is_list_mode_on(void);
 
 #endif

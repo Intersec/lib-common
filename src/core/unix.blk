@@ -55,35 +55,40 @@ int mkdirat_p(int dfd, const char *dir, mode_t mode)
         p = memrchr(path, '/', p - path) ?: path;
         if (stat(path, &st) == 0) {
             if (S_ISDIR(st.st_mode)) {
-                if (atoms == 0)
+                if (atoms == 0) {
                     return 0;
+                }
                 break;
             }
             errno = ENOTDIR;
             return -1;
         }
-        if (errno != ENOENT)
+        if (errno != ENOENT) {
             return -1;
+        }
         atoms++;
-        if (p == path)
+        if (p == path) {
             goto make_everything;
+        }
         *p = '\0';
     }
 
-    assert (atoms);
+    assert(atoms);
     for (;;) {
         p += strlen(p);
         *p = '/';
-      make_everything:
+    make_everything:
         if (mkdirat(dfd, path, mode) < 0) {
-            if (errno != EEXIST)
+            if (errno != EEXIST) {
                 return -1;
+            }
             res = 0;
         } else {
             res = 1;
         }
-        if (--atoms == 0)
+        if (--atoms == 0) {
             return res;
+        }
     }
 }
 
@@ -100,7 +105,6 @@ int mkdir_p(const char *dir, mode_t mode)
 {
     return mkdirat_p(AT_FDCWD, dir, mode);
 }
-
 
 /** Retrieve time of last modification
  *
@@ -122,7 +126,7 @@ int get_mtime(const char *filename, time_t *t)
 
 static off_t fcopy(int fdin, const struct stat *stin, int fdout)
 {
-#define BUF_SIZE  (8 << 20) /* 8MB */
+#define BUF_SIZE (8 << 20) /* 8MB */
     t_scope;
     int nread;
     byte *buf = t_new_raw(byte, BUF_SIZE);
@@ -130,11 +134,13 @@ static off_t fcopy(int fdin, const struct stat *stin, int fdout)
 
     for (;;) {
         nread = read(fdin, buf, BUF_SIZE);
-        if (nread == 0)
+        if (nread == 0) {
             break;
+        }
         if (nread < 0) {
-            if (ERR_RW_RETRIABLE(errno))
+            if (ERR_RW_RETRIABLE(errno)) {
                 continue;
+            }
             goto error;
         }
         if (xwrite(fdout, buf, nread) < 0) {
@@ -145,7 +151,7 @@ static off_t fcopy(int fdin, const struct stat *stin, int fdout)
 #undef BUF_SIZE
 
     if (unlikely(total != stin->st_size)) {
-        assert (false);
+        assert(false);
         errno = EIO;
         goto error;
     }
@@ -164,17 +170,19 @@ static off_t fcopy(int fdin, const struct stat *stin, int fdout)
     {
         struct timeval tvp[2];
 
-        tvp[0] = (struct timeval) { .tv_sec = stin->st_atime,
-                                    .tv_usec = stin->st_atimensec / 1000 };
-        tvp[1] = (struct timeval) { .tv_sec = stin->st_mtime,
-                                    .tv_usec = stin->st_mtimensec / 1000 };
+        tvp[0] = (struct timeval){
+            .tv_sec = stin->st_atime, .tv_usec = stin->st_atimensec / 1000
+        };
+        tvp[1] = (struct timeval){
+            .tv_sec = stin->st_mtime, .tv_usec = stin->st_mtimensec / 1000
+        };
         futimes(fdout, tvp);
     }
 #endif
 
     return total;
 
-  error:
+error:
     return -1;
 }
 
@@ -190,9 +198,9 @@ static off_t fcopy(int fdin, const struct stat *stin, int fdout)
  */
 off_t filecopy(const char *pathin, const char *pathout)
 {
-/* OG: since this function returns the number of bytes copied, the
- * return type should be off_t.
- */
+    /* OG: since this function returns the number of bytes copied, the
+     * return type should be off_t.
+     */
     int fdin = -1, fdout = -1;
     struct stat st;
     off_t total = -1;
@@ -215,7 +223,7 @@ off_t filecopy(const char *pathin, const char *pathout)
 
     total = fcopy(fdin, &st, fdout);
 
-  end:
+end:
     PROTECT_ERRNO(p_close(&fdin));
     PROTECT_ERRNO(p_close(&fdout));
 
@@ -234,31 +242,35 @@ off_t filecopy(const char *pathin, const char *pathout)
  * @return -1 on error
  * @return n  number of bytes copied
  */
-off_t filecopyat(int dfd_src, const char* name_src,
-                 int dfd_dst, const char* name_dst)
+off_t filecopyat(
+    int dfd_src, const char *name_src, int dfd_dst, const char *name_dst
+)
 {
     int fd_src = -1, fd_dst = -1;
     struct stat st;
     off_t total;
 
     fd_src = openat(dfd_src, name_src, O_RDONLY);
-    if (fd_src < 0)
+    if (fd_src < 0) {
         goto error;
+    }
 
-    if (fstat(fd_src, &st))
+    if (fstat(fd_src, &st)) {
         goto error;
+    }
 
-    fd_dst = openat(dfd_dst, name_dst, O_WRONLY | O_CREAT | O_TRUNC,
-                    st.st_mode);
-    if (fd_dst < 0)
+    fd_dst =
+        openat(dfd_dst, name_dst, O_WRONLY | O_CREAT | O_TRUNC, st.st_mode);
+    if (fd_dst < 0) {
         goto error;
+    }
 
     total = fcopy(fd_src, &st, fd_dst);
     close(fd_src);
     close(fd_dst);
     return total;
 
-  error:
+error:
     p_close(&fd_src);
     p_close(&fd_dst);
 
@@ -285,26 +297,26 @@ off_t filecopyat(int dfd_src, const char* name_src,
 int p_lockf(int fd, int mode, int cmd, off_t start, off_t len)
 {
     struct flock lock = {
-        .l_type   = O_ISWRITE(mode) ? F_WRLCK : F_RDLCK,
+        .l_type = O_ISWRITE(mode) ? F_WRLCK : F_RDLCK,
         .l_whence = SEEK_SET,
-        .l_start  = start,
-        .l_len    = len,
+        .l_start = start,
+        .l_len = len,
     };
 
     switch (cmd) {
-      case F_LOCK:
+    case F_LOCK:
         cmd = F_SETLKW;
         break;
 
-      case F_TLOCK:
+    case F_TLOCK:
         cmd = F_SETLK;
         break;
 
-      case F_TEST:
+    case F_TEST:
         cmd = F_GETLK;
         break;
 
-      default:
+    default:
         errno = EINVAL;
         return -1;
     }
@@ -335,19 +347,21 @@ int p_lockf(int fd, int mode, int cmd, off_t start, off_t len)
 int p_unlockf(int fd, off_t start, off_t len)
 {
     struct flock lock = {
-        .l_type   = F_UNLCK,
+        .l_type = F_UNLCK,
         .l_whence = SEEK_SET,
-        .l_start  = start,
-        .l_len    = len,
+        .l_start = start,
+        .l_len = len,
     };
     return fcntl(fd, F_SETLK, &lock);
 }
 
 int lockdir(int dfd, dir_lock_t *dlock)
 {
-    *dlock        = DIR_LOCK_INIT_V;
-    dlock->lockfd = RETHROW(openat(dfd, ".lock", O_WRONLY | O_CREAT,
-                                   S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH));
+    *dlock = DIR_LOCK_INIT_V;
+    dlock->lockfd = RETHROW(openat(
+        dfd, ".lock", O_WRONLY | O_CREAT,
+        S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH
+    ));
 
     if (p_lockf(dlock->lockfd, O_WRONLY, F_TLOCK, 0, 0) < 0) {
         PROTECT_ERRNO(p_close(&dlock->lockfd));
@@ -380,8 +394,10 @@ int tmpfd(void)
 
 /*{{{ list_dir */
 
-static int list_dir_set_dirent_type(const char *path, unsigned flags,
-                                    struct stat *stat_buf, linux_dirent_t *de)
+static int list_dir_set_dirent_type(
+    const char *path, unsigned flags, struct stat *stat_buf,
+    linux_dirent_t *de
+)
 {
     if (flags & LIST_DIR_FOLLOW_SYMLINK) {
         RETHROW(stat(path, stat_buf));
@@ -394,23 +410,17 @@ static int list_dir_set_dirent_type(const char *path, unsigned flags,
 
     if (S_ISDIR(stat_buf->st_mode)) {
         D_SET_TYPE(de, DT_DIR);
-    } else
-    if (S_ISREG(stat_buf->st_mode)) {
+    } else if (S_ISREG(stat_buf->st_mode)) {
         D_SET_TYPE(de, DT_REG);
-    } else
-    if (S_ISCHR(stat_buf->st_mode)) {
+    } else if (S_ISCHR(stat_buf->st_mode)) {
         D_SET_TYPE(de, DT_CHR);
-    } else
-    if (S_ISBLK(stat_buf->st_mode)) {
+    } else if (S_ISBLK(stat_buf->st_mode)) {
         D_SET_TYPE(de, DT_BLK);
-    } else
-    if (S_ISLNK(stat_buf->st_mode)) {
+    } else if (S_ISLNK(stat_buf->st_mode)) {
         D_SET_TYPE(de, DT_LNK);
-    } else
-    if (S_ISFIFO(stat_buf->st_mode)) {
+    } else if (S_ISFIFO(stat_buf->st_mode)) {
         D_SET_TYPE(de, DT_FIFO);
-    } else
-    if (S_ISSOCK(stat_buf->st_mode)) {
+    } else if (S_ISSOCK(stat_buf->st_mode)) {
         D_SET_TYPE(de, DT_SOCK);
     } else {
         return -1;
@@ -437,12 +447,16 @@ st_file_equal(const qhash_t *qh, const st_file_t *f1, const st_file_t *f2)
 
 qh_kvec_t(st_file, st_file_t, st_file_hash, st_file_equal);
 
-static int __list_dir(const char *path, unsigned flags,
-                      qh_t(st_file) *files_seen, on_file_b on_file);
+static int __list_dir(
+    const char *path, unsigned flags, qh_t(st_file) *files_seen,
+    on_file_b on_file
+);
 
-static int list_dir_on_entry(const char *base, const char *path, unsigned flags,
-                             qh_t(st_file) *files_seen, linux_dirent_t *de,
-                             int *total, on_file_b on_file)
+static int list_dir_on_entry(
+    const char *base, const char *path, unsigned flags,
+    qh_t(st_file) *files_seen, linux_dirent_t *de, int *total,
+    on_file_b on_file
+)
 {
     int res;
     struct stat stat_buf;
@@ -483,10 +497,12 @@ static int list_dir_on_entry(const char *base, const char *path, unsigned flags,
 }
 #if defined(__linux__)
 
-static int __list_dir(const char *path, unsigned flags,
-                      qh_t(st_file) *files_seen, on_file_b on_file)
+static int __list_dir(
+    const char *path, unsigned flags, qh_t(st_file) *files_seen,
+    on_file_b on_file
+)
 {
-#define LIST_DIR_BUF_SIZE   1024 * 1024 * 5
+#  define LIST_DIR_BUF_SIZE 1024 * 1024 * 5
     /* XXX: do not use t_stack here to allow on_file owner to allocate memory
      *      in their own frame. */
     int nread, total = 0;
@@ -506,8 +522,9 @@ static int __list_dir(const char *path, unsigned flags,
             }
 
             snprintf(tmp_path, sizeof(tmp_path), "%s/%s", path, de->d_name);
-            tmp_res = list_dir_on_entry(path, tmp_path, flags, files_seen,
-                                        de, &total, on_file);
+            tmp_res = list_dir_on_entry(
+                path, tmp_path, flags, files_seen, de, &total, on_file
+            );
 
             if (tmp_res < 0) {
                 goto error;
@@ -519,18 +536,20 @@ static int __list_dir(const char *path, unsigned flags,
     p_close(&dfd);
     return nread < 0 ? -1 : total;
 
-  error:
+error:
     p_delete(&buf);
     p_close(&dfd);
     return tmp_res;
 
-#undef LIST_DIR_BUF_SIZE
+#  undef LIST_DIR_BUF_SIZE
 }
 
 #else
 
-static int __list_dir(const char *path, unsigned flags,
-                      qh_t(st_file) *files_seen, on_file_b on_file)
+static int __list_dir(
+    const char *path, unsigned flags, qh_t(st_file) *files_seen,
+    on_file_b on_file
+)
 {
     DIR *dir = RETHROW_PN(opendir(path));
     struct dirent *de;
@@ -545,11 +564,13 @@ static int __list_dir(const char *path, unsigned flags,
             continue;
         }
 
-        snprintf(tmp_path, sizeof(tmp_path), "%s/%*pM",
-                 path, LSTR_FMT_ARG(name));
+        snprintf(
+            tmp_path, sizeof(tmp_path), "%s/%*pM", path, LSTR_FMT_ARG(name)
+        );
 
-        res = list_dir_on_entry(path, tmp_path, flags, files_seen, de,
-                                &total, on_file);
+        res = list_dir_on_entry(
+            path, tmp_path, flags, files_seen, de, &total, on_file
+        );
 
         if (res < 0) {
             break;
@@ -589,19 +610,21 @@ ssize_t xwrite(int fd, const void *data, ssize_t len)
         ssize_t nb = write(fd, s, len);
 
         if (nb < 0) {
-            if (ERR_RW_RETRIABLE(errno))
+            if (ERR_RW_RETRIABLE(errno)) {
                 continue;
+            }
             return -1;
         }
-        s   += nb;
+        s += nb;
         len -= nb;
     }
     return to_write;
 }
 
-ssize_t xwrite_file_extended(const char * nonnull path,
-                             const void * nonnull data,
-                             ssize_t dlen, int flags, mode_t mode)
+ssize_t xwrite_file_extended(
+    const char *nonnull path, const void *nonnull data, ssize_t dlen,
+    int flags, mode_t mode
+)
 {
     int fd, res;
 
@@ -626,8 +649,9 @@ ssize_t xwritev(int fd, struct iovec *iov, int iovcnt)
         ssize_t nb = writev(fd, iov, iovcnt);
 
         if (nb < 0) {
-            if (ERR_RW_RETRIABLE(errno))
+            if (ERR_RW_RETRIABLE(errno)) {
                 continue;
+            }
             return -1;
         }
         written += nb;
@@ -637,8 +661,8 @@ ssize_t xwritev(int fd, struct iovec *iov, int iovcnt)
                 iovcnt--;
                 iov++;
             } else {
-                iov->iov_len  -= nb;
-                iov->iov_base  = (char *)iov->iov_base + nb;
+                iov->iov_len -= nb;
+                iov->iov_base = (char *)iov->iov_base + nb;
                 break;
             }
         }
@@ -659,12 +683,13 @@ ssize_t xpwrite(int fd, const void *data, ssize_t len, off_t offset)
         ssize_t nb = pwrite(fd, s, len, offset);
 
         if (nb < 0) {
-            if (ERR_RW_RETRIABLE(errno))
+            if (ERR_RW_RETRIABLE(errno)) {
                 continue;
+            }
             return -1;
         }
-        s      += nb;
-        len    -= nb;
+        s += nb;
+        len -= nb;
         offset += nb;
     }
     return to_write;
@@ -677,13 +702,15 @@ int xread(int fd, void *data, ssize_t len)
         ssize_t nb = read(fd, s, len);
 
         if (nb < 0) {
-            if (ERR_RW_RETRIABLE(errno))
+            if (ERR_RW_RETRIABLE(errno)) {
                 continue;
+            }
             return -1;
         }
-        if (nb == 0)
+        if (nb == 0) {
             return -1;
-        s   += nb;
+        }
+        s += nb;
         len -= nb;
     }
     return 0;
@@ -696,14 +723,16 @@ int xpread(int fd, void *data, ssize_t len, off_t offset)
         ssize_t nb = pread(fd, s, len, offset);
 
         if (nb < 0) {
-            if (ERR_RW_RETRIABLE(errno))
+            if (ERR_RW_RETRIABLE(errno)) {
                 continue;
+            }
             return -1;
         }
-        if (nb == 0)
+        if (nb == 0) {
             return -1;
-        s      += nb;
-        len    -= nb;
+        }
+        s += nb;
+        len -= nb;
         offset += nb;
     }
     return 0;
@@ -714,8 +743,9 @@ int xftruncate(int fd, off_t offs)
     for (;;) {
         int res = ftruncate(fd, offs);
 
-        if (res < 0 && ERR_RW_RETRIABLE(errno))
+        if (res < 0 && ERR_RW_RETRIABLE(errno)) {
             continue;
+        }
         return res;
     }
 }
@@ -732,15 +762,16 @@ void devnull_dup(int fd)
     close(fd);
 
     nullfd = open("/dev/null", O_RDWR);
-    assert (nullfd >= 0);
+    assert(nullfd >= 0);
     if (fd != nullfd) {
         dup2(nullfd, fd);
         close(nullfd);
     }
 }
 
-static int which_check_path(const char *nonnull cmd, const char *dir,
-                            char cmd_path[static PATH_MAX])
+static int which_check_path(
+    const char *nonnull cmd, const char *dir, char cmd_path[static PATH_MAX]
+)
 {
     char local_buf[PATH_MAX];
 
@@ -776,8 +807,9 @@ bool is_fancy_fd(int fd)
 {
     const char *term;
 
-    if (!isatty(fd))
+    if (!isatty(fd)) {
         return false;
+    }
     term = getenv("TERM");
     return term && *term && !strequal(term, "dumb");
 }
@@ -805,8 +837,8 @@ void term_get_size(int *cols, int *rows)
 int fd_set_features(int fd, int flags)
 {
     STATIC_ASSERT(FD_FEAT_NONBLOCK != FD_FEAT_TCP_NODELAY);
-    STATIC_ASSERT(FD_FEAT_DIRECT   != FD_FEAT_TCP_NODELAY);
-    STATIC_ASSERT(FD_FEAT_CLOEXEC  != FD_FEAT_TCP_NODELAY);
+    STATIC_ASSERT(FD_FEAT_DIRECT != FD_FEAT_TCP_NODELAY);
+    STATIC_ASSERT(FD_FEAT_CLOEXEC != FD_FEAT_TCP_NODELAY);
 
     if (flags & (O_NONBLOCK | O_DIRECT)) {
         int res;
@@ -816,7 +848,7 @@ int fd_set_features(int fd, int flags)
             return e_error("fcntl failed: %m");
         }
         if (fcntl(fd, F_SETFL, res | (flags & (O_NONBLOCK | O_DIRECT)))) {
-          return e_error("fcntl failed: %m");
+            return e_error("fcntl failed: %m");
         }
     }
     if (flags & O_CLOEXEC) {
@@ -871,7 +903,6 @@ int fd_unset_features(int fd, int flags)
         }
     }
 
-
     return 0;
 }
 
@@ -910,7 +941,7 @@ ssize_t fd_get_path(int fd, char buf[], size_t buf_len)
     return path_len;
 }
 
-void close_fds_unix(int fd_min, qv_t(u32) * nullable to_keep)
+void close_fds_unix(int fd_min, qv_t(u32) *nullable to_keep)
 {
     int maxfd = sysconf(_SC_OPEN_MAX);
 
@@ -924,9 +955,7 @@ void close_fds_unix(int fd_min, qv_t(u32) * nullable to_keep)
     }
 
     for (int fd = fd_min + 1; fd < maxfd; fd++) {
-        if (!to_keep
-        ||  !contains32(fd, to_keep->tab, to_keep->len))
-        {
+        if (!to_keep || !contains32(fd, to_keep->tab, to_keep->len)) {
             int to_close = fd;
 
             p_close(&to_close);
@@ -935,7 +964,7 @@ void close_fds_unix(int fd_min, qv_t(u32) * nullable to_keep)
 }
 
 #ifndef __linux__
-void close_fds(int fd_min, qv_t(u32) * nullable to_keep)
+void close_fds(int fd_min, qv_t(u32) *nullable to_keep)
 {
     close_fds_unix(fd_min, to_keep);
 }
@@ -951,11 +980,10 @@ int iovec_vector_kill_first(qv_t(iovec) *iovs, ssize_t len)
     qv_splice(iovs, 0, i, NULL, 0);
     if (iovs->len > 0 && len) {
         iovs->tab[0].iov_base = (byte *)iovs->tab[0].iov_base + len;
-        iovs->tab[0].iov_len  -= len;
+        iovs->tab[0].iov_len -= len;
     }
     return i;
 }
-
 
 static __thread bool in_ifork_g;
 
@@ -971,8 +999,7 @@ pid_t ifork(void)
 
     if (pid == 0) {
         MODULE_METHOD_RUN_VOID(at_fork_on_child);
-    } else
-    if (pid > 0) {
+    } else if (pid > 0) {
         MODULE_METHOD_RUN_INT(at_fork_on_parent, pid);
     }
 

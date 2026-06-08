@@ -19,9 +19,9 @@
 #if !defined(IS_LIB_COMMON_CORE_H) || defined(IS_LIB_COMMON_CORE_OBJ_H)
 #  error "you must include core.h instead"
 #else
-#define IS_LIB_COMMON_CORE_OBJ_H
+#  define IS_LIB_COMMON_CORE_OBJ_H
 
-#include <lib-common/core.h>
+#  include <lib-common/core.h>
 
 /** \defgroup lc_obj Intersec Object Oriented C
  *
@@ -89,10 +89,10 @@
  *     printf("base a: %d\n", self->a);
  * }
  *
- * OBJ_VTABLE(my_base_object)
- *     my_base_object.init = my_base_object_init;
- *     my_base_object.print = my_base_object_print;
- * OBJ_VTABLE_END()
+ * OBJ_VTABLE(my_base_object) {
+ *     cls->init = my_base_object_init;
+ *     cls->print = my_base_object_print;
+ * }
  *
  * static my_child_object_t *my_child_object_init(my_child_object_t *self)
  * {
@@ -106,10 +106,10 @@
  *     printf("child b: %g\n", obj_vcall(self, get_b));
  * }
  *
- * OBJ_VTABLE(my_child_object)
- *     my_child_object.init = my_child_object_init;
- *     my_child_object.print = my_child_object_print;
- * OBJ_VTABLE_END()
+ * OBJ_VTABLE(my_child_object) {
+ *     cls->init = my_child_object_init;
+ *     cls->print = my_child_object_print;
+ * }
  *
  *
  * -- obj2.c
@@ -119,62 +119,66 @@
  *     return self->b;
  * }
  *
- * OBJ_EXT_VTABLE(my_child_object)
- *     my_child_object.get_b = my_child_object_get_b;
- * OBJ_EXT_VTABLE_END()
+ * OBJ_EXT_VTABLE(my_child_object) {
+ *     cls->get_b = my_child_object_get_b;
+ * }
  *
  */
 
 /* {{{ Constructor macros */
 /* {{{ Private macros */
 
-#define OBJ_MAKE_STRUCT_INHERIT(pfx, superclass, fields, ...)                \
-    union {                                                                  \
-        superclass##_t super;                                                \
-        struct {                                                             \
-            fields(pfx, ##__VA_ARGS__);                                      \
-        };                                                                   \
-    }
+#  define OBJ_MAKE_STRUCT_INHERIT(pfx, superclass, fields, ...)              \
+      union {                                                                \
+          superclass##_t super;                                              \
+          struct {                                                           \
+              fields(pfx, ##__VA_ARGS__);                                    \
+          };                                                                 \
+      }
 
-#define OBJ_MAKE_STRUCT_BASE(pfx, superclass, fields, ...)                   \
-    fields(pfx, ##__VA_ARGS__)
+#  define OBJ_MAKE_STRUCT_BASE(pfx, superclass, fields, ...)                 \
+      fields(pfx, ##__VA_ARGS__)
 
-#define OBJ_CLASS_NO_TYPEDEF_(pfx, superclass, fields, methods, make_struct, \
-                              ...)                                           \
-    typedef struct pfx##_class_t pfx##_class_t;                              \
-    typedef void (*pfx##_vtable_extension_f)(pfx##_class_t * nonnull);       \
+#  define OBJ_CLASS_NO_TYPEDEF_(                                             \
+      pfx, superclass, fields, methods, make_struct, ...                     \
+  )                                                                          \
+      typedef struct pfx##_class_t pfx##_class_t;                            \
+      typedef void (*pfx##_vtable_extension_f)(pfx##_class_t * nonnull);     \
                                                                              \
-    struct pfx##_t {                                                         \
-        make_struct(pfx, superclass, fields, ##__VA_ARGS__);                 \
-    };                                                                       \
-    struct pfx##_class_t {                                                   \
-        const superclass##_class_t * nonnull super;                          \
-        const char * nonnull type_name;                                      \
-        size_t      type_size;                                               \
-        methods(pfx##_t, ##__VA_ARGS__);                                     \
-    };                                                                       \
+      struct pfx##_t {                                                       \
+          make_struct(pfx, superclass, fields, ##__VA_ARGS__);               \
+      };                                                                     \
+      struct pfx##_class_t {                                                 \
+          const superclass##_class_t *nonnull super;                         \
+          const char *nonnull type_name;                                     \
+          size_t type_size;                                                  \
+          methods(pfx##_t, ##__VA_ARGS__);                                   \
+      };                                                                     \
                                                                              \
-    const pfx##_class_t * nonnull pfx##_class(void) __attr_leaf__;           \
+      const pfx##_class_t *nonnull pfx##_class(void) __attr_leaf__;          \
                                                                              \
-    pfx##_vtable_extension_f nullable                                        \
-    pfx##_set_vtable_extension(pfx##_vtable_extension_f nonnull func);       \
+      pfx##_vtable_extension_f nullable pfx##_set_vtable_extension(          \
+          pfx##_vtable_extension_f nonnull func                              \
+      );                                                                     \
                                                                              \
-    __attr_unused__                                                          \
-    static inline const superclass##_class_t * nonnull pfx##_super(void) {   \
-        /* XXX This assert checks for field order: the fields of the super   \
-         *     class should always be placed first.                          \
-         */                                                                  \
-        STATIC_ASSERT(offsetof(pfx##_t, v) == 0);                            \
-        return superclass##_class();                                         \
-    }
+      __attr_unused__ static inline const superclass##_class_t *nonnull      \
+      pfx##_super(void)                                                      \
+      {                                                                      \
+          /* XXX This assert checks for field order: the fields of the super \
+           *     class should always be placed first.                        \
+           */                                                                \
+          STATIC_ASSERT(offsetof(pfx##_t, v) == 0);                          \
+          return superclass##_class();                                       \
+      }
 
-__attr_printf__(4, 5) __attr_noreturn__
-void (object_panic)(lstr_t file, lstr_t func, int line,
-                    const char *nonnull fmt, ...);
+__attr_printf__(4, 5) __attr_noreturn__ void(object_panic)(
+    lstr_t file, lstr_t func, int line, const char *nonnull fmt, ...
+);
 
-#define object_panic(fmt, ...)                                               \
-    (object_panic)(LSTR(__FILE__), LSTR(__func__), __LINE__,                 \
-                   (fmt), ##__VA_ARGS__)
+#  define object_panic(fmt, ...)                                             \
+      (object_panic)(                                                        \
+          LSTR(__FILE__), LSTR(__func__), __LINE__, (fmt), ##__VA_ARGS__     \
+      )
 
 /* }}} */
 
@@ -186,99 +190,113 @@ void (object_panic)(lstr_t file, lstr_t func, int line,
  * \param methods     class methods.
  * \param __VA_ARGS__ additional arguments for \p fields and \p methods.
  */
-#define OBJ_CLASS(pfx, superclass, fields, methods, ...)                     \
-    typedef struct pfx##_t pfx##_t;                                          \
-    OBJ_CLASS_NO_TYPEDEF(pfx, superclass, fields, methods, ##__VA_ARGS__)
+#  define OBJ_CLASS(pfx, superclass, fields, methods, ...)                   \
+      typedef struct pfx##_t pfx##_t;                                        \
+      OBJ_CLASS_NO_TYPEDEF(pfx, superclass, fields, methods, ##__VA_ARGS__)
 
 /** Define an object class without typedef.
  *
  * \see OBJ_CLASS
  */
-#define OBJ_CLASS_NO_TYPEDEF(pfx, superclass, fields, methods, ...)          \
-    OBJ_CLASS_NO_TYPEDEF_(pfx, superclass, fields, methods,                  \
-                          OBJ_MAKE_STRUCT_INHERIT, ##__VA_ARGS__)
+#  define OBJ_CLASS_NO_TYPEDEF(pfx, superclass, fields, methods, ...)        \
+      OBJ_CLASS_NO_TYPEDEF_(                                                 \
+          pfx, superclass, fields, methods, OBJ_MAKE_STRUCT_INHERIT,         \
+          ##__VA_ARGS__                                                      \
+      )
 
 /** Begin implementation of class virtual table.
  *
+ * The body is the mandatory body of a function that receives the class being
+ * built as \p cls; set the methods through it:
+ *
+ *     OBJ_VTABLE(pfx) {
+ *         cls->method = ...;
+ *     }
+ *
  * \param pfx object class prefix.
  */
-#define OBJ_VTABLE(pfx)                                                      \
-    static bool pfx##_vtable_extension_init_g;                               \
-    static pfx##_vtable_extension_f pfx##_vtable_extension_func_g;           \
+#  define OBJ_VTABLE(pfx)                                                    \
+      static bool pfx##_vtable_extension_init_g;                             \
+      static pfx##_vtable_extension_f pfx##_vtable_extension_func_g;         \
                                                                              \
-    /** Set class vtable extension function.                                 \
-     *                                                                       \
-     * This function is called by OBJ_EXT_VTABLE* to set an extension        \
-     * function for the class vtable.                                        \
-     * This function must be called before initializing the class with       \
-     * pfx##_class().                                                        \
-     *                                                                       \
-     * Returns the previous class vtable extension function or NULL if it    \
-     * hasn't been set before.                                               \
-     */                                                                      \
-    pfx##_vtable_extension_f nullable                                        \
-    pfx##_set_vtable_extension(pfx##_vtable_extension_f nonnull func)        \
-    {                                                                        \
-        pfx##_vtable_extension_f old_func = pfx##_vtable_extension_func_g;   \
+      /** Set class vtable extension function.                               \
+       *                                                                     \
+       * This function is called by OBJ_EXT_VTABLE* to set an extension      \
+       * function for the class vtable.                                      \
+       * This function must be called before initializing the class with     \
+       * pfx##_class().                                                      \
+       *                                                                     \
+       * Returns the previous class vtable extension function or NULL if it  \
+       * hasn't been set before.                                             \
+       */                                                                    \
+      pfx##_vtable_extension_f nullable pfx##_set_vtable_extension(          \
+          pfx##_vtable_extension_f nonnull func                              \
+      )                                                                      \
+      {                                                                      \
+          pfx##_vtable_extension_f old_func = pfx##_vtable_extension_func_g; \
                                                                              \
-        if (unlikely(pfx##_vtable_extension_init_g)) {                       \
-            object_panic("class constructor of " #pfx                        \
-                         " has already been called while trying to set "     \
-                         "vtable extension function, "                       \
-                         "check vtable extension init order");               \
-        }                                                                    \
-        pfx##_vtable_extension_func_g = func;                                \
-        return old_func;                                                     \
-    }                                                                        \
+          if (unlikely(pfx##_vtable_extension_init_g)) {                     \
+              object_panic(                                                  \
+                  "class constructor of " #pfx                               \
+                  " has already been called while trying to set "            \
+                  "vtable extension function, "                              \
+                  "check vtable extension init order"                        \
+              );                                                             \
+          }                                                                  \
+          pfx##_vtable_extension_func_g = func;                              \
+          return old_func;                                                   \
+      }                                                                      \
                                                                              \
-    typedef _Atomic(pfx##_class_t *) pfx##_atomic_ptrclass_t;                \
+      typedef _Atomic(pfx##_class_t *) pfx##_atomic_ptrclass_t;              \
                                                                              \
-    const pfx##_class_t *pfx##_class(void) {                                 \
-        __attr_section("intersec", "class")                                  \
-        static pfx##_atomic_ptrclass_t ptr;                                  \
-        pfx##_class_t *cls;                                                  \
+      static void __##pfx##_vtable_describe(pfx##_class_t *nonnull cls);     \
                                                                              \
-        cls = atomic_load_explicit(&ptr, memory_order_acquire);              \
-        /* double checked locking for lazy initialization of the             \
-         * pfx_class_t structure */                                          \
-        if (unlikely(!cls)) {                                                \
-            static spinlock_t lock;                                          \
+      const pfx##_class_t *pfx##_class(void)                                 \
+      {                                                                      \
+          __attr_section(                                                    \
+              "intersec", "class"                                            \
+          ) static pfx##_atomic_ptrclass_t ptr;                              \
+          pfx##_class_t *cls;                                                \
                                                                              \
-            spin_lock(&lock);                                                \
-            cls = atomic_load_explicit(&ptr, memory_order_relaxed);          \
-            if (unlikely(!cls)) {                                            \
-                static pfx##_class_t  pfx;                                   \
-                typeof(pfx.super)     cls_super;                             \
-                const char           *type_name;                             \
-                int                   type_size;                             \
-                const pfx##_vtable_extension_f vtable_extension =            \
-                    pfx##_vtable_extension_func_g;                           \
+          cls = atomic_load_explicit(&ptr, memory_order_acquire);            \
+          /* double checked locking for lazy initialization of the           \
+           * pfx_class_t structure */                                        \
+          if (unlikely(!cls)) {                                              \
+              static spinlock_t lock;                                        \
                                                                              \
-                pfx##_vtable_extension_init_g = true;                        \
+              spin_lock(&lock);                                              \
+              cls = atomic_load_explicit(&ptr, memory_order_relaxed);        \
+              if (unlikely(!cls)) {                                          \
+                  static pfx##_class_t pfx;                                  \
+                  typeof(pfx.super) cls_super;                               \
+                  const pfx##_vtable_extension_f vtable_extension =          \
+                      pfx##_vtable_extension_func_g;                         \
                                                                              \
-                cls_super = pfx##_super();                                   \
-                type_name = #pfx;                                            \
-                type_size = sizeof(pfx##_t);                                 \
-                cls = &pfx;                                                  \
-                memcpy(cls, cls_super, sizeof(*cls_super));
-
-/** End implementation of class virtual table. */
-#define OBJ_VTABLE_END()                                                     \
-                if (vtable_extension) {                                      \
-                    (*vtable_extension)(cls);                                \
-                }                                                            \
-                cls->type_name = type_name;                                  \
-                cls->type_size = type_size;                                  \
-                cls->super     = cls_super;                                  \
-                atomic_store_explicit(&ptr, cls, memory_order_release);      \
-            }                                                                \
-            spin_unlock(&lock);                                              \
-        }                                                                    \
-        return cls;                                                          \
-    }
+                  pfx##_vtable_extension_init_g = true;                      \
+                                                                             \
+                  cls_super = pfx##_super();                                 \
+                  cls = &pfx;                                                \
+                  memcpy(cls, cls_super, sizeof(*cls_super));                \
+                  __##pfx##_vtable_describe(cls);                            \
+                  if (vtable_extension) {                                    \
+                      (*vtable_extension)(cls);                              \
+                  }                                                          \
+                  cls->type_name = #pfx;                                     \
+                  cls->type_size = sizeof(pfx##_t);                          \
+                  cls->super = cls_super;                                    \
+                  atomic_store_explicit(&ptr, cls, memory_order_release);    \
+              }                                                              \
+              spin_unlock(&lock);                                            \
+          }                                                                  \
+          return cls;                                                        \
+      }                                                                      \
+                                                                             \
+      static void __##pfx##_vtable_describe(                                 \
+          __attr_unused__ pfx##_class_t *nonnull cls                         \
+      )
 
 /** Default constructor priority for OBJ_EXT_VTABLE. */
-#define OBJ_EXT_VTABLE_DEF_PRIO  1000
+#  define OBJ_EXT_VTABLE_DEF_PRIO 1000
 
 /** Begin implementation of class virtual table extension.
  *
@@ -292,14 +310,21 @@ void (object_panic)(lstr_t file, lstr_t func, int line,
  * If you have some constructor priority conflicts, you can use
  * OBJ_EXT_VTABLE_WITH_PRIO with a custom priority.
  *
+ * The body is the mandatory body of a function that receives the class being
+ * extended as \p cls; set the methods through it:
+ *
+ *     OBJ_EXT_VTABLE(pfx) {
+ *         cls->method = ...;
+ *     }
+ *
  * \param pfx object class prefix.
  */
-#define OBJ_EXT_VTABLE(pfx)                                                  \
-     OBJ_EXT_VTABLE_WITH_PRIO(pfx, OBJ_EXT_VTABLE_DEF_PRIO)
+#  define OBJ_EXT_VTABLE(pfx)                                                \
+      OBJ_EXT_VTABLE_WITH_PRIO(pfx, OBJ_EXT_VTABLE_DEF_PRIO)
 
 /* Names generators. */
-#define _OBJ_VT_SFX(pfx, sfx)  PFX_LINE_SFX(pfx##_, _ext_vtable##sfx)
-#define _OBJ_VT(pfx)           _OBJ_VT_SFX(pfx, )
+#  define _OBJ_VT_SFX(pfx, sfx) PFX_LINE_SFX(pfx##_, _ext_vtable##sfx)
+#  define _OBJ_VT(pfx) _OBJ_VT_SFX(pfx, )
 
 /** Begin implementation class virtual table extension with a custom priority.
  *
@@ -312,54 +337,61 @@ void (object_panic)(lstr_t file, lstr_t func, int line,
  * \param pfx  object class prefix.
  * \param prio constructor priority.
  */
-#define OBJ_EXT_VTABLE_WITH_PRIO(pfx, prio)                                  \
-     OBJ_EXT_VTABLE_WITH_PRIO_(pfx, prio, _OBJ_VT(pfx),                      \
-                               _OBJ_VT_SFX(pfx, _ctor),                      \
-                               _OBJ_VT_SFX(pfx, _old_func_g))
+#  define OBJ_EXT_VTABLE_WITH_PRIO(pfx, prio)                                \
+      OBJ_EXT_VTABLE_WITH_PRIO_(                                             \
+          pfx, prio, _OBJ_VT(pfx), _OBJ_VT_SFX(pfx, _ctor),                  \
+          _OBJ_VT_SFX(pfx, _old_func_g), _OBJ_VT_SFX(pfx, _describe)         \
+      )
 
-#define OBJ_EXT_VTABLE_WITH_PRIO_(cls_pfx, prio, _ext_vt,                    \
-                                  _ext_vt_constructor, _old_func_g)          \
-    static cls_pfx##_vtable_extension_f _old_func_g;                         \
-    static void _ext_vt(cls_pfx##_class_t * nonnull cls);                    \
+#  define OBJ_EXT_VTABLE_WITH_PRIO_(                                         \
+      cls_pfx, prio, _ext_vt, _ext_vt_constructor, _old_func_g,              \
+      _ext_vt_describe                                                       \
+  )                                                                          \
+      static cls_pfx##_vtable_extension_f _old_func_g;                       \
+      static void _ext_vt(cls_pfx##_class_t *nonnull cls);                   \
+      static void _ext_vt_describe(cls_pfx##_class_t *nonnull cls);          \
                                                                              \
-    __attribute__((constructor(prio)))                                       \
-    static void _ext_vt_constructor(void)                                    \
-    {                                                                        \
-        _old_func_g = cls_pfx##_set_vtable_extension(&_ext_vt);              \
-    }                                                                        \
+      __attribute__((constructor(prio))) static void _ext_vt_constructor(    \
+          void                                                               \
+      )                                                                      \
+      {                                                                      \
+          _old_func_g = cls_pfx##_set_vtable_extension(&_ext_vt);            \
+      }                                                                      \
                                                                              \
-    static void _ext_vt(cls_pfx##_class_t * nonnull _cls)                    \
-    {                                                                        \
-        cls_pfx##_class_t cls_pfx;                                           \
-        cls_pfx##_class_t *cls = &cls_pfx;                                   \
+      static void _ext_vt(cls_pfx##_class_t *nonnull _cls)                   \
+      {                                                                      \
+          cls_pfx##_class_t cls_pfx;                                         \
+          cls_pfx##_class_t *cls = &cls_pfx;                                 \
                                                                              \
-        if (_old_func_g) {                                                   \
-            (*_old_func_g)(_cls);                                            \
-        }                                                                    \
-        cls_pfx = *_cls;                                                     \
-
-/** End implementation of class vtable extension. */
-#define OBJ_EXT_VTABLE_END()                                                 \
-        *_cls = *cls;                                                        \
-    }
+          if (_old_func_g) {                                                 \
+              (*_old_func_g)(_cls);                                          \
+          }                                                                  \
+          cls_pfx = *_cls;                                                   \
+          _ext_vt_describe(cls);                                             \
+          *_cls = *cls;                                                      \
+      }                                                                      \
+                                                                             \
+      static void _ext_vt_describe(                                          \
+          __attr_unused__ cls_pfx##_class_t *nonnull cls                     \
+      )
 
 /* }}} */
 /* {{{ Base object class */
 /* {{{ Fields for tagged references. */
 
-#ifdef NDEBUG
-# define OBJECT_TAGGED_REF_FIELDS(pfx)
-#else /* NDEBUG */
+#  ifdef NDEBUG
+#    define OBJECT_TAGGED_REF_FIELDS(pfx)
+#  else /* NDEBUG */
 
 typedef struct obj_tagged_ref_list_t obj_tagged_ref_list_t;
 
-#define OBJECT_TAGGED_REF_FIELDS(pfx)                                        \
-    /* List of tagged references toward an object.                           \
-     * Use prefix 'obj' and suffix '_' to not interfer with user object      \
-     * fields. */                                                            \
-    obj_tagged_ref_list_t *nullable obj_tagged_refs_
+#    define OBJECT_TAGGED_REF_FIELDS(pfx)                                    \
+        /* List of tagged references toward an object.                       \
+         * Use prefix 'obj' and suffix '_' to not interfer with user object  \
+         * fields. */                                                        \
+        obj_tagged_ref_list_t *nullable obj_tagged_refs_
 
-#endif /* NDEBUG */
+#  endif /* NDEBUG */
 
 /* }}} */
 
@@ -367,81 +399,92 @@ typedef struct obj_tagged_ref_list_t obj_tagged_ref_list_t;
  *
  * \param pfx object class prefix.
  */
-#define OBJECT_FIELDS(pfx)                                                   \
-    union {                                                                  \
-        const object_class_t * nonnull as_obj_cls;                           \
-        const pfx##_class_t  * nonnull ptr;                                  \
-    } v;                                                                     \
-    mem_pool_t * nullable mp;                                                \
-    ssize_t refcnt;                                                          \
-    OBJECT_TAGGED_REF_FIELDS(pfx)
+#  define OBJECT_FIELDS(pfx)                                                 \
+      union {                                                                \
+          const object_class_t *nonnull as_obj_cls;                          \
+          const pfx##_class_t *nonnull ptr;                                  \
+      } v;                                                                   \
+      mem_pool_t *nullable mp;                                               \
+      ssize_t refcnt;                                                        \
+      OBJECT_TAGGED_REF_FIELDS(pfx)
 
 /** Methods for the root object class.
  *
  * \param type_t object instance type.
  */
-#define OBJECT_METHODS(type_t)                                               \
-    type_t *nonnull (*nonnull init)(type_t *nonnull);                        \
-    void (*nonnull wipe)(type_t *nonnull);                                   \
-    type_t *nonnull (*nonnull retain)(type_t *nonnull);                      \
+#  define OBJECT_METHODS(type_t)                                             \
+      type_t *nonnull (*nonnull init)(type_t * nonnull);                     \
+      void (*nonnull wipe)(type_t * nonnull);                                \
+      type_t *nonnull (*nonnull retain)(type_t * nonnull);                   \
                                                                              \
-    /** Remove a reference to an object.                                     \
-     *                                                                       \
-     * Decrement the reference counter and delete the object if it was the   \
-     * last reference. The default implementation isn't really meant to be   \
-     * replaced but it can be extended for tracing and debug.                \
-     *                                                                       \
-     * \param[in] obj  Object to release.                                    \
-     *                                                                       \
-     * \param[out] destroyed  Set to true if the object was destroyed.       \
-     */                                                                      \
-    void (*nonnull release)(type_t *nonnull obj, bool *nullable destroyed)
+      /** Remove a reference to an object.                                   \
+       *                                                                     \
+       * Decrement the reference counter and delete the object if it was the \
+       * last reference. The default implementation isn't really meant to be \
+       * replaced but it can be extended for tracing and debug.              \
+       *                                                                     \
+       * \param[in] obj  Object to release.                                  \
+       *                                                                     \
+       * \param[out] destroyed  Set to true if the object was destroyed.     \
+       */                                                                    \
+      void (*nonnull release)(type_t * nonnull obj, bool *nullable destroyed)
 
 typedef struct object_t object_t;
-OBJ_CLASS_NO_TYPEDEF_(object, object, OBJECT_FIELDS, OBJECT_METHODS,
-                      OBJ_MAKE_STRUCT_BASE)
+OBJ_CLASS_NO_TYPEDEF_(
+    object, object, OBJECT_FIELDS, OBJECT_METHODS, OBJ_MAKE_STRUCT_BASE
+)
 
 /* }}} */
 /* {{{ Public helpers */
 /* {{{ Private macros */
 
-#if !defined(NDEBUG) && defined(__GNUC__)
-#  define obj_cast_debug(pfx, o)                                             \
-    ({ typeof(o) __##pfx##_o = (o);                                          \
-       if (__##pfx##_o && unlikely(!obj_is_a(__##pfx##_o, pfx))) {           \
-           object_panic("cannot cast (%p : %s) into a %s",                   \
-                        __##pfx##_o, obj_vfield(__##pfx##_o, type_name),     \
-                        pfx##_class()->type_name);                           \
-     }                                                                       \
-     __##pfx##_o; })
+#  if !defined(NDEBUG) && defined(__GNUC__)
+#    define obj_cast_debug(pfx, o)                                           \
+        ({                                                                   \
+        typeof(o) __##pfx##_o = (o);                                         \
+        if (__##pfx##_o && unlikely(!obj_is_a(__##pfx##_o, pfx))) {          \
+            object_panic(                                                    \
+                "cannot cast (%p : %s) into a %s", __##pfx##_o,              \
+                obj_vfield(__##pfx##_o, type_name), pfx##_class()->type_name \
+            );                                                               \
+        }                                                                    \
+        __##pfx##_o;                                                         \
+        })
 
-#  define obj_p_cast_debug(pfx, obj_p)                                       \
-    ({ typeof(obj_p) PFX_LINE(pfx##_p_cast_obj) = (obj_p);                   \
-       IGNORE(obj_cast_debug(pfx, *PFX_LINE(pfx##_p_cast_obj)));             \
-       PFX_LINE(pfx##_p_cast_obj); })
+#    define obj_p_cast_debug(pfx, obj_p)                                     \
+        ({                                                                   \
+        typeof(obj_p) PFX_LINE(pfx##_p_cast_obj) = (obj_p);                  \
+        IGNORE(obj_cast_debug(pfx, *PFX_LINE(pfx##_p_cast_obj)));            \
+        PFX_LINE(pfx##_p_cast_obj);                                          \
+        })
 
-#  define cls_cast_debug(pfx, c)                                             \
-    ({ typeof(c) __##pfx##_c = (c);                                          \
-       if (unlikely(!cls_inherits(__##pfx##_c, pfx##_class()))) {            \
-           object_panic("bad class cast (%s into %s)",                       \
-                        __##pfx##_c->type_name, pfx##_class()->type_name);   \
-       }                                                                     \
-       __##pfx##_c; })
-#else
-#  define obj_cast_debug(pfx, o)  (o)
-#  define cls_cast_debug(pfx, c)  (c)
-#  define obj_p_cast_debug(pfx, obj_p) (obj_p)
-#endif
+#    define cls_cast_debug(pfx, c)                                           \
+        ({                                                                   \
+        typeof(c) __##pfx##_c = (c);                                         \
+        if (unlikely(!cls_inherits(__##pfx##_c, pfx##_class()))) {           \
+            object_panic(                                                    \
+                "bad class cast (%s into %s)", __##pfx##_c->type_name,       \
+                pfx##_class()->type_name                                     \
+            );                                                               \
+        }                                                                    \
+        __##pfx##_c;                                                         \
+        })
+#  else
+#    define obj_cast_debug(pfx, o) (o)
+#    define cls_cast_debug(pfx, c) (c)
+#    define obj_p_cast_debug(pfx, obj_p) (obj_p)
+#  endif
 
-#define obj_dyn_cast(pfx, o)                                                 \
-    ({                                                                       \
+#  define obj_dyn_cast(pfx, o)                                               \
+      ({                                                                     \
         typeof(o) __##pfx##_o = (o);                                         \
         obj_is_a(__##pfx##_o, pfx) ? __##pfx##_o : NULL;                     \
-    })
+      })
 
-void * nonnull obj_init_real(const void * nonnull cls, void * nonnull o,
-                             mem_pool_t * nonnull mp);
-void obj_wipe_real(object_t * nonnull o);
+void *nonnull obj_init_real(
+    const void *nonnull cls, void *nonnull o, mem_pool_t *nonnull mp
+);
+void obj_wipe_real(object_t *nonnull o);
 
 /* }}} */
 
@@ -450,31 +493,32 @@ void obj_wipe_real(object_t * nonnull o);
  * \param[in] cls  Pointer to the child class descriptor.
  * \param[in] vptr Pointer to the parent class descriptor.
  */
-bool cls_inherits(const void * nonnull cls, const void * nonnull vptr)
-    __attr_leaf__ __attribute__((pure));
+bool cls_inherits(
+    const void *nonnull cls, const void *nonnull vptr
+) __attr_leaf__ __attribute__((pure));
 
 /** Test if one object is instance of a class.
  *
  * \param[in] obj Object instance.
  * \param[in] cls Pointer to the parent class descriptor.
  */
-#define obj_is_a_class(obj, cls)  cls_inherits((obj)->v.as_obj_cls, cls)
+#  define obj_is_a_class(obj, cls) cls_inherits((obj)->v.as_obj_cls, cls)
 
 /** Test if one object is instance of a class.
  *
  * \param[in] obj Object instance.
  * \param[in] pfx Prefix of the parent class.
  */
-#define obj_is_a(obj, pfx)  obj_is_a_class(obj, pfx##_class())
+#  define obj_is_a(obj, pfx) obj_is_a_class(obj, pfx##_class())
 
 /** Get data field of an object. */
-#define obj_vfield(o, field)  ((o)->v.ptr->field)
+#  define obj_vfield(o, field) ((o)->v.ptr->field)
 
 /** Get virtual method of an object. */
-#define obj_vmethod(o, method)  ((o)->v.ptr->method)
+#  define obj_vmethod(o, method) ((o)->v.ptr->method)
 
 /** Call virtual method of an object. */
-#define obj_vcall(o, method, ...)  obj_vmethod(o, method)(o, ##__VA_ARGS__)
+#  define obj_vcall(o, method, ...) obj_vmethod(o, method)(o, ##__VA_ARGS__)
 
 /** Cast object to another class type.
  *
@@ -493,41 +537,41 @@ bool cls_inherits(const void * nonnull cls, const void * nonnull vptr)
  */
 /* TODO: This should have the same behavior as iop_obj_vcast, ie to check the
  * cast is valid, and not allow a NULL pointer. */
-#define obj_vcast(pfx, o)  ((pfx##_t *)obj_cast_debug(pfx, o))
+#  define obj_vcast(pfx, o) ((pfx##_t *)obj_cast_debug(pfx, o))
 
 /** Cast object to another class type.
  *
  * Same as obj_vcast, but returns a const pointer.
  */
-#define obj_ccast(pfx, o)  ((const pfx##_t *)obj_cast_debug(pfx, o))
+#  define obj_ccast(pfx, o) ((const pfx##_t *)obj_cast_debug(pfx, o))
 
 /** Similar to \p obj_vcast but casts a double pointer. */
-#define obj_p_vcast(pfx, obj_p) ((pfx##_t **)obj_p_cast_debug(pfx, obj_p))
+#  define obj_p_vcast(pfx, obj_p) ((pfx##_t **)obj_p_cast_debug(pfx, obj_p))
 
 /** Similar to \p obj_ccast but casts a double pointer. */
-#define obj_p_ccast(pfx, obj_p)                                              \
-        ((const pfx##_t **)obj_p_cast_debug(pfx, obj_p))
+#  define obj_p_ccast(pfx, obj_p)                                            \
+      ((const pfx##_t **)obj_p_cast_debug(pfx, obj_p))
 
 /** Dynamically cast an object to the wanted type.
  *
  * This macro will cast \p o to \p pfx if \p o inherits from \p pfx and will
  * return NULL if this is not the case.
  */
-#define obj_dynvcast(pfx, o)                                                 \
-    ({                                                                       \
+#  define obj_dynvcast(pfx, o)                                               \
+      ({                                                                     \
         void *_arg_o = (o); /* check constness with cast to void * */        \
                                                                              \
         (pfx##_t *)obj_dyn_cast(pfx, (typeof(o))_arg_o);                     \
-    })
+      })
 
 /** Dynamically cast a const object to the wanted type.
  *
  * Same as obj_dynvcast, but returns a const pointer, or NULL.
  */
-#define obj_dynccast(pfx, o)  ((const pfx##_t *)obj_dyn_cast(pfx, o))
+#  define obj_dynccast(pfx, o) ((const pfx##_t *)obj_dyn_cast(pfx, o))
 
 /** Cast class decriptor to another class descriptor. */
-#define cls_cast(pfx, c)  ((const pfx##_class_t *)cls_cast_debug(pfx, c))
+#  define cls_cast(pfx, c) ((const pfx##_class_t *)cls_cast_debug(pfx, c))
 
 /** Call virtual method of given class for an object.
  *
@@ -536,8 +580,8 @@ bool cls_inherits(const void * nonnull cls, const void * nonnull vptr)
  * \param f           Method to call.
  * \param __VA_ARGS__ Arguments passed to the method.
  */
-#define cls_call(pfx, o, f, ...)                                             \
-    (pfx##_class()->f(obj_vcast(pfx, o), ##__VA_ARGS__))
+#  define cls_call(pfx, o, f, ...)                                           \
+      (pfx##_class()->f(obj_vcast(pfx, o), ##__VA_ARGS__))
 
 /** Call virtual method of parent class for an object.
  *
@@ -546,8 +590,8 @@ bool cls_inherits(const void * nonnull cls, const void * nonnull vptr)
  * \param f           Method to call.
  * \param __VA_ARGS__ Arguments passed to the method.
  */
-#define super_call(pfx, o, f, ...)                                           \
-    (pfx##_class()->super->f(&(o)->super, ##__VA_ARGS__))
+#  define super_call(pfx, o, f, ...)                                         \
+      (pfx##_class()->super->f(&(o)->super, ##__VA_ARGS__))
 
 /** Call virtual method of parent class for a class.
  *
@@ -555,8 +599,7 @@ bool cls_inherits(const void * nonnull cls, const void * nonnull vptr)
  * \param f           Method to call.
  * \param __VA_ARGS__ Arguments passed to the method.
  */
-#define super_cls_call(pfx, f, ...)                                          \
-    (pfx##_class()->super->f(__VA_ARGS__))
+#  define super_cls_call(pfx, f, ...) (pfx##_class()->super->f(__VA_ARGS__))
 
 /** Call virtual method of parent class without object instance.
  *
@@ -564,10 +607,10 @@ bool cls_inherits(const void * nonnull cls, const void * nonnull vptr)
  * \param f           Method to call.
  * \param __VA_ARGS__ Arguments passed to the method.
  */
-#define class_vcall(cls, f, ...)  cls->f(__VA_ARGS__)
+#  define class_vcall(cls, f, ...) cls->f(__VA_ARGS__)
 
 /** Get class descriptor for given class prefix. */
-#define obj_class(pfx)    ((const object_class_t *)pfx##_class())
+#  define obj_class(pfx) ((const object_class_t *)pfx##_class())
 
 /** Create object instance with defined memory pool.
  *
@@ -579,12 +622,13 @@ bool cls_inherits(const void * nonnull cls, const void * nonnull vptr)
  * \param mp  Memory pool of the object instance.
  * \param pfx Class prefix of the object.
  */
-#define obj_mp_new(mp, pfx)  ({                                              \
+#  define obj_mp_new(mp, pfx)                                                \
+      ({                                                                     \
         mem_pool_t *_mp = (mp);                                              \
                                                                              \
-        ((pfx##_t *)obj_init_real(pfx##_class(), mp_new(_mp, pfx##_t, 1),    \
-                                  _mp));                                     \
-    })
+        ((pfx##_t *)                                                         \
+             obj_init_real(pfx##_class(), mp_new(_mp, pfx##_t, 1), _mp));    \
+      })
 
 /** Create object instance with libc memory pool.
  *
@@ -592,7 +636,7 @@ bool cls_inherits(const void * nonnull cls, const void * nonnull vptr)
  *
  * \param pfx Class prefix of the object.
  */
-#define obj_new(pfx)  obj_mp_new(&mem_pool_libc, pfx)
+#  define obj_new(pfx) obj_mp_new(&mem_pool_libc, pfx)
 
 /** Create object instance of specified class with defined memory pool.
  *
@@ -602,13 +646,15 @@ bool cls_inherits(const void * nonnull cls, const void * nonnull vptr)
  * \param pfx Parent class prefix of the object.
  * \param cls Real class descriptor of the object.
  */
-#define obj_mp_new_of_class(mp, pfx, cls)  ({                                \
+#  define obj_mp_new_of_class(mp, pfx, cls)                                  \
+      ({                                                                     \
         mem_pool_t *_mp = (mp);                                              \
                                                                              \
         ((pfx##_t *)(assert(cls_inherits(cls, obj_class(pfx))),              \
-                     obj_init_real(cls, mp_new(_mp, char, (cls)->type_size), \
-                                   _mp)));                                   \
-    })
+                     obj_init_real(                                          \
+                         cls, mp_new(_mp, char, (cls)->type_size), _mp       \
+                     )));                                                    \
+      })
 
 /** Create object instance of specified class with libc memory pool.
  *
@@ -617,19 +663,19 @@ bool cls_inherits(const void * nonnull cls, const void * nonnull vptr)
  * \param pfx Parent class prefix of the object.
  * \param cls Real class descriptor of the object.
  */
-#define obj_new_of_class(pfx, cls)                                           \
-    obj_mp_new_of_class(&mem_pool_libc, pfx, cls)
+#  define obj_new_of_class(pfx, cls)                                         \
+      obj_mp_new_of_class(&mem_pool_libc, pfx, cls)
 
 /** Retain object instance.
  *
  * The default implementation will increment the object's reference counting
  * by 1.
  */
-#define obj_retain(o)   obj_vcall(o, retain)
+#  define obj_retain(o) obj_vcall(o, retain)
 
 /* {{{ Private helpers. */
 
-static inline void (obj_release)(object_t *nullable *nonnull obj)
+static inline void(obj_release)(object_t * nullable * nonnull obj)
 {
     if (*obj) {
         bool destroyed;
@@ -641,7 +687,7 @@ static inline void (obj_release)(object_t *nullable *nonnull obj)
     }
 }
 
-static inline void (obj_delete)(object_t *nullable *nonnull obj)
+static inline void(obj_delete)(object_t * nullable * nonnull obj)
 {
     if (*obj) {
         obj_vcall(*obj, release, NULL);
@@ -659,24 +705,24 @@ static inline void (obj_delete)(object_t *nullable *nonnull obj)
  *                     reference left, then it is destroyed and \p *op is set
  *                     to NULL. Otherwise, \p *op is left unchanged.
  */
-#define obj_release(_obj)                                                    \
-    (obj_release)(obj_p_vcast(object, (_obj)))
+#  define obj_release(_obj) (obj_release)(obj_p_vcast(object, (_obj)))
 
 /* {{{ Tagged retain/release. */
 
-#ifdef NDEBUG
-# define obj_tagged_retain(_obj, _tag) obj_retain(_obj)
-# define obj_tagged_release(_obj, _tag) obj_release(_obj)
-# define obj_print_references(_obj) IGNORE(_obj)
-#else /* NDEBUG */
+#  ifdef NDEBUG
+#    define obj_tagged_retain(_obj, _tag) obj_retain(_obj)
+#    define obj_tagged_release(_obj, _tag) obj_release(_obj)
+#    define obj_print_references(_obj) IGNORE(_obj)
+#  else /* NDEBUG */
 
-object_t *nonnull
-(obj_tagged_retain)(object_t *nonnull obj, const char *nonnull tag,
-                    const char *nonnull func,
-                    const char *nonnull file, int line);
+object_t *nonnull(obj_tagged_retain)(
+    object_t *nonnull obj, const char *nonnull tag, const char *nonnull func,
+    const char *nonnull file, int line
+);
 
-void (obj_tagged_release)(object_t *nonnull *nonnull obj_p,
-                          const char *nonnull tag);
+void(obj_tagged_release)(
+    object_t * nonnull * nonnull obj_p, const char *nonnull tag
+);
 
 /** Create a tagged reference on the object.
  *
@@ -695,87 +741,89 @@ void (obj_tagged_release)(object_t *nonnull *nonnull obj_p,
  * - trace mode: to trace all the retain/release done during an object's
  *   lifetime.
  */
-#define obj_tagged_retain(_obj, _tag)                                        \
-    (obj_tagged_retain)(obj_vcast(object, (_obj)), #_tag,                    \
-                        __func__, __FILE__, __LINE__)
+#    define obj_tagged_retain(_obj, _tag)                                    \
+        (obj_tagged_retain)(                                                 \
+            obj_vcast(object, (_obj)), #_tag, __func__, __FILE__, __LINE__   \
+        )
 
 /** Release a tagged reference on the object. */
-#define obj_tagged_release(_obj_p, _tag)                                     \
-    (obj_tagged_release)(obj_p_vcast(object, (_obj_p)), #_tag)
+#    define obj_tagged_release(_obj_p, _tag)                                 \
+        (obj_tagged_release)(obj_p_vcast(object, (_obj_p)), #_tag)
 
-void (obj_print_references)(const object_t *nonnull obj);
+void(obj_print_references)(const object_t *nonnull obj);
 
 /** Print the reference counting status to core obj logger. */
-#define obj_print_references(_obj)                                           \
-    (obj_print_references)(obj_ccast(object, (_obj)))
+#    define obj_print_references(_obj)                                       \
+        (obj_print_references)(obj_ccast(object, (_obj)))
 
-#endif /* NDEBUG */
+#  endif /* NDEBUG */
 
 /* }}} */
 /* {{{ Retain scope. */
 /* {{{ Private helpers. */
 
 typedef struct object_reference_scope_t {
-    object_t *nonnull *nonnull obj_p;
-#ifndef NDEBUG
+    object_t * nonnull * nonnull obj_p;
+#  ifndef NDEBUG
     const char *nonnull func;
     const char *nonnull file;
     int line;
-#endif /* NDEBUG */
+#  endif /* NDEBUG */
 } object_reference_scope_t;
 
-#ifndef NDEBUG
+#  ifndef NDEBUG
 
-object_t *nonnull
-(obj_retain_scope)(object_t *nonnull obj,
-                   const char *nonnull func,
-                   const char *nonnull file, int line);
-void (obj_release_scope)(object_t *nonnull *nonnull obj_p,
-                         const char *nonnull file, int line);
+object_t *nonnull(obj_retain_scope)(
+    object_t *nonnull obj, const char *nonnull func, const char *nonnull file,
+    int line
+);
+void(obj_release_scope)(
+    object_t * nonnull * nonnull obj_p, const char *nonnull file, int line
+);
 
-#endif /* NDEBUG */
+#  endif /* NDEBUG */
 
-static inline object_reference_scope_t
-object_reference_scope_build(object_t *nonnull *nonnull obj_p,
-                             const char *nonnull func,
-                             const char *nonnull file,
-                             int line)
+static inline object_reference_scope_t object_reference_scope_build(
+    object_t * nonnull * nonnull obj_p, const char *nonnull func,
+    const char *nonnull file, int line
+)
 {
-#ifdef NDEBUG
+#  ifdef NDEBUG
     obj_retain(*obj_p);
-#else /* NDEBUG */
+#  else  /* NDEBUG */
     (obj_retain_scope)(*obj_p, func, file, line);
-#endif /* NDEBUG */
+#  endif /* NDEBUG */
 
     return (object_reference_scope_t){
         .obj_p = obj_p,
-#ifndef NDEBUG
+#  ifndef NDEBUG
         .func = func,
         .file = file,
         .line = line,
-#endif /* NDEBUG */
+#  endif /* NDEBUG */
     };
 }
 
 static inline void
 object_reference_scope_wipe(object_reference_scope_t *nonnull scope)
 {
-#ifdef NDEBUG
+#  ifdef NDEBUG
     obj_release(scope->obj_p);
-#else /* NDEBUG */
+#  else  /* NDEBUG */
     (obj_release_scope)(scope->obj_p, scope->file, scope->line);
-#endif /* NDEBUG */
+#  endif /* NDEBUG */
 }
 
 /* }}} */
 
 /** Keep an object retained until the end of the current scope. */
-#define obj_retain_scope(_obj_p)                                             \
-    object_reference_scope_t PFX_LINE(obj_retain_scope)                      \
-        __attribute__((unused, cleanup(object_reference_scope_wipe))) =      \
-        object_reference_scope_build(                                        \
-            obj_p_vcast(object, (_obj_p)),                                   \
-            __func__, __FILE__, __LINE__)
+#  define obj_retain_scope(_obj_p)                                           \
+      object_reference_scope_t PFX_LINE(obj_retain_scope)                    \
+          __attribute__((unused, cleanup(object_reference_scope_wipe))) =    \
+              object_reference_scope_build(                                  \
+                  obj_p_vcast(object, (_obj_p)), __func__, __FILE__,         \
+                  __LINE__                                                   \
+              )
 
 /* }}} */
 
@@ -783,8 +831,7 @@ object_reference_scope_wipe(object_reference_scope_t *nonnull scope)
  *
  * If the object instance is not NULL, it will be released and set to NULL.
  */
-#define obj_delete(_obj)                                                     \
-    (obj_delete)(obj_p_vcast(object, (_obj)))
+#  define obj_delete(_obj) (obj_delete)(obj_p_vcast(object, (_obj)))
 
 /** Init object instance with static memory pool.
  *
@@ -793,9 +840,10 @@ object_reference_scope_wipe(object_reference_scope_t *nonnull scope)
  * \param pfx Class prefix of the object.
  * \param v   Object instance.
  */
-#define obj_init(pfx, v)                                                     \
-    ((pfx##_t *)obj_init_real(pfx##_class(), memset(v, 0, sizeof(*v)),       \
-                              &mem_pool_static))
+#  define obj_init(pfx, v)                                                   \
+      ((pfx##_t *)obj_init_real(                                             \
+          pfx##_class(), memset(v, 0, sizeof(*v)), &mem_pool_static          \
+      ))
 
 /** Wipe object instance with static memory pool.
  *
@@ -803,7 +851,7 @@ object_reference_scope_wipe(object_reference_scope_t *nonnull scope)
  *
  * \param o Object instance.
  */
-#define obj_wipe(o)  obj_wipe_real(obj_vcast(object, o))
+#  define obj_wipe(o) obj_wipe_real(obj_vcast(object, o))
 
 /* }}} */
 

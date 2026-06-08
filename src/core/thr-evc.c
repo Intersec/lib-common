@@ -35,52 +35,60 @@
 
 /* Note that this file is #include-able for speed in code that needs it */
 
-#include <sys/syscall.h>
-#include <linux/futex.h>
+#  include <sys/syscall.h>
+#  include <linux/futex.h>
 
-#if !defined(__x86_64__) && !defined(__i386__)
-#  error "this file assumes a strict memory model and is probably buggy on !x86"
-#endif
+#  if !defined(__x86_64__) && !defined(__i386__)
+#    error                                                                   \
+        "this file assumes a strict memory model and is probably buggy on !x86"
+#  endif
 
-#define futex_wait_private(futex, val, ts)  ({                               \
+#  define futex_wait_private(futex, val, ts)                                 \
+      ({                                                                     \
         typeof(futex) __futex = (futex);                                     \
-        typeof(val)   __val   = (val);                                       \
-        typeof(ts)    __ts    = (ts);                                        \
+        typeof(val) __val = (val);                                           \
+        typeof(ts) __ts = (ts);                                              \
         int __res;                                                           \
                                                                              \
         for (;;) {                                                           \
-            __res = syscall(SYS_futex, (unsigned long)__futex,               \
-                            FUTEX_WAIT_PRIVATE, __val, (unsigned long)__ts, 0);\
+            __res = syscall(                                                 \
+                SYS_futex, (unsigned long)__futex, FUTEX_WAIT_PRIVATE,       \
+                __val, (unsigned long)__ts, 0                                \
+            );                                                               \
             if (__res < 0 && errno == EINTR) {                               \
                 continue;                                                    \
             }                                                                \
             break;                                                           \
         }                                                                    \
         __res;                                                               \
-    })
+      })
 
-#define futex_wake_private(futex, nwake)  ({                                 \
+#  define futex_wake_private(futex, nwake)                                   \
+      ({                                                                     \
         typeof(futex) __futex = (futex);                                     \
         typeof(nwake) __nwake = (nwake);                                     \
         int __res;                                                           \
                                                                              \
         for (;;) {                                                           \
-            __res = syscall(SYS_futex, (unsigned long)__futex,               \
-                            FUTEX_WAKE_PRIVATE, __nwake, 0, 0);              \
+            __res = syscall(                                                 \
+                SYS_futex, (unsigned long)__futex, FUTEX_WAKE_PRIVATE,       \
+                __nwake, 0, 0                                                \
+            );                                                               \
             if (__res < 0 && errno == EINTR) {                               \
                 continue;                                                    \
             }                                                                \
             break;                                                           \
         }                                                                    \
         __res;                                                               \
-    })
+      })
 
 void thr_ec_signal_n(thr_evc_t *ec, int count)
 {
     atomic_fetch_add(&ec->key, 1);
 
-    if (atomic_load(&ec->waiters))
+    if (atomic_load(&ec->waiters)) {
         futex_wake_private(&ec->key, count);
+    }
 }
 
 static void thr_ec_wait_cleanup(void *arg)
@@ -112,15 +120,16 @@ void thr_ec_timedwait(thr_evc_t *ec, uint64_t key, long timeout)
 
     if (timeout > 0) {
         struct timespec spec = {
-            .tv_sec  = timeout / 1000,
+            .tv_sec = timeout / 1000,
             .tv_nsec = (timeout % 1000) * 1000000,
         };
         res = futex_wait_private(&ec->key, (uint32_t)key, &spec);
     } else {
         res = futex_wait_private(&ec->key, (uint32_t)key, NULL);
     }
-    if (res == 0)
+    if (res == 0) {
         sched_yield();
+    }
 
     /* XXX passing NULL to pthread_setcanceltype() breaks TSAN */
     pthread_setcanceltype(canceltype, &res);
@@ -141,8 +150,8 @@ void thr_ec_wipe(thr_evc_t *ec)
 
 #else
 
-#include <pthread.h>
-#include <lib-common/datetime.h>
+#  include <pthread.h>
+#  include <lib-common/datetime.h>
 
 thr_evc_t *thr_ec_init(thr_evc_t *ec)
 {
@@ -185,7 +194,7 @@ void thr_ec_timedwait(thr_evc_t *ec, uint64_t key, long timeout)
 
         lp_gettv(&tv);
         usec = tv.tv_usec + timeout * 1000;
-        ts.tv_sec  = tv.tv_sec + usec / 1000000;
+        ts.tv_sec = tv.tv_sec + usec / 1000000;
         ts.tv_nsec = (usec % 1000000) * 1000;
     }
 

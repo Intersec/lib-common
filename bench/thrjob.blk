@@ -60,8 +60,9 @@ static void z_wake_up(void)
     }
     e_assert(panic, z_wake_up_g.count == 0, "");
 
-    e_trace(3, "count: %d - %jd", z_wake_up_g.count,
-            z_wake_up_g.diff / iterations);
+    e_trace(
+        3, "count: %d - %jd", z_wake_up_g.count, z_wake_up_g.diff / iterations
+    );
 }
 
 /* }}} */
@@ -69,12 +70,12 @@ static void z_wake_up(void)
 
 struct {
     mpsc_queue_t queue;
-    thr_job_t    job;
-    thr_syn_t    syn;
+    thr_job_t job;
+    thr_syn_t syn;
 
     unsigned val __attribute__((aligned(64)));
     atomic_uint thr __attribute__((aligned(64)));
-    unsigned mq  __attribute__((aligned(64)));
+    unsigned mq __attribute__((aligned(64)));
     atomic_uint pmq __attribute__((aligned(64)));
     atomic_bool flushed __attribute__((aligned(64)));
 } z_post_notify_g;
@@ -83,7 +84,6 @@ struct post_notify_node {
     mpsc_node_t node;
     bool flush;
 } __attribute__((aligned(64)));
-
 
 static void run_post_check(mpsc_node_t *n, data_t data)
 {
@@ -98,8 +98,9 @@ static void run_post_notify(thr_job_t *job, thr_syn_t *syn)
 
     mpsc_queue_drain_start(&it, &z_post_notify_g.queue);
     do {
-        mpsc_node_t *n = mpsc_queue_drain_fast(&it, &run_post_check,
-                                               (data_t){ .ptr = NULL });
+        mpsc_node_t *n = mpsc_queue_drain_fast(
+            &it, &run_post_check, (data_t){.ptr = NULL}
+        );
 
         assert(!atomic_load(&z_post_notify_g.flushed));
         if (container_of(n, struct post_notify_node, node)->flush) {
@@ -118,8 +119,9 @@ static void run_post_notify(thr_job_t *job, thr_syn_t *syn)
     if (flush) {
         bool exp = false;
 
-        assert(atomic_compare_exchange_strong(&z_post_notify_g.flushed,
-                                              &exp, true));
+        assert(atomic_compare_exchange_strong(
+            &z_post_notify_g.flushed, &exp, true
+        ));
     }
 }
 
@@ -128,12 +130,13 @@ static void run_post_notify(thr_job_t *job, thr_syn_t *syn)
 
 struct contention_job {
     thr_job_t job;
-    int       i;
+    int i;
 };
 
 static void run_contention(thr_job_t *job_, thr_syn_t *syn)
 {
-    struct contention_job *job = container_of(job_, struct contention_job, job);
+    struct contention_job *job =
+        container_of(job_, struct contention_job, job);
 
     job->i *= 2;
 }
@@ -142,17 +145,17 @@ static void run_contention(thr_job_t *job_, thr_syn_t *syn)
 /* Sort {{{ */
 
 static struct {
-    int  help;
+    int help;
 
-    int  sort_minsize;
+    int sort_minsize;
 } z_sort_g = {
     .sort_minsize = 128,
 };
 
 struct sort_job {
-    thr_job_t  job;
-    uint32_t  *a;
-    size_t     n;
+    thr_job_t job;
+    uint32_t *a;
+    size_t n;
 };
 
 static void par_qsort_run(thr_job_t *job, thr_syn_t *syn);
@@ -162,9 +165,9 @@ static void par_qsort(thr_syn_t *syn, uint32_t *a, size_t n, bool use_blocks)
     uint32_t *mean, *i, *j;
     size_t n1;
 
-#define swap(p,q)        (qstmp = *(p), *(p) = *(q), *(q) = qstmp)
-#define rotate(p,r,q)    (qstmp = *(p), *(p) = *(r), *(r) = *(q), *(q) = qstmp)
-#define comp_gt(a,b)     (*(a) > *(b))
+#define swap(p, q) (qstmp = *(p), *(p) = *(q), *(q) = qstmp)
+#define rotate(p, r, q) (qstmp = *(p), *(p) = *(r), *(r) = *(q), *(q) = qstmp)
+#define comp_gt(a, b) (*(a) > *(b))
 
     for (;;) {
         i = a;
@@ -173,20 +176,21 @@ static void par_qsort(thr_syn_t *syn, uint32_t *a, size_t n, bool use_blocks)
         if (comp_gt(i, j)) {
             swap(i, j);
         }
-        if (n <= 2)
+        if (n <= 2) {
             return;
+        }
 
         mean = i + (n >> 1);
         if (comp_gt(i, mean)) {
             swap(i, mean);
-        } else
-        if (comp_gt(mean, j)) {
+        } else if (comp_gt(mean, j)) {
             swap(j, mean);
         }
-        if (n == 3)
-            return;         /* in case of 3 items */
+        if (n == 3) {
+            return; /* in case of 3 items */
+        }
 
-        qsop2 = *mean;       /* cause *mean is gonna change */
+        qsop2 = *mean; /* cause *mean is gonna change */
 
         for (;;) {
             /* We do not have guards in these loops because we assume
@@ -194,15 +198,15 @@ static void par_qsort(thr_syn_t *syn, uint32_t *a, size_t n, bool use_blocks)
              * regular and returns != 0 on identical arguments, all bets
              * are off and this code may crash.
              */
-            while (comp_gt(&qsop2, ++i)) {  /* find GE in left part */
+            while (comp_gt(&qsop2, ++i)) { /* find GE in left part */
                 continue;
             }
-            while (comp_gt(--j, &qsop2)) {  /* find LE in right part */
+            while (comp_gt(--j, &qsop2)) { /* find LE in right part */
                 continue;
             }
 
             if (i < j) {
-                swap(i, j);        /* swap if needed */
+                swap(i, j); /* swap if needed */
                 continue;
             }
             break;
@@ -216,7 +220,7 @@ static void par_qsort(thr_syn_t *syn, uint32_t *a, size_t n, bool use_blocks)
         /* Fix ranges: [a..i[ U [j+1..a+n[ become [a..a+n[ U [j..j+n1[ */
         j++;
         n1 = a + n - j;
-        n  = i - a;
+        n = i - a;
 
         /* We want to recurse on [a..a+n[ and [j..j+n1[, but in order
          * to minimize stack usage, we only recurse on the smaller
@@ -240,14 +244,14 @@ static void par_qsort(thr_syn_t *syn, uint32_t *a, size_t n, bool use_blocks)
 
                 job = p_new_raw(struct sort_job, 1);
                 job->job.run = &par_qsort_run;
-                job->a    = j;
-                job->n    = n1;
+                job->a = j;
+                job->n = n1;
                 thr_syn_schedule(syn, &job->job);
 
                 job = p_new_raw(struct sort_job, 1);
                 job->job.run = &par_qsort_run;
-                job->a    = a;
-                job->n    = n;
+                job->a = a;
+                job->n = n;
                 thr_syn_schedule(syn, &job->job);
             }
             return;
@@ -262,8 +266,7 @@ static void par_qsort(thr_syn_t *syn, uint32_t *a, size_t n, bool use_blocks)
 #undef rotate
 }
 
-__attr_flatten__
-static void par_qsort_run(thr_job_t *job, thr_syn_t *syn)
+__attr_flatten__ static void par_qsort_run(thr_job_t *job, thr_syn_t *syn)
 {
     struct sort_job *j = container_of(job, struct sort_job, job);
 
@@ -301,9 +304,9 @@ static void test_qsort(bool use_blocks)
         for (size_t j = 0; j < thr_parallelism_g; j++) {
             struct sort_job *job = p_new_raw(struct sort_job, 1);
 
-            job->job.run    = &par_qsort_run;
-            job->a          = vec[j];
-            job->n          = len;
+            job->job.run = &par_qsort_run;
+            job->a = vec[j];
+            job->n = len;
             thr_syn_schedule(&syn, &job->job);
         }
     }
@@ -412,7 +415,7 @@ static void test_queue_sync(void)
 
 typedef struct rci_t {
     mpsc_node_t node;
-    int   seqid;
+    int seqid;
     byte *data;
 } rci_t;
 qvector_t(rci, rci_t *);
@@ -433,8 +436,7 @@ static void run_node(mpsc_node_t *node, data_t d)
     (*unqueued)++;
 }
 
-__attribute__((unused))
-static void run_job(thr_job_t *j, thr_syn_t *syn)
+__attribute__((unused)) static void run_job(thr_job_t *j, thr_syn_t *syn)
 {
     mpsc_it_t it;
     int to_sync;
@@ -445,8 +447,8 @@ static void run_job(thr_job_t *j, thr_syn_t *syn)
         mpsc_node_t *node;
         rci_t *rci;
 
-        node = mpsc_queue_drain_fast(&it, run_node,
-                                     (data_t){ .ptr = &unqueued });
+        node =
+            mpsc_queue_drain_fast(&it, run_node, (data_t){.ptr = &unqueued});
 
         rci = container_of(node, rci_t, node);
         to_sync = rci->seqid;
@@ -482,11 +484,15 @@ static void z_thr_for_each(void)
     __block uint64_t tds = 0;
     uint64_t sum;
 
-    thr_syn_declare_td(syn, ^{
-        return &p_new(struct thr_int_td_t, 1)->td;
-    }, ^(thr_td_t **ptd) {
-        p_delete(ptd);
-    });
+    thr_syn_declare_td(
+        syn,
+        ^{
+            return &p_new(struct thr_int_td_t, 1)->td;
+        },
+        ^(thr_td_t **ptd) {
+            p_delete(ptd);
+        }
+    );
 
     thr_for_each(1000000, ^(size_t pos) {
         struct thr_int_td_t *td;
@@ -515,130 +521,149 @@ static void z_thr_for_each(void)
 
 /* }}} */
 
-ZBENCH_GROUP_EXPORT(thrjobs) {
+ZBENCH_GROUP_EXPORT(thrjobs)
+{
     MODULE_REQUIRE(thr);
 
-    ZBENCH(contention, "test contention behavior") {
-        ZBENCH_LOOP() {
-            struct contention_job jobs[2 * thr_parallelism_g * THR_JOB_MAX];
-            thr_syn_t syn;
+    ZBENCH(contention, "test contention behavior"){ZBENCH_LOOP(){
+        struct contention_job jobs[2 * thr_parallelism_g * THR_JOB_MAX];
+    thr_syn_t syn;
 
-            thr_acc_reset();
-            thr_syn_init(&syn);
+    thr_acc_reset();
+    thr_syn_init(&syn);
 
-            ZBENCH_MEASURE() {
-                for (int i = 0; i < countof(jobs); i++) {
-                    jobs[i] = (struct contention_job) {
-                        .job.run = run_contention,
-                        .i       = i,
-                    };
-                    thr_syn_schedule(&syn, &jobs[i].job);
-                }
+    ZBENCH_MEASURE()
+    {
+        for (int i = 0; i < countof(jobs); i++) {
+            jobs[i] = (struct contention_job){
+                .job.run = run_contention,
+                .i = i,
+            };
+            thr_syn_schedule(&syn, &jobs[i].job);
+        }
 
-                thr_syn_wait(&syn);
-            } ZBENCH_MEASURE_END
+        thr_syn_wait(&syn);
+    }
+    ZBENCH_MEASURE_END
 
-            for (int i = 0; i < countof(jobs); i++) {
-                e_assert(panic, jobs[i].i == i * 2, "");
-            }
+    for (int i = 0; i < countof(jobs); i++) {
+        e_assert(panic, jobs[i].i == i * 2, "");
+    }
 
-            thr_acc_trace(3, "");
-            thr_syn_wipe(&syn);
-        } ZBENCH_LOOP_END
-    } ZBENCH_END;
+    thr_acc_trace(3, "");
+    thr_syn_wipe(&syn);
+}
+ZBENCH_LOOP_END
+}
+ZBENCH_END;
 
-    ZBENCH(sort_job, "test sort with thr_job_t structure") {
-        int i = 0;
+ZBENCH(sort_job, "test sort with thr_job_t structure")
+{
+    int i = 0;
 
-        ZBENCH_LOOP() {
-            z_sort_g.sort_minsize = 1 << i;
+    ZBENCH_LOOP()
+    {
+        z_sort_g.sort_minsize = 1 << i;
 
-            ZBENCH_MEASURE() {
-                test_qsort(false);
-            } ZBENCH_MEASURE_END
+        ZBENCH_MEASURE()
+        {
+            test_qsort(false);
+        }
+        ZBENCH_MEASURE_END
 
-            i = (i + 1) % 16;
-        } ZBENCH_LOOP_END
-    } ZBENCH_END;
+        i = (i + 1) % 16;
+    }
+    ZBENCH_LOOP_END
+}
+ZBENCH_END;
 
-    ZBENCH(sort_block, "test sort with blocks") {
-        int i = 0;
+ZBENCH(sort_block, "test sort with blocks")
+{
+    int i = 0;
 
-        ZBENCH_LOOP() {
-            z_sort_g.sort_minsize = 1 << i;
+    ZBENCH_LOOP()
+    {
+        z_sort_g.sort_minsize = 1 << i;
 
-            ZBENCH_MEASURE() {
-                test_qsort(true);
-            } ZBENCH_MEASURE_END
+        ZBENCH_MEASURE()
+        {
+            test_qsort(true);
+        }
+        ZBENCH_MEASURE_END
 
-            i = (i + 1) % 16;
-        } ZBENCH_LOOP_END
-    } ZBENCH_END;
+        i = (i + 1) % 16;
+    }
+    ZBENCH_LOOP_END
+}
+ZBENCH_END;
 
-    ZBENCH(queue, "test queues") {
-        ZBENCH_LOOP() {
-            ZBENCH_MEASURE() {
-                test_queue();
-            } ZBENCH_MEASURE_END
-        } ZBENCH_LOOP_END
-    } ZBENCH_END;
+ZBENCH(queue, "test queues"){ZBENCH_LOOP(){ZBENCH_MEASURE(){test_queue();
+}
+ZBENCH_MEASURE_END
+}
+ZBENCH_LOOP_END
+}
+ZBENCH_END;
 
-    ZBENCH(queue_syn, "tests queue sync") {
-        ZBENCH_LOOP() {
-            ZBENCH_MEASURE() {
-                test_queue_sync();
-            } ZBENCH_MEASURE_END
-        } ZBENCH_LOOP_END
-    } ZBENCH_END;
+ZBENCH(queue_syn, "tests queue sync"){
+    ZBENCH_LOOP(){ZBENCH_MEASURE(){test_queue_sync();
+}
+ZBENCH_MEASURE_END
+}
+ZBENCH_LOOP_END
+}
+ZBENCH_END;
 
-    ZBENCH(wake_up_thr0, "test the main thread wake up procedure") {
-        ZBENCH_LOOP() {
-            ZBENCH_MEASURE() {
-                z_wake_up();
-            } ZBENCH_MEASURE_END
-        } ZBENCH_LOOP_END
-    } ZBENCH_END;
+ZBENCH(wake_up_thr0, "test the main thread wake up procedure"){
+    ZBENCH_LOOP(){ZBENCH_MEASURE(){z_wake_up();
+}
+ZBENCH_MEASURE_END
+}
+ZBENCH_LOOP_END
+}
+ZBENCH_END;
 
-    ZBENCH(post_notify, "test the post-notify pattern") {
-        mpsc_queue_init(&z_post_notify_g.queue);
-        thr_syn_init(&z_post_notify_g.syn);
-        z_post_notify_g.job.run = &run_post_notify;
+ZBENCH(post_notify, "test the post-notify pattern")
+{
+    mpsc_queue_init(&z_post_notify_g.queue);
+    thr_syn_init(&z_post_notify_g.syn);
+    z_post_notify_g.job.run = &run_post_notify;
 
-        ZBENCH_LOOP() {
-            t_scope;
-            int count = 27;
-            __attr_unused__
-            int posted = 0;
-            struct post_notify_node *nodes;
+    ZBENCH_LOOP()
+    {
+        t_scope;
+        int count = 27;
+        __attr_unused__ int posted = 0;
+        struct post_notify_node *nodes;
 
-            nodes = t_new(struct post_notify_node, count + 1);
+        nodes = t_new(struct post_notify_node, count + 1);
 
-            ZBENCH_MEASURE() {
-                atomic_store(&z_post_notify_g.flushed, false);
-                for (int i = 0; i < count; i++) {
-                    nodes[i].flush = false;
-                    if (mpsc_queue_push(&z_post_notify_g.queue,
-                                        &nodes[i].node))
-                    {
-                        thr_syn_schedule(&z_post_notify_g.syn,
-                                         &z_post_notify_g.job);
-                        posted++;
-                    }
-                }
-                nodes[count].flush = true;
-                if (mpsc_queue_push(&z_post_notify_g.queue,
-                                    &nodes[count].node))
-                {
-                    thr_syn_schedule(&z_post_notify_g.syn,
-                                     &z_post_notify_g.job);
+        ZBENCH_MEASURE()
+        {
+            atomic_store(&z_post_notify_g.flushed, false);
+            for (int i = 0; i < count; i++) {
+                nodes[i].flush = false;
+                if (mpsc_queue_push(&z_post_notify_g.queue, &nodes[i].node)) {
+                    thr_syn_schedule(
+                        &z_post_notify_g.syn, &z_post_notify_g.job
+                    );
                     posted++;
                 }
-                thr_syn_wait(&z_post_notify_g.syn);
-            } ZBENCH_MEASURE_END
-        } ZBENCH_LOOP_END
+            }
+            nodes[count].flush = true;
+            if (mpsc_queue_push(&z_post_notify_g.queue, &nodes[count].node)) {
+                thr_syn_schedule(&z_post_notify_g.syn, &z_post_notify_g.job);
+                posted++;
+            }
+            thr_syn_wait(&z_post_notify_g.syn);
+        }
+        ZBENCH_MEASURE_END
+    }
+    ZBENCH_LOOP_END
 
-        thr_syn_wipe(&z_post_notify_g.syn);
-    } ZBENCH_END;
+    thr_syn_wipe(&z_post_notify_g.syn);
+}
+ZBENCH_END;
 
 #if 0 /* FIXME: Fails at queue_steal_g.ci_ring.len == 0 */
     ZBENCH(queue_steal, "queue steal jobs") {
@@ -689,13 +714,15 @@ ZBENCH_GROUP_EXPORT(thrjobs) {
 
 #endif
 
-    ZBENCH(for_each, "thr for each") {
-        ZBENCH_LOOP() {
-            ZBENCH_MEASURE() {
-                z_thr_for_each();
-            } ZBENCH_MEASURE_END
-        } ZBENCH_LOOP_END
-    } ZBENCH_END;
+ZBENCH(for_each, "thr for each"){
+    ZBENCH_LOOP(){ZBENCH_MEASURE(){z_thr_for_each();
+}
+ZBENCH_MEASURE_END
+}
+ZBENCH_LOOP_END
+}
+ZBENCH_END;
 
-    MODULE_RELEASE(thr);
-} ZBENCH_GROUP_END
+MODULE_RELEASE(thr);
+}
+ZBENCH_GROUP_END

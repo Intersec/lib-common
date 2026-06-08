@@ -42,8 +42,9 @@ void qvector_wipe(qvector_t *vec, size_t v_size)
     __qvector_reset(vec, v_size, 0);
 }
 
-static void qvector_get_grow_info(qvector_t *vec, size_t v_size, int extra,
-                                  int *newsz, bool *needs_alloc)
+static void qvector_get_grow_info(
+    qvector_t *vec, size_t v_size, int extra, int *newsz, bool *needs_alloc
+)
 {
     int newlen = vec->len + extra;
 
@@ -64,8 +65,9 @@ static void qvector_get_grow_info(qvector_t *vec, size_t v_size, int extra,
     *needs_alloc = true;
 }
 
-uint64_t __qvector_grow_get_new_alloc_size(qvector_t *nonnull vec,
-                                           size_t v_size, int extra)
+uint64_t __qvector_grow_get_new_alloc_size(
+    qvector_t *nonnull vec, size_t v_size, int extra
+)
 {
     int newsz;
     bool needs_alloc;
@@ -88,13 +90,16 @@ void __qvector_grow(qvector_t *vec, size_t v_size, size_t v_align, int extra)
         return;
     }
 
-    vec->tab = mp_irealloc_fallback(&vec->mp, vec->tab, vec->len * v_size,
-                                    newsz * v_size, v_align, MEM_RAW);
+    vec->tab = mp_irealloc_fallback(
+        &vec->mp, vec->tab, vec->len * v_size, newsz * v_size, v_align,
+        MEM_RAW
+    );
     vec->size = newsz;
 }
 
-void __qvector_optimize(qvector_t *vec, size_t v_size, size_t v_align,
-                        size_t size)
+void __qvector_optimize(
+    qvector_t *vec, size_t v_size, size_t v_align, size_t size
+)
 {
     mem_pool_t *mp = mp_ipool(vec->mp);
     char *buf;
@@ -106,28 +111,34 @@ void __qvector_optimize(qvector_t *vec, size_t v_size, size_t v_align,
     if ((mp->mem_pool & MEM_BY_FRAME)) {
         return;
     }
-    buf = mpa_new_raw(mp, char, size * v_size, v_align);
+    buf = mpa_new_raw(mp, char, size *v_size, v_align);
     memcpy(buf, vec->tab, vec->len * v_size);
     mp_delete(mp, &vec->tab);
     __qvector_init(vec, buf, vec->len, size, vec->mp);
 }
 
-void *__qvector_splice(qvector_t *vec, size_t v_size, size_t v_align,
-                       int pos, int rm_len, int inserted_len)
+void *__qvector_splice(
+    qvector_t *vec, size_t v_size, size_t v_align, int pos, int rm_len,
+    int inserted_len
+)
 {
-    assert (pos >= 0 && rm_len >= 0 && inserted_len >= 0);
-    assert (pos <= vec->len && pos + rm_len <= vec->len);
+    assert(pos >= 0 && rm_len >= 0 && inserted_len >= 0);
+    assert(pos <= vec->len && pos + rm_len <= vec->len);
 
     if (rm_len >= inserted_len) {
-        memmove(vec->tab + v_size * (pos + inserted_len),
-                vec->tab + v_size * (pos + rm_len),
-                v_size * (vec->len - pos - rm_len));
+        memmove(
+            vec->tab + v_size * (pos + inserted_len),
+            vec->tab + v_size * (pos + rm_len),
+            v_size * (vec->len - pos - rm_len)
+        );
         qvector_grow(vec, v_size, v_align, 0);
     } else {
         qvector_grow(vec, v_size, v_align, inserted_len - rm_len);
-        memmove(vec->tab + v_size * (pos + inserted_len),
-                vec->tab + v_size * (pos + rm_len),
-                v_size * (vec->len - pos - rm_len));
+        memmove(
+            vec->tab + v_size * (pos + inserted_len),
+            vec->tab + v_size * (pos + rm_len),
+            v_size * (vec->len - pos - rm_len)
+        );
     }
     vec->len += inserted_len - rm_len;
     return vec->tab + pos * v_size;
@@ -149,7 +160,7 @@ void __qv_sort(void *tab, size_t v_size, size_t len, qvector_cmp_b cmp)
 
 /* }}} */
 
-void __qvector_shuffle(qvector_t * nonnull vec, size_t v_size)
+void __qvector_shuffle(qvector_t *nonnull vec, size_t v_size)
 {
     /* XXX: index 0 is excluded from the loop, which is intended in
      *      Fisher-Yates shuffle algorithm.  */
@@ -157,7 +168,7 @@ void __qvector_shuffle(qvector_t * nonnull vec, size_t v_size)
         int j = rand() % (i + 1);
         uint8_t tmp[v_size];
 
-#define nth(_i)  ((void *)((uint8_t *)(vec->tab) + (_i) * v_size))
+#define nth(_i) ((void *)((uint8_t *)(vec->tab) + (_i) * v_size))
         memcpy(tmp, nth(j), v_size);
         memcpy(nth(j), nth(i), v_size);
         memcpy(nth(i), tmp, v_size);
@@ -165,23 +176,27 @@ void __qvector_shuffle(qvector_t * nonnull vec, size_t v_size)
     }
 }
 
-void __qvector_diff(const qvector_t *vec1, const qvector_t *vec2,
-                    qvector_t *add, qvector_t *del, qvector_t *inter,
-                    size_t v_size, size_t v_align, qvector_cmp_b cmp)
+void __qvector_diff(
+    const qvector_t *vec1, const qvector_t *vec2, qvector_t *add,
+    qvector_t *del, qvector_t *inter, size_t v_size, size_t v_align,
+    qvector_cmp_b cmp
+)
 {
     int pos1 = 0, pos2 = 0;
     const void *tab1 = vec1->tab;
     const void *tab2 = vec2->tab;
     const void *elem1, *elem2;
 
-#define nth(base, i)  ((void *)((uint8_t *)(base) + (i) * v_size))
+#define nth(base, i) ((void *)((uint8_t *)(base) + (i) * v_size))
 #define append_tab(tab, src, len)                                            \
     if ((tab))                                                               \
-        memcpy(qvector_growlen((tab), v_size, v_align, (len)),               \
-               src, (len) * v_size);
-#define append_add(src, len)    append_tab(add, src, len)
-#define append_del(src, len)    append_tab(del, src, len)
-#define append_inter(src, len)  append_tab(inter, src, len)
+        memcpy(                                                              \
+            qvector_growlen((tab), v_size, v_align, (len)), src,             \
+            (len) * v_size                                                   \
+        );
+#define append_add(src, len) append_tab(add, src, len)
+#define append_del(src, len) append_tab(del, src, len)
+#define append_inter(src, len) append_tab(inter, src, len)
 
     if (add) {
         qvector_grow(add, v_size, v_align, vec2->len + add->len);
@@ -200,8 +215,7 @@ void __qvector_diff(const qvector_t *vec1, const qvector_t *vec2,
             append_inter(elem1, 1);
             elem1 = nth(tab1, ++pos1);
             elem2 = nth(tab2, ++pos2);
-        } else
-        if (s < 0) {
+        } else if (s < 0) {
             append_del(elem1, 1);
             elem1 = nth(tab1, ++pos1);
         } else {
@@ -221,14 +235,18 @@ void __qvector_diff(const qvector_t *vec1, const qvector_t *vec2,
 #undef nth
 }
 
-int __qvector_bisect(const qvector_t *vec, size_t v_size, const void *elt,
-                     bool *found, qvector_cmp_b cmp)
+int __qvector_bisect(
+    const qvector_t *vec, size_t v_size, const void *elt, bool *found,
+    qvector_cmp_b cmp
+)
 {
     return bisect_blk(elt, vec->tab, v_size, vec->len, found, cmp);
 }
 
-int __qvector_find(const qvector_t *vec, size_t v_size, const void *elt,
-                   bool sorted, qvector_cmp_b cmp)
+int __qvector_find(
+    const qvector_t *vec, size_t v_size, const void *elt, bool sorted,
+    qvector_cmp_b cmp
+)
 {
     if (sorted) {
         bool found = false;
@@ -245,20 +263,26 @@ int __qvector_find(const qvector_t *vec, size_t v_size, const void *elt,
     }
 }
 
-bool __qvector_contains(const qvector_t *vec, size_t v_size, const void *elt,
-                        bool sorted, qvector_cmp_b cmp)
+bool __qvector_contains(
+    const qvector_t *vec, size_t v_size, const void *elt, bool sorted,
+    qvector_cmp_b cmp
+)
 {
     return __qvector_find(vec, v_size, elt, sorted, cmp) != -1;
 }
 
-void __qvector_uniq(qvector_t *vec, size_t v_size, qvector_cmp_b cmp,
-                    qvector_del_b nullable del)
+void __qvector_uniq(
+    qvector_t *vec, size_t v_size, qvector_cmp_b cmp,
+    qvector_del_b nullable del
+)
 {
     vec->len = uniq_blk(vec->tab, v_size, vec->len, cmp, del);
 }
 
-void __qvector_deep_extend(qvector_t *vec_dst, const qvector_t *vec_src,
-                           size_t v_size, size_t v_align, qvector_cpy_b cpy_f)
+void __qvector_deep_extend(
+    qvector_t *vec_dst, const qvector_t *vec_src, size_t v_size,
+    size_t v_align, qvector_cpy_b cpy_f
+)
 {
     size_t original_len = vec_dst->len;
 
@@ -268,7 +292,9 @@ void __qvector_deep_extend(qvector_t *vec_dst, const qvector_t *vec_src,
          *       pointer arithmetic ourselves because the true type of the
          *       array could be different.
          */
-        cpy_f(vec_dst->tab + (pos + original_len) * v_size,
-              vec_src->tab + pos * v_size);
+        cpy_f(
+            vec_dst->tab + (pos + original_len) * v_size,
+            vec_src->tab + pos * v_size
+        );
     }
 }

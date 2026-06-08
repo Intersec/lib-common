@@ -24,16 +24,11 @@ enum iopc_token {
     IOPC_TK_VOID,
 };
 
-__attribute__((pure))
-enum iopc_token
-iopc_get_token(const char *s, int len);
+__attribute__((pure)) enum iopc_token iopc_get_token(const char *s, int len);
 
-__attribute__((pure))
-enum iopc_token
-iopc_get_token_ps(pstream_t ps);
+__attribute__((pure)) enum iopc_token iopc_get_token_ps(pstream_t ps);
 
-static ALWAYS_INLINE enum iopc_token
-iopc_get_token_lstr(lstr_t s)
+static ALWAYS_INLINE enum iopc_token iopc_get_token_lstr(lstr_t s)
 {
     return iopc_get_token(s.s, s.len);
 }

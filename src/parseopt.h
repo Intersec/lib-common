@@ -23,11 +23,11 @@
 #include <lib-common/container.h>
 
 #if __has_feature(nullability)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic error "-Wnullability-completeness"
-#if __has_warning("-Wnullability-completeness-on-arrays")
-#pragma GCC diagnostic ignored "-Wnullability-completeness-on-arrays"
-#endif
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic error "-Wnullability-completeness"
+#  if __has_warning("-Wnullability-completeness-on-arrays")
+#    pragma GCC diagnostic ignored "-Wnullability-completeness-on-arrays"
+#  endif
 #endif
 
 enum popt_kind {
@@ -43,7 +43,7 @@ enum popt_kind {
 
 enum popt_options {
     /** Stop as soon as a non option argument is found. */
-    POPT_STOP_AT_NONARG =      (1 << 0),
+    POPT_STOP_AT_NONARG = (1 << 0),
 
     /** Ignore all unknown options, they will be left in argv. */
     POPT_IGNORE_UNKNOWN_OPTS = (1 << 1),
@@ -52,29 +52,33 @@ enum popt_options {
 typedef struct popt_t {
     enum popt_kind kind;
     int shrt;
-    const char * nullable lng;
-    void * nullable value;
+    const char *nullable lng;
+    void *nullable value;
     intptr_t init;
-    const char * nullable help;
+    const char *nullable help;
     size_t int_vsize;
 } popt_t;
 
-#define OPT_FLAG(s, l, v, h)   { OPTION_FLAG, (s), (l), (v), 0, (h),         \
-                                 sizeof(*(v)) }
-#define OPT_STR(s, l, v, h)    { OPTION_STR, (s), (l), (v), 0, (h), 0 }
-#define OPT_INT(s, l, v, h)    { OPTION_INT, (s), (l), (v), 0, (h),          \
-                                 sizeof(*(v)) }
-#define OPT_UINT(s, l, v, h)   { OPTION_UINT, (s), (l), (v), 0, (h),         \
-                                 sizeof(*(v)) }
-#define OPT_CHAR(s, l, v, h)   { OPTION_CHAR, (s), (l), (v), 0, (h), 0 }
-#define OPT_GROUP(h)           { OPTION_GROUP, 0, NULL, NULL, 0, (h), 0 }
-#define OPT_END()              { OPTION_END, 0, NULL, NULL, 0, NULL, 0 }
+#define OPT_FLAG(s, l, v, h)                                                 \
+    {OPTION_FLAG, (s), (l), (v), 0, (h), sizeof(*(v))}
+#define OPT_STR(s, l, v, h) {OPTION_STR, (s), (l), (v), 0, (h), 0}
+#define OPT_INT(s, l, v, h) {OPTION_INT, (s), (l), (v), 0, (h), sizeof(*(v))}
+#define OPT_UINT(s, l, v, h)                                                 \
+    {OPTION_UINT, (s), (l), (v), 0, (h), sizeof(*(v))}
+#define OPT_CHAR(s, l, v, h) {OPTION_CHAR, (s), (l), (v), 0, (h), 0}
+#define OPT_GROUP(h) {OPTION_GROUP, 0, NULL, NULL, 0, (h), 0}
+#define OPT_END() {OPTION_END, 0, NULL, NULL, 0, NULL, 0}
 
 /* If "name" or "f" is NULL, then the core versions are printed
  * (cf. core-stdlib.h). */
-#define OPT_VERSION(name, f)   { OPTION_VERSION, 'V', "version",             \
-                                 (void *)(name), (intptr_t)(f),              \
-                                 "show version information", 0 }
+#define OPT_VERSION(name, f)                                                 \
+    {OPTION_VERSION,                                                         \
+     'V',                                                                    \
+     "version",                                                              \
+     (void *)(name),                                                         \
+     (intptr_t)(f),                                                          \
+     "show version information",                                             \
+     0}
 
 qvector_t(popt, popt_t);
 
@@ -87,8 +91,9 @@ qvector_t(popt, popt_t);
  * remove the current terminating \p OPT_END() (if any) before appending new
  * options.
  */
-void opt_vec_extend(qv_t(popt) *nonnull vec,
-                    const popt_t *nonnull opts, int len);
+void opt_vec_extend(
+    qv_t(popt) *nonnull vec, const popt_t *nonnull opts, int len
+);
 
 /** Append a list of options in a vector of popt_t.
  *
@@ -97,22 +102,24 @@ void opt_vec_extend(qv_t(popt) *nonnull vec,
  */
 #define OPT_VEC_EXTEND_VA(_vec, ...)                                         \
     do {                                                                     \
-        popt_t opt_vec_ext_array_[] = {                                      \
-            __VA_ARGS__                                                      \
-        };                                                                   \
+        popt_t opt_vec_ext_array_[] = {__VA_ARGS__};                         \
                                                                              \
-        opt_vec_extend((_vec), opt_vec_ext_array_,                           \
-                       countof(opt_vec_ext_array_));                         \
+        opt_vec_extend(                                                      \
+            (_vec), opt_vec_ext_array_, countof(opt_vec_ext_array_)          \
+        );                                                                   \
     } while (0)
 
-int parseopt(int argc, char * nullable * nonnull argv,
-             popt_t * nonnull opts, int flags);
-__attribute__((noreturn))
-void makeusage(int ret, const char * nonnull arg0, const char * nonnull usage,
-               const char * nullable const text[], popt_t * nonnull opts);
-__attribute__((noreturn))
-void makeversion(int ret, const char * nullable name,
-                 const char * nonnull (* nullable get_version)(void));
+int parseopt(
+    int argc, char *nullable *nonnull argv, popt_t *nonnull opts, int flags
+);
+__attribute__((noreturn)) void makeusage(
+    int ret, const char *nonnull arg0, const char *nonnull usage,
+    const char *nullable const text[], popt_t *nonnull opts
+);
+__attribute__((noreturn)) void makeversion(
+    int ret, const char *nullable name,
+    const char *nonnull (*nullable get_version)(void)
+);
 
 /** Parse an integer argument (supposedly positional).
  *
@@ -126,15 +133,18 @@ void makeversion(int ret, const char * nullable name,
  * parseopt() (FIXME).
  * In that case, the caller can use the "--" (no more options) marker.
  */
-int parseopt_geti(const char *nonnull arg, const char *nonnull param_name,
-                  int *nonnull val);
+int parseopt_geti(
+    const char *nonnull arg, const char *nonnull param_name, int *nonnull val
+);
 
 /** Parse an unsigned integer argument (supposedly positional). */
-int parseopt_getu(const char *nonnull arg, const char *nonnull param_name,
-                  unsigned *nonnull val);
+int parseopt_getu(
+    const char *nonnull arg, const char *nonnull param_name,
+    unsigned *nonnull val
+);
 
 #if __has_feature(nullability)
-#pragma GCC diagnostic pop
+#  pragma GCC diagnostic pop
 #endif
 
 #endif

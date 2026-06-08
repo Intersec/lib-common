@@ -24,35 +24,36 @@ uint32_t hsieh_hash(const void *_data, ssize_t len)
     uint32_t hash, tmp;
     size_t rem;
 
-    if (len < 0)
+    if (len < 0) {
         len = strlen((const char *)data);
+    }
 
-    hash  = len;
-    rem   = len & 3;
+    hash = len;
+    rem = len & 3;
     len >>= 2;
 
     /* Main loop */
     for (; len > 0; len--, data += 4) {
-        hash  += cpu_to_le16pu(data);
-        tmp    = (cpu_to_le16pu(data + 2) << 11) ^ hash;
-        hash   = (hash << 16) ^ tmp;
-        hash  += hash >> 11;
+        hash += cpu_to_le16pu(data);
+        tmp = (cpu_to_le16pu(data + 2) << 11) ^ hash;
+        hash = (hash << 16) ^ tmp;
+        hash += hash >> 11;
     }
 
     /* Handle end cases */
     switch (rem) {
-      case 3:
+    case 3:
         hash += cpu_to_le16pu(data);
         hash ^= hash << 16;
         hash ^= data[2] << 18;
         hash += hash >> 11;
         break;
-      case 2:
+    case 2:
         hash += cpu_to_le16pu(data);
         hash ^= hash << 11;
         hash += hash >> 17;
         break;
-      case 1:
+    case 1:
         hash += *data;
         hash ^= hash << 10;
         hash += hash >> 1;
@@ -126,8 +127,9 @@ void jenkins_update(jenkins_ctx *ctx, const void *input, ssize_t len)
     ctx->hash = hash;
 }
 
-void jenkins_update_ascii_lower(jenkins_ctx *ctx, const void *input,
-                                ssize_t len)
+void jenkins_update_ascii_lower(
+    jenkins_ctx *ctx, const void *input, ssize_t len
+)
 {
     const byte *s = input;
     uint32_t hash = ctx->hash;
@@ -207,11 +209,11 @@ void murmur_hash3_x86_32_starts(murmur_hash3_x86_32_ctx *ctx, uint32_t seed)
     ctx->h1 = seed;
 }
 
-#define MURMUR_HASH3_X86_32_C1  0xcc9e2d51
-#define MURMUR_HASH3_X86_32_C2  0x1b873593
+#define MURMUR_HASH3_X86_32_C1 0xcc9e2d51
+#define MURMUR_HASH3_X86_32_C2 0x1b873593
 
-static ALWAYS_INLINE uint32_t
-__murmur_hash3_x86_32_process_block(uint32_t h1, uint32_t block)
+static ALWAYS_INLINE
+    uint32_t __murmur_hash3_x86_32_process_block(uint32_t h1, uint32_t block)
 {
     uint32_t k1 = block;
 
@@ -231,43 +233,43 @@ __murmur_hash3_x86_32_process_block(uint32_t h1, uint32_t block)
  * \note The use of this function is reserved to the management of the tail in
  *       murmur_hash3_x86_32 algorithm.
  */
-static ALWAYS_INLINE uint32_t
-__murmur_hash3_x86_32_push_block(uint32_t block, uint8_t block_len,
-                                 const byte *data, size_t len)
+static ALWAYS_INLINE uint32_t __murmur_hash3_x86_32_push_block(
+    uint32_t block, uint8_t block_len, const byte *data, size_t len
+)
 {
     uint32_t data_block = 0;
 
     /* XXX Not expected to happen in that case: get_unaligned_cpu32() is more
      * appropriate. */
-    assert (block_len || len < 4);
+    assert(block_len || len < 4);
 
     switch (len) {
-      default:
-      case 3:
+    default:
+    case 3:
         data_block |= data[2] << 16;
         /* FALLTHROUGH */
-      case 2:
+    case 2:
         data_block |= data[1] << 8;
         /* FALLTHROUGH */
-      case 1:
+    case 1:
         data_block |= data[0];
         /* FALLTHROUGH */
-      case 0:
+    case 0:
         break;
     }
 
     return block | (data_block << (8 * block_len));
 }
 
-static ALWAYS_INLINE uint32_t
-__murmur_hash3_x86_32_process_tail(uint32_t h1,
-                                   uint32_t tail, uint8_t tail_len)
+static ALWAYS_INLINE uint32_t __murmur_hash3_x86_32_process_tail(
+    uint32_t h1, uint32_t tail, uint8_t tail_len
+)
 {
     uint32_t k1 = tail;
 
     if (tail_len) {
         k1 *= MURMUR_HASH3_X86_32_C1;
-        k1  = rotl32(k1, 15);
+        k1 = rotl32(k1, 15);
         k1 *= MURMUR_HASH3_X86_32_C2;
         h1 ^= k1;
     };
@@ -275,8 +277,9 @@ __murmur_hash3_x86_32_process_tail(uint32_t h1,
     return h1;
 }
 
-void murmur_hash3_x86_32_update(murmur_hash3_x86_32_ctx *ctx,
-                                const void *key, size_t len)
+void murmur_hash3_x86_32_update(
+    murmur_hash3_x86_32_ctx *ctx, const void *key, size_t len
+)
 {
     const uint8_t *data = (const byte *)key;
     size_t nblocks;
@@ -288,8 +291,9 @@ void murmur_hash3_x86_32_update(murmur_hash3_x86_32_ctx *ctx,
     if (ctx->tail_len) {
         size_t head_len = 4 - ctx->tail_len;
 
-        ctx->tail = __murmur_hash3_x86_32_push_block(ctx->tail, ctx->tail_len,
-                                                     data, len);
+        ctx->tail = __murmur_hash3_x86_32_push_block(
+            ctx->tail, ctx->tail_len, data, len
+        );
         if (len < head_len) {
             ctx->tail_len += len;
             return;
@@ -308,7 +312,9 @@ void murmur_hash3_x86_32_update(murmur_hash3_x86_32_ctx *ctx,
         const uint32_t *blocks = (const uint32_t *)(data + nblocks * 4);
 
         for (ssize_t i = -nblocks; i; i++) {
-            h1 = __murmur_hash3_x86_32_process_block(h1, get_unaligned_cpu32(blocks + i));
+            h1 = __murmur_hash3_x86_32_process_block(
+                h1, get_unaligned_cpu32(blocks + i)
+            );
         }
     }
 
@@ -319,8 +325,8 @@ void murmur_hash3_x86_32_update(murmur_hash3_x86_32_ctx *ctx,
     if (ctx->tail_len) {
         const uint8_t *tail = &data[nblocks * 4];
 
-        ctx->tail = __murmur_hash3_x86_32_push_block(0, 0,
-                                                     tail, ctx->tail_len);
+        ctx->tail =
+            __murmur_hash3_x86_32_push_block(0, 0, tail, ctx->tail_len);
     }
 }
 
@@ -333,7 +339,7 @@ void murmur_hash3_x86_32_finish(murmur_hash3_x86_32_ctx *ctx, byte output[4])
 
     /* Finalization */
     h1 ^= ctx->len;
-    h1  = fmix32(h1);
+    h1 = fmix32(h1);
 
     put_unaligned_cpu32(output, h1);
 }
@@ -367,13 +373,14 @@ uint32_t murmur_hash3_x86_32(const void *key, size_t len, uint32_t seed)
     //----------
     // finalization
     h1 ^= len;
-    h1  = fmix32(h1);
+    h1 = fmix32(h1);
 
     return h1;
 }
 
-void murmur_hash3_x86_128(const void *key, size_t len,
-                          uint32_t seed, byte out[static 16])
+void murmur_hash3_x86_128(
+    const void *key, size_t len, uint32_t seed, byte out[static 16]
+)
 {
     const uint8_t *data = key;
     const size_t nblocks = len / 16;
@@ -391,7 +398,7 @@ void murmur_hash3_x86_128(const void *key, size_t len,
     //----------
     // body
 
-    const uint32_t *blocks = (const uint32_t *)(data + nblocks*16);
+    const uint32_t *blocks = (const uint32_t *)(data + nblocks * 16);
 
     for (ssize_t i = -nblocks; i; i++) {
         uint32_t k1 = get_unaligned_cpu32(blocks + i * 4 + 0);
@@ -399,27 +406,47 @@ void murmur_hash3_x86_128(const void *key, size_t len,
         uint32_t k3 = get_unaligned_cpu32(blocks + i * 4 + 2);
         uint32_t k4 = get_unaligned_cpu32(blocks + i * 4 + 3);
 
-        k1 *= c1; k1  = rotl32(k1, 15); k1 *= c2; h1 ^= k1;
+        k1 *= c1;
+        k1 = rotl32(k1, 15);
+        k1 *= c2;
+        h1 ^= k1;
 
-        h1 = rotl32(h1, 19); h1 += h2; h1 = h1 * 5 + 0x561ccd1b;
+        h1 = rotl32(h1, 19);
+        h1 += h2;
+        h1 = h1 * 5 + 0x561ccd1b;
 
-        k2 *= c2; k2  = rotl32(k2, 16); k2 *= c3; h2 ^= k2;
+        k2 *= c2;
+        k2 = rotl32(k2, 16);
+        k2 *= c3;
+        h2 ^= k2;
 
-        h2 = rotl32(h2, 17); h2 += h3; h2 = h2 * 5 + 0x0bcaa747;
+        h2 = rotl32(h2, 17);
+        h2 += h3;
+        h2 = h2 * 5 + 0x0bcaa747;
 
-        k3 *= c3; k3  = rotl32(k3, 17); k3 *= c4; h3 ^= k3;
+        k3 *= c3;
+        k3 = rotl32(k3, 17);
+        k3 *= c4;
+        h3 ^= k3;
 
-        h3 = rotl32(h3, 15); h3 += h4; h3 = h3 * 5 + 0x96cd1c35;
+        h3 = rotl32(h3, 15);
+        h3 += h4;
+        h3 = h3 * 5 + 0x96cd1c35;
 
-        k4 *= c4; k4  = rotl32(k4, 18); k4 *= c1; h4 ^= k4;
+        k4 *= c4;
+        k4 = rotl32(k4, 18);
+        k4 *= c1;
+        h4 ^= k4;
 
-        h4 = rotl32(h4, 13); h4 += h1; h4 = h4 * 5 + 0x32ac3b17;
+        h4 = rotl32(h4, 13);
+        h4 += h1;
+        h4 = h4 * 5 + 0x32ac3b17;
     }
 
     //----------
     // tail
     {
-        const uint8_t *tail = (const uint8_t*)(data + nblocks*16);
+        const uint8_t *tail = (const uint8_t *)(data + nblocks * 16);
 
         uint32_t k1 = 0;
         uint32_t k2 = 0;
@@ -427,61 +454,99 @@ void murmur_hash3_x86_128(const void *key, size_t len,
         uint32_t k4 = 0;
 
         switch (len & 15) {
-          case 15: k4 ^= tail[14] << 16;
-                   /* FALLTHROUGH */
-          case 14: k4 ^= tail[13] << 8;
-                   /* FALLTHROUGH */
-          case 13: k4 ^= tail[12] << 0;
-                   k4 *= c4; k4  = rotl32(k4, 18); k4 *= c1; h4 ^= k4;
-                   /* FALLTHROUGH */
+        case 15:
+            k4 ^= tail[14] << 16;
+            /* FALLTHROUGH */
+        case 14:
+            k4 ^= tail[13] << 8;
+            /* FALLTHROUGH */
+        case 13:
+            k4 ^= tail[12] << 0;
+            k4 *= c4;
+            k4 = rotl32(k4, 18);
+            k4 *= c1;
+            h4 ^= k4;
+            /* FALLTHROUGH */
 
-          case 12: k3 ^= tail[11] << 24;
-                   /* FALLTHROUGH */
-          case 11: k3 ^= tail[10] << 16;
-                   /* FALLTHROUGH */
-          case 10: k3 ^= tail[ 9] << 8;
-                   /* FALLTHROUGH */
-          case  9: k3 ^= tail[ 8] << 0;
-                   k3 *= c3; k3  = rotl32(k3, 17); k3 *= c4; h3 ^= k3;
-                   /* FALLTHROUGH */
+        case 12:
+            k3 ^= tail[11] << 24;
+            /* FALLTHROUGH */
+        case 11:
+            k3 ^= tail[10] << 16;
+            /* FALLTHROUGH */
+        case 10:
+            k3 ^= tail[9] << 8;
+            /* FALLTHROUGH */
+        case 9:
+            k3 ^= tail[8] << 0;
+            k3 *= c3;
+            k3 = rotl32(k3, 17);
+            k3 *= c4;
+            h3 ^= k3;
+            /* FALLTHROUGH */
 
-          case  8: k2 ^= tail[ 7] << 24;
-                   /* FALLTHROUGH */
-          case  7: k2 ^= tail[ 6] << 16;
-                   /* FALLTHROUGH */
-          case  6: k2 ^= tail[ 5] << 8;
-                   /* FALLTHROUGH */
-          case  5: k2 ^= tail[ 4] << 0;
-                   k2 *= c2; k2  = rotl32(k2, 16); k2 *= c3; h2 ^= k2;
-                   /* FALLTHROUGH */
+        case 8:
+            k2 ^= tail[7] << 24;
+            /* FALLTHROUGH */
+        case 7:
+            k2 ^= tail[6] << 16;
+            /* FALLTHROUGH */
+        case 6:
+            k2 ^= tail[5] << 8;
+            /* FALLTHROUGH */
+        case 5:
+            k2 ^= tail[4] << 0;
+            k2 *= c2;
+            k2 = rotl32(k2, 16);
+            k2 *= c3;
+            h2 ^= k2;
+            /* FALLTHROUGH */
 
-          case  4: k1 ^= tail[ 3] << 24;
-                   /* FALLTHROUGH */
-          case  3: k1 ^= tail[ 2] << 16;
-                   /* FALLTHROUGH */
-          case  2: k1 ^= tail[ 1] << 8;
-                   /* FALLTHROUGH */
-          case  1: k1 ^= tail[ 0] << 0;
-                   k1 *= c1; k1  = rotl32(k1, 15); k1 *= c2; h1 ^= k1;
-                   /* FALLTHROUGH */
+        case 4:
+            k1 ^= tail[3] << 24;
+            /* FALLTHROUGH */
+        case 3:
+            k1 ^= tail[2] << 16;
+            /* FALLTHROUGH */
+        case 2:
+            k1 ^= tail[1] << 8;
+            /* FALLTHROUGH */
+        case 1:
+            k1 ^= tail[0] << 0;
+            k1 *= c1;
+            k1 = rotl32(k1, 15);
+            k1 *= c2;
+            h1 ^= k1;
+            /* FALLTHROUGH */
         };
     }
 
     //----------
     // finalization
 
-    h1 ^= len; h2 ^= len; h3 ^= len; h4 ^= len;
+    h1 ^= len;
+    h2 ^= len;
+    h3 ^= len;
+    h4 ^= len;
 
-    h1 += h2; h1 += h3; h1 += h4;
-    h2 += h1; h3 += h1; h4 += h1;
+    h1 += h2;
+    h1 += h3;
+    h1 += h4;
+    h2 += h1;
+    h3 += h1;
+    h4 += h1;
 
     h1 = fmix32(h1);
     h2 = fmix32(h2);
     h3 = fmix32(h3);
     h4 = fmix32(h4);
 
-    h1 += h2; h1 += h3; h1 += h4;
-    h2 += h1; h3 += h1; h4 += h1;
+    h1 += h2;
+    h1 += h3;
+    h1 += h4;
+    h2 += h1;
+    h3 += h1;
+    h4 += h1;
 
     ((uint32_t *)out)[0] = h1;
     ((uint32_t *)out)[1] = h2;
@@ -492,12 +557,12 @@ void murmur_hash3_x86_128(const void *key, size_t len,
 #define MURMUR_HASH3_X64_128_C1 0x87c37b91114253d5LLU
 #define MURMUR_HASH3_X64_128_C2 0x4cf5ad432745937fLLU
 
-static ALWAYS_INLINE void
-__murmur_hash3_x64_128_process_block(uint64_t k1, uint64_t k2,
-                                     uint64_t *h1, uint64_t *h2)
+static ALWAYS_INLINE void __murmur_hash3_x64_128_process_block(
+    uint64_t k1, uint64_t k2, uint64_t *h1, uint64_t *h2
+)
 {
     k1 *= MURMUR_HASH3_X64_128_C1;
-    k1  = rotl64(k1, 31);
+    k1 = rotl64(k1, 31);
     k1 *= MURMUR_HASH3_X64_128_C2;
     *h1 ^= k1;
 
@@ -506,7 +571,7 @@ __murmur_hash3_x64_128_process_block(uint64_t k1, uint64_t k2,
     *h1 = *h1 * 5 + 0x52dce729;
 
     k2 *= MURMUR_HASH3_X64_128_C2;
-    k2  = rotl64(k2, 33);
+    k2 = rotl64(k2, 33);
     k2 *= MURMUR_HASH3_X64_128_C1;
     *h2 ^= k2;
 
@@ -520,10 +585,10 @@ __murmur_hash3_x64_128_process_block(uint64_t k1, uint64_t k2,
  * \note The use of this function is reserved to the management of the tail in
  *       murmur_hash3_x64_128 algorithm.
  */
-static ALWAYS_INLINE murmur_128_blk_t
-__murmur_hash3_x64_128_push_block(const murmur_128_blk_t block,
-                                  const int block_len, const byte *data,
-                                  const size_t len)
+static ALWAYS_INLINE murmur_128_blk_t __murmur_hash3_x64_128_push_block(
+    const murmur_128_blk_t block, const int block_len, const byte *data,
+    const size_t len
+)
 {
     murmur_128_blk_t data_block = {{0}};
 
@@ -531,52 +596,52 @@ __murmur_hash3_x64_128_push_block(const murmur_128_blk_t block,
     assert(block_len < 16);
 
     switch (len) {
-      case 15:
+    case 15:
         data_block.hi ^= (uint64_t)data[14] << 48;
         /* FALLTHROUGH */
-      case 14:
+    case 14:
         data_block.hi ^= (uint64_t)data[13] << 40;
         /* FALLTHROUGH */
-      case 13:
+    case 13:
         data_block.hi ^= (uint64_t)data[12] << 32;
         /* FALLTHROUGH */
-      case 12:
+    case 12:
         data_block.hi ^= (uint64_t)data[11] << 24;
         /* FALLTHROUGH */
-      case 11:
+    case 11:
         data_block.hi ^= (uint64_t)data[10] << 16;
         /* FALLTHROUGH */
-      case 10:
+    case 10:
         data_block.hi ^= (uint64_t)data[9] << 8;
         /* FALLTHROUGH */
-      case 9:
+    case 9:
         data_block.hi ^= (uint64_t)data[8];
         /* FALLTHROUGH */
-      case 8:
+    case 8:
         data_block.lo ^= (uint64_t)data[7] << 56;
         /* FALLTHROUGH */
-      case 7:
+    case 7:
         data_block.lo ^= (uint64_t)data[6] << 48;
         /* FALLTHROUGH */
-      case 6:
+    case 6:
         data_block.lo ^= (uint64_t)data[5] << 40;
         /* FALLTHROUGH */
-      case 5:
+    case 5:
         data_block.lo ^= (uint64_t)data[4] << 32;
         /* FALLTHROUGH */
-      case 4:
+    case 4:
         data_block.lo ^= (uint64_t)data[3] << 24;
         /* FALLTHROUGH */
-      case 3:
+    case 3:
         data_block.lo ^= (uint64_t)data[2] << 16;
         /* FALLTHROUGH */
-      case 2:
+    case 2:
         data_block.lo ^= (uint64_t)data[1] << 8;
         /* FALLTHROUGH */
-      case 1:
+    case 1:
         data_block.lo ^= (uint64_t)data[0];
         break;
-      case 0:
+    case 0:
         return block;
     }
 
@@ -585,26 +650,27 @@ __murmur_hash3_x64_128_push_block(const murmur_128_blk_t block,
     };
 }
 
-static ALWAYS_INLINE void
-__murmur_hash3_x64_128_process_tail(const murmur_128_blk_t tail, uint64_t *h1,
-                                    uint64_t *h2)
+static ALWAYS_INLINE void __murmur_hash3_x64_128_process_tail(
+    const murmur_128_blk_t tail, uint64_t *h1, uint64_t *h2
+)
 {
     uint64_t k1 = tail.lo;
     uint64_t k2 = tail.hi;
 
-    k2  *= MURMUR_HASH3_X64_128_C2;
-    k2   = rotl64(k2, 33);
-    k2  *= MURMUR_HASH3_X64_128_C1;
+    k2 *= MURMUR_HASH3_X64_128_C2;
+    k2 = rotl64(k2, 33);
+    k2 *= MURMUR_HASH3_X64_128_C1;
     *h2 ^= k2;
 
-    k1  *= MURMUR_HASH3_X64_128_C1;
-    k1   = rotl64(k1, 31);
-    k1  *= MURMUR_HASH3_X64_128_C2;
+    k1 *= MURMUR_HASH3_X64_128_C1;
+    k1 = rotl64(k1, 31);
+    k1 *= MURMUR_HASH3_X64_128_C2;
     *h1 ^= k1;
 }
 
-void murmur_hash3_x64_128_update(murmur_hash3_x64_128_ctx_t *ctx,
-                                 const void *key, size_t len)
+void murmur_hash3_x64_128_update(
+    murmur_hash3_x64_128_ctx_t *ctx, const void *key, size_t len
+)
 {
     size_t nblocks;
     const uint64_t *blocks;
@@ -619,9 +685,9 @@ void murmur_hash3_x64_128_update(murmur_hash3_x64_128_ctx_t *ctx,
         size_t head_len = 16 - ctx->tail_len;
 
         /* Fill the head of the tail as much as possible */
-        ctx->tail = __murmur_hash3_x64_128_push_block(ctx->tail,
-                                                      ctx->tail_len, data,
-                                                      MIN(head_len, len));
+        ctx->tail = __murmur_hash3_x64_128_push_block(
+            ctx->tail, ctx->tail_len, data, MIN(head_len, len)
+        );
         if (len < head_len) {
             ctx->tail_len += len;
             return;
@@ -631,8 +697,9 @@ void murmur_hash3_x64_128_update(murmur_hash3_x64_128_ctx_t *ctx,
         data += head_len;
         len -= head_len;
 
-        __murmur_hash3_x64_128_process_block(ctx->tail.lo, ctx->tail.hi, &h1,
-                                             &h2);
+        __murmur_hash3_x64_128_process_block(
+            ctx->tail.lo, ctx->tail.hi, &h1, &h2
+        );
     }
 
     nblocks = len / 16;
@@ -652,18 +719,20 @@ void murmur_hash3_x64_128_update(murmur_hash3_x64_128_ctx_t *ctx,
     /* Save tail */
     ctx->tail_len = len & 15;
     if (ctx->tail_len) {
-        const uint8_t *tail = (const uint8_t*)(data + nblocks * 16);
+        const uint8_t *tail = (const uint8_t *)(data + nblocks * 16);
 
-        ctx->tail = __murmur_hash3_x64_128_push_block((murmur_128_blk_t){{0}},
-                                                      0, tail, ctx->tail_len);
+        ctx->tail = __murmur_hash3_x64_128_push_block(
+            (murmur_128_blk_t){{0}}, 0, tail, ctx->tail_len
+        );
     }
 }
 
-static ALWAYS_INLINE void
-__murmur_hash3_x64_128_finalize(uint64_t h1, uint64_t h2, const size_t len,
-                                byte out[static 16])
+static ALWAYS_INLINE void __murmur_hash3_x64_128_finalize(
+    uint64_t h1, uint64_t h2, const size_t len, byte out[static 16]
+)
 {
-    h1 ^= len; h2 ^= len;
+    h1 ^= len;
+    h2 ^= len;
 
     h1 += h2;
     h2 += h1;
@@ -678,8 +747,9 @@ __murmur_hash3_x64_128_finalize(uint64_t h1, uint64_t h2, const size_t len,
     put_unaligned_cpu64(out + 8, h2);
 }
 
-void murmur_hash3_x64_128_finish(murmur_hash3_x64_128_ctx_t *ctx,
-                                 byte out[static 16])
+void murmur_hash3_x64_128_finish(
+    murmur_hash3_x64_128_ctx_t *ctx, byte out[static 16]
+)
 {
     uint64_t h1 = ctx->h1;
     uint64_t h2 = ctx->h2;
@@ -691,10 +761,11 @@ void murmur_hash3_x64_128_finish(murmur_hash3_x64_128_ctx_t *ctx,
     __murmur_hash3_x64_128_finalize(h1, h2, ctx->len, out);
 }
 
-void murmur_hash3_x64_128(const void *key, size_t len,
-                          uint32_t seed, byte out[static 16])
+void murmur_hash3_x64_128(
+    const void *key, size_t len, uint32_t seed, byte out[static 16]
+)
 {
-    const uint8_t *data = (const uint8_t*)key;
+    const uint8_t *data = (const uint8_t *)key;
     const size_t nblocks = len / 16;
 
     uint64_t h1 = seed;
@@ -713,10 +784,11 @@ void murmur_hash3_x64_128(const void *key, size_t len,
     /* Tail */
     {
         murmur_128_blk_t tail;
-        const uint8_t *p = (const uint8_t*)(data + nblocks * 16);
+        const uint8_t *p = (const uint8_t *)(data + nblocks * 16);
 
-        tail = __murmur_hash3_x64_128_push_block((murmur_128_blk_t){{0}}, 0,
-                                                 p, len & 15);
+        tail = __murmur_hash3_x64_128_push_block(
+            (murmur_128_blk_t){{0}}, 0, p, len & 15
+        );
         __murmur_hash3_x64_128_process_tail(tail, &h1, &h2);
     }
 

@@ -21,22 +21,24 @@
 
 #include <lib-common/arith.h>
 
-#define IOP_WIRE_FMT(o)          ((uint8_t)(o) >> 5)
-#define IOP_WIRE_MASK(m)         (IOP_WIRE_##m << 5)
-#define IOP_TAG(o)               ((o) & ((1 << 5) - 1))
-#define IOP_LONG_TAG(n)          ((1 << 5) - 3 + (n))
+#define IOP_WIRE_FMT(o) ((uint8_t)(o) >> 5)
+#define IOP_WIRE_MASK(m) (IOP_WIRE_##m << 5)
+#define IOP_TAG(o) ((o) & ((1 << 5) - 1))
+#define IOP_LONG_TAG(n) ((1 << 5) - 3 + (n))
 
-#define TO_BIT(type)  (1 << (IOP_T_##type))
-#define IOP_INT_OK    0x103ff
-#define IOP_QUAD_OK   (TO_BIT(I64) | TO_BIT(U64) | TO_BIT(DOUBLE))
-#define IOP_BLK_OK    (TO_BIT(STRING) | TO_BIT(DATA) | TO_BIT(STRUCT) \
-                       | TO_BIT(UNION) | TO_BIT(XML))
-#define IOP_STRUCTS_OK    (TO_BIT(STRUCT) | TO_BIT(UNION))
-#define IOP_REPEATED_OPTIMIZE_OK  (TO_BIT(I8) | TO_BIT(U8) | TO_BIT(I16) \
-                                   | TO_BIT(U16) | TO_BIT(BOOL))
+#define TO_BIT(type) (1 << (IOP_T_##type))
+#define IOP_INT_OK 0x103ff
+#define IOP_QUAD_OK (TO_BIT(I64) | TO_BIT(U64) | TO_BIT(DOUBLE))
+#define IOP_BLK_OK                                                           \
+    (TO_BIT(STRING) | TO_BIT(DATA) | TO_BIT(STRUCT) | TO_BIT(UNION) |        \
+     TO_BIT(XML))
+#define IOP_STRUCTS_OK (TO_BIT(STRUCT) | TO_BIT(UNION))
+#define IOP_REPEATED_OPTIMIZE_OK                                             \
+    (TO_BIT(I8) | TO_BIT(U8) | TO_BIT(I16) | TO_BIT(U16) | TO_BIT(BOOL))
 
-#define IOP_MAKE_U32(a, b, c, d) \
-    ((a) | ((unsigned)(b) << 8) | ((unsigned)(c) << 16) | ((unsigned)(d) << 24))
+#define IOP_MAKE_U32(a, b, c, d)                                             \
+    ((a) | ((unsigned)(b) << 8) | ((unsigned)(c) << 16) |                    \
+     ((unsigned)(d) << 24))
 
 static ALWAYS_INLINE uint8_t get_len_len(uint32_t u)
 {
@@ -52,7 +54,7 @@ static ALWAYS_INLINE uint8_t get_vint32_len(int32_t i)
 
 static ALWAYS_INLINE unsigned get_vint64_len(int64_t i)
 {
-    static uint8_t const sizes[8] = { 1, 2, 4, 4, 8, 8, 8, 8 };
+    static uint8_t const sizes[8] = {1, 2, 4, 4, 8, 8, 8, 8};
     return sizes[bsr64(((i >> 63) ^ (i << 1)) | 1) / 8];
 }
 
@@ -88,32 +90,33 @@ static inline bool iop_equals_cfg_has_tolerance(const iop_equals_cfg_t *cfg)
     return cfg && (cfg->dbl.rel_tol != 0 || cfg->dbl.abs_tol != 0);
 }
 
-static inline bool iop_value_equals(iop_type_t type, const void *v1,
-                                    const void *v2,
-                                    const iop_equals_cfg_t *cfg)
+static inline bool iop_value_equals(
+    iop_type_t type, const void *v1, const void *v2,
+    const iop_equals_cfg_t *cfg
+)
 {
     switch (type) {
-      case IOP_T_BOOL:
+    case IOP_T_BOOL:
         return *(const bool *)v1 == *(const bool *)v2;
 
-      case IOP_T_U8:
-      case IOP_T_I8:
+    case IOP_T_U8:
+    case IOP_T_I8:
         return *(const int8_t *)v1 == *(const int8_t *)v2;
 
-      case IOP_T_U16:
-      case IOP_T_I16:
+    case IOP_T_U16:
+    case IOP_T_I16:
         return *(const int16_t *)v1 == *(const int16_t *)v2;
 
-      case IOP_T_U32:
-      case IOP_T_I32:
-      case IOP_T_ENUM:
+    case IOP_T_U32:
+    case IOP_T_I32:
+    case IOP_T_ENUM:
         return *(const int32_t *)v1 == *(const int32_t *)v2;
 
-      case IOP_T_U64:
-      case IOP_T_I64:
+    case IOP_T_U64:
+    case IOP_T_I64:
         return *(const int64_t *)v1 == *(const int64_t *)v2;
 
-      case IOP_T_DOUBLE: {
+    case IOP_T_DOUBLE: {
         double d1 = *(const double *)v1;
         double d2 = *(const double *)v2;
 
@@ -124,22 +127,23 @@ static inline bool iop_value_equals(iop_type_t type, const void *v1,
             return true;
         }
         if (iop_equals_cfg_has_tolerance(cfg)) {
-            return double_is_close(d1, d2, cfg->dbl.rel_tol,
-                                   cfg->dbl.abs_tol);
+            return double_is_close(
+                d1, d2, cfg->dbl.rel_tol, cfg->dbl.abs_tol
+            );
         }
         return false;
-      }
+    }
 
-      case IOP_T_STRING:
-      case IOP_T_DATA:
-      case IOP_T_XML:
+    case IOP_T_STRING:
+    case IOP_T_DATA:
+    case IOP_T_XML:
         return lstr_equal(*(const lstr_t *)v1, *(const lstr_t *)v2);
 
-      case IOP_T_VOID:
+    case IOP_T_VOID:
         return true;
 
-      case IOP_T_UNION:
-      case IOP_T_STRUCT:
+    case IOP_T_UNION:
+    case IOP_T_STRUCT:
         e_panic("not supported");
     }
 
@@ -149,49 +153,60 @@ static inline bool iop_value_equals(iop_type_t type, const void *v1,
 static inline bool iop_opt_field_isset(iop_type_t type, const void *v)
 {
     switch (type) {
-      case IOP_T_I8:  case IOP_T_U8:
+    case IOP_T_I8:
+    case IOP_T_U8:
         return ((opt_u8_t *)v)->has_field != 0;
-      case IOP_T_I16: case IOP_T_U16:
+    case IOP_T_I16:
+    case IOP_T_U16:
         return ((opt_u16_t *)v)->has_field != 0;
-      case IOP_T_I32: case IOP_T_U32: case IOP_T_ENUM:
+    case IOP_T_I32:
+    case IOP_T_U32:
+    case IOP_T_ENUM:
         return ((opt_u32_t *)v)->has_field != 0;
-      case IOP_T_I64: case IOP_T_U64:
+    case IOP_T_I64:
+    case IOP_T_U64:
         return ((opt_u64_t *)v)->has_field != 0;
-      case IOP_T_BOOL:
+    case IOP_T_BOOL:
         return ((opt_bool_t *)v)->has_field != 0;
-      case IOP_T_DOUBLE:
+    case IOP_T_DOUBLE:
         return ((opt_double_t *)v)->has_field != 0;
-      case IOP_T_VOID:
+    case IOP_T_VOID:
         return *(bool *)v;
-      case IOP_T_STRING:
-      case IOP_T_XML:
-      case IOP_T_DATA:
+    case IOP_T_STRING:
+    case IOP_T_XML:
+    case IOP_T_DATA:
         return ((lstr_t *)v)->s != NULL;
-      case IOP_T_UNION:
-      case IOP_T_STRUCT:
-      default:
+    case IOP_T_UNION:
+    case IOP_T_STRUCT:
+    default:
         return *(void **)v != NULL;
     }
 }
 
-static inline bool
-iop_scalar_equals(const iop_field_t *f, const void *v1, const void *v2,
-                  int n, const iop_equals_cfg_t *cfg)
+static inline bool iop_scalar_equals(
+    const iop_field_t *f, const void *v1, const void *v2, int n,
+    const iop_equals_cfg_t *cfg
+)
 {
     /* Scalar types (even repeated) could be compared with one big
      * memcmp*/
     switch (f->type) {
-      case IOP_T_I8:  case IOP_T_U8:
+    case IOP_T_I8:
+    case IOP_T_U8:
         return (!memcmp(v1, v2, sizeof(uint8_t) * n));
-      case IOP_T_I16: case IOP_T_U16:
+    case IOP_T_I16:
+    case IOP_T_U16:
         return (!memcmp(v1, v2, sizeof(uint16_t) * n));
-      case IOP_T_I32: case IOP_T_U32: case IOP_T_ENUM:
+    case IOP_T_I32:
+    case IOP_T_U32:
+    case IOP_T_ENUM:
         return (!memcmp(v1, v2, sizeof(uint32_t) * n));
-      case IOP_T_I64: case IOP_T_U64:
+    case IOP_T_I64:
+    case IOP_T_U64:
         return (!memcmp(v1, v2, sizeof(uint64_t) * n));
-      case IOP_T_BOOL:
+    case IOP_T_BOOL:
         return (!memcmp(v1, v2, sizeof(bool) * n));
-      case IOP_T_DOUBLE:
+    case IOP_T_DOUBLE:
         if (iop_equals_cfg_has_tolerance(cfg)) {
             const double *d1 = v1;
             const double *d2 = v2;
@@ -204,96 +219,106 @@ iop_scalar_equals(const iop_field_t *f, const void *v1, const void *v2,
             return true;
         }
         return (!memcmp(v1, v2, sizeof(double) * n));
-      default:
+    default:
         return false;
     }
 }
 
-static inline
-void *iop_field_ptr_alloc(mem_pool_t *mp, const iop_field_t *f, void *v)
+static inline void *
+iop_field_ptr_alloc(mem_pool_t *mp, const iop_field_t *f, void *v)
 {
-    assert (f->type == IOP_T_UNION || f->type == IOP_T_STRUCT);
-    assert (iop_field_is_reference(f) || f->repeat == IOP_R_OPTIONAL);
+    assert(f->type == IOP_T_UNION || f->type == IOP_T_STRUCT);
+    assert(iop_field_is_reference(f) || f->repeat == IOP_R_OPTIONAL);
 
     /* In that case, the size depend on the object type, not on the field
      * type. */
     /* TODO Add a 'class_st' parameters so all the fields that actually are
      * pointers can be allocated using this single function. */
-    assert (!iop_field_is_class(f));
+    assert(!iop_field_is_class(f));
 
     /* TODO Use mpa_new_raw(). */
     return *(void **)v = mpa_new(mp, byte, f->size, 8);
 }
 
-static inline
-void *iop_field_set_present(mem_pool_t *mp, const iop_field_t *f, void *v)
+static inline void *
+iop_field_set_present(mem_pool_t *mp, const iop_field_t *f, void *v)
 {
-    assert (f->repeat == IOP_R_OPTIONAL);
+    assert(f->repeat == IOP_R_OPTIONAL);
     switch (f->type) {
-      case IOP_T_I8:  case IOP_T_U8:
+    case IOP_T_I8:
+    case IOP_T_U8:
         ((opt_u8_t *)v)->has_field = true;
         return v;
-      case IOP_T_I16: case IOP_T_U16:
+    case IOP_T_I16:
+    case IOP_T_U16:
         ((opt_u16_t *)v)->has_field = true;
         return v;
-      case IOP_T_I32: case IOP_T_U32: case IOP_T_ENUM:
+    case IOP_T_I32:
+    case IOP_T_U32:
+    case IOP_T_ENUM:
         ((opt_u32_t *)v)->has_field = true;
         return v;
-      case IOP_T_I64: case IOP_T_U64:
+    case IOP_T_I64:
+    case IOP_T_U64:
         ((opt_u64_t *)v)->has_field = true;
         return v;
-      case IOP_T_BOOL:
+    case IOP_T_BOOL:
         ((opt_bool_t *)v)->has_field = true;
         return v;
-      case IOP_T_DOUBLE:
+    case IOP_T_DOUBLE:
         ((opt_double_t *)v)->has_field = true;
         return v;
-      case IOP_T_VOID:
+    case IOP_T_VOID:
         *(bool *)v = true;
         return v;
-      case IOP_T_STRING:
-      case IOP_T_DATA:
-      case IOP_T_XML:
+    case IOP_T_STRING:
+    case IOP_T_DATA:
+    case IOP_T_XML:
         return v;
-      case IOP_T_UNION:
-      case IOP_T_STRUCT:
+    case IOP_T_UNION:
+    case IOP_T_STRUCT:
         return iop_field_ptr_alloc(mp, f, v);
     }
 
-    assert (false);
+    assert(false);
     return NULL;
 }
 
 static inline void iop_field_set_absent(const iop_field_t *f, void *v)
 {
     switch (f->type) {
-      case IOP_T_I8:  case IOP_T_U8:
+    case IOP_T_I8:
+    case IOP_T_U8:
         ((opt_u8_t *)v)->has_field = false;
         return;
-      case IOP_T_I16: case IOP_T_U16:
+    case IOP_T_I16:
+    case IOP_T_U16:
         ((opt_u16_t *)v)->has_field = false;
         return;
-      case IOP_T_I32: case IOP_T_U32: case IOP_T_ENUM:
+    case IOP_T_I32:
+    case IOP_T_U32:
+    case IOP_T_ENUM:
         ((opt_u32_t *)v)->has_field = false;
         return;
-      case IOP_T_I64: case IOP_T_U64:
+    case IOP_T_I64:
+    case IOP_T_U64:
         ((opt_u64_t *)v)->has_field = false;
         return;
-      case IOP_T_BOOL:
+    case IOP_T_BOOL:
         ((opt_bool_t *)v)->has_field = false;
         return;
-      case IOP_T_DOUBLE:
+    case IOP_T_DOUBLE:
         ((opt_double_t *)v)->has_field = false;
         return;
-      case IOP_T_VOID:
+    case IOP_T_VOID:
         *(bool *)v = false;
         return;
-      case IOP_T_STRING:
-      case IOP_T_DATA:
-      case IOP_T_XML:
+    case IOP_T_STRING:
+    case IOP_T_DATA:
+    case IOP_T_XML:
         p_clear((lstr_t *)v, 1);
         return;
-      default:
+    default:
         /* Structs and unions are handled in the same way */
         *(void **)v = NULL;
         return;
@@ -319,27 +344,30 @@ pack_tag(uint8_t *dst, uint32_t tag, uint32_t taglen, uint8_t wt)
 static ALWAYS_INLINE uint8_t *
 pack_len(uint8_t *dst, uint32_t tag, uint32_t taglen, uint32_t i)
 {
-    const uint32_t tags  =
-        IOP_MAKE_U32(IOP_WIRE_MASK(BLK1), IOP_WIRE_MASK(BLK2),
-                     IOP_WIRE_MASK(BLK4), IOP_WIRE_MASK(BLK4));
-    const uint8_t  bits = bsr32(i | 1) & -8;
+    const uint32_t tags = IOP_MAKE_U32(
+        IOP_WIRE_MASK(BLK1), IOP_WIRE_MASK(BLK2), IOP_WIRE_MASK(BLK4),
+        IOP_WIRE_MASK(BLK4)
+    );
+    const uint8_t bits = bsr32(i | 1) & -8;
 
     dst = pack_tag(dst, tag, taglen, tags >> bits);
     if (likely(bits < 8)) {
         *dst++ = i;
         return dst;
     }
-    if (likely(bits == 8))
+    if (likely(bits == 8)) {
         return (uint8_t *)put_unaligned_le16((void *)dst, i);
+    }
     return (uint8_t *)put_unaligned_le32((void *)dst, i);
 }
 
 static ALWAYS_INLINE uint8_t *
 pack_int32(uint8_t *dst, uint32_t tag, uint32_t taglen, int32_t i)
 {
-    const uint32_t tags  =
-        IOP_MAKE_U32(IOP_WIRE_MASK(INT1), IOP_WIRE_MASK(INT2),
-                     IOP_WIRE_MASK(INT4), IOP_WIRE_MASK(INT4));
+    const uint32_t tags = IOP_MAKE_U32(
+        IOP_WIRE_MASK(INT1), IOP_WIRE_MASK(INT2), IOP_WIRE_MASK(INT4),
+        IOP_WIRE_MASK(INT4)
+    );
     const uint8_t zzbits = (bsr32(((i >> 31) ^ (i << 1)) | 1)) & -8;
 
     dst = pack_tag(dst, tag, taglen, tags >> zzbits);
@@ -348,16 +376,18 @@ pack_int32(uint8_t *dst, uint32_t tag, uint32_t taglen, int32_t i)
         *dst++ = i;
         return dst;
     }
-    if (likely(zzbits == 8))
+    if (likely(zzbits == 8)) {
         return (uint8_t *)put_unaligned_le16((void *)dst, i);
+    }
     return (uint8_t *)put_unaligned_le32((void *)dst, i);
 }
 
 static ALWAYS_INLINE uint8_t *
 pack_int64(uint8_t *dst, uint32_t tag, uint32_t taglen, int64_t i)
 {
-    if ((int64_t)(int32_t)i == i)
+    if ((int64_t)(int32_t)i == i) {
         return pack_int32(dst, tag, taglen, i);
+    }
     dst = pack_tag(dst, tag, taglen, IOP_WIRE_MASK(QUAD));
     return (uint8_t *)put_unaligned_le64((uint8_t *)dst, i);
 }
@@ -370,8 +400,8 @@ get_union_field(const iop_struct_t *desc, const void *val)
     const iop_field_t *f = desc->fields;
     int ifield;
 
-    assert (f->repeat == IOP_R_REQUIRED);
-    assert (desc->is_union);
+    assert(f->repeat == IOP_R_REQUIRED);
+    assert(desc->is_union);
     utag = RETHROW_NP(iop_union_get_tag(desc, val));
     ifield = iop_ranges_search(desc->ranges, desc->ranges_len, utag);
     assert(ifield >= 0);
@@ -379,16 +409,18 @@ get_union_field(const iop_struct_t *desc, const void *val)
     return f + ifield;
 }
 
-static inline const iop_field_t *
-get_field_by_name(const iop_struct_t *desc, const iop_field_t *start,
-                  const char *name, int len)
+static inline const iop_field_t *get_field_by_name(
+    const iop_struct_t *desc, const iop_field_t *start, const char *name,
+    int len
+)
 {
     const iop_field_t *fdesc = start;
-    const iop_field_t *end   = desc->fields + desc->fields_len;
+    const iop_field_t *end = desc->fields + desc->fields_len;
 
     while (fdesc < end) {
-        if (fdesc->name.len == len && !memcmp(fdesc->name.s, name, len))
+        if (fdesc->name.len == len && !memcmp(fdesc->name.s, name, len)) {
             return fdesc;
+        }
         fdesc++;
     }
 
@@ -398,27 +430,31 @@ get_field_by_name(const iop_struct_t *desc, const iop_field_t *start,
 static inline bool
 iop_field_is_defval(const iop_field_t *fdesc, const void *ptr, bool deep)
 {
-    assert (fdesc->repeat == IOP_R_DEFVAL);
+    assert(fdesc->repeat == IOP_R_DEFVAL);
 
     switch (fdesc->type) {
-      case IOP_T_I8: case IOP_T_U8:
+    case IOP_T_I8:
+    case IOP_T_U8:
         return *(uint8_t *)ptr == (uint8_t)fdesc->u1.defval_u64;
-      case IOP_T_I16: case IOP_T_U16:
+    case IOP_T_I16:
+    case IOP_T_U16:
         return *(uint16_t *)ptr == (uint16_t)fdesc->u1.defval_u64;
-      case IOP_T_ENUM:
+    case IOP_T_ENUM:
         return *(int *)ptr == fdesc->u0.defval_enum;
-      case IOP_T_I32: case IOP_T_U32:
+    case IOP_T_I32:
+    case IOP_T_U32:
         return *(uint32_t *)ptr == (uint32_t)fdesc->u1.defval_u64;
-      case IOP_T_I64: case IOP_T_U64:
-      case IOP_T_DOUBLE:
+    case IOP_T_I64:
+    case IOP_T_U64:
+    case IOP_T_DOUBLE:
         /* XXX double is handled like U64 because we want to compare them as
          * bit to bit */
         return *(uint64_t *)ptr == fdesc->u1.defval_u64;
-      case IOP_T_BOOL:
+    case IOP_T_BOOL:
         return fdesc->u1.defval_u64 ? *(bool *)ptr : !*(bool *)ptr;
-      case IOP_T_STRING:
-      case IOP_T_XML:
-      case IOP_T_DATA:
+    case IOP_T_STRING:
+    case IOP_T_XML:
+    case IOP_T_DATA:
         if (!fdesc->u0.defval_len) {
             /* In this case we don't care about the string pointer. An empty
              * string is an empty string whatever its pointer is. */
@@ -437,12 +473,14 @@ iop_field_is_defval(const iop_field_t *fdesc, const void *ptr, bool deep)
                 return true;
             }
             if (deep) {
-                return memcmp(((lstr_t *)ptr)->s, fdesc->u1.defval_data,
-                              fdesc->u0.defval_len) == 0;
+                return memcmp(
+                           ((lstr_t *)ptr)->s, fdesc->u1.defval_data,
+                           fdesc->u0.defval_len
+                       ) == 0;
             }
             return false;
         }
-      default:
+    default:
         e_panic("unsupported");
     }
 }

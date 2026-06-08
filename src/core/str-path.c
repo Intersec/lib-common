@@ -32,15 +32,18 @@ const char *path_filepart(const char *filename)
     const char *base = filename;
     for (;;) {
         filename = strchrnul(filename, '/');
-        if (!*filename)
+        if (!*filename) {
             return base;
+        }
         base = ++filename;
     }
 }
 
 ssize_t path_dirpart(char *dir, ssize_t size, const char *filename)
 {
-    return pstrcpymem(dir, size, filename, path_filepart(filename) - filename);
+    return pstrcpymem(
+        dir, size, filename, path_filepart(filename) - filename
+    );
 }
 
 const char *path_ext(const char *filename)
@@ -53,8 +56,9 @@ const char *path_ext(const char *filename)
     }
     for (;;) {
         base = strchrnul(base, '.');
-        if (!*base)
+        if (!*base) {
             return lastdot;
+        }
         lastdot = base++;
     }
 }
@@ -69,8 +73,9 @@ const char *path_extnul(const char *filename)
     }
     for (;;) {
         base = strchrnul(base, '.');
-        if (!*base)
+        if (!*base) {
             return lastdot ? lastdot : base;
+        }
         lastdot = base++;
     }
 }
@@ -83,16 +88,21 @@ int path_dirname(char *buf, int len, const char *path)
 {
     const char *end = path + strlen(path);
 
-    while (end > path && end[-1] == '/')
+    while (end > path && end[-1] == '/') {
         --end;
-    while (end > path && end[-1] != '/')
+    }
+    while (end > path && end[-1] != '/') {
         --end;
-    while (end > path && end[-1] == '/')
+    }
+    while (end > path && end[-1] == '/') {
         --end;
-    if (end > path)
+    }
+    if (end > path) {
         return pstrcpymem(buf, len, path, end - path);
-    if (*path == '/')
+    }
+    if (*path == '/') {
         return pstrcpy(buf, len, "/");
+    }
     return pstrcpy(buf, len, ".");
 }
 
@@ -101,10 +111,12 @@ int path_basename(char *buf, int len, const char *path)
     for (;;) {
         const char *end = strchrnul(path, '/');
         const char *p = end;
-        while (*p == '/')
+        while (*p == '/') {
             p++;
-        if (!*p)
+        }
+        if (!*p) {
             return pstrcpymem(buf, len, path, end - path);
+        }
         path = p;
     }
 }
@@ -116,8 +128,9 @@ int path_basename(char *buf, int len, const char *path)
 int path_join(char *buf, int len, const char *path)
 {
     int pos = strlen(buf);
-    while (pos > 0 && buf[pos - 1] == '/')
+    while (pos > 0 && buf[pos - 1] == '/') {
         --pos;
+    }
     while (*path == '/') {
         path++;
     }
@@ -139,8 +152,9 @@ int path_simplify2(char *in, bool keep_trailing_slash)
     char *start = in + absolute, *out = in + absolute;
     int atoms = 0;
 
-    if (!*in)
+    if (!*in) {
         return -1;
+    }
 
     for (;;) {
         const char *p;
@@ -149,8 +163,9 @@ int path_simplify2(char *in, bool keep_trailing_slash)
         e_info("state: `%.*s` \tin: `%s`", (int)(out - (start - absolute)),
                start - absolute, in);
 #endif
-        while (*in == '/')
+        while (*in == '/') {
             in++;
+        }
         if (*in == '.') {
             if (in[1] == '/') {
                 in += 2;
@@ -161,13 +176,15 @@ int path_simplify2(char *in, bool keep_trailing_slash)
                 if (atoms) {
                     atoms--;
                     out--;
-                    while (out > start && out[-1] != '/')
+                    while (out > start && out[-1] != '/') {
                         out--;
+                    }
                 } else {
                     if (!absolute) {
                         out = mempcpy(out, "..", 2);
-                        if (*in)
+                        if (*in) {
                             *out++ = '/';
+                        }
                     }
                 }
                 continue;
@@ -178,16 +195,19 @@ int path_simplify2(char *in, bool keep_trailing_slash)
         memmove(out, p, in - p);
         out += in - p;
         atoms++;
-        if (!*in)
+        if (!*in) {
             break;
+        }
         *out++ = '/';
     }
 
     start -= absolute;
-    if (!keep_trailing_slash && out > start && out[-1] == '/')
+    if (!keep_trailing_slash && out > start && out[-1] == '/') {
         --out;
-    if (out == start)
+    }
+    if (out == start) {
         *out++ = '.';
+    }
     *out = '\0';
     return out - start;
 }
@@ -198,8 +218,9 @@ int path_canonify(char *buf, int len, const char *path)
     char *out = len >= PATH_MAX ? buf : p_alloca(char, PATH_MAX);
 
     out = RETHROW_PN(realpath(path, out));
-    if (len < PATH_MAX)
+    if (len < PATH_MAX) {
         pstrcpy(buf, len, out);
+    }
     return strlen(out);
 }
 
@@ -237,14 +258,13 @@ char *path_expand(char *buf, int len, const char *path)
 {
     char path_l[PATH_MAX];
 
-    assert (len >= PATH_MAX);
+    assert(len >= PATH_MAX);
 
     path = __path_expand(path_l, sizeof(path_l), path, false);
 
     /* XXX: The use of path_canonify() here is debatable. */
     return path_canonify(buf, len, path) < 0 ? NULL : buf;
 }
-
 
 /* This function checks if the given path try to leave its chroot
  * XXX this do not work with symbolic links in path (but it's a feature ;) )*/
@@ -255,17 +275,18 @@ bool path_is_safe(const char *path)
     /* Get rid of: '/', '../' and '..' */
     if (path[0] == '/') {
         return false;
-    } else
-    if (path[0] == '.' && path[1] == '.'
-    &&  (path[2] == '/' || path[2] == '\0'))
+    } else if (
+        path[0] == '.' && path[1] == '.' &&
+        (path[2] == '/' || path[2] == '\0')
+    )
     {
         return false;
     }
 
     /* Check for `.* '/../' .* | '/..'$` */
     while ((ptr = strchr(ptr, '/')) != NULL) {
-        if (ptr[1] == '.' && ptr[2] == '.'
-        &&  (ptr[3] == '/' || ptr[3] == '\0'))
+        if (ptr[1] == '.' && ptr[2] == '.' &&
+            (ptr[3] == '/' || ptr[3] == '\0'))
         {
             return false;
         }
@@ -274,8 +295,10 @@ bool path_is_safe(const char *path)
     return true;
 }
 
-int path_va_extend(char buf[static PATH_MAX], const char *prefix,
-                   const char *fmt, va_list args)
+int path_va_extend(
+    char buf[static PATH_MAX], const char *prefix, const char *fmt,
+    va_list args
+)
 {
     int prefix_len;
     int suffix_len;
@@ -314,8 +337,8 @@ int path_va_extend(char buf[static PATH_MAX], const char *prefix,
     suffix_len = vsnprintf(buf + prefix_len, PATH_MAX - prefix_len, fmt, cpy);
     va_end(cpy);
 
-    if (prefix_len && suffix_len
-    &&  unlikely(buf[prefix_len] == '/' || buf[prefix_len] == '~'))
+    if (prefix_len && suffix_len &&
+        unlikely(buf[prefix_len] == '/' || buf[prefix_len] == '~'))
     {
         /* slow path: optimistic prediction failed */
         if (buf[prefix_len] == '~') {
@@ -324,8 +347,7 @@ int path_va_extend(char buf[static PATH_MAX], const char *prefix,
             vsnprintf(temp_buf, PATH_MAX, fmt, args);
             __path_expand(buf, PATH_MAX, temp_buf, true);
             return strlen(buf);
-        } else
-        if (prefix_len + suffix_len < PATH_MAX) {
+        } else if (prefix_len + suffix_len < PATH_MAX) {
             p_move(buf, &buf[prefix_len], suffix_len + 1);
             return suffix_len;
         } else {
@@ -336,8 +358,9 @@ int path_va_extend(char buf[static PATH_MAX], const char *prefix,
     return prefix_len + suffix_len < PATH_MAX ? prefix_len + suffix_len : -1;
 }
 
-int path_extend(char buf[static PATH_MAX],  const char *prefix,
-                const char *fmt, ...)
+int path_extend(
+    char buf[static PATH_MAX], const char *prefix, const char *fmt, ...
+)
 {
     int pos = 0;
     va_list args;
@@ -349,9 +372,9 @@ int path_extend(char buf[static PATH_MAX],  const char *prefix,
     return pos;
 }
 
-static int path_simplified_absolute(const char *path,
-                                    bool keep_trailing_slash,
-                                    char buf[static PATH_MAX])
+static int path_simplified_absolute(
+    const char *path, bool keep_trailing_slash, char buf[static PATH_MAX]
+)
 {
     if (path[0] == '/') {
         THROW_ERR_IF(pstrcpy(buf, PATH_MAX, path) >= PATH_MAX);
@@ -365,8 +388,9 @@ static int path_simplified_absolute(const char *path,
     return path_simplify2(buf, keep_trailing_slash);
 }
 
-int path_relative_to(char buf[static PATH_MAX], const char *from,
-                     const char *to)
+int path_relative_to(
+    char buf[static PATH_MAX], const char *from, const char *to
+)
 {
     char simpl_from[PATH_MAX];
     char simpl_to[PATH_MAX];
@@ -395,15 +419,15 @@ int path_relative_to(char buf[static PATH_MAX], const char *from,
         ptr_to++;
     }
 
-    assert (rem_from);
-    assert (rem_to);
+    assert(rem_from);
+    assert(rem_to);
 
     /* 'from' and 'to' does not refer the same file/directory */
-    if (ptr_to[0] != '\0'
-    || (ptr_from[0] != '\0' && (ptr_from[0] != '/' || ptr_from[1] != '\0')))
+    if (ptr_to[0] != '\0' ||
+        (ptr_from[0] != '\0' && (ptr_from[0] != '/' || ptr_from[1] != '\0')))
     {
-#define BACK_DIR  "../"
-#define BACK_DIR_LEN  ((int)strlen(BACK_DIR))
+#define BACK_DIR "../"
+#define BACK_DIR_LEN ((int)strlen(BACK_DIR))
 
         while ((rem_from = strchr(rem_from + 1, '/'))) {
             THROW_ERR_IF(buf_len <= BACK_DIR_LEN);

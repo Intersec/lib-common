@@ -60,11 +60,10 @@ static int zchk_wait_dns_completion(int timeout_ms, bool expect_failure)
     Z_HELPER_END;
 }
 
-static int
-zchk_net_addr_parse_url_no_https(const char *addr, const char *user,
-                                 const char *pass, const char *host, int port,
-                                 const char *path, const char *args,
-                                 const char *path_no_args)
+static int zchk_net_addr_parse_url_no_https(
+    const char *addr, const char *user, const char *pass, const char *host,
+    int port, const char *path, const char *args, const char *path_no_args
+)
 {
     http_url_t url;
 
@@ -98,9 +97,9 @@ static inline void zchk_start_resolved_addr_test(int nbr_addr_calls)
 /* Update context based on callback call triggered at the end of address
  * resolution. For convenience, both "standard" and block callbacks point to
  * this function. */
-static void
-zchk_update_test_on_callback_call(const struct dns_resolv_res_t * nonnull res,
-                                  data_t priv)
+static void zchk_update_test_on_callback_call(
+    const struct dns_resolv_res_t *nonnull res, data_t priv
+)
 {
     _G.fail |= _G.remaining_calls <= 0 || res->err.len;
     _G.remaining_calls--;
@@ -127,33 +126,35 @@ zchk_update_test_on_callback_call(const struct dns_resolv_res_t * nonnull res,
 static dns_resolv_ctx_t *
 zchk_call_addr_info_async_b(sa_family_t af, lstr_t host, in_port_t port)
 {
-    return addr_info_async_b(af, host, port,
-                             ^(const struct dns_resolv_res_t * nonnull res) {
-        zchk_update_test_on_callback_call(res, DATA_PTR(NULL));
-    });
+    return addr_info_async_b(
+        af, host, port, ^(const struct dns_resolv_res_t *nonnull res) {
+            zchk_update_test_on_callback_call(res, DATA_PTR(NULL));
+        }
+    );
 }
 
 static dns_resolv_ctx_t *
-zchk_call_addr_resolve_async_b(lstr_t addr, in_port_t port,
-                               sb_t * nonnull err)
+zchk_call_addr_resolve_async_b(lstr_t addr, in_port_t port, sb_t *nonnull err)
 {
-    return addr_resolve_async_b("test addr", addr, 1, port,
-                                ^(const struct dns_resolv_res_t * nonnull res)
-    {
-        zchk_update_test_on_callback_call(res, DATA_PTR(NULL));
-    }, err);
+    return addr_resolve_async_b(
+        "test addr", addr, 1, port,
+        ^(const struct dns_resolv_res_t *nonnull res) {
+            zchk_update_test_on_callback_call(res, DATA_PTR(NULL));
+        },
+        err
+    );
 }
 
 /* Resolve host address and check the result against the ipv4 and ipv6
  * provided. */
-static int
-zchk_check_resolved_addr(bool any_family, const lstr_t host,
-                         const in_port_t port, sockunion_t *const ipv4,
-                         sockunion_t *const ipv6)
+static int zchk_check_resolved_addr(
+    bool any_family, const lstr_t host, const in_port_t port,
+    sockunion_t *const ipv4, sockunion_t *const ipv6
+)
 {
     t_scope;
     const struct addrinfo hint = {
-        .ai_family   = AF_UNSPEC,
+        .ai_family = AF_UNSPEC,
         .ai_socktype = SOCK_STREAM,
     };
     struct addrinfo *res, *p;
@@ -195,10 +196,10 @@ zchk_check_resolved_addr(bool any_family, const lstr_t host,
 Z_GROUP_EXPORT(net_addr)
 {
     t_scope;
-#define NET_ADDR_IPV4        "1.1.1.1"
-#define NET_ADDR_IPV6        "1:1:1:1:1:1:1:1"
-#define NET_ADDR_PORT        4242
-#define NET_ADDR_DNS_LOCAL   "localhost"
+#define NET_ADDR_IPV4 "1.1.1.1"
+#define NET_ADDR_IPV6 "1:1:1:1:1:1:1:1"
+#define NET_ADDR_PORT 4242
+#define NET_ADDR_DNS_LOCAL "localhost"
 #define NET_ADDR_DNS_EXTERNE "www.intersec.com"
 
     lstr_t ipv4 = LSTR(NET_ADDR_IPV4);
@@ -231,8 +232,9 @@ Z_GROUP_EXPORT(net_addr)
         addr_filter_t filter;
         char buf[INET6_ADDRSTRLEN];
 
-        Z_ASSERT_N(addr_info(&su, AF_INET, ps_initlstr(&ipv4),
-                             NET_ADDR_PORT));
+        Z_ASSERT_N(
+            addr_info(&su, AF_INET, ps_initlstr(&ipv4), NET_ADDR_PORT)
+        );
         Z_ASSERT_LSTREQUAL(ipv4, t_sockunion_gethost_lstr(&su));
         Z_ASSERT_EQ(NET_ADDR_PORT, sockunion_getport(&su));
         Z_ASSERT_LSTREQUAL(t_addr_fmt_lstr(&su), tcp_ipv4);
@@ -244,34 +246,46 @@ Z_GROUP_EXPORT(net_addr)
         CHECK_FILTER(0, "2.2.2.2/0", "0.0.0.0", "0.0.0.0");
         CHECK_FILTER(0, "1.1.1.1", "1.1.1.1", "255.255.255.255");
         CHECK_FILTER(-1, "1.1.1.4", "1.1.1.4", "255.255.255.255");
-
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(ipv6) {
         sockunion_t su;
         addr_filter_t filter;
         char buf[INET6_ADDRSTRLEN];
 
-        Z_ASSERT_N(addr_info(&su, AF_INET6, ps_initlstr(&ipv6),
-                             NET_ADDR_PORT));
+        Z_ASSERT_N(
+            addr_info(&su, AF_INET6, ps_initlstr(&ipv6), NET_ADDR_PORT)
+        );
         Z_ASSERT_LSTREQUAL(ipv6, t_sockunion_gethost_lstr(&su));
         Z_ASSERT_EQ(NET_ADDR_PORT, sockunion_getport(&su));
         Z_ASSERT_LSTREQUAL(t_addr_fmt_lstr(&su), tcp_ipv6);
 
-        CHECK_FILTER(0, "1:1:1:1:1:1:1:2/65", "1:1:1:1::",
-                     "ffff:ffff:ffff:ffff:8000::");
-        CHECK_FILTER(-1, "1:1:1:1:abcd:1:1:2/65", "1:1:1:1:8000::",
-                     "ffff:ffff:ffff:ffff:8000::");
-        CHECK_FILTER(-1, "fe80::202:b3ff:fe1e:8329/32",
-                     "fe80::", "ffff:ffff::");
-        CHECK_FILTER(-1, "1:1:1:1:1:1:1:3/128", "1:1:1:1:1:1:1:3",
-                     "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
+        CHECK_FILTER(
+            0, "1:1:1:1:1:1:1:2/65", "1:1:1:1::", "ffff:ffff:ffff:ffff:8000::"
+        );
+        CHECK_FILTER(
+            -1, "1:1:1:1:abcd:1:1:2/65",
+            "1:1:1:1:8000::", "ffff:ffff:ffff:ffff:8000::"
+        );
+        CHECK_FILTER(
+            -1, "fe80::202:b3ff:fe1e:8329/32", "fe80::", "ffff:ffff::"
+        );
+        CHECK_FILTER(
+            -1, "1:1:1:1:1:1:1:3/128", "1:1:1:1:1:1:1:3",
+            "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
+        );
         CHECK_FILTER(0, "2:2:2:2:2:2:2:2/0", "::", "::");
-        CHECK_FILTER(0, "1:1:1:1:1:1:1:1", "1:1:1:1:1:1:1:1",
-                     "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
-        CHECK_FILTER(-1, "1:1:1:1:1:1:1:3", "1:1:1:1:1:1:1:3",
-                     "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
-    } Z_TEST_END;
+        CHECK_FILTER(
+            0, "1:1:1:1:1:1:1:1", "1:1:1:1:1:1:1:1",
+            "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
+        );
+        CHECK_FILTER(
+            -1, "1:1:1:1:1:1:1:3", "1:1:1:1:1:1:1:3",
+            "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
+        );
+    }
+    Z_TEST_END;
 
     Z_TEST(local_addr_resolution) {
         SB_1k(err);
@@ -280,34 +294,42 @@ Z_GROUP_EXPORT(net_addr)
         /* Use the async mechanism to run DNS resolution in parallel.
          * 1. Direct API using a classic C callback. */
         zchk_start_resolved_addr_test(1);
-        Z_ASSERT_P(addr_info_async(AF_INET, local_addr, NET_ADDR_PORT,
-                                   &zchk_update_test_on_callback_call,
-                                   DATA_U64(42)));
+        Z_ASSERT_P(addr_info_async(
+            AF_INET, local_addr, NET_ADDR_PORT,
+            &zchk_update_test_on_callback_call, DATA_U64(42)
+        ));
         Z_HELPER_RUN(zchk_wait_dns_completion(1000, false));
         Z_HELPER_RUN(zchk_check_resolved_addr(
-            false, local_addr, NET_ADDR_PORT, &_G.ipv4, NULL));
+            false, local_addr, NET_ADDR_PORT, &_G.ipv4, NULL
+        ));
         Z_ASSERT_EQ(42U, _G.priv.u64, "private data check failed");
 
         /* 2. Direct API using a block callback. */
         zchk_start_resolved_addr_test(1);
 
-        Z_ASSERT_P(zchk_call_addr_info_async_b(AF_INET, local_addr,
-                                               NET_ADDR_PORT));
+        Z_ASSERT_P(
+            zchk_call_addr_info_async_b(AF_INET, local_addr, NET_ADDR_PORT)
+        );
         Z_HELPER_RUN(zchk_wait_dns_completion(1000, false));
         Z_HELPER_RUN(zchk_check_resolved_addr(
-            false, local_addr, NET_ADDR_PORT, &_G.ipv4, NULL));
+            false, local_addr, NET_ADDR_PORT, &_G.ipv4, NULL
+        ));
 
         /* 3. Resolve addr API with port generation. */
         zchk_start_resolved_addr_test(1);
-        Z_ASSERT_P(zchk_call_addr_resolve_async_b(
-            local_addr, NET_ADDR_PORT, &err), "%*pL", SB_FMT_ARG(&err));
+        Z_ASSERT_P(
+            zchk_call_addr_resolve_async_b(local_addr, NET_ADDR_PORT, &err),
+            "%*pL", SB_FMT_ARG(&err)
+        );
         Z_HELPER_RUN(zchk_wait_dns_completion(1000, false));
         Z_HELPER_RUN(zchk_check_resolved_addr(
-            true, local_addr, NET_ADDR_PORT, &_G.ipv4, &_G.ipv6));
+            true, local_addr, NET_ADDR_PORT, &_G.ipv4, &_G.ipv6
+        ));
 
         zchk_end_resolved_addr_test();
         MODULE_RELEASE(thr);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(remote_addr_resolution) {
         Z_TEST_FLAGS("slow");
@@ -319,11 +341,13 @@ Z_GROUP_EXPORT(net_addr)
         zchk_call_addr_info_async_b(AF_INET6, remote_addr, NET_ADDR_PORT);
         Z_HELPER_RUN(zchk_wait_dns_completion(10000, false));
         Z_HELPER_RUN(zchk_check_resolved_addr(
-            false, remote_addr, NET_ADDR_PORT, &_G.ipv4, &_G.ipv6));
+            false, remote_addr, NET_ADDR_PORT, &_G.ipv4, &_G.ipv6
+        ));
 
         zchk_end_resolved_addr_test();
         MODULE_RELEASE(thr);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(sockunion_for_each) {
         lstr_t ip = LSTR("127.0.0.1:1337");
@@ -340,58 +364,72 @@ Z_GROUP_EXPORT(net_addr)
 
         sockunion_for_each(sock, (sockunion_t *)sus_buf.data, 3) {
             switch (idx) {
-              case 0:
+            case 0:
                 Z_ASSERT_LSTREQUAL(t_addr_fmt_lstr(sock), tcp_ipv4);
                 break;
-              case 1:
+            case 1:
                 Z_ASSERT_LSTREQUAL(t_addr_fmt_lstr(sock), tcp_ipv6);
                 break;
-              case 2:
+            case 2:
                 Z_ASSERT_LSTREQUAL(t_addr_fmt_lstr(sock), ip);
                 break;
-              default:
+            default:
                 Z_ASSERT(false);
                 break;
             }
             idx++;
         }
         Z_ASSERT_EQ(idx, 3);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
 #undef CHECK_FILTER
 #undef NET_ADDR_PORT
 #undef NET_ADDR_IPV6
 #undef NET_ADDR_IPV4
 
-
-
     Z_TEST(parse_http_url) {
         http_url_t url;
 
-#define T_VALID(_addr, _user, _pass, _host, _port, _path, _args,             \
-                _path_no_args)                                               \
+#define T_VALID(                                                             \
+    _addr, _user, _pass, _host, _port, _path, _args, _path_no_args           \
+)                                                                            \
     Z_HELPER_RUN(zchk_net_addr_parse_url_no_https(                           \
-        _addr, _user, _pass, _host, _port, _path, _args, _path_no_args))
+        _addr, _user, _pass, _host, _port, _path, _args, _path_no_args       \
+    ))
 
-        T_VALID("http://host.com/test", "", "", "host.com", 80, "/test", "",
-                "/test");
-        T_VALID("http://host.com/test@test", "", "", "host.com", 80,
-                "/test@test", "", "/test@test");
+        T_VALID(
+            "http://host.com/test", "", "", "host.com", 80, "/test", "",
+            "/test"
+        );
+        T_VALID(
+            "http://host.com/test@test", "", "", "host.com", 80, "/test@test",
+            "", "/test@test"
+        );
         T_VALID("http://localhost", "", "", "localhost", 80, "/", "", "/");
         T_VALID("http://host.com", "", "", "host.com", 80, "/", "", "/");
-        T_VALID("http://host.com:8080", "", "", "host.com", 8080,
-                "/", "", "/");
-        T_VALID("http://user:pass@host.com/", "user", "pass", "host.com", 80,
-                "/", "", "/");
-        T_VALID("http://host.com/test?args", "", "", "host.com", 80,
-                "/test?args", "?args", "/test");
-        T_VALID("http://user:pass@host.com:42/test?args", "user", "pass",
-                "host.com", 42, "/test?args", "?args", "/test");
-        T_VALID("http://user:pass@host.com:42/test@test", "user", "pass",
-                "host.com", 42, "/test@test", "", "/test@test");
+        T_VALID(
+            "http://host.com:8080", "", "", "host.com", 8080, "/", "", "/"
+        );
+        T_VALID(
+            "http://user:pass@host.com/", "user", "pass", "host.com", 80, "/",
+            "", "/"
+        );
+        T_VALID(
+            "http://host.com/test?args", "", "", "host.com", 80, "/test?args",
+            "?args", "/test"
+        );
+        T_VALID(
+            "http://user:pass@host.com:42/test?args", "user", "pass",
+            "host.com", 42, "/test?args", "?args", "/test"
+        );
+        T_VALID(
+            "http://user:pass@host.com:42/test@test", "user", "pass",
+            "host.com", 42, "/test@test", "", "/test@test"
+        );
 #undef T_VALID
 
-#define T_INVALID(_addr)  Z_ASSERT_NEG(parse_http_url(_addr, false, &url))
+#define T_INVALID(_addr) Z_ASSERT_NEG(parse_http_url(_addr, false, &url))
         T_INVALID("toto");
         T_INVALID("http://");
         T_INVALID("http://user@host.com");
@@ -411,9 +449,9 @@ Z_GROUP_EXPORT(net_addr)
         /* HTTPS port. */
         Z_ASSERT_N(parse_http_url("https://host.com", true, &url));
         Z_ASSERT_EQ(url.port, 443);
-
-    } Z_TEST_END;
-
-} Z_GROUP_END;
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END;
 
 /* }}} */

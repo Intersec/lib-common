@@ -22,7 +22,7 @@
 #include <lib-common/thr.h>
 #include <lib-common/unix.h>
 
-#define XWRITE(s)  IGNORE(xwrite(fd, s, strlen(s)))
+#define XWRITE(s) IGNORE(xwrite(fd, s, strlen(s)))
 
 /** XXX The backtrace() function calls an init() function which uses malloc()
  * and leads to deadlock in the signals handler. So we always call backtrace()
@@ -56,25 +56,30 @@ static bool debug_stack_has_frames(void);
 
 void ps_dump_backtrace(int signum, const char *prog, int fd, bool full)
 {
-    char  buf[256];
+    char buf[256];
     void *arr[256];
-    int   bt, n;
+    int bt, n;
 
     if (signum >= 0) {
-        n = snprintf(buf, sizeof(buf), "---> %s[%d] %s at %jd\n\n",
-                     prog, getpid(), strsignal(signum), time(NULL));
+        n = snprintf(
+            buf, sizeof(buf), "---> %s[%d] %s at %jd\n\n", prog, getpid(),
+            strsignal(signum), time(NULL)
+        );
     } else {
-        n = snprintf(buf, sizeof(buf),
-                     "---> %s[%d] expect violation at %jd\n\n",
-                     prog, getpid(), time(NULL));
+        n = snprintf(
+            buf, sizeof(buf), "---> %s[%d] expect violation at %jd\n\n", prog,
+            getpid(), time(NULL)
+        );
     }
     if (xwrite(fd, buf, n) < 0) {
         return;
     }
 
     if (debug_stack_has_frames()) {
-        XWRITE("WARNING: additional user context available at the end of the "
-               "file\n\n");
+        XWRITE(
+            "WARNING: additional user context available at the end of the "
+            "file\n\n"
+        );
     }
 
     bt = backtrace(arr, countof(arr));
@@ -120,8 +125,9 @@ ps_panic_sighandler_print_version(int fd, const core_version_t *version)
     XWRITE("\n");
 }
 
-__attr_printf__(2, 3)
-static void ps_print_file(const char *path, const char *fmt, ...)
+__attr_printf__(2, 3) static void ps_print_file(
+    const char *path, const char *fmt, ...
+)
 {
     va_list va;
     char cmd[BUFSIZ];
@@ -141,17 +147,18 @@ extern const char *syslog_critical_log_g;
 void ps_write_backtrace(int signum, bool allow_fork)
 {
     const char *debug_dir = getenv("IS_DEBUG_FILES_DIR");
-    char  path[PATH_MAX];
-    int   fd;
-    int   saved_errno = errno;
+    char path[PATH_MAX];
+    int fd;
+    int saved_errno = errno;
 
     if (!debug_dir || !*debug_dir) {
         debug_dir = "/tmp";
     }
 
-    snprintf(path, sizeof(path), "%s/%s.%d.%ld.debug",
-             debug_dir, program_invocation_short_name, (uint32_t)time(NULL),
-             (long)getpid());
+    snprintf(
+        path, sizeof(path), "%s/%s.%d.%ld.debug", debug_dir,
+        program_invocation_short_name, (uint32_t)time(NULL), (long)getpid()
+    );
     fd = open(path, O_EXCL | O_CREAT | O_WRONLY | O_TRUNC, 0600);
 
     if (fd >= 0) {
@@ -178,13 +185,17 @@ void ps_write_backtrace(int signum, bool allow_fork)
         }
         XWRITE("\n");
 
-        snprintf(buf, sizeof(buf), "--- errno: %s (%d)\n",
-                 strerror(saved_errno), saved_errno);
+        snprintf(
+            buf, sizeof(buf), "--- errno: %s (%d)\n", strerror(saved_errno),
+            saved_errno
+        );
         XWRITE(buf);
 
         if (syslog_critical_log_g) {
-            snprintf(buf, sizeof(buf), "--- critical log: %s\n",
-                     syslog_critical_log_g);
+            snprintf(
+                buf, sizeof(buf), "--- critical log: %s\n",
+                syslog_critical_log_g
+            );
             XWRITE(buf);
         }
 
@@ -193,23 +204,25 @@ void ps_write_backtrace(int signum, bool allow_fork)
         p_close(&fd);
 
         if (allow_fork) {
-            ps_print_file(path,
-                          "echo '\n--- OS release:\n'");
+            ps_print_file(path, "echo '\n--- OS release:\n'");
             ps_print_file(path, "cat /etc/os-release");
 
-            ps_print_file(path,
-                          "echo '\n--- File descriptors (using ls):\n'");
+            ps_print_file(
+                path, "echo '\n--- File descriptors (using ls):\n'"
+            );
             ps_print_file(path, "ls -al /proc/self/fd");
 
-            ps_print_file(path,
-                          "echo '\n--- File descriptors (using lsof):\n'");
+            ps_print_file(
+                path, "echo '\n--- File descriptors (using lsof):\n'"
+            );
             ps_print_file(path, "lsof -p %d", getpid());
         }
     }
 #ifndef NDEBUG
     errno = saved_errno;
-    ps_dump_backtrace(signum, program_invocation_short_name,
-                      STDERR_FILENO, false);
+    ps_dump_backtrace(
+        signum, program_invocation_short_name, STDERR_FILENO, false
+    );
 #endif
     errno = saved_errno;
 
@@ -229,7 +242,7 @@ typedef struct debug_info_t {
 
 qvector_t(debug_stack, debug_info_t)
 
-static __thread qv_t(debug_stack) debug_stack_g;
+    static __thread qv_t(debug_stack) debug_stack_g;
 
 static void debug_stack_init(void)
 {
@@ -243,8 +256,10 @@ static void debug_stack_wipe(void)
 
 thr_hooks(debug_stack_init, debug_stack_wipe);
 
-data_t debug_stack_push(lstr_t func, lstr_t file, int line,
-                        data_t data, debug_stack_cb_f *nonnull cb)
+data_t debug_stack_push(
+    lstr_t func, lstr_t file, int line, data_t data,
+    debug_stack_cb_f *nonnull cb
+)
 {
     debug_info_t *info = qv_growlen0(&debug_stack_g, 1);
 
@@ -272,9 +287,11 @@ void debug_stack_dprint(int fd)
     tab_for_each_pos_rev(i, &debug_stack_g) {
         const debug_info_t *info = &debug_stack_g.tab[i];
 
-        dprintf(fd, "\n[%d] in %.*s() from %.*s:%d\n",
-                i, LSTR_FMT_ARG(info->func), LSTR_FMT_ARG(info->file),
-                info->line); (info->cb)(fd, info->data);
+        dprintf(
+            fd, "\n[%d] in %.*s() from %.*s:%d\n", i,
+            LSTR_FMT_ARG(info->func), LSTR_FMT_ARG(info->file), info->line
+        );
+        (info->cb)(fd, info->data);
     }
 }
 

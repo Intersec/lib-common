@@ -22,7 +22,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define LEN  5
+#define LEN 5
 
 /* {{{ Types & symbols syntax */
 
@@ -51,7 +51,7 @@ typedef struct struct_t {
     int a : 32;
     double b, c;
 
-    nested_t const * const ptr_st;
+    nested_t const *const ptr_st;
     enum enum_t en;
     union_t un;
 
@@ -130,7 +130,7 @@ typedef struct var_type_t var_type_t;
 extern var_type_t *global_var_g;
 
 /* function which returns a pointer to an array of 10 pointers to doubles */
-double *(*crazy_fn(int*, char*))[10];
+double *(*crazy_fn(int *, char *))[10];
 
 /* pointer to function which returns pointer to array of 42 pointers to char
  */
@@ -144,12 +144,14 @@ float (*returns_func_ptr(int foo))(float, float);
  * takes int and double and returns pointer to function that takes int and
  * long and returns pointer to function that takes pointer to char and
  * returns pointer to double. */
-double *(*(*(*returns_func_ptr_nested(char*))(int, double))(int, long))(char*);
+double *(*(*(*returns_func_ptr_nested(char *))(int, double))(int, long))(
+    char *
+);
 
 /* struct with function pointer field which takes int and returns pointer
  * to function which takes float pointer and returns pointer to char. */
 typedef struct crazy_field_t {
-    char *(*(*crazy_ptr)(int))(float*);
+    char *(*(*crazy_ptr)(int))(float *);
 } crazy_field_t;
 
 typedef struct qhash_hdr_t {
@@ -161,16 +163,16 @@ typedef struct qhash_hdr_t {
 
 #define STRUCT_QHASH_T(key_t, val_t)                                         \
     struct {                                                                 \
-        qhash_hdr_t    hdr;                                                  \
-        qhash_hdr_t   *old;                                                  \
-        key_t         *keys;                                                 \
-        val_t         *values;                                               \
-        unsigned int  *hashes;                                               \
-        unsigned int   ghosts;                                               \
-        unsigned char  h_size;                                               \
-        unsigned char  k_size;                                               \
+        qhash_hdr_t hdr;                                                     \
+        qhash_hdr_t *old;                                                    \
+        key_t *keys;                                                         \
+        val_t *values;                                                       \
+        unsigned int *hashes;                                                \
+        unsigned int ghosts;                                                 \
+        unsigned char h_size;                                                \
+        unsigned char k_size;                                                \
         unsigned short v_size;                                               \
-        unsigned int   minsize;                                              \
+        unsigned int minsize;                                                \
     }
 
 /* unsigned char allow us to use pointer arith on ->{values,vec} */
@@ -213,7 +215,7 @@ typedef struct cython_keywords_t {
     int lambda;
     int nonlocal;
     int not;
-    int or;
+    int or ;
     int pass;
     int raise;
     int try;

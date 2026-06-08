@@ -20,7 +20,7 @@
 
 int main(int argc, char **argv)
 {
-#define path  argv[1]
+#define path argv[1]
     qps_t *qps;
     if (argc < 2) {
         return -1;
@@ -33,8 +33,9 @@ int main(int argc, char **argv)
     } else {
         qps = qps_create(path, "ztst", 0755, NULL, 0);
     }
-    if (!qps)
+    if (!qps) {
         e_fatal("unable to open qps");
+    }
 
     {
         qps_handle_t handle1, handle2;
@@ -48,4 +49,3 @@ int main(int argc, char **argv)
     MODULE_RELEASE(qps);
     return 0;
 }
-

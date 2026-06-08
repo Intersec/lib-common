@@ -36,8 +36,9 @@ int is_rand(void)
         struct timeval tm;
 
         gettimeofday(&tm, NULL);
-        is_rand_set_seed(tm.tv_sec + tm.tv_usec + getpid() +
-                         (uintptr_t)pthread_self());
+        is_rand_set_seed(
+            tm.tv_sec + tm.tv_usec + getpid() + (uintptr_t)pthread_self()
+        );
     }
 
     return rand_r(&thr_rand_g.seed);
@@ -47,15 +48,13 @@ uint32_t rand32(void)
 {
     STATIC_ASSERT(RAND_MAX >= INT_MAX);
 
-    return ((uint32_t)rand())
-         | (((uint32_t)rand()) << 31);
+    return ((uint32_t)rand()) | (((uint32_t)rand()) << 31);
 }
 
 uint64_t rand64(void)
 {
-    return ((uint64_t)rand())
-         | (((uint64_t)rand()) << 31)
-         | (((uint64_t)rand()) << 62);
+    return ((uint64_t)rand()) | (((uint64_t)rand()) << 31) |
+           (((uint64_t)rand()) << 62);
 }
 
 int64_t rand_range(int64_t first, int64_t last)
@@ -65,10 +64,8 @@ int64_t rand_range(int64_t first, int64_t last)
 
     if (range <= RAND_MAX - 1) {
         number = rand();
-    } else
-    if (range < (1ull << 62) - 1) {
-        number = ((uint64_t)rand())
-               | (((uint64_t)rand()) << 31);
+    } else if (range < (1ull << 62) - 1) {
+        number = ((uint64_t)rand()) | (((uint64_t)rand()) << 31);
     } else {
         number = rand64();
     }

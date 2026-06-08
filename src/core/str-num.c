@@ -20,9 +20,10 @@
 
 #include <lib-common/core.h>
 
-static ALWAYS_INLINE int64_t
-memtoip_impl(const byte *s, int _len, const byte **endp,
-             const int64_t min, const int64_t max, bool ll, bool use_len)
+static ALWAYS_INLINE int64_t memtoip_impl(
+    const byte *s, int _len, const byte **endp, const int64_t min,
+    const int64_t max, bool ll, bool use_len
+)
 {
     int64_t value = 0;
 
@@ -51,8 +52,8 @@ memtoip_impl(const byte *s, int _len, const byte **endp,
         value = '0' - *s++;
         while (declen && isdigit((unsigned char)*s)) {
             int digit = '0' - *s++;
-            if ((value <= min / 10)
-                &&  (value < min / 10 || digit < min % 10)) {
+            if ((value <= min / 10) && (value < min / 10 || digit < min % 10))
+            {
                 errno = ERANGE;
                 value = min;
                 /* keep looping inefficiently in case of overflow */
@@ -72,8 +73,8 @@ memtoip_impl(const byte *s, int _len, const byte **endp,
         value = *s++ - '0';
         while (declen && isdigit((unsigned char)*s)) {
             int digit = *s++ - '0';
-            if ((value >= max / 10)
-                &&  (value > max / 10 || digit > max % 10)) {
+            if ((value >= max / 10) && (value > max / 10 || digit > max % 10))
+            {
                 errno = ERANGE;
                 value = max;
                 /* keep looping inefficiently in case of overflow */
@@ -93,8 +94,10 @@ done:
 
 int strtoip(const char *s, const char **endp)
 {
-    return memtoip_impl((const byte *)s, 0, (const byte **)(void *)endp,
-                        INT_MIN, INT_MAX, false, false);
+    return memtoip_impl(
+        (const byte *)s, 0, (const byte **)(void *)endp, INT_MIN, INT_MAX,
+        false, false
+    );
 }
 
 int memtoip(const void *s, int len, const byte **endp)
@@ -107,7 +110,7 @@ int64_t memtollp(const void *s, int len, const byte **endp)
     return memtoip_impl(s, len, endp, INT64_MIN, INT64_MAX, true, true);
 }
 
-#define INVALID_NUMBER  INT64_MIN
+#define INVALID_NUMBER INT64_MIN
 int64_t parse_number(const char *str)
 {
     int64_t value;
@@ -126,44 +129,45 @@ int64_t parse_number(const char *str)
         }
     }
     switch (*str) {
-      case 'P':
+    case 'P':
         mult <<= 10;
         /* FALL THRU */
-      case 'T':
+    case 'T':
         mult <<= 10;
         /* FALL THRU */
-      case 'G':
+    case 'G':
         mult <<= 10;
         /* FALL THRU */
-      case 'M':
+    case 'M':
         mult <<= 10;
         /* FALL THRU */
-      case 'K':
+    case 'K':
         mult <<= 10;
         str++;
         break;
-      case 'p':
+    case 'p':
         mult *= 1000;
         /* FALL THRU */
-      case 't':
+    case 't':
         mult *= 1000;
         /* FALL THRU */
-      case 'g':
+    case 'g':
         mult *= 1000;
         /* FALL THRU */
-      case 'm':
+    case 'm':
         mult *= 1000;
         /* FALL THRU */
-      case 'k':
+    case 'k':
         mult *= 1000;
         str++;
         break;
-      case 'E':
-      case 'e':
+    case 'E':
+    case 'e':
         exponent = strtol(str + 1, &str, 10);
         for (; exponent > 0; exponent--) {
-            if (mult > (INT64_MAX / 10))
+            if (mult > (INT64_MAX / 10)) {
                 return INVALID_NUMBER;
+            }
             mult *= 10;
         }
         break;
@@ -230,8 +234,10 @@ uint64_t memtoullp(const void *s, int len, const byte **endp)
  * @returns 0 if all constraints are met. Otherwise returns a negative
  * value corresponding to the error
  */
-int strtolp(const char *p, const char **endp, int base, long *res,
-            int flags, long min, long max)
+int strtolp(
+    const char *p, const char **endp, int base, long *res, int flags,
+    long min, long max
+)
 {
     const char *end;
     long value;
@@ -246,8 +252,9 @@ int strtolp(const char *p, const char **endp, int base, long *res,
     if (flags & STRTOLP_IGNORE_SPACES) {
         p = skipspaces(p);
     } else {
-        if (isspace((unsigned char)*p))
+        if (isspace((unsigned char)*p)) {
             return -EINVAL;
+        }
     }
     errno = 0;
     *res = strtol(p, endp, base);
@@ -265,16 +272,16 @@ int strtolp(const char *p, const char **endp, int base, long *res,
         if (*res < min) {
             *res = min;
             clamped = true;
-        } else
-        if (*res > max) {
+        } else if (*res > max) {
             *res = max;
             clamped = true;
         }
-        if (errno == ERANGE)
+        if (errno == ERANGE) {
             errno = 0;
+        }
     }
     if (errno) {
-        return -errno;  /* -ERANGE or maybe EINVAL as checked by strtol() */
+        return -errno; /* -ERANGE or maybe EINVAL as checked by strtol() */
     }
     if (flags & STRTOLP_CHECK_RANGE) {
         if (clamped || *res < min || *res > max) {
@@ -286,62 +293,64 @@ int strtolp(const char *p, const char **endp, int base, long *res,
 
 /*{{{ integer extraction with iop extensions */
 
-static
-int str_read_number_extension(const void **p, int len, uint64_t *out)
+static int str_read_number_extension(const void **p, int len, uint64_t *out)
 {
     uint64_t mult = 1;
     const char *s = *(const char **)p;
     int res = 0;
 
-    if (!len)
+    if (!len) {
         goto end;
+    }
 
     switch (*s) {
-      /* times */
-      case 'w':
+    /* times */
+    case 'w':
         mult *= 7;
         /* FALLTHROUGH */
-      case 'd':
+    case 'd':
         mult *= 24;
         /* FALLTHROUGH */
-      case 'h':
+    case 'h':
         mult *= 60;
         /* FALLTHROUGH */
-      case 'm':
+    case 'm':
         mult *= 60;
         /* FALLTHROUGH */
-      case 's':
+    case 's':
         mult *= 1;
         res = 1;
         break;
 
-      /* sizes */
-      case 'T':
+    /* sizes */
+    case 'T':
         mult *= 1024;
         /* FALLTHROUGH */
-      case 'G':
+    case 'G':
         mult *= 1024;
         /* FALLTHROUGH */
-      case 'M':
+    case 'M':
         mult *= 1024;
         /* FALLTHROUGH */
-      case 'K':
+    case 'K':
         mult *= 1024;
         res = 1;
         break;
 
-      default:
-        if (isalpha(*s))
+    default:
+        if (isalpha(*s)) {
             return -1;
+        }
         goto end;
     }
 
     *p = ++s;
 
-    if (--len && isalnum(*s))
+    if (--len && isalnum(*s)) {
         return -1;
+    }
 
-  end:
+end:
     *out = mult;
     return res;
 }
@@ -363,8 +372,7 @@ str_apply_number_extension(uint64_t mult, bool is_signed, uint64_t *number)
             *number = INT64_MIN;
             return -1;
         }
-    } else
-    if (*number > UINT64_MAX / mult) {
+    } else if (*number > UINT64_MAX / mult) {
         *number = UINT64_MAX;
         return -1;
     }
@@ -374,9 +382,10 @@ str_apply_number_extension(uint64_t mult, bool is_signed, uint64_t *number)
     return 0;
 }
 
-static int
-memtoxll_ext(const void *p, int len, bool is_signed, uint64_t *out,
-             const void **endp, int base, bool use_len)
+static int memtoxll_ext(
+    const void *p, int len, bool is_signed, uint64_t *out, const void **endp,
+    int base, bool use_len
+)
 {
     t_scope;
     uint64_t mult = 1;
@@ -386,8 +395,9 @@ memtoxll_ext(const void *p, int len, bool is_signed, uint64_t *out,
     const void *local_endp;
     int res;
 
-    if (!endp)
+    if (!endp) {
         endp = &local_endp;
+    }
 
     *endp = p;
     errno = 0;
@@ -430,8 +440,9 @@ memtoxll_ext(const void *p, int len, bool is_signed, uint64_t *out,
     if (res == 0) {
         errno = EINVAL;
     }
-    if (errno)
+    if (errno) {
         return -1;
+    }
 
     len -= res;
 
@@ -449,23 +460,25 @@ memtoxll_ext(const void *p, int len, bool is_signed, uint64_t *out,
     return res;
 }
 
-int
-memtoll_ext(const void *p, int len, int64_t *out, const void **endp, int base)
+int memtoll_ext(
+    const void *p, int len, int64_t *out, const void **endp, int base
+)
 {
     return memtoxll_ext(p, len, true, (uint64_t *)out, endp, base, true);
 }
 
-int
-memtoull_ext(const void *p, int len, uint64_t *out, const void **endp,
-             int base)
+int memtoull_ext(
+    const void *p, int len, uint64_t *out, const void **endp, int base
+)
 {
     return memtoxll_ext(p, len, false, out, endp, base, true);
 }
 
 int strtoll_ext(const char *s, int64_t *out, const char **tail, int base)
 {
-    return memtoxll_ext(s, 0, true, (uint64_t *)out, (const void **)tail,
-                        base, false);
+    return memtoxll_ext(
+        s, 0, true, (uint64_t *)out, (const void **)tail, base, false
+    );
 }
 
 int strtoull_ext(const char *s, uint64_t *out, const char **tail, int base)

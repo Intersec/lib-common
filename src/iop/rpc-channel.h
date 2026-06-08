@@ -286,23 +286,24 @@
  * This is the last version: all this documentation applies to Version 1.
  */
 
-#if !defined(IS_LIB_COMMON_IOP_RPC_H) || defined(IS_LIB_COMMON_IOP_RPC_CHANNEL_H)
+#if !defined(IS_LIB_COMMON_IOP_RPC_H) ||                                     \
+    defined(IS_LIB_COMMON_IOP_RPC_CHANNEL_H)
 #  error "you must include <lib-common/iop-rpc.h> instead"
 #else
-#define IS_LIB_COMMON_IOP_RPC_CHANNEL_H
+#  define IS_LIB_COMMON_IOP_RPC_CHANNEL_H
 
-#include <lib-common/container-htlist.h>
-#include <openssl/ssl.h>
+#  include <lib-common/container-htlist.h>
+#  include <openssl/ssl.h>
 
-#if 0
-#define IC_DEBUG_REPLIES
-#endif
-#ifdef IC_DEBUG_REPLIES
+#  if 0
+#    define IC_DEBUG_REPLIES
+#  endif
+#  ifdef IC_DEBUG_REPLIES
 qh_k64_t(ic_replies);
-#endif
+#  endif
 
-typedef struct ichannel_t    ichannel_t;
-typedef struct ic_msg_t      ic_msg_t;
+typedef struct ichannel_t ichannel_t;
+typedef struct ic_msg_t ic_msg_t;
 typedef struct ic_hook_ctx_t ic_hook_ctx_t;
 
 typedef enum ic_event_t {
@@ -314,102 +315,105 @@ typedef enum ic_event_t {
     IC_EVT_NOACT,
 } ic_event_t;
 
-#define IC_VERSION                  1
+#  define IC_VERSION 1
 
-#define IC_MSG_HDR_LEN             12
-#define IC_MSG_CMD_OFFSET           4
-#define IC_MSG_DLEN_OFFSET          8
-#define IC_MSG_VERSION_DLEN_MIN     4
-#define IC_MSG_VERSION_DLEN_MAX     8
-#define IC_PKT_MAX              65536
+#  define IC_MSG_HDR_LEN 12
+#  define IC_MSG_CMD_OFFSET 4
+#  define IC_MSG_DLEN_OFFSET 8
+#  define IC_MSG_VERSION_DLEN_MIN 4
+#  define IC_MSG_VERSION_DLEN_MAX 8
+#  define IC_PKT_MAX 65536
 
-#define IC_ID_MAX               BITMASK_LE(uint32_t, 30)
-#define IC_MSG_SLOT_MASK        (0xffffffU)
-#define IC_MSG_HAS_FD           (1U << 24)
-#define IC_MSG_HAS_HDR          (1U << 25)
-#define IC_MSG_IS_TRACED        (1U << 26)
-#define IC_MSG_PRIORITY_SHIFT   27
-#define IC_MSG_PRIORITY_MASK    (BITMASK_LT(uint32_t,                        \
-                                            2) << IC_MSG_PRIORITY_SHIFT)
+#  define IC_ID_MAX BITMASK_LE(uint32_t, 30)
+#  define IC_MSG_SLOT_MASK (0xffffffU)
+#  define IC_MSG_HAS_FD (1U << 24)
+#  define IC_MSG_HAS_HDR (1U << 25)
+#  define IC_MSG_IS_TRACED (1U << 26)
+#  define IC_MSG_PRIORITY_SHIFT 27
+#  define IC_MSG_PRIORITY_MASK                                               \
+      (BITMASK_LT(uint32_t, 2) << IC_MSG_PRIORITY_SHIFT)
 
-#define IC_SC_VERSION_TLS  (1U << 15)
-#define IC_SC_VERSION_UV   (1U << 14)
+#  define IC_SC_VERSION_TLS (1U << 15)
+#  define IC_SC_VERSION_UV (1U << 14)
 
-#define IC_PROXY_MAGIC_CB       ((ic_msg_cb_f *)-1)
+#  define IC_PROXY_MAGIC_CB ((ic_msg_cb_f *)-1)
 
 typedef struct ic_creds_t {
     uid_t uid;
     gid_t gid;
-    int   pid;
+    int pid;
 } ic_creds_t;
 
-typedef void (ic_hook_f)(ichannel_t * nonnull, ic_event_t evt);
-typedef void (t_ic_pre_hook_f)(ichannel_t * nullable, uint64_t,
-                               ic__hdr__t * nullable, data_t,
-                               bool * nonnull hdr_modified);
-typedef void (ic_post_hook_f)(ichannel_t * nullable, ic_status__t,
-                              ic_hook_ctx_t * nonnull, data_t,
-                              const iop_struct_t * nullable,
-                              const void * nullable);
-typedef int (ic_creds_f)(ichannel_t * nonnull,
-                         const ic_creds_t * nonnull creds);
-typedef void (ic_msg_cb_f)(ichannel_t * nonnull, ic_msg_t * nonnull,
-                           ic_status__t, void * nullable, void * nullable);
-#ifdef __has_blocks
-typedef void (BLOCK_CARET ic_msg_cb_b)(ichannel_t * nonnull, ic_status__t,
-                                       void * nullable, void * nullable);
-#endif
+typedef void(ic_hook_f)(ichannel_t *nonnull, ic_event_t evt);
+typedef void(t_ic_pre_hook_f)(
+    ichannel_t *nullable, uint64_t, ic__hdr__t *nullable, data_t,
+    bool *nonnull hdr_modified
+);
+typedef void(ic_post_hook_f)(
+    ichannel_t *nullable, ic_status__t, ic_hook_ctx_t *nonnull, data_t,
+    const iop_struct_t *nullable, const void *nullable
+);
+typedef int(ic_creds_f)(ichannel_t *nonnull, const ic_creds_t *nonnull creds);
+typedef void(ic_msg_cb_f)(
+    ichannel_t *nonnull, ic_msg_t *nonnull, ic_status__t, void *nullable,
+    void *nullable
+);
+#  ifdef __has_blocks
+typedef void(BLOCK_CARET ic_msg_cb_b)(
+    ichannel_t *nonnull, ic_status__t, void *nullable, void *nullable
+);
+#  endif
 
 struct ic_msg_t {
-    htnode_t      msg_link;        /**< private field used by ichannel_t */
-    int           fd         : 24; /**< the fd to send */
-    bool          async      :  1; /**< whether the RPC is async */
-    bool          raw        :  1; /**< whether the answer should be decoded
-                                        or not. */
-    bool          force_pack :  1; /**< if set then msg is packed even if it
-                                        is used with a local ic */
-    bool          force_dup  :  1; /**< if set when ic is local and force_pack
-                                        is false then hdr and arg are
-                                        duplicated before being used in rpc
-                                        implementation */
-    bool          trace      :  1; /**< Activate tracing for this message. */
-    bool          canceled   :  1; /**< Is the query canceled ? */
-    ev_priority_t priority   :  2; /**< Priority of the message. */
-    int32_t  cmd;                  /**< automatically filled by ic_query/reply
-                                        */
-    uint32_t slot;                 /**< automatically filled by ic_query/reply
-                                        */
-    uint32_t timeout;              /**< max lifetime of the query */
-    ichannel_t * nullable ic;      /**< the ichannel_t used for the query */
+    htnode_t msg_link;          /**< private field used by ichannel_t */
+    int fd : 24;                /**< the fd to send */
+    bool async : 1;             /**< whether the RPC is async */
+    bool raw : 1;               /**< whether the answer should be decoded
+                                     or not. */
+    bool force_pack : 1;        /**< if set then msg is packed even if it
+                                     is used with a local ic */
+    bool force_dup : 1;         /**< if set when ic is local and force_pack
+                                     is false then hdr and arg are
+                                     duplicated before being used in rpc
+                                     implementation */
+    bool trace : 1;             /**< Activate tracing for this message. */
+    bool canceled : 1;          /**< Is the query canceled ? */
+    ev_priority_t priority : 2; /**< Priority of the message. */
+    int32_t cmd;                /**< automatically filled by ic_query/reply
+                                 */
+    uint32_t slot;              /**< automatically filled by ic_query/reply
+                                 */
+    uint32_t timeout;           /**< max lifetime of the query */
+    ichannel_t *nullable ic;    /**< the ichannel_t used for the query */
     el_t nullable timeout_timer;
     unsigned dlen;
-    void    * nullable data;
+    void *nullable data;
     pstream_t raw_res;
 
     /** Pinned IOP env ctx snapshot for a query awaiting its reply. */
     iop_env_ctx_guard_t iop_env_ctx_guard;
 
     /* user provided fields */
-    const iop_rpc_t  * nullable rpc;
-    const ic__hdr__t * nullable hdr;
-    ic_msg_cb_f      * nullable cb;
-    byte              priv[];
+    const iop_rpc_t *nullable rpc;
+    const ic__hdr__t *nullable hdr;
+    ic_msg_cb_f *nullable cb;
+    byte priv[];
 };
-ic_msg_t * nonnull ic_msg_new(int len);
-#define ic_msg_p(_t, _v)                                                     \
-    ({                                                                       \
+ic_msg_t *nonnull ic_msg_new(int len);
+#  define ic_msg_p(_t, _v)                                                   \
+      ({                                                                     \
         ic_msg_t *_msg = ic_msg_new(sizeof(_t));                             \
         *acast(_t, _msg->priv) = *(_v);                                      \
         _msg;                                                                \
-    })
-#define ic_msg(_t, ...)  ic_msg_p(_t, (&(_t){ __VA_ARGS__ }))
+      })
+#  define ic_msg(_t, ...) ic_msg_p(_t, (&(_t){__VA_ARGS__}))
 
-#ifdef __has_blocks
-ic_msg_t * nonnull ic_msg_new_blk(ic_msg_cb_b nonnull blk);
-#endif
-ic_msg_t * nonnull ic_msg_new_fd(int fd, int len);
-ic_msg_t * nonnull ic_msg_proxy_new(int fd, uint64_t slot,
-                                    const ic__hdr__t * nullable hdr);
+#  ifdef __has_blocks
+ic_msg_t *nonnull ic_msg_new_blk(ic_msg_cb_b nonnull blk);
+#  endif
+ic_msg_t *nonnull ic_msg_new_fd(int fd, int len);
+ic_msg_t *nonnull
+ic_msg_proxy_new(int fd, uint64_t slot, const ic__hdr__t *nullable hdr);
 void ic_msg_delete(ic_msg_t * nullable * nonnull);
 
 /** Cancel an ic message.
@@ -419,7 +423,7 @@ void ic_msg_delete(ic_msg_t * nullable * nonnull);
  *
  * \param[in]  msg the message to cancel.
  */
-void ic_msg_cancel(ic_msg_t * nonnull msg);
+void ic_msg_cancel(ic_msg_t *nonnull msg);
 
 /** Set a timeout for ic_msg_t.
  *
@@ -435,8 +439,7 @@ void ic_msg_cancel(ic_msg_t * nonnull msg);
  *
  * \return the ic_msg_t with the timeout set.
  */
-ic_msg_t * nonnull ic_msg_set_timeout(ic_msg_t * nonnull msg,
-                                      uint32_t timeout);
+ic_msg_t *nonnull ic_msg_set_timeout(ic_msg_t *nonnull msg, uint32_t timeout);
 
 /** Set a priority for ic_msg_t.
  *
@@ -451,21 +454,21 @@ ic_msg_t * nonnull ic_msg_set_timeout(ic_msg_t * nonnull msg,
  *
  * \return the ic_msg_t with the priority set.
  */
-ic_msg_t * nonnull ic_msg_set_priority(ic_msg_t * nonnull msg,
-                                       ev_priority_t priority);
+ic_msg_t *nonnull
+ic_msg_set_priority(ic_msg_t *nonnull msg, ev_priority_t priority);
 
-qm_k32_t(ic_msg, ic_msg_t * nonnull);
+qm_k32_t(ic_msg, ic_msg_t *nonnull);
 
 struct ic_hook_ctx_t {
-    uint64_t         slot;
-    ic_post_hook_f  * nullable post_hook;
-    const iop_rpc_t * nonnull rpc;
-    data_t           post_hook_args;
-    byte             data[];  /* data to pass through RPC workflow */
+    uint64_t slot;
+    ic_post_hook_f *nullable post_hook;
+    const iop_rpc_t *nonnull rpc;
+    data_t post_hook_args;
+    byte data[]; /* data to pass through RPC workflow */
 };
 
-ic_hook_ctx_t * nonnull ic_hook_ctx_new(uint64_t slot, ssize_t extra);
-ic_hook_ctx_t * nullable ic_hook_ctx_get(uint64_t slot);
+ic_hook_ctx_t *nonnull ic_hook_ctx_new(uint64_t slot, ssize_t extra);
+ic_hook_ctx_t *nullable ic_hook_ctx_get(uint64_t slot);
 void ic_hook_ctx_delete(ic_hook_ctx_t * nullable * nonnull pctx);
 
 typedef enum ic_cb_entry_type_t {
@@ -478,8 +481,8 @@ typedef enum ic_cb_entry_type_t {
 } ic_cb_entry_type_t;
 
 typedef struct ic_dynproxy_t {
-    ichannel_t * nullable ic;
-    ic__hdr__t * nullable hdr;
+    ichannel_t *nullable ic;
+    ic__hdr__t *nullable hdr;
 } ic_dynproxy_t;
 
 /** Callback to fetch a dynamic proxy (pair of ichannel + header).
@@ -487,39 +490,43 @@ typedef struct ic_dynproxy_t {
  * This function is allowed to return an header allocated on the t_pool() just
  * like a t_ function.
  */
-typedef ic_dynproxy_t (ic_dynproxy_f)(ic__hdr__t * nullable hdr,
-                                      void * nullable priv);
+typedef ic_dynproxy_t(ic_dynproxy_f)(
+    ic__hdr__t *nullable hdr, void *nullable priv
+);
 
-#define IC_DYNPROXY_NULL    ((ic_dynproxy_t){ .ic = NULL })
-#define IC_DYNPROXY(_ic)    ((ic_dynproxy_t){ .ic = (_ic) })
-#define IC_DYNPROXY_HDR(_ic, _hdr) \
-    ((ic_dynproxy_t){ .ic = (_ic), .hdr = (_hdr) })
+#  define IC_DYNPROXY_NULL ((ic_dynproxy_t){.ic = NULL})
+#  define IC_DYNPROXY(_ic) ((ic_dynproxy_t){.ic = (_ic)})
+#  define IC_DYNPROXY_HDR(_ic, _hdr)                                         \
+      ((ic_dynproxy_t){.ic = (_ic), .hdr = (_hdr)})
 
 typedef struct ic_cb_entry_t {
     ic_cb_entry_type_t cb_type;
-    const iop_rpc_t * nonnull rpc;
+    const iop_rpc_t *nonnull rpc;
 
-    t_ic_pre_hook_f * nullable t_pre_hook;
-    ic_post_hook_f  * nullable post_hook;
-    data_t          pre_hook_args;
-    data_t          post_hook_args;
+    t_ic_pre_hook_f *nullable t_pre_hook;
+    ic_post_hook_f *nullable post_hook;
+    data_t pre_hook_args;
+    data_t post_hook_args;
     union {
         struct {
-            void (* nonnull cb)(ichannel_t * nonnull, uint64_t,
-                                void * nullable, const ic__hdr__t * nullable);
+            void (*nonnull cb)(
+                ichannel_t *nonnull, uint64_t, void *nullable,
+                const ic__hdr__t *nullable
+            );
         } cb;
 
-#ifdef __has_blocks
+#  ifdef __has_blocks
         struct {
-            void (BLOCK_CARET nonnull __unsafe_unretained cb)
-                (ichannel_t * nonnull, uint64_t, void * nullable,
-                 const ic__hdr__t * nullable);
+            void(BLOCK_CARET nonnull __unsafe_unretained cb)(
+                ichannel_t *nonnull, uint64_t, void *nullable,
+                const ic__hdr__t *nullable
+            );
         } blk;
-#endif
+#  endif
 
         struct {
-            ichannel_t * nonnull ic_p;
-            ic__hdr__t * nullable hdr_p;
+            ichannel_t *nonnull ic_p;
+            ic__hdr__t *nullable hdr_p;
         } proxy_p;
 
         struct {
@@ -528,22 +535,25 @@ typedef struct ic_cb_entry_t {
         } proxy_pp;
 
         struct {
-            ic_dynproxy_f * nonnull get_ic;
-            void * nullable priv;
+            ic_dynproxy_f *nonnull get_ic;
+            void *nullable priv;
         } dynproxy;
 
         struct {
-            void (* nonnull cb)(void * nullable, uint64_t, void * nullable,
-                                const ic__hdr__t * nullable);
+            void (*nonnull cb)(
+                void *nullable, uint64_t, void *nullable,
+                const ic__hdr__t *nullable
+            );
         } iws_cb;
 
-#ifdef __has_blocks
+#  ifdef __has_blocks
         struct {
-            void (BLOCK_CARET __unsafe_unretained nonnull cb)
-                (ichannel_t * nullable, uint64_t, void * nullable,
-                 const ic__hdr__t * nullable);
+            void(BLOCK_CARET __unsafe_unretained nonnull cb)(
+                ichannel_t *nullable, uint64_t, void *nullable,
+                const ic__hdr__t *nullable
+            );
         } iws_blk;
-#endif
+#  endif
     } u;
 } ic_cb_entry_t;
 qm_k32_t(ic_cbs, ic_cb_entry_t);
@@ -595,7 +605,7 @@ struct ichannel_t {
 
     /** Content set to NULL on deletion
      */
-    ichannel_t *nullable *nullable owner;
+    ichannel_t * nullable * nullable owner;
 
     /** User private data.
      */
@@ -621,42 +631,42 @@ struct ichannel_t {
      * still connected. Shouldn't be used in production code, any IC should
      * be nicely closed before exiting the event loop.
      */
-    bool do_el_unref  :  1;
+    bool do_el_unref : 1;
 
     /** Whether the IChannel should reconnect automatically after a
      * disconnection.
      *
      * Default is true.
      */
-    bool auto_reconn  :  1;
+    bool auto_reconn : 1;
 
     /** Disable the auto-deletion feature (see is_spawned).
      */
-    bool no_autodel   :  1;
+    bool no_autodel : 1;
 
     /** Allow to mark the IC as trusted. In this case, the IC will not be
      * closed upon the reception of an unknown RPC having a payload larger
      * than 10M.
      */
-    bool is_trusted   :  1;
+    bool is_trusted : 1;
 
     /** Setting this flag to true causes private fields to be omitted on
      * outgoing messages and forbidden on incoming messages.
      */
-    bool is_public    :  1;
+    bool is_public : 1;
 
     /** Whether TLS is required. Ignored on non TCP sockets.
      *
      * Default is true.
      */
-    bool tls_required :  1;
+    bool tls_required : 1;
 
     /* }}} */
     /* {{{ Life-cycle attributes */
 
     /** Set to true when the IC is disconnecting.
      */
-    bool is_closing   :  1;
+    bool is_closing : 1;
 
     /** Whether the IC was created with ic_spawn() (on accept).
      *
@@ -666,36 +676,36 @@ struct ichannel_t {
      * This flag cannot be used to identify server-side IChannels since it is
      * reverted to false at the first manual call to ic_connect/ic_reconnect.
      */
-    bool is_spawned   :  1;
+    bool is_spawned : 1;
 
     /** Whether the socket is a SOCK_SEQPACKET.
      */
-    bool is_seqpacket :  1;
+    bool is_seqpacket : 1;
 
     /** Whether the socket is a Unix socket.
      */
-    bool is_unix      :  1;
+    bool is_unix : 1;
 
     /** Set to true after the IC destruction in ic_wipe(), useful for
      * debugging.
      */
-    bool is_wiped     :  1;
+    bool is_wiped : 1;
 
     /** Set to true in non-release builds when the messages in queue get
      * canceled to detect re-enqueue infinite loops. Indeed one should never
      * call ic_query* upon the reception of an IC_MSG_ABORT status.
      */
-    bool cancel_guard :  1;
+    bool cancel_guard : 1;
 
     /** Indicate that the IC is ready to send messages, but some process does
      * enqueue messages before the IC being queuable.
      */
-    bool queuable     :  1;
+    bool queuable : 1;
 
     /** Set to true after a call to ic_set_local() in order to make a loopback
      * IChannel.
      */
-    bool is_local     :  1;
+    bool is_local : 1;
 
     /** Indicate that the queries and replies on this local IChannel should
      * not be handled synchronously. Instead they should be queued and handled
@@ -707,16 +717,16 @@ struct ichannel_t {
     /** Used internally when the transfer of a file descriptor over an Unix
      * socket failed because of an ancillary data truncation.
      */
-    bool fd_overflow  :  1;
+    bool fd_overflow : 1;
 
     /** Upon the parsing of a new message, indicate whether the message header
      * has been successfully checked.
      */
-    bool hdr_checked  :  1;
+    bool hdr_checked : 1;
 
     /** True if connection handshakes are completed.
      */
-    bool is_connected :  1;
+    bool is_connected : 1;
 
     /** Disable user version checking.
      *
@@ -726,7 +736,7 @@ struct ichannel_t {
      *
      * Default is false.
      */
-    bool no_user_version_check :  1;
+    bool no_user_version_check : 1;
 
     /** IChannel unique ID.
      *
@@ -870,54 +880,58 @@ struct ichannel_t {
      */
     lstr_t client_addr;
 
-#ifdef IC_DEBUG_REPLIES
+#  ifdef IC_DEBUG_REPLIES
     /** When enabling IC_DEBUG_REPLIES, tracks the every answer to an IC query
      * to detect invalid double replies.
      */
     qh_t(ic_replies) dbg_replies;
-#endif
+#  endif
 
-#ifndef NDEBUG
+#  ifndef NDEBUG
     /** Used in non-release builds to warning about sudden traffic increase
      * that could require investigation.
      */
     int pending_max;
-#endif
+#  endif
 
     /* }}} */
 };
 
-void ic_drop_ans_cb(ichannel_t * nonnull, ic_msg_t * nonnull,
-                    ic_status__t, void * nullable, void * nullable);
+void ic_drop_ans_cb(
+    ichannel_t *nonnull, ic_msg_t *nonnull, ic_status__t, void *nullable,
+    void *nullable
+);
 
 MODULE_DECLARE(ic);
 
 /*----- ichannel handling -----*/
 
-static inline bool ic_is_local(const ichannel_t * nonnull ic) {
+static inline bool ic_is_local(const ichannel_t *nonnull ic)
+{
     return ic->is_local;
 }
 
-static inline void ic_set_local(ichannel_t * nonnull ic, bool is_local_async)
+static inline void ic_set_local(ichannel_t *nonnull ic, bool is_local_async)
 {
     ic->is_local = true;
     ic->is_local_async = is_local_async;
     ic->client_addr = LSTR("127.0.0.1");
 }
 
-static inline int ic_get_fd(ichannel_t * nonnull ic) {
+static inline int ic_get_fd(ichannel_t *nonnull ic)
+{
     int res = ic->current_fd;
     ic->current_fd = -1;
     return res;
 }
-static inline int ic_queue_len(ichannel_t * nonnull ic) {
+static inline int ic_queue_len(ichannel_t *nonnull ic)
+{
     return ic->queue_len;
 }
-static inline bool ic_is_empty(ichannel_t * nonnull ic) {
-    return htlist_is_empty(&ic->msg_list)
-        && htlist_is_empty(&ic->iov_list)
-        && ic_queue_len(ic) == 0
-        && !ic->pending;
+static inline bool ic_is_empty(ichannel_t *nonnull ic)
+{
+    return htlist_is_empty(&ic->msg_list) && htlist_is_empty(&ic->iov_list) &&
+           ic_queue_len(ic) == 0 && !ic->pending;
 }
 
 /* XXX be carefull, this function do not mean that the ichannel is actually
@@ -926,12 +940,14 @@ static inline bool ic_is_empty(ichannel_t * nonnull ic) {
  * To check if the IC is actually connected (TLS handshakes finished), use the
  * `ic->is_connected` flag.
  */
-static inline bool ic_is_ready(const ichannel_t * nonnull ic) {
-    return (ic_is_local(ic) && ic->impl)
-        || (ic->elh && ic->queuable && !ic->is_closing);
+static inline bool ic_is_ready(const ichannel_t *nonnull ic)
+{
+    return (ic_is_local(ic) && ic->impl) ||
+           (ic->elh && ic->queuable && !ic->is_closing);
 }
 
-static inline bool ic_slot_is_async(uint64_t slot) {
+static inline bool ic_slot_is_async(uint64_t slot)
+{
     /* Only a native IC slot (IC_SLOT_FOREIGN_IC) uses slot number 0 to mark
      * an async query. A foreign slot (e.g. IC_SLOT_FOREIGN_HTTP) stores an
      * encoded pointer in the slot-number bits, which may legitimately be
@@ -957,19 +973,21 @@ static inline bool ic_slot_is_async(uint64_t slot) {
  * In general, this function should be called with the same arguments on both
  * client and server side.
  */
-void ic_watch_activity(ichannel_t * nonnull ic, int timeout_soft,
-                       int timeout_hard);
+void ic_watch_activity(
+    ichannel_t *nonnull ic, int timeout_soft, int timeout_hard
+);
 
-ev_priority_t ic_set_priority(ichannel_t * nonnull ic, ev_priority_t prio);
-ichannel_t * nullable ic_get_by_id(uint32_t id);
-ichannel_t * nonnull ic_init(ichannel_t * nonnull);
+ev_priority_t ic_set_priority(ichannel_t *nonnull ic, ev_priority_t prio);
+ichannel_t *nullable ic_get_by_id(uint32_t id);
+ichannel_t *nonnull ic_init(ichannel_t *nonnull);
 
 /* Disconnect the IC (close the socket) and wipe it. */
-void ic_wipe(ichannel_t * nonnull);
+void ic_wipe(ichannel_t *nonnull);
 GENERIC_NEW(ichannel_t, ic);
 
-__attr_nonnull__((1))
-static inline void ic_delete(ichannel_t * nullable * nonnull icp)
+__attr_nonnull__((1)) static inline void ic_delete(
+    ichannel_t * nullable * nonnull icp
+)
 {
     ichannel_t *ic = *icp;
 
@@ -1048,9 +1066,10 @@ void ic_bye(ichannel_t *nonnull ic);
  */
 void ic_nop(ichannel_t *nonnull ic);
 
-el_t nullable
-ic_listento(const sockunion_t * nonnull su, int type, int proto,
-            int (*nonnull on_accept)(el_t nonnull ev, int fd));
+el_t nullable ic_listento(
+    const sockunion_t *nonnull su, int type, int proto,
+    int (*nonnull on_accept)(el_t nonnull ev, int fd)
+);
 
 /** Synchronously write everything in queue.
  *
@@ -1061,8 +1080,8 @@ ic_listento(const sockunion_t * nonnull su, int type, int proto,
  *
  * \param[in]  ic  The IC to flush.
  */
-void ic_flush(ichannel_t * nonnull ic);
-lstr_t ic_get_client_addr(ichannel_t * nonnull ic);
+void ic_flush(ichannel_t *nonnull ic);
+lstr_t ic_get_client_addr(ichannel_t *nonnull ic);
 
 /** Mark an ichannel_t as disconnected.
  *
@@ -1073,7 +1092,7 @@ lstr_t ic_get_client_addr(ichannel_t * nonnull ic);
  *
  * \param[in]  ic The ichannel_t to mark as disconnected.
  */
-void ic_mark_disconnected(ichannel_t * nonnull ic);
+void ic_mark_disconnected(ichannel_t *nonnull ic);
 
 /*----- rpc handling / registering -----*/
 
@@ -1118,10 +1137,10 @@ void ic_mark_disconnected(ichannel_t * nonnull ic);
  *     implementation callback if needed.
  *   - \v hdr the IC query header (if any).
  */
-#define IOP_RPC_IMPL_ARGS(_mod, _i, _r)                                      \
-    ichannel_t * nonnull ic, uint64_t slot,                                  \
-    IOP_RPC_T(_mod, _i, _r, args) * nullable arg,                            \
-    const ic__hdr__t * nullable hdr
+#  define IOP_RPC_IMPL_ARGS(_mod, _i, _r)                                    \
+      ichannel_t *nonnull ic, uint64_t slot,                                 \
+          IOP_RPC_T(_mod, _i, _r, args) * nullable arg,                      \
+          const ic__hdr__t *nullable hdr
 
 /** \brief builds the typed argument list of the reply callback of an rpc.
  *
@@ -1173,10 +1192,10 @@ void ic_mark_disconnected(ichannel_t * nonnull ic);
  *   - \v exn is the value of the callback result when \v status is
  *     #IC_MSG_EXN, and should not be accessed otherwise.
  */
-#define IOP_RPC_CB_ARGS(_mod, _i, _r)                                        \
-    ichannel_t * nonnull ic, ic_msg_t * nonnull msg, ic_status__t status,    \
-    IOP_RPC_T(_mod, _i, _r, res) * nullable res,                             \
-    IOP_RPC_T(_mod, _i, _r, exn) * nullable exn
+#  define IOP_RPC_CB_ARGS(_mod, _i, _r)                                      \
+      ichannel_t *nonnull ic, ic_msg_t *nonnull msg, ic_status__t status,    \
+          IOP_RPC_T(_mod, _i, _r, res) * nullable res,                       \
+          IOP_RPC_T(_mod, _i, _r, exn) * nullable exn
 
 /* some useful macros to define IOP rpcs and callbacks */
 
@@ -1186,23 +1205,23 @@ void ic_mark_disconnected(ichannel_t * nonnull ic);
  * \param[in]  _r     name of the rpc
  * \param[in]  sfx    a unique suffix to distinguish usages (cb, impl, ...)
  */
-#define IOP_RPC_NAME(_m, _i, _r, sfx)  _m##__##_i##__##_r##__##sfx
+#  define IOP_RPC_NAME(_m, _i, _r, sfx) _m##__##_i##__##_r##__##sfx
 
 /** \brief builds an RPC Implementation prototype.
  * \param[in]  _m     name of the package+module of the RPC
  * \param[in]  _i     name of the interface of the RPC
  * \param[in]  _r     name of the rpc
  */
-#define IOP_RPC_IMPL(_m, _i, _r) \
-    IOP_RPC_NAME(_m, _i, _r, impl)(IOP_RPC_IMPL_ARGS(_m, _i, _r))
+#  define IOP_RPC_IMPL(_m, _i, _r)                                           \
+      IOP_RPC_NAME(_m, _i, _r, impl)(IOP_RPC_IMPL_ARGS(_m, _i, _r))
 
 /** \brief builds an RPC Callback prototype.
  * \param[in]  _m     name of the package+module of the RPC
  * \param[in]  _i     name of the interface of the RPC
  * \param[in]  _r     name of the rpc
  */
-#define IOP_RPC_CB(_m, _i, _r) \
-    IOP_RPC_NAME(_m, _i, _r, cb)(IOP_RPC_CB_ARGS(_m, _i, _r))
+#  define IOP_RPC_CB(_m, _i, _r)                                             \
+      IOP_RPC_NAME(_m, _i, _r, cb)(IOP_RPC_CB_ARGS(_m, _i, _r))
 
 /*
  * XXX this is an ugly piece of preprocessing because we lack templates and
@@ -1217,18 +1236,20 @@ void ic_mark_disconnected(ichannel_t * nonnull ic);
  * - evaluate to IOP_RPC_CB_REF__0(...) -> build cb name
  * - evaluate to IOP_RPC_CB_REF__1(...) -> NULL
  */
-#define IOP_RPC_CB_REF__0(_m, _i, _r)        IOP_RPC_NAME(_m, _i, _r, cb)
-#define IOP_RPC_CB_REF__1(_m, _i, _r)        NULL
-#define IOP_RPC_CB_REF__(async, _m, _i, _r)  IOP_RPC_CB_REF__##async(_m, _i, _r)
-#define IOP_RPC_CB_REF_(async, _m, _i, _r)   IOP_RPC_CB_REF__(async, _m, _i, _r)
+#  define IOP_RPC_CB_REF__0(_m, _i, _r) IOP_RPC_NAME(_m, _i, _r, cb)
+#  define IOP_RPC_CB_REF__1(_m, _i, _r) NULL
+#  define IOP_RPC_CB_REF__(async, _m, _i, _r)                                \
+      IOP_RPC_CB_REF__##async(_m, _i, _r)
+#  define IOP_RPC_CB_REF_(async, _m, _i, _r)                                 \
+      IOP_RPC_CB_REF__(async, _m, _i, _r)
 
 /** \brief builds an RPC callback reference (NULL if the RPC is async).
  * \param[in]  _m     name of the package+module of the RPC
  * \param[in]  _i     name of the interface of the RPC
  * \param[in]  _r     name of the rpc
  */
-#define IOP_RPC_CB_REF(_m, _i, _r) \
-    IOP_RPC_CB_REF_(_m##__##_i(_r##__rpc__async), _m, _i, _r)
+#  define IOP_RPC_CB_REF(_m, _i, _r)                                         \
+      IOP_RPC_CB_REF_(_m##__##_i(_r##__rpc__async), _m, _i, _r)
 
 /** \brief register local callback and pre/post hooks for an rpc.
  * \param[in]  h
@@ -1251,61 +1272,74 @@ void ic_mark_disconnected(ichannel_t * nonnull ic);
  * \param[in]  _pre_arg   argument we want to pass to pre_hook
  * \param[in]  _post_arg  argument we want to pass to post_hook
  */
-#define ic_register_pre_post_hook_(h, _mod, _if, _rpc, _cb,                  \
-                                   _pre_cb, _post_cb, _pre_arg, _post_arg)   \
-    do {                                                                     \
-        void (*__cb)(IOP_RPC_IMPL_ARGS(_mod, _if, _rpc)) = _cb;              \
-        uint32_t cmd    = IOP_RPC_CMD(_mod, _if, _rpc);                      \
-        ic_cb_entry_t e = {                                                  \
-            .cb_type = IC_CB_NORMAL,                                         \
-            .rpc = IOP_RPC(_mod, _if, _rpc),                                 \
-            .t_pre_hook = _pre_cb,                                           \
-            .post_hook = _post_cb,                                           \
-            .pre_hook_args = _pre_arg,                                       \
-            .post_hook_args = _post_arg,                                     \
-            .u = { .cb = {                                                   \
-                .cb  = (void *)__cb,                                         \
-            } },                                                             \
-        };                                                                   \
-        e_assert_n(panic, qm_add(ic_cbs, h, cmd, e),                         \
-                   "collision in RPC registering");                          \
-    } while (0)
+#  define ic_register_pre_post_hook_(                                        \
+      h, _mod, _if, _rpc, _cb, _pre_cb, _post_cb, _pre_arg, _post_arg        \
+  )                                                                          \
+      do {                                                                   \
+          void (*__cb)(IOP_RPC_IMPL_ARGS(_mod, _if, _rpc)) = _cb;            \
+          uint32_t cmd = IOP_RPC_CMD(_mod, _if, _rpc);                       \
+          ic_cb_entry_t e = {                                                \
+              .cb_type = IC_CB_NORMAL,                                       \
+              .rpc = IOP_RPC(_mod, _if, _rpc),                               \
+              .t_pre_hook = _pre_cb,                                         \
+              .post_hook = _post_cb,                                         \
+              .pre_hook_args = _pre_arg,                                     \
+              .post_hook_args = _post_arg,                                   \
+              .u = {                                                         \
+                  .cb = {                                                    \
+                      .cb = (void *)__cb,                                    \
+                  }                                                          \
+              },                                                             \
+          };                                                                 \
+          e_assert_n(                                                        \
+              panic, qm_add(ic_cbs, h, cmd, e),                              \
+              "collision in RPC registering"                                 \
+          );                                                                 \
+      } while (0)
 
 /** \brief same as #ic_register_pre_post_hook_ but _pre and _post args
  *    will be transform into data_t ptr.
  */
-#define ic_register_pre_post_hook_p_(h, _mod, _if, _rpc, _cb,                \
-                                     _pre_cb, _post_cb, _pre_arg, _post_arg) \
-    ic_register_pre_post_hook_(h, _mod, _if, _rpc, _cb,                      \
-                               _pre_cb, _post_cb,                            \
-                               { .ptr = _pre_arg }, { .ptr = _post_arg })
+#  define ic_register_pre_post_hook_p_(                                      \
+      h, _mod, _if, _rpc, _cb, _pre_cb, _post_cb, _pre_arg, _post_arg        \
+  )                                                                          \
+      ic_register_pre_post_hook_(                                            \
+          h, _mod, _if, _rpc, _cb, _pre_cb, _post_cb, {.ptr = _pre_arg},     \
+          {.ptr = _post_arg}                                                 \
+      )
 
 /** \brief same as #ic_register_pre_post_hook_ but auto-computes the
  *    rpc name.
  */
-#define ic_register_pre_post_hook(h, _m, _i, _r, _pre_cb,                    \
-                                  _post_cb, _pre_arg, _post_arg)             \
-    ic_register_pre_post_hook_(h, _m, _i, _r,                                \
-                               IOP_RPC_NAME(_m, _i, _r, impl),               \
-                               _pre_cb, _post_cb, _pre_arg, _post_arg)
+#  define ic_register_pre_post_hook(                                         \
+      h, _m, _i, _r, _pre_cb, _post_cb, _pre_arg, _post_arg                  \
+  )                                                                          \
+      ic_register_pre_post_hook_(                                            \
+          h, _m, _i, _r, IOP_RPC_NAME(_m, _i, _r, impl), _pre_cb, _post_cb,  \
+          _pre_arg, _post_arg                                                \
+      )
 /** \brief same as #ic_register_pre_post_hook_p_ but auto-computes the
  *    rpc name.
  */
-#define ic_register_pre_post_hook_p(h, _m, _i, _r, _pre_cb,                  \
-                                    _post_cb, _pre_arg, _post_arg)           \
-    ic_register_pre_post_hook(h, _m, _i, _r, _pre_cb, _post_cb,              \
-                              { .ptr = _pre_arg }, { .ptr = _post_arg })
+#  define ic_register_pre_post_hook_p(                                       \
+      h, _m, _i, _r, _pre_cb, _post_cb, _pre_arg, _post_arg                  \
+  )                                                                          \
+      ic_register_pre_post_hook(                                             \
+          h, _m, _i, _r, _pre_cb, _post_cb, {.ptr = _pre_arg},               \
+          {.ptr = _post_arg}                                                 \
+      )
 
 /** \brief same as #ic_register_pre_post_hook_ but doesn't register pre/post
  *    hooks.
  */
-#define ic_register_(h, _mod, _if, _rpc, _cb)                                \
-    ic_register_pre_post_hook_p_(h, _mod, _if, _rpc, _cb,                    \
-                                 NULL, NULL, NULL, NULL)
+#  define ic_register_(h, _mod, _if, _rpc, _cb)                              \
+      ic_register_pre_post_hook_p_(                                          \
+          h, _mod, _if, _rpc, _cb, NULL, NULL, NULL, NULL                    \
+      )
 
 /** \brief same as #ic_register_ but auto-computes the rpc name. */
-#define ic_register(h, _m, _i, _r) \
-    ic_register_(h, _m, _i, _r, IOP_RPC_NAME(_m, _i, _r, impl))
+#  define ic_register(h, _m, _i, _r)                                         \
+      ic_register_(h, _m, _i, _r, IOP_RPC_NAME(_m, _i, _r, impl))
 
 /** \brief unregister a local callback for an rpc.
  * \param[in]  h
@@ -1315,11 +1349,11 @@ void ic_mark_disconnected(ichannel_t * nonnull ic);
  * \param[in]  _i     name of the interface of the RPC
  * \param[in]  _r     name of the rpc
  */
-#define ic_unregister(h, _mod, _if, _rpc) \
-    do {                                                                     \
-        uint32_t cmd = IOP_RPC_CMD(_mod, _if, _rpc);                         \
-        qm_del_key(ic_cbs, h, cmd);                                          \
-    } while (0)
+#  define ic_unregister(h, _mod, _if, _rpc)                                  \
+      do {                                                                   \
+          uint32_t cmd = IOP_RPC_CMD(_mod, _if, _rpc);                       \
+          qm_del_key(ic_cbs, h, cmd);                                        \
+      } while (0)
 
 /** \brief register a proxy destination for the given rpc with forced header.
  * \param[in]  h
@@ -1342,52 +1376,55 @@ void ic_mark_disconnected(ichannel_t * nonnull ic);
  * \param[in]  _pre_arg   argument we want to pass to pre_hook
  * \param[in]  _post_arg  argument we want to pass to post_hook
  */
-#define ic_register_proxy_hdr_pre_post_hook(h, _mod, _if, _rpc, ic, hdr,     \
-                                            _pre_cb, _post_cb,               \
-                                            _pre_arg, _post_arg)             \
-    do {                                                                     \
-        uint32_t cmd    = IOP_RPC_CMD(_mod, _if, _rpc);                      \
-        ic_cb_entry_t e = {                                                  \
-            .cb_type = IC_CB_PROXY_P,                                        \
-            .rpc = IOP_RPC(_mod, _if, _rpc),                                 \
-            .t_pre_hook = _pre_cb,                                           \
-            .post_hook = _post_cb,                                           \
-            .pre_hook_args = _pre_arg,                                       \
-            .post_hook_args = _post_arg,                                     \
-            .u = { .proxy_p = { .ic_p = ic, .hdr_p = hdr } },                \
-        };                                                                   \
-        qm_add(ic_cbs, h, cmd, e);                                           \
-    } while (0)
+#  define ic_register_proxy_hdr_pre_post_hook(                               \
+      h, _mod, _if, _rpc, ic, hdr, _pre_cb, _post_cb, _pre_arg, _post_arg    \
+  )                                                                          \
+      do {                                                                   \
+          uint32_t cmd = IOP_RPC_CMD(_mod, _if, _rpc);                       \
+          ic_cb_entry_t e = {                                                \
+              .cb_type = IC_CB_PROXY_P,                                      \
+              .rpc = IOP_RPC(_mod, _if, _rpc),                               \
+              .t_pre_hook = _pre_cb,                                         \
+              .post_hook = _post_cb,                                         \
+              .pre_hook_args = _pre_arg,                                     \
+              .post_hook_args = _post_arg,                                   \
+              .u = {.proxy_p = {.ic_p = ic, .hdr_p = hdr}},                  \
+          };                                                                 \
+          qm_add(ic_cbs, h, cmd, e);                                         \
+      } while (0)
 
 /** \brief same as #ic_register_proxy_hdr_pre_post_hook but _pre and _post
  *    args will be transform into data_t ptr.
  */
-#define ic_register_proxy_hdr_pre_post_hook_p(h, _mod, _if, _rpc, ic, hdr,   \
-                                              _pre_cb, _post_cb,             \
-                                              _pre_arg, _post_arg)           \
-    ic_register_proxy_hdr_pre_post_hook(h, _mod, _if, _rpc, ic, hdr,         \
-                                        _pre_cb, _post_cb,                   \
-                                        { .ptr = _pre_arg },                 \
-                                        { .ptr = _post_arg })
+#  define ic_register_proxy_hdr_pre_post_hook_p(                             \
+      h, _mod, _if, _rpc, ic, hdr, _pre_cb, _post_cb, _pre_arg, _post_arg    \
+  )                                                                          \
+      ic_register_proxy_hdr_pre_post_hook(                                   \
+          h, _mod, _if, _rpc, ic, hdr, _pre_cb, _post_cb, {.ptr = _pre_arg}, \
+          {.ptr = _post_arg}                                                 \
+      )
 
 /** \brief same as #ic_register_proxy_hdr_pre_post_hook but don't set
  * the hdr.
  */
-#define ic_register_proxy_pre_post_hook(h, _mod, _if, _rpc, ic, _pre_cb,     \
-                                        _post_cb, _pre_arg, _post_arg)       \
-    ic_register_proxy_hdr_pre_post_hook(h, _mod, _if, _rpc, ic, NULL,        \
-                                        _pre_cb, _post_cb,                   \
-                                        _pre_arg, _post_arg)
+#  define ic_register_proxy_pre_post_hook(                                   \
+      h, _mod, _if, _rpc, ic, _pre_cb, _post_cb, _pre_arg, _post_arg         \
+  )                                                                          \
+      ic_register_proxy_hdr_pre_post_hook(                                   \
+          h, _mod, _if, _rpc, ic, NULL, _pre_cb, _post_cb, _pre_arg,         \
+          _post_arg                                                          \
+      )
 
 /** \brief same as #ic_register_proxy_hdr_pre_post_hook but _pre and _post
  *    args will be transform into data_t ptr.
  */
-#define ic_register_proxy_pre_post_hook_p(h, _mod, _if, _rpc, ic, _pre_cb,   \
-                                          _post_cb, _pre_arg, _post_arg)     \
-    ic_register_proxy_hdr_pre_post_hook(h, _mod, _if, _rpc, ic, NULL,        \
-                                        _pre_cb, _post_cb,                   \
-                                        { .ptr = _pre_arg },                 \
-                                        { .ptr = _post_arg })
+#  define ic_register_proxy_pre_post_hook_p(                                 \
+      h, _mod, _if, _rpc, ic, _pre_cb, _post_cb, _pre_arg, _post_arg         \
+  )                                                                          \
+      ic_register_proxy_hdr_pre_post_hook(                                   \
+          h, _mod, _if, _rpc, ic, NULL, _pre_cb, _post_cb,                   \
+          {.ptr = _pre_arg}, {.ptr = _post_arg}                              \
+      )
 /** \brief register a proxy destination for the given rpc with forced header.
  * \param[in]  h
  *    the qm_t(ic_cbs) of implementation to register the rpc
@@ -1399,9 +1436,10 @@ void ic_mark_disconnected(ichannel_t * nonnull ic);
  *   the #ichannel_t to unconditionnaly forward the incoming RPCs to.
  * \param[in]  hdr    the #ic__hdr__t header to force when proxifying.
  */
-#define ic_register_proxy_hdr(h, _mod, _if, _rpc, ic, hdr)                   \
-    ic_register_proxy_hdr_pre_post_hook_p(h, _mod, _if, _rpc, ic,            \
-                                          hdr, NULL, NULL, NULL, NULL)
+#  define ic_register_proxy_hdr(h, _mod, _if, _rpc, ic, hdr)                 \
+      ic_register_proxy_hdr_pre_post_hook_p(                                 \
+          h, _mod, _if, _rpc, ic, hdr, NULL, NULL, NULL, NULL                \
+      )
 
 /** \brief register a proxy destination for the given rpc.
  * \param[in]  h
@@ -1413,8 +1451,8 @@ void ic_mark_disconnected(ichannel_t * nonnull ic);
  * \param[in]  ic
  *   the #ichannel_t to unconditionnaly forward the incoming RPCs to.
  */
-#define ic_register_proxy(h, _mod, _if, _rpc, ic) \
-    ic_register_proxy_hdr(h, _mod, _if, _rpc, ic, NULL)
+#  define ic_register_proxy(h, _mod, _if, _rpc, ic)                          \
+      ic_register_proxy_hdr(h, _mod, _if, _rpc, ic, NULL)
 
 /** \brief register a pointed proxy destination for the given rpc with header.
  * \param[in]  h
@@ -1439,33 +1477,33 @@ void ic_mark_disconnected(ichannel_t * nonnull ic);
  * \param[in]  _pre_arg   argument we want to pass to pre_hook
  * \param[in]  _post_arg  argument we want to pass to post_hook
  */
-#define ic_register_proxy_hdr_p_pre_post_hook(h, _mod, _if, _rpc, ic, hdr,   \
-                                              _pre_cb, _post_cb,             \
-                                              _pre_arg, _post_arg)           \
-    do {                                                                     \
-        uint32_t cmd    = IOP_RPC_CMD(_mod, _if, _rpc);                      \
-        ic_cb_entry_t e = {                                                  \
-            .cb_type = IC_CB_PROXY_PP,                                       \
-            .rpc = IOP_RPC(_mod, _if, _rpc),                                 \
-            .t_pre_hook = _pre_cb,                                           \
-            .post_hook = _post_cb,                                           \
-            .pre_hook_args = _pre_arg,                                       \
-            .post_hook_args = _post_arg,                                     \
-            .u = { .proxy_pp = { .ic_pp = ic, .hdr_pp = hdr } },             \
-        };                                                                   \
-        qm_add(ic_cbs, h, cmd, e);                                           \
-    } while (0)
+#  define ic_register_proxy_hdr_p_pre_post_hook(                             \
+      h, _mod, _if, _rpc, ic, hdr, _pre_cb, _post_cb, _pre_arg, _post_arg    \
+  )                                                                          \
+      do {                                                                   \
+          uint32_t cmd = IOP_RPC_CMD(_mod, _if, _rpc);                       \
+          ic_cb_entry_t e = {                                                \
+              .cb_type = IC_CB_PROXY_PP,                                     \
+              .rpc = IOP_RPC(_mod, _if, _rpc),                               \
+              .t_pre_hook = _pre_cb,                                         \
+              .post_hook = _post_cb,                                         \
+              .pre_hook_args = _pre_arg,                                     \
+              .post_hook_args = _post_arg,                                   \
+              .u = {.proxy_pp = {.ic_pp = ic, .hdr_pp = hdr}},               \
+          };                                                                 \
+          qm_add(ic_cbs, h, cmd, e);                                         \
+      } while (0)
 
 /** \brief same as #ic_register_proxy_hdr_p_pre_post_hook but _pre and _post
  *    args will be transform into data_t ptr.
  */
-#define ic_register_proxy_hdr_p_pre_post_hook_p(h, _mod, _if, _rpc, ic, hdr, \
-                                                _pre_cb, _post_cb,           \
-                                                _pre_arg, _post_arg)         \
-    ic_register_proxy_hdr_p_pre_post_hook(h, _mod, _if, _rpc, ic, hdr,       \
-                                          _pre_cb, _post_cb,                 \
-                                          { .ptr = _pre_arg },               \
-                                          { .ptr = _post_arg })
+#  define ic_register_proxy_hdr_p_pre_post_hook_p(                           \
+      h, _mod, _if, _rpc, ic, hdr, _pre_cb, _post_cb, _pre_arg, _post_arg    \
+  )                                                                          \
+      ic_register_proxy_hdr_p_pre_post_hook(                                 \
+          h, _mod, _if, _rpc, ic, hdr, _pre_cb, _post_cb, {.ptr = _pre_arg}, \
+          {.ptr = _post_arg}                                                 \
+      )
 
 /** \brief register a pointed proxy destination for the given rpc with header.
  * \param[in]  h
@@ -1480,9 +1518,10 @@ void ic_mark_disconnected(ichannel_t * nonnull ic);
  *   proxified to the pointed #ichannel_t.
  * \param[in]  hdr    the #ic__hdr__t header to force when proxifying.
  */
-#define ic_register_proxy_hdr_p(h, _mod, _if, _rpc, ic, hdr)                 \
-    ic_register_proxy_hdr_p_pre_post_hook_p(h, _mod, _if, _rpc, ic, hdr,     \
-                                            NULL, NULL, NULL, NULL)
+#  define ic_register_proxy_hdr_p(h, _mod, _if, _rpc, ic, hdr)               \
+      ic_register_proxy_hdr_p_pre_post_hook_p(                               \
+          h, _mod, _if, _rpc, ic, hdr, NULL, NULL, NULL, NULL                \
+      )
 
 /** \brief register a pointed proxy destination for the given rpc.
  * \param[in]  h
@@ -1496,8 +1535,8 @@ void ic_mark_disconnected(ichannel_t * nonnull ic);
  *   request is rejected with an #IC_MSG_PROXY_ERROR status, else it's
  *   proxified to the pointed #ichannel_t.
  */
-#define ic_register_proxy_p(h, _mod, _if, _rpc, icp) \
-    ic_register_proxy_hdr_p(h, _mod, _if, _rpc, icp, NULL)
+#  define ic_register_proxy_p(h, _mod, _if, _rpc, icp)                       \
+      ic_register_proxy_hdr_p(h, _mod, _if, _rpc, icp, NULL)
 
 /** \brief register a dynamic proxy destination for the given rpc.
  * \param[in]  h
@@ -1525,36 +1564,38 @@ void ic_mark_disconnected(ichannel_t * nonnull ic);
  * \param[in]  _pre_arg   argument we want to pass to pre_hook
  * \param[in]  _post_arg  argument we want to pass to post_hook
  */
-#define ic_register_dynproxy_pre_post_hook(h, _mod, _if, _rpc, cb, _priv,    \
-                                           _pre_cb, _post_cb,                \
-                                           _pre_arg, _post_arg)              \
-    do {                                                                     \
-        uint32_t cmd    = IOP_RPC_CMD(_mod, _if, _rpc);                      \
-        ic_cb_entry_t e = {                                                  \
-            .cb_type = IC_CB_DYNAMIC_PROXY,                                  \
-            .rpc = IOP_RPC(_mod, _if, _rpc),                                 \
-            .t_pre_hook = _pre_cb,                                           \
-            .post_hook = _post_cb,                                           \
-            .pre_hook_args = _pre_arg,                                       \
-            .post_hook_args = _post_arg,                                     \
-            .u = { .dynproxy = {                                             \
-                .get_ic = cb,                                                \
-                .priv   = _priv,                                             \
-            } },                                                             \
-        };                                                                   \
-        qm_add(ic_cbs, h, cmd, e);                                           \
-    } while (0)
+#  define ic_register_dynproxy_pre_post_hook(                                \
+      h, _mod, _if, _rpc, cb, _priv, _pre_cb, _post_cb, _pre_arg, _post_arg  \
+  )                                                                          \
+      do {                                                                   \
+          uint32_t cmd = IOP_RPC_CMD(_mod, _if, _rpc);                       \
+          ic_cb_entry_t e = {                                                \
+              .cb_type = IC_CB_DYNAMIC_PROXY,                                \
+              .rpc = IOP_RPC(_mod, _if, _rpc),                               \
+              .t_pre_hook = _pre_cb,                                         \
+              .post_hook = _post_cb,                                         \
+              .pre_hook_args = _pre_arg,                                     \
+              .post_hook_args = _post_arg,                                   \
+              .u = {                                                         \
+                  .dynproxy = {                                              \
+                      .get_ic = cb,                                          \
+                      .priv = _priv,                                         \
+                  }                                                          \
+              },                                                             \
+          };                                                                 \
+          qm_add(ic_cbs, h, cmd, e);                                         \
+      } while (0)
 
 /** \brief same as #ic_register_dynproxy_pre_post_hook but _pre and _post args
  *    will be transform into data_t ptr.
  */
-#define ic_register_dynproxy_pre_post_hook_p(h, _mod, _if, _rpc, cb, _priv,  \
-                                             _pre_cb, _post_cb,              \
-                                             _pre_arg, _post_arg)            \
-    ic_register_dynproxy_pre_post_hook(h, _mod, _if, _rpc, cb, _priv,        \
-                                       _pre_cb, _post_cb,                    \
-                                       { .ptr = _pre_arg },                  \
-                                       { .ptr = _post_arg })
+#  define ic_register_dynproxy_pre_post_hook_p(                              \
+      h, _mod, _if, _rpc, cb, _priv, _pre_cb, _post_cb, _pre_arg, _post_arg  \
+  )                                                                          \
+      ic_register_dynproxy_pre_post_hook(                                    \
+          h, _mod, _if, _rpc, cb, _priv, _pre_cb, _post_cb,                  \
+          {.ptr = _pre_arg}, {.ptr = _post_arg}                              \
+      )
 
 /** \brief register a dynamic proxy destination for the given rpc.
  * \param[in]  h
@@ -1572,32 +1613,37 @@ void ic_mark_disconnected(ichannel_t * nonnull ic);
  * \param[in]  _priv
  *   an opaque pointer passed to the callback each time it's called.
  */
-#define ic_register_dynproxy(h, _mod, _if, _rpc, cb, _priv)                  \
-    ic_register_dynproxy_pre_post_hook_p(h, _mod, _if, _rpc, cb, _priv,      \
-                                         NULL, NULL, NULL, NULL)
+#  define ic_register_dynproxy(h, _mod, _if, _rpc, cb, _priv)                \
+      ic_register_dynproxy_pre_post_hook_p(                                  \
+          h, _mod, _if, _rpc, cb, _priv, NULL, NULL, NULL, NULL              \
+      )
 
 /*----- message handling -----*/
 
 /** \brief internal do not use directly, or know what you're doing. */
-void * nonnull __ic_get_buf(ic_msg_t * nonnull msg, int len);
+void *nonnull __ic_get_buf(ic_msg_t *nonnull msg, int len);
 /** \brief internal do not use directly, or know what you're doing. */
-void  __ic_bpack(ic_msg_t * nonnull, const iop_struct_t * nonnull,
-                 const void * nonnull);
+void __ic_bpack(
+    ic_msg_t *nonnull, const iop_struct_t *nonnull, const void *nonnull
+);
 /** \brief internal do not use directly, or know what you're doing. */
-void  __ic_msg_build(ic_msg_t * nonnull, const iop_struct_t * nonnull,
-                     const void * nonnull, bool);
+void __ic_msg_build(
+    ic_msg_t *nonnull, const iop_struct_t *nonnull, const void *nonnull, bool
+);
 /** \brief internal do not use directly, or know what you're doing. */
-void  __ic_msg_build_from(ic_msg_t * nonnull, const ic_msg_t * nonnull);
+void __ic_msg_build_from(ic_msg_t *nonnull, const ic_msg_t *nonnull);
 /** \brief internal do not use directly, or know what you're doing. */
-void  __ic_query_flags(ichannel_t * nonnull, ic_msg_t * nonnull, uint32_t flags);
+void __ic_query_flags(ichannel_t *nonnull, ic_msg_t *nonnull, uint32_t flags);
 /** \brief internal do not use directly, or know what you're doing. */
-void  __ic_query(ichannel_t * nonnull, ic_msg_t * nonnull);
+void __ic_query(ichannel_t *nonnull, ic_msg_t *nonnull);
 /** \brief internal do not use directly, or know what you're doing. */
-void  __ic_query_sync(ichannel_t * nonnull, ic_msg_t * nonnull);
+void __ic_query_sync(ichannel_t *nonnull, ic_msg_t *nonnull);
 
 /** \brief internal do not use directly, or know what you're doing. */
-size_t __ic_reply(ichannel_t * nullable, uint64_t slot, int cmd, int fd,
-                  const iop_struct_t * nonnull, const void * nonnull);
+size_t __ic_reply(
+    ichannel_t *nullable, uint64_t slot, int cmd, int fd,
+    const iop_struct_t *nonnull, const void *nonnull
+);
 
 /** \brief reply to a given rpc with an error.
  *
@@ -1615,7 +1661,7 @@ size_t __ic_reply(ichannel_t * nullable, uint64_t slot, int cmd, int fd,
  * \param[in] err
  *   the error status to use, should NOT be #IC_MSG_OK nor #IC_MSG_EXN.
  */
-void ic_reply_err(ichannel_t * nullable ic, uint64_t slot, int err);
+void ic_reply_err(ichannel_t *nullable ic, uint64_t slot, int err);
 
 /** \brief helper to set ctx and execute the pre hook of the query.
  *
@@ -1629,11 +1675,10 @@ void ic_reply_err(ichannel_t * nullable ic, uint64_t slot, int err);
  *
  * return -1 if the pre_hook has replied to the query, 0 otherwise.
  */
-int
-t_ic_query_do_pre_hook(ichannel_t * nullable ic, uint64_t slot,
-                       const ic_cb_entry_t * nonnull e,
-                       ic__hdr__t * nullable hdr,
-                       bool * nullable hdr_modified);
+int t_ic_query_do_pre_hook(
+    ichannel_t *nullable ic, uint64_t slot, const ic_cb_entry_t *nonnull e,
+    ic__hdr__t *nullable hdr, bool *nullable hdr_modified
+);
 
 /** \brief helper to get and execute the post hook of the query.
  *
@@ -1647,13 +1692,15 @@ t_ic_query_do_pre_hook(ichannel_t * nullable ic, uint64_t slot,
  * query is not proxified and the query has been replied with #ic_reply or
  * #ic_throw.
  */
-void ic_query_do_post_hook(ichannel_t * nullable ic, ic_status__t status,
-                           uint64_t slot, const iop_struct_t * nullable st,
-                           const void * nullable value);
+void ic_query_do_post_hook(
+    ichannel_t *nullable ic, ic_status__t status, uint64_t slot,
+    const iop_struct_t *nullable st, const void *nullable value
+);
 
-#ifndef NDEBUG
-bool __ic_rpc_is_traced(const iop_iface_t * nonnull iface,
-                        const iop_rpc_t * nonnull rpc);
+#  ifndef NDEBUG
+bool __ic_rpc_is_traced(
+    const iop_iface_t *nonnull iface, const iop_rpc_t *nonnull rpc
+);
 
 /** Check if the given RPC is traced.
  *
@@ -1683,19 +1730,20 @@ bool __ic_rpc_is_traced(const iop_iface_t * nonnull iface,
  * \param[in]  _rpc   name of the rpc
  * \return true if tracing is activated for that RPC.
  */
-#define ic_rpc_is_traced(_mod, _if, _rpc)  ({                               \
-        static int _mod##__##_if##__##_rpc##_traced = -1;                   \
-                                                                            \
-        if (unlikely(_mod##__##_if##__##_rpc##_traced < 0)) {               \
-            _mod##__##_if##__##_rpc##_traced                                \
-                = __ic_rpc_is_traced(&_mod##__##_if(if),                    \
-                                     IOP_RPC(_mod, _if, _rpc));             \
-        }                                                                   \
-        _mod##__##_if##__##_rpc##_traced;                                   \
-    })
-#else
-#define ic_rpc_is_traced(_mod, _if, _rpc)  (false)
-#endif
+#    define ic_rpc_is_traced(_mod, _if, _rpc)                                \
+        ({                                                                   \
+        static int _mod##__##_if##__##_rpc##_traced = -1;                    \
+                                                                             \
+        if (unlikely(_mod##__##_if##__##_rpc##_traced < 0)) {                \
+            _mod##__##_if##__##_rpc##_traced = __ic_rpc_is_traced(           \
+                &_mod##__##_if(if), IOP_RPC(_mod, _if, _rpc)                 \
+            );                                                               \
+        }                                                                    \
+        _mod##__##_if##__##_rpc##_traced;                                    \
+        })
+#  else
+#    define ic_rpc_is_traced(_mod, _if, _rpc) (false)
+#  endif
 
 /** \brief helper to prepare a typed query message.
  * \param[in]  _msg   the #ic_msg_t to prepare.
@@ -1704,8 +1752,8 @@ bool __ic_rpc_is_traced(const iop_iface_t * nonnull iface,
  * \param[in]  _if    name of the interface of the RPC
  * \param[in]  _rpc   name of the rpc
  */
-#define __ic_prepare_msg(_msg, _cb, _mod, _if, _rpc) \
-    ({                                                                       \
+#  define __ic_prepare_msg(_msg, _cb, _mod, _if, _rpc)                       \
+      ({                                                                     \
         ic_msg_t *__msgp = (_msg);                                           \
         void (*__cb)(IOP_RPC_CB_ARGS(_mod, _if, _rpc)) = _cb;                \
                                                                              \
@@ -1719,7 +1767,7 @@ bool __ic_rpc_is_traced(const iop_iface_t * nonnull iface,
         __msgp->cmd = IOP_RPC_CMD(_mod, _if, _rpc);                          \
         __msgp->trace = __msgp->trace || ic_rpc_is_traced(_mod, _if, _rpc);  \
         __msgp;                                                              \
-    })
+      })
 
 /** \brief helper to build a typed query message.
  * \param[in]  _ich   the #ichannel_t to send the query to.
@@ -1730,33 +1778,35 @@ bool __ic_rpc_is_traced(const iop_iface_t * nonnull iface,
  * \param[in]  _rpc   name of the rpc
  * \param[in]  v      a <tt>${_mod}__${_if}__${_rpc}_args__t *</tt> value.
  */
-#define ic_build_query_p(_ich, _msg, _cb, _mod, _if, _rpc, v) \
-    ({                                                                      \
-        const IOP_RPC_T(_mod, _if, _rpc, args) *__v = (v);                  \
-        ic_msg_t *__msg = (_msg);                                           \
-        const ichannel_t *__ich = (_ich);                                   \
-        __ic_prepare_msg(__msg, (_cb), _mod, _if, _rpc);                    \
-        __ic_msg_build(__msg, IOP_RPC(_mod, _if, _rpc)->args, __v,          \
-                       !ic_is_local(__ich) || __msg->force_pack);           \
-        __msg;                                                              \
-    })
+#  define ic_build_query_p(_ich, _msg, _cb, _mod, _if, _rpc, v)              \
+      ({                                                                     \
+        const IOP_RPC_T(_mod, _if, _rpc, args) *__v = (v);                   \
+        ic_msg_t *__msg = (_msg);                                            \
+        const ichannel_t *__ich = (_ich);                                    \
+        __ic_prepare_msg(__msg, (_cb), _mod, _if, _rpc);                     \
+        __ic_msg_build(                                                      \
+            __msg, IOP_RPC(_mod, _if, _rpc)->args, __v,                      \
+            !ic_is_local(__ich) || __msg->force_pack                         \
+        );                                                                   \
+        __msg;                                                               \
+      })
 
 /** \brief helper to build a typed query message by duplicating another.
  * \param[in]  _msg      the #ic_msg_t to fill.
  * \param[in]  _msg_src  the #ic_msg_t to duplicate.
  */
-#define ic_build_query_from(_msg, _msg_src) \
-    ({                                                                      \
-        ic_msg_t *__msg = (_msg), *__msg_src = (_msg_src);                  \
-        __msg->cb         = __msg_src->cb;                                  \
-        __msg->rpc        = __msg_src->rpc;                                 \
-        __msg->async      = __msg_src->async;                               \
-        __msg->cmd        = __msg_src->cmd;                                 \
-        __msg->trace      = __msg_src->trace;                               \
-        __msg->force_pack = true;                                           \
-        __ic_msg_build_from(__msg, __msg_src);                              \
-        __msg;                                                              \
-    })
+#  define ic_build_query_from(_msg, _msg_src)                                \
+      ({                                                                     \
+        ic_msg_t *__msg = (_msg), *__msg_src = (_msg_src);                   \
+        __msg->cb = __msg_src->cb;                                           \
+        __msg->rpc = __msg_src->rpc;                                         \
+        __msg->async = __msg_src->async;                                     \
+        __msg->cmd = __msg_src->cmd;                                         \
+        __msg->trace = __msg_src->trace;                                     \
+        __msg->force_pack = true;                                            \
+        __ic_msg_build_from(__msg, __msg_src);                               \
+        __msg;                                                               \
+      })
 
 /** \brief helper to send a query to a given ic.
  *
@@ -1769,49 +1819,58 @@ bool __ic_rpc_is_traced(const iop_iface_t * nonnull iface,
  * \param[in]  ...
  *   the initializers of the value on the form <tt>.field = value</tt>
  */
-#define ic_query(_ic, _msg, _cb, _mod, _if, _rpc, ...) \
-    ({  ichannel_t *_ich = (_ic);                                         \
-        const IOP_RPC_T(_mod, _if, _rpc, args) *_v =                      \
-            &((IOP_RPC_T(_mod, _if, _rpc, args)){ __VA_ARGS__ });         \
-                                                                          \
-        __ic_query(_ich, ic_build_query_p(_ich, _msg, _cb, _mod, _if,     \
-                                          _rpc, _v));                     \
-    })
-
-/** \brief helper to send a query to a given ic.
- *
- * \param[in]  _ic    the #ichannel_t to send the query to.
- * \param[in]  _msg   the #ic_msg_t to fill.
- * \param[in]  _cb    the rpc reply callback to use
- * \param[in]  _mod   name of the package+module of the RPC
- * \param[in]  _if    name of the interface of the RPC
- * \param[in]  _rpc   name of the rpc
- * \param[in]  v      a <tt>${_mod}__${_if}__${_rpc}_args__t *</tt> value.
- */
-#define ic_query_p(_ic, _msg, _cb, _mod, _if, _rpc, v) \
-    ({  ichannel_t *_ich = (_ic);                                           \
-        __ic_query(_ich, ic_build_query_p(_ich, _msg, _cb, _mod, _if, _rpc, \
-                                          v));                              \
-    })
-
-/** \brief helper to send a query to a given ic, computes callback name.
- *
- * \param[in]  _ic    the #ichannel_t to send the query to.
- * \param[in]  _msg   the #ic_msg_t to fill.
- * \param[in]  _mod   name of the package+module of the RPC
- * \param[in]  _if    name of the interface of the RPC
- * \param[in]  _rpc   name of the rpc
- * \param[in]  ...
- *   the initializers of the value on the form <tt>.field = value</tt>
- */
-#define ic_query2(_ic, _msg, _mod, _if, _rpc, ...) \
-    ({  ichannel_t *_ich = (_ic);                                            \
+#  define ic_query(_ic, _msg, _cb, _mod, _if, _rpc, ...)                     \
+      ({                                                                     \
+        ichannel_t *_ich = (_ic);                                            \
         const IOP_RPC_T(_mod, _if, _rpc, args) *_v =                         \
-            &((IOP_RPC_T(_mod, _if, _rpc, args)){ __VA_ARGS__ });            \
+            &((IOP_RPC_T(_mod, _if, _rpc, args)){__VA_ARGS__});              \
                                                                              \
-        __ic_query(_ich, ic_build_query_p(_ich, _msg,                        \
-            IOP_RPC_CB_REF(_mod, _if, _rpc), _mod, _if, _rpc, _v));          \
-    })
+        __ic_query(                                                          \
+            _ich, ic_build_query_p(_ich, _msg, _cb, _mod, _if, _rpc, _v)     \
+        );                                                                   \
+      })
+
+/** \brief helper to send a query to a given ic.
+ *
+ * \param[in]  _ic    the #ichannel_t to send the query to.
+ * \param[in]  _msg   the #ic_msg_t to fill.
+ * \param[in]  _cb    the rpc reply callback to use
+ * \param[in]  _mod   name of the package+module of the RPC
+ * \param[in]  _if    name of the interface of the RPC
+ * \param[in]  _rpc   name of the rpc
+ * \param[in]  v      a <tt>${_mod}__${_if}__${_rpc}_args__t *</tt> value.
+ */
+#  define ic_query_p(_ic, _msg, _cb, _mod, _if, _rpc, v)                     \
+      ({                                                                     \
+        ichannel_t *_ich = (_ic);                                            \
+        __ic_query(                                                          \
+            _ich, ic_build_query_p(_ich, _msg, _cb, _mod, _if, _rpc, v)      \
+        );                                                                   \
+      })
+
+/** \brief helper to send a query to a given ic, computes callback name.
+ *
+ * \param[in]  _ic    the #ichannel_t to send the query to.
+ * \param[in]  _msg   the #ic_msg_t to fill.
+ * \param[in]  _mod   name of the package+module of the RPC
+ * \param[in]  _if    name of the interface of the RPC
+ * \param[in]  _rpc   name of the rpc
+ * \param[in]  ...
+ *   the initializers of the value on the form <tt>.field = value</tt>
+ */
+#  define ic_query2(_ic, _msg, _mod, _if, _rpc, ...)                         \
+      ({                                                                     \
+        ichannel_t *_ich = (_ic);                                            \
+        const IOP_RPC_T(_mod, _if, _rpc, args) *_v =                         \
+            &((IOP_RPC_T(_mod, _if, _rpc, args)){__VA_ARGS__});              \
+                                                                             \
+        __ic_query(                                                          \
+            _ich, ic_build_query_p(                                          \
+                      _ich, _msg, IOP_RPC_CB_REF(_mod, _if, _rpc), _mod,     \
+                      _if, _rpc, _v                                          \
+                  )                                                          \
+        );                                                                   \
+      })
 
 /** \brief helper to send a query to a given ic, computes callback name.
  *
@@ -1823,11 +1882,16 @@ bool __ic_rpc_is_traced(const iop_iface_t * nonnull iface,
  * \param[in]  _rpc   name of the rpc
  * \param[in]  v      a <tt>${_mod}__${_if}__${_rpc}_args__t *</tt> value.
  */
-#define ic_query2_p(_ic, _msg, _mod, _if, _rpc, v) \
-    ({  ichannel_t *_ich = (_ic);                                  \
-        __ic_query(_ich, ic_build_query_p(_ich, _msg,              \
-            IOP_RPC_CB_REF(_mod, _if, _rpc), _mod, _if, _rpc, v)); \
-    })
+#  define ic_query2_p(_ic, _msg, _mod, _if, _rpc, v)                         \
+      ({                                                                     \
+        ichannel_t *_ich = (_ic);                                            \
+        __ic_query(                                                          \
+            _ich, ic_build_query_p(                                          \
+                      _ich, _msg, IOP_RPC_CB_REF(_mod, _if, _rpc), _mod,     \
+                      _if, _rpc, v                                           \
+                  )                                                          \
+        );                                                                   \
+      })
 
 /** \brief helper to send a query to a given ic.
  *
@@ -1843,14 +1907,16 @@ bool __ic_rpc_is_traced(const iop_iface_t * nonnull iface,
  * \param[in]  ...
  *   the initializers of the value on the form <tt>.field = value</tt>
  */
-#define ic_query_sync(_ic, _msg, _cb, _mod, _if, _rpc, ...) \
-    ({  ichannel_t *_ich = (_ic);                                         \
-        const IOP_RPC_T(_mod, _if, _rpc, args) *_v =                      \
-            &((IOP_RPC_T(_mod, _if, _rpc, args)){ __VA_ARGS__ });         \
-                                                                          \
-        __ic_query_sync(_ich, ic_build_query_p(_ich, _msg, _cb, _mod, _if,\
-                                               _rpc, _v));                \
-    })
+#  define ic_query_sync(_ic, _msg, _cb, _mod, _if, _rpc, ...)                \
+      ({                                                                     \
+        ichannel_t *_ich = (_ic);                                            \
+        const IOP_RPC_T(_mod, _if, _rpc, args) *_v =                         \
+            &((IOP_RPC_T(_mod, _if, _rpc, args)){__VA_ARGS__});              \
+                                                                             \
+        __ic_query_sync(                                                     \
+            _ich, ic_build_query_p(_ich, _msg, _cb, _mod, _if, _rpc, _v)     \
+        );                                                                   \
+      })
 
 /** \brief helper to send a query to a given ic.
  *
@@ -1865,11 +1931,13 @@ bool __ic_rpc_is_traced(const iop_iface_t * nonnull iface,
  * \param[in]  _rpc   name of the rpc
  * \param[in]  v      a <tt>${_mod}__${_if}__${_rpc}_args__t *</tt> value.
  */
-#define ic_query_sync_p(_ic, _msg, _cb, _mod, _if, _rpc, v) \
-    ({  ichannel_t *_ich = (_ic);                                          \
-        __ic_query_sync(_ich, ic_build_query_p(_ich, _msg, _cb, _mod, _if, \
-                                               _rpc, v));                  \
-    })
+#  define ic_query_sync_p(_ic, _msg, _cb, _mod, _if, _rpc, v)                \
+      ({                                                                     \
+        ichannel_t *_ich = (_ic);                                            \
+        __ic_query_sync(                                                     \
+            _ich, ic_build_query_p(_ich, _msg, _cb, _mod, _if, _rpc, v)      \
+        );                                                                   \
+      })
 
 /** \brief helper to proxy a query to a given ic with header.
  *
@@ -1884,9 +1952,11 @@ bool __ic_rpc_is_traced(const iop_iface_t * nonnull iface,
  * \param[in]  hdr    the #ic__hdr__t to use.
  * \param[in]  v      a <tt>${_mod}__${_if}__${_rpc}_args__t *</tt> value.
  */
-#define ic_query_proxy_hdr(ic, slot, _mod, _if, _rpc, hdr, v) \
-    ic_query_p(ic, ic_msg_proxy_new(-1, slot, hdr),                         \
-               (void *)IC_PROXY_MAGIC_CB, _mod, _if, _rpc, v);
+#  define ic_query_proxy_hdr(ic, slot, _mod, _if, _rpc, hdr, v)              \
+      ic_query_p(                                                            \
+          ic, ic_msg_proxy_new(-1, slot, hdr), (void *)IC_PROXY_MAGIC_CB,    \
+          _mod, _if, _rpc, v                                                 \
+      );
 
 /** \brief helper to proxy a query to a given ic.
  *
@@ -1900,8 +1970,8 @@ bool __ic_rpc_is_traced(const iop_iface_t * nonnull iface,
  * \param[in]  _rpc   name of the rpc
  * \param[in]  v      a <tt>${_mod}__${_if}__${_rpc}_args__t *</tt> value.
  */
-#define ic_query_proxy(ic, slot, _mod, _if, _rpc, v) \
-    ic_query_proxy_hdr(ic, slot, _mod, _if, _rpc, NULL, v)
+#  define ic_query_proxy(ic, slot, _mod, _if, _rpc, v)                       \
+      ic_query_proxy_hdr(ic, slot, _mod, _if, _rpc, NULL, v)
 
 /** \brief helper to proxy a query to a given ic with an fd.
  *
@@ -1916,9 +1986,11 @@ bool __ic_rpc_is_traced(const iop_iface_t * nonnull iface,
  * \param[in]  _rpc   name of the rpc
  * \param[in]  v      a <tt>${_mod}__${_if}__${_rpc}_args__t *</tt> value.
  */
-#define ic_query_proxy_fd(ic, fd, slot, _mod, _if, _rpc, v) \
-    ic_query_p(ic, ic_msg_proxy_new(fd, slot, hdr),         \
-               (void *)IC_PROXY_MAGIC_CB, _mod, _if, _rpc, v);
+#  define ic_query_proxy_fd(ic, fd, slot, _mod, _if, _rpc, v)                \
+      ic_query_p(                                                            \
+          ic, ic_msg_proxy_new(fd, slot, hdr), (void *)IC_PROXY_MAGIC_CB,    \
+          _mod, _if, _rpc, v                                                 \
+      );
 
 /** \brief helper to reply to a given query (server-side).
  *
@@ -1932,11 +2004,14 @@ bool __ic_rpc_is_traced(const iop_iface_t * nonnull iface,
  * \param[in]  _rpc   name of the rpc
  * \param[in]  v      a <tt>${_mod}__${_if}__${_rpc}_res__t *</tt> value.
  */
-#define ic_reply_p(ic, slot, _mod, _if, _rpc, v) \
-    ({  const IOP_RPC_T(_mod, _if, _rpc, res) *__v = (v);                   \
-        STATIC_ASSERT(_mod##__##_if(_rpc##__rpc__async) == 0);              \
-        __ic_reply(ic, slot, IC_MSG_OK, -1,                                 \
-                   IOP_RPC(_mod, _if, _rpc)->result, __v); })
+#  define ic_reply_p(ic, slot, _mod, _if, _rpc, v)                           \
+      ({                                                                     \
+        const IOP_RPC_T(_mod, _if, _rpc, res) *__v = (v);                    \
+        STATIC_ASSERT(_mod##__##_if(_rpc##__rpc__async) == 0);               \
+        __ic_reply(                                                          \
+            ic, slot, IC_MSG_OK, -1, IOP_RPC(_mod, _if, _rpc)->result, __v   \
+        );                                                                   \
+      })
 /** \brief helper to reply to a given query (server-side).
  *
  * \param[in]  ic
@@ -1950,9 +2025,11 @@ bool __ic_rpc_is_traced(const iop_iface_t * nonnull iface,
  * \param[in]  ...
  *   the initializers of the value on the form <tt>.field = value</tt>
  */
-#define ic_reply(ic, slot, _mod, _if, _rpc, ...) \
-    ic_reply_p(ic, slot, _mod, _if, _rpc,                                   \
-               (&(IOP_RPC_T(_mod, _if, _rpc, res)){ __VA_ARGS__ }))
+#  define ic_reply(ic, slot, _mod, _if, _rpc, ...)                           \
+      ic_reply_p(                                                            \
+          ic, slot, _mod, _if, _rpc,                                         \
+          (&(IOP_RPC_T(_mod, _if, _rpc, res)){__VA_ARGS__})                  \
+      )
 
 /** \brief helper to reply to a given query (server-side), with fd.
  *
@@ -1967,11 +2044,14 @@ bool __ic_rpc_is_traced(const iop_iface_t * nonnull iface,
  * \param[in]  _rpc   name of the rpc
  * \param[in]  v      a <tt>${_mod}__${_if}__${_rpc}_res__t *</tt> value.
  */
-#define ic_reply_fd_p(ic, slot, fd, _mod, _if, _rpc, v) \
-    ({  const IOP_RPC_T(_mod, _if, _rpc, res) *__v = (v);                   \
-        STATIC_ASSERT(_mod##__##_if(_rpc##__rpc__async) == 0);              \
-        __ic_reply(ic, slot, IC_MSG_OK, fd,                                 \
-                   IOP_RPC(_mod, _if, _rpc)->result, __v); })
+#  define ic_reply_fd_p(ic, slot, fd, _mod, _if, _rpc, v)                    \
+      ({                                                                     \
+        const IOP_RPC_T(_mod, _if, _rpc, res) *__v = (v);                    \
+        STATIC_ASSERT(_mod##__##_if(_rpc##__rpc__async) == 0);               \
+        __ic_reply(                                                          \
+            ic, slot, IC_MSG_OK, fd, IOP_RPC(_mod, _if, _rpc)->result, __v   \
+        );                                                                   \
+      })
 /** \brief helper to reply to a given query (server-side), with fd.
  *
  * \param[in]  ic
@@ -1986,9 +2066,11 @@ bool __ic_rpc_is_traced(const iop_iface_t * nonnull iface,
  * \param[in]  ...
  *   the initializers of the value on the form <tt>.field = value</tt>
  */
-#define ic_reply_fd(ic, slot, fd, _mod, _if, _rpc, ...) \
-    ic_reply_fd_p(ic, slot, fd, _mod, _if, _rpc,                            \
-                  (&(IOP_RPC_T(_mod, _if, _rpc, res)){ __VA_ARGS__ }))
+#  define ic_reply_fd(ic, slot, fd, _mod, _if, _rpc, ...)                    \
+      ic_reply_fd_p(                                                         \
+          ic, slot, fd, _mod, _if, _rpc,                                     \
+          (&(IOP_RPC_T(_mod, _if, _rpc, res)){__VA_ARGS__})                  \
+      )
 
 /** \brief helper to reply to a given query (server-side) with an exception.
  *
@@ -2002,11 +2084,14 @@ bool __ic_rpc_is_traced(const iop_iface_t * nonnull iface,
  * \param[in]  _rpc   name of the rpc
  * \param[in]  v      a <tt>${_mod}__${_if}__${_rpc}_exn__t *</tt> value.
  */
-#define ic_throw_p(ic, slot, _mod, _if, _rpc, v) \
-    ({  const IOP_RPC_T(_mod, _if, _rpc, exn) *__v = (v);                   \
-        STATIC_ASSERT(_mod##__##_if(_rpc##__rpc__async) == 0);              \
-        __ic_reply(ic, slot, IC_MSG_EXN, -1,                                \
-                   IOP_RPC(_mod, _if, _rpc)->exn, __v); })
+#  define ic_throw_p(ic, slot, _mod, _if, _rpc, v)                           \
+      ({                                                                     \
+        const IOP_RPC_T(_mod, _if, _rpc, exn) *__v = (v);                    \
+        STATIC_ASSERT(_mod##__##_if(_rpc##__rpc__async) == 0);               \
+        __ic_reply(                                                          \
+            ic, slot, IC_MSG_EXN, -1, IOP_RPC(_mod, _if, _rpc)->exn, __v     \
+        );                                                                   \
+      })
 
 /** \brief helper to reply to a given query (server-side) with an exception.
  *
@@ -2021,9 +2106,11 @@ bool __ic_rpc_is_traced(const iop_iface_t * nonnull iface,
  * \param[in]  ...
  *   the initializers of the value on the form <tt>.field = value</tt>
  */
-#define ic_throw(ic, slot, _mod, _if, _rpc, ...) \
-    ic_throw_p(ic, slot, _mod, _if, _rpc,                                   \
-               (&(IOP_RPC_T(_mod, _if, _rpc, exn)){ __VA_ARGS__ }))
+#  define ic_throw(ic, slot, _mod, _if, _rpc, ...)                           \
+      ic_throw_p(                                                            \
+          ic, slot, _mod, _if, _rpc,                                         \
+          (&(IOP_RPC_T(_mod, _if, _rpc, exn)){__VA_ARGS__})                  \
+      )
 
 /** \brief helper to reply to a query (server-side) with a forced exception.
  *   NB: This macro is means to be used only inside a pre_hook or
@@ -2038,11 +2125,12 @@ bool __ic_rpc_is_traced(const iop_iface_t * nonnull iface,
  * \param[in]  v      a <tt>_exn *</tt> value.
  *   the initializers of the value on the form <tt>.field = value</tt>
  */
-#define ic_throw_exn_p(ic, slot, ctx, _exn, v)                              \
-    ({  const _exn##__t *__v = (v);                                         \
-        assert(ctx && ctx->rpc && ctx->rpc->exn == &_exn##__s);             \
-        __ic_reply(ic, slot, IC_MSG_EXN, -1,                                \
-                   ctx->rpc->exn, __v); })
+#  define ic_throw_exn_p(ic, slot, ctx, _exn, v)                             \
+      ({                                                                     \
+        const _exn##__t *__v = (v);                                          \
+        assert(ctx && ctx->rpc && ctx->rpc->exn == &_exn##__s);              \
+        __ic_reply(ic, slot, IC_MSG_EXN, -1, ctx->rpc->exn, __v);            \
+      })
 
 /** \brief helper to reply to a query (server-side) with a forced exception.
  *   NB: This macro is means to be used only inside a pre_hook or
@@ -2056,8 +2144,8 @@ bool __ic_rpc_is_traced(const iop_iface_t * nonnull iface,
  * \param[in]  ...
  *   the initializers of the value on the form <tt>.field = value</tt>
  */
-#define ic_throw_exn(ic, slot, ctx, _exn, ...)                               \
-    ic_throw_exn_p(ic, slot, ctx, _exn, (&(_exn##__t){ __VA_ARGS__ }))
+#  define ic_throw_exn(ic, slot, ctx, _exn, ...)                             \
+      ic_throw_exn_p(ic, slot, ctx, _exn, (&(_exn##__t){__VA_ARGS__}))
 
 /** \brief Bounce an IOP answer to reply to another slot.
  *
@@ -2101,10 +2189,10 @@ bool __ic_rpc_is_traced(const iop_iface_t * nonnull iface,
  * \param[in]  res    the received answer result parameter.
  * \param[in]  exn    the received answer exception parameter.
  */
-void __ic_forward_reply_to(ichannel_t * nonnull ic, uint64_t slot,
-                           int cmd, const void * nullable res,
-                           const void * nullable exn);
-
+void __ic_forward_reply_to(
+    ichannel_t *nonnull ic, uint64_t slot, int cmd, const void *nullable res,
+    const void *nullable exn
+);
 
 /** \brief Manually reply to a message with an error code.
  *
@@ -2116,29 +2204,30 @@ void __ic_forward_reply_to(ichannel_t * nonnull ic, uint64_t slot,
  * \param[in]  msg    the message that get replied.
  * \param[in]  status the reply status.
  */
-void __ic_msg_reply_err(ichannel_t * nullable ic, ic_msg_t * nonnull msg,
-                        ic_status__t status);
+void __ic_msg_reply_err(
+    ichannel_t *nullable ic, ic_msg_t *nonnull msg, ic_status__t status
+);
 
 /* Compatibility aliases */
-#define ic_reply_throw_p(...)  ic_throw_p(__VA_ARGS__)
-#define ic_reply_throw(...)    ic_throw(__VA_ARGS__)
+#  define ic_reply_throw_p(...) ic_throw_p(__VA_ARGS__)
+#  define ic_reply_throw(...) ic_throw(__VA_ARGS__)
 
 /** \brief Get dealias field of the ic header.
  *
  * This function returns the dealias field of the ic header, or unset if this
  * field is undefined.
  */
-opt_bool_t ic_hdr_get_dealias(const ic__hdr__t * nullable hdr);
+opt_bool_t ic_hdr_get_dealias(const ic__hdr__t *nullable hdr);
 
 /** \brief Set dealias field of the ic header.
  */
-int ic_hdr_set_dealias(ic__hdr__t * nullable hdr, bool dealias);
+int ic_hdr_set_dealias(ic__hdr__t *nullable hdr, bool dealias);
 
 /** Get the SSL context used by the ichannel library. */
-SSL_CTX * nonnull ic_get_ssl_ctx(void);
+SSL_CTX *nonnull ic_get_ssl_ctx(void);
 
 /** Get the SSL certificate used by the ichannel library. */
-X509 * nonnull ic_get_certificate(void);
+X509 *nonnull ic_get_certificate(void);
 
 /** Disable IChannel encryption globally.
  *

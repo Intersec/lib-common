@@ -25,24 +25,28 @@
 
 bool sockunion_equal(const sockunion_t *a1, const sockunion_t *a2)
 {
-    if (a1->family != a2->family)
+    if (a1->family != a2->family) {
         return false;
+    }
 
     switch (a1->family) {
-      case AF_INET:
-        return a1->sin.sin_port == a2->sin.sin_port
-            && a1->sin.sin_addr.s_addr == a2->sin.sin_addr.s_addr;
+    case AF_INET:
+        return a1->sin.sin_port == a2->sin.sin_port &&
+               a1->sin.sin_addr.s_addr == a2->sin.sin_addr.s_addr;
 
-      case AF_INET6:
-        if (a1->sin6.sin6_port != a2->sin6.sin6_port)
+    case AF_INET6:
+        if (a1->sin6.sin6_port != a2->sin6.sin6_port) {
             return false;
-        return !memcmp(a1->sin6.sin6_addr.s6_addr, a2->sin6.sin6_addr.s6_addr,
-                       sizeof(a2->sin6.sin6_addr.s6_addr));
+        }
+        return !memcmp(
+            a1->sin6.sin6_addr.s6_addr, a2->sin6.sin6_addr.s6_addr,
+            sizeof(a2->sin6.sin6_addr.s6_addr)
+        );
 
-      case AF_UNIX:
+    case AF_UNIX:
         return !strcmp(a1->sunix.sun_path, a2->sunix.sun_path);
 
-      default:
+    default:
         e_panic("unknown kind of sockaddr: %d", a1->family);
     }
 }
@@ -53,20 +57,22 @@ uint32_t sockunion_hash(const sockunion_t *su)
     uint32_t u32;
 
     switch (su->family) {
-      case AF_INET:
-        u64 = su->sin.sin_family | (su->sin.sin_port << 16)
-            | ((uint64_t)su->sin.sin_addr.s_addr << 32);
+    case AF_INET:
+        u64 = su->sin.sin_family | (su->sin.sin_port << 16) |
+              ((uint64_t)su->sin.sin_addr.s_addr << 32);
         return u64_hash32(u64);
 
-      case AF_INET6:
+    case AF_INET6:
         u32 = su->sin6.sin6_family | (su->sin6.sin6_port << 16);
-        return u32 ^ mem_hash32(su->sin6.sin6_addr.s6_addr,
-                                sizeof(su->sin6.sin6_addr.s6_addr));
+        return u32 ^ mem_hash32(
+                         su->sin6.sin6_addr.s6_addr,
+                         sizeof(su->sin6.sin6_addr.s6_addr)
+                     );
 
-      case AF_UNIX:
+    case AF_UNIX:
         return mem_hash32(&su->sunix, sockunion_len(su));
 
-      default:
+    default:
         e_panic("unknown kind of sockaddr: %d", su->family);
     }
 }
@@ -74,16 +80,17 @@ uint32_t sockunion_hash(const sockunion_t *su)
 int sockunion_gethost(const sockunion_t *su, char *buf, int size)
 {
     switch (su->family) {
-      case AF_INET:
+    case AF_INET:
         RETHROW_PN(inet_ntop(AF_INET, &su->sin.sin_addr.s_addr, buf, size));
         break;
 
-      case AF_INET6:
-        RETHROW_PN(inet_ntop(AF_INET6, &su->sin6.sin6_addr.s6_addr, buf,
-                             size));
+    case AF_INET6:
+        RETHROW_PN(
+            inet_ntop(AF_INET6, &su->sin6.sin6_addr.s6_addr, buf, size)
+        );
         break;
 
-      default:
+    default:
         return -1;
     }
     return strlen(buf);
@@ -107,8 +114,9 @@ lstr_t t_sockunion_gethost_lstr(const sockunion_t *su)
 /* }}} */
 /* {{{ Address parsing and display */
 
-int addr_parse_minport(pstream_t ps, pstream_t *host, in_port_t *port,
-                       int minport, int defport)
+int addr_parse_minport(
+    pstream_t ps, pstream_t *host, in_port_t *port, int minport, int defport
+)
 {
     int i;
 
@@ -120,20 +128,21 @@ int addr_parse_minport(pstream_t ps, pstream_t *host, in_port_t *port,
     } else {
         if (ps_get_ps_chr(&ps, ':', host) < 0) {
             *host = ps;
-            ps.b  = ps.b_end;
+            ps.b = ps.b_end;
             goto no_port;
         }
     }
     if (!ps_has(&ps, 1)) {
-      no_port:
+    no_port:
         *port = defport;
         return defport < 0 ? -1 : 0;
     }
     PS_WANT(__ps_getc(&ps) == ':');
     PS_WANT(ps_has(&ps, 1));
     i = ps_geti(&ps);
-    if (i < minport || i > UINT16_MAX)
+    if (i < minport || i > UINT16_MAX) {
         return -1;
+    }
     *port = i;
     return ps_done(&ps) ? 0 : -1;
 }
@@ -144,20 +153,21 @@ const char *t_addr_fmt(const sockunion_t *su, int *slen)
     size_t pos;
 
     switch (su->family) {
-      case AF_INET:
+    case AF_INET:
         inet_ntop(AF_INET, &su->sin.sin_addr.s_addr, buf, sizeof(buf));
         pos = strlen(buf);
         break;
 
-      case AF_INET6:
+    case AF_INET6:
         buf[0] = '[';
-        inet_ntop(AF_INET6, &su->sin6.sin6_addr.s6_addr,
-                  buf + 1, sizeof(buf) - 1);
+        inet_ntop(
+            AF_INET6, &su->sin6.sin6_addr.s6_addr, buf + 1, sizeof(buf) - 1
+        );
         pos = strlen(buf);
         buf[pos++] = ']';
         break;
 
-      case AF_UNIX: {
+    case AF_UNIX: {
         lstr_t res;
 
         if (su->sunix.sun_path[0] == '\0') {
@@ -173,9 +183,9 @@ const char *t_addr_fmt(const sockunion_t *su, int *slen)
             *slen = res.len;
         }
         return res.s;
-      }
+    }
 
-      default:
+    default:
         if (slen) {
             *slen = 0;
         }
@@ -183,9 +193,9 @@ const char *t_addr_fmt(const sockunion_t *su, int *slen)
     }
 
     /* Add port for AF_INET and AF_INET6. */
-    assert (pos < sizeof(buf));
-    pos += snprintf(buf + pos, sizeof(buf) - pos, ":%d",
-                    sockunion_getport(su));
+    assert(pos < sizeof(buf));
+    pos +=
+        snprintf(buf + pos, sizeof(buf) - pos, ":%d", sockunion_getport(su));
     if (slen) {
         *slen = pos;
     }
@@ -202,13 +212,13 @@ struct dns_resolv_ctx_t {
     sa_family_t af; /**< Hint for selecting the family (AF_INET or
                          AF_INET6). */
 
-    el_t nullable elh;  /**< Event loop handler used to notify the main
-                             thread. */
-    bool cancelled;     /**< Is the DNS resolution cancelled already? */
-    bool cb_is_blk;     /**< Is the registered callback a block? */
+    el_t nullable elh; /**< Event loop handler used to notify the main
+                            thread. */
+    bool cancelled;    /**< Is the DNS resolution cancelled already? */
+    bool cb_is_blk;    /**< Is the registered callback a block? */
     union {
-        on_dns_result_f * nullable on_result_cb; /**< Callback to trigger on
-                                                      DNS completion.*/
+        on_dns_result_f *nullable on_result_cb; /**< Callback to trigger on
+                                                     DNS completion.*/
 #ifdef __has_blocks
         on_dns_result_b nullable on_result_blk; /**< Block callback on DNS
                                                      completion. */
@@ -220,8 +230,8 @@ struct dns_resolv_ctx_t {
                                completion. */
 };
 
-static dns_resolv_ctx_t * nonnull
-dns_resolv_ctx_init(dns_resolv_ctx_t * nonnull ctx)
+static dns_resolv_ctx_t *nonnull
+dns_resolv_ctx_init(dns_resolv_ctx_t *nonnull ctx)
 {
     p_clear(ctx, 1);
 
@@ -230,7 +240,7 @@ dns_resolv_ctx_init(dns_resolv_ctx_t * nonnull ctx)
 }
 GENERIC_NEW(dns_resolv_ctx_t, dns_resolv_ctx);
 
-static void dns_resolv_ctx_wipe(dns_resolv_ctx_t * nonnull ctx)
+static void dns_resolv_ctx_wipe(dns_resolv_ctx_t *nonnull ctx)
 {
     lstr_wipe(&ctx->res.what);
     sb_wipe(&ctx->res.err);
@@ -244,8 +254,9 @@ static void dns_resolv_ctx_wipe(dns_resolv_ctx_t * nonnull ctx)
 }
 GENERIC_DELETE(dns_resolv_ctx_t, dns_resolv_ctx);
 
-static int process_getaddrinfo_result(struct addrinfo *ai, in_port_t port,
-                                      sockunion_t *su)
+static int process_getaddrinfo_result(
+    struct addrinfo *ai, in_port_t port, sockunion_t *su
+)
 {
     struct addrinfo *cur;
 
@@ -273,29 +284,33 @@ static int process_getaddrinfo_result(struct addrinfo *ai, in_port_t port,
     return cur ? 0 : -1;
 }
 
-static dns_resolv_ctx_t *
-__addr_info_async(const char * nullable what, sa_family_t af, lstr_t host,
-                  in_port_t port, on_dns_result_f * nullable on_result_cb,
-                  on_dns_result_b nullable on_result_blk)
+static dns_resolv_ctx_t *__addr_info_async(
+    const char *nullable what, sa_family_t af, lstr_t host, in_port_t port,
+    on_dns_result_f *nullable on_result_cb,
+    on_dns_result_b nullable on_result_blk
+)
 {
     dns_resolv_ctx_t *ctx = dns_resolv_ctx_new();
 
-    ctx->af       = af;
-    ctx->host     = lstr_dup(host);
+    ctx->af = af;
+    ctx->host = lstr_dup(host);
     ctx->res.port = port;
     ctx->res.what = what ? lstr_dups(what, -1) : LSTR_EMPTY_V;
-    ctx->elh      = el_unref(el_wake_register_blk(^(el_t elh){
-        dns_resolv_ctx_t *_ctx = ctx;
+    ctx->elh = el_unref(el_wake_register_blk(
+        ^(el_t elh) {
+            dns_resolv_ctx_t *_ctx = ctx;
 
-        if (!_ctx->cancelled) {
-            if (_ctx->cb_is_blk) {
-                _ctx->on_result_blk(&_ctx->res);
-            } else {
-                _ctx->on_result_cb(&_ctx->res, _ctx->priv);
+            if (!_ctx->cancelled) {
+                if (_ctx->cb_is_blk) {
+                    _ctx->on_result_blk(&_ctx->res);
+                } else {
+                    _ctx->on_result_cb(&_ctx->res, _ctx->priv);
+                }
             }
-        }
-        dns_resolv_ctx_delete(&_ctx);
-    }, NULL));
+            dns_resolv_ctx_delete(&_ctx);
+        },
+        NULL
+    ));
 
     if (on_result_blk) {
         ctx->cb_is_blk = true;
@@ -316,8 +331,10 @@ __addr_info_async(const char * nullable what, sa_family_t af, lstr_t host,
 
         /* Resolution failed. */
         if (res->what.len) {
-            sb_setf(&res->err, "unable to resolve %pL address `%pL`",
-                    &res->what, &ctx->host);
+            sb_setf(
+                &res->err, "unable to resolve %pL address `%pL`", &res->what,
+                &ctx->host
+            );
         } else {
             sb_setf(&res->err, "unable to resolve address `%pL`", &ctx->host);
         }
@@ -344,9 +361,10 @@ addr_async_with_priv_data(dns_resolv_ctx_t *ctx, data_t priv)
     return ctx;
 }
 
-dns_resolv_ctx_t *
-addr_info_async(sa_family_t af, lstr_t host, in_port_t port,
-                on_dns_result_f on_result_cb, data_t priv)
+dns_resolv_ctx_t *addr_info_async(
+    sa_family_t af, lstr_t host, in_port_t port, on_dns_result_f on_result_cb,
+    data_t priv
+)
 {
     dns_resolv_ctx_t *ctx;
 
@@ -354,15 +372,14 @@ addr_info_async(sa_family_t af, lstr_t host, in_port_t port,
     return addr_async_with_priv_data(ctx, priv);
 }
 
-dns_resolv_ctx_t *
-addr_info_async_b(sa_family_t af, lstr_t host,  in_port_t port,
-                  on_dns_result_b on_result_blk)
+dns_resolv_ctx_t *addr_info_async_b(
+    sa_family_t af, lstr_t host, in_port_t port, on_dns_result_b on_result_blk
+)
 {
     return __addr_info_async(NULL, af, host, port, NULL, on_result_blk);
 }
 
-int addr_info(sockunion_t *su, sa_family_t af, pstream_t host,
-              in_port_t port)
+int addr_info(sockunion_t *su, sa_family_t af, pstream_t host, in_port_t port)
 {
     t_scope;
     struct addrinfo *ai = NULL;
@@ -372,29 +389,33 @@ int addr_info(sockunion_t *su, sa_family_t af, pstream_t host,
     return process_getaddrinfo_result(ai, port, su);
 }
 
-int addr_resolve2(const char * nonnull what, const lstr_t s,
-                  int minport, int defport,
-                  sockunion_t * nonnull out_su,
-                  pstream_t * nullable out_host,
-                  in_port_t * nullable out_port,
-                  sb_t * nullable err)
+int addr_resolve2(
+    const char *nonnull what, const lstr_t s, int minport, int defport,
+    sockunion_t *nonnull out_su, pstream_t *nullable out_host,
+    in_port_t *nullable out_port, sb_t *nullable err
+)
 {
     pstream_t host;
     in_port_t port;
 
-    if (addr_parse_minport(ps_init(s.s, s.len), &host, &port,
-                           minport, defport) < 0)
+    if (addr_parse_minport(
+            ps_init(s.s, s.len), &host, &port, minport, defport
+        ) < 0)
     {
         if (err) {
-            sb_addf(err, "unable to parse %s address `%*pM`",
-                    what, LSTR_FMT_ARG(s));
+            sb_addf(
+                err, "unable to parse %s address `%*pM`", what,
+                LSTR_FMT_ARG(s)
+            );
         }
         return -1;
     }
     if (addr_info(out_su, AF_UNSPEC, host, port) < 0) {
         if (err) {
-            sb_addf(err, "unable to resolve %s address `%*pM`",
-                    what, LSTR_FMT_ARG(s));
+            sb_addf(
+                err, "unable to resolve %s address `%*pM`", what,
+                LSTR_FMT_ARG(s)
+            );
         }
         return -1;
     }
@@ -409,17 +430,18 @@ int addr_resolve2(const char * nonnull what, const lstr_t s,
     return 0;
 }
 
-static dns_resolv_ctx_t *
-__addr_resolve_async(const char * nullable what, const lstr_t s, int minport,
-                     int defport, on_dns_result_f * nullable on_result_cb,
-                     on_dns_result_b nullable on_result_blk,
-                     sb_t * nullable err)
+static dns_resolv_ctx_t *__addr_resolve_async(
+    const char *nullable what, const lstr_t s, int minport, int defport,
+    on_dns_result_f *nullable on_result_cb,
+    on_dns_result_b nullable on_result_blk, sb_t *nullable err
+)
 {
     pstream_t host;
     in_port_t port;
 
-    if (addr_parse_minport(ps_init(s.s, s.len), &host, &port,
-                           minport, defport) < 0)
+    if (addr_parse_minport(
+            ps_init(s.s, s.len), &host, &port, minport, defport
+        ) < 0)
     {
         if (err) {
             if (what) {
@@ -431,32 +453,35 @@ __addr_resolve_async(const char * nullable what, const lstr_t s, int minport,
         return NULL;
     }
 
-    return __addr_info_async(what, AF_UNSPEC, LSTR_PS_V(&host), port,
-                             on_result_cb, on_result_blk);
+    return __addr_info_async(
+        what, AF_UNSPEC, LSTR_PS_V(&host), port, on_result_cb, on_result_blk
+    );
 }
 
-dns_resolv_ctx_t *
-addr_resolve_async(const char * nullable what, const lstr_t s, int minport,
-                   int defport, on_dns_result_f * nonnull on_result_cb,
-                   sb_t * nullable err, data_t priv)
+dns_resolv_ctx_t *addr_resolve_async(
+    const char *nullable what, const lstr_t s, int minport, int defport,
+    on_dns_result_f *nonnull on_result_cb, sb_t *nullable err, data_t priv
+)
 {
     dns_resolv_ctx_t *ctx;
 
-    ctx = __addr_resolve_async(what, s, minport, defport, on_result_cb, NULL,
-                               err);
+    ctx = __addr_resolve_async(
+        what, s, minport, defport, on_result_cb, NULL, err
+    );
     return addr_async_with_priv_data(ctx, priv);
 }
 
-dns_resolv_ctx_t *
-addr_resolve_async_b(const char * nullable what, const lstr_t s, int minport,
-                     int defport, on_dns_result_b nonnull on_result_blk,
-                     sb_t * nullable err)
+dns_resolv_ctx_t *addr_resolve_async_b(
+    const char *nullable what, const lstr_t s, int minport, int defport,
+    on_dns_result_b nonnull on_result_blk, sb_t *nullable err
+)
 {
-    return __addr_resolve_async(what, s, minport, defport, NULL,
-                                on_result_blk, err);
+    return __addr_resolve_async(
+        what, s, minport, defport, NULL, on_result_blk, err
+    );
 }
 
-el_t nullable addr_get_dns_elh(dns_resolv_ctx_t * nonnull dns_ctx)
+el_t nullable addr_get_dns_elh(dns_resolv_ctx_t *nonnull dns_ctx)
 {
     return dns_ctx->elh;
 }
@@ -496,10 +521,9 @@ int addr_filter_build(lstr_t subnet, addr_filter_t *filter)
     filter->family = ai->ai_family;
     if (filter->family == AF_INET) {
         filter->u.v4.addr =
-            ((struct sockaddr_in*)(ai->ai_addr))->sin_addr.s_addr;
-    } else
-    if (filter->family == AF_INET6) {
-        filter->u.v6.addr = ((struct sockaddr_in6*)ai->ai_addr)->sin6_addr;
+            ((struct sockaddr_in *)(ai->ai_addr))->sin_addr.s_addr;
+    } else if (filter->family == AF_INET6) {
+        filter->u.v6.addr = ((struct sockaddr_in6 *)ai->ai_addr)->sin6_addr;
         maxmask = 128;
     } else {
         freeaddrinfo(ai);
@@ -514,11 +538,12 @@ int addr_filter_build(lstr_t subnet, addr_filter_t *filter)
         errno = 0;
         mask = ps_geti(&ps);
 
-        THROW_ERR_IF(errno != 0 || !ps_done(&ps) || mask < 0
-                  || mask > maxmask);
+        THROW_ERR_IF(
+            errno != 0 || !ps_done(&ps) || mask < 0 || mask > maxmask
+        );
 
-#define NET_U32_MASK(_mask)  htonl(BITMASK_GE(uint64_t, 32 - (_mask)))
-#define NET_U32_MASK_BOUNDED(_mask)  NET_U32_MASK(MAX(MIN((_mask), 32), 0))
+#define NET_U32_MASK(_mask) htonl(BITMASK_GE(uint64_t, 32 - (_mask)))
+#define NET_U32_MASK_BOUNDED(_mask) NET_U32_MASK(MAX(MIN((_mask), 32), 0))
 
         if (filter->family == AF_INET) {
             filter->u.v4.mask = NET_U32_MASK(mask);
@@ -553,24 +578,26 @@ int addr_filter_build(lstr_t subnet, addr_filter_t *filter)
 
 int addr_filter_matches(const addr_filter_t *filter, const sockunion_t *peer)
 {
-    if (peer->family != filter->family)
+    if (peer->family != filter->family) {
         return -1;
+    }
 
-    if (filter->port && filter->port != sockunion_getport(peer))
+    if (filter->port && filter->port != sockunion_getport(peer)) {
         return -1;
+    }
 
     if (filter->family == AF_INET) {
-        if (filter->u.v4.addr
-        != (peer->sin.sin_addr.s_addr & filter->u.v4.mask))
+        if (filter->u.v4.addr !=
+            (peer->sin.sin_addr.s_addr & filter->u.v4.mask))
         {
             return -1;
         }
     } else {
         /* filter->family == AF_INET6 */
         for (int i = 3; i >= 0; i--) {
-            if (filter->u.v6.addr.s6_addr32[i]
-            != (peer->sin6.sin6_addr.s6_addr32[i]
-                  & filter->u.v6.mask.s6_addr32[i]))
+            if (filter->u.v6.addr.s6_addr32[i] !=
+                (peer->sin6.sin6_addr.s6_addr32[i] &
+                 filter->u.v6.mask.s6_addr32[i]))
             {
                 return -1;
             }
@@ -622,11 +649,10 @@ int parse_http_url(const char *url_path, bool allow_https, http_url_t *url)
         first_call = false;
     }
 
-
     host_ps = ps;
     user_ps = ps_get_cspan(&ps, &ctype_isurlseparator);
 
-#define PS_COPY(_field, _ps)  \
+#define PS_COPY(_field, _ps)                                                 \
     pstrcpymem(url->_field, sizeof(url->_field), _ps.s, ps_len(&_ps))
 
     if (!ps_done(&ps) && *ps.s == ':') {

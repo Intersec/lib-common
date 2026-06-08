@@ -37,48 +37,63 @@ static struct {
 } opts;
 
 typeof(iopc_g) iopc_g = {
-    .logger       = LOGGER_INIT_INHERITS(NULL, "iopc"),
+    .logger = LOGGER_INIT_INHERITS(NULL, "iopc"),
     .class_id_min = 0,
     .class_id_max = 0xFFFF,
 };
-#define _G  iopc_g
+#define _G iopc_g
 
 static popt_t options[] = {
-    OPT_FLAG('h', "help",    &opts.help,    "show this help"),
+    OPT_FLAG('h', "help", &opts.help, "show this help"),
     OPT_FLAG('V', "version", &opts.version, "show version (git revision)"),
 
     OPT_GROUP(""),
-    OPT_STR('I',  "include-path", &opts.incpath,  "include path"),
-    OPT_STR('o',  "output-path",  &opts.outpath,  "base of the compiled hierarchy"),
-    OPT_STR('d',  "depends",      &opts.depends,  "dump depends file"),
-    OPT_STR('l',  "language",     &opts.lang,     "output language"),
-    OPT_STR(0,  "class-id-range", &opts.class_id_range,
-            "authorized class id range (min-max, included)"),
-    OPT_FLAG(0,   "Wextra",       &_G.print_info,  "add extra warnings"),
+    OPT_STR('I', "include-path", &opts.incpath, "include path"),
+    OPT_STR(
+        'o', "output-path", &opts.outpath, "base of the compiled hierarchy"
+    ),
+    OPT_STR('d', "depends", &opts.depends, "dump depends file"),
+    OPT_STR('l', "language", &opts.lang, "output language"),
+    OPT_STR(
+        0, "class-id-range", &opts.class_id_range,
+        "authorized class id range (min-max, included)"
+    ),
+    OPT_FLAG(0, "Wextra", &_G.print_info, "add extra warnings"),
 
     OPT_GROUP("C backend options"),
-    OPT_FLAG(0,   "c-resolve-includes", &iopc_do_c_g.resolve_includes,
-             "try to generate relative includes"),
-    OPT_STR(0,    "c-output-path", &opts.c_outpath,
-            "base of the compiled hierarchy for C files"),
+    OPT_FLAG(
+        0, "c-resolve-includes", &iopc_do_c_g.resolve_includes,
+        "try to generate relative includes"
+    ),
+    OPT_STR(
+        0, "c-output-path", &opts.c_outpath,
+        "base of the compiled hierarchy for C files"
+    ),
 
     OPT_GROUP("JSON backend options"),
-    OPT_STR(0,    "json-output-path", &opts.json_outpath,
-            "base of the compiled hierarchy for JSON files"),
+    OPT_STR(
+        0, "json-output-path", &opts.json_outpath,
+        "base of the compiled hierarchy for JSON files"
+    ),
 
     OPT_GROUP("TypeScript backend options"),
-    OPT_STR(0,    "typescript-output-path", &opts.typescript_outpath,
-            "base of the compiled hierarchy for TypeScript files"),
+    OPT_STR(
+        0, "typescript-output-path", &opts.typescript_outpath,
+        "base of the compiled hierarchy for TypeScript files"
+    ),
 
     OPT_GROUP("Python stub backend options"),
-    OPT_STR(0,    "pystub-output-path", &opts.pystub_outpath,
-            "base of the compiled hierarchy for Python stub files"),
+    OPT_STR(
+        0, "pystub-output-path", &opts.pystub_outpath,
+        "base of the compiled hierarchy for Python stub files"
+    ),
 
     OPT_END(),
 };
 
-__attr_printf__(2, 0) static void
-iopc_log_handler(const log_ctx_t *ctx, const char *fmt, va_list va)
+__attr_printf__(2, 0) static void iopc_log_handler(
+    const log_ctx_t *ctx, const char *fmt, va_list va
+)
 {
     vfprintf(stderr, fmt, va);
     fputc('\n', stderr);
@@ -86,8 +101,9 @@ iopc_log_handler(const log_ctx_t *ctx, const char *fmt, va_list va)
 
 static void parse_incpath(qv_t(cstr) *ipath, char *spec)
 {
-    if (!spec)
+    if (!spec) {
         return;
+    }
     for (;;) {
         if (!*spec) {
             qv_append(ipath, ".");
@@ -98,8 +114,9 @@ static void parse_incpath(qv_t(cstr) *ipath, char *spec)
         } else {
             qv_append(ipath, spec);
             spec = strchr(spec, ':');
-            if (!spec)
+            if (!spec) {
                 break;
+            }
         }
         *spec++ = '\0';
     }
@@ -116,8 +133,9 @@ static int parse_class_id_range(const char *class_id_range)
 {
     pstream_t ps = ps_initstr(class_id_range);
 
-    if (!ps_len(&ps))
+    if (!ps_len(&ps)) {
         return 0;
+    }
 
     /* Format: "min-max" */
     iopc_g.class_id_min = ps_geti(&ps);
@@ -126,13 +144,15 @@ static int parse_class_id_range(const char *class_id_range)
     RETHROW(ps_skipc(&ps, '-'));
 
     iopc_g.class_id_max = ps_geti(&ps);
-    THROW_ERR_IF(iopc_g.class_id_max < iopc_g.class_id_min
-              || iopc_g.class_id_max > 0xFFFF);
+    THROW_ERR_IF(
+        iopc_g.class_id_max < iopc_g.class_id_min ||
+        iopc_g.class_id_max > 0xFFFF
+    );
 
     return 0;
 }
 
-static char const * const only_stdin[] = { "-", NULL };
+static char const *const only_stdin[] = {"-", NULL};
 
 struct doit {
     int (*cb)(iopc_pkg_t *, const char *);
@@ -162,27 +182,18 @@ static int build_doit_table(qv_t(doit) *doits)
         struct doit doit;
 
         if (lstr_ascii_iequal(lang, LSTR("c"))) {
+            doit = (struct doit){.cb = &iopc_do_c, .outpath = opts.c_outpath};
+        } else if (lstr_ascii_iequal(lang, LSTR("json"))) {
             doit = (struct doit){
-                .cb = &iopc_do_c,
-                .outpath = opts.c_outpath
+                .cb = &iopc_do_json, .outpath = opts.json_outpath
             };
-        } else
-        if (lstr_ascii_iequal(lang, LSTR("json"))) {
+        } else if (lstr_ascii_iequal(lang, LSTR("typescript"))) {
             doit = (struct doit){
-                .cb = &iopc_do_json,
-                .outpath = opts.json_outpath
+                .cb = &iopc_do_typescript, .outpath = opts.typescript_outpath
             };
-        } else
-        if (lstr_ascii_iequal(lang, LSTR("typescript"))) {
+        } else if (lstr_ascii_iequal(lang, LSTR("pystub"))) {
             doit = (struct doit){
-                .cb = &iopc_do_typescript,
-                .outpath = opts.typescript_outpath
-            };
-        } else
-        if (lstr_ascii_iequal(lang, LSTR("pystub"))) {
-            doit = (struct doit){
-                .cb = &iopc_do_pystub,
-                .outpath = opts.pystub_outpath
+                .cb = &iopc_do_pystub, .outpath = opts.pystub_outpath
             };
         } else {
             print_error("unsupported language `%*pM`", LSTR_FMT_ARG(lang));
@@ -191,8 +202,9 @@ static int build_doit_table(qv_t(doit) *doits)
 
         if (doit.outpath) {
             if (mkdir_p(doit.outpath, 0777) < 0) {
-                print_error("cannot create output directory `%s`: %m",
-                            doit.outpath);
+                print_error(
+                    "cannot create output directory `%s`: %m", doit.outpath
+                );
                 goto error;
             }
         }
@@ -202,7 +214,7 @@ static int build_doit_table(qv_t(doit) *doits)
     qv_wipe(&langs);
     return 0;
 
-  error:
+error:
     qv_wipe(&langs);
     return -1;
 }
@@ -218,8 +230,9 @@ static void sb_add_depends(iopc_pkg_t *pkg, sb_t *depbuf)
     t_qv_init(&t_weak_deps, 16);
     t_qv_init(&i_deps, 16);
 
-    iopc_pkg_get_deps(pkg, IOPC_PKG_GET_DEPS_INCLUDE_ALL,
-                      &t_deps, &t_weak_deps, &i_deps);
+    iopc_pkg_get_deps(
+        pkg, IOPC_PKG_GET_DEPS_INCLUDE_ALL, &t_deps, &t_weak_deps, &i_deps
+    );
 
     tab_for_each_entry(dep, &t_deps) {
         sb_addf(depbuf, "%s\n", dep->file);
@@ -255,10 +268,10 @@ int main(int argc, char **argv)
     qv_init(&incpath);
     qv_init(&doits);
 
-    opts.c_outpath    = opts.c_outpath ?: opts.outpath;
+    opts.c_outpath = opts.c_outpath ?: opts.outpath;
     opts.json_outpath = opts.json_outpath ?: opts.outpath;
 
-    _G.prefix_dir     = getcwd(NULL, 0);
+    _G.prefix_dir = getcwd(NULL, 0);
     _G.display_prefix = true;
 
     log_set_handler(&iopc_log_handler);
@@ -336,7 +349,7 @@ int main(int argc, char **argv)
     p_delete((char **)&_G.prefix_dir);
     return 0;
 
-  error:
+error:
     MODULE_RELEASE(iopc);
     qv_wipe(&incpath);
     qv_wipe(&doits);

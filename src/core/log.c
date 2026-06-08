@@ -26,7 +26,7 @@
 #include <lib-common/log.h>
 
 #ifdef MEM_BENCH
-#include "mem-bench.h"
+#  include "mem-bench.h"
 #endif
 
 uint32_t log_conf_gen_g = 1;
@@ -39,7 +39,6 @@ struct level {
 };
 qm_kvec_t(level, lstr_t, struct level, qhash_lstr_hash, qhash_lstr_equal);
 
-
 typedef struct buffer_instance_t {
     qv_t(log_buffer) vec_buffer;
     bool use_handler : 1;
@@ -49,9 +48,9 @@ typedef struct buffer_instance_t {
 qvector_t(buffer_instance, buffer_instance_t);
 
 #ifndef NDEBUG
-#define LOG_DEFAULT  LOG_TRACE
+#  define LOG_DEFAULT LOG_TRACE
 #else
-#define LOG_DEFAULT  LOG_DEBUG
+#  define LOG_DEFAULT LOG_DEBUG
 #endif
 
 static log_handler_f log_stderr_raw_handler;
@@ -60,36 +59,35 @@ _MODULE_ADD_DECLS(log);
 
 static struct {
     logger_t root_logger;
-    e_handler_f   *e_handler;
+    e_handler_f *e_handler;
     log_handler_f *handler;
 
-    char          *is_debug;
-    qm_t(level)    pending_levels;
+    char *is_debug;
+    qm_t(level) pending_levels;
 
     bool fancy;
     char fancy_prefix[64];
     int fancy_len;
 
-    qv_t(spec)  specs;
+    qv_t(spec) specs;
     int maxlen, rows, cols;
     int pid;
     spinlock_t update_lock;
 
     bool log_timestamp : 1;
 } log_g = {
-#define _G  log_g
-    .root_logger = {
-        .level         = LOG_DEFAULT,
-        .defined_level = LOG_UNDEFINED,
-        .default_level = LOG_DEFAULT,
-        .name          = LSTR_EMPTY,
-        .full_name     = LSTR_EMPTY,
-        .parent        = NULL,
-        .children      = DLIST_INIT(_G.root_logger.children),
-        .siblings      = DLIST_INIT(_G.root_logger.siblings)
-    },
+#define _G log_g
+    .root_logger =
+        {.level = LOG_DEFAULT,
+         .defined_level = LOG_UNDEFINED,
+         .default_level = LOG_DEFAULT,
+         .name = LSTR_EMPTY,
+         .full_name = LSTR_EMPTY,
+         .parent = NULL,
+         .children = DLIST_INIT(_G.root_logger.children),
+         .siblings = DLIST_INIT(_G.root_logger.siblings)},
     .pending_levels = QM_INIT(level, _G.pending_levels),
-    .handler        = &log_stderr_raw_handler,
+    .handler = &log_stderr_raw_handler,
 };
 
 static __thread struct {
@@ -151,7 +149,6 @@ lstr_t t_logger_sanitize_name(const lstr_t name)
             normalized.data[used_characters] = c;
             used_characters++;
         }
-
     }
 
     sb_shrink(&normalized, normalized.len - used_characters);
@@ -166,30 +163,34 @@ lstr_t t_logger_sanitize_name(const lstr_t name)
 /* }}} */
 /* Configuration {{{ */
 
-logger_t *logger_init(logger_t *logger, logger_t *parent, lstr_t name,
-                      int default_level, unsigned level_flags)
+logger_t *logger_init(
+    logger_t *logger, logger_t *parent, lstr_t name, int default_level,
+    unsigned level_flags
+)
 {
     p_clear(logger, 1);
     logger->level = LOG_UNDEFINED;
     logger->defined_level = LOG_UNDEFINED;
     logger->default_level = default_level;
-    logger->level_flags         = level_flags;
+    logger->level_flags = level_flags;
     logger->default_level_flags = level_flags;
     dlist_init(&logger->siblings);
     dlist_init(&logger->children);
 
     logger->parent = parent;
-    logger->name   = lstr_dup(name);
+    logger->name = lstr_dup(name);
     __logger_refresh(logger);
 
     return logger;
 }
 
-logger_t *logger_new(logger_t *parent, lstr_t name, int default_level,
-                     unsigned level_flags)
+logger_t *logger_new(
+    logger_t *parent, lstr_t name, int default_level, unsigned level_flags
+)
 {
-    return logger_init(p_new_raw(logger_t, 1), parent, name, default_level,
-                       level_flags);
+    return logger_init(
+        p_new_raw(logger_t, 1), parent, name, default_level, level_flags
+    );
 }
 
 /* Suppose the parent is locked */
@@ -201,10 +202,12 @@ static void logger_wipe_child(logger_t *logger)
                 logger_wipe_child(child);
             } else {
 #ifndef NDEBUG
-                logger_panic(&_G.root_logger,
-                             "leaked logger `%*pM`, cannot wipe `%*pM`",
-                             LSTR_FMT_ARG(child->full_name),
-                             LSTR_FMT_ARG(logger->full_name));
+                logger_panic(
+                    &_G.root_logger,
+                    "leaked logger `%*pM`, cannot wipe `%*pM`",
+                    LSTR_FMT_ARG(child->full_name),
+                    LSTR_FMT_ARG(logger->full_name)
+                );
 #endif
             }
         }
@@ -229,35 +232,35 @@ static void logger_compute_fullname(logger_t *logger)
     /* The name of a logger must be a non-empty printable string
      * without any '/' or '!'
      */
-    assert (memchr(logger->name.s, '/', logger->name.len) == NULL);
-    assert (memchr(logger->name.s, '!', logger->name.len) == NULL);
-    assert (logger->name.len);
+    assert(memchr(logger->name.s, '/', logger->name.len) == NULL);
+    assert(memchr(logger->name.s, '!', logger->name.len) == NULL);
+    assert(logger->name.len);
     for (int i = 0; i < logger->name.len; i++) {
-        assert (isprint((unsigned char)logger->name.s[i]));
+        assert(isprint((unsigned char)logger->name.s[i]));
     }
 
     if (logger->parent->full_name.len) {
         lstr_t name = logger->name;
         lstr_t full_name;
 
-        full_name = lstr_fmt("%*pM/%*pM",
-                             LSTR_FMT_ARG(logger->parent->full_name),
-                             LSTR_FMT_ARG(logger->name));
+        full_name = lstr_fmt(
+            "%*pM/%*pM", LSTR_FMT_ARG(logger->parent->full_name),
+            LSTR_FMT_ARG(logger->name)
+        );
 
         logger->full_name = full_name;
-        logger->name = LSTR_INIT_V(full_name.s + full_name.len - name.len,
-                                   name.len);
+        logger->name =
+            LSTR_INIT_V(full_name.s + full_name.len - name.len, name.len);
         lstr_wipe(&name);
-    } else
-    if (logger->name.len) {
+    } else if (logger->name.len) {
         logger->full_name = lstr_dupc(logger->name);
     }
 }
 
 void __logger_do_refresh(logger_t *logger)
 {
-    if (atomic_load_explicit(&logger->conf_gen, memory_order_acquire)
-        == log_conf_gen_g)
+    if (atomic_load_explicit(&logger->conf_gen, memory_order_acquire) ==
+        log_conf_gen_g)
     {
         return;
     }
@@ -276,14 +279,15 @@ void __logger_do_refresh(logger_t *logger)
 
         logger_compute_fullname(logger);
 
-        assert (logger->level >= LOG_UNDEFINED);
-        assert (logger->default_level >= LOG_INHERITS);
-        assert (logger->defined_level >= LOG_UNDEFINED);
+        assert(logger->level >= LOG_UNDEFINED);
+        assert(logger->default_level >= LOG_INHERITS);
+        assert(logger->defined_level >= LOG_UNDEFINED);
 
-        dlist_for_each_entry(logger_t, sibling, &logger->parent->children,
-                             siblings)
+        dlist_for_each_entry(
+            logger_t, sibling, &logger->parent->children, siblings
+        )
         {
-            assert (!lstr_equal(sibling->name, logger->name));
+            assert(!lstr_equal(sibling->name, logger->name));
         }
         dlist_add(&logger->parent->children, &logger->siblings);
         dlist_init(&logger->children);
@@ -291,7 +295,7 @@ void __logger_do_refresh(logger_t *logger)
         pos = qm_del_key(level, &_G.pending_levels, &logger->full_name);
         if (pos >= 0) {
             logger->defined_level = _G.pending_levels.values[pos].level;
-            logger->level_flags   = _G.pending_levels.values[pos].flags;
+            logger->level_flags = _G.pending_levels.values[pos].flags;
             lstr_wipe(&_G.pending_levels.keys[pos]);
         }
     }
@@ -300,26 +304,25 @@ void __logger_do_refresh(logger_t *logger)
 
     if (logger->defined_level >= 0) {
         logger->level = logger->defined_level;
-    } else
-    if (logger->parent) {
+    } else if (logger->parent) {
         if (logger->parent->level_flags & (LOG_FORCED | LOG_RECURSIVE)) {
             logger->level = logger->parent->level;
             logger->level_flags |= LOG_FORCED;
-        } else
-        if (logger->level == LOG_INHERITS) {
+        } else if (logger->level == LOG_INHERITS) {
             logger->level = logger->parent->level;
         }
     }
 
-    assert (logger->level >= 0);
-    atomic_store_explicit(&logger->conf_gen, log_conf_gen_g,
-                          memory_order_release);
+    assert(logger->level >= 0);
+    atomic_store_explicit(
+        &logger->conf_gen, log_conf_gen_g, memory_order_release
+    );
 }
 
 void __logger_refresh(logger_t *logger)
 {
-    if (atomic_load_explicit(&logger->conf_gen, memory_order_acquire)
-        == log_conf_gen_g)
+    if (atomic_load_explicit(&logger->conf_gen, memory_order_acquire) ==
+        log_conf_gen_g)
     {
         return;
     }
@@ -340,7 +343,7 @@ logger_t *logger_get_by_name(lstr_t name)
     logger_t *logger = &log_g.root_logger;
 
     while (!ps_done(&ps)) {
-        logger_t *next  = NULL;
+        logger_t *next = NULL;
         pstream_t n;
 
         if (ps_get_ps_chr_and_skip(&ps, '/', &n) < 0) {
@@ -369,9 +372,9 @@ int logger_set_level(lstr_t name, int level, unsigned flags)
     log_spin_lock();
     logger = logger_get_by_name(name);
 
-    assert (level >= LOG_UNDEFINED);
-    assert ((flags & (LOG_RECURSIVE | LOG_SILENT)) == flags);
-    assert (!(flags & LOG_RECURSIVE) || level >= 0);
+    assert(level >= LOG_UNDEFINED);
+    assert((flags & (LOG_RECURSIVE | LOG_SILENT)) == flags);
+    assert(!(flags & LOG_RECURSIVE) || level >= 0);
 
     /* -2 == LOG_LEVEL_DEFAULT, which cannot be used here because it is
      * defined in core.iop, and we are in a source file of libcommon-minimal
@@ -388,10 +391,11 @@ int logger_set_level(lstr_t name, int level, unsigned flags)
                 lstr_wipe(&_G.pending_levels.keys[pos]);
             }
         } else {
-            struct level l = { .level = level, .flags = flags };
+            struct level l = {.level = level, .flags = flags};
             uint32_t pos;
 
-            pos = qm_put(level, &_G.pending_levels, &name, l, QHASH_OVERWRITE);
+            pos =
+                qm_put(level, &_G.pending_levels, &name, l, QHASH_OVERWRITE);
             if (!(pos & QHASH_COLLISION)) {
                 _G.pending_levels.keys[pos] = lstr_dup(name);
             }
@@ -439,11 +443,13 @@ static void buffer_instance_wipe(buffer_instance_t *buffer_instance)
 static void free_last_buffer(void)
 {
     if (log_thr_g.vec_buff_stack.len > log_thr_g.nb_buffer_started) {
-        assert (log_thr_g.vec_buff_stack.len
-            ==  log_thr_g.nb_buffer_started + 1);
+        assert(
+            log_thr_g.vec_buff_stack.len == log_thr_g.nb_buffer_started + 1
+        );
         buffer_instance_wipe(tab_last(&log_thr_g.vec_buff_stack));
-        qv_remove(&log_thr_g.vec_buff_stack,
-                  log_thr_g.vec_buff_stack.len - 1);
+        qv_remove(
+            &log_thr_g.vec_buff_stack, log_thr_g.vec_buff_stack.len - 1
+        );
         mem_stack_pool_pop(&log_thr_g.mp_stack);
     }
 }
@@ -495,8 +501,9 @@ const qv_t(log_buffer) *log_stop_buffering(void)
  * It is "leaked" on purpose. */
 const char *syslog_critical_log_g;
 
-static __attr_printf__(1, 0)
-void log_set_critical_log(const char *fmt, va_list va)
+static __attr_printf__(1, 0) void log_set_critical_log(
+    const char *fmt, va_list va
+)
 {
     SB_1k(buf);
     va_list vc;
@@ -508,8 +515,9 @@ void log_set_critical_log(const char *fmt, va_list va)
     syslog_critical_log_g = p_strdup(buf.data);
 }
 
-static __attr_printf__(2, 0)
-void logger_vsyslog(int level, const char *fmt, va_list va)
+static __attr_printf__(2, 0) void logger_vsyslog(
+    int level, const char *fmt, va_list va
+)
 {
     SB_1k(sb);
 
@@ -517,9 +525,9 @@ void logger_vsyslog(int level, const char *fmt, va_list va)
     syslog(LOG_USER | level, "%s", sb.data);
 }
 
-static __attr_printf__(3, 0)
-void logger_putv(const log_ctx_t *ctx, bool do_log,
-                 const char *fmt, va_list va)
+static __attr_printf__(3, 0) void logger_putv(
+    const log_ctx_t *ctx, bool do_log, const char *fmt, va_list va
+)
 {
     buffer_instance_t *buff;
     va_list vc;
@@ -572,8 +580,9 @@ void logger_putv(const log_ctx_t *ctx, bool do_log,
     }
 }
 
-static __attr_printf__(3, 4)
-void logger_put(const log_ctx_t *ctx, bool do_log, const char *fmt, ...)
+static __attr_printf__(3, 4) void logger_put(
+    const log_ctx_t *ctx, bool do_log, const char *fmt, ...
+)
 {
     va_list va;
 
@@ -582,8 +591,9 @@ void logger_put(const log_ctx_t *ctx, bool do_log, const char *fmt, ...)
     va_end(va);
 }
 
-static __attr_printf__(2, 0)
-void logger_put_in_buf(const log_ctx_t *ctx, const char *fmt, va_list ap)
+static __attr_printf__(2, 0) void logger_put_in_buf(
+    const log_ctx_t *ctx, const char *fmt, va_list ap
+)
 {
     const char *p;
     sb_t *buf = &log_thr_g.buf;
@@ -596,8 +606,7 @@ void logger_put_in_buf(const log_ctx_t *ctx, const char *fmt, va_list ap)
     }
 }
 
-static __attr_noreturn__
-void logger_do_fatal(void)
+static __attr_noreturn__ void logger_do_fatal(void)
 {
     if (psinfo_get_tracer_pid(0) > 0) {
         abort();
@@ -605,33 +614,37 @@ void logger_do_fatal(void)
     _exit(127);
 }
 
-int logger_vlog(logger_t *logger, int level, lstr_t prog, int pid,
-                lstr_t file, lstr_t func, int line,
-                const char *fmt, va_list va)
+int logger_vlog(
+    logger_t *logger, int level, lstr_t prog, int pid, lstr_t file,
+    lstr_t func, int line, const char *fmt, va_list va
+)
 {
     log_ctx_t ctx = {
         .logger_name = lstr_dupc(logger->full_name),
-        .level       = level,
-        .file        = file,
-        .func        = func,
-        .line        = line,
-        .pid         = pid < 0 ? _G.pid : pid,
-        .prog_name   = prog.s ? lstr_dupc(prog)
-                              : LSTR(program_invocation_short_name),
-        .is_silent   = !!(logger->level_flags & LOG_SILENT),
+        .level = level,
+        .file = file,
+        .func = func,
+        .line = line,
+        .pid = pid < 0 ? _G.pid : pid,
+        .prog_name =
+            prog.s ? lstr_dupc(prog) : LSTR(program_invocation_short_name),
+        .is_silent = !!(logger->level_flags & LOG_SILENT),
     };
 
-    assert (atomic_load_explicit(&logger->conf_gen, memory_order_acquire)
-            == log_conf_gen_g);
-    PROTECT_ERRNO(logger_putv(&ctx,
-                              logger_has_level(logger, level) ||
-                              level >= LOG_TRACE,
-                              fmt, va));
+    assert(
+        atomic_load_explicit(&logger->conf_gen, memory_order_acquire) ==
+        log_conf_gen_g
+    );
+    PROTECT_ERRNO(logger_putv(
+        &ctx, logger_has_level(logger, level) || level >= LOG_TRACE, fmt, va
+    ));
     return level <= LOG_WARNING ? -1 : 0;
 }
 
-int __logger_log(logger_t *logger, int level, lstr_t prog, int pid,
-                 lstr_t file, lstr_t func, int line, const char *fmt, ...)
+int __logger_log(
+    logger_t *logger, int level, lstr_t prog, int pid, lstr_t file,
+    lstr_t func, int line, const char *fmt, ...
+)
 {
     int res;
     va_list va;
@@ -649,8 +662,10 @@ int __logger_log(logger_t *logger, int level, lstr_t prog, int pid,
     return res;
 }
 
-void __logger_vpanic(logger_t *logger, lstr_t file, lstr_t func,
-                     int line, const char *fmt, va_list va)
+void __logger_vpanic(
+    logger_t *logger, lstr_t file, lstr_t func, int line, const char *fmt,
+    va_list va
+)
 {
     __logger_refresh(logger);
     logger_vlog(logger, LOG_CRIT, LSTR_NULL_V, -1, file, func, line, fmt, va);
@@ -658,8 +673,9 @@ void __logger_vpanic(logger_t *logger, lstr_t file, lstr_t func,
     abort();
 }
 
-void __logger_panic(logger_t *logger, lstr_t file, lstr_t func, int line,
-                    const char *fmt, ...)
+void __logger_panic(
+    logger_t *logger, lstr_t file, lstr_t func, int line, const char *fmt, ...
+)
 {
     va_list va;
 
@@ -667,8 +683,10 @@ void __logger_panic(logger_t *logger, lstr_t file, lstr_t func, int line,
     __logger_vpanic(logger, file, func, line, fmt, va);
 }
 
-void __logger_vfatal(logger_t *logger, lstr_t file, lstr_t func, int line,
-                     const char *fmt, va_list va)
+void __logger_vfatal(
+    logger_t *logger, lstr_t file, lstr_t func, int line, const char *fmt,
+    va_list va
+)
 {
     __logger_refresh(logger);
     logger_vlog(logger, LOG_CRIT, LSTR_NULL_V, -1, file, func, line, fmt, va);
@@ -676,8 +694,9 @@ void __logger_vfatal(logger_t *logger, lstr_t file, lstr_t func, int line,
     logger_do_fatal();
 }
 
-void __logger_fatal(logger_t *logger, lstr_t file, lstr_t func, int line,
-                    const char *fmt, ...)
+void __logger_fatal(
+    logger_t *logger, lstr_t file, lstr_t func, int line, const char *fmt, ...
+)
 {
     va_list va;
 
@@ -685,8 +704,10 @@ void __logger_fatal(logger_t *logger, lstr_t file, lstr_t func, int line,
     __logger_vfatal(logger, file, func, line, fmt, va);
 }
 
-void __logger_vexit(logger_t *logger, lstr_t file, lstr_t func, int line,
-                    const char *fmt, va_list va)
+void __logger_vexit(
+    logger_t *logger, lstr_t file, lstr_t func, int line, const char *fmt,
+    va_list va
+)
 {
     va_list vc;
 
@@ -699,8 +720,9 @@ void __logger_vexit(logger_t *logger, lstr_t file, lstr_t func, int line,
     _exit(0);
 }
 
-void __logger_exit(logger_t *logger, lstr_t file, lstr_t func, int line,
-                   const char *fmt, ...)
+void __logger_exit(
+    logger_t *logger, lstr_t file, lstr_t func, int line, const char *fmt, ...
+)
 {
     va_list va;
 
@@ -710,8 +732,9 @@ void __logger_exit(logger_t *logger, lstr_t file, lstr_t func, int line,
 
 #ifndef NDEBUG
 
-int __logger_is_traced(logger_t *logger, int lvl, lstr_t modname,
-                       lstr_t func, lstr_t name)
+int __logger_is_traced(
+    logger_t *logger, int lvl, lstr_t modname, lstr_t func, lstr_t name
+)
 {
     int level;
 
@@ -738,8 +761,7 @@ int __logger_is_traced(logger_t *logger, int lvl, lstr_t modname,
 
         if (spec->name) {
             snprintf(buf, sizeof(buf), "%*pM", LSTR_FMT_ARG(name));
-            if (fnmatch(spec->name, buf,
-                        FNM_PATHNAME | FNM_LEADING_DIR) != 0)
+            if (fnmatch(spec->name, buf, FNM_PATHNAME | FNM_LEADING_DIR) != 0)
             {
                 continue;
             }
@@ -753,22 +775,26 @@ int __logger_is_traced(logger_t *logger, int lvl, lstr_t modname,
 
 #endif
 
-void __logger_start(logger_t *logger, int level, lstr_t prog, int pid,
-                    lstr_t file, lstr_t func, int line)
+void __logger_start(
+    logger_t *logger, int level, lstr_t prog, int pid, lstr_t file,
+    lstr_t func, int line
+)
 {
-    assert (atomic_load_explicit(&logger->conf_gen, memory_order_acquire)
-            == log_conf_gen_g);
+    assert(
+        atomic_load_explicit(&logger->conf_gen, memory_order_acquire) ==
+        log_conf_gen_g
+    );
 
     log_thr_g.ml_ctx = (log_ctx_t){
         .logger_name = lstr_dupc(logger->full_name),
-        .level       = level,
-        .file        = file,
-        .func        = func,
-        .line        = line,
-        .pid         = pid < 0 ? _G.pid : pid,
-        .prog_name   = prog.s ? lstr_dupc(prog)
-                              : LSTR(program_invocation_short_name),
-        .is_silent   = !!(logger->level_flags & LOG_SILENT),
+        .level = level,
+        .file = file,
+        .func = func,
+        .line = line,
+        .pid = pid < 0 ? _G.pid : pid,
+        .prog_name =
+            prog.s ? lstr_dupc(prog) : LSTR(program_invocation_short_name),
+        .is_silent = !!(logger->level_flags & LOG_SILENT),
     };
 }
 
@@ -830,11 +856,13 @@ int log_make_fancy_prefix(lstr_t progname, int pid, char fancy[static 64])
     hash = mem_hash32(progname.s, progname.len);
     color = colors[hash % countof(colors)];
 
-    snprintf(buf_progname, sizeof(buf_progname), "%*pM",
-             LSTR_FMT_ARG(progname));
-    len = snprintf(fancy, 64,
-                   TERM_COLOR_FMT("%10s[%d]") ": ",
-                   TERM_COLOR_FMT_ARG(color, buf_progname, pid));
+    snprintf(
+        buf_progname, sizeof(buf_progname), "%*pM", LSTR_FMT_ARG(progname)
+    );
+    len = snprintf(
+        fancy, 64, TERM_COLOR_FMT("%10s[%d]") ": ",
+        TERM_COLOR_FMT_ARG(color, buf_progname, pid)
+    );
     return MIN(len, 63);
 }
 
@@ -852,19 +880,20 @@ static void log_add_timestamp(sb_t *sb)
 
 #define LOG_COLOR_LOGGER_NAME TERM_COLOR_BRIGHTER(TERM_COLOR_BLACK)
 
-#define LOG_COLOR_DEBUG   TERM_COLOR_ITALIC(TERM_COLOR_DEFAULT)
+#define LOG_COLOR_DEBUG TERM_COLOR_ITALIC(TERM_COLOR_DEFAULT)
 #define LOG_COLOR_WARNING TERM_COLOR_BRIGHTER(TERM_COLOR_YELLOW)
-#define LOG_COLOR_ERROR   TERM_COLOR_BRIGHTER(TERM_COLOR_RED)
+#define LOG_COLOR_ERROR TERM_COLOR_BRIGHTER(TERM_COLOR_RED)
 
 #define LOG_COLOR_CRIT                                                       \
-    TERM_COLOR_BRIGHTER(TERM_COLOR_COMBINE(TERM_COLOR_RED_BG,                \
-                                           TERM_COLOR_WHITE))
+    TERM_COLOR_BRIGHTER(                                                     \
+        TERM_COLOR_COMBINE(TERM_COLOR_RED_BG, TERM_COLOR_WHITE)              \
+    )
 
-__attr_printf__(2, 0)
-static void log_stderr_fancy_handler(const log_ctx_t *ctx, const char *fmt,
-                                     va_list va)
+__attr_printf__(2, 0) static void log_stderr_fancy_handler(
+    const log_ctx_t *ctx, const char *fmt, va_list va
+)
 {
-    sb_t *sb  = &log_thr_g.log;
+    sb_t *sb = &log_thr_g.log;
     int max_len = _G.cols - 2;
 
     if (ctx->is_silent) {
@@ -875,13 +904,16 @@ static void log_stderr_fancy_handler(const log_ctx_t *ctx, const char *fmt,
         int len;
         char escapes[BUFSIZ];
 
-        sb_setf(sb, "%pL:%d:%pL[%d]", &ctx->file, ctx->line,
-                &ctx->prog_name, ctx->pid);
+        sb_setf(
+            sb, "%pL:%d:%pL[%d]", &ctx->file, ctx->line, &ctx->prog_name,
+            ctx->pid
+        );
         if (sb->len > max_len) {
             sb_clip(sb, max_len);
         }
-        len = snprintf(escapes, sizeof(escapes), "\r\e[%dC\e[7m ",
-                       max_len - sb->len);
+        len = snprintf(
+            escapes, sizeof(escapes), "\r\e[%dC\e[7m ", max_len - sb->len
+        );
         sb_splice(sb, 0, 0, escapes, len);
         sb_adds(sb, " \e[0m\r");
 
@@ -906,26 +938,28 @@ static void log_stderr_fancy_handler(const log_ctx_t *ctx, const char *fmt,
         }
     }
     if (ctx->logger_name.len) {
-        sb_addf(sb, TERM_COLOR_SET(LOG_COLOR_LOGGER_NAME) "{%*pM} ",
-                LSTR_FMT_ARG(ctx->logger_name));
+        sb_addf(
+            sb, TERM_COLOR_SET(LOG_COLOR_LOGGER_NAME) "{%*pM} ",
+            LSTR_FMT_ARG(ctx->logger_name)
+        );
     }
     switch (ctx->level) {
-      case LOG_DEBUG:
-      case LOG_INFO:
+    case LOG_DEBUG:
+    case LOG_INFO:
         sb_adds(sb, TERM_COLOR_SET(LOG_COLOR_DEBUG));
         break;
-      case LOG_WARNING:
+    case LOG_WARNING:
         sb_adds(sb, TERM_COLOR_SET(LOG_COLOR_WARNING));
         break;
-      case LOG_ERR:
+    case LOG_ERR:
         sb_adds(sb, TERM_COLOR_SET(LOG_COLOR_ERROR));
         break;
-      case LOG_CRIT:
-      case LOG_ALERT:
-      case LOG_EMERG:
+    case LOG_CRIT:
+    case LOG_ALERT:
+    case LOG_EMERG:
         sb_adds(sb, TERM_COLOR_SET(LOG_COLOR_CRIT));
         break;
-      default:
+    default:
         sb_adds(sb, TERM_COLOR_RESET);
         break;
     }
@@ -941,18 +975,15 @@ static void log_stderr_fancy_handler(const log_ctx_t *ctx, const char *fmt,
 
 static void log_initialize_thread(void);
 
-__attr_printf__(2, 0)
-static void log_stderr_raw_handler(const log_ctx_t *ctx, const char *fmt,
-                                   va_list va)
+__attr_printf__(2, 0) static void log_stderr_raw_handler(
+    const log_ctx_t *ctx, const char *fmt, va_list va
+)
 {
     static char const *prefixes[] = {
-        [LOG_CRIT]     = "fatal: ",
-        [LOG_ERR]      = "error: ",
-        [LOG_WARNING]  = "warn:  ",
-        [LOG_NOTICE]   = "note:  ",
-        [LOG_INFO]     = "info:  ",
-        [LOG_DEBUG]    = "debug: ",
-        [LOG_TRACE]    = "trace: ",
+        [LOG_CRIT] = "fatal: ",    [LOG_ERR] = "error: ",
+        [LOG_WARNING] = "warn:  ", [LOG_NOTICE] = "note:  ",
+        [LOG_INFO] = "info:  ",    [LOG_DEBUG] = "debug: ",
+        [LOG_TRACE] = "trace: ",
     };
 
     sb_t *sb = &log_thr_g.log;
@@ -1000,8 +1031,10 @@ int e_log(int priority, const char *fmt, ...)
     va_list va;
 
     va_start(va, fmt);
-    ret = logger_vlog(&_G.root_logger, priority, LSTR_NULL_V, -1,
-                      LSTR_NULL_V, LSTR_NULL_V, -1, fmt, va);
+    ret = logger_vlog(
+        &_G.root_logger, priority, LSTR_NULL_V, -1, LSTR_NULL_V, LSTR_NULL_V,
+        -1, fmt, va
+    );
     va_end(va);
     return ret;
 }
@@ -1013,8 +1046,10 @@ int e_panic(const char *fmt, ...)
     __logger_refresh(&_G.root_logger);
 
     va_start(va, fmt);
-    logger_vlog(&_G.root_logger, LOG_CRIT, LSTR_NULL_V, -1, LSTR_NULL_V,
-                LSTR_NULL_V, -1, fmt, va);
+    logger_vlog(
+        &_G.root_logger, LOG_CRIT, LSTR_NULL_V, -1, LSTR_NULL_V, LSTR_NULL_V,
+        -1, fmt, va
+    );
     log_set_critical_log(fmt, va);
     abort();
 }
@@ -1026,8 +1061,10 @@ int e_fatal(const char *fmt, ...)
     __logger_refresh(&_G.root_logger);
 
     va_start(va, fmt);
-    logger_vlog(&_G.root_logger, LOG_CRIT, LSTR_NULL_V, -1, LSTR_NULL_V,
-                LSTR_NULL_V, -1, fmt, va);
+    logger_vlog(
+        &_G.root_logger, LOG_CRIT, LSTR_NULL_V, -1, LSTR_NULL_V, LSTR_NULL_V,
+        -1, fmt, va
+    );
 
     if (psinfo_get_tracer_pid(0) > 0) {
         log_set_critical_log(fmt, va);
@@ -1044,23 +1081,26 @@ int e_fatal(const char *fmt, ...)
             va_list va;                                                      \
                                                                              \
             va_start(va, fmt);                                               \
-            ret = logger_vlog(&_G.root_logger, (Level), LSTR_NULL_V, -1,     \
-                              LSTR_NULL_V, LSTR_NULL_V, -1, fmt, va);        \
+            ret = logger_vlog(                                               \
+                &_G.root_logger, (Level), LSTR_NULL_V, -1, LSTR_NULL_V,      \
+                LSTR_NULL_V, -1, fmt, va                                     \
+            );                                                               \
             va_end(va);                                                      \
             return ret;                                                      \
         }                                                                    \
         return (Level) <= LOG_WARNING ? -1 : 0;                              \
     }
-E_FUNCTION(e_error,   LOG_ERR)
+E_FUNCTION(e_error, LOG_ERR)
 E_FUNCTION(e_warning, LOG_WARNING)
-E_FUNCTION(e_notice,  LOG_NOTICE)
-E_FUNCTION(e_info,    LOG_INFO)
-E_FUNCTION(e_debug,   LOG_DEBUG)
+E_FUNCTION(e_notice, LOG_NOTICE)
+E_FUNCTION(e_info, LOG_INFO)
+E_FUNCTION(e_debug, LOG_DEBUG)
 
 #undef E_FUNCTION
 
-__attr_printf__(2, 0)
-static void e_handler(const log_ctx_t *ctx, const char *fmt, va_list va)
+__attr_printf__(2, 0) static void e_handler(
+    const log_ctx_t *ctx, const char *fmt, va_list va
+)
 {
     if (ctx->level >= LOG_TRACE) {
         (*log_stderr_handler_g)(ctx, fmt, va);
@@ -1102,19 +1142,21 @@ int e_is_traced_(int lvl, lstr_t modname, lstr_t func, lstr_t name)
     return __logger_is_traced(logger, lvl, modname, func, name);
 }
 
-void e_trace_put_(int level, lstr_t module, int lno,
-                  lstr_t func, lstr_t name, const char *fmt, ...)
+void e_trace_put_(
+    int level, lstr_t module, int lno, lstr_t func, lstr_t name,
+    const char *fmt, ...
+)
 {
     va_list ap;
     log_ctx_t ctx = {
         .logger_name = name,
-        .level       = LOG_TRACE + level,
-        .file        = module,
-        .func        = func,
-        .line        = lno,
-        .pid         = _G.pid,
-        .prog_name   = LSTR(program_invocation_short_name),
-        .is_silent   = false,
+        .level = LOG_TRACE + level,
+        .file = module,
+        .func = func,
+        .line = lno,
+        .pid = _G.pid,
+        .prog_name = LSTR(program_invocation_short_name),
+        .is_silent = false,
     };
 
     va_start(ap, fmt);
@@ -1138,8 +1180,10 @@ static void log_initialize_thread(void)
         sb_init(&log_thr_g.log);
         sb_init(&log_thr_g.buf);
 
-        mem_stack_pool_init(&log_thr_g.mp_stack, "log", 16 << 10,
-                            MEM_DISABLE_POOL_LEAK_DETECTION);
+        mem_stack_pool_init(
+            &log_thr_g.mp_stack, "log", 16 << 10,
+            MEM_DISABLE_POOL_LEAK_DETECTION
+        );
 
         qv_init(&log_thr_g.vec_buff_stack);
 
@@ -1194,17 +1238,17 @@ void log_parse_specs(char *p, qv_t(spec) *out)
         spec_ps = ps_get_cspan(&ps, &ctype_isspace);
         ps_skip_span(&ps, &ctype_isspace);
 
-#define GET_ELEM(_dst)  \
-        do {                                                                 \
-            pstream_t elem = ps_get_cspan(&spec_ps, &ctype);                 \
+#define GET_ELEM(_dst)                                                       \
+    do {                                                                     \
+        pstream_t elem = ps_get_cspan(&spec_ps, &ctype);                     \
                                                                              \
-            if (ps_len(&elem)) {                                             \
-                _dst = elem.s;                                               \
-            }                                                                \
-            c = *spec_ps.s;                                                  \
-            *(char *)spec_ps.s = '\0';                                       \
-            ps_skip(&spec_ps, 1);                                            \
-        } while (0)
+        if (ps_len(&elem)) {                                                 \
+            _dst = elem.s;                                                   \
+        }                                                                    \
+        c = *spec_ps.s;                                                      \
+        *(char *)spec_ps.s = '\0';                                           \
+        ps_skip(&spec_ps, 1);                                                \
+    } while (0)
 
         GET_ELEM(spec.path);
         if (c == '@') {
@@ -1232,20 +1276,21 @@ qv_t(spec) *log_get_specs(void)
     return &_G.specs;
 }
 
-static int log_initialize(void* args)
+static int log_initialize(void *args)
 {
     char *env;
 
     qv_init(&_G.specs);
     _G.fancy = is_fancy_fd(STDERR_FILENO);
-    _G.pid   = getpid();
+    _G.pid = getpid();
     log_stderr_handler_g = &log_stderr_raw_handler;
     if (_G.fancy) {
         term_get_size(&_G.cols, &_G.rows);
         signal(SIGWINCH, &on_sigwinch);
         log_stderr_handler_g = &log_stderr_fancy_handler;
         _G.fancy_len = log_make_fancy_prefix(
-            LSTR(program_invocation_short_name), _G.pid, _G.fancy_prefix);
+            LSTR(program_invocation_short_name), _G.pid, _G.fancy_prefix
+        );
     }
 
     _G.handler = log_stderr_handler_g;
@@ -1281,8 +1326,7 @@ static int log_shutdown(void)
 
 module_t *log_module_g;
 
-__attribute__((constructor))
-void log_module_register(void)
+__attribute__((constructor)) void log_module_register(void)
 {
     if (log_module_g) {
         return;
@@ -1290,11 +1334,13 @@ void log_module_register(void)
 
     thr_hooks_register();
     iop_module_register();
-    log_module_g = module_implement(MODULE(log), &log_initialize,
-                                    &log_shutdown, MODULE(iop));
+    log_module_g = module_implement(
+        MODULE(log), &log_initialize, &log_shutdown, MODULE(iop)
+    );
     module_add_dep(log_module_g, MODULE(thr_hooks));
     module_implement_method_void_no_custom_data(
-        log_module_g, &at_fork_on_child_method, &log_atfork);
+        log_module_g, &at_fork_on_child_method, &log_atfork
+    );
 
 #ifdef MEM_BENCH
     mem_bench_require();

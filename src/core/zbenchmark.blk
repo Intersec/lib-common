@@ -24,8 +24,10 @@
 
 /* {{{ Types */
 
-qm_kptr_ckey_t(zbenchmark_group, char, zbenchmark_group_t *, qhash_str_hash,
-               qhash_str_equal);
+qm_kptr_ckey_t(
+    zbenchmark_group, char, zbenchmark_group_t *, qhash_str_hash,
+    qhash_str_equal
+);
 
 /* }}} */
 
@@ -34,12 +36,12 @@ static struct {
     qm_t(zbenchmark_group) groups;
     zbenchmark_group_t *current_group;
 } zbenchmark_g = {
-#define _G  zbenchmark_g
+#define _G zbenchmark_g
     .logger = LOGGER_INIT_INHERITS(NULL, "zbenchmark"),
     .groups = QM_INIT(zbenchmark_group, _G.groups),
 };
 
-#define DEFAULT_NB_RUNS  100
+#define DEFAULT_NB_RUNS 100
 
 static struct {
     bool help;
@@ -52,10 +54,14 @@ static struct {
 
 static popt_t popts[] = {
     OPT_FLAG('h', "help", &settings.help, "show this help"),
-    OPT_INT('n', "nb_runs", &settings.nb_runs,
-            "number of executions for each benchmark (default 100)"),
-    OPT_STR('t', "test", &settings.test,
-            "tests or groups to run (is unset, all tests are ran)"),
+    OPT_INT(
+        'n', "nb_runs", &settings.nb_runs,
+        "number of executions for each benchmark (default 100)"
+    ),
+    OPT_STR(
+        't', "test", &settings.test,
+        "tests or groups to run (is unset, all tests are ran)"
+    ),
     OPT_FLAG('v', "verbose", &settings.verbose, "print all measures"),
     OPT_END(),
 };
@@ -65,13 +71,18 @@ static popt_t popts[] = {
 void _zbenchmark_register_group(zbenchmark_group_t *group)
 {
     if (qm_add(zbenchmark_group, &_G.groups, group->name, group) < 0) {
-        logger_panic(&_G.logger, "zbenchmark group `%s` is already "
-                     "registered", group->name);
+        logger_panic(
+            &_G.logger,
+            "zbenchmark group `%s` is already "
+            "registered",
+            group->name
+        );
     }
 }
 
-bool _zbenchmark_should_run(const zbenchmark_group_t *group,
-                            const zbenchmark_t *bench)
+bool _zbenchmark_should_run(
+    const zbenchmark_group_t *group, const zbenchmark_t *bench
+)
 {
     t_scope;
     lstr_t test_fullname;
@@ -92,8 +103,9 @@ bool _zbenchmark_should_run(const zbenchmark_group_t *group,
     return false;
 }
 
-int _zbenchmark_get_nb_runs(const zbenchmark_group_t *group,
-                            const zbenchmark_t *bench)
+int _zbenchmark_get_nb_runs(
+    const zbenchmark_group_t *group, const zbenchmark_t *bench
+)
 {
     return settings.nb_runs;
 }
@@ -103,24 +115,29 @@ bool _zbenchmark_is_verbose(void)
     return settings.verbose;
 }
 
-void _zbenchmark_print_measure(const zbenchmark_group_t *group,
-                               const zbenchmark_t *bench,
-                               const proctimer_t *pt)
+void _zbenchmark_print_measure(
+    const zbenchmark_group_t *group, const zbenchmark_t *bench,
+    const proctimer_t *pt
+)
 {
-    printf("%s.%s;%u;%u;%u;%u;%ld\n", group->name, bench->name,
-           pt->elapsed_real, pt->elapsed_proc, pt->elapsed_user,
-           pt->elapsed_sys, pt->elapsed_hard);
+    printf(
+        "%s.%s;%u;%u;%u;%u;%ld\n", group->name, bench->name, pt->elapsed_real,
+        pt->elapsed_proc, pt->elapsed_user, pt->elapsed_sys, pt->elapsed_hard
+    );
 }
 
-void _zbenchmark_print_stats(const zbenchmark_group_t *group,
-                             const zbenchmark_t *bench,
-                             proctimerstat_t *stats)
+void _zbenchmark_print_stats(
+    const zbenchmark_group_t *group, const zbenchmark_t *bench,
+    proctimerstat_t *stats
+)
 {
     if (settings.verbose) {
         return;
     }
-    printf("%s.%s;%s\n", group->name, bench->name,
-           proctimerstat_report(stats, "%n;%r;%p;%u;%s;%h"));
+    printf(
+        "%s.%s;%s\n", group->name, bench->name,
+        proctimerstat_report(stats, "%n;%r;%p;%u;%s;%h")
+    );
 }
 
 /* }}} */

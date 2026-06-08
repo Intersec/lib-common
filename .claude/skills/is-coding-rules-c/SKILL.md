@@ -5,14 +5,6 @@ description: C/blk coding rules for the Intersec codebase. Load before writing o
 
 # Intersec C Coding Rules
 
-## Formatting
-
-- 4 spaces, no tabs. **78-column limit.**
-- Opening brace same line for control flow, next line for functions.
-- Always use braces, even for single-statement blocks.
-- Pointer asterisk on the variable: `char *ptr` not `char* ptr`.
-- **Comments: `/* */` only — never `//`.**
-
 ## Error-handling macros (`core/macros.h`)
 
 ```c

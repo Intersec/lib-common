@@ -39,8 +39,9 @@ struct {
 
 /* {{{ IOP env testing helpers */
 
-static int z_dso_open(const char *dso_path, bool in_cmddir,
-                      iop_env_t *iop_env, iop_dso_t **dsop)
+static int z_dso_open(
+    const char *dso_path, bool in_cmddir, iop_env_t *iop_env, iop_dso_t **dsop
+)
 {
     t_scope;
     SB_1k(err);
@@ -51,8 +52,7 @@ static int z_dso_open(const char *dso_path, bool in_cmddir,
         path = t_lstr_cat(z_cmddir_g, path);
     }
     dso = iop_dso_open(iop_env, path.s, &err);
-    Z_ASSERT_P(dso, "unable to load `%s`: %*pM",
-               path.s, SB_FMT_ARG(&err));
+    Z_ASSERT_P(dso, "unable to load `%s`: %*pM", path.s, SB_FMT_ARG(&err));
 
     *dsop = dso;
     Z_HELPER_END;
@@ -103,8 +103,9 @@ static void *z_iop_stress_reader_loop(void *arg)
          * writer's current state; both outcomes are fine, we only care
          * that no UB occurs. */
         qm_find_safe(iop_env_struct, &ctx->struct_by_fullname, &key);
-        atomic_fetch_add_explicit(&sc->reader_lookups, 1,
-                                  memory_order_relaxed);
+        atomic_fetch_add_explicit(
+            &sc->reader_lookups, 1, memory_order_relaxed
+        );
 
         if (atomic_load_explicit(&sc->stop, memory_order_acquire)) {
             break;
@@ -118,12 +119,10 @@ static void *z_iop_stress_reader_loop(void *arg)
 Z_GROUP_EXPORT(iop_env)
 {
     _G.iop_env = iop_env_new();
-    IOP_REGISTER_PACKAGES(_G.iop_env,
-                          &tstiop__pkg,
-                          &tstiop_dox__pkg,
-                          &tstiop_inheritance__pkg,
-                          &tstiop_backward_compat__pkg,
-                          &tstiop_typedef__pkg);
+    IOP_REGISTER_PACKAGES(
+        _G.iop_env, &tstiop__pkg, &tstiop_dox__pkg, &tstiop_inheritance__pkg,
+        &tstiop_backward_compat__pkg, &tstiop_typedef__pkg
+    );
 
     Z_TEST(getter, "environment object getters") { /* {{{ */
         iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
@@ -138,92 +137,144 @@ Z_GROUP_EXPORT(iop_env)
 
         /* Struct */
         name = tstiop__my_struct_a__s.fullname;
-        Z_ASSERT_P((st = iop_env_ctx_get_struct(iop_env_ctx, name)),
-                   "cannot find struct obj `%pL'", &name);
-        Z_ASSERT(st == &tstiop__my_struct_a__s,
-                 "wrong iop_struct_t (got `%pL')", &st->fullname);
+        Z_ASSERT_P(
+            (st = iop_env_ctx_get_struct(iop_env_ctx, name)),
+            "cannot find struct obj `%pL'", &name
+        );
+        Z_ASSERT(
+            st == &tstiop__my_struct_a__s, "wrong iop_struct_t (got `%pL')",
+            &st->fullname
+        );
 
-        Z_ASSERT_NULL(iop_env_ctx_get_enum(iop_env_ctx, name),
-                      "`%pL' is not an enum", &name);
-        Z_ASSERT_NULL(iop_get_class_by_fullname(iop_env_ctx,
-                                                &tstiop__my_class1__s, name),
-                      "`%pL' is not a class", &name);
+        Z_ASSERT_NULL(
+            iop_env_ctx_get_enum(iop_env_ctx, name), "`%pL' is not an enum",
+            &name
+        );
+        Z_ASSERT_NULL(
+            iop_get_class_by_fullname(
+                iop_env_ctx, &tstiop__my_class1__s, name
+            ),
+            "`%pL' is not a class", &name
+        );
 
         /* Enum */
         name = tstiop__my_enum_c__e.fullname;
-        Z_ASSERT_P((en = iop_env_ctx_get_enum(iop_env_ctx, name)),
-                   "cannot find enum obj `%pL'", &name);
-        Z_ASSERT(en == &tstiop__my_enum_c__e,
-                 "wrong iop_enum_t (got `%pL')", &en->fullname);
+        Z_ASSERT_P(
+            (en = iop_env_ctx_get_enum(iop_env_ctx, name)),
+            "cannot find enum obj `%pL'", &name
+        );
+        Z_ASSERT(
+            en == &tstiop__my_enum_c__e, "wrong iop_enum_t (got `%pL')",
+            &en->fullname
+        );
 
         /* Class */
         name = tstiop__my_class3__s.fullname;
-        Z_ASSERT_P((cls = iop_env_ctx_get_struct(iop_env_ctx, name)),
-                   "cannot find class obj `%pL'", &name);
-        Z_ASSERT(cls == &tstiop__my_class3__s,
-                 "wrong iop_struct_t (got `%pL')", &cls->fullname);
+        Z_ASSERT_P(
+            (cls = iop_env_ctx_get_struct(iop_env_ctx, name)),
+            "cannot find class obj `%pL'", &name
+        );
+        Z_ASSERT(
+            cls == &tstiop__my_class3__s, "wrong iop_struct_t (got `%pL')",
+            &cls->fullname
+        );
 
-        cls = iop_get_class_by_fullname(iop_env_ctx, &tstiop__my_class1__s,
-                                        name);
+        cls = iop_get_class_by_fullname(
+            iop_env_ctx, &tstiop__my_class1__s, name
+        );
         Z_ASSERT_P(cls, "cannot find class `%pL'", &name);
-        Z_ASSERT(cls == &tstiop__my_class3__s,
-                 "wrong IOP class (got `%pL')", &cls->fullname);
+        Z_ASSERT(
+            cls == &tstiop__my_class3__s, "wrong IOP class (got `%pL')",
+            &cls->fullname
+        );
 
-        cls = iop_get_class_by_id(iop_env_ctx, &tstiop__my_class1__s,
-                                  tstiop__my_class3__s.class_attrs->class_id);
+        cls = iop_get_class_by_id(
+            iop_env_ctx, &tstiop__my_class1__s,
+            tstiop__my_class3__s.class_attrs->class_id
+        );
         Z_ASSERT_P(cls, "cannot find class `%pL' from ID", &name);
-        Z_ASSERT(cls == &tstiop__my_class3__s, "wrong IOP class (got `%pL')",
-                 &cls->fullname);
+        Z_ASSERT(
+            cls == &tstiop__my_class3__s, "wrong IOP class (got `%pL')",
+            &cls->fullname
+        );
 
         /* Typedef */
         /* tstiop_void_type package is registered with tstiop package since
          * tstiop_void_type.VoidRequired is referenced by tstiop.VoidPkgRef.
          */
         name = tstiop_void_type__void_required__s.fullname;
-        Z_ASSERT_P((st = iop_env_ctx_get_struct(iop_env_ctx, name)),
-                   "cannot find struct obj `%pL'", &name);
-        Z_ASSERT(st == &tstiop_void_type__void_required__s,
-                 "wrong iop_struct_t (got `%pL')", &st->fullname);
+        Z_ASSERT_P(
+            (st = iop_env_ctx_get_struct(iop_env_ctx, name)),
+            "cannot find struct obj `%pL'", &name
+        );
+        Z_ASSERT(
+            st == &tstiop_void_type__void_required__s,
+            "wrong iop_struct_t (got `%pL')", &st->fullname
+        );
 
         name = tstiop__small_class_typedef__td.fullname;
-        Z_ASSERT_P((td = iop_env_ctx_get_typedef(iop_env_ctx, name)),
-                   "cannot find typedef obj `%pL'", &name);
-        Z_ASSERT(td == &tstiop__small_class_typedef__td,
-                 "wrong iop_typedef_t (got `%pL')", &td->fullname);
+        Z_ASSERT_P(
+            (td = iop_env_ctx_get_typedef(iop_env_ctx, name)),
+            "cannot find typedef obj `%pL'", &name
+        );
+        Z_ASSERT(
+            td == &tstiop__small_class_typedef__td,
+            "wrong iop_typedef_t (got `%pL')", &td->fullname
+        );
 
         /* Interface */
         name = tstiop__my_iface_a__if.fullname;
-        Z_ASSERT_P((iface = iop_env_ctx_get_iface(iop_env_ctx, name)),
-                   "cannot find iface obj `%pL'", &name);
-        Z_ASSERT(iface == &tstiop__my_iface_a__if,
-                 "wrong iop_iface_t (got `%pL')", &iface->fullname);
+        Z_ASSERT_P(
+            (iface = iop_env_ctx_get_iface(iop_env_ctx, name)),
+            "cannot find iface obj `%pL'", &name
+        );
+        Z_ASSERT(
+            iface == &tstiop__my_iface_a__if, "wrong iop_iface_t (got `%pL')",
+            &iface->fullname
+        );
 
         /* Module */
         name = tstiop__my_mod_a__mod.fullname;
-        Z_ASSERT_P((mod = iop_env_ctx_get_mod(iop_env_ctx, name)),
-                   "cannot find mod obj `%pL'", &name);
-        Z_ASSERT(mod == &tstiop__my_mod_a__mod,
-                 "wrong iop_mod_t (got `%pL')", &mod->fullname);
+        Z_ASSERT_P(
+            (mod = iop_env_ctx_get_mod(iop_env_ctx, name)),
+            "cannot find mod obj `%pL'", &name
+        );
+        Z_ASSERT(
+            mod == &tstiop__my_mod_a__mod, "wrong iop_mod_t (got `%pL')",
+            &mod->fullname
+        );
 
         /* Package */
         name = tstiop__pkg.name;
-        Z_ASSERT_P((pkg = iop_env_ctx_get_pkg(iop_env_ctx, name)),
-                   "cannot find pkg obj `%pL'", &name);
-        Z_ASSERT(pkg == &tstiop__pkg,
-                 "wrong iop_pkg_t (got `%pL')", &pkg->name);
+        Z_ASSERT_P(
+            (pkg = iop_env_ctx_get_pkg(iop_env_ctx, name)),
+            "cannot find pkg obj `%pL'", &name
+        );
+        Z_ASSERT(
+            pkg == &tstiop__pkg, "wrong iop_pkg_t (got `%pL')", &pkg->name
+        );
 
         /* Test same name between IOP struct and interface. */
         name = tstiop__obj_same_name__s.fullname;
-        Z_ASSERT_P((st = iop_env_ctx_get_struct(iop_env_ctx, name)),
-                   "cannot find struct obj `%pL'", &name);
-        Z_ASSERT(st == &tstiop__obj_same_name__s,
-                 "wrong iop_struct_t (got `%pL')", &st->fullname);
+        Z_ASSERT_P(
+            (st = iop_env_ctx_get_struct(iop_env_ctx, name)),
+            "cannot find struct obj `%pL'", &name
+        );
+        Z_ASSERT(
+            st == &tstiop__obj_same_name__s, "wrong iop_struct_t (got `%pL')",
+            &st->fullname
+        );
 
-        Z_ASSERT_P((iface = iop_env_ctx_get_iface(iop_env_ctx, name)),
-                   "cannot find iface obj `%pL'", &name);
-        Z_ASSERT(iface == &tstiop__obj_same_name__if,
-                 "wrong iop_iface_t (got `%pL')", &iface->fullname);
-    } Z_TEST_END;
+        Z_ASSERT_P(
+            (iface = iop_env_ctx_get_iface(iop_env_ctx, name)),
+            "cannot find iface obj `%pL'", &name
+        );
+        Z_ASSERT(
+            iface == &tstiop__obj_same_name__if,
+            "wrong iop_iface_t (got `%pL')", &iface->fullname
+        );
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(isolation, "test IOP environment isolation") { /* {{{ */
         iop_env_t *iop_env_tstiop;
@@ -241,15 +292,18 @@ Z_GROUP_EXPORT(iop_env)
         /* Open the DSOs in their respective envionments */
         Z_HELPER_RUN(z_dso_open(
             "iop/zchk-tstiop-plugin" SO_FILEEXT, true, iop_env_tstiop,
-            &dso_tstiop));
+            &dso_tstiop
+        ));
         Z_HELPER_RUN(z_dso_open(
             "iop/backward-compat/old/zchk-tstiop-backward-"
-            "compat-typedef-old" SO_FILEEXT, true, iop_env_backward_old,
-            &dso_backward_old));
+            "compat-typedef-old" SO_FILEEXT,
+            true, iop_env_backward_old, &dso_backward_old
+        ));
         Z_HELPER_RUN(z_dso_open(
             "iop/backward-compat/new/zchk-tstiop-backward-"
-            "compat-typedef-new" SO_FILEEXT, true, iop_env_backward_new,
-            &dso_backward_new));
+            "compat-typedef-new" SO_FILEEXT,
+            true, iop_env_backward_new, &dso_backward_new
+        ));
 
         {
             const iop_struct_t *st1;
@@ -261,54 +315,81 @@ Z_GROUP_EXPORT(iop_env)
             iop_env_ctx_scope(iop_env_backward_new, ctx_backward_new);
 
             /* Check IOP obj between global zchk env and tstiop DSO env */
-            st1 = iop_env_ctx_get_struct(iop_env_ctx,
-                                         LSTR("tstiop.MyClass1"));
+            st1 =
+                iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.MyClass1"));
             st2 = iop_env_ctx_get_struct(ctx_tstiop, LSTR("tstiop.MyClass1"));
             Z_ASSERT_P(st1, "`tstiop.MyClass1` should exist in zchk IOP env");
-            Z_ASSERT(st1 == &tstiop__my_class1__s,
-                     "`tstiop.MyClass1` should be taken from the compiled "
-                     "zchk IOP env");
-            Z_ASSERT_P(st2, "`tstiop.MyClass1` should exist in tstiop DSO "
-                       "IOP env");
-            Z_ASSERT(st1 != st2, "`tstiop.MyClass1` should be different "
-                     "between the zchk IOP env and the tstiop DSO IOP env");
+            Z_ASSERT(
+                st1 == &tstiop__my_class1__s,
+                "`tstiop.MyClass1` should be taken from the compiled "
+                "zchk IOP env"
+            );
+            Z_ASSERT_P(
+                st2, "`tstiop.MyClass1` should exist in tstiop DSO "
+                     "IOP env"
+            );
+            Z_ASSERT(
+                st1 != st2,
+                "`tstiop.MyClass1` should be different "
+                "between the zchk IOP env and the tstiop DSO IOP env"
+            );
 
             /* Check IOP obj between backward compat IOP DSO */
             st1 = iop_env_ctx_get_struct(
                 ctx_backward_old,
-                LSTR("tstiop_backward_compat_typedef.MyClass1"));
+                LSTR("tstiop_backward_compat_typedef.MyClass1")
+            );
             st2 = iop_env_ctx_get_struct(
                 ctx_backward_new,
-                LSTR("tstiop_backward_compat_typedef.MyClass1"));
-            Z_ASSERT_P(st1, "`tstiop_backward_compat_typedef.MyClass1` "
-                       "should exist in backward old DSO IOP env");
-            Z_ASSERT_P(st2, "`tstiop_backward_compat_typedef.MyClass1` "
-                       "should exist in backward new DSO IOP env");
-            Z_ASSERT(st1 != st2, "`tstiop_backward_compat_typedef.MyClass1` "
-                     "should be different between backward old and new DSO "
-                     "IOP env");
+                LSTR("tstiop_backward_compat_typedef.MyClass1")
+            );
+            Z_ASSERT_P(
+                st1, "`tstiop_backward_compat_typedef.MyClass1` "
+                     "should exist in backward old DSO IOP env"
+            );
+            Z_ASSERT_P(
+                st2, "`tstiop_backward_compat_typedef.MyClass1` "
+                     "should exist in backward new DSO IOP env"
+            );
+            Z_ASSERT(
+                st1 != st2,
+                "`tstiop_backward_compat_typedef.MyClass1` "
+                "should be different between backward old and new DSO "
+                "IOP env"
+            );
 
             /* Check no contaminations of other IOP envs */
             st1 = iop_env_ctx_get_struct(
-                iop_env_ctx, LSTR("tstiop_backward_compat_typedef.MyClass1"));
-            Z_ASSERT_NULL(st1, "`tstiop_backward_compat_typedef.MyClass1` "
-                       "should not exist in zchk IOP env");
+                iop_env_ctx, LSTR("tstiop_backward_compat_typedef.MyClass1")
+            );
+            Z_ASSERT_NULL(
+                st1, "`tstiop_backward_compat_typedef.MyClass1` "
+                     "should not exist in zchk IOP env"
+            );
 
             st1 = iop_env_ctx_get_struct(
-                ctx_tstiop,
-                LSTR("tstiop_backward_compat_typedef.MyClass1"));
-            Z_ASSERT_NULL(st1, "`tstiop_backward_compat_typedef.MyClass1` "
-                       "should not exist in tstiop DSO IOP env");
+                ctx_tstiop, LSTR("tstiop_backward_compat_typedef.MyClass1")
+            );
+            Z_ASSERT_NULL(
+                st1, "`tstiop_backward_compat_typedef.MyClass1` "
+                     "should not exist in tstiop DSO IOP env"
+            );
 
             st1 = iop_env_ctx_get_struct(
-                ctx_backward_old, LSTR("tstiop.MyClass1"));
-            Z_ASSERT_NULL(st1, "`tstiop.MyClass1` should not exist in "
-                          "backward old DSO IOP env");
+                ctx_backward_old, LSTR("tstiop.MyClass1")
+            );
+            Z_ASSERT_NULL(
+                st1, "`tstiop.MyClass1` should not exist in "
+                     "backward old DSO IOP env"
+            );
 
             st1 = iop_env_ctx_get_struct(
-                ctx_backward_new, LSTR("tstiop.MyClass1"));
-            Z_ASSERT_NULL(st1, "`tstiop.MyClass1` should not exist in "
-                          "backward new DSO IOP env");
+                ctx_backward_new, LSTR("tstiop.MyClass1")
+            );
+            Z_ASSERT_NULL(
+                st1, "`tstiop.MyClass1` should not exist in "
+                     "backward new DSO IOP env"
+            );
         }
 
         /* Cleanup */
@@ -318,10 +399,14 @@ Z_GROUP_EXPORT(iop_env)
         iop_env_delete(&iop_env_backward_old);
         iop_env_delete(&iop_env_backward_new);
         iop_env_delete(&iop_env_tstiop);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     /* }}} */
-    Z_TEST(iop_dso_unregister, "test IOP DSO unregister do not pollute the IOP env") { /* {{{ */
+    Z_TEST(
+        iop_dso_unregister,
+        "test IOP DSO unregister do not pollute the IOP env"
+    ) { /* {{{ */
         iop_env_t *iop_env;
         iop_dso_t *dso_backward_old;
         iop_dso_t *dso_backward_new;
@@ -332,8 +417,9 @@ Z_GROUP_EXPORT(iop_env)
         /* Open the old DSO */
         Z_HELPER_RUN(z_dso_open(
             "iop/backward-compat/old/zchk-tstiop-backward-"
-            "compat-typedef-old" SO_FILEEXT, true, iop_env,
-            &dso_backward_old));
+            "compat-typedef-old" SO_FILEEXT,
+            true, iop_env, &dso_backward_old
+        ));
 
         /* Close the old DSO */
         iop_dso_close(&dso_backward_old);
@@ -344,8 +430,9 @@ Z_GROUP_EXPORT(iop_env)
         /* Open the new DSO, this should not conflict with the old DSO */
         Z_HELPER_RUN(z_dso_open(
             "iop/backward-compat/new/zchk-tstiop-backward-"
-            "compat-typedef-new" SO_FILEEXT, true, iop_env,
-            &dso_backward_new));
+            "compat-typedef-new" SO_FILEEXT,
+            true, iop_env, &dso_backward_new
+        ));
 
         /* Close the new DSO */
         iop_dso_close(&dso_backward_new);
@@ -355,7 +442,8 @@ Z_GROUP_EXPORT(iop_env)
 
         /* Clean up the env */
         iop_env_delete(&iop_env);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(iop_env_concurrent_ctx_swap) { /* {{{ */
         /* Stress the arc-swap'd ctx with a DSO-backed package: one writer
@@ -381,14 +469,18 @@ Z_GROUP_EXPORT(iop_env)
         /* Load a DSO-backed package so the env's ctx maps a DSO (populating
          * dso_by_pkg); this is what makes the readers exercise the DSO
          * refcount, not just the ctx ArcSwap. */
-        Z_HELPER_RUN(z_dso_open("iop/zchk-tstiop-plugin" SO_FILEEXT, true,
-                                stress.iop_env, &dso));
+        Z_HELPER_RUN(z_dso_open(
+            "iop/zchk-tstiop-plugin" SO_FILEEXT, true, stress.iop_env, &dso
+        ));
 
         /* Spawn readers. */
         for (int i = 0; i < Z_IOP_STRESS_N_READERS; i++) {
-            Z_ASSERT_EQ(pthread_create(&readers[i], NULL,
-                                       z_iop_stress_reader_loop, &stress),
-                        0);
+            Z_ASSERT_EQ(
+                pthread_create(
+                    &readers[i], NULL, z_iop_stress_reader_loop, &stress
+                ),
+                0
+            );
         }
 
         /* Writer loop on the main thread: toggle the DSO's packages in and
@@ -416,19 +508,24 @@ Z_GROUP_EXPORT(iop_env)
         /* Sanity: readers must have done at least one lookup each — if
          * the loop body short-circuited (e.g. ctx_acquire returned an
          * invalid pointer leading to a quick break), we'd see 0. */
-        Z_ASSERT_GE(atomic_load_explicit(&stress.reader_lookups,
-                                         memory_order_relaxed),
-                    Z_IOP_STRESS_N_READERS);
+        Z_ASSERT_GE(
+            atomic_load_explicit(
+                &stress.reader_lookups, memory_order_relaxed
+            ),
+            Z_IOP_STRESS_N_READERS
+        );
 
         /* No correctness check beyond "no crash / no UB": the point of this
          * test is to exercise the arc-swap reader/writer paths and the DSO
          * refcount concurrently. */
 
         iop_env_delete(&stress.iop_env);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
 
     iop_env_delete(&_G.iop_env);
-} Z_GROUP_END
+}
+Z_GROUP_END
 
 /* LCOV_EXCL_STOP */

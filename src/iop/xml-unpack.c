@@ -23,25 +23,26 @@
 
 static __thread qm_t(part) *parts_g;
 
-static int
-xunpack_struct(xml_reader_t xr, mem_pool_t *mp,
-               const iop_env_ctx_t *iop_env_ctx,
-               const iop_struct_t *desc, void *value, int flags);
-static int
-xunpack_class(xml_reader_t xr, mem_pool_t *mp,
-              const iop_env_ctx_t *iop_env_ctx,
-              const iop_struct_t *desc, void **value, int flags);
-static int
-xunpack_union(xml_reader_t xr, mem_pool_t *mp,
-              const iop_env_ctx_t *iop_env_ctx,
-              const iop_struct_t *desc, void *value, int flags);
+static int xunpack_struct(
+    xml_reader_t xr, mem_pool_t *mp, const iop_env_ctx_t *iop_env_ctx,
+    const iop_struct_t *desc, void *value, int flags
+);
+static int xunpack_class(
+    xml_reader_t xr, mem_pool_t *mp, const iop_env_ctx_t *iop_env_ctx,
+    const iop_struct_t *desc, void **value, int flags
+);
+static int xunpack_union(
+    xml_reader_t xr, mem_pool_t *mp, const iop_env_ctx_t *iop_env_ctx,
+    const iop_struct_t *desc, void *value, int flags
+);
 
 static int parse_int(xml_reader_t xr, const char *s, int64_t *i64p)
 {
     errno = 0;
     *i64p = strtoll(s, &s, 0);
-    if (unlikely(skipspaces(s)[0] || errno))
+    if (unlikely(skipspaces(s)[0] || errno)) {
         return xmlr_fail(xr, "node value is not a valid integer");
+    }
     return 0;
 }
 
@@ -57,20 +58,24 @@ static int get_part_from_href(xml_reader_t xr, xmlAttrPtr *attr, lstr_t *part)
     pstream_t ps;
     int pos;
 
-    if (!parts_g)
+    if (!parts_g) {
         return xmlr_fail(xr, "found href attribute with no message parts");
+    }
 
-    if (t_xmlr_getattr_str(xr, *attr, false, &href) < 0)
+    if (t_xmlr_getattr_str(xr, *attr, false, &href) < 0) {
         return xmlr_fail(xr, "failed to read href");
+    }
 
     ps = ps_initlstr(&href);
-    if (ps_skipstr(&ps, "cid:") < 0)
+    if (ps_skipstr(&ps, "cid:") < 0) {
         return xmlr_fail(xr, "failed to parse href");
+    }
 
     cid = LSTR_INIT_V(ps.s, ps_len(&ps));
     pos = qm_find(part, parts_g, &cid);
-    if (pos < 0)
+    if (pos < 0) {
         return xmlr_fail(xr, "unknown cid in href");
+    }
 
     *part = parts_g->values[pos];
     return 0;
@@ -115,9 +120,9 @@ static int get_text(xml_reader_t xr, mem_pool_t *mp, bool b64, lstr_t *str)
         if (!b64) {
             *str = mp_lstr_dup(mp, *str);
         } else {
-            sb_t  sb;
-            int   blen = DIV_ROUND_UP(str->len * 3, 4);
-            char *buf  = mp_new_raw(mp, char, blen + 1);
+            sb_t sb;
+            int blen = DIV_ROUND_UP(str->len * 3, 4);
+            char *buf = mp_new_raw(mp, char, blen + 1);
 
             sb_init_full(&sb, buf, 0, blen + 1, &mem_pool_static);
             if (sb_add_unb64(&sb, str->s, str->len)) {
@@ -131,8 +136,8 @@ static int get_text(xml_reader_t xr, mem_pool_t *mp, bool b64, lstr_t *str)
     return 0;
 }
 
-static int get_enum_value(xml_reader_t xr, const iop_enum_t *en_desc,
-                          int64_t *intval)
+static int
+get_enum_value(xml_reader_t xr, const iop_enum_t *en_desc, int64_t *intval)
 {
     lstr_t xval;
     bool found = false;
@@ -148,92 +153,95 @@ static int get_enum_value(xml_reader_t xr, const iop_enum_t *en_desc,
     return 0;
 }
 
-static int xunpack_value(xml_reader_t xr, mem_pool_t *mp,
-                         const iop_env_ctx_t *iop_env_ctx,
-                         const iop_field_t *fdesc, void *v, int flags)
+static int xunpack_value(
+    xml_reader_t xr, mem_pool_t *mp, const iop_env_ctx_t *iop_env_ctx,
+    const iop_field_t *fdesc, void *v, int flags
+)
 {
     int64_t intval = 0;
     uint64_t uintval = 0;
     lstr_t *str = NULL;
 
     switch (fdesc->type) {
-#define CHECK_RANGE(_min, _max)  \
-        THROW_ERR_IF(intval < _min || intval > _max)
+#define CHECK_RANGE(_min, _max) THROW_ERR_IF(intval<_min || intval> _max)
 
-      case IOP_T_I8:
+    case IOP_T_I8:
         RETHROW(xmlr_get_i64_base(xr, 0, &intval));
         CHECK_RANGE(INT8_MIN, INT8_MAX);
         *(int8_t *)v = intval;
         break;
-      case IOP_T_U8:
+    case IOP_T_U8:
         RETHROW(xmlr_get_i64_base(xr, 0, &intval));
         CHECK_RANGE(0, UINT8_MAX);
         *(uint8_t *)v = intval;
         break;
-      case IOP_T_I16:
+    case IOP_T_I16:
         RETHROW(xmlr_get_i64_base(xr, 0, &intval));
         CHECK_RANGE(INT16_MIN, INT16_MAX);
         *(int16_t *)v = intval;
         break;
-      case IOP_T_U16:
+    case IOP_T_U16:
         RETHROW(xmlr_get_i64_base(xr, 0, &intval));
         CHECK_RANGE(0, UINT16_MAX);
         *(uint16_t *)v = intval;
         break;
-      case IOP_T_I32:
+    case IOP_T_I32:
         RETHROW(xmlr_get_i64_base(xr, 0, &intval));
         CHECK_RANGE(INT32_MIN, INT32_MAX);
         *(int32_t *)v = intval;
         break;
-      case IOP_T_U32:
+    case IOP_T_U32:
         RETHROW(xmlr_get_i64_base(xr, 0, &intval));
         CHECK_RANGE(0, UINT32_MAX);
         *(uint32_t *)v = intval;
         break;
-      case IOP_T_I64:
+    case IOP_T_I64:
         RETHROW(xmlr_get_i64_base(xr, 0, &intval));
         *(int64_t *)v = intval;
         break;
-      case IOP_T_U64:
+    case IOP_T_U64:
         RETHROW(xmlr_get_u64_base(xr, 0, &uintval));
         *(uint64_t *)v = uintval;
         break;
-      case IOP_T_ENUM:
+    case IOP_T_ENUM:
         RETHROW(get_enum_value(xr, fdesc->u1.en_desc, &intval));
         CHECK_RANGE(INT32_MIN, INT32_MAX);
         *(int32_t *)v = intval;
         break;
-      case IOP_T_BOOL:
+    case IOP_T_BOOL:
         RETHROW(xmlr_get_bool(xr, (bool *)v));
         break;
-      case IOP_T_DOUBLE:
+    case IOP_T_DOUBLE:
         RETHROW(xmlr_get_dbl(xr, (double *)v));
         break;
-      case IOP_T_STRING:
+    case IOP_T_STRING:
         str = v;
         RETHROW(get_text(xr, mp, false, str));
         break;
-      case IOP_T_DATA:
+    case IOP_T_DATA:
         str = v;
         RETHROW(get_text(xr, mp, true, str));
         break;
-      case IOP_T_XML:
+    case IOP_T_XML:
         str = v;
         RETHROW(mp_xmlr_get_inner_xml(mp, xr, str));
         break;
-      case IOP_T_UNION:
-        return xunpack_union(xr, mp, iop_env_ctx, fdesc->u1.st_desc, v,
-                             flags);
-      case IOP_T_STRUCT:
+    case IOP_T_UNION:
+        return xunpack_union(
+            xr, mp, iop_env_ctx, fdesc->u1.st_desc, v, flags
+        );
+    case IOP_T_STRUCT:
         if (iop_field_is_class(fdesc)) {
             *(void **)v = NULL;
-            return xunpack_class(xr, mp, iop_env_ctx, fdesc->u1.st_desc, v,
-                                 flags);
+            return xunpack_class(
+                xr, mp, iop_env_ctx, fdesc->u1.st_desc, v, flags
+            );
         } else {
-            return xunpack_struct(xr, mp, iop_env_ctx, fdesc->u1.st_desc, v,
-                                  flags);
+            return xunpack_struct(
+                xr, mp, iop_env_ctx, fdesc->u1.st_desc, v, flags
+            );
         }
-      case IOP_T_VOID: {
+    case IOP_T_VOID: {
         int i = 0;
 
         do {
@@ -241,13 +249,17 @@ static int xunpack_value(xml_reader_t xr, mem_pool_t *mp,
             xmlr_next_sibling(xr);
         } while (xmlr_node_is(xr, fdesc->name.s, fdesc->name.len));
 
-        e_named_trace(3, "iop/xml/unpacker", "dropped %d value(s) into void "
-                      "field `%*pM`", i, LSTR_FMT_ARG(fdesc->name));
+        e_named_trace(
+            3, "iop/xml/unpacker",
+            "dropped %d value(s) into void "
+            "field `%*pM`",
+            i, LSTR_FMT_ARG(fdesc->name)
+        );
         break;
-      }
+    }
 
 #undef CHECK_RANGE
-      default:
+    default:
         e_panic("should not happen");
     }
 
@@ -256,8 +268,9 @@ static int xunpack_value(xml_reader_t xr, mem_pool_t *mp,
 
 /* Unpack a vector of scalar values. Because a scalar value do not recurse in
  * this function we can safely use realloc. */
-static int xunpack_scalar_vec(xml_reader_t xr, mem_pool_t *mp,
-                              const iop_field_t *fdesc, void *v)
+static int xunpack_scalar_vec(
+    xml_reader_t xr, mem_pool_t *mp, const iop_field_t *fdesc, void *v
+)
 {
     iop_array_void_t *data = v;
     int bufsize = 0, datasize = fdesc->size;
@@ -269,67 +282,66 @@ static int xunpack_scalar_vec(xml_reader_t xr, mem_pool_t *mp,
         uint64_t uintval = 0;
 
         if (datasize >= bufsize) {
-            int size  = p_alloc_nr(bufsize);
+            int size = p_alloc_nr(bufsize);
             data->tab = mp_irealloc(mp, data->tab, bufsize, size, 8, MEM_RAW);
-            bufsize   = size;
+            bufsize = size;
         }
 
         switch (fdesc->type) {
-#define CHECK_RANGE(_min, _max)  \
-            THROW_ERR_IF(intval < _min || intval > _max)
+#define CHECK_RANGE(_min, _max) THROW_ERR_IF(intval<_min || intval> _max)
 
-          case IOP_T_I8:
+        case IOP_T_I8:
             RETHROW(xmlr_get_i64_base(xr, 0, &intval));
             CHECK_RANGE(INT8_MIN, INT8_MAX);
             ((int8_t *)data->tab)[data->len] = intval;
             break;
-          case IOP_T_U8:
+        case IOP_T_U8:
             RETHROW(xmlr_get_i64_base(xr, 0, &intval));
             CHECK_RANGE(0, UINT8_MAX);
             ((uint8_t *)data->tab)[data->len] = intval;
             break;
-          case IOP_T_I16:
+        case IOP_T_I16:
             RETHROW(xmlr_get_i64_base(xr, 0, &intval));
             CHECK_RANGE(INT16_MIN, INT16_MAX);
             ((int16_t *)data->tab)[data->len] = intval;
             break;
-          case IOP_T_U16:
+        case IOP_T_U16:
             RETHROW(xmlr_get_i64_base(xr, 0, &intval));
             CHECK_RANGE(0, UINT16_MAX);
             ((uint16_t *)data->tab)[data->len] = intval;
             break;
-          case IOP_T_I32:
+        case IOP_T_I32:
             RETHROW(xmlr_get_i64_base(xr, 0, &intval));
             CHECK_RANGE(INT32_MIN, INT32_MAX);
             ((int32_t *)data->tab)[data->len] = intval;
             break;
-          case IOP_T_U32:
+        case IOP_T_U32:
             RETHROW(xmlr_get_i64_base(xr, 0, &intval));
             CHECK_RANGE(0, UINT32_MAX);
             ((uint32_t *)data->tab)[data->len] = intval;
             break;
-          case IOP_T_I64:
+        case IOP_T_I64:
             RETHROW(xmlr_get_i64_base(xr, 0, &intval));
             ((int64_t *)data->tab)[data->len] = intval;
             break;
-          case IOP_T_U64:
+        case IOP_T_U64:
             RETHROW(xmlr_get_u64_base(xr, 0, &uintval));
             ((uint64_t *)data->tab)[data->len] = uintval;
             break;
-          case IOP_T_ENUM:
+        case IOP_T_ENUM:
             RETHROW(get_enum_value(xr, fdesc->u1.en_desc, &intval));
             CHECK_RANGE(INT32_MIN, INT32_MAX);
             ((int32_t *)data->tab)[data->len] = intval;
             break;
-          case IOP_T_BOOL:
+        case IOP_T_BOOL:
             RETHROW(xmlr_get_bool(xr, (bool *)data->tab + data->len));
             break;
-          case IOP_T_DOUBLE:
+        case IOP_T_DOUBLE:
             RETHROW(xmlr_get_dbl(xr, (double *)data->tab + data->len));
             break;
 
 #undef CHECK_RANGE
-          default:
+        default:
             assert(false);
         }
 
@@ -357,9 +369,10 @@ static int xunpack_scalar_vec(xml_reader_t xr, mem_pool_t *mp,
  *  then allocates a new buffer of (fdesc->size * n) and read back the chain
  *  to fill the new continuous array.
  */
-static int xunpack_block_vec(xml_reader_t xr, mem_pool_t *mp,
-                             const iop_env_ctx_t *iop_env_ctx,
-                             const iop_field_t *fdesc, void *v, int flags)
+static int xunpack_block_vec(
+    xml_reader_t xr, mem_pool_t *mp, const iop_env_ctx_t *iop_env_ctx,
+    const iop_field_t *fdesc, void *v, int flags
+)
 {
     iop_array_void_t *data = v;
     void **prev = NULL, **chain, *ptr;
@@ -371,21 +384,21 @@ static int xunpack_block_vec(xml_reader_t xr, mem_pool_t *mp,
         RETHROW(xunpack_value(xr, mp, iop_env_ctx, fdesc, ptr, flags));
         n++;
 
-        chain    = mp_new_raw(mp, void *, 2);
+        chain = mp_new_raw(mp, void *, 2);
         chain[0] = prev;
         chain[1] = ptr;
-        prev     = chain;
+        prev = chain;
     } while (RETHROW(xmlr_node_is(xr, fdesc->name.s, fdesc->name.len)));
 
     /* Now we can rebuild the array of value */
     *data = (iop_array_void_t){
-        .len  = n,
+        .len = n,
         .tab = mp_imalloc(mp, fdesc->size * n, 8, MEM_RAW),
     };
     ptr = (byte *)data->tab + (n - 1) * fdesc->size;
     while (n--) {
         memcpy(ptr, chain[1], fdesc->size);
-        ptr   = (byte *)ptr - fdesc->size;
+        ptr = (byte *)ptr - fdesc->size;
         chain = chain[0];
     }
 
@@ -393,15 +406,15 @@ static int xunpack_block_vec(xml_reader_t xr, mem_pool_t *mp,
 }
 
 typedef struct iop_xfield_t {
-    const iop_field_t  *fdesc;
+    const iop_field_t *fdesc;
     const iop_struct_t *desc;
 } iop_xfield_t;
 
 qvector_t(iop_xfield, iop_xfield_t);
 
-static inline const iop_xfield_t *
-get_xfield_by_name(const iop_xfield_t *start, const iop_xfield_t *end,
-                   lstr_t name)
+static inline const iop_xfield_t *get_xfield_by_name(
+    const iop_xfield_t *start, const iop_xfield_t *end, lstr_t name
+)
 {
     while (start < end) {
         if (lstr_equal(start->fdesc->name, name)) {
@@ -413,20 +426,22 @@ get_xfield_by_name(const iop_xfield_t *start, const iop_xfield_t *end,
     return NULL;
 }
 
-static int
-__xunpack_struct(xml_reader_t xr, mem_pool_t *mp,
-                 const iop_env_ctx_t *iop_env_ctx, void *value, int flags,
-                 qv_t(iop_xfield) *fields)
+static int __xunpack_struct(
+    xml_reader_t xr, mem_pool_t *mp, const iop_env_ctx_t *iop_env_ctx,
+    void *value, int flags, qv_t(iop_xfield) *fields
+)
 {
     const iop_xfield_t *fdesc = fields->tab;
-    const iop_xfield_t *end   = fields->tab + fields->len;
+    const iop_xfield_t *end = fields->tab + fields->len;
     int res = xmlr_next_child(xr);
 
     /* No children */
-    if (res == XMLR_NOCHILD)
+    if (res == XMLR_NOCHILD) {
         goto end;
-    if (res < 0)
+    }
+    if (res < 0) {
         return res;
+    }
     do {
         const iop_xfield_t *xfdesc;
         lstr_t name;
@@ -434,8 +449,9 @@ __xunpack_struct(xml_reader_t xr, mem_pool_t *mp,
         int n = 1;
 
         if (unlikely(fdesc == end)) {
-            if (!(flags & IOP_UNPACK_IGNORE_UNKNOWN))
+            if (!(flags & IOP_UNPACK_IGNORE_UNKNOWN)) {
                 return xmlr_fail(xr, "expecting closing tag");
+            }
             return xmlr_next_uncle(xr);
         }
 
@@ -443,12 +459,16 @@ __xunpack_struct(xml_reader_t xr, mem_pool_t *mp,
         RETHROW(xmlr_node_get_local_name(xr, &name));
         xfdesc = get_xfield_by_name(fdesc, end, name);
         if (unlikely(!xfdesc)) {
-            if (!(flags & IOP_UNPACK_IGNORE_UNKNOWN))
-                return xmlr_fail(xr, "unknown tag <%*pM>", LSTR_FMT_ARG(name));
+            if (!(flags & IOP_UNPACK_IGNORE_UNKNOWN)) {
+                return xmlr_fail(
+                    xr, "unknown tag <%*pM>", LSTR_FMT_ARG(name)
+                );
+            }
             do {
                 RETHROW(xmlr_next_sibling(xr));
-                if (RETHROW(xmlr_node_is_closing(xr)))
+                if (RETHROW(xmlr_node_is_closing(xr))) {
                     goto end;
+                }
                 RETHROW(xmlr_node_get_local_name(xr, &name));
                 xfdesc = get_xfield_by_name(fdesc, end, name);
             } while (!xfdesc);
@@ -459,17 +479,22 @@ __xunpack_struct(xml_reader_t xr, mem_pool_t *mp,
 
             attrs = iop_field_get_attrs(xfdesc->desc, xfdesc->fdesc);
             if (attrs && TST_BIT(&attrs->flags, IOP_FIELD_PRIVATE)) {
-                return xmlr_fail(xr, "private tag <%*pM>", LSTR_FMT_ARG(name));
+                return xmlr_fail(
+                    xr, "private tag <%*pM>", LSTR_FMT_ARG(name)
+                );
             }
         }
 
         /* Handle optional fields */
         while (unlikely(xfdesc != fdesc)) {
-            if (iop_skip_absent_field_desc(mp, value, fdesc->desc,
-                                           fdesc->fdesc) < 0)
+            if (iop_skip_absent_field_desc(
+                    mp, value, fdesc->desc, fdesc->fdesc
+                ) < 0)
             {
-                return xmlr_fail(xr, "missing mandatory tag <%*pM>",
-                                 LSTR_FMT_ARG(fdesc->fdesc->name));
+                return xmlr_fail(
+                    xr, "missing mandatory tag <%*pM>",
+                    LSTR_FMT_ARG(fdesc->fdesc->name)
+                );
             }
             fdesc++;
         }
@@ -480,45 +505,51 @@ __xunpack_struct(xml_reader_t xr, mem_pool_t *mp,
             iop_array_void_t *data = v;
 
             if ((1 << fdesc->fdesc->type) & IOP_BLK_OK) {
-                RETHROW(xunpack_block_vec(xr, mp, iop_env_ctx,
-                                          fdesc->fdesc, v, flags));
+                RETHROW(xunpack_block_vec(
+                    xr, mp, iop_env_ctx, fdesc->fdesc, v, flags
+                ));
             } else {
                 RETHROW(xunpack_scalar_vec(xr, mp, fdesc->fdesc, v));
             }
             v = data->tab;
             n = data->len;
             goto next;
-        } else
-        if (iop_field_is_reference(fdesc->fdesc)) {
+        } else if (iop_field_is_reference(fdesc->fdesc)) {
             v = iop_field_ptr_alloc(mp, fdesc->fdesc, v);
-        } else
-        if (fdesc->fdesc->repeat == IOP_R_OPTIONAL
-        &&  !iop_field_is_class(fdesc->fdesc))
+        } else if (
+            fdesc->fdesc->repeat == IOP_R_OPTIONAL &&
+            !iop_field_is_class(fdesc->fdesc)
+        )
         {
             v = iop_field_set_present(mp, fdesc->fdesc, v);
         }
 
         RETHROW(xunpack_value(xr, mp, iop_env_ctx, fdesc->fdesc, v, flags));
 
-      next:
+    next:
         if (unlikely(iop_field_has_constraints(fdesc->desc, fdesc->fdesc))) {
-            if (iop_field_check_constraints(fdesc->desc, fdesc->fdesc, v, n,
-                                            false) < 0)
+            if (iop_field_check_constraints(
+                    fdesc->desc, fdesc->fdesc, v, n, false
+                ) < 0)
             {
-                return xmlr_fail(xr, "%*pM", LSTR_FMT_ARG(iop_get_err_lstr()));
+                return xmlr_fail(
+                    xr, "%*pM", LSTR_FMT_ARG(iop_get_err_lstr())
+                );
             }
         }
         fdesc++;
     } while (!xmlr_node_is_closing(xr));
 
     /* Check for absent fields */
-  end:
+end:
     for (; fdesc < end; fdesc++) {
-        if (iop_skip_absent_field_desc(mp, value, fdesc->desc, fdesc->fdesc)
-            < 0)
+        if (iop_skip_absent_field_desc(mp, value, fdesc->desc, fdesc->fdesc) <
+            0)
         {
-            return xmlr_fail(xr, "missing mandatory tag <%*pM>",
-                             LSTR_FMT_ARG(fdesc->fdesc->name));
+            return xmlr_fail(
+                xr, "missing mandatory tag <%*pM>",
+                LSTR_FMT_ARG(fdesc->fdesc->name)
+            );
         }
     }
     return xmlr_node_close(xr);
@@ -528,8 +559,8 @@ static inline void
 qv_append_struct_xfields(qv_t(iop_xfield) *fields, const iop_struct_t *desc)
 {
     const iop_field_t *fdesc = desc->fields;
-    const iop_field_t *end   = desc->fields + desc->fields_len;
-    iop_xfield_t xfield = { .desc = desc };
+    const iop_field_t *end = desc->fields + desc->fields_len;
+    iop_xfield_t xfield = {.desc = desc};
 
     while (fdesc != end) {
         xfield.fdesc = fdesc++;
@@ -537,10 +568,10 @@ qv_append_struct_xfields(qv_t(iop_xfield) *fields, const iop_struct_t *desc)
     }
 }
 
-static int
-xunpack_struct(xml_reader_t xr, mem_pool_t *mp,
-               const iop_env_ctx_t *iop_env_ctx,
-               const iop_struct_t *desc, void *value, int flags)
+static int xunpack_struct(
+    xml_reader_t xr, mem_pool_t *mp, const iop_env_ctx_t *iop_env_ctx,
+    const iop_struct_t *desc, void *value, int flags
+)
 {
     qv_t(iop_xfield) fields;
 
@@ -550,10 +581,10 @@ xunpack_struct(xml_reader_t xr, mem_pool_t *mp,
     return __xunpack_struct(xr, mp, iop_env_ctx, value, flags, &fields);
 }
 
-static int
-xunpack_class(xml_reader_t xr, mem_pool_t *mp,
-              const iop_env_ctx_t *iop_env_ctx,
-              const iop_struct_t *desc, void **value, int flags)
+static int xunpack_class(
+    xml_reader_t xr, mem_pool_t *mp, const iop_env_ctx_t *iop_env_ctx,
+    const iop_struct_t *desc, void **value, int flags
+)
 {
     const iop_struct_t *real_desc, *desc_it;
     qv_t(iop_struct) parents;
@@ -566,13 +597,15 @@ xunpack_class(xml_reader_t xr, mem_pool_t *mp,
     {
         t_scope;
         xmlAttrPtr attr = xmlr_find_attr_s(xr, "type", false);
-        lstr_t    real_type_str;
+        lstr_t real_type_str;
         pstream_t ps;
 
         if (!attr) {
             if (desc->class_attrs->is_abstract) {
-                return xmlr_fail(xr, "type attribute not found (mandatory "
-                                 "for abstract classes)");
+                return xmlr_fail(
+                    xr, "type attribute not found (mandatory "
+                        "for abstract classes)"
+                );
             }
 
             /* If type attribute is not present, consider we are unpacking a
@@ -585,26 +618,27 @@ xunpack_class(xml_reader_t xr, mem_pool_t *mp,
         ps = ps_initlstr(&real_type_str);
         /* Skip mandatory namespace */
         ps_skip_afterchr(&ps, ':');
-        real_desc = iop_get_class_by_fullname(iop_env_ctx, desc,
-                                              LSTR_PS_V(&ps));
+        real_desc =
+            iop_get_class_by_fullname(iop_env_ctx, desc, LSTR_PS_V(&ps));
         if (!real_desc) {
-            return xmlr_fail(xr, "class `%*pM' not found",
-                             PS_FMT_ARG(&ps));
+            return xmlr_fail(xr, "class `%*pM' not found", PS_FMT_ARG(&ps));
         }
     }
 
-
     if (real_desc->class_attrs->is_abstract) {
-        return xmlr_fail(xr, "class `%*pM' is an abstract class",
-                         LSTR_FMT_ARG(real_desc->fullname));
+        return xmlr_fail(
+            xr, "class `%*pM' is an abstract class",
+            LSTR_FMT_ARG(real_desc->fullname)
+        );
     }
 
-  build_parents:
-    if (flags & IOP_UNPACK_FORBID_PRIVATE
-    &&  real_desc->class_attrs->is_private)
+build_parents:
+    if (flags & IOP_UNPACK_FORBID_PRIVATE &&
+        real_desc->class_attrs->is_private)
     {
-        return xmlr_fail(xr, "class `%*pM` is private",
-                         LSTR_FMT_ARG(real_desc->fullname));
+        return xmlr_fail(
+            xr, "class `%*pM` is private", LSTR_FMT_ARG(real_desc->fullname)
+        );
     }
 
     /* The fields will be present in the order "master -> children", not
@@ -619,9 +653,10 @@ xunpack_class(xml_reader_t xr, mem_pool_t *mp,
         }
     } while ((desc_it = desc_it->class_attrs->parent));
     if (!found_desc) {
-        xmlr_fail(xr, "class `%*pM' is not a child of `%*pM'",
-                  LSTR_FMT_ARG(real_desc->fullname),
-                  LSTR_FMT_ARG(desc->fullname));
+        xmlr_fail(
+            xr, "class `%*pM' is not a child of `%*pM'",
+            LSTR_FMT_ARG(real_desc->fullname), LSTR_FMT_ARG(desc->fullname)
+        );
         qv_wipe(&parents);
         return -1;
     }
@@ -634,7 +669,7 @@ xunpack_class(xml_reader_t xr, mem_pool_t *mp,
 
     /* Build fields vector, and unpack fields */
     qv_inita(&fields, 32);
-    for (int pos = parents.len; pos-- > 0; ) {
+    for (int pos = parents.len; pos-- > 0;) {
         qv_append_struct_xfields(&fields, parents.tab[pos]);
     }
     qv_wipe(&parents);
@@ -645,10 +680,10 @@ xunpack_class(xml_reader_t xr, mem_pool_t *mp,
     return res;
 }
 
-static int
-xunpack_union(xml_reader_t xr, mem_pool_t *mp,
-              const iop_env_ctx_t *iop_env_ctx,
-              const iop_struct_t *desc, void *value, int flags)
+static int xunpack_union(
+    xml_reader_t xr, mem_pool_t *mp, const iop_env_ctx_t *iop_env_ctx,
+    const iop_struct_t *desc, void *value, int flags
+)
 {
     const iop_field_t *fdesc;
     lstr_t name;
@@ -656,8 +691,9 @@ xunpack_union(xml_reader_t xr, mem_pool_t *mp,
     RETHROW(xmlr_next_child(xr));
     RETHROW(xmlr_node_get_local_name(xr, &name));
     fdesc = get_field_by_name(desc, desc->fields, name.s, name.len);
-    if (unlikely(!fdesc))
+    if (unlikely(!fdesc)) {
         return xmlr_fail(xr, "unknown tag <%*pM>", LSTR_FMT_ARG(name));
+    }
 
     /* Write the selected tag */
     iop_union_set_tag(desc, fdesc->tag, value);
@@ -683,19 +719,17 @@ xunpack_union(xml_reader_t xr, mem_pool_t *mp,
  * It will be (re)allocated when the size of the real class to unpack will be
  * known.
  */
-static inline int
-__iop_xunpack_parts(void *xr, mem_pool_t *mp,
-                    const iop_env_ctx_t *iop_env_ctx,
-                    const iop_struct_t *desc, void *value, int flags,
-                    qm_t(part) *parts)
+static inline int __iop_xunpack_parts(
+    void *xr, mem_pool_t *mp, const iop_env_ctx_t *iop_env_ctx,
+    const iop_struct_t *desc, void *value, int flags, qm_t(part) *parts
+)
 {
     int ret;
 
     parts_g = parts;
     if (desc->is_union) {
         ret = xunpack_union(xr, mp, iop_env_ctx, desc, value, flags);
-    } else
-    if (iop_struct_is_class(desc)) {
+    } else if (iop_struct_is_class(desc)) {
         ret = xunpack_class(xr, mp, iop_env_ctx, desc, value, flags);
     } else {
         ret = xunpack_struct(xr, mp, iop_env_ctx, desc, value, flags);
@@ -704,54 +738,60 @@ __iop_xunpack_parts(void *xr, mem_pool_t *mp,
     return ret;
 }
 
-int iop_xunpack_flags(void *xr, mem_pool_t *mp,
-                      const iop_env_ctx_t *iop_env_ctx,
-                      const iop_struct_t *desc, void *value, int flags)
+int iop_xunpack_flags(
+    void *xr, mem_pool_t *mp, const iop_env_ctx_t *iop_env_ctx,
+    const iop_struct_t *desc, void *value, int flags
+)
 {
-    assert (!iop_struct_is_class(desc));
-    return __iop_xunpack_parts(xr, mp, iop_env_ctx, desc, value, flags,
-                               NULL);
+    assert(!iop_struct_is_class(desc));
+    return __iop_xunpack_parts(xr, mp, iop_env_ctx, desc, value, flags, NULL);
 }
 
-int iop_xunpack_ptr_flags(void *xr, mem_pool_t *mp,
-                          const iop_env_ctx_t *iop_env_ctx,
-                          const iop_struct_t *desc, void **value, int flags)
+int iop_xunpack_ptr_flags(
+    void *xr, mem_pool_t *mp, const iop_env_ctx_t *iop_env_ctx,
+    const iop_struct_t *desc, void **value, int flags
+)
 {
     if (iop_struct_is_class(desc)) {
         /* "value" will be (re)allocated after, when the real packed class
          * type will be known. */
-        return __iop_xunpack_parts(xr, mp, iop_env_ctx, desc, value, flags,
-                                   NULL);
+        return __iop_xunpack_parts(
+            xr, mp, iop_env_ctx, desc, value, flags, NULL
+        );
     }
 
     *value = mp_irealloc(mp, *value, 0, desc->size, 8, MEM_RAW);
-    return __iop_xunpack_parts(xr, mp, iop_env_ctx, desc, *value, flags,
-                               NULL);
+    return __iop_xunpack_parts(
+        xr, mp, iop_env_ctx, desc, *value, flags, NULL
+    );
 }
 
-int iop_xunpack_parts(void *xr, mem_pool_t *mp,
-                      const iop_env_ctx_t *iop_env_ctx,
-                      const iop_struct_t *desc, void *value, int flags,
-                      qm_t(part) *parts)
+int iop_xunpack_parts(
+    void *xr, mem_pool_t *mp, const iop_env_ctx_t *iop_env_ctx,
+    const iop_struct_t *desc, void *value, int flags, qm_t(part) *parts
+)
 {
-    assert (!iop_struct_is_class(desc));
-    return __iop_xunpack_parts(xr, mp, iop_env_ctx, desc, value, flags,
-                               parts);
+    assert(!iop_struct_is_class(desc));
+    return __iop_xunpack_parts(
+        xr, mp, iop_env_ctx, desc, value, flags, parts
+    );
 }
 
-int iop_xunpack_ptr_parts(void *xr, mem_pool_t *mp,
-                          const iop_env_ctx_t *iop_env_ctx,
-                          const iop_struct_t *desc, void **value, int flags,
-                          qm_t(part) *parts)
+int iop_xunpack_ptr_parts(
+    void *xr, mem_pool_t *mp, const iop_env_ctx_t *iop_env_ctx,
+    const iop_struct_t *desc, void **value, int flags, qm_t(part) *parts
+)
 {
     if (iop_struct_is_class(desc)) {
         /* "value" will be (re)allocated after, when the real packed class
          * type will be known. */
-        return __iop_xunpack_parts(xr, mp, iop_env_ctx, desc, value, flags,
-                                   parts);
+        return __iop_xunpack_parts(
+            xr, mp, iop_env_ctx, desc, value, flags, parts
+        );
     }
 
     *value = mp_irealloc(mp, *value, 0, desc->size, 8, MEM_RAW);
-    return __iop_xunpack_parts(xr, mp, iop_env_ctx, desc, *value, flags,
-                               parts);
+    return __iop_xunpack_parts(
+        xr, mp, iop_env_ctx, desc, *value, flags, parts
+    );
 }

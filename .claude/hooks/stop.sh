@@ -32,6 +32,7 @@ cd "$CLAUDE_PROJECT_DIR" || exit 0
 # -- Collect modified (unstaged) files from git --
 PYTHON_PATTERNS=('*.py' '**/*.py' '*.pyi' '**/*.pyi' 'wscript*' '**/wscript*')
 RUST_PATTERNS=('*.rs' '**/*.rs')
+C_PATTERNS=('*.c' '**/*.c' '*.h' '**/*.h' '*.blk' '**/*.blk')
 
 get_modified_files() {
     local patterns=("$@")
@@ -51,6 +52,12 @@ mapfile -t rs_files < <(get_modified_files "${RUST_PATTERNS[@]}")
 for f in "${rs_files[@]}"; do
     rustfmt "$f" || true
 done
+
+# -- Format modified C files (*.c, *.h, *.blk) --
+mapfile -t c_files < <(get_modified_files "${C_PATTERNS[@]}")
+if [[ ${#c_files[@]} -gt 0 ]]; then
+    clang-format -i "${c_files[@]}" || true
+fi
 
 # -- Run static checks; exit 2 on failure to force Claude to fix errors --
 export FROM_AI_AGENT=1

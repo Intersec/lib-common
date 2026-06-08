@@ -34,8 +34,8 @@ static int
 handle_unicode_surrogate_pair(pstream_t *ps, int codepoint, sb_t *buf)
 {
     /* Check if this is a high surrogate (0xD800-0xDBFF) */
-    if (codepoint >= 0xD800 && codepoint <= 0xDBFF &&
-        ps_has(ps, 12) && ps->s[6] == '\\' && ps->s[7] == 'u')
+    if (codepoint >= 0xD800 && codepoint <= 0xDBFF && ps_has(ps, 12) &&
+        ps->s[6] == '\\' && ps->s[7] == 'u')
     {
         int low_a, low_b, low_surrogate;
 
@@ -49,8 +49,8 @@ handle_unicode_surrogate_pair(pstream_t *ps, int codepoint, sb_t *buf)
             /* Convert surrogate pair back to original codepoint */
             int actual_cp;
 
-            actual_cp = 0x10000 + ((codepoint - 0xD800) << 10)
-                      + (low_surrogate - 0xDC00);
+            actual_cp = 0x10000 + ((codepoint - 0xD800) << 10) +
+                        (low_surrogate - 0xDC00);
 
             sb_adduc(buf, actual_cp);
             return 12;
@@ -62,11 +62,14 @@ handle_unicode_surrogate_pair(pstream_t *ps, int codepoint, sb_t *buf)
     return 6;
 }
 
-int
-parse_backslash(pstream_t *ps, sb_t *buf, int *line, int *col)
+int parse_backslash(pstream_t *ps, sb_t *buf, int *line, int *col)
 {
-#define SKIP(i)  \
-    ({ int tmp = (i); *col += tmp; __ps_skip(ps, tmp); })
+#define SKIP(i)                                                              \
+    ({                                                                       \
+        int tmp = (i);                                                       \
+        *col += tmp;                                                         \
+        __ps_skip(ps, tmp);                                                  \
+    })
 
     if (!ps_has(ps, 2)) {
         return -1;
@@ -75,23 +78,32 @@ parse_backslash(pstream_t *ps, sb_t *buf, int *line, int *col)
     switch (ps->b[1]) {
         int a, b;
 
-      case 'a': case 'b': case 'e': case 't': case 'n': case 'v':
-      case 'f': case 'r':
+    case 'a':
+    case 'b':
+    case 'e':
+    case 't':
+    case 'n':
+    case 'v':
+    case 'f':
+    case 'r':
         sb_add_unquoted(buf, ps->p, 2);
         SKIP(2);
         return 0;
-      case '\\': case '"': case '\'': case '/':
+    case '\\':
+    case '"':
+    case '\'':
+    case '/':
         sb_addc(buf, ps->b[1]);
         SKIP(2);
         return 0;
-      case '0' ... '2':
-        if (ps_has(ps, 4)
-        &&  ps->b[2] >= '0' && ps->b[2] <= '7'
-        &&  ps->b[3] >= '0' && ps->b[3] <= '7')
+    case '0' ... '2':
+        if (ps_has(ps, 4) && ps->b[2] >= '0' && ps->b[2] <= '7' &&
+            ps->b[3] >= '0' && ps->b[3] <= '7')
         {
-            sb_addc(buf, ((ps->b[1] - '0') << 6)
-                       | ((ps->b[2] - '0') << 3)
-                       |  (ps->b[3] - '0'));
+            sb_addc(
+                buf, ((ps->b[1] - '0') << 6) | ((ps->b[2] - '0') << 3) |
+                         (ps->b[3] - '0')
+            );
             SKIP(4);
             return 0;
         }
@@ -101,14 +113,14 @@ parse_backslash(pstream_t *ps, sb_t *buf, int *line, int *col)
             return 0;
         }
         break;
-      case 'x':
+    case 'x':
         if (ps_has(ps, 4)) {
             sb_addc(buf, PS_CHECK(hexdecode(ps->s + 2)));
             SKIP(4);
             return 0;
         }
         break;
-      case 'u': {
+    case 'u': {
         if (ps_has(ps, 6)) {
             int codepoint, skip_len;
 
@@ -125,8 +137,8 @@ parse_backslash(pstream_t *ps, sb_t *buf, int *line, int *col)
             return 0;
         }
         break;
-      }
-      case '\n':
+    }
+    case '\n':
         sb_add(buf, ps->p, 2);
         SKIP(2);
         (*line)++;

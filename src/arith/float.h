@@ -19,7 +19,7 @@
 #if !defined(IS_LIB_COMMON_ARITH_H) || defined(IS_LIB_COMMON_ARITH_FLOAT_H)
 #  error "you must include arith.h instead"
 #else
-#define IS_LIB_COMMON_ARITH_FLOAT_H
+#  define IS_LIB_COMMON_ARITH_FLOAT_H
 
 /*
  * Float:
@@ -35,161 +35,195 @@
  * bias: +1023
  *
  */
-static inline void arith_float_assumptions(void) {
-    STATIC_ASSERT(sizeof(float)  == sizeof(uint32_t));
+static inline void arith_float_assumptions(void)
+{
+    STATIC_ASSERT(sizeof(float) == sizeof(uint32_t));
     STATIC_ASSERT(sizeof(double) == sizeof(uint64_t));
 }
 
-static inline uint32_t float_bits_(float x) {
-    union { float x; uint32_t u32; } u;
+static inline uint32_t float_bits_(float x)
+{
+    union {
+        float x;
+        uint32_t u32;
+    } u;
     u.x = x;
     return u.u32;
 }
-static inline uint64_t double_bits_(double x) {
-    union { double x; uint64_t u64; } u;
+static inline uint64_t double_bits_(double x)
+{
+    union {
+        double x;
+        uint64_t u64;
+    } u;
     u.x = x;
     return u.u64;
 }
 
-static inline bool float_is_identical(float x, float y) {
+static inline bool float_is_identical(float x, float y)
+{
     return float_bits_(x) == float_bits_(y);
 }
-static inline bool double_is_identical(double x, double y) {
+static inline bool double_is_identical(double x, double y)
+{
     return double_bits_(x) == double_bits_(y);
 }
 
-static inline uint32_t float_bits_cpu(float x) {
-#if __FLOAT_WORD_ORDER == __BYTE_ORDER
+static inline uint32_t float_bits_cpu(float x)
+{
+#  if __FLOAT_WORD_ORDER == __BYTE_ORDER
     return float_bits_(x);
-#else
+#  else
     return bswap32(float_bits_(x));
-#endif
+#  endif
 }
-static inline uint64_t double_bits_cpu(double x) {
-#if __FLOAT_WORD_ORDER == __BYTE_ORDER
+static inline uint64_t double_bits_cpu(double x)
+{
+#  if __FLOAT_WORD_ORDER == __BYTE_ORDER
     return double_bits_(x);
-#else
+#  else
     return bswap64(double_bits_(x));
-#endif
+#  endif
 }
 
-static inline le32_t float_bits_le(float x) {
-#if __FLOAT_WORD_ORDER == __LITTLE_ENDIAN
+static inline le32_t float_bits_le(float x)
+{
+#  if __FLOAT_WORD_ORDER == __LITTLE_ENDIAN
     return float_bits_(x);
-#else
+#  else
     return bswap32(float_bits_(x));
-#endif
+#  endif
 }
-static inline le64_t double_bits_le(double x) {
-#if __FLOAT_WORD_ORDER == __LITTLE_ENDIAN
+static inline le64_t double_bits_le(double x)
+{
+#  if __FLOAT_WORD_ORDER == __LITTLE_ENDIAN
     return double_bits_(x);
-#else
+#  else
     return bswap64(double_bits_(x));
-#endif
+#  endif
 }
 
-static inline be32_t float_bits_be(float x) {
-#if __FLOAT_WORD_ORDER == __LITTLE_ENDIAN
+static inline be32_t float_bits_be(float x)
+{
+#  if __FLOAT_WORD_ORDER == __LITTLE_ENDIAN
     return bswap32(float_bits_(x));
-#else
+#  else
     return float_bits_(x);
-#endif
+#  endif
 }
-static inline be64_t double_bits_be(double x) {
-#if __FLOAT_WORD_ORDER == __LITTLE_ENDIAN
+static inline be64_t double_bits_be(double x)
+{
+#  if __FLOAT_WORD_ORDER == __LITTLE_ENDIAN
     return bswap64(double_bits_(x));
-#else
+#  else
     return double_bits_(x);
-#endif
+#  endif
 }
 
-
-static inline float bits_to_float_(uint32_t x) {
-    union { float x; uint32_t u32; } u;
+static inline float bits_to_float_(uint32_t x)
+{
+    union {
+        float x;
+        uint32_t u32;
+    } u;
     u.u32 = x;
     return u.x;
 }
 
-static inline double bits_to_double_(uint64_t x) {
-    union { double x; uint64_t u64; } u;
+static inline double bits_to_double_(uint64_t x)
+{
+    union {
+        double x;
+        uint64_t u64;
+    } u;
     u.u64 = x;
     return u.x;
 }
 
-static inline float bits_to_float_cpu(uint32_t x) {
-#if __FLOAT_WORD_ORDER == __BYTE_ORDER
+static inline float bits_to_float_cpu(uint32_t x)
+{
+#  if __FLOAT_WORD_ORDER == __BYTE_ORDER
     return bits_to_float_(x);
-#else
+#  else
     return bits_to_float_(bswap32(x));
-#endif
+#  endif
 }
-static inline double bits_to_double_cpu(uint64_t x) {
-#if __FLOAT_WORD_ORDER == __BYTE_ORDER
+static inline double bits_to_double_cpu(uint64_t x)
+{
+#  if __FLOAT_WORD_ORDER == __BYTE_ORDER
     return bits_to_double_(x);
-#else
+#  else
     return bits_to_double_(bswap64(x));
-#endif
+#  endif
 }
 
-static inline float bits_to_float_le(le32_t x) {
-#if __FLOAT_WORD_ORDER == __LITTLE_ENDIAN
+static inline float bits_to_float_le(le32_t x)
+{
+#  if __FLOAT_WORD_ORDER == __LITTLE_ENDIAN
     return bits_to_float_(x);
-#else
+#  else
     return bits_to_float_(bswap32(x));
-#endif
+#  endif
 }
-static inline double bits_to_double_le(le64_t x) {
-#if __FLOAT_WORD_ORDER == __LITTLE_ENDIAN
+static inline double bits_to_double_le(le64_t x)
+{
+#  if __FLOAT_WORD_ORDER == __LITTLE_ENDIAN
     return bits_to_double_(x);
-#else
+#  else
     return bits_to_double_(bswap64(x));
-#endif
+#  endif
 }
 
-static inline float bits_to_float_be(le32_t x) {
-#if __FLOAT_WORD_ORDER == __LITTLE_ENDIAN
+static inline float bits_to_float_be(le32_t x)
+{
+#  if __FLOAT_WORD_ORDER == __LITTLE_ENDIAN
     return bits_to_float_(bswap32(x));
-#else
+#  else
     return bits_to_float_(x);
-#endif
+#  endif
 }
-static inline double bits_to_double_be(le64_t x) {
-#if __FLOAT_WORD_ORDER == __LITTLE_ENDIAN
+static inline double bits_to_double_be(le64_t x)
+{
+#  if __FLOAT_WORD_ORDER == __LITTLE_ENDIAN
     return bits_to_double_(bswap64(x));
-#else
+#  else
     return bits_to_double_(x);
-#endif
+#  endif
 }
 
-static inline void * nonnull put_unaligned_float_le(void * nonnull p, float x)
+static inline void *nonnull put_unaligned_float_le(void *nonnull p, float x)
 {
     return put_unaligned(p, float_bits_le(x));
 }
-static inline void * nonnull put_unaligned_double_le(void * nonnull p, double x)
+static inline void *nonnull put_unaligned_double_le(void *nonnull p, double x)
 {
     return put_unaligned(p, double_bits_le(x));
 }
 
-static inline void * nonnull put_unaligned_float_be(void * nonnull p, float x)
+static inline void *nonnull put_unaligned_float_be(void *nonnull p, float x)
 {
     return put_unaligned(p, float_bits_be(x));
 }
-static inline void * nonnull put_unaligned_double_be(void * nonnull p, double x)
+static inline void *nonnull put_unaligned_double_be(void *nonnull p, double x)
 {
     return put_unaligned(p, double_bits_be(x));
 }
 
-static inline float get_unaligned_float_le(const void * nonnull p) {
+static inline float get_unaligned_float_le(const void *nonnull p)
+{
     return bits_to_float_(get_unaligned_le32(p));
 }
-static inline double get_unaligned_double_le(const void * nonnull p) {
+static inline double get_unaligned_double_le(const void *nonnull p)
+{
     return bits_to_double_(get_unaligned_le64(p));
 }
 
-static inline float get_unaligned_float_be(const void * nonnull p) {
+static inline float get_unaligned_float_be(const void *nonnull p)
+{
     return bits_to_float_(get_unaligned_be32(p));
 }
-static inline double get_unaligned_double_be(const void * nonnull p) {
+static inline double get_unaligned_double_be(const void *nonnull p)
+{
     return bits_to_double_(get_unaligned_be64(p));
 }
 

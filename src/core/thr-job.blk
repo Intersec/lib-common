@@ -24,23 +24,24 @@
 #include <lib-common/thr.h>
 
 #if !defined(__x86_64__) && !defined(__i386__)
-#  error "this file assumes a strict memory model and is probably buggy on !x86"
+#  error                                                                     \
+      "this file assumes a strict memory model and is probably buggy on !x86"
 #endif
 
 #if !defined(NDEBUG) && !defined(__has_tsan)
-# define __has_thr_acc
+#  define __has_thr_acc
 #endif
 
 typedef struct thr_qnode_t thr_qnode_t;
 struct thr_qnode_t {
-    mpsc_node_t  qnode;
-    thr_job_t   *job;
-    thr_syn_t   *syn;
+    mpsc_node_t qnode;
+    thr_job_t *job;
+    thr_syn_t *syn;
 } __attribute__((aligned(CACHE_LINE_SIZE)));
 
 struct thr_queue_t {
-    thr_job_t    run;
-    thr_job_t    destroy;
+    thr_job_t run;
+    thr_job_t destroy;
     mpsc_queue_t q;
     _Atomic(ssize_t) running_on;
 } __attribute__((aligned(CACHE_LINE_SIZE)));
@@ -69,19 +70,19 @@ struct thr_info_t {
     atomic_bool alive;
     bool dequeue_all;
 
-    pthread_t  thr;
+    pthread_t thr;
     atomic_thr_info_t next;
-    char       padding_0[CACHE_LINE_SIZE];
+    char padding_0[CACHE_LINE_SIZE];
 
     struct deque_entry {
         atomic_thr_job_t job;
         thr_syn_t *syn;
     } q[THR_JOB_MAX];
-    char       padding_1[CACHE_LINE_SIZE];
+    char padding_1[CACHE_LINE_SIZE];
 
-#define NCACHE_MAX    1024
-    size_t       ncache_sz;
-    thr_qnode_t  ncache;
+#define NCACHE_MAX 1024
+    size_t ncache_sz;
+    thr_qnode_t ncache;
 
 #ifdef __has_thr_acc
     struct thr_acc {
@@ -103,31 +104,31 @@ struct thr_info_t {
 };
 
 static struct {
-    atomic_bool       stopping;
-    thr_evc_t         ec;
-    thr_evc_t         start_bar_main;
-    thr_evc_t         start_bar_thr;
+    atomic_bool stopping;
+    thr_evc_t ec;
+    thr_evc_t start_bar_main;
+    thr_evc_t start_bar_thr;
 
     atomic_thr_info_t threads;
-    _Atomic(size_t)   threads_count;
-    _Atomic(size_t)   target_threads_count;
-    thr_evc_t         threads_count_evc;
+    _Atomic(size_t) threads_count;
+    _Atomic(size_t) target_threads_count;
+    thr_evc_t threads_count_evc;
     _Atomic(uint64_t) threads_count_gen;
     _Atomic(uint64_t) threads_gen;
-    spinlock_t        threads_lock;
+    spinlock_t threads_lock;
 
-    el_t              before;
-    el_t              wakeel;
-    thr_queue_t       main_queue;
+    el_t before;
+    el_t wakeel;
+    thr_queue_t main_queue;
 
 #ifdef __has_thr_acc
-    uint64_t          reset_time;
-    proctimer_t       st;
+    uint64_t reset_time;
+    proctimer_t st;
 #endif
 } thr_job_g;
-#define _G  thr_job_g
+#define _G thr_job_g
 
-static thr_info_t main_thr_default_g = { .id = 0 };
+static thr_info_t main_thr_default_g = {.id = 0};
 static __thread thr_info_t *self_g;
 
 size_t thr_parallelism_g;
@@ -140,8 +141,8 @@ static atomic_bool thr_is_initialized_g;
 
 static bool reload_at_fork_g;
 
-#define for_each_thread(thr)  \
-    for (thr_info_t *thr = atomic_load(&thr_job_g.threads); thr; \
+#define for_each_thread(thr)                                                 \
+    for (thr_info_t *thr = atomic_load(&thr_job_g.threads); thr;             \
          thr = atomic_load(&thr->next))
 
 /* Tracing {{{ */
@@ -160,8 +161,9 @@ static size_t int_width(uint64_t i)
 {
     int w = 1;
 
-    for (; i > 1; i /= 10)
+    for (; i > 1; i /= 10) {
         w++;
+    }
     return w;
 }
 
@@ -170,9 +172,13 @@ void thr_acc_trace(int lvl, const char *fmt, ...)
     uint64_t avg, wall = hardclock() - _G.reset_time;
     unsigned waste, speedup;
 
-    struct thr_acc total = { .time = 0, };
-    struct thr_acc width = { .time = 0, };
-    va_list  ap;
+    struct thr_acc total = {
+        .time = 0,
+    };
+    struct thr_acc width = {
+        .time = 0,
+    };
+    va_list ap;
     SB_8k(sb);
 
     proctimer_stop(&_G.st);
@@ -185,31 +191,36 @@ void thr_acc_trace(int lvl, const char *fmt, ...)
     for_each_thread(thr) {
         struct thr_acc *acc = &thr->acc;
 
-        total.time        += acc->time;
-        total.jobs_local  += acc->jobs_local;
+        total.time += acc->time;
+        total.jobs_local += acc->jobs_local;
         total.jobs_queued += acc->jobs_queued;
-        total.jobs_run    += acc->jobs_run;
-        total.ec_gets     += acc->ec_gets;
-        total.ec_waits    += acc->ec_waits;
+        total.jobs_run += acc->jobs_run;
+        total.ec_gets += acc->ec_gets;
+        total.ec_waits += acc->ec_waits;
         total.ec_wait_time += acc->ec_wait_time;
-        total.jobs_steals   += acc->jobs_steals;
-        total.jobs_stealed  += acc->jobs_stealed;
+        total.jobs_steals += acc->jobs_steals;
+        total.jobs_stealed += acc->jobs_stealed;
         total.jobs_failed_steals += acc->jobs_failed_steals;
         total.jobs_failed_dequeues += acc->jobs_failed_dequeues;
 
-        width.time         = MAX(width.time,        int_width(acc->time / 1000000));
-        width.jobs_local   = MAX(width.jobs_local,  int_width(acc->jobs_local));
-        width.jobs_queued  = MAX(width.jobs_queued, int_width(acc->jobs_queued));
-        width.jobs_run     = MAX(width.jobs_run,    int_width(acc->jobs_run));
-        width.ec_gets      = MAX(width.ec_gets,     int_width(acc->ec_gets));
-        width.ec_waits     = MAX(width.ec_waits,    int_width(acc->ec_waits));
-        width.ec_wait_time = MAX(width.ec_wait_time, int_width(acc->ec_wait_time / 1000000));
-        width.jobs_steals    = MAX(width.jobs_steals,   int_width(acc->jobs_steals));
-        width.jobs_stealed   = MAX(width.jobs_stealed,   int_width(acc->jobs_stealed));
-        width.jobs_failed_steals = MAX(width.jobs_failed_steals,
-                                       int_width(acc->jobs_failed_steals));
-        width.jobs_failed_dequeues = MAX(width.jobs_failed_dequeues,
-                                       int_width(acc->jobs_failed_dequeues));
+        width.time = MAX(width.time, int_width(acc->time / 1000000));
+        width.jobs_local = MAX(width.jobs_local, int_width(acc->jobs_local));
+        width.jobs_queued =
+            MAX(width.jobs_queued, int_width(acc->jobs_queued));
+        width.jobs_run = MAX(width.jobs_run, int_width(acc->jobs_run));
+        width.ec_gets = MAX(width.ec_gets, int_width(acc->ec_gets));
+        width.ec_waits = MAX(width.ec_waits, int_width(acc->ec_waits));
+        width.ec_wait_time =
+            MAX(width.ec_wait_time, int_width(acc->ec_wait_time / 1000000));
+        width.jobs_steals =
+            MAX(width.jobs_steals, int_width(acc->jobs_steals));
+        width.jobs_stealed =
+            MAX(width.jobs_stealed, int_width(acc->jobs_stealed));
+        width.jobs_failed_steals =
+            MAX(width.jobs_failed_steals, int_width(acc->jobs_failed_steals));
+        width.jobs_failed_dequeues =
+            MAX(width.jobs_failed_dequeues,
+                int_width(acc->jobs_failed_dequeues));
     }
 
     e_trace(lvl, "----- %*pM", sb.len, sb.data);
@@ -219,58 +230,65 @@ void thr_acc_trace(int lvl, const char *fmt, ...)
         return;
     }
 
-#define TIME_FMT_ARG(t)   (int)width.time, (int)((t) / 1000000)
+#  define TIME_FMT_ARG(t) (int)width.time, (int)((t) / 1000000)
 
     sb_reset(&sb);
     for_each_thread(thr) {
         struct thr_acc *acc = &thr->acc;
 
-        e_trace(lvl, " %2d: %*uM, %*u queued, %*u run, %*u steals (%*u jobs, %*u failed), "
-                "%*u failed dequeues, %*u failed queues, %*u gets, %*u waits (%*uM)",
-                thr->id,
-                TIME_FMT_ARG(acc->time),
-                width.jobs_queued, acc->jobs_queued,
-                width.jobs_run,    acc->jobs_run,
-                width.jobs_steals, acc->jobs_steals,
-                width.jobs_stealed, acc->jobs_stealed,
-                width.jobs_failed_steals, acc->jobs_failed_steals,
-                width.jobs_failed_dequeues, acc->jobs_failed_dequeues,
-                width.jobs_local, acc->jobs_local,
-                width.ec_gets,     acc->ec_gets,
-                width.ec_waits,    acc->ec_waits,
-                TIME_FMT_ARG(acc->ec_wait_time));
+        e_trace(
+            lvl,
+            " %2d: %*uM, %*u queued, %*u run, %*u steals (%*u jobs, %*u "
+            "failed), "
+            "%*u failed dequeues, %*u failed queues, %*u gets, %*u waits "
+            "(%*uM)",
+            thr->id, TIME_FMT_ARG(acc->time), width.jobs_queued,
+            acc->jobs_queued, width.jobs_run, acc->jobs_run,
+            width.jobs_steals, acc->jobs_steals, width.jobs_stealed,
+            acc->jobs_stealed, width.jobs_failed_steals,
+            acc->jobs_failed_steals, width.jobs_failed_dequeues,
+            acc->jobs_failed_dequeues, width.jobs_local, acc->jobs_local,
+            width.ec_gets, acc->ec_gets, width.ec_waits, acc->ec_waits,
+            TIME_FMT_ARG(acc->ec_wait_time)
+        );
     }
-    e_trace(lvl, "wall %*uM, %*u queued, %*u run, %*u steals (%*u jobs, %*u failed), "
-            "%*u failed dequeues, %*u failed queues, %*u gets, %*u waits (%*uM)", TIME_FMT_ARG(wall),
-            width.jobs_queued, total.jobs_queued,
-            width.jobs_run,    total.jobs_run,
-            width.jobs_steals, total.jobs_steals,
-            width.jobs_stealed, total.jobs_stealed,
-            width.jobs_failed_steals, total.jobs_failed_steals,
-            width.jobs_failed_dequeues, total.jobs_failed_dequeues,
-            width.jobs_local, total.jobs_local,
-            width.ec_gets,     total.ec_gets,
-            width.ec_waits,    total.ec_waits,
-            TIME_FMT_ARG(total.ec_wait_time));
-    avg     = (uint64_t)(total.time / thr_parallelism_g);
-    waste   = (uint64_t)(wall - avg) * 10000 / wall;
+    e_trace(
+        lvl,
+        "wall %*uM, %*u queued, %*u run, %*u steals (%*u jobs, %*u failed), "
+        "%*u failed dequeues, %*u failed queues, %*u gets, %*u waits (%*uM)",
+        TIME_FMT_ARG(wall), width.jobs_queued, total.jobs_queued,
+        width.jobs_run, total.jobs_run, width.jobs_steals, total.jobs_steals,
+        width.jobs_stealed, total.jobs_stealed, width.jobs_failed_steals,
+        total.jobs_failed_steals, width.jobs_failed_dequeues,
+        total.jobs_failed_dequeues, width.jobs_local, total.jobs_local,
+        width.ec_gets, total.ec_gets, width.ec_waits, total.ec_waits,
+        TIME_FMT_ARG(total.ec_wait_time)
+    );
+    avg = (uint64_t)(total.time / thr_parallelism_g);
+    waste = (uint64_t)(wall - avg) * 10000 / wall;
     speedup = total.time * 100 / wall;
-    e_trace(lvl, "avg  %*uM (%d.%02d%% waste, %d.%02dx speedup)",
-            TIME_FMT_ARG(avg), waste / 100, waste % 100,
-            speedup / 100, speedup % 100);
-    e_trace(lvl, "job  %*jd cycles in avg",
-            (int)width.time, total.time / total.jobs_run);
-    e_trace(lvl, "cost %*jd cycles of overhead per job", (int)width.time,
-            (wall * thr_parallelism_g - total.time) / total.jobs_run);
+    e_trace(
+        lvl, "avg  %*uM (%d.%02d%% waste, %d.%02dx speedup)",
+        TIME_FMT_ARG(avg), waste / 100, waste % 100, speedup / 100,
+        speedup % 100
+    );
+    e_trace(
+        lvl, "job  %*jd cycles in avg", (int)width.time,
+        total.time / total.jobs_run
+    );
+    e_trace(
+        lvl, "cost %*jd cycles of overhead per job", (int)width.time,
+        (wall * thr_parallelism_g - total.time) / total.jobs_run
+    );
     e_trace(lvl, "     %s", proctimer_report(&_G.st, NULL));
-#undef TIME_FMT_ARG
+#  undef TIME_FMT_ARG
 }
 
 #endif
 /* }}} */
 /* atomic dequeue {{{ */
 
-static bool job_run(thr_job_t * nonnull job, thr_syn_t *syn)
+static bool job_run(thr_job_t *nonnull job, thr_syn_t *syn)
 {
 #ifdef __has_thr_acc
     unsigned long start = hardclock();
@@ -282,8 +300,9 @@ static bool job_run(thr_job_t * nonnull job, thr_syn_t *syn)
         block_t blk = (block_t)((uintptr_t)job & ~(uintptr_t)3);
 
         blk();
-        if ((uintptr_t)job & 1)
+        if ((uintptr_t)job & 1) {
             Block_release(blk);
+        }
     } else {
         (*job->run)(job, syn);
     }
@@ -291,8 +310,9 @@ static bool job_run(thr_job_t * nonnull job, thr_syn_t *syn)
 #ifdef __has_thr_acc
     self_g->acc.time += (hardclock() - start);
 #endif
-    if (syn)
+    if (syn) {
         thr_syn__job_done(syn);
+    }
     return true;
 }
 
@@ -301,14 +321,15 @@ void thr_syn_schedule(thr_syn_t *syn, thr_job_t *job)
     unsigned bot, top;
     struct deque_entry *e;
 
-    if (syn)
+    if (syn) {
         thr_syn__job_prepare(syn);
+    }
 
     /* Read the current limits of the queue. Since 'bot' cannot be changed by
      * another thread and 'top' can only be moved in the direction of
      * consuming threads, 'bot' is effectively the position where the job
-     * should be inserted and 'bot - top' gives an upper bound to the number of
-     * job in the queue (and is the actual number if no other thread try to
+     * should be inserted and 'bot - top' gives an upper bound to the number
+     * of job in the queue (and is the actual number if no other thread try to
      * steal a job to that one concurrently to the insertion).
      */
     bot = atomic_load(&self_g->bot);
@@ -350,7 +371,6 @@ void thr_syn_schedule(thr_syn_t *syn, thr_job_t *job)
     self_g->acc.jobs_queued++;
 #endif
 
-
     thr_ec_signal(&_G.ec);
 }
 
@@ -358,7 +378,6 @@ void thr_schedule(thr_job_t *job)
 {
     thr_syn_schedule(NULL, job);
 }
-
 
 /** Consume the top job of the specified thread.
  *
@@ -369,10 +388,10 @@ void thr_schedule(thr_job_t *job)
  */
 static bool thr_consume_top(thr_info_t *ti, unsigned top, unsigned count)
 {
-    return atomic_compare_exchange_strong_explicit(&ti->top, &top,
-                                                   top + count,
-                                                   memory_order_relaxed,
-                                                   memory_order_relaxed);
+    return atomic_compare_exchange_strong_explicit(
+        &ti->top, &top, top + count, memory_order_relaxed,
+        memory_order_relaxed
+    );
 }
 
 static bool thr_run_deque_entry(struct deque_entry *e)
@@ -400,9 +419,9 @@ static bool thr_job_dequeue(void)
     atomic_store_explicit(&self_g->bot, bot, memory_order_seq_cst);
     atomic_thread_fence(memory_order_acq_rel);
 
-    /* Read the top line. The memory barrier ensure that the read is effectively
-     * done after updating bot and thus that other thread may have seen the
-     * update of bot before touching top.
+    /* Read the top line. The memory barrier ensure that the read is
+     * effectively done after updating bot and thus that other thread may have
+     * seen the update of bot before touching top.
      */
     top = atomic_load_explicit(&self_g->top, memory_order_relaxed);
 
@@ -424,7 +443,9 @@ static bool thr_job_dequeue(void)
      */
     if (likely(bot == top)) {
         if (likely(thr_consume_top(self_g, top, 1))) {
-            atomic_store_explicit(&self_g->bot, top + 1, memory_order_relaxed);
+            atomic_store_explicit(
+                &self_g->bot, top + 1, memory_order_relaxed
+            );
             return thr_run_deque_entry(&self_g->q[bot % THR_JOB_MAX]);
         } else {
 #ifdef __has_thr_acc
@@ -499,8 +520,7 @@ static int thr_job_steal(void)
 
         if (res > 0) {
             return 1;
-        } else
-        if (res < 0) {
+        } else if (res < 0) {
             empty = false;
         }
         sched_yield();
@@ -517,8 +537,7 @@ static int thr_job_steal(void)
 
         if (res > 0) {
             return 1;
-        } else
-        if (res < 0) {
+        } else if (res < 0) {
             empty = false;
         }
         sched_yield();
@@ -538,16 +557,18 @@ static ALWAYS_INLINE thr_qnode_t *thr_qnode_of(mpsc_node_t *node)
 static thr_qnode_t *thr_qnode_create(void)
 {
     if (likely(self_g)) {
-        mpsc_node_t *m = atomic_load_explicit(&self_g->ncache.qnode.next,
-                                              memory_order_relaxed);
+        mpsc_node_t *m = atomic_load_explicit(
+            &self_g->ncache.qnode.next, memory_order_relaxed
+        );
 
         if (likely(m)) {
             thr_qnode_t *n = thr_qnode_of(m);
 
-            atomic_store_explicit(&self_g->ncache.qnode.next,
-                                  atomic_load_explicit(&n->qnode.next,
-                                                       memory_order_relaxed),
-                                  memory_order_relaxed);
+            atomic_store_explicit(
+                &self_g->ncache.qnode.next,
+                atomic_load_explicit(&n->qnode.next, memory_order_relaxed),
+                memory_order_relaxed
+            );
             self_g->ncache_sz--;
             return n;
         }
@@ -559,12 +580,16 @@ static void thr_qnode_destroy(mpsc_node_t *n)
 {
     if (likely(self_g && self_g->ncache_sz < NCACHE_MAX)) {
         self_g->ncache_sz++;
-        atomic_store_explicit(&n->next,
-                              atomic_load_explicit(&self_g->ncache.qnode.next,
-                                                   memory_order_relaxed),
-                              memory_order_relaxed);
-        atomic_store_explicit(&self_g->ncache.qnode.next, n,
-                              memory_order_relaxed);
+        atomic_store_explicit(
+            &n->next,
+            atomic_load_explicit(
+                &self_g->ncache.qnode.next, memory_order_relaxed
+            ),
+            memory_order_relaxed
+        );
+        atomic_store_explicit(
+            &self_g->ncache.qnode.next, n, memory_order_relaxed
+        );
     } else {
         free(thr_qnode_of(n));
     }
@@ -572,7 +597,7 @@ static void thr_qnode_destroy(mpsc_node_t *n)
 
 static void thr_queue_wipe(thr_queue_t *q)
 {
-    assert (mpsc_queue_looks_empty(&q->q));
+    assert(mpsc_queue_looks_empty(&q->q));
 }
 GENERIC_DELETE(thr_queue_t, thr_queue);
 
@@ -586,7 +611,7 @@ static void thr_queue_run_node(mpsc_node_t *m, data_t data)
     job_run(job, syn);
 }
 
-#define THR_QUEUE_NOT_RUNNING  -2
+#define THR_QUEUE_NOT_RUNNING -2
 
 static void thr_queue_drain(thr_queue_t *q)
 {
@@ -600,13 +625,14 @@ static void thr_queue_drain(thr_queue_t *q)
          * queue that should go through this slowpath is the main queue
          * since it's not really scheduled like the other ones
          */
-        assert (q == thr_queue_main_g);
+        assert(q == thr_queue_main_g);
         return;
     }
 
     id = thr_id();
-    while (unlikely(!atomic_compare_exchange_strong(&q->running_on, &prev_id,
-                                                    id)))
+    while (unlikely(
+        !atomic_compare_exchange_strong(&q->running_on, &prev_id, id)
+    ))
     {
         if (unlikely(id == prev_id)) {
             /* Looks like we already are the one running this queue. */
@@ -616,15 +642,17 @@ static void thr_queue_drain(thr_queue_t *q)
     }
     mpsc_queue_drain_start(&it, &q->q);
     do {
-        mpsc_node_t *m = mpsc_queue_drain_fast(&it, &thr_queue_run_node,
-                                               (data_t){ .ptr = NULL });
+        mpsc_node_t *m = mpsc_queue_drain_fast(
+            &it, &thr_queue_run_node, (data_t){.ptr = NULL}
+        );
         thr_qnode_t *n = thr_qnode_of(m);
 
         job_run(n->job, n->syn);
         wipe = (n->job == &q->destroy);
     } while (!mpsc_queue_drain_end(&it, &thr_qnode_destroy));
-    atomic_compare_exchange_strong(&q->running_on, &id,
-                                   THR_QUEUE_NOT_RUNNING);
+    atomic_compare_exchange_strong(
+        &q->running_on, &id, THR_QUEUE_NOT_RUNNING
+    );
 
     if (wipe) {
         thr_queue_delete(&q);
@@ -649,7 +677,7 @@ static thr_queue_t *thr_queue_init(thr_queue_t *q)
 {
     p_clear(q, 1);
     mpsc_queue_init(&q->q);
-    q->run.run     = &thr_queue_run;
+    q->run.run = &thr_queue_run;
     q->destroy.run = &thr_queue_finalize;
     atomic_init(&q->running_on, THR_QUEUE_NOT_RUNNING);
     return q;
@@ -676,8 +704,9 @@ void thr_syn_queue(thr_syn_t *syn, thr_queue_t *q, thr_job_t *job)
 
         n->job = job;
         n->syn = syn;
-        if (syn)
+        if (syn) {
             thr_syn__job_prepare(syn);
+        }
 
         if (mpsc_queue_push(&q->q, &n->qnode)) {
             if (q == thr_queue_main_g) {
@@ -737,7 +766,7 @@ thr_queue_t *thr_queue_create(void)
 
 void thr_queue_destroy(thr_queue_t *q, bool wait)
 {
-    assert (q != thr_queue_main_g);
+    assert(q != thr_queue_main_g);
     if (wait) {
         thr_queue_sync(q, &q->destroy);
     } else {
@@ -747,8 +776,8 @@ void thr_queue_destroy(thr_queue_t *q, bool wait)
 
 bool thr_is_on_queue(thr_queue_t *q)
 {
-    return atomic_load(&q->running_on) == (ssize_t)thr_id()
-        || (q == thr_queue_main_g && thr_id() == 0);
+    return atomic_load(&q->running_on) == (ssize_t)thr_id() ||
+           (q == thr_queue_main_g && thr_id() == 0);
 }
 
 /* }}} */
@@ -784,8 +813,10 @@ static void thr_info_cleanup(void *unused)
     if (self_g->id == 0) {
         thr_queue_wipe(thr_queue_main_g);
     }
-    while ((m = atomic_load_explicit(&self_g->ncache.qnode.next,
-                                     memory_order_relaxed)))
+    while (
+        (m = atomic_load_explicit(
+             &self_g->ncache.qnode.next, memory_order_relaxed
+         )))
     {
         thr_qnode_t *n = thr_qnode_of(m);
 
@@ -811,7 +842,7 @@ static void thr_mark_dead(void)
     atomic_store(&self_g->alive, false);
 }
 
-static struct thr_ctor thr_mark_dead_ctor = { .cb = &thr_mark_dead };
+static struct thr_ctor thr_mark_dead_ctor = {.cb = &thr_mark_dead};
 
 static __attribute__((constructor)) void thr_mark_dead_register(void)
 {
@@ -844,10 +875,10 @@ static int thr_sleep_until(thr_evc_t *ec, int timeout, bool (^cond)(void))
 static void *thr_job_main(void *arg)
 {
     sigset_t set;
-    bool (^cond)(void) = ^bool (void) {
+    bool (^cond)(void) = ^bool(void) {
         /* Exit immediately if we are active or we are stopping */
-        return atomic_load(&_G.target_threads_count) > (size_t)self_g->id
-            || unlikely(atomic_load(&_G.stopping));
+        return atomic_load(&_G.target_threads_count) > (size_t)self_g->id ||
+               unlikely(atomic_load(&_G.stopping));
     };
 
     sigemptyset(&set);
@@ -865,7 +896,7 @@ static void *thr_job_main(void *arg)
     pthread_cleanup_push(thr_info_cleanup, NULL);
 
     /* Ensure there is no open frame on the t_stack. */
-    assert (mem_stack_pool_is_at_top(&t_pool_g));
+    assert(mem_stack_pool_is_at_top(&t_pool_g));
 
     /* explanation of thread states :
      * thread_id <  target_thread_count : active threads
@@ -890,7 +921,9 @@ static void *thr_job_main(void *arg)
             thr_ec_signal(&_G.ec);
             if (thr_sleep_until(&_G.threads_count_evc, 5000, cond) < 0) {
                 /* obsolete threads will be shut down after 5s */
-                if (atomic_load(&_G.target_threads_count) < (size_t)self_g->id) {
+                if (atomic_load(&_G.target_threads_count) <
+                    (size_t)self_g->id)
+                {
                     self_g->dequeue_all = false;
                     break;
                 }
@@ -944,8 +977,8 @@ static void thr_fork_threads(void)
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 
-    while (target_threads_gen != atomic_load(&_G.threads_gen)
-        && !atomic_load(&_G.stopping))
+    while (target_threads_gen != atomic_load(&_G.threads_gen) &&
+           !atomic_load(&_G.stopping))
     {
         sigset_t fillset;
         sigset_t old;
@@ -963,8 +996,10 @@ static void thr_fork_threads(void)
         while (atomic_load(last)) {
             thr_info_t *info = atomic_load(last);
 
-            if ((uint64_t)info->id < target_count && !atomic_load(&info->alive)) {
-                assert (info->id > 0);
+            if ((uint64_t)info->id < target_count &&
+                !atomic_load(&info->alive))
+            {
+                assert(info->id > 0);
 
                 if (thr_create(&tid, &attr, thr_job_main, info)) {
                     e_fatal("unable to create new thread: %m");
@@ -1022,7 +1057,7 @@ void thr_exit_blocking_syscall(void)
     if (thr_is_initialized()) {
         size_t count = atomic_fetch_sub(&_G.target_threads_count, 1);
 
-        assert (count > thr_parallelism_g);
+        assert(count > thr_parallelism_g);
     }
 }
 
@@ -1035,8 +1070,7 @@ bool thr_job_reload_at_fork(bool enabled)
     return prev;
 }
 
-__attr_notsan__
-static void thr_wipe(void)
+__attr_notsan__ static void thr_wipe(void)
 {
     thr_info_t *thr = atomic_load(&_G.threads);
 
@@ -1054,7 +1088,6 @@ static void thr_wipe(void)
     self_g = &main_thr_default_g;
 }
 
-
 static void thr_on_el(el_t ev, data_t priv)
 {
     thr_queue_drain(thr_queue_main_g);
@@ -1062,7 +1095,7 @@ static void thr_on_el(el_t ev, data_t priv)
 
 void thr_queue_main_drain(void)
 {
-    assert (self_g->id == 0);
+    assert(self_g->id == 0);
     thr_queue_drain(thr_queue_main_g);
     thr_ec_signal(&_G.ec);
 }
@@ -1087,9 +1120,11 @@ static void thr_check_cpu_quota(void)
             thr_parallelism_g = ceil(thr_parallelism_g * ratio);
         }
         if (old_val != thr_parallelism_g) {
-            e_notice("thr-job: applied ratio %0.2f, parallelism set to %ju "
-                     "(was %ju)", ratio, thr_parallelism_g,
-                     old_val);
+            e_notice(
+                "thr-job: applied ratio %0.2f, parallelism set to %ju "
+                "(was %ju)",
+                ratio, thr_parallelism_g, old_val
+            );
         }
     }
 }
@@ -1114,8 +1149,10 @@ static int thr_initialize(void *arg)
             size_t old_val = nb_cpu;
 
             nb_cpu = cpu_limit;
-            e_notice("thr-job: applying system CPU limit (%'d CPUs, was %ju)",
-                     cpu_limit, old_val);
+            e_notice(
+                "thr-job: applying system CPU limit (%'d CPUs, was %ju)",
+                cpu_limit, old_val
+            );
         }
     }
 #endif /* __linux__ */
@@ -1206,13 +1243,13 @@ static void thr_job_at_fork(void)
     }
 }
 
-MODULE_BEGIN(thr)
+MODULE_DEFINE(thr) {
     self_g = &main_thr_default_g;
 
     MODULE_DEPENDS_ON(thr_hooks);
     MODULE_DEPENDS_ON(el);
     MODULE_IMPLEMENTS_VOID(at_fork_on_child, &thr_job_at_fork);
-MODULE_END()
+}
 
 bool thr_is_initialized(void)
 {
@@ -1230,13 +1267,14 @@ size_t thr_id(void)
     return self_g->id;
 }
 
-void
-thr_syn_wait_until_flags(thr_syn_t *syn, unsigned flags, bool (^cond)(void))
+void thr_syn_wait_until_flags(
+    thr_syn_t *syn, unsigned flags, bool (^cond)(void)
+)
 {
 #ifdef __has_thr_acc
     unsigned long start;
 #endif
-    bool (^syn_cond)(void) = ^bool (void) {
+    bool (^syn_cond)(void) = ^bool(void) {
         int pending = atomic_load(&syn->pending);
 
         if (cond) {
@@ -1247,7 +1285,7 @@ thr_syn_wait_until_flags(thr_syn_t *syn, unsigned flags, bool (^cond)(void))
                  * BTW, if this assert fails, the condition probably does not
                  * really depend on the syn to be verified.
                  */
-                assert (pending);
+                assert(pending);
                 return false;
             }
             return true;
@@ -1260,10 +1298,10 @@ thr_syn_wait_until_flags(thr_syn_t *syn, unsigned flags, bool (^cond)(void))
     if (self_g->id == 0) {
         const bool drain_main_q = !(flags & THR_SYN_WAIT_NO_MAIN_DRAIN);
 
-        bool (^thr_main_cond)(void) = ^bool (void) {
-            return syn_cond() || (
-                drain_main_q && !mpsc_queue_looks_empty(&thr_queue_main_g->q)
-            );
+        bool (^thr_main_cond)(void) = ^bool(void) {
+            return syn_cond() ||
+                   (drain_main_q &&
+                    !mpsc_queue_looks_empty(&thr_queue_main_g->q));
         };
 
         while (!syn_cond()) {
@@ -1306,10 +1344,11 @@ thr_syn_wait_until_flags(thr_syn_t *syn, unsigned flags, bool (^cond)(void))
 #ifdef __has_thr_acc
             self_g->acc.ec_wait_time += (hardclock() - start);
 #endif
-          cas:
+        cas:
             ec = &syn->ec;
-            while (unlikely(!atomic_compare_exchange_strong(&thr0_cur_ec_g,
-                                                            &ec, NULL)))
+            while (unlikely(
+                !atomic_compare_exchange_strong(&thr0_cur_ec_g, &ec, NULL)
+            ))
             {
                 sched_yield();
                 ec = &syn->ec;
@@ -1356,8 +1395,8 @@ void thr_syn_notify(thr_syn_t *syn, thr_queue_t *q, thr_job_t *job)
     });
 }
 
-#define TD_GET_PTR(td)  (((uintptr_t)(td)) & 0x0000ffffffffffffull)
-#define TD_GET_SEQ(td)  (((uintptr_t)(td)) & 0xffff000000000000ull)
+#define TD_GET_PTR(td) (((uintptr_t)(td)) & 0x0000ffffffffffffull)
+#define TD_GET_SEQ(td) (((uintptr_t)(td)) & 0xffff000000000000ull)
 
 static thr_td_t *thr_syn_get_td(thr_td_t *td)
 {
@@ -1366,7 +1405,8 @@ static thr_td_t *thr_syn_get_td(thr_td_t *td)
 
 static thr_td_t *thr_syn_next_td_ptr(thr_td_t *cur, thr_td_t *next)
 {
-    return (thr_td_t *)((TD_GET_SEQ(cur) + 0x1000000000000ull) | TD_GET_PTR(next));
+    return (thr_td_t *)((TD_GET_SEQ(cur) + 0x1000000000000ull) |
+                        TD_GET_PTR(next));
 }
 
 void thr_syn_wipe(thr_syn_t *syn)
@@ -1374,7 +1414,8 @@ void thr_syn_wipe(thr_syn_t *syn)
     thr_td_t *ptr = thr_syn_get_td(atomic_load(&syn->head));
 
     thr_syn__release(syn);
-    while (unlikely(atomic_load_explicit(&syn->refcnt, memory_order_acquire))) {
+    while (unlikely(atomic_load_explicit(&syn->refcnt, memory_order_acquire)))
+    {
         cpu_relax();
     }
     thr_ec_wipe(&syn->ec);
@@ -1390,11 +1431,13 @@ void thr_syn_wipe(thr_syn_t *syn)
     Block_release_p(&syn->delete_td);
 }
 
-void thr_syn_declare_td(thr_syn_t *syn, thr_td_t *(BLOCK_CARET new_td)(void),
-                        void (BLOCK_CARET delete_td)(thr_td_t **))
+void thr_syn_declare_td(
+    thr_syn_t *syn, thr_td_t *(BLOCK_CARET new_td)(void),
+    void(BLOCK_CARET delete_td)(thr_td_t **)
+)
 {
-    assert (!syn->new_td);
-    assert (!syn->delete_td);
+    assert(!syn->new_td);
+    assert(!syn->delete_td);
 
     syn->new_td = Block_copy(new_td);
     syn->delete_td = Block_copy(delete_td);
@@ -1404,15 +1447,17 @@ thr_td_t *thr_syn_acquire_td(thr_syn_t *syn)
 {
     thr_td_t *ptr = atomic_load(&syn->head);
 
-    assert (syn->new_td != NULL);
+    assert(syn->new_td != NULL);
 
     if (thr_syn_get_td(ptr)) {
         thr_td_t *next;
 
         do {
-            next = thr_syn_next_td_ptr(ptr, atomic_load(&thr_syn_get_td(ptr)->next));
-        } while (!atomic_compare_exchange_weak(&syn->head, &ptr, next)
-             &&  thr_syn_get_td(ptr));
+            next = thr_syn_next_td_ptr(
+                ptr, atomic_load(&thr_syn_get_td(ptr)->next)
+            );
+        } while (!atomic_compare_exchange_weak(&syn->head, &ptr, next) &&
+                 thr_syn_get_td(ptr));
     }
 
     ptr = thr_syn_get_td(ptr);
@@ -1439,7 +1484,7 @@ void thr_syn_collect_td(thr_syn_t *syn, void (^collector)(const thr_td_t *td))
 {
     thr_td_t *ptr = thr_syn_get_td(atomic_load(&syn->head));
 
-    assert (atomic_load(&syn->pending) == 0);
+    assert(atomic_load(&syn->pending) == 0);
 
     while (ptr) {
         collector(ptr);
@@ -1527,8 +1572,7 @@ void thr_for_each(size_t count, void (^blk)(size_t pos))
 
             if (t->from >= count) {
                 break;
-            } else
-            if (t->to > count) {
+            } else if (t->to > count) {
                 t->to = count;
             }
 

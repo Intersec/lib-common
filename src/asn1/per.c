@@ -29,7 +29,7 @@
 static struct {
     int decode_log_level;
 } asn1_per_g = {
-#define _G  asn1_per_g
+#define _G asn1_per_g
     .decode_log_level = -1,
 };
 
@@ -39,7 +39,7 @@ static ALWAYS_INLINE void
 aper_write_aligned_int(bb_t *bb, int64_t i64, uint8_t olen)
 {
     bb_align(bb);
-    assert (olen <= 8);
+    assert(olen <= 8);
     bb_be_add_bits(bb, i64, olen * 8);
 }
 
@@ -65,8 +65,8 @@ static ALWAYS_INLINE int aper_read_aligned_u8(bit_stream_t *bs, uint8_t *res)
     return 0;
 }
 
-static ALWAYS_INLINE int aper_read_aligned_u16(bit_stream_t *bs,
-                                               uint16_t *res)
+static ALWAYS_INLINE int
+aper_read_aligned_u16(bit_stream_t *bs, uint16_t *res)
 {
     uint64_t r64 = 0;
 
@@ -76,8 +76,8 @@ static ALWAYS_INLINE int aper_read_aligned_u16(bit_stream_t *bs,
     return 0;
 }
 
-static ALWAYS_INLINE int aper_read_aligned_uint(bit_stream_t *bs, size_t olen,
-                                                uint64_t *res)
+static ALWAYS_INLINE int
+aper_read_aligned_uint(bit_stream_t *bs, size_t olen, uint64_t *res)
 {
     *res = 0;
     RETHROW(bs_align(bs));
@@ -85,8 +85,8 @@ static ALWAYS_INLINE int aper_read_aligned_uint(bit_stream_t *bs, size_t olen,
     return 0;
 }
 
-static ALWAYS_INLINE int aper_read_aligned_int(bit_stream_t *bs, size_t olen,
-                                               int64_t *res)
+static ALWAYS_INLINE int
+aper_read_aligned_int(bit_stream_t *bs, size_t olen, int64_t *res)
 {
     uint64_t u = 0;
 
@@ -95,8 +95,9 @@ static ALWAYS_INLINE int aper_read_aligned_int(bit_stream_t *bs, size_t olen,
     return 0;
 }
 
-static int t_aper_get_unaligned_bytes(bit_stream_t *bs, size_t olen,
-                                      bool copy, lstr_t *res)
+static int t_aper_get_unaligned_bytes(
+    bit_stream_t *bs, size_t olen, bool copy, lstr_t *res
+)
 {
     THROW_ERR_IF(!bs_has_bytes(bs, olen));
     if (bs_is_aligned(bs)) {
@@ -124,8 +125,7 @@ static int t_aper_get_unaligned_bytes(bit_stream_t *bs, size_t olen,
 /* }}} */
 /* PER generic helpers {{{ */
 
-static bool is_bstring_aligned(const asn1_cnt_info_t *constraints,
-                               size_t len)
+static bool is_bstring_aligned(const asn1_cnt_info_t *constraints, size_t len)
 {
     /* No need to realign for an empty bit string. */
     THROW_FALSE_IF(!len);
@@ -170,26 +170,26 @@ void aper_write_u16_m(bb_t *bb, uint16_t u16, uint16_t blen, uint16_t d_max)
         goto end;
     }
 
-    assert (blen <= 16);
+    assert(blen <= 16);
 
     /* "The two-octet case". */
     aper_write_aligned_u16(bb, u16);
     /* FALLTHROUGH */
 
-  end:
+end:
     e_trace_be_bb_tail(5, bb, "constrained number (n = %u)", u16);
     bb_pop_mark(bb);
 }
 
-#define PER_FRAG_64K  (64 << 10)
-#define PER_FRAG_16K  (16 << 10)
+#define PER_FRAG_64K (64 << 10)
+#define PER_FRAG_16K (16 << 10)
 
 /* Unconstrained length */
 static ALWAYS_INLINE void
 aper_write_ulen(bb_t *bb, size_t l, bool *nullable need_fragmentation)
 {
     /* See aper_write_len(). */
-    assert (!need_fragmentation || !*need_fragmentation);
+    assert(!need_fragmentation || !*need_fragmentation);
 
     bb_push_mark(bb);
 
@@ -208,7 +208,7 @@ aper_write_ulen(bb_t *bb, size_t l, bool *nullable need_fragmentation)
     }
 
     if (l < PER_FRAG_16K) {
-        uint16_t u16  = l | (1 << 15);
+        uint16_t u16 = l | (1 << 15);
 
         aper_write_aligned_u16(bb, u16);
 
@@ -225,8 +225,8 @@ aper_write_ulen(bb_t *bb, size_t l, bool *nullable need_fragmentation)
     *need_fragmentation = true;
 }
 
-static ALWAYS_INLINE void aper_write_2c_number(bb_t *bb, int64_t v,
-                                               bool is_signed)
+static ALWAYS_INLINE void
+aper_write_2c_number(bb_t *bb, int64_t v, bool is_signed)
 {
     uint8_t olen;
 
@@ -283,19 +283,21 @@ void aper_write_nsnnwn(bb_t *bb, size_t n)
     aper_write_number(bb, n, NULL);
 }
 
-void aper_write_len(bb_t *bb, size_t l, size_t l_min, size_t l_max,
-                    bool *nullable need_fragmentation)
+void aper_write_len(
+    bb_t *bb, size_t l, size_t l_min, size_t l_max,
+    bool *nullable need_fragmentation
+)
 {
     /* If set, it is caller's responsibility to pass a boolean initialized
      * with the value 'false'.
      */
-    assert (!need_fragmentation || !*need_fragmentation);
+    assert(!need_fragmentation || !*need_fragmentation);
 
     if (l_max != SIZE_MAX) {
         uint32_t d_max = l_max - l_min;
-        uint32_t d     = l - l_min;
+        uint32_t d = l - l_min;
 
-        assert (l <= l_max);
+        assert(l <= l_max);
 
         if (d_max < (1 << 16)) {
             /* TODO pre-process u16_blen(d_max) */
@@ -368,21 +370,23 @@ void sb_add_asn1_len_constraints(sb_t *sb, const asn1_cnt_info_t *info)
     sb_adds(sb, ")");
 }
 
-static void aper_trace_constraint_violation(const asn1_cnt_info_t *info,
-                                            size_t len)
+static void
+aper_trace_constraint_violation(const asn1_cnt_info_t *info, size_t len)
 {
     SB_1k(constraints);
 
     sb_add_asn1_len_constraints(&constraints, info);
-    e_error("length = %zu, constraints = %*pM", len,
-            SB_FMT_ARG(&constraints));
+    e_error(
+        "length = %zu, constraints = %*pM", len, SB_FMT_ARG(&constraints)
+    );
 }
 
 /* Check constraints, write extension bit (if needed) and prepare encoding
  * context. */
-static int
-aper_encode_len_extension_bit(bb_t *bb, size_t l, const asn1_cnt_info_t *info,
-                              aper_len_encoding_ctx_t *ctx)
+static int aper_encode_len_extension_bit(
+    bb_t *bb, size_t l, const asn1_cnt_info_t *info,
+    aper_len_encoding_ctx_t *ctx
+)
 {
     aper_len_encoding_ctx_init(ctx);
     ctx->len = l;
@@ -464,8 +468,10 @@ static void aper_encode_len(bb_t *bb, aper_len_encoding_ctx_t *ctx)
         if (ctx->extension_present) {
             aper_write_ulen(bb, ctx->len, &ctx->use_fragmentation);
         } else {
-            aper_write_len(bb, ctx->len, ctx->min_root_len,
-                           ctx->max_root_len, &ctx->use_fragmentation);
+            aper_write_len(
+                bb, ctx->len, ctx->min_root_len, ctx->max_root_len,
+                &ctx->use_fragmentation
+            );
         }
         if (!ctx->use_fragmentation) {
             ctx->done = true;
@@ -496,10 +502,10 @@ static void aper_encode_len(bb_t *bb, aper_len_encoding_ctx_t *ctx)
 /* }}} */
 /* Scalar types {{{ */
 
-static ALWAYS_INLINE int check_constraints(int64_t n,
-                                           bool has_min, asn1_int_t min,
-                                           bool has_max, asn1_int_t max,
-                                           bool is_signed)
+static ALWAYS_INLINE int check_constraints(
+    int64_t n, bool has_min, asn1_int_t min, bool has_max, asn1_int_t max,
+    bool is_signed
+)
 {
     if (is_signed) {
         THROW_ERR_IF((has_min && n < min.i) || (has_max && n > max.i));
@@ -512,24 +518,28 @@ static ALWAYS_INLINE int check_constraints(int64_t n,
     return 0;
 }
 
-static int
-aper_check_int_root_constraints(int64_t n, const asn1_int_info_t *info,
-                                bool is_signed)
+static int aper_check_int_root_constraints(
+    int64_t n, const asn1_int_info_t *info, bool is_signed
+)
 {
-    return check_constraints(n, info->has_min, info->min, info->has_max,
-                             info->max, is_signed);
+    return check_constraints(
+        n, info->has_min, info->min, info->has_max, info->max, is_signed
+    );
 }
 
-static int
-aper_check_int_ext_constraints(int64_t n, const asn1_int_info_t *info,
-                               bool is_signed)
+static int aper_check_int_ext_constraints(
+    int64_t n, const asn1_int_info_t *info, bool is_signed
+)
 {
-    return check_constraints(n, info->has_ext_min, info->ext_min,
-                             info->has_ext_max, info->ext_max, is_signed);
+    return check_constraints(
+        n, info->has_ext_min, info->ext_min, info->has_ext_max, info->ext_max,
+        is_signed
+    );
 }
 
-int aper_encode_number(bb_t *bb, int64_t n, const asn1_int_info_t *info,
-                       bool is_signed)
+int aper_encode_number(
+    bb_t *bb, int64_t n, const asn1_int_info_t *info, bool is_signed
+)
 {
     if (aper_check_int_root_constraints(n, info, is_signed) < 0) {
         if (info->extended) {
@@ -608,8 +618,8 @@ int aper_encode_octet_string(bb_t *bb, lstr_t os, const asn1_cnt_info_t *info)
         return -1;
     }
 
-    if (info && info->max <= 2 && info->min == info->max
-    &&  os.len == (int)info->max)
+    if (info && info->max <= 2 && info->min == info->max &&
+        os.len == (int)info->max)
     {
         /* Short form: the string isn't realigned. */
         align_before_data = false;
@@ -625,12 +635,12 @@ int aper_encode_octet_string(bb_t *bb, lstr_t os, const asn1_cnt_info_t *info)
         __ps_skip(&ps, ctx.to_encode);
     } while (!ctx.done);
 
-
     return 0;
 }
 
-int aper_encode_bstring(bb_t *bb, const bit_stream_t *bits,
-                        const asn1_cnt_info_t *info)
+int aper_encode_bstring(
+    bb_t *bb, const bit_stream_t *bits, const asn1_cnt_info_t *info
+)
 {
     bit_stream_t bs = *bits;
     size_t len = bs_len(&bs);
@@ -655,9 +665,9 @@ int aper_encode_bstring(bb_t *bb, const bit_stream_t *bits,
     return 0;
 }
 
-static int
-aper_encode_bit_string(bb_t *bb, const asn1_bit_string_t *b,
-                       const asn1_cnt_info_t *info)
+static int aper_encode_bit_string(
+    bb_t *bb, const asn1_bit_string_t *b, const asn1_cnt_info_t *info
+)
 {
     bit_stream_t bs = bs_init(b->data, 0, b->bit_len);
 
@@ -672,56 +682,61 @@ static ALWAYS_INLINE void aper_encode_bool(bb_t *bb, bool b)
 /* }}} */
 /* Constructed types {{{ */
 
-static int aper_encode_constructed(bb_t *bb, const void *st,
-                                   const asn1_desc_t *desc,
-                                   const asn1_field_t *field);
+static int aper_encode_constructed(
+    bb_t *bb, const void *st, const asn1_desc_t *desc,
+    const asn1_field_t *field
+);
 
 static int
 aper_encode_value(bb_t *bb, const void *v, const asn1_field_t *field)
 {
     switch (field->type) {
-      case ASN1_OBJ_TYPE(bool):
+    case ASN1_OBJ_TYPE(bool):
         aper_encode_bool(bb, *(const bool *)v);
         break;
 #define ASN1_ENCODE_INT_CASE(type_t, is_signed)                              \
-      case ASN1_OBJ_TYPE(type_t):                                            \
-        return aper_encode_number(bb, *(type_t *)v, &field->int_info,        \
-                                  (is_signed));
-      ASN1_ENCODE_INT_CASE(int8_t, true);
-      ASN1_ENCODE_INT_CASE(uint8_t, false);
-      ASN1_ENCODE_INT_CASE(int16_t, true);
-      ASN1_ENCODE_INT_CASE(uint16_t, false);
-      ASN1_ENCODE_INT_CASE(int32_t, true);
-      ASN1_ENCODE_INT_CASE(uint32_t, false);
-      ASN1_ENCODE_INT_CASE(int64_t, true);
-      ASN1_ENCODE_INT_CASE(uint64_t, false);
+    case ASN1_OBJ_TYPE(type_t):                                              \
+        return aper_encode_number(                                           \
+            bb, *(type_t *)v, &field->int_info, (is_signed)                  \
+        );
+        ASN1_ENCODE_INT_CASE(int8_t, true);
+        ASN1_ENCODE_INT_CASE(uint8_t, false);
+        ASN1_ENCODE_INT_CASE(int16_t, true);
+        ASN1_ENCODE_INT_CASE(uint16_t, false);
+        ASN1_ENCODE_INT_CASE(int32_t, true);
+        ASN1_ENCODE_INT_CASE(uint32_t, false);
+        ASN1_ENCODE_INT_CASE(int64_t, true);
+        ASN1_ENCODE_INT_CASE(uint64_t, false);
 #undef ASN1_ENCODE_INT_CASE
-      case ASN1_OBJ_TYPE(enum):
+    case ASN1_OBJ_TYPE(enum):
         return aper_encode_enum(bb, *(int32_t *)v, field->enum_info);
-      case ASN1_OBJ_TYPE(NULL):
-      case ASN1_OBJ_TYPE(OPT_NULL):
+    case ASN1_OBJ_TYPE(NULL):
+    case ASN1_OBJ_TYPE(OPT_NULL):
         break;
-      case ASN1_OBJ_TYPE(lstr_t):
-        return aper_encode_octet_string(bb, *(const lstr_t *)v,
-                                        &field->str_info);
-      case ASN1_OBJ_TYPE(asn1_bit_string_t):
-        return aper_encode_bit_string(bb, (const asn1_bit_string_t *)v,
-                                      &field->str_info);
-      case ASN1_OBJ_TYPE(SEQUENCE): case ASN1_OBJ_TYPE(CHOICE):
-      case ASN1_OBJ_TYPE(UNTAGGED_CHOICE):
+    case ASN1_OBJ_TYPE(lstr_t):
+        return aper_encode_octet_string(
+            bb, *(const lstr_t *)v, &field->str_info
+        );
+    case ASN1_OBJ_TYPE(asn1_bit_string_t):
+        return aper_encode_bit_string(
+            bb, (const asn1_bit_string_t *)v, &field->str_info
+        );
+    case ASN1_OBJ_TYPE(SEQUENCE):
+    case ASN1_OBJ_TYPE(CHOICE):
+    case ASN1_OBJ_TYPE(UNTAGGED_CHOICE):
         return aper_encode_constructed(bb, v, field->u.comp, field);
-      case ASN1_OBJ_TYPE(asn1_ext_t):
-        assert (0);
+    case ASN1_OBJ_TYPE(asn1_ext_t):
+        assert(0);
         e_error("ext type not supported");
         break;
-      case ASN1_OBJ_TYPE(OPAQUE):
-        assert (0);
+    case ASN1_OBJ_TYPE(OPAQUE):
+        assert(0);
         e_error("opaque type not supported");
         break;
-      case ASN1_OBJ_TYPE(SKIP):
+    case ASN1_OBJ_TYPE(SKIP):
         e_error("skip not supported"); /* We cannot stand squirrels */
         break;
-      case ASN1_OBJ_TYPE(OPEN_TYPE):
+    case ASN1_OBJ_TYPE(OPEN_TYPE):
         e_error("open type not supported");
         break;
     }
@@ -739,8 +754,8 @@ aper_encode_field(bb_t *bb, const void *v, const asn1_field_t *field)
     bb_push_mark(bb);
 
     if (field->is_open_type || field->is_extension) {
-        lstr_t  os;
-        bb_t    buf;
+        lstr_t os;
+        bb_t buf;
 
         bb_inita(&buf, field->open_type_buf_len);
         aper_encode_value(&buf, v, field);
@@ -756,21 +771,23 @@ aper_encode_field(bb_t *bb, const void *v, const asn1_field_t *field)
         res = aper_encode_value(bb, v, field);
     }
 
-    e_trace_be_bb_tail(5, bb, "value encoding for %s:%s",
-                    field->oc_t_name, field->name);
+    e_trace_be_bb_tail(
+        5, bb, "value encoding for %s:%s", field->oc_t_name, field->name
+    );
     bb_pop_mark(bb);
 
     return res;
 }
 
-static void field_bitmap_add_bit(bb_t *bitmap, const void *st,
-                                 const asn1_field_t *field, bool *present)
+static void field_bitmap_add_bit(
+    bb_t *bitmap, const void *st, const asn1_field_t *field, bool *present
+)
 {
     const void *opt;
     const void *val;
     bool field_present;
 
-    assert (field->mode == ASN1_OBJ_MODE(OPTIONAL));
+    assert(field->mode == ASN1_OBJ_MODE(OPTIONAL));
     opt = GET_DATA_P(st, field, uint8_t);
     val = asn1_opt_field(opt, field->type);
     field_present = !!val;
@@ -835,8 +852,9 @@ aper_encode_sequence(bb_t *bb, const void *st, const asn1_desc_t *desc)
 #endif
 
         /* Put extension bit */
-        e_trace(5, "sequence is extended (extension bit = %d)",
-                !!ext_fields_cnt);
+        e_trace(
+            5, "sequence is extended (extension bit = %d)", !!ext_fields_cnt
+        );
         bb_be_add_bit(bb, !!ext_fields_cnt);
     }
 
@@ -851,7 +869,7 @@ aper_encode_sequence(bb_t *bb, const void *st, const asn1_desc_t *desc)
     for (int i = 0; i < desc->fields.len; i++) {
         const asn1_field_t *field = &desc->fields.tab[i];
 
-        assert (field->mode != ASN1_OBJ_MODE(SEQ_OF));
+        assert(field->mode != ASN1_OBJ_MODE(SEQ_OF));
 
         if (field->mode == ASN1_OBJ_MODE(OPTIONAL)) {
             const void *opt = GET_DATA_P(st, field, uint8_t);
@@ -874,8 +892,9 @@ aper_encode_sequence(bb_t *bb, const void *st, const asn1_desc_t *desc)
              * to come. */
             extended_fields_reached = true;
             aper_write_nsnnwn(bb, bs_len(&ext_bs) - 1);
-            e_trace_be_bb_tail(5, bb, "extension bitmap length (l=%zd)",
-                               bs_len(&ext_bs));
+            e_trace_be_bb_tail(
+                5, bb, "extension bitmap length (l=%zd)", bs_len(&ext_bs)
+            );
             bb_be_add_bs(bb, &ext_bs);
 
             e_trace_be_bb_tail(5, bb, "extension bitmap");
@@ -883,8 +902,9 @@ aper_encode_sequence(bb_t *bb, const void *st, const asn1_desc_t *desc)
         }
 
         if (aper_encode_field(bb, v, field) < 0) {
-            e_error("failed to encode value %s:%s", field->oc_t_name,
-                    field->name);
+            e_error(
+                "failed to encode value %s:%s", field->oc_t_name, field->name
+            );
             goto error;
         }
     }
@@ -892,7 +912,7 @@ aper_encode_sequence(bb_t *bb, const void *st, const asn1_desc_t *desc)
     bb_wipe(&ext_bb);
     return 0;
 
-  error:
+error:
     bb_wipe(&ext_bb);
     return -1;
 }
@@ -906,7 +926,7 @@ aper_encode_choice(bb_t *bb, const void *st, const asn1_desc_t *desc)
     const void *v;
     bool extension_present = false;
 
-    assert (desc->fields.len > 1);
+    assert(desc->fields.len > 1);
 
     enum_field = &desc->fields.tab[0];
 
@@ -916,7 +936,7 @@ aper_encode_choice(bb_t *bb, const void *st, const asn1_desc_t *desc)
     }
     e_trace(5, "index = %d", index);
     choice_field = &desc->fields.tab[index];
-    assert (choice_field->mode == ASN1_OBJ_MODE(MANDATORY));
+    assert(choice_field->mode == ASN1_OBJ_MODE(MANDATORY));
 
     /* Put extension bit */
     if (desc->is_extended) {
@@ -944,26 +964,31 @@ aper_encode_choice(bb_t *bb, const void *st, const asn1_desc_t *desc)
     bb_pop_mark(bb);
 
     v = GET_DATA_P(st, choice_field, uint8_t);
-    assert (v);
+    assert(v);
 
     if (aper_encode_field(bb, v, choice_field) < 0) {
-        return e_error("failed to encode choice element %s:%s",
-                       choice_field->oc_t_name, choice_field->name);
+        return e_error(
+            "failed to encode choice element %s:%s", choice_field->oc_t_name,
+            choice_field->name
+        );
     }
 
     return 0;
 }
 
-static int
-aper_encode_seq_of_field(bb_t *bb, const asn1_field_t *field,
-                         const uint8_t *tab, int start, int end)
+static int aper_encode_seq_of_field(
+    bb_t *bb, const asn1_field_t *field, const uint8_t *tab, int start,
+    int end
+)
 {
     size_t field_sz = field->pointed ? sizeof(const void *) : field->size;
 
     for (int i = start; i < end; i++) {
         if (aper_encode_field(bb, tab + i * field_sz, field) < 0) {
-            e_error("failed to encode array value [%d] %s:%s",
-                    i, field->oc_t_name, field->name);
+            e_error(
+                "failed to encode array value [%d] %s:%s", i,
+                field->oc_t_name, field->name
+            );
 
             return -1;
         }
@@ -981,15 +1006,16 @@ aper_encode_seq_of(bb_t *bb, const void *st, const asn1_field_t *field)
     aper_len_encoding_ctx_t ctx;
     int offset;
 
-    assert (desc->fields.len == 1);
+    assert(desc->fields.len == 1);
     repeated_field = &desc->fields.tab[0];
 
-    assert (repeated_field->mode == ASN1_OBJ_MODE(SEQ_OF));
+    assert(repeated_field->mode == ASN1_OBJ_MODE(SEQ_OF));
 
     tab = GET_CONST_PTR(st, asn1_void_vector_t, repeated_field->offset);
 
-    if (aper_encode_len_extension_bit(bb, tab->len, &field->seq_of_info,
-                                      &ctx) < 0)
+    if (aper_encode_len_extension_bit(
+            bb, tab->len, &field->seq_of_info, &ctx
+        ) < 0)
     {
         return -1;
     }
@@ -1001,8 +1027,9 @@ aper_encode_seq_of(bb_t *bb, const void *st, const asn1_field_t *field)
         /* Check for overflow. */
         assert(offset + ctx.to_encode <= tab->len);
 
-        RETHROW(aper_encode_seq_of_field(bb, repeated_field, tab->data,
-                                         offset, offset + ctx.to_encode));
+        RETHROW(aper_encode_seq_of_field(
+            bb, repeated_field, tab->data, offset, offset + ctx.to_encode
+        ));
         offset += ctx.to_encode;
     } while (!ctx.done);
 
@@ -1010,13 +1037,14 @@ aper_encode_seq_of(bb_t *bb, const void *st, const asn1_field_t *field)
 }
 
 /* TODO get it cleaner */
-static int aper_encode_constructed(bb_t *bb, const void *st,
-                                   const asn1_desc_t *desc,
-                                   const asn1_field_t *field)
+static int aper_encode_constructed(
+    bb_t *bb, const void *st, const asn1_desc_t *desc,
+    const asn1_field_t *field
+)
 {
     if (desc->is_seq_of) {
-        assert (field);
-        assert (desc == field->u.comp);
+        assert(field);
+        assert(desc == field->u.comp);
 
         if (aper_encode_seq_of(bb, st, field) < 0) {
             return e_error("failed to encode sequence of values");
@@ -1026,14 +1054,14 @@ static int aper_encode_constructed(bb_t *bb, const void *st,
     }
 
     switch (desc->type) {
-      case ASN1_CSTD_TYPE_SEQUENCE:
+    case ASN1_CSTD_TYPE_SEQUENCE:
         return aper_encode_sequence(bb, st, desc);
-      case ASN1_CSTD_TYPE_CHOICE:
+    case ASN1_CSTD_TYPE_CHOICE:
         return aper_encode_choice(bb, st, desc);
-      case ASN1_CSTD_TYPE_SET:
+    case ASN1_CSTD_TYPE_SET:
         e_error("ASN.1 SET not supported yet");
         /* FALLTHROUGH */
-      default:
+    default:
         return -1;
     }
 }
@@ -1066,7 +1094,7 @@ int aper_encode_desc(sb_t *sb, const void *st, const asn1_desc_t *desc)
 /* }}} */
 /* Read {{{ */
 
-#define e_info(fmt, ...)  \
+#define e_info(fmt, ...)                                                     \
     if (_G.decode_log_level < 0)                                             \
         e_info(fmt, ##__VA_ARGS__);                                          \
     else                                                                     \
@@ -1079,18 +1107,21 @@ void aper_set_decode_log_level(int level)
 
 /* Helpers {{{ */
 
-int aper_read_u16_m(bit_stream_t *bs, size_t blen, uint16_t d_max,
-                    uint16_t *u16)
+int aper_read_u16_m(
+    bit_stream_t *bs, size_t blen, uint16_t d_max, uint16_t *u16
+)
 {
     uint64_t res;
-    assert (blen); /* u16 is given by constraints */
+    assert(blen); /* u16 is given by constraints */
 
     if (blen == 8 && d_max == 255) {
         /* "The one-octet case". */
         *u16 = 0;
         if (aper_read_aligned_u8(bs, (uint8_t *)u16) < 0) {
-            e_info("cannot read contrained integer: end of input "
-                   "(expected at least one aligned octet)");
+            e_info(
+                "cannot read contrained integer: end of input "
+                "(expected at least one aligned octet)"
+            );
             return -1;
         }
 
@@ -1100,8 +1131,11 @@ int aper_read_u16_m(bit_stream_t *bs, size_t blen, uint16_t d_max,
     if (blen <= 8) {
         /* "The bit-field case". */
         if (bs_be_get_bits(bs, blen, &res) < 0) {
-            e_info("not enough bits to read constrained integer "
-                   "(got %zd, need %zd)", bs_len(bs), blen);
+            e_info(
+                "not enough bits to read constrained integer "
+                "(got %zd, need %zd)",
+                bs_len(bs), blen
+            );
             return -1;
         }
 
@@ -1111,8 +1145,10 @@ int aper_read_u16_m(bit_stream_t *bs, size_t blen, uint16_t d_max,
 
     /* "The two-octet case". */
     if (aper_read_aligned_u16(bs, u16) < 0) {
-        e_info("cannot read constrained integer: end of input "
-               "(expected at least two aligned octet left)");
+        e_info(
+            "cannot read constrained integer: end of input "
+            "(expected at least two aligned octet left)"
+        );
         return -1;
     }
     return 0;
@@ -1124,11 +1160,13 @@ aper_read_ulen(bit_stream_t *bs, size_t *l, bool *nullable is_fragmented)
     uint64_t len = 0;
 
     /* XXX Same remark as for "need_fragmentation" in aper_write_len(). */
-    assert (!is_fragmented || !*is_fragmented);
+    assert(!is_fragmented || !*is_fragmented);
 
     if (bs_align(bs) < 0 || !bs_has(bs, 8)) {
-        e_info("cannot read unconstrained length: end of input "
-               "(expected at least one aligned octet left)");
+        e_info(
+            "cannot read unconstrained length: end of input "
+            "(expected at least one aligned octet left)"
+        );
         return -1;
     }
 
@@ -1144,14 +1182,18 @@ aper_read_ulen(bit_stream_t *bs, size_t *l, bool *nullable is_fragmented)
             *is_fragmented = true;
             return 0;
         }
-        e_info("cannot read unconstrained length: "
-               "fragmented values are not supported");
+        e_info(
+            "cannot read unconstrained length: "
+            "fragmented values are not supported"
+        );
         return -1;
     }
 
     if (bs_be_get_bits(bs, 16, &len) < 0) {
-        e_info("cannot read unconstrained length: end of input "
-               "(expected at least a second octet left)");
+        e_info(
+            "cannot read unconstrained length: end of input "
+            "(expected at least a second octet left)"
+        );
         return -1;
     }
 
@@ -1206,12 +1248,14 @@ aper_read_2c_number(bit_stream_t *bs, int64_t *v, bool is_signed)
 
     return 0;
 
-  not_enough_bytes:
-    e_info("not enough bytes to read unconstrained number "
-           "(got %zd, need %zd)", bs_len(bs) / 8, olen);
+not_enough_bytes:
+    e_info(
+        "not enough bytes to read unconstrained number (got %zd, need %zd)",
+        bs_len(bs) / 8, olen
+    );
     return -1;
 
-  overflow:
+overflow:
     e_info("the number is too big not to overflow");
     return -1;
 }
@@ -1241,8 +1285,8 @@ aper_read_number(bit_stream_t *bs, const asn1_int_info_t *info, uint64_t *v)
         } else {
             uint16_t u16 = 0;
 
-            if (aper_read_u16_m(bs, info->max_olen_blen, info->d_max,
-                                &u16) < 0)
+            if (aper_read_u16_m(bs, info->max_olen_blen, info->d_max, &u16) <
+                0)
             {
                 e_info("cannot read constrained whole number length");
                 return -1;
@@ -1267,8 +1311,10 @@ aper_read_number(bit_stream_t *bs, const asn1_int_info_t *info, uint64_t *v)
     }
 
     if (aper_read_aligned_uint(bs, olen, v) < 0) {
-        e_info("not enough bytes to read number (got %zd, need %zd)",
-               bs_len(bs) / 8, olen);
+        e_info(
+            "not enough bytes to read number (got %zd, need %zd)",
+            bs_len(bs) / 8, olen
+        );
         return -1;
     }
 
@@ -1308,8 +1354,10 @@ int aper_read_nsnnwn(bit_stream_t *bs, size_t *n)
     return 0;
 }
 
-int aper_read_len(bit_stream_t *bs, size_t l_min, size_t l_max, size_t *l,
-                  bool *nullable is_fragmented)
+int aper_read_len(
+    bit_stream_t *bs, size_t l_min, size_t l_max, size_t *l,
+    bool *nullable is_fragmented
+)
 {
     size_t d_max = l_max - l_min;
 
@@ -1375,8 +1423,10 @@ static int
 aper_len_check_max(const aper_len_decoding_ctx_t *ctx, uint64_t len)
 {
     if (len > ctx->max_len) {
-        e_info("%s maximum length constraint exceeded",
-               ctx->extension_present ? "extended" : "root");
+        e_info(
+            "%s maximum length constraint exceeded",
+            ctx->extension_present ? "extended" : "root"
+        );
         return -1;
     }
     return 0;
@@ -1386,8 +1436,10 @@ static int
 aper_len_check_min(const aper_len_decoding_ctx_t *ctx, uint64_t len)
 {
     if (len < ctx->min_len) {
-        e_info("%s minimum length constraint unmet",
-               ctx->extension_present ? "extended" : "root");
+        e_info(
+            "%s minimum length constraint unmet",
+            ctx->extension_present ? "extended" : "root"
+        );
         return -1;
     }
     return 0;
@@ -1480,9 +1532,10 @@ static uint8_t *aper_buf_growlen(qv_t(u8) *buf, int extra)
 }
 
 /* Read extension bit (if any) and resolve min/max length. */
-static int
-aper_decode_len_extension_bit(bit_stream_t *bs, const asn1_cnt_info_t *info,
-                              aper_len_decoding_ctx_t *ctx)
+static int aper_decode_len_extension_bit(
+    bit_stream_t *bs, const asn1_cnt_info_t *info,
+    aper_len_decoding_ctx_t *ctx
+)
 {
     aper_len_decoding_ctx_init(ctx);
 
@@ -1526,8 +1579,9 @@ static int aper_decode_len(bit_stream_t *bs, aper_len_decoding_ctx_t *ctx)
             return -1;
         }
     } else {
-        if (aper_read_len(bs, ctx->min_len, ctx->max_len, &l,
-                          &is_fragmented) < 0)
+        if (aper_read_len(
+                bs, ctx->min_len, ctx->max_len, &l, &is_fragmented
+            ) < 0)
         {
             e_info("cannot read constrained length");
             return -1;
@@ -1545,9 +1599,10 @@ static int aper_decode_len(bit_stream_t *bs, aper_len_decoding_ctx_t *ctx)
     return 0;
 }
 
-int aper_decode_number(bit_stream_t *nonnull bs,
-                       const asn1_int_info_t *nonnull info, bool is_signed,
-                       int64_t *nonnull n)
+int aper_decode_number(
+    bit_stream_t *nonnull bs, const asn1_int_info_t *nonnull info,
+    bool is_signed, int64_t *nonnull n
+)
 {
     int64_t res = 0;
 
@@ -1616,8 +1671,9 @@ int aper_decode_number(bit_stream_t *nonnull bs,
     return 0;
 }
 
-int aper_decode_enum(bit_stream_t *bs, const asn1_enum_info_t *e,
-                     int32_t *val)
+int aper_decode_enum(
+    bit_stream_t *bs, const asn1_enum_info_t *e, int32_t *val
+)
 {
     int64_t pos;
 
@@ -1644,8 +1700,10 @@ int aper_decode_enum(bit_stream_t *bs, const asn1_enum_info_t *e,
                     return 0;
                 }
 
-                e_info("cannot read enumerated value (extended): "
-                       "unregistered value");
+                e_info(
+                    "cannot read enumerated value (extended): "
+                    "unregistered value"
+                );
 
                 return -1;
             }
@@ -1683,8 +1741,9 @@ static ALWAYS_INLINE int aper_decode_bool(bit_stream_t *bs, bool *b)
 /* }}} */
 /* String types {{{ */
 
-int t_aper_decode_octet_string(bit_stream_t *bs, const asn1_cnt_info_t *info,
-                               bool copy, lstr_t *os)
+int t_aper_decode_octet_string(
+    bit_stream_t *bs, const asn1_cnt_info_t *info, bool copy, lstr_t *os
+)
 {
     aper_len_decoding_ctx_t len_ctx;
     scoped(qv_t(u8), buf, aper_buf_wipe) = QV_INIT();
@@ -1701,8 +1760,8 @@ int t_aper_decode_octet_string(bit_stream_t *bs, const asn1_cnt_info_t *info,
             e_info("cannot decode octet string length");
             return -1;
         }
-        if (!buf.len && info && info->max <= 2 &&
-            info->min == info->max && len_ctx.to_decode == info->max)
+        if (!buf.len && info && info->max <= 2 && info->min == info->max &&
+            len_ctx.to_decode == info->max)
         {
             /* Special case: unaligned fixed-size octet string
              * (size 1 or 2). */
@@ -1710,15 +1769,17 @@ int t_aper_decode_octet_string(bit_stream_t *bs, const asn1_cnt_info_t *info,
             bs_align(bs);
         }
 
-        if (t_aper_get_unaligned_bytes(bs, len_ctx.to_decode, copy,
-                                       &data) < 0)
+        if (t_aper_get_unaligned_bytes(bs, len_ctx.to_decode, copy, &data) <
+            0)
         {
             e_info("cannot read octet string: not enough bits");
             return -1;
         }
         if (buf.len) {
-            memcpy(qv_growlen(&buf, len_ctx.to_decode),
-                   data.data, len_ctx.to_decode);
+            memcpy(
+                qv_growlen(&buf, len_ctx.to_decode), data.data,
+                len_ctx.to_decode
+            );
         } else {
             qv_init_static(&buf, data.data, data.len);
         }
@@ -1740,9 +1801,9 @@ int t_aper_decode_octet_string(bit_stream_t *bs, const asn1_cnt_info_t *info,
     return 0;
 }
 
-static int
-t_aper_decode_data(bit_stream_t *bs, const asn1_cnt_info_t *info,
-                   bool copy, lstr_t *data)
+static int t_aper_decode_data(
+    bit_stream_t *bs, const asn1_cnt_info_t *info, bool copy, lstr_t *data
+)
 {
     lstr_t os;
 
@@ -1753,8 +1814,9 @@ t_aper_decode_data(bit_stream_t *bs, const asn1_cnt_info_t *info,
     return 0;
 }
 
-int aper_decode_bstring(bit_stream_t *bs, const asn1_cnt_info_t *info,
-                        bb_t *bit_string)
+int aper_decode_bstring(
+    bit_stream_t *bs, const asn1_cnt_info_t *info, bb_t *bit_string
+)
 {
     aper_len_decoding_ctx_t len_ctx;
 
@@ -1784,9 +1846,10 @@ int aper_decode_bstring(bit_stream_t *bs, const asn1_cnt_info_t *info,
     return 0;
 }
 
-static int
-t_aper_decode_bit_string(bit_stream_t *bs, const asn1_cnt_info_t *info,
-                         asn1_bit_string_t *bit_string)
+static int t_aper_decode_bit_string(
+    bit_stream_t *bs, const asn1_cnt_info_t *info,
+    asn1_bit_string_t *bit_string
+)
 {
     BB_1k(bb __attr_cleanup__(bb_wipe));
     uint8_t *data;
@@ -1803,75 +1866,79 @@ t_aper_decode_bit_string(bit_stream_t *bs, const asn1_cnt_info_t *info,
 /* }}} */
 /* Constructed types {{{ */
 
-static int
-t_aper_decode_constructed(bit_stream_t *bs, const asn1_desc_t *desc,
-                          const asn1_field_t *field, bool copy, void *st);
+static int t_aper_decode_constructed(
+    bit_stream_t *bs, const asn1_desc_t *desc, const asn1_field_t *field,
+    bool copy, void *st
+);
 
-static int
-t_aper_decode_value(bit_stream_t *bs, const asn1_field_t *field,
-                    bool copy, void *v)
+static int t_aper_decode_value(
+    bit_stream_t *bs, const asn1_field_t *field, bool copy, void *v
+)
 {
     switch (field->type) {
-      case ASN1_OBJ_TYPE(bool):
+    case ASN1_OBJ_TYPE(bool):
         return aper_decode_bool(bs, (bool *)v);
         break;
 
-#define ASN1_DECODE_INT_CASE(type_t, type64_t, is_signed)  \
-      case ASN1_OBJ_TYPE(type_t):                                            \
-        {                                                                    \
-            int64_t i64;                                                     \
+#define ASN1_DECODE_INT_CASE(type_t, type64_t, is_signed)                    \
+    case ASN1_OBJ_TYPE(type_t): {                                            \
+        int64_t i64;                                                         \
                                                                              \
-            RETHROW(aper_decode_number(bs, &field->int_info, (is_signed),    \
-                                       &i64));                               \
-            e_trace(5, "decoded number value (n = %jd)", i64);               \
+        RETHROW(                                                             \
+            aper_decode_number(bs, &field->int_info, (is_signed), &i64)      \
+        );                                                                   \
+        e_trace(5, "decoded number value (n = %jd)", i64);                   \
                                                                              \
-            if ((type64_t)i64 != (type_t)i64) {                              \
-                e_info("overflow detected for field `%s` (" #type_t ")",     \
-                       field->name);                                         \
-                return -1;                                                   \
-            }                                                                \
-            *(type_t *)v = i64;                                              \
+        if ((type64_t)i64 != (type_t)i64) {                                  \
+            e_info(                                                          \
+                "overflow detected for field `%s` (" #type_t ")",            \
+                field->name                                                  \
+            );                                                               \
+            return -1;                                                       \
         }                                                                    \
+        *(type_t *)v = i64;                                                  \
+    }                                                                        \
         return 0;
 
-      ASN1_DECODE_INT_CASE(int8_t, int64_t, true);
-      ASN1_DECODE_INT_CASE(uint8_t, uint64_t, false);
-      ASN1_DECODE_INT_CASE(int16_t, int64_t, true);
-      ASN1_DECODE_INT_CASE(uint16_t, uint64_t, false);
-      ASN1_DECODE_INT_CASE(int32_t, int64_t, true);
-      ASN1_DECODE_INT_CASE(uint32_t, uint64_t, false);
-      ASN1_DECODE_INT_CASE(int64_t, int64_t, true);
-      ASN1_DECODE_INT_CASE(uint64_t, uint64_t, false);
+        ASN1_DECODE_INT_CASE(int8_t, int64_t, true);
+        ASN1_DECODE_INT_CASE(uint8_t, uint64_t, false);
+        ASN1_DECODE_INT_CASE(int16_t, int64_t, true);
+        ASN1_DECODE_INT_CASE(uint16_t, uint64_t, false);
+        ASN1_DECODE_INT_CASE(int32_t, int64_t, true);
+        ASN1_DECODE_INT_CASE(uint32_t, uint64_t, false);
+        ASN1_DECODE_INT_CASE(int64_t, int64_t, true);
+        ASN1_DECODE_INT_CASE(uint64_t, uint64_t, false);
 
 #undef ASN1_DECODE_INT_CASE
 
-      case ASN1_OBJ_TYPE(enum):
+    case ASN1_OBJ_TYPE(enum):
         RETHROW(aper_decode_enum(bs, field->enum_info, (int32_t *)v));
         e_trace(5, "decoded enum value (n = %u)", *(int32_t *)v);
         return 0;
-      case ASN1_OBJ_TYPE(NULL):
-      case ASN1_OBJ_TYPE(OPT_NULL):
+    case ASN1_OBJ_TYPE(NULL):
+    case ASN1_OBJ_TYPE(OPT_NULL):
         break;
-      case ASN1_OBJ_TYPE(lstr_t):
-        return t_aper_decode_data(bs, &field->str_info, copy,
-                                  (lstr_t *)v);
-      case ASN1_OBJ_TYPE(asn1_bit_string_t):
-        return t_aper_decode_bit_string(bs, &field->str_info,
-                                        (asn1_bit_string_t *)v);
-      case ASN1_OBJ_TYPE(SEQUENCE): case ASN1_OBJ_TYPE(CHOICE):
-      case ASN1_OBJ_TYPE(UNTAGGED_CHOICE):
+    case ASN1_OBJ_TYPE(lstr_t):
+        return t_aper_decode_data(bs, &field->str_info, copy, (lstr_t *)v);
+    case ASN1_OBJ_TYPE(asn1_bit_string_t):
+        return t_aper_decode_bit_string(
+            bs, &field->str_info, (asn1_bit_string_t *)v
+        );
+    case ASN1_OBJ_TYPE(SEQUENCE):
+    case ASN1_OBJ_TYPE(CHOICE):
+    case ASN1_OBJ_TYPE(UNTAGGED_CHOICE):
         return t_aper_decode_constructed(bs, field->u.comp, field, copy, v);
-      case ASN1_OBJ_TYPE(asn1_ext_t):
-        assert (0);
+    case ASN1_OBJ_TYPE(asn1_ext_t):
+        assert(0);
         e_error("ext type not supported");
         break;
-      case ASN1_OBJ_TYPE(OPAQUE):
-        assert (0);
+    case ASN1_OBJ_TYPE(OPAQUE):
+        assert(0);
         e_error("opaque type not supported");
         break;
-      case ASN1_OBJ_TYPE(SKIP):
+    case ASN1_OBJ_TYPE(SKIP):
         break;
-      case ASN1_OBJ_TYPE(OPEN_TYPE):
+    case ASN1_OBJ_TYPE(OPEN_TYPE):
         e_error("open type not supported");
         break;
     }
@@ -1879,18 +1946,20 @@ t_aper_decode_value(bit_stream_t *bs, const asn1_field_t *field,
     return 0;
 }
 
-static int
-t_aper_decode_field(bit_stream_t *bs, const asn1_field_t *field,
-                    bool copy, void *v)
+static int t_aper_decode_field(
+    bit_stream_t *bs, const asn1_field_t *field, bool copy, void *v
+)
 {
     if (field->is_open_type || field->is_extension) {
-        lstr_t        os;
-        bit_stream_t  open_type_bs;
+        lstr_t os;
+        bit_stream_t open_type_bs;
 
         if (t_aper_decode_octet_string(bs, NULL, false, &os) < 0) {
-            e_info("cannot read %s%sfield",
-                   field->is_open_type ? "OPEN TYPE " : "",
-                   field->is_extension ? "extension " : "");
+            e_info(
+                "cannot read %s%sfield",
+                field->is_open_type ? "OPEN TYPE " : "",
+                field->is_extension ? "extension " : ""
+            );
             return -1;
         }
 
@@ -1940,9 +2009,9 @@ static int read_ext_bitmap(bit_stream_t *bs, bit_stream_t *ext_bitmap)
     return 0;
 }
 
-static int
-t_aper_decode_sequence(bit_stream_t *bs, const asn1_desc_t *desc,
-                       bool copy, void *st)
+static int t_aper_decode_sequence(
+    bit_stream_t *bs, const asn1_desc_t *desc, bool copy, void *st
+)
 {
     bit_stream_t opt_bitmap;
     bit_stream_t ext_bitmap;
@@ -1991,48 +2060,58 @@ t_aper_decode_sequence(bit_stream_t *bs, const asn1_desc_t *desc,
         if (field->mode == ASN1_OBJ_MODE(OPTIONAL)) {
             if (bs_done(fields_bitmap)) {
                 if (likely(extended_fields_reached)) {
-                    e_trace(5, "extended field `%s:%s` not present "
-                            "(out of bitmap range)", field->oc_t_name,
-                            field->name);
+                    e_trace(
+                        5,
+                        "extended field `%s:%s` not present "
+                        "(out of bitmap range)",
+                        field->oc_t_name, field->name
+                    );
 
                     /* Extended field not present (out of extension bitmap
                      * range). */
-                    asn1_opt_field_w(GET_PTR(st, field, void), field->type,
-                                     false);
+                    asn1_opt_field_w(
+                        GET_PTR(st, field, void), field->type, false
+                    );
                     continue;
                 }
 
-                assert (0);
+                assert(0);
                 return e_error("sequence is broken");
             }
 
             if (!__bs_be_get_bit(fields_bitmap)) {
-                e_trace(5, "field `%s:%s` not present", field->oc_t_name,
-                        field->name);
+                e_trace(
+                    5, "field `%s:%s` not present", field->oc_t_name,
+                    field->name
+                );
 
                 /* Extended field not present (bit=0 in extension bitmap). */
-                asn1_opt_field_w(GET_PTR(st, field, void), field->type,
-                                 false);
+                asn1_opt_field_w(
+                    GET_PTR(st, field, void), field->type, false
+                );
                 continue;
             }
 
             t_alloc_if_pointed(field, st);
             v = asn1_opt_field_w(GET_PTR(st, field, void), field->type, true);
         } else {
-            assert (field->mode != ASN1_OBJ_MODE(SEQ_OF));
+            assert(field->mode != ASN1_OBJ_MODE(SEQ_OF));
 
             /* Should be checked in "asn1_reg_field()". */
-            assert (!field->is_extension);
+            assert(!field->is_extension);
 
             v = t_alloc_if_pointed(field, st);
         }
 
-        e_trace(5, "decoding SEQUENCE value %s:%s",
-                field->oc_t_name, field->name);
+        e_trace(
+            5, "decoding SEQUENCE value %s:%s", field->oc_t_name, field->name
+        );
 
         if (t_aper_decode_field(bs, field, copy, v) < 0) {
-            e_info("cannot read sequence field %s:%s",
-                   field->oc_t_name, field->name);
+            e_info(
+                "cannot read sequence field %s:%s", field->oc_t_name,
+                field->name
+            );
             return -1;
         }
     }
@@ -2063,23 +2142,24 @@ t_aper_decode_sequence(bit_stream_t *bs, const asn1_desc_t *desc,
                 e_info("cannot skip unknown extension field");
                 return -1;
             }
-            e_trace(5, "skipped unknown extension with encoding size %d",
-                    os.len);
+            e_trace(
+                5, "skipped unknown extension with encoding size %d", os.len
+            );
         }
     }
 
     return 0;
 }
 
-static int
-t_aper_decode_choice(bit_stream_t *bs, const asn1_desc_t *desc, bool copy,
-                     void *st)
+static int t_aper_decode_choice(
+    bit_stream_t *bs, const asn1_desc_t *desc, bool copy, void *st
+)
 {
-    const asn1_field_t  *choice_field;
-    const asn1_field_t  *enum_field;
-    uint64_t             u64;
-    size_t               index;
-    void                *v;
+    const asn1_field_t *choice_field;
+    const asn1_field_t *enum_field;
+    uint64_t u64;
+    size_t index;
+    void *v;
     bool extension_present = false;
 
     if (desc->is_extended) {
@@ -2122,22 +2202,26 @@ t_aper_decode_choice(bit_stream_t *bs, const asn1_desc_t *desc, bool copy,
     e_trace(5, "decoded choice index (index = %zd)", index);
 
     if ((int)index >= desc->fields.len) {
-        e_info("the choice index read is not compatible with the "
-               "description: either the data is invalid or the description "
-               "incomplete");
+        e_info(
+            "the choice index read is not compatible with the "
+            "description: either the data is invalid or the description "
+            "incomplete"
+        );
         return -1;
     }
 
     enum_field = &desc->fields.tab[0];
-    choice_field = &desc->fields.tab[index];   /* XXX Indexes start from 0 */
-    __asn1_set_int(st, enum_field, index);  /* Write enum value         */
+    choice_field = &desc->fields.tab[index]; /* XXX Indexes start from 0 */
+    __asn1_set_int(st, enum_field, index);   /* Write enum value         */
     v = t_alloc_if_pointed(choice_field, st);
 
-    assert (choice_field->mode == ASN1_OBJ_MODE(MANDATORY));
-    assert (enum_field->mode == ASN1_OBJ_MODE(MANDATORY));
+    assert(choice_field->mode == ASN1_OBJ_MODE(MANDATORY));
+    assert(enum_field->mode == ASN1_OBJ_MODE(MANDATORY));
 
-    e_trace(5, "decoding CHOICE value %s:%s",
-            choice_field->oc_t_name, choice_field->name);
+    e_trace(
+        5, "decoding CHOICE value %s:%s", choice_field->oc_t_name,
+        choice_field->name
+    );
 
     if (t_aper_decode_field(bs, choice_field, copy, v) < 0) {
         e_info("cannot decode choice value");
@@ -2147,9 +2231,10 @@ t_aper_decode_choice(bit_stream_t *bs, const asn1_desc_t *desc, bool copy,
     return 0;
 }
 
-static int
-t_aper_decode_seq_of_fields(bit_stream_t *bs, const asn1_field_t *field,
-                            int len, bool copy, qv_t(u8) *data_vec)
+static int t_aper_decode_seq_of_fields(
+    bit_stream_t *bs, const asn1_field_t *field, int len, bool copy,
+    qv_t(u8) *data_vec
+)
 {
     uint8_t *field_data;
 
@@ -2162,8 +2247,10 @@ t_aper_decode_seq_of_fields(bit_stream_t *bs, const asn1_field_t *field,
     for (int i = 0; i < len; i++) {
         void *v = &field_data[field->size * i];
 
-        e_trace(5, "decoding SEQUENCE OF %s:%s value [%d/%d]",
-                field->oc_t_name, field->name, i, len);
+        e_trace(
+            5, "decoding SEQUENCE OF %s:%s value [%d/%d]", field->oc_t_name,
+            field->name, i, len
+        );
 
         if (t_aper_decode_field(bs, field, copy, v) < 0) {
             e_info("failed to decode SEQUENCE OF element");
@@ -2184,9 +2271,9 @@ t_aper_decode_seq_of_fields(bit_stream_t *bs, const asn1_field_t *field,
     return 0;
 }
 
-static int
-t_aper_decode_seq_of(bit_stream_t *bs, const asn1_field_t *field,
-                     bool copy, void *st)
+static int t_aper_decode_seq_of(
+    bit_stream_t *bs, const asn1_field_t *field, bool copy, void *st
+)
 {
     const asn1_field_t *repeated_field;
     const asn1_desc_t *desc = field->u.comp;
@@ -2194,7 +2281,7 @@ t_aper_decode_seq_of(bit_stream_t *bs, const asn1_field_t *field,
     scoped(qv_t(u8), buf, aper_buf_wipe) = QV_INIT();
     asn1_void_vector_t *array;
 
-    assert (desc->fields.len == 1);
+    assert(desc->fields.len == 1);
     repeated_field = &desc->fields.tab[0];
 
     if (aper_decode_len_extension_bit(bs, &field->seq_of_info, &len_ctx) < 0)
@@ -2205,10 +2292,11 @@ t_aper_decode_seq_of(bit_stream_t *bs, const asn1_field_t *field,
 
     do {
         RETHROW(aper_decode_len(bs, &len_ctx));
-        e_trace(5, "decoded element count of SEQUENCE OF %s:%s "
-                "(n=%u,total=%ju)",
-                repeated_field->oc_t_name, repeated_field->name,
-                len_ctx.to_decode, len_ctx.cumulated_len);
+        e_trace(
+            5, "decoded element count of SEQUENCE OF %s:%s (n=%u,total=%ju)",
+            repeated_field->oc_t_name, repeated_field->name,
+            len_ctx.to_decode, len_ctx.cumulated_len
+        );
 
         if (!buf.len && !len_ctx.more_fragments_to_read) {
             /* The SEQUENCE OF is not fragmented so we know how much memory
@@ -2217,11 +2305,10 @@ t_aper_decode_seq_of(bit_stream_t *bs, const asn1_field_t *field,
              * the mem stack pool. */
             t_qv_init(&buf, 0);
         }
-        RETHROW(t_aper_decode_seq_of_fields(bs, repeated_field,
-                                            len_ctx.to_decode, copy, &buf));
+        RETHROW(t_aper_decode_seq_of_fields(
+            bs, repeated_field, len_ctx.to_decode, copy, &buf
+        ));
     } while (len_ctx.more_fragments_to_read);
-
-
 
     array = GET_PTR(st, repeated_field, asn1_void_vector_t);
     array->len = len_ctx.cumulated_len;
@@ -2239,25 +2326,26 @@ t_aper_decode_seq_of(bit_stream_t *bs, const asn1_field_t *field,
 }
 
 /* TODO get it cleaner */
-static int
-t_aper_decode_constructed(bit_stream_t *bs, const asn1_desc_t *desc,
-                          const asn1_field_t *field, bool copy, void *st)
+static int t_aper_decode_constructed(
+    bit_stream_t *bs, const asn1_desc_t *desc, const asn1_field_t *field,
+    bool copy, void *st
+)
 {
     if (desc->is_seq_of) {
-        assert (field);
-        assert (field->u.comp == desc);
+        assert(field);
+        assert(field->u.comp == desc);
 
         return t_aper_decode_seq_of(bs, field, copy, st);
     }
 
     switch (desc->type) {
-      case ASN1_CSTD_TYPE_SEQUENCE:
+    case ASN1_CSTD_TYPE_SEQUENCE:
         RETHROW(t_aper_decode_sequence(bs, desc, copy, st));
         break;
-      case ASN1_CSTD_TYPE_CHOICE:
+    case ASN1_CSTD_TYPE_CHOICE:
         RETHROW(t_aper_decode_choice(bs, desc, copy, st));
         break;
-      case ASN1_CSTD_TYPE_SET:
+    case ASN1_CSTD_TYPE_SET:
         e_panic("ASN.1 SET is not supported yet; please use SEQUENCE");
         break;
     }
@@ -2265,8 +2353,9 @@ t_aper_decode_constructed(bit_stream_t *bs, const asn1_desc_t *desc,
     return 0;
 }
 
-int t_aper_decode_desc(pstream_t *ps, const asn1_desc_t *desc,
-                       bool copy, void *st)
+int t_aper_decode_desc(
+    pstream_t *ps, const asn1_desc_t *desc, bool copy, void *st
+)
 {
     bit_stream_t bs = bs_init_ps(ps, 0);
 

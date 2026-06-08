@@ -23,10 +23,12 @@
 /* helpers                                                                  */
 /****************************************************************************/
 
-#define FAIL_ERRNO(expr, ret)  \
-    do { int __save_errno = errno;                                        \
-        (expr); errno = __save_errno;                                     \
-        return (ret);                                                     \
+#define FAIL_ERRNO(expr, ret)                                                \
+    do {                                                                     \
+        int __save_errno = errno;                                            \
+        (expr);                                                              \
+        errno = __save_errno;                                                \
+        return (ret);                                                        \
     } while (0)
 
 static int file_flush_obuf(file_t *f, int len)
@@ -35,15 +37,16 @@ static int file_flush_obuf(file_t *f, int len)
     int goal = f->obuf.len - len;
     int fd = f->fd;
 
-    assert (f->flags & FILE_WRONLY);
-    assert (len <= f->obuf.len);
+    assert(f->flags & FILE_WRONLY);
+    assert(len <= f->obuf.len);
 
     while (obuf->len > goal) {
         int nb = write(fd, obuf->data, obuf->len);
 
         if (nb < 0) {
-            if (ERR_RW_RETRIABLE(errno))
+            if (ERR_RW_RETRIABLE(errno)) {
                 continue;
+            }
             return -1;
         }
         sb_skip(obuf, nb);
@@ -57,7 +60,7 @@ int file_flags_to_open_flags(int flags)
     int oflags;
 
     switch (flags & FILE_OPEN_MODE_MASK) {
-      case FILE_RDONLY:
+    case FILE_RDONLY:
 #if 0
         oflags = O_RDONLY;
         break;
@@ -65,10 +68,10 @@ int file_flags_to_open_flags(int flags)
         errno = ENOSYS;
         return -1;
 #endif
-      case FILE_WRONLY:
+    case FILE_WRONLY:
         oflags = O_WRONLY;
         break;
-      case FILE_RDWR:
+    case FILE_RDWR:
 #if 0
         oflags = O_RDWR;
         break;
@@ -76,7 +79,7 @@ int file_flags_to_open_flags(int flags)
         errno = ENOSYS;
         return -1;
 #endif
-      default:
+    default:
         errno = EINVAL;
         return -1;
     }
@@ -111,8 +114,9 @@ file_t *file_open_at(int dfd, const char *path, unsigned flags, mode_t mode)
     res->flags = flags;
     sb_init(&res->obuf);
     res->fd = openat(dfd, path, oflags, mode);
-    if (res->fd < 0)
+    if (res->fd < 0) {
         FAIL_ERRNO(p_delete(&res), NULL);
+    }
 
     return res;
 }
@@ -130,8 +134,9 @@ file_t *file_open(const char *path, unsigned flags, mode_t mode)
     res->flags = flags;
     sb_init(&res->obuf);
     res->fd = open(path, oflags, mode);
-    if (res->fd < 0)
+    if (res->fd < 0) {
         FAIL_ERRNO(p_delete(&res), NULL);
+    }
 
     return res;
 }
@@ -166,8 +171,9 @@ off_t file_seek(file_t *f, off_t offset, int whence)
 {
     off_t res;
 
-    if (f->flags & FILE_WRONLY)
+    if (f->flags & FILE_WRONLY) {
         RETHROW(file_flush(f));
+    }
     res = lseek(f->fd, offset, whence);
     if (res != (off_t)-1) {
         f->wpos = res;
@@ -218,7 +224,7 @@ static ssize_t __file_writev(file_t *f, struct iovec *iov, size_t iovcnt)
             }
         } else {
             f->wpos += resv;
-            len     -= resv;
+            len -= resv;
             while (resv > 0) {
                 if (iov[0].iov_len > (size_t)resv) {
                     iov->iov_base = (char *)iov->iov_base + resv;
@@ -235,8 +241,7 @@ static ssize_t __file_writev(file_t *f, struct iovec *iov, size_t iovcnt)
     if (f->obuf.len) {
         if (iovcnt < oldcnt) {
             sb_reset(&f->obuf);
-        } else
-        if (iovcnt == oldcnt) {
+        } else if (iovcnt == oldcnt) {
             sb_skip_upto(&f->obuf, iov->iov_base);
             iov++;
             iovcnt--;
@@ -264,8 +269,9 @@ ssize_t file_writev(file_t *f, const struct iovec *iov, size_t iovcnt)
     iov2[0] = MAKE_IOVEC(f->obuf.data, f->obuf.len);
     p_copy(iov2 + 1, iov, iovcnt);
 
-    if (f->obuf.len == 0)
+    if (f->obuf.len == 0) {
         return __file_writev(f, iov2 + 1, iovcnt);
+    }
     return __file_writev(f, iov2, iovcnt + 1);
 }
 
@@ -319,8 +325,9 @@ int write_in_tmp_file(char *file_path, const char *data, int len, sb_t *err)
     }
 
     if (ret < 0) {
-        sb_setf(err, "failed to write data in temporary file `%s`: %m",
-                file_path);
+        sb_setf(
+            err, "failed to write data in temporary file `%s`: %m", file_path
+        );
         unlink(file_path);
         return -1;
     }

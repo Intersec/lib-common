@@ -21,8 +21,7 @@
 
 /* {{{ Now removed implementation of iop_class_for_each_field. */
 
-__attribute__((noinline))
-static const iop_field_t *
+__attribute__((noinline)) static const iop_field_t *
 _iop_class_get_next_field(const iop_struct_t **st, int *it)
 {
     while (*st && *it >= (*st)->fields_len) {
@@ -96,8 +95,7 @@ static void run_loops(const iop_struct_t *st, int nb_loops, bool new_way)
 
     if (new_way) {
         loop = &new_loop;
-    } else
-    if (iop_struct_is_class(st)) {
+    } else if (iop_struct_is_class(st)) {
         loop = &old_loop_cls;
     } else {
         loop = &old_loop_st;
@@ -128,8 +126,9 @@ int main(int argc, char **argv)
 
         st = iop_env_ctx_get_struct(iop_env_ctx, LSTR(argv[1]));
         if (!st) {
-            fprintf(stderr, "unknown IOP struct/union/class: `%s'\n",
-                    argv[1]);
+            fprintf(
+                stderr, "unknown IOP struct/union/class: `%s'\n", argv[1]
+            );
             exit(EXIT_FAILURE);
         }
 

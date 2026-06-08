@@ -20,7 +20,8 @@
 
 #include <lib-common/z.h>
 
-Z_GROUP_EXPORT(core_havege) {
+Z_GROUP_EXPORT(core_havege)
+{
     Z_TEST(havege_range) {
         int number1;
         int numbers[10000];
@@ -43,7 +44,9 @@ Z_GROUP_EXPORT(core_havege) {
         Z_ASSERT(number1 > INT_MIN && number1 < INT_MAX);
         number1 = rand_range(-10, 10);
         Z_ASSERT(number1 >= -10 && number1 <= 10);
-    } Z_TEST_END;
-} Z_GROUP_END;
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END;
 
 /* LCOV_EXCL_STOP */

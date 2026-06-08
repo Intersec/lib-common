@@ -26,11 +26,11 @@ static struct {
     bool is_closing;
     el_t blocker;
 
-    el_t        ic_srv;    /*< ichannel listener */
-    ichannel_t  remote_ic; /*< remote ichannel */
+    el_t ic_srv;          /*< ichannel listener */
+    ichannel_t remote_ic; /*< remote ichannel */
 
-    iop_env_t   *iop_env;  /*< IOP environment */
-    qm_t(ic_cbs) ic_impl;  /*< implementations table */
+    iop_env_t *iop_env;   /*< IOP environment */
+    qm_t(ic_cbs) ic_impl; /*< implementations table */
 
     bool opt_help;
     bool opt_version;
@@ -39,7 +39,7 @@ static struct {
 
     qv_t(ichannel) clients;
 } exiop_g = {
-#define _G  exiop_g
+#define _G exiop_g
     .ic_impl = QM_INIT(ic_cbs, _G.ic_impl),
 };
 
@@ -50,10 +50,12 @@ static void exiop_addr_resolve(const lstr_t s, sockunion_t *out)
     pstream_t host;
     in_port_t port;
 
-    if (addr_parse(ps_initlstr(&s), &host, &port, -1))
+    if (addr_parse(ps_initlstr(&s), &host, &port, -1)) {
         e_fatal("unable to parse address: %*pM", LSTR_FMT_ARG(s));
-    if (addr_info(out, AF_UNSPEC, host, port))
+    }
+    if (addr_info(out, AF_UNSPEC, host, port)) {
         e_fatal("unable to resolve address: %*pM", LSTR_FMT_ARG(s));
+    }
 }
 
 static el_t exiop_ic_listento(lstr_t addr, int (*on_accept)(el_t ev, int fd))
@@ -63,8 +65,9 @@ static el_t exiop_ic_listento(lstr_t addr, int (*on_accept)(el_t ev, int fd))
 
     exiop_addr_resolve(addr, &su);
 
-    if (!(ev = ic_listento(&su, SOCK_STREAM, IPPROTO_TCP, on_accept)))
+    if (!(ev = ic_listento(&su, SOCK_STREAM, IPPROTO_TCP, on_accept))) {
         e_fatal("cannot bind on %*pM", LSTR_FMT_ARG(addr));
+    }
 
     return ev;
 }
@@ -72,11 +75,11 @@ static el_t exiop_ic_listento(lstr_t addr, int (*on_accept)(el_t ev, int fd))
 /* }}} */
 /* {{{ client */
 
-
 static void IOP_RPC_IMPL(exiop__hello_mod, hello_interface, send_async)
 {
-    e_trace(0, "received: msg = '%s', from client = %d", arg->msg.s,
-            arg->seqnum);
+    e_trace(
+        0, "received: msg = '%s', from client = %d", arg->msg.s, arg->seqnum
+    );
 }
 
 static void IOP_RPC_CB(exiop__hello_mod, hello_interface, send)
@@ -105,11 +108,11 @@ static void exiop_client_on_event(ichannel_t *ic, ic_event_t evt)
         e_notice("connected to server");
 
         /* send message to server */
-        ic_query2(ic, msg, exiop__hello_mod, hello_interface, send,
-                  .seqnum = 1,
-                  .msg    = LSTR_IMMED("From client : Hello (1)"));
-    } else
-    if (evt == IC_EVT_DISCONNECTED) {
+        ic_query2(
+            ic, msg, exiop__hello_mod, hello_interface, send, .seqnum = 1,
+            .msg = LSTR_IMMED("From client : Hello (1)")
+        );
+    } else if (evt == IC_EVT_DISCONNECTED) {
         e_warning("disconnected from server");
     }
 }
@@ -117,14 +120,15 @@ static void exiop_client_on_event(ichannel_t *ic, ic_event_t evt)
 static void exiop_client_initialize(const char *addr)
 {
     ic_init(&_G.remote_ic);
-    _G.remote_ic.iop_env  = _G.iop_env;
+    _G.remote_ic.iop_env = _G.iop_env;
     _G.remote_ic.on_event = &exiop_client_on_event;
-    _G.remote_ic.impl     = &_G.ic_impl;
+    _G.remote_ic.impl = &_G.ic_impl;
 
     exiop_addr_resolve(LSTR(addr), &_G.remote_ic.su);
 
-    if (ic_connect(&_G.remote_ic) < 0)
+    if (ic_connect(&_G.remote_ic) < 0) {
         e_fatal("cannot connect to %s", addr);
+    }
 
     /* Register RPCs */
     ic_register(&_G.ic_impl, exiop__hello_mod, hello_interface, send_async);
@@ -135,8 +139,7 @@ static void exiop_client_initialize(const char *addr)
 
 static void IOP_RPC_IMPL(exiop__hello_mod, hello_interface, send)
 {
-    e_trace(0, "helloworld: msg = %s, seqnum = %d", arg->msg.s,
-            arg->seqnum);
+    e_trace(0, "helloworld: msg = %s, seqnum = %d", arg->msg.s, arg->seqnum);
     ic_reply(ic, slot, exiop__hello_mod, hello_interface, send, .res = 1);
 
     /* send message to clients */
@@ -147,11 +150,10 @@ static void IOP_RPC_IMPL(exiop__hello_mod, hello_interface, send)
             continue;
         }
 
-        ic_query2(ic_client, msg = ic_msg_new(0),
-                  exiop__hello_mod, hello_interface, send_async,
-                 .seqnum = 0,
-                 .msg    = arg->msg);
-
+        ic_query2(
+            ic_client, msg = ic_msg_new(0), exiop__hello_mod, hello_interface,
+            send_async, .seqnum = 0, .msg = arg->msg
+        );
     }
 }
 
@@ -162,8 +164,7 @@ static void exiop_server_on_event(ichannel_t *ic, ic_event_t evt)
 
         qv_append(&_G.clients, ic);
 
-    } else
-    if (evt == IC_EVT_DISCONNECTED) {
+    } else if (evt == IC_EVT_DISCONNECTED) {
         e_warning("client %p disconnected", ic);
 
         /* delete client from vector */
@@ -181,10 +182,10 @@ static int exiop_on_accept(el_t ev, int fd)
     ichannel_t *ic;
 
     e_trace(0, "incoming connection");
-    ic              = ic_new();
-    ic->iop_env     = _G.iop_env;
-    ic->on_event    = &exiop_server_on_event;
-    ic->impl        = &_G.ic_impl;
+    ic = ic_new();
+    ic->iop_env = _G.iop_env;
+    ic->on_event = &exiop_server_on_event;
+    ic->impl = &_G.ic_impl;
     ic->do_el_unref = true;
 
     ic_spawn(ic, fd, NULL);
@@ -205,21 +206,23 @@ static void exiop_server_initialize(const char *addr)
 
 static popt_t popts[] = {
     OPT_GROUP("Options:"),
-    OPT_FLAG('h', "help",    &_G.opt_help,     "show this help"),
-    OPT_FLAG('v', "version", &_G.opt_version,  "show version"),
-    OPT_FLAG('C', "client",  &_G.opt_client,   "client mode"),
-    OPT_FLAG('S', "server",  &_G.opt_server,   "server mode"),
+    OPT_FLAG('h', "help", &_G.opt_help, "show this help"),
+    OPT_FLAG('v', "version", &_G.opt_version, "show version"),
+    OPT_FLAG('C', "client", &_G.opt_client, "client mode"),
+    OPT_FLAG('S', "server", &_G.opt_server, "server mode"),
     OPT_END(),
 };
 
 static void exiop_on_term(el_t idx, int signum, data_t priv)
 {
-    if (_G.is_closing)
+    if (_G.is_closing) {
         return;
+    }
 
     /* Close the remote connection */
-    if (_G.opt_client)
+    if (_G.opt_client) {
         ic_bye(&_G.remote_ic);
+    }
 
     /* Make event loop to stop */
     el_unregister(&_G.blocker);
@@ -251,8 +254,7 @@ int main(int argc, char **argv)
     if (_G.opt_client) {
         e_notice("launching in client mode…");
         exiop_client_initialize(argv[0]);
-    } else
-    if (_G.opt_server) {
+    } else if (_G.opt_server) {
         e_notice("launching in server mode…");
         exiop_server_initialize(argv[0]);
     }
@@ -260,14 +262,15 @@ int main(int argc, char **argv)
     /* Register signals & blocker */
     _G.blocker = el_blocker_register();
     el_signal_register(SIGTERM, &exiop_on_term, NULL);
-    el_signal_register(SIGINT,  &exiop_on_term, NULL);
+    el_signal_register(SIGINT, &exiop_on_term, NULL);
     el_signal_register(SIGQUIT, &exiop_on_term, NULL);
 
     /* got into event loop */
     el_loop();
 
-    if (_G.opt_client)
+    if (_G.opt_client) {
         ic_wipe(&_G.remote_ic);
+    }
 
     qv_wipe(&_G.clients);
 

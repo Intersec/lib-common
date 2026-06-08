@@ -25,23 +25,23 @@
 #include "mem-priv.h"
 
 #ifdef MEM_BENCH
-#include "mem-bench.h"
+#  include "mem-bench.h"
 
-#define WRITE_PERIOD  256
+#  define WRITE_PERIOD 256
 #endif
 
 #ifndef NDEBUG
-# define MIN_ALIGNMENT  sizeof(void *)
+#  define MIN_ALIGNMENT sizeof(void *)
 #else
-# define MIN_ALIGNMENT  1
+#  define MIN_ALIGNMENT 1
 #endif
 
 /** Size tuning parameters.
  * These are multiplicative factors over sp_alloc_mean.
  */
-#define ALLOC_MIN   64 /*< minimum block allocation */
-#define RESET_MIN   56 /*< minimum size in mem_stack_pool_reset */
-#define RESET_MAX  256 /*< maximum size in mem_stack_pool_reset */
+#define ALLOC_MIN 64  /*< minimum block allocation */
+#define RESET_MIN 56  /*< minimum size in mem_stack_pool_reset */
+#define RESET_MAX 256 /*< maximum size in mem_stack_pool_reset */
 
 static struct {
     logger_t logger;
@@ -49,7 +49,7 @@ static struct {
     dlist_t all_pools;
     spinlock_t all_pools_lock;
 } core_mem_stack_g = {
-#define _G  core_mem_stack_g
+#define _G core_mem_stack_g
     .logger = LOGGER_INIT_INHERITS(NULL, "core-mem-stack"),
     .all_pools = DLIST_INIT(_G.all_pools),
 };
@@ -64,21 +64,22 @@ static ALWAYS_INLINE mem_stack_blk_t *blk_entry(dlist_t *l)
     return container_of(l, mem_stack_blk_t, blk_list);
 }
 
-__attr_cold__
-static mem_stack_blk_t *blk_create(mem_stack_pool_t *sp,
-                                   mem_stack_blk_t *cur, size_t size_hint)
+__attr_cold__ static mem_stack_blk_t *
+blk_create(mem_stack_pool_t *sp, mem_stack_blk_t *cur, size_t size_hint)
 {
     size_t blksize = size_hint + sizeof(mem_stack_blk_t);
     size_t alloc_target = MIN(100U << 20, ALLOC_MIN * sp_alloc_mean(sp));
     mem_stack_blk_t *blk;
 
-    if (blksize < sp->minsize)
+    if (blksize < sp->minsize) {
         blksize = sp->minsize;
-    if (blksize < alloc_target)
+    }
+    if (blksize < alloc_target) {
         blksize = alloc_target;
+    }
     blksize = ROUND_UP(blksize, PAGE_SIZE);
     blk = imalloc(blksize, alignof(mem_stack_blk_t), MEM_RAW | MEM_LIBC);
-    blk->size      = blksize - sizeof(*blk);
+    blk->size = blksize - sizeof(*blk);
     dlist_add_after(&cur->blk_list, &blk->blk_list);
 
     sp->stacksize += blk->size;
@@ -95,8 +96,8 @@ static mem_stack_blk_t *blk_create(mem_stack_pool_t *sp,
     return blk;
 }
 
-__attr_cold__
-static void blk_destroy(mem_stack_pool_t *sp, mem_stack_blk_t *blk)
+__attr_cold__ static void
+blk_destroy(mem_stack_pool_t *sp, mem_stack_blk_t *blk)
 {
 #ifdef MEM_BENCH
     /* if called by mem_stack_pool_wipe,
@@ -117,9 +118,9 @@ static void blk_destroy(mem_stack_pool_t *sp, mem_stack_blk_t *blk)
     ifree(blk, MEM_LIBC);
 }
 
-static ALWAYS_INLINE mem_stack_blk_t *
-frame_get_next_blk(mem_stack_pool_t *sp, mem_stack_blk_t *cur, size_t alignment,
-                   size_t size)
+static ALWAYS_INLINE mem_stack_blk_t *frame_get_next_blk(
+    mem_stack_pool_t *sp, mem_stack_blk_t *cur, size_t alignment, size_t size
+)
 {
     size_t deleted_size = 0;
 
@@ -131,7 +132,8 @@ frame_get_next_blk(mem_stack_pool_t *sp, mem_stack_blk_t *cur, size_t alignment,
         size_t needed_size = size;
         uint8_t *aligned_area;
 
-        aligned_area = (uint8_t *)mem_align_ptr((uintptr_t)blk->area, alignment);
+        aligned_area =
+            (uint8_t *)mem_align_ptr((uintptr_t)blk->area, alignment);
         needed_size += aligned_area - blk->area;
 
         if (blk->size >= needed_size) {
@@ -161,36 +163,37 @@ static ALWAYS_INLINE uint8_t *blk_end(mem_stack_blk_t *blk)
     return blk->area + blk->size;
 }
 
-static ALWAYS_INLINE void frame_set_blk(mem_stack_frame_t *frame,
-                                        mem_stack_blk_t *blk)
+static ALWAYS_INLINE void
+frame_set_blk(mem_stack_frame_t *frame, mem_stack_blk_t *blk)
 {
-    frame->blk  = blk;
-    frame->pos  = blk->area;
+    frame->blk = blk;
+    frame->pos = blk->area;
     frame->last = blk->area;
-    frame->end  = blk_end(blk);
+    frame->end = blk_end(blk);
 }
 
 static ALWAYS_INLINE uint8_t *frame_end(mem_stack_frame_t *frame)
 {
-    assert (frame->end == blk_end(frame->blk));
+    assert(frame->end == blk_end(frame->blk));
     return frame->end;
 }
 
-static void *sp_reserve(mem_stack_pool_t *sp, size_t asked, size_t alignment,
-                        uint8_t **end)
+static void *sp_reserve(
+    mem_stack_pool_t *sp, size_t asked, size_t alignment, uint8_t **end
+)
 {
-    uint8_t           *res;
+    uint8_t *res;
     mem_stack_frame_t *frame = sp->stack;
 
     res = (uint8_t *)mem_align_ptr((uintptr_t)frame->pos, alignment);
 
     if (unlikely(res + asked > frame_end(frame))) {
-        mem_stack_blk_t *blk = frame_get_next_blk(sp, frame->blk, alignment,
-                                                  asked);
+        mem_stack_blk_t *blk =
+            frame_get_next_blk(sp, frame->blk, alignment, asked);
         frame_set_blk(frame, blk);
 
-        res   = blk->area;
-        res   = (uint8_t *)mem_align_ptr((uintptr_t)res, alignment);
+        res = blk->area;
+        res = (uint8_t *)mem_align_ptr((uintptr_t)res, alignment);
     }
 
     mem_tool_disallow_memory(frame->pos, res - frame->pos);
@@ -209,7 +212,7 @@ static void *sp_reserve(mem_stack_pool_t *sp, size_t asked, size_t alignment,
      * and MEM_ALLOC_MAX * UINT16_MAX < SIZE_MAX.
      */
     if (unlikely(sp->alloc_nb >= UINT16_MAX)) {
-        STATIC_ASSERT (MEM_ALLOC_MAX * UINT16_MAX < SIZE_MAX);
+        STATIC_ASSERT(MEM_ALLOC_MAX * UINT16_MAX < SIZE_MAX);
 
         sp->alloc_sz /= 4;
         sp->alloc_nb /= 4;
@@ -220,9 +223,8 @@ static void *sp_reserve(mem_stack_pool_t *sp, size_t asked, size_t alignment,
     return res;
 }
 
-__attr_flatten__
-static void *sp_alloc(mem_pool_t *_sp, size_t size, size_t alignment,
-                      mem_flags_t flags)
+__attr_flatten__ static void *
+sp_alloc(mem_pool_t *_sp, size_t size, size_t alignment, mem_flags_t flags)
 {
     mem_stack_pool_t *sp = mem_stack_get_pool(_sp);
     mem_stack_frame_t *frame = sp->stack;
@@ -237,10 +239,12 @@ static void *sp_alloc(mem_pool_t *_sp, size_t size, size_t alignment,
     }
 
 #ifndef NDEBUG
-    if (unlikely(frame == &sp->base))
+    if (unlikely(frame == &sp->base)) {
         e_panic("allocation performed without a t_scope");
-    if (frame->prev & 1)
+    }
+    if (frame->prev & 1) {
         e_panic("allocation performed on a sealed stack");
+    }
     size += alignment;
 #endif
     res = sp_reserve(sp, size, alignment, &frame->pos);
@@ -283,8 +287,10 @@ static void sp_free(mem_pool_t *_sp, void *mem)
 {
 }
 
-static void *sp_realloc(mem_pool_t *_sp, void *mem, size_t oldsize,
-                        size_t asked, size_t alignment, mem_flags_t flags)
+static void *sp_realloc(
+    mem_pool_t *_sp, void *mem, size_t oldsize, size_t asked,
+    size_t alignment, mem_flags_t flags
+)
 {
     mem_stack_pool_t *sp = mem_stack_get_pool(_sp);
     mem_stack_frame_t *frame = sp->stack;
@@ -301,22 +307,30 @@ static void *sp_realloc(mem_pool_t *_sp, void *mem, size_t oldsize,
     }
 
 #ifndef NDEBUG
-    if (frame->prev & 1)
+    if (frame->prev & 1) {
         e_panic("allocation performed on a sealed stack");
-    if (mem != NULL) {
-        mem_tool_allow_memory((byte *)mem - sizeof(void *), sizeof(void *), true);
-        if (unlikely(((void **)mem)[-1] != sp->stack))
-            e_panic("%p wasn't allocated in that frame, realloc is forbidden", mem);
-        mem_tool_disallow_memory((byte *)mem - sizeof(void *), sizeof(void *));
     }
-    if (unlikely(oldsize == MEM_UNKNOWN))
+    if (mem != NULL) {
+        mem_tool_allow_memory(
+            (byte *)mem - sizeof(void *), sizeof(void *), true
+        );
+        if (unlikely(((void **)mem)[-1] != sp->stack)) {
+            e_panic(
+                "%p wasn't allocated in that frame, realloc is forbidden", mem
+            );
+        }
+        mem_tool_disallow_memory(
+            (byte *)mem - sizeof(void *), sizeof(void *)
+        );
+    }
+    if (unlikely(oldsize == MEM_UNKNOWN)) {
         e_panic("stack pools do not support reallocs with unknown old size");
+    }
 #endif
 
-    if (likely(res == frame->last)
-    &&  likely(res + asked <= frame_end(frame)))
+    if (likely(res == frame->last) && likely(res + asked <= frame_end(frame)))
     {
-        assert (res);
+        assert(res);
 
         frame->pos = res + asked;
         sp->alloc_sz += sizediff;
@@ -375,13 +389,13 @@ static void *sp_realloc(mem_pool_t *_sp, void *mem, size_t oldsize,
 }
 
 static mem_pool_t const stack_pool_base_g = {
-    .malloc   = &sp_alloc,
-    .realloc  = &sp_realloc,
-    .free     = &sp_free,
+    .malloc = &sp_alloc,
+    .realloc = &sp_realloc,
+    .free = &sp_free,
     .mem_pool = MEM_STACK | MEM_BY_FRAME,
     .min_alignment = sizeof(void *),
     .name = NULL,
-    .pool_link = { NULL, NULL },
+    .pool_link = {NULL, NULL},
 };
 
 #ifndef NDEBUG
@@ -389,42 +403,46 @@ static mem_pool_t const stack_pool_base_g = {
  * The frames keep their usual behaviour.
  * The blk objects are now the prefixes of all the allocations performed.
  */
-static void *sp_alloc_libc(mem_pool_t *_sp, size_t asked, size_t alignment,
-                           mem_flags_t flags)
+static void *sp_alloc_libc(
+    mem_pool_t *_sp, size_t asked, size_t alignment, mem_flags_t flags
+)
 {
     mem_stack_pool_t *sp = mem_stack_get_pool(_sp);
     size_t oversize = mem_align_ptr(sizeof(mem_stack_blk_t), alignment);
     mem_stack_blk_t *blk;
     uint8_t *ptr;
 
-    assert (alignment >= 8);
+    assert(alignment >= 8);
 
-    ptr  = mp_imalloc(&mem_pool_libc, asked + oversize, alignment, flags);
+    ptr = mp_imalloc(&mem_pool_libc, asked + oversize, alignment, flags);
     ptr += oversize;
 
-    blk  = (mem_stack_blk_t *)ptr - 1;
+    blk = (mem_stack_blk_t *)ptr - 1;
     blk->size = oversize;
     dlist_add_tail(&sp->blk_list, &blk->blk_list);
 
     return ptr;
 }
 
-static void *sp_realloc_libc(mem_pool_t *_sp, void *mem, size_t oldsize,
-                             size_t asked, size_t alignment,
-                             mem_flags_t flags)
+static void *sp_realloc_libc(
+    mem_pool_t *_sp, void *mem, size_t oldsize, size_t asked,
+    size_t alignment, mem_flags_t flags
+)
 {
     mem_stack_blk_t *blk = (mem_stack_blk_t *)mem - 1;
     size_t oversize = blk->size;
     uint8_t *ptr = (uint8_t *)mem;
 
-    assert (oversize >= sizeof(mem_stack_blk_t));
+    assert(oversize >= sizeof(mem_stack_blk_t));
 
     ptr -= oversize;
-    ptr  = mp_irealloc(&mem_pool_libc, ptr, oldsize + oversize,
-                       asked + oversize, alignment, flags);
+    ptr = mp_irealloc(
+        &mem_pool_libc, ptr, oldsize + oversize, asked + oversize, alignment,
+        flags
+    );
     ptr += oversize;
 
-    blk  = (mem_stack_blk_t *)ptr - 1;
+    blk = (mem_stack_blk_t *)ptr - 1;
     __dlist_repair(&blk->blk_list);
 
     return ptr;
@@ -439,7 +457,7 @@ static void *sp_push_libc(mem_stack_pool_t *sp)
     mem_stack_frame_t *frame = p_new(mem_stack_frame_t, 1);
 
     frame->prev = (uintptr_t)sp->stack;
-    frame->blk  = blk_entry(sp->blk_list.prev);
+    frame->blk = blk_entry(sp->blk_list.prev);
 
     return sp->stack = frame;
 }
@@ -467,16 +485,17 @@ const void *mem_stack_pool_pop_libc(mem_stack_pool_t *sp)
 }
 
 static mem_pool_t const sp_libc_bypass_base_g = {
-    .malloc  = &sp_alloc_libc,
+    .malloc = &sp_alloc_libc,
     .realloc = &sp_realloc_libc,
-    .free    = &sp_free_libc,
-    .mem_pool= MEM_STACK | MEM_BY_FRAME,
+    .free = &sp_free_libc,
+    .mem_pool = MEM_STACK | MEM_BY_FRAME,
     .min_alignment = sizeof(void *)
 };
 #endif
 
-mem_stack_pool_t *mem_stack_pool_init(mem_stack_pool_t *sp, const char *name,
-                                      int initialsize, unsigned flags)
+mem_stack_pool_t *mem_stack_pool_init(
+    mem_stack_pool_t *sp, const char *name, int initialsize, unsigned flags
+)
 {
     /* no p_clear is made for two reasons :
      * - there is few objects that shall be zero-initialized
@@ -485,14 +504,14 @@ mem_stack_pool_t *mem_stack_pool_init(mem_stack_pool_t *sp, const char *name,
      * all the added fields. Thus, it is advised to keep initializations
      * of the fields in the order of declaration.
      */
-    sp->stack     = &sp->base;
+    sp->stack = &sp->base;
 
-    sp->alloc_sz   = 0;
-    sp->alloc_nb   = 1; /* avoid the division by 0 */
+    sp->alloc_sz = 0;
+    sp->alloc_nb = 1; /* avoid the division by 0 */
     sp->last_reset = lp_getsec();
 
     /* root block */
-    sp->size      = 0;
+    sp->size = 0;
     dlist_init(&sp->blk_list);
 
     /* root frame */
@@ -500,9 +519,10 @@ mem_stack_pool_t *mem_stack_pool_init(mem_stack_pool_t *sp, const char *name,
     sp->base.prev = 0;
 
     /* 640k should be enough for everybody =) */
-    if (initialsize <= 0)
+    if (initialsize <= 0) {
         initialsize = 640 << 10;
-    sp->minsize   = ROUND_UP(initialsize, PAGE_SIZE);
+    }
+    sp->minsize = ROUND_UP(initialsize, PAGE_SIZE);
 
     sp->stacksize = 0;
     sp->nb_blocks = 0;
@@ -525,8 +545,10 @@ mem_stack_pool_t *mem_stack_pool_init(mem_stack_pool_t *sp, const char *name,
 
     sp->pthread_id = pthread_self();
 
-    mem_pool_set(&sp->mp, name, &_G.all_pools, &_G.all_pools_lock,
-                 &stack_pool_base_g, flags);
+    mem_pool_set(
+        &sp->mp, name, &_G.all_pools, &_G.all_pools_lock, &stack_pool_base_g,
+        flags
+    );
 
     return sp;
 }
@@ -550,9 +572,9 @@ void mem_stack_pool_reset(mem_stack_pool_t *sp)
      * we keep the biggest in this range.
      */
     sp->last_reset = lp_getsec();
-    saved_blk  = NULL;
+    saved_blk = NULL;
     saved_size = RESET_MIN * sp_alloc_mean(sp);
-    max_size   = RESET_MAX * sp_alloc_mean(sp);
+    max_size = RESET_MAX * sp_alloc_mean(sp);
 
     dlist_for_each(e, &sp->blk_list) {
         mem_stack_blk_t *blk = blk_entry(e);
@@ -561,7 +583,7 @@ void mem_stack_pool_reset(mem_stack_pool_t *sp)
             if (saved_blk) {
                 blk_destroy(sp, saved_blk);
             }
-            saved_blk  = blk;
+            saved_blk = blk;
             saved_size = blk->size;
         } else {
             blk_destroy(sp, blk);
@@ -619,7 +641,7 @@ void mem_stack_pool_wipe(mem_stack_pool_t *sp)
     dlist_for_each(e, &sp->blk_list) {
         blk_destroy(sp, blk_entry(e));
     }
-    assert (sp->stacksize == 0);
+    assert(sp->stacksize == 0);
 }
 
 const void *mem_stack_pool_push(mem_stack_pool_t *sp)
@@ -636,51 +658,54 @@ const void *mem_stack_pool_push(mem_stack_pool_t *sp)
     }
 #endif
 
-    res = sp_reserve(sp, sizeof(mem_stack_frame_t),
-                     alignof(mem_stack_frame_t), &end);
+    res = sp_reserve(
+        sp, sizeof(mem_stack_frame_t), alignof(mem_stack_frame_t), &end
+    );
 
 #ifdef MEM_BENCH
     /* if the assert fires,
      * it means the stack pool has been wiped by mem_stack_pool_wipe.
      * t_push'ing again is then an incorrect behaviour.
      */
-    assert (sp->mem_bench);
+    assert(sp->mem_bench);
 
     mem_bench_print_csv(sp->mem_bench);
 #endif
     frame = (mem_stack_frame_t *)res;
-    frame->blk  = oldframe->blk;
-    frame->pos  = end;
-    frame->end  = oldframe->end;
+    frame->blk = oldframe->blk;
+    frame->pos = end;
+    frame->end = oldframe->end;
     frame->last = end;
     frame->prev = (uintptr_t)oldframe;
     return sp->stack = frame;
 }
 
 #ifdef MEM_BENCH
-void mem_stack_pool_bench_pop(mem_stack_pool_t *sp, mem_stack_frame_t * frame)
+void mem_stack_pool_bench_pop(mem_stack_pool_t *sp, mem_stack_frame_t *frame)
 {
     mem_stack_blk_t *last_block = frame->blk;
     int32_t cused = sp->mem_bench->current_used;
 
     mem_bench_print_csv(sp->mem_bench);
     if (sp->stack->blk == last_block) {
-        cused -= (frame->pos - sp->stack->pos
-                  - sizeof(mem_stack_frame_t));
+        cused -= (frame->pos - sp->stack->pos - sizeof(mem_stack_frame_t));
     } else {
         cused -= frame->pos - last_block->area;
-        last_block = container_of(last_block->blk_list.prev,
-                                  mem_stack_blk_t, blk_list);
+        last_block = container_of(
+            last_block->blk_list.prev, mem_stack_blk_t, blk_list
+        );
         while (sp->stack->blk != last_block) {
             cused -= last_block->size;
             /* Note: this is inaccurate, because we don't know the size of the
                unused space at the end of the block
             */
-            last_block = container_of(last_block->blk_list.prev,
-                                      mem_stack_blk_t, blk_list);
+            last_block = container_of(
+                last_block->blk_list.prev, mem_stack_blk_t, blk_list
+            );
         }
-        cused -= (last_block->area + last_block->size
-                  - sp->stack->pos + sizeof(mem_stack_frame_t));
+        cused -=
+            (last_block->area + last_block->size - sp->stack->pos +
+             sizeof(mem_stack_frame_t));
     }
     if (cused <= 0 || mem_stack_pool_is_at_top(sp)) {
         cused = 0;
@@ -690,7 +715,8 @@ void mem_stack_pool_bench_pop(mem_stack_pool_t *sp, mem_stack_frame_t * frame)
 }
 #endif
 
-void mem_stack_print_stats(const mem_pool_t *mp) {
+void mem_stack_print_stats(const mem_pool_t *mp)
+{
 #ifdef MEM_BENCH
     const mem_stack_pool_t *sp = container_of(mp, mem_stack_pool_t, mp);
 
@@ -703,7 +729,8 @@ void mem_stack_print_stats(const mem_pool_t *mp) {
 #endif
 }
 
-void mem_stack_print_pools_stats(void) {
+void mem_stack_print_pools_stats(void)
+{
 #ifdef MEM_BENCH
     /* bypass mem_pool if demanded */
     if (!mem_pool_is_enabled()) {
@@ -719,7 +746,9 @@ void mem_stack_print_pools_stats(void) {
 }
 
 #ifndef NDEBUG
-void mem_stack_pool_protect(mem_stack_pool_t *sp, const mem_stack_frame_t *up_to)
+void mem_stack_pool_protect(
+    mem_stack_pool_t *sp, const mem_stack_frame_t *up_to
+)
 {
     if (up_to->blk == sp->stack->blk) {
         mem_tool_disallow_memory(sp->stack->pos, up_to->pos - sp->stack->pos);
@@ -742,9 +771,8 @@ void mem_stack_pool_protect(mem_stack_pool_t *sp, const mem_stack_frame_t *up_to
 }
 #endif
 
-static inline mem_stack_pool_t *mem_stack_pool_new(const char *name,
-                                                   int initialsize,
-                                                   unsigned flags)
+static inline mem_stack_pool_t *
+mem_stack_pool_new(const char *name, int initialsize, unsigned flags)
 {
     mem_stack_pool_t *sp = p_new_raw(mem_stack_pool_t, 1);
 
@@ -753,8 +781,8 @@ static inline mem_stack_pool_t *mem_stack_pool_new(const char *name,
     return sp;
 }
 
-mem_pool_t *mem_stack_new_flags(const char *name, int initialsize,
-                                unsigned flags)
+mem_pool_t *
+mem_stack_new_flags(const char *name, int initialsize, unsigned flags)
 {
     mem_stack_pool_t *pool = mem_stack_pool_new(name, initialsize, flags);
 
@@ -768,7 +796,7 @@ mem_pool_t *mem_stack_new(const char *name, int initialsize)
 
 GENERIC_DELETE(mem_stack_pool_t, mem_stack_pool);
 
-void mem_stack_delete(mem_pool_t *nonnull *nullable mp)
+void mem_stack_delete(mem_pool_t * nonnull * nullable mp)
 {
     if (*mp) {
         mem_stack_pool_t *sp = mem_stack_get_pool(*mp);
@@ -778,11 +806,11 @@ void mem_stack_delete(mem_pool_t *nonnull *nullable mp)
     }
 }
 
-__attribute__((constructor))
-static void t_pool_init(void)
+__attribute__((constructor)) static void t_pool_init(void)
 {
-    mem_stack_pool_init(&t_pool_g, "t_pool", 64 << 10,
-                        MEM_DISABLE_POOL_LEAK_DETECTION);
+    mem_stack_pool_init(
+        &t_pool_g, "t_pool", 64 << 10, MEM_DISABLE_POOL_LEAK_DETECTION
+    );
 }
 static void t_pool_wipe(void)
 {
@@ -816,12 +844,13 @@ static void mem_stack_fix_all_pools_at_fork(void)
     spin_unlock(&_G.all_pools_lock);
 }
 
-__attribute__((constructor))
-static void mem_stack_all_pools_init_at_fork(void)
+__attribute__((constructor)) static void
+mem_stack_all_pools_init_at_fork(void)
 {
-    pthread_atfork(&mem_stack_all_pools_prepare_fork,
-                   &mem_stack_all_pools_parent_fork,
-                   &mem_stack_fix_all_pools_at_fork);
+    pthread_atfork(
+        &mem_stack_all_pools_prepare_fork, &mem_stack_all_pools_parent_fork,
+        &mem_stack_fix_all_pools_at_fork
+    );
 }
 
 /* {{{ Module (for print_state method) */
@@ -831,35 +860,43 @@ static void core_mem_stack_print_state(void)
     t_scope;
     qv_t(table_hdr) hdr;
     qv_t(table_data) rows;
-    table_hdr_t hdr_data[] = { {
+    table_hdr_t hdr_data[] = {
+        {
             .title = LSTR_IMMED("STACK POOL NAME"),
-        }, {
+        },
+        {
             .title = LSTR_IMMED("POINTER"),
-        }, {
+        },
+        {
             .title = LSTR_IMMED("SIZE"),
-        }, {
+        },
+        {
             .title = LSTR_IMMED("NB BLOCKS"),
-        }, {
+        },
+        {
             .title = LSTR_IMMED("ALLOC SIZE"),
-        }, {
+        },
+        {
             .title = LSTR_IMMED("ALLOC NB"),
-        }, {
+        },
+        {
             .title = LSTR_IMMED("ALLOC MEAN"),
-        }, {
+        },
+        {
             .title = LSTR_IMMED("LAST RESET"),
         }
     };
     uint32_t hdr_size = countof(hdr_data);
-    size_t   total_stacksize = 0;
+    size_t total_stacksize = 0;
     uint32_t total_nb_blocks = 0;
-    size_t   total_alloc_sz = 0;
+    size_t total_alloc_sz = 0;
     uint32_t total_alloc_nb = 0;
     int nb_stack_pool = 0;
 
     qv_init_static(&hdr, hdr_data, hdr_size);
     t_qv_init(&rows, 200);
 
-#define ADD_NUMBER_FIELD(_what)  \
+#define ADD_NUMBER_FIELD(_what)                                              \
     do {                                                                     \
         t_SB(_buf, 16);                                                      \
                                                                              \
@@ -869,8 +906,7 @@ static void core_mem_stack_print_state(void)
 
     spin_lock(&_G.all_pools_lock);
 
-    dlist_for_each_entry(mem_stack_pool_t, sp, &_G.all_pools, mp.pool_link)
-    {
+    dlist_for_each_entry(mem_stack_pool_t, sp, &_G.all_pools, mp.pool_link) {
         qv_t(lstr) *tab = qv_growlen(&rows, 1);
 
         t_qv_init(tab, hdr_size);
@@ -888,8 +924,8 @@ static void core_mem_stack_print_state(void)
         nb_stack_pool++;
         total_stacksize += sp->stacksize;
         total_nb_blocks += sp->nb_blocks;
-        total_alloc_sz  += sp->alloc_sz;
-        total_alloc_nb  += sp->alloc_nb;
+        total_alloc_sz += sp->alloc_sz;
+        total_alloc_nb += sp->alloc_nb;
     }
 
     spin_unlock(&_G.all_pools_lock);
@@ -911,8 +947,9 @@ static void core_mem_stack_print_state(void)
 
         sb_add_table(&buf, &hdr, &rows);
         sb_shrink(&buf, 1);
-        logger_notice(&_G.logger, "stack pools summary:\n%*pM",
-                      SB_FMT_ARG(&buf));
+        logger_notice(
+            &_G.logger, "stack pools summary:\n%*pM", SB_FMT_ARG(&buf)
+        );
     }
 #undef ADD_NUMBER_FIELD
 }
@@ -924,14 +961,15 @@ static int core_mem_stack_initialize(void *arg)
 
 static int core_mem_stack_shutdown(void)
 {
-    mem_pool_list_clean(&_G.all_pools, "mem stack",
-                        &_G.all_pools_lock, &_G.logger);
+    mem_pool_list_clean(
+        &_G.all_pools, "mem stack", &_G.all_pools_lock, &_G.logger
+    );
 
     return 0;
 }
 
-MODULE_BEGIN(core_mem_stack)
+MODULE_DEFINE(core_mem_stack) {
     MODULE_IMPLEMENTS_VOID(print_state, &core_mem_stack_print_state);
-MODULE_END()
+}
 
 /* }}} */

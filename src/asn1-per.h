@@ -93,24 +93,25 @@
 #include <lib-common/asn1.h>
 #include "asn1/per-macros.h"
 
-#define ASN1_MAX_LEN  SIZE_MAX /* FIXME put real ASN1_MAX_LEN instead */
+#define ASN1_MAX_LEN SIZE_MAX /* FIXME put real ASN1_MAX_LEN instead */
 
 /* TODO optimize */
-static inline int asn1_enum_find_val(const asn1_enum_info_t *nonnull e,
-                                     int32_t val, bool *nonnull extended)
+static inline int asn1_enum_find_val(
+    const asn1_enum_info_t *nonnull e, int32_t val, bool *nonnull extended
+)
 {
     struct {
         const qv_t(i32) *values;
         bool extended;
     } vals_tabs[] = {
-        { &e->values, false },
-        { &e->ext_values, true },
+        {&e->values, false},
+        {&e->ext_values, true},
     };
 
     carray_for_each_ptr(v, vals_tabs) {
         tab_enumerate(pos, enum_val, v->values) {
             if (enum_val == val) {
-                assert (e->extended || !v->extended);
+                assert(e->extended || !v->extended);
                 *extended = v->extended;
 
                 return pos;
@@ -138,9 +139,11 @@ static inline void asn1_enum_append(asn1_enum_info_t *e, int32_t val)
         int32_t last = *tab_last(values);
 
         if (val < last) {
-            e_panic("enumeration %s value `%d` "
-                    "should be registered before value `%d`", kind, val,
-                    last);
+            e_panic(
+                "enumeration %s value `%d` "
+                "should be registered before value `%d`",
+                kind, val, last
+            );
         }
 
         if (val == last) {
@@ -152,25 +155,30 @@ static inline void asn1_enum_append(asn1_enum_info_t *e, int32_t val)
 }
 
 int aper_encode_desc(sb_t *sb, const void *st, const asn1_desc_t *desc);
-int t_aper_decode_desc(pstream_t *ps, const asn1_desc_t *desc,
-                       bool copy, void *st);
+int t_aper_decode_desc(
+    pstream_t *ps, const asn1_desc_t *desc, bool copy, void *st
+);
 
-#define aper_encode(sb, pfx, st)  \
+#define aper_encode(sb, pfx, st)                                             \
     ({                                                                       \
-        if (!__builtin_types_compatible_p(typeof(st), pfx##_t *)             \
-        &&  !__builtin_types_compatible_p(typeof(st), const pfx##_t *))      \
+        if (!__builtin_types_compatible_p(typeof(st), pfx##_t *) &&          \
+            !__builtin_types_compatible_p(typeof(st), const pfx##_t *))      \
         {                                                                    \
-            __error__("ASN.1 PER encoder: `"#st"' type "                     \
-                      "is not <"#pfx"_t *>");                                \
+            __error__(                                                       \
+                "ASN.1 PER encoder: `" #st "' type "                         \
+                "is not <" #pfx "_t *>"                                      \
+            );                                                               \
         }                                                                    \
         aper_encode_desc(sb, st, ASN1_GET_DESC(pfx));                        \
     })
 
-#define t_aper_decode(ps, pfx, copy, st)  \
+#define t_aper_decode(ps, pfx, copy, st)                                     \
     ({                                                                       \
         if (!__builtin_types_compatible_p(typeof(st), pfx##_t *)) {          \
-            __error__("ASN.1 PER decoder: `"#st"' type "                     \
-                      "is not <"#pfx"_t *>");                                \
+            __error__(                                                       \
+                "ASN.1 PER decoder: `" #st "' type "                         \
+                "is not <" #pfx "_t *>"                                      \
+            );                                                               \
         }                                                                    \
         t_aper_decode_desc(ps, ASN1_GET_DESC(pfx), copy, st);                \
     })

@@ -28,127 +28,127 @@
  *   stdio.h:    stdout, putc_unlocked, fwrite_unlocked;
  */
 
-#define FLOATING_POINT  1
-#define _NO_LONGDBL     1
+#define FLOATING_POINT 1
+#define _NO_LONGDBL 1
 
 /*---------------- formatter ----------------*/
 
-#define FLAG_UPPER      0x0001
-#define FLAG_MINUS      0x0002
-#define FLAG_PLUS       0x0004
-#define FLAG_SPACE      0x0008
-#define FLAG_ALT        0x0010
-#define FLAG_QUOTE      0x0020
-#define FLAG_ZERO       0x0040
+#define FLAG_UPPER 0x0001
+#define FLAG_MINUS 0x0002
+#define FLAG_PLUS 0x0004
+#define FLAG_SPACE 0x0008
+#define FLAG_ALT 0x0010
+#define FLAG_QUOTE 0x0020
+#define FLAG_ZERO 0x0040
 
-#define FLAG_WIDTH      0x0080
-#define FLAG_PREC       0x0100
+#define FLAG_WIDTH 0x0080
+#define FLAG_PREC 0x0100
 
-#define TYPE_int        0
-#define TYPE_char       1
-#define TYPE_short      2
-#define TYPE_long       3
+#define TYPE_int 0
+#define TYPE_char 1
+#define TYPE_short 2
+#define TYPE_long 3
 
 #ifndef LLONG_MAX
-#error "unsupported architecture: need LLONG_MAX"
+#  error "unsupported architecture: need LLONG_MAX"
 #endif
 
 #if LLONG_MAX == LONG_MAX
-#define TYPE_llong      TYPE_long
-#define convert_ullong  convert_ulong
+#  define TYPE_llong TYPE_long
+#  define convert_ullong convert_ulong
 #else
-#define WANT_llong      1
-#define TYPE_llong      4
+#  define WANT_llong 1
+#  define TYPE_llong 4
 #endif
 
 #if INTMAX_MAX == LONG_MAX
-#define TYPE_intmax_t   TYPE_long
+#  define TYPE_intmax_t TYPE_long
 #elif INTMAX_MAX == LLONG_MAX
-#define TYPE_intmax_t   TYPE_llong
+#  define TYPE_intmax_t TYPE_llong
 #else
-#error "unsupported architecture: unsupported INTMAX_MAX"
+#  error "unsupported architecture: unsupported INTMAX_MAX"
 #endif
 
-#define TYPE_int32      TYPE_int
-#define convert_uint32  convert_uint
+#define TYPE_int32 TYPE_int
+#define convert_uint32 convert_uint
 
 #if INT64_MAX == INT_MAX
-#define TYPE_int64      TYPE_int
-#define convert_uint64  convert_uint
+#  define TYPE_int64 TYPE_int
+#  define convert_uint64 convert_uint
 #elif INT64_MAX == LONG_MAX
-#define TYPE_int64      TYPE_long
-#define convert_uint64  convert_ulong
+#  define TYPE_int64 TYPE_long
+#  define convert_uint64 convert_ulong
 #elif INT64_MAX == LLONG_MAX
-#define TYPE_int64      TYPE_llong
-#define convert_uint64  convert_ullong
+#  define TYPE_int64 TYPE_llong
+#  define convert_uint64 convert_ullong
 #else
-#error "unsupported architecture"
+#  error "unsupported architecture"
 #endif
 
 #if SIZE_MAX == UINT64_MAX
-#define TYPE_size_t     TYPE_int64
+#  define TYPE_size_t TYPE_int64
 #else
-#error "unsupported architecture: unsupported SIZE_MAX"
+#  error "unsupported architecture: unsupported SIZE_MAX"
 #endif
 
 #if PTRDIFF_MAX == INT64_MAX
-#define TYPE_ptrdiff_t   TYPE_int64
+#  define TYPE_ptrdiff_t TYPE_int64
 #else
-#error "unsupported architecture: unsupported PTRDIFF_MAX"
+#  error "unsupported architecture: unsupported PTRDIFF_MAX"
 #endif
 
 #if UINTPTR_MAX == UINT64_MAX
-#define convert_uintptr  convert_uint64
+#  define convert_uintptr convert_uint64
 #else
-#error "unsupported architecture: unsupported UINTPTR_MAX"
+#  error "unsupported architecture: unsupported UINTPTR_MAX"
 #endif
 
 /* Consider 'L' and 'll' synonyms for compatibility */
-#define TYPE_ldouble    TYPE_llong
+#define TYPE_ldouble TYPE_llong
 
 #ifdef FLOATING_POINT
 
-#include <math.h>
+#  include <math.h>
 
-#define strtod    gt_strtod
-#define atof      gt_atof
-#define ecvt      gt_ecvt
-#define dtoa      gt_dtoa
-#define _dtoa_r   gt_dtoa_r
-#define _ldtoa_r  gt_ldtoa_r
-#define _ldcheck  gt_ldcheck
-#define freedtoa  gt_freedtoa
+#  define strtod gt_strtod
+#  define atof gt_atof
+#  define ecvt gt_ecvt
+#  define dtoa gt_dtoa
+#  define _dtoa_r gt_dtoa_r
+#  define _ldtoa_r gt_ldtoa_r
+#  define _ldcheck gt_ldcheck
+#  define freedtoa gt_freedtoa
 
-#ifdef _NO_LONGDBL
+#  ifdef _NO_LONGDBL
 /* 11-bit exponent (VAX G floating point) is 308 decimal digits */
-#define MAXEXP          308
-#else  /* !_NO_LONGDBL */
+#    define MAXEXP 308
+#  else /* !_NO_LONGDBL */
 /* 15-bit exponent (Intel extended floating point) is 4932 decimal digits */
-#define MAXEXP          4932
-#endif /* !_NO_LONGDBL */
+#    define MAXEXP 4932
+#  endif /* !_NO_LONGDBL */
 /* 128 bit fraction takes up 39 decimal digits; max reasonable precision */
-#define MAXFRACT        39
+#  define MAXFRACT 39
 
-#define BUF             (MAXEXP+MAXFRACT+1)     /* + decimal point */
-#define DEFPREC         6
+#  define BUF (MAXEXP + MAXFRACT + 1) /* + decimal point */
+#  define DEFPREC 6
 
-#ifdef _NO_LONGDBL
+#  ifdef _NO_LONGDBL
 static char *cvt(double, int, int, char *, int *, int, int *);
-#else
+#  else
 static char *cvt(_LONG_DOUBLE, int, int, char *, int *, int, int *);
 extern int _ldcheck(_LONG_DOUBLE *);
-#endif
+#  endif
 
 static int exponent(char *, int, int);
 
 double strtod(const char *s00, char **se);
-char *dtoa(double d, int mode, int ndigits, int *decpt, int *sign, char **rve);
+char *
+dtoa(double d, int mode, int ndigits, int *decpt, int *sign, char **rve);
 #else
 
-#define BUF             40
+#  define BUF 40
 
 #endif /* FLOATING_POINT */
-
 
 /*---------------- helpers ----------------*/
 
@@ -180,16 +180,14 @@ static ALWAYS_INLINE char *convert_int10(char *p, int value)
     return p;
 }
 
-static ALWAYS_INLINE
-char *convert_uint(char *p, unsigned int value, int base)
+static ALWAYS_INLINE char *convert_uint(char *p, unsigned int value, int base)
 {
     if (base == 10) {
         while (value > 0) {
             *--p = '0' + (value % 10);
             value = value / 10;
         }
-    } else
-    if (base == 16) {
+    } else if (base == 16) {
         while (value > 0) {
             *--p = '0' + (value % 16);
             value = value / 16;
@@ -203,12 +201,11 @@ char *convert_uint(char *p, unsigned int value, int base)
     return p;
 }
 
-static ALWAYS_INLINE char *
-convert_uint_10_8_0(char *p, unsigned int value)
+static ALWAYS_INLINE char *convert_uint_10_8_0(char *p, unsigned int value)
 {
     int i;
 
-    for (i = 7; i-- > 0; ) {
+    for (i = 7; i-- > 0;) {
         *--p = '0' + (value % 10);
         value /= 10;
     }
@@ -226,8 +223,7 @@ static char *convert_ulong(char *p, unsigned long value, int base)
             p = convert_uint_10_8_0(p, rem);
         }
         return convert_uint(p, value, 10);
-    } else
-    if (base == 16) {
+    } else if (base == 16) {
         while (value > 0) {
             *--p = '0' + (value % 16);
             value = value / 16;
@@ -279,8 +275,7 @@ static char *convert_uint128(char *p, uint128_t value, int base)
             p = convert_ulong(p, rem, 10);
         }
         return convert_ulong(p, value, 10);
-    } else
-    if (base == 16) {
+    } else if (base == 16) {
         while (value > 0) {
             *--p = '0' + (value % 16);
             value = value / 16;
@@ -307,14 +302,15 @@ static char *convert_quoted_uint(char *p, uint64_t value, int base)
     return p;
 }
 
-static ALWAYS_INLINE
-int fmt_output_chars(FILE *stream, char *str, size_t size,
-                     size_t count, int c, ssize_t n)
+static ALWAYS_INLINE int fmt_output_chars(
+    FILE *stream, char *str, size_t size, size_t count, int c, ssize_t n
+)
 {
     size_t n1 = n;
 
-    if (n < 0)
+    if (n < 0) {
         n1 = n = 0;
+    }
 
     if (stream) {
         while (n1-- > 0) {
@@ -331,8 +327,10 @@ int fmt_output_chars(FILE *stream, char *str, size_t size,
     return count + n;
 }
 
-static ssize_t fmt_output_raw(int modifier, const void *val, size_t val_len,
-                              FILE *stream, char *buf, size_t buf_len)
+static ssize_t fmt_output_raw(
+    int modifier, const void *val, size_t val_len, FILE *stream, char *buf,
+    size_t buf_len
+)
 {
     const char *lp = val;
 
@@ -341,15 +339,17 @@ static ssize_t fmt_output_raw(int modifier, const void *val, size_t val_len,
             putc_unlocked(lp[i], stream);
         }
     } else {
-        ssize_t len1 = MIN(val_len, buf_len);;
+        ssize_t len1 = MIN(val_len, buf_len);
+        ;
 
         memcpy(buf, lp, len1);
     }
     return val_len;
 }
 
-static ssize_t fmt_output_lstr(int modifier, const void *val, FILE *stream,
-                               char *buf, size_t buf_len)
+static ssize_t fmt_output_lstr(
+    int modifier, const void *val, FILE *stream, char *buf, size_t buf_len
+)
 {
     const lstr_t *str = val;
 
@@ -371,8 +371,10 @@ static ssize_t fmt_output_lstr(int modifier, const void *val, FILE *stream,
     return str->len;
 }
 
-static ssize_t fmt_output_hex(int modifier, const void *val, size_t val_len,
-                              FILE *stream, char *buf, size_t buf_len)
+static ssize_t fmt_output_hex(
+    int modifier, const void *val, size_t val_len, FILE *stream, char *buf,
+    size_t buf_len
+)
 {
     const char *digits;
     const char *lp = val;
@@ -392,7 +394,7 @@ static ssize_t fmt_output_hex(int modifier, const void *val, size_t val_len,
         size_t len1 = MIN(val_len * 2, buf_len);
 
         for (size_t i = 0; i < len1 / 2; i++) {
-            buf[i * 2]     = digits[(lp[i] >> 4) & 0x0f];
+            buf[i * 2] = digits[(lp[i] >> 4) & 0x0f];
             buf[(i * 2) + 1] = digits[(lp[i] >> 0) & 0x0f];
         }
         if (len1 & 1) {
@@ -402,10 +404,10 @@ static ssize_t fmt_output_hex(int modifier, const void *val, size_t val_len,
     return val_len * 2;
 }
 
-
-static ssize_t
-fmt_output_final_int(int modifier, char *lp, int len, int sign, FILE *stream,
-                     char *buf, size_t buf_len, int base, int flags)
+static ssize_t fmt_output_final_int(
+    int modifier, char *lp, int len, int sign, FILE *stream, char *buf,
+    size_t buf_len, int base, int flags
+)
 {
     if (base == 16) {
         do_alpha_shift(lp, lp + len, flags);
@@ -422,9 +424,10 @@ fmt_output_final_int(int modifier, char *lp, int len, int sign, FILE *stream,
     return fmt_output_raw(modifier, lp, len, stream, buf, buf_len);
 }
 
-static ssize_t
-fmt_output_int(int modifier, const void *val, size_t val_len, FILE *stream,
-               char *buf, size_t buf_len)
+static ssize_t fmt_output_int(
+    int modifier, const void *val, size_t val_len, FILE *stream, char *buf,
+    size_t buf_len
+)
 {
     int len, sign;
     char *lp;
@@ -445,14 +448,15 @@ fmt_output_int(int modifier, const void *val, size_t val_len, FILE *stream,
     }
 
     len = ibuf + sizeof(ibuf) - lp;
-    return fmt_output_final_int(modifier, lp, len, sign, stream, buf,
-                                buf_len, 10, 0);
+    return fmt_output_final_int(
+        modifier, lp, len, sign, stream, buf, buf_len, 10, 0
+    );
 }
 
-static ssize_t
-fmt_output_uint_base(int modifier, const void *val, size_t val_len,
-                     FILE *stream, char *buf, size_t buf_len, int base,
-                     int flags)
+static ssize_t fmt_output_uint_base(
+    int modifier, const void *val, size_t val_len, FILE *stream, char *buf,
+    size_t buf_len, int base, int flags
+)
 {
     int len;
     char *lp;
@@ -468,32 +472,39 @@ fmt_output_uint_base(int modifier, const void *val, size_t val_len,
     }
 
     len = ibuf + sizeof(ibuf) - lp;
-    return fmt_output_final_int(modifier, lp, len, 0, stream, buf, buf_len,
-                                base, flags);
+    return fmt_output_final_int(
+        modifier, lp, len, 0, stream, buf, buf_len, base, flags
+    );
 }
 
-static ssize_t
-fmt_output_uint(int modifier, const void *val, size_t val_len, FILE *stream,
-                char *buf, size_t buf_len)
+static ssize_t fmt_output_uint(
+    int modifier, const void *val, size_t val_len, FILE *stream, char *buf,
+    size_t buf_len
+)
 {
-    return fmt_output_uint_base(modifier, val, val_len, stream, buf, buf_len,
-                                10, 0);
+    return fmt_output_uint_base(
+        modifier, val, val_len, stream, buf, buf_len, 10, 0
+    );
 }
 
-static ssize_t
-fmt_output_uint_hex(int modifier, const void *val, size_t val_len,
-                    FILE *stream, char *buf, size_t buf_len)
+static ssize_t fmt_output_uint_hex(
+    int modifier, const void *val, size_t val_len, FILE *stream, char *buf,
+    size_t buf_len
+)
 {
-    return fmt_output_uint_base(modifier, val, val_len, stream, buf, buf_len,
-                                16, 0);
+    return fmt_output_uint_base(
+        modifier, val, val_len, stream, buf, buf_len, 16, 0
+    );
 }
 
-static ssize_t
-fmt_output_uint_hex_up(int modifier, const void *val, size_t val_len,
-                       FILE *stream, char *buf, size_t buf_len)
+static ssize_t fmt_output_uint_hex_up(
+    int modifier, const void *val, size_t val_len, FILE *stream, char *buf,
+    size_t buf_len
+)
 {
-    return fmt_output_uint_base(modifier, val, val_len, stream, buf, buf_len,
-                                16, FLAG_UPPER);
+    return fmt_output_uint_base(
+        modifier, val, val_len, stream, buf, buf_len, 16, FLAG_UPPER
+    );
 }
 
 struct formatter_t {
@@ -505,20 +516,20 @@ struct formatter_t {
 };
 
 static struct formatter_t put_memory_fmt_g[256] = {
-    ['M'] = { { .raw_formatter = &fmt_output_raw }, .is_raw = true },
-    ['X'] = { { .raw_formatter = &fmt_output_hex }, .is_raw = true },
-    ['x'] = { { .raw_formatter = &fmt_output_hex }, .is_raw = true },
-    ['L'] = { { .ptr_formatter = &fmt_output_lstr }, .is_raw = false },
-    ['d'] = { { .raw_formatter = &fmt_output_int }, .is_raw = true },
-    ['u'] = { { .raw_formatter = &fmt_output_uint }, .is_raw = true },
-    ['h'] = { { .raw_formatter = &fmt_output_uint_hex }, .is_raw = true },
-    ['H'] = { { .raw_formatter = &fmt_output_uint_hex_up }, .is_raw = true },
+    ['M'] = {{.raw_formatter = &fmt_output_raw}, .is_raw = true},
+    ['X'] = {{.raw_formatter = &fmt_output_hex}, .is_raw = true},
+    ['x'] = {{.raw_formatter = &fmt_output_hex}, .is_raw = true},
+    ['L'] = {{.ptr_formatter = &fmt_output_lstr}, .is_raw = false},
+    ['d'] = {{.raw_formatter = &fmt_output_int}, .is_raw = true},
+    ['u'] = {{.raw_formatter = &fmt_output_uint}, .is_raw = true},
+    ['h'] = {{.raw_formatter = &fmt_output_uint_hex}, .is_raw = true},
+    ['H'] = {{.raw_formatter = &fmt_output_uint_hex_up}, .is_raw = true},
 };
 
-static ALWAYS_INLINE
-ssize_t fmt_output_chunk(FILE *stream, char *str, size_t size,
-                         size_t count, const char *lp, size_t len,
-                         int modifier)
+static ALWAYS_INLINE ssize_t fmt_output_chunk(
+    FILE *stream, char *str, size_t size, size_t count, const char *lp,
+    size_t len, int modifier
+)
 {
     const struct formatter_t *format;
     size_t out_len;
@@ -526,8 +537,8 @@ ssize_t fmt_output_chunk(FILE *stream, char *str, size_t size,
     size = count >= size ? 0 : size - count - 1;
     str += count;
     if (likely(modifier == 'M')) {
-        out_len = RETHROW(fmt_output_raw(modifier, lp, len, stream,
-                                         str, size));
+        out_len =
+            RETHROW(fmt_output_raw(modifier, lp, len, stream, str, size));
     } else {
         format = &put_memory_fmt_g[(unsigned char)modifier];
 
@@ -536,22 +547,25 @@ ssize_t fmt_output_chunk(FILE *stream, char *str, size_t size,
                 return -1;
             }
 
-            out_len = RETHROW((*format->raw_formatter)(modifier, lp, len,
-                                                       stream, str, size));
+            out_len = RETHROW(
+                (*format->raw_formatter)(modifier, lp, len, stream, str, size)
+            );
         } else {
             if (!expect(format->ptr_formatter)) {
                 return -1;
             }
-            out_len = RETHROW((*format->ptr_formatter)(modifier, lp, stream,
-                                                       str, size));
+            out_len = RETHROW(
+                (*format->ptr_formatter)(modifier, lp, stream, str, size)
+            );
         }
     }
 
     return count + out_len;
 }
 
-static int fmt_output(FILE *stream, char *str, size_t size,
-                      const char *format, va_list ap)
+static int fmt_output(
+    FILE *stream, char *str, size_t size, const char *format, va_list ap
+)
 {
     char buf[64];
     int c, count, len, width, prec, base, flags, type_flags;
@@ -589,23 +603,27 @@ static int fmt_output(FILE *stream, char *str, size_t size,
          * put raw data in the output stream/buffer */
         int modifier = 'M';
 
-        for (lp = format; *format && *format != '%'; format++)
+        for (lp = format; *format && *format != '%'; format++) {
             continue;
+        }
         len = format - lp;
-      haslp:
+    haslp:
         count = fmt_output_chunk(stream, str, size, count, lp, len, modifier);
-        modifier  = 'M';
+        modifier = 'M';
         if (right_pad) {
-            count = fmt_output_chars(stream, str, size, count, ' ', right_pad);
+            count =
+                fmt_output_chars(stream, str, size, count, ' ', right_pad);
         }
 
         right_pad = 0;
 
-        if (*format == '\0')
+        if (*format == '\0') {
             goto done;
+        }
 
-        if (*format != '%')
+        if (*format != '%') {
             continue;
+        }
 
         format++;
 
@@ -619,8 +637,9 @@ static int fmt_output(FILE *stream, char *str, size_t size,
         if (*format == 's') {
             format++;
             lp = va_arg(ap, const char *);
-            if (lp == NULL)
+            if (lp == NULL) {
                 lp = "(null)";
+            }
             len = strlen(lp);
             goto haslp;
         }
@@ -641,28 +660,29 @@ static int fmt_output(FILE *stream, char *str, size_t size,
          * natively support %*pM for "put memory content here"
          * and %*pX for "put hexadecimal content here".
          */
-        if (format[0] == '*' && format[1] == 'p'
-        &&  put_memory_fmt_g[(unsigned char)format[2]].is_raw
-        &&  put_memory_fmt_g[(unsigned char)format[2]].raw_formatter)
+        if (format[0] == '*' && format[1] == 'p' &&
+            put_memory_fmt_g[(unsigned char)format[2]].is_raw &&
+            put_memory_fmt_g[(unsigned char)format[2]].raw_formatter)
         {
             modifier = format[2];
             format += 3;
             len = va_arg(ap, int);
-            lp  = va_arg(ap, const char *);
+            lp = va_arg(ap, const char *);
 
             /* XXX No "trailing garbage" consumption: we support only single
              *     character modifiers for now.
              */
             goto haslp;
-        } else
-        if (format[0] == 'p'
-        &&  !put_memory_fmt_g[(unsigned char)format[1]].is_raw
-        &&  put_memory_fmt_g[(unsigned char)format[1]].ptr_formatter)
+        } else if (
+            format[0] == 'p' &&
+            !put_memory_fmt_g[(unsigned char)format[1]].is_raw &&
+            put_memory_fmt_g[(unsigned char)format[1]].ptr_formatter
+        )
         {
             modifier = format[1];
             format += 2;
             len = 0;
-            lp  = va_arg(ap, const char *);
+            lp = va_arg(ap, const char *);
 
             goto haslp;
         }
@@ -673,15 +693,29 @@ static int fmt_output(FILE *stream, char *str, size_t size,
         /* parse optional flags */
         for (;; format++) {
             switch (*format) {
-            case '\0': goto error;
-            case '-':  flags |= FLAG_MINUS;  continue;
-            case '+':  flags |= FLAG_PLUS;   continue;
-            case '#':  flags |= FLAG_ALT;    continue;
-            case '\'': flags |= FLAG_QUOTE;  continue;
-            case ' ':  flags |= FLAG_SPACE;  continue;
-            case '0':  flags |= FLAG_ZERO;   continue;
-                       /* locale's alternative output digits */
-            case 'I':  /* ignore this shit */;   continue;
+            case '\0':
+                goto error;
+            case '-':
+                flags |= FLAG_MINUS;
+                continue;
+            case '+':
+                flags |= FLAG_PLUS;
+                continue;
+            case '#':
+                flags |= FLAG_ALT;
+                continue;
+            case '\'':
+                flags |= FLAG_QUOTE;
+                continue;
+            case ' ':
+                flags |= FLAG_SPACE;
+                continue;
+            case '0':
+                flags |= FLAG_ZERO;
+                continue;
+                /* locale's alternative output digits */
+            case 'I': /* ignore this shit */;
+                continue;
             }
             break;
         }
@@ -696,8 +730,7 @@ static int fmt_output(FILE *stream, char *str, size_t size,
                 flags |= FLAG_MINUS;
                 width = -width;
             }
-        } else
-        if (*format >= '1' && *format <= '9') {
+        } else if (*format >= '1' && *format <= '9') {
             flags |= FLAG_WIDTH;
             width = *format++ - '0';
             while (*format >= '0' && *format <= '9') {
@@ -710,7 +743,7 @@ static int fmt_output(FILE *stream, char *str, size_t size,
         if (*format == '.') {
             format++;
             prec = 0;
-            //flags &= ~FLAG_ZERO;
+            // flags &= ~FLAG_ZERO;
             flags |= FLAG_PREC;
             if (*format == '*') {
                 format++;
@@ -721,8 +754,7 @@ static int fmt_output(FILE *stream, char *str, size_t size,
                      */
                     prec = 0;
                 }
-            } else
-            if (*format >= '0' && *format <= '9') {
+            } else if (*format >= '0' && *format <= '9') {
                 prec = *format++ - '0';
                 while (*format >= '0' && *format <= '9') {
                     prec = prec * 10 + *format++ - '0';
@@ -785,26 +817,26 @@ static int fmt_output(FILE *stream, char *str, size_t size,
             /* The type of pointer defaults to int* but can be
              * specified with the TYPE_xxx prefixes */
             switch (type_flags) {
-              case TYPE_char:
+            case TYPE_char:
                 *va_arg(ap, char *) = count;
                 break;
 
-              case TYPE_short:
+            case TYPE_short:
                 *va_arg(ap, short *) = count;
                 break;
 
-              case TYPE_int:
-              default:
+            case TYPE_int:
+            default:
                 *va_arg(ap, int *) = count;
                 break;
-              case TYPE_long:
+            case TYPE_long:
                 *va_arg(ap, long *) = count;
                 break;
-#ifdef WANT_llong
-              case TYPE_llong:
+#  ifdef WANT_llong
+            case TYPE_llong:
                 *va_arg(ap, long long *) = count;
                 break;
-#endif
+#  endif
             }
 #endif
             break;
@@ -855,104 +887,96 @@ static int fmt_output(FILE *stream, char *str, size_t size,
             switch (type_flags) {
                 int int_value;
 
-              case TYPE_char:
+            case TYPE_char:
                 int_value = (char)va_arg(ap, int);
                 goto convert_int;
 
-              case TYPE_short:
+            case TYPE_short:
                 int_value = (short)va_arg(ap, int);
                 goto convert_int;
 
-              case TYPE_int:
+            case TYPE_int:
                 int_value = va_arg(ap, int);
-              convert_int:
-                {
-                    unsigned int bits = int_value >> (bitsizeof(int_value) - 1);
-                    unsigned int num = (int_value ^ bits) + (bits & 1);
-                    sign = '-' & bits;
-                    lp = convert_uint(buf + sizeof(buf), num, 10);
-                    break;
-                }
-              case TYPE_long:
-                {
-                    long value = va_arg(ap, long);
-                    unsigned long bits = value >> (bitsizeof(value) - 1);
-                    unsigned long num = (value ^ bits) + (bits & 1);
-                    sign = '-' & bits;
-                    lp = convert_ulong(buf + sizeof(buf), num, 10);
-                    break;
-                }
+            convert_int: {
+                unsigned int bits = int_value >> (bitsizeof(int_value) - 1);
+                unsigned int num = (int_value ^ bits) + (bits & 1);
+                sign = '-' & bits;
+                lp = convert_uint(buf + sizeof(buf), num, 10);
+                break;
+            }
+            case TYPE_long: {
+                long value = va_arg(ap, long);
+                unsigned long bits = value >> (bitsizeof(value) - 1);
+                unsigned long num = (value ^ bits) + (bits & 1);
+                sign = '-' & bits;
+                lp = convert_ulong(buf + sizeof(buf), num, 10);
+                break;
+            }
 #ifdef WANT_llong
-              case TYPE_llong:
-                {
-                    long long value = va_arg(ap, long long);
-                    unsigned long long bits = value >> (bitsizeof(value) - 1);
-                    unsigned long long num = (value ^ bits) + (bits & 1);
-                    sign = '-' & bits;
-                    lp = convert_ullong(buf + sizeof(buf), num, 10);
-                    break;
-                }
+            case TYPE_llong: {
+                long long value = va_arg(ap, long long);
+                unsigned long long bits = value >> (bitsizeof(value) - 1);
+                unsigned long long num = (value ^ bits) + (bits & 1);
+                sign = '-' & bits;
+                lp = convert_ullong(buf + sizeof(buf), num, 10);
+                break;
+            }
 #endif
-              default:
-                {
-                    /* do not know what to fetch, must ignore remaining
-                     * formats specifiers.  This is really an error.
-                     */
-                    goto error;
-                }
+            default: {
+                /* do not know what to fetch, must ignore remaining
+                 * formats specifiers.  This is really an error.
+                 */
+                goto error;
+            }
             }
 
-        goto patch_signed_conversion;
+            goto patch_signed_conversion;
 
         has_quoted_signed:
             switch (type_flags) {
                 int int_value;
 
-              case TYPE_char:
+            case TYPE_char:
                 int_value = (char)va_arg(ap, int);
                 goto convert_quoted_int;
 
-              case TYPE_short:
+            case TYPE_short:
                 int_value = (short)va_arg(ap, int);
                 goto convert_quoted_int;
 
-              case TYPE_int:
+            case TYPE_int:
                 int_value = va_arg(ap, int);
-              convert_quoted_int:
-                {
-                    unsigned int bits = int_value >> (bitsizeof(int_value) - 1);
-                    unsigned int num = (int_value ^ bits) + (bits & 1);
-                    sign = '-' & bits;
-                    lp = convert_quoted_uint(buf + sizeof(buf), num, 10);
-                    break;
-                }
-              case TYPE_long:
-                {
-                    long value = va_arg(ap, long);
-                    unsigned long bits = value >> (bitsizeof(value) - 1);
-                    unsigned long num = (value ^ bits) + (bits & 1);
-                    sign = '-' & bits;
-                    lp = convert_quoted_uint(buf + sizeof(buf), num, 10);
-                    break;
-                }
+            convert_quoted_int: {
+                unsigned int bits = int_value >> (bitsizeof(int_value) - 1);
+                unsigned int num = (int_value ^ bits) + (bits & 1);
+                sign = '-' & bits;
+                lp = convert_quoted_uint(buf + sizeof(buf), num, 10);
+                break;
+            }
+            case TYPE_long: {
+                long value = va_arg(ap, long);
+                unsigned long bits = value >> (bitsizeof(value) - 1);
+                unsigned long num = (value ^ bits) + (bits & 1);
+                sign = '-' & bits;
+                lp = convert_quoted_uint(buf + sizeof(buf), num, 10);
+                break;
+            }
 #ifdef WANT_llong
-              case TYPE_llong:
-                {
-                    long long value = va_arg(ap, long long);
-                    unsigned long long bits = value >> (bitsizeof(value) - 1);
-                    unsigned long long num = (value ^ bits) + (bits & 1);
-                    sign = '-' & bits;
-                    lp = convert_quoted_uint(buf + sizeof(buf), num, 10);
-                    break;
-                }
+            case TYPE_llong: {
+                long long value = va_arg(ap, long long);
+                unsigned long long bits = value >> (bitsizeof(value) - 1);
+                unsigned long long num = (value ^ bits) + (bits & 1);
+                sign = '-' & bits;
+                lp = convert_quoted_uint(buf + sizeof(buf), num, 10);
+                break;
+            }
 #endif
-              default:
-                {
-                    /* do not know what to fetch, must ignore remaining
-                     * formats specifiers.  This is really an error.
-                     */
-                    goto error;
-                }
+            default: {
+                /* do not know what to fetch, must ignore remaining
+                 * formats specifiers.  This is really an error.
+                 */
+                goto error;
+            }
             }
 
         patch_signed_conversion:
@@ -971,7 +995,7 @@ static int fmt_output(FILE *stream, char *str, size_t size,
             if (len < prec) {
                 if (prec == 1) {
                     /* special case number 0 */
-                    *(char*)--lp = '0';
+                    *(char *)--lp = '0';
                     len++;
                 } else {
                     zero_pad = prec - len;
@@ -980,14 +1004,13 @@ static int fmt_output(FILE *stream, char *str, size_t size,
             if (!sign) {
                 if (flags & FLAG_PLUS) {
                     sign = '+';
-                } else
-                if (flags & FLAG_SPACE) {
+                } else if (flags & FLAG_SPACE) {
                     sign = ' ';
                 }
             }
             if (sign) {
                 if (zero_pad == 0 && !(flags & FLAG_ZERO)) {
-                    *(char*)--lp = sign;
+                    *(char *)--lp = sign;
                     len++;
                 } else {
                     buf[0] = (char)sign;
@@ -1006,7 +1029,9 @@ static int fmt_output(FILE *stream, char *str, size_t size,
                 /* XXX Reserve each %[*]p[0-9a-zA-Z]+ format for our own usage
                  */
                 e_trace(0, "trailing garbage after %%p format");
-                do { format++; } while (isalnum((unsigned char)*format));
+                do {
+                    format++;
+                } while (isalnum((unsigned char)*format));
             }
             {
                 void *vp = va_arg(ap, void *);
@@ -1043,75 +1068,76 @@ static int fmt_output(FILE *stream, char *str, size_t size,
             switch (type_flags) {
                 unsigned uint_value;
 
-              case TYPE_char:
+            case TYPE_char:
                 uint_value = (unsigned char)va_arg(ap, unsigned int);
                 goto convert_uint;
 
-              case TYPE_short:
+            case TYPE_short:
                 uint_value = (unsigned short)va_arg(ap, unsigned int);
                 goto convert_uint;
 
-              case TYPE_int:
+            case TYPE_int:
                 uint_value = va_arg(ap, unsigned int);
-              convert_uint:
+            convert_uint:
                 lp = convert_uint(buf + sizeof(buf), uint_value, base);
                 break;
-              case TYPE_long:
-                lp = convert_ulong(buf + sizeof(buf),
-                                   va_arg(ap, unsigned long), base);
+            case TYPE_long:
+                lp = convert_ulong(
+                    buf + sizeof(buf), va_arg(ap, unsigned long), base
+                );
                 break;
 #ifdef WANT_llong
-              case TYPE_llong:
-                lp = convert_ullong(buf + sizeof(buf),
-                                    va_arg(ap, unsigned long long), base);
+            case TYPE_llong:
+                lp = convert_ullong(
+                    buf + sizeof(buf), va_arg(ap, unsigned long long), base
+                );
                 break;
 #endif
-              default:
-                {
-                    /* do not know what to fetch, must ignore remaining
-                     * formats specifiers.  This is really an error.
-                     */
-                    goto error;
-                }
+            default: {
+                /* do not know what to fetch, must ignore remaining
+                 * formats specifiers.  This is really an error.
+                 */
+                goto error;
+            }
             }
 
-        goto patch_unsigned_conversion;
+            goto patch_unsigned_conversion;
 
         has_quoted_unsigned:
             switch (type_flags) {
                 unsigned uint_value;
 
-              case TYPE_char:
+            case TYPE_char:
                 uint_value = (unsigned char)va_arg(ap, unsigned int);
                 goto convert_quoted_uint;
 
-              case TYPE_short:
+            case TYPE_short:
                 uint_value = (unsigned short)va_arg(ap, unsigned int);
                 goto convert_quoted_uint;
 
-              case TYPE_int:
+            case TYPE_int:
                 uint_value = va_arg(ap, unsigned int);
-              convert_quoted_uint:
+            convert_quoted_uint:
                 lp = convert_quoted_uint(buf + sizeof(buf), uint_value, base);
                 break;
-              case TYPE_long:
-                lp = convert_quoted_uint(buf + sizeof(buf),
-                                         va_arg(ap, unsigned long), base);
+            case TYPE_long:
+                lp = convert_quoted_uint(
+                    buf + sizeof(buf), va_arg(ap, unsigned long), base
+                );
                 break;
 #ifdef WANT_llong
-              case TYPE_llong:
-                lp = convert_quoted_uint(buf + sizeof(buf),
-                                         va_arg(ap, unsigned long long),
-                                         base);
+            case TYPE_llong:
+                lp = convert_quoted_uint(
+                    buf + sizeof(buf), va_arg(ap, unsigned long long), base
+                );
                 break;
 #endif
-              default:
-                {
-                    /* do not know what to fetch, must ignore remaining
-                     * formats specifiers.  This is really an error.
-                     */
-                    goto error;
-                }
+            default: {
+                /* do not know what to fetch, must ignore remaining
+                 * formats specifiers.  This is really an error.
+                 */
+                goto error;
+            }
             }
 
         patch_unsigned_conversion:
@@ -1140,7 +1166,7 @@ static int fmt_output(FILE *stream, char *str, size_t size,
             if (len < prec) {
                 if (prec == 1) {
                     /* special case number 0 */
-                    *(char*)--lp = '0';
+                    *(char *)--lp = '0';
                     len++;
                 } else {
                     zero_pad = prec - len;
@@ -1149,8 +1175,9 @@ static int fmt_output(FILE *stream, char *str, size_t size,
 
             if (base == 8) {
                 if ((flags & FLAG_ALT) && zero_pad == 0 &&
-                      (len == 0 || *lp != '0')) {
-                    *(char*)--lp = '0';
+                    (len == 0 || *lp != '0'))
+                {
+                    *(char *)--lp = '0';
                     len++;
                 }
             }
@@ -1162,8 +1189,7 @@ static int fmt_output(FILE *stream, char *str, size_t size,
             if (width > prefix_len + zero_pad + len) {
                 if (flags & FLAG_MINUS) {
                     right_pad = width - prefix_len - zero_pad - len;
-                } else
-                if ((flags & (FLAG_ZERO | FLAG_PREC)) == FLAG_ZERO) {
+                } else if ((flags & (FLAG_ZERO | FLAG_PREC)) == FLAG_ZERO) {
                     zero_pad = width - prefix_len - len;
                 } else {
                     left_pad = width - prefix_len - zero_pad - len;
@@ -1171,17 +1197,18 @@ static int fmt_output(FILE *stream, char *str, size_t size,
             }
 
             if (left_pad) {
-                count = fmt_output_chars(stream, str, size, count,
-                                         ' ', left_pad);
+                count =
+                    fmt_output_chars(stream, str, size, count, ' ', left_pad);
             }
             if (prefix_len) {
                 /* prefix_len is 0, 1 or 2 */
-                count = fmt_output_chunk(stream, str, size, count,
-                                         buf, prefix_len, modifier);
+                count = fmt_output_chunk(
+                    stream, str, size, count, buf, prefix_len, modifier
+                );
             }
             if (zero_pad) {
-                count = fmt_output_chars(stream, str, size, count,
-                                         '0', zero_pad);
+                count =
+                    fmt_output_chars(stream, str, size, count, '0', zero_pad);
             }
             goto haslp;
 
@@ -1192,226 +1219,232 @@ static int fmt_output(FILE *stream, char *str, size_t size,
         case 'g':
         case 'G':
         case 'a':
-        case 'A':
-            {
+        case 'A': {
 #ifdef FLOATING_POINT
-                const char *decimal_point = ".";
-                char softsign;          /* temporary negative sign for floats */
-#ifdef _NO_LONGDBL
-                union { int i; double d; unsigned long long ull; } _double_ = { 0 };
-#define fpvalue (_double_.d)
-#else
-                union { int i; _LONG_DOUBLE ld; } _long_double_ = { 0 };
-#define fpvalue (_long_double_.ld)
-                int tmp;
+            const char *decimal_point = ".";
+            char softsign; /* temporary negative sign for floats */
+#  ifdef _NO_LONGDBL
+            union {
+                int i;
+                double d;
+                unsigned long long ull;
+            } _double_ = {0};
+#    define fpvalue (_double_.d)
+#  else
+            union {
+                int i;
+                _LONG_DOUBLE ld;
+            } _long_double_ = {0};
+#    define fpvalue (_long_double_.ld)
+            int tmp;
+#  endif
+            int fsize, realsz, dprec;
+            int expt;        /* integer value of exponent */
+            int expsize = 0; /* character count for expstr */
+            int ndig;        /* actual number of digits returned by cvt */
+            char expstr[7];  /* buffer for exponent string */
+            char ox[2];      /* space for 0x hex-prefix */
 #endif
-                int fsize, realsz, dprec;
-                int expt;               /* integer value of exponent */
-                int expsize = 0;        /* character count for expstr */
-                int ndig;               /* actual number of digits returned by cvt */
-                char expstr[7];         /* buffer for exponent string */
-                char ox[2];             /* space for 0x hex-prefix */
-#endif
 
-                /* fetch double value */
-                if (type_flags == TYPE_ldouble) {
-                    fpvalue = (double)va_arg(ap, long double);
-                } else {
-                    fpvalue = va_arg(ap, double);
-                }
-
-#ifdef FLOATING_POINT
-                dprec = 0;
-                sign = 0;
-
-                if ((flags & FLAG_PREC) == 0) {
-                    prec = 6;
-                } else
-                if ((c == 'g' || c == 'G') && prec == 0) {
-                    prec = 1;
-                }
-                /* do this before tricky precision changes */
-                if (isnan(fpvalue)) {
-                    lp = "NaN";
-                    len = 3;
-                    goto has_string_len;
-                }
-                if (!isfinite(fpvalue)) {
-                    if (fpvalue < 0) {
-                        lp  = "-Inf";
-                        len = 4;
-                    } else
-                    if (flags & FLAG_PLUS) {
-                        lp  = "+Inf";
-                        len = 4;
-                    } else {
-                        lp = "Inf";
-                        len = 3;
-                    }
-                    goto has_string_len;
-                }
-
-                lp = cvt(fpvalue, prec, flags, &softsign, &expt, c, &ndig);
-
-//fprintf(stream ? stream : stdout, "\ncvt(d=%16llX, prec=%d, flags=%x, c=%c) -> |%.*s|, softsign=%d, expt=%d, ndig=%d\n",
-//       _double_.ull, prec, flags, c, ndig, lp, softsign, expt, ndig);
-
-                if (c == 'g' || c == 'G') {
-                    if (expt <= -4 || expt > prec)
-                        c = (c == 'g') ? 'e' : 'E';
-                    else
-                        c = 'g';
-                }
-                if (c <= 'e') { /* 'e' or 'E' fmt */
-                    --expt;
-                    expsize = exponent(expstr, expt, c);
-                    fsize = expsize + ndig;
-                    if (ndig > 1 || (flags & FLAG_ALT)) {
-                        fsize++;
-                    }
-                } else
-                if (c == 'f') {         /* f fmt */
-                    if (expt > 0) {
-                        fsize = expt;
-                        if (prec || (flags & FLAG_ALT))
-                            fsize += prec + 1;
-                    } else {    /* "0.X" */
-                        fsize = prec + 2;
-                    }
-                } else
-                if (expt >= ndig) {     /* fixed g fmt */
-                    fsize = expt;
-                    if (flags & FLAG_ALT)
-                        fsize++;
-                } else {
-                    fsize = ndig + (expt > 0 ? 1 : 2 - expt);
-                }
-
-                if (softsign) {
-                    sign = '-';
-                } else {
-                    if (flags & FLAG_PLUS) {
-                        sign = '+';
-                    } else
-                    if (flags & FLAG_SPACE) {
-                        sign = ' ';
-                    }
-                }
-
-                /*
-                 * At this point, `lp'
-                 * points to a string which (if not flags&LADJUST) should be
-                 * padded out to `width' places.  If flags&ZEROPAD, it should
-                 * first be prefixed by any sign or other prefix; otherwise,
-                 * it should be blank padded before the prefix is emitted.
-                 * After any left-hand padding and prefixing, emit zeroes
-                 * required by a decimal [diouxX] precision, then print the
-                 * string proper, then emit zeroes required by any leftover
-                 * floating precision; finally, if LADJUST, pad with blanks.
-                 *
-                 * Compute actual size, so we know how much to pad.
-                 * size excludes decimal prec; realsz includes it.
-                 */
-                realsz = dprec > fsize ? dprec : fsize;
-                if (sign) {
-                    realsz++;
-                }
-
-#define PRINT(s,n)  count = fmt_output_chunk(stream, str, size, count, s, n, 'M')
-#define PAD(n,c)    count = fmt_output_chars(stream, str, size, count, c, n)
-#define zeroes '0'
-#define blanks ' '
-#define cp lp
-
-                /* right-adjusting blank padding */
-                if ((flags & (FLAG_MINUS|FLAG_ZERO)) == 0) {
-//fprintf(stream ? stream : stdout, "PAD(%d, %c)\n", width - realsz, blanks);
-                    PAD(width - realsz, blanks);
-                }
-
-                /* prefix */
-                if (sign) {
-                    count = fmt_output_chars(stream, str, size, count,
-                                             sign, 1);
-                }
-
-                /* right-adjusting zero padding */
-                if ((flags & (FLAG_MINUS|FLAG_ZERO)) == FLAG_ZERO) {
-//fprintf(stream ? stream : stdout, "PAD(%d, %c)\n", width - realsz, zeroes);
-                    PAD(width - realsz, zeroes);
-                }
-
-                /* leading zeroes from decimal precision */
-//fprintf(stream ? stream : stdout, "PAD(%d, %c)\n", dprec - fsize, zeroes);
-                PAD(dprec - fsize, zeroes);
-
-                if (c >= 'f') { /* 'f' or 'g' */
-                    if (fpvalue == 0) {
-                        /* kludge for __dtoa irregularity */
-                        PRINT("0", 1);
-                        if (expt < ndig || (flags & FLAG_ALT) != 0) {
-                            PRINT(decimal_point, 1);
-                            PAD(ndig - 1, zeroes);
-                        }
-                    } else
-                    if (expt <= 0) {
-                        PRINT("0", 1);
-                        if (expt || ndig) {
-                            PRINT(decimal_point, 1);
-                            PAD(-expt, zeroes);
-                            PRINT(cp, ndig);
-                        }
-                    } else
-                    if (expt >= ndig) {
-                        PRINT(cp, ndig);
-                        PAD(expt - ndig, zeroes);
-                        if (flags & FLAG_ALT)
-                            PRINT(".", 1);
-                    } else {
-                        PRINT(cp, expt);
-                        cp += expt;
-                        PRINT(".", 1);
-                        PRINT(cp, ndig - expt);
-                    }
-                } else {        /* 'e' or 'E' */
-                    if (ndig > 1 || (flags & FLAG_ALT)) {
-                        ox[0] = *cp++;
-                        ox[1] = '.';
-                        PRINT(ox, 2);
-                        if (fpvalue) {
-                            PRINT(cp, ndig - 1);
-                        } else { /* 0.[0..] */
-                            /* __dtoa irregularity */
-                            PAD(ndig - 1, zeroes);
-                        }
-                    } else {    /* XeYYY */
-                        PRINT(cp, 1);
-                    }
-                    PRINT(expstr, expsize);
-                }
-                /* left-adjusting padding (always blank) */
-                if (flags & FLAG_MINUS) {
-                    PAD(width - realsz, blanks);
-                }
-#endif
+            /* fetch double value */
+            if (type_flags == TYPE_ldouble) {
+                fpvalue = (double)va_arg(ap, long double);
+            } else {
+                fpvalue = va_arg(ap, double);
             }
-            break;
+
+#ifdef FLOATING_POINT
+            dprec = 0;
+            sign = 0;
+
+            if ((flags & FLAG_PREC) == 0) {
+                prec = 6;
+            } else if ((c == 'g' || c == 'G') && prec == 0) {
+                prec = 1;
+            }
+            /* do this before tricky precision changes */
+            if (isnan(fpvalue)) {
+                lp = "NaN";
+                len = 3;
+                goto has_string_len;
+            }
+            if (!isfinite(fpvalue)) {
+                if (fpvalue < 0) {
+                    lp = "-Inf";
+                    len = 4;
+                } else if (flags & FLAG_PLUS) {
+                    lp = "+Inf";
+                    len = 4;
+                } else {
+                    lp = "Inf";
+                    len = 3;
+                }
+                goto has_string_len;
+            }
+
+            lp = cvt(fpvalue, prec, flags, &softsign, &expt, c, &ndig);
+
+            // fprintf(stream ? stream : stdout, "\ncvt(d=%16llX, prec=%d,
+            // flags=%x, c=%c) -> |%.*s|, softsign=%d, expt=%d, ndig=%d\n",
+            //        _double_.ull, prec, flags, c, ndig, lp, softsign, expt,
+            //        ndig);
+
+            if (c == 'g' || c == 'G') {
+                if (expt <= -4 || expt > prec) {
+                    c = (c == 'g') ? 'e' : 'E';
+                } else {
+                    c = 'g';
+                }
+            }
+            if (c <= 'e') { /* 'e' or 'E' fmt */
+                --expt;
+                expsize = exponent(expstr, expt, c);
+                fsize = expsize + ndig;
+                if (ndig > 1 || (flags & FLAG_ALT)) {
+                    fsize++;
+                }
+            } else if (c == 'f') { /* f fmt */
+                if (expt > 0) {
+                    fsize = expt;
+                    if (prec || (flags & FLAG_ALT)) {
+                        fsize += prec + 1;
+                    }
+                } else { /* "0.X" */
+                    fsize = prec + 2;
+                }
+            } else if (expt >= ndig) { /* fixed g fmt */
+                fsize = expt;
+                if (flags & FLAG_ALT) {
+                    fsize++;
+                }
+            } else {
+                fsize = ndig + (expt > 0 ? 1 : 2 - expt);
+            }
+
+            if (softsign) {
+                sign = '-';
+            } else {
+                if (flags & FLAG_PLUS) {
+                    sign = '+';
+                } else if (flags & FLAG_SPACE) {
+                    sign = ' ';
+                }
+            }
+
+            /*
+             * At this point, `lp'
+             * points to a string which (if not flags&LADJUST) should be
+             * padded out to `width' places.  If flags&ZEROPAD, it should
+             * first be prefixed by any sign or other prefix; otherwise,
+             * it should be blank padded before the prefix is emitted.
+             * After any left-hand padding and prefixing, emit zeroes
+             * required by a decimal [diouxX] precision, then print the
+             * string proper, then emit zeroes required by any leftover
+             * floating precision; finally, if LADJUST, pad with blanks.
+             *
+             * Compute actual size, so we know how much to pad.
+             * size excludes decimal prec; realsz includes it.
+             */
+            realsz = dprec > fsize ? dprec : fsize;
+            if (sign) {
+                realsz++;
+            }
+
+#  define PRINT(s, n)                                                        \
+      count = fmt_output_chunk(stream, str, size, count, s, n, 'M')
+#  define PAD(n, c) count = fmt_output_chars(stream, str, size, count, c, n)
+#  define zeroes '0'
+#  define blanks ' '
+#  define cp lp
+
+            /* right-adjusting blank padding */
+            if ((flags & (FLAG_MINUS | FLAG_ZERO)) == 0) {
+                // fprintf(stream ? stream : stdout, "PAD(%d, %c)\n", width -
+                // realsz, blanks);
+                PAD(width - realsz, blanks);
+            }
+
+            /* prefix */
+            if (sign) {
+                count = fmt_output_chars(stream, str, size, count, sign, 1);
+            }
+
+            /* right-adjusting zero padding */
+            if ((flags & (FLAG_MINUS | FLAG_ZERO)) == FLAG_ZERO) {
+                // fprintf(stream ? stream : stdout, "PAD(%d, %c)\n", width -
+                // realsz, zeroes);
+                PAD(width - realsz, zeroes);
+            }
+
+            /* leading zeroes from decimal precision */
+            // fprintf(stream ? stream : stdout, "PAD(%d, %c)\n", dprec -
+            // fsize, zeroes);
+            PAD(dprec - fsize, zeroes);
+
+            if (c >= 'f') { /* 'f' or 'g' */
+                if (fpvalue == 0) {
+                    /* kludge for __dtoa irregularity */
+                    PRINT("0", 1);
+                    if (expt < ndig || (flags & FLAG_ALT) != 0) {
+                        PRINT(decimal_point, 1);
+                        PAD(ndig - 1, zeroes);
+                    }
+                } else if (expt <= 0) {
+                    PRINT("0", 1);
+                    if (expt || ndig) {
+                        PRINT(decimal_point, 1);
+                        PAD(-expt, zeroes);
+                        PRINT(cp, ndig);
+                    }
+                } else if (expt >= ndig) {
+                    PRINT(cp, ndig);
+                    PAD(expt - ndig, zeroes);
+                    if (flags & FLAG_ALT) {
+                        PRINT(".", 1);
+                    }
+                } else {
+                    PRINT(cp, expt);
+                    cp += expt;
+                    PRINT(".", 1);
+                    PRINT(cp, ndig - expt);
+                }
+            } else { /* 'e' or 'E' */
+                if (ndig > 1 || (flags & FLAG_ALT)) {
+                    ox[0] = *cp++;
+                    ox[1] = '.';
+                    PRINT(ox, 2);
+                    if (fpvalue) {
+                        PRINT(cp, ndig - 1);
+                    } else { /* 0.[0..] */
+                        /* __dtoa irregularity */
+                        PAD(ndig - 1, zeroes);
+                    }
+                } else { /* XeYYY */
+                    PRINT(cp, 1);
+                }
+                PRINT(expstr, expsize);
+            }
+            /* left-adjusting padding (always blank) */
+            if (flags & FLAG_MINUS) {
+                PAD(width - realsz, blanks);
+            }
+#endif
+        } break;
         }
         continue;
 
-      error:
+    error:
         lp = format;
         len = strlen(format);
         format += len;
         goto haslp;
     }
 
-  done:
+done:
     if (!stream) {
         if (count < (int)size) {
             str[count] = '\0';
-        } else
-        if (size > 0) {
+        } else if (size > 0) {
             str[size - 1] = '\0';
         }
     }
@@ -1517,7 +1550,7 @@ int ifputs_hex(FILE *stream, const void *_buf, int len)
         line_len = MIN(len, 16);
         for (i = 0; i < line_len; i++) {
             putc_unlocked(hexchar[(buf[i] >> 4) & 0x0F], stream);
-            putc_unlocked(hexchar[ buf[i]       & 0x0F], stream);
+            putc_unlocked(hexchar[buf[i] & 0x0F], stream);
             putc_unlocked(' ', stream);
         }
         while (i < 16) {
@@ -1545,48 +1578,49 @@ int ifputs_hex(FILE *stream, const void *_buf, int len)
 
 #ifdef FLOATING_POINT
 
-#ifdef _NO_LONGDBL
+#  ifdef _NO_LONGDBL
 extern char *_dtoa_r(double, int, int, int *, int *, char **);
 union double_union {
     double d;
     struct {
-#if __BYTE_ORDER == __BIG_ENDIAN
+#    if __BYTE_ORDER == __BIG_ENDIAN
         unsigned int high;
         unsigned int low;
-#else
+#    else
         /* Should deal with __FLOAT_WORD_ORDER special case */
         unsigned int low;
         unsigned int high;
-#endif
+#    endif
     } u;
 };
 
-#define word0(tmp) (tmp).u.high
-#define Sign_bit 0x80000000
-#else
+#    define word0(tmp) (tmp).u.high
+#    define Sign_bit 0x80000000
+#  else
 extern char *_ldtoa_r(_LONG_DOUBLE, int, int, int *, int *, char **);
-#undef word0
-#define word0(x) ldword0(x)
-#endif
+#    undef word0
+#    define word0(x) ldword0(x)
+#  endif
 
 static char *cvt(
-#ifdef _NO_LONGDBL
-        double value,
-#else
-        _LONG_DOUBLE value,
-#endif
-        int ndigits, int flags, char *sign, int *decpt, int ch, int *length)
+#  ifdef _NO_LONGDBL
+    double value,
+#  else
+    _LONG_DOUBLE value,
+#  endif
+    int ndigits, int flags, char *sign, int *decpt, int ch, int *length
+)
 {
     int mode, dsgn;
     char *digits, *bp, *rve;
-#ifdef _NO_LONGDBL
+#  ifdef _NO_LONGDBL
     union double_union tmp;
-#else
+#  else
     struct ldieee *ldptr;
-#endif
+#  endif
 
     if (ch == 'f') {
-        mode = 3;               /* ndigits after the decimal point */
+        mode = 3; /* ndigits after the decimal point */
     } else {
         /* To obtain ndigits after the decimal point for the 'e'
          * and 'E' formats, round to ndigits + 1 significant
@@ -1595,10 +1629,10 @@ static char *cvt(
         if (ch == 'e' || ch == 'E') {
             ndigits++;
         }
-        mode = 2;               /* ndigits significant digits */
+        mode = 2; /* ndigits significant digits */
     }
 
-#ifdef _NO_LONGDBL
+#  ifdef _NO_LONGDBL
     tmp.d = value;
 
     if (word0(tmp) & Sign_bit) { /* this will check for < 0 and -0.0 */
@@ -1608,7 +1642,7 @@ static char *cvt(
         *sign = '\000';
     }
     digits = dtoa(value, mode, ndigits, decpt, &dsgn, &rve);
-#else /* !_NO_LONGDBL */
+#  else  /* !_NO_LONGDBL */
     ldptr = (struct ldieee *)&value;
     if (ldptr->sign) { /* this will check for < 0 and -0.0 */
         value = -value;
@@ -1617,15 +1651,17 @@ static char *cvt(
         *sign = '\000';
     }
     digits = ldtoa(value, mode, ndigits, decpt, &dsgn, &rve);
-#endif /* !_NO_LONGDBL */
+#  endif /* !_NO_LONGDBL */
 
-    if ((ch != 'g' && ch != 'G') || (flags & FLAG_ALT)) {       /* Print trailing zeros */
+    if ((ch != 'g' && ch != 'G') ||
+        (flags & FLAG_ALT)) { /* Print trailing zeros */
         bp = digits + ndigits;
         if (ch == 'f') {
             /* FBE: it seems that the newlib is incorrect. I
             changed '0' to '\0' */
-            if (*digits == '\0' && value)
+            if (*digits == '\0' && value) {
                 *decpt = -ndigits + 1;
+            }
             bp += *decpt;
         }
         if (value == 0) { /* kludge for __dtoa irregularity */
@@ -1639,7 +1675,7 @@ static char *cvt(
     return digits;
 }
 
-#define to_char(n)      ((n) + '0')
+#  define to_char(n) ((n) + '0')
 
 static int exponent(char *p0, int expn, int fmtch)
 {
@@ -1660,8 +1696,9 @@ static int exponent(char *p0, int expn, int fmtch)
             *--t = to_char(expn % 10);
         } while ((expn /= 10) > 9);
         *--t = to_char(expn);
-        for (; t < expbuf + 40; *p++ = *t++)
+        for (; t < expbuf + 40; *p++ = *t++) {
             continue;
+        }
     } else {
         *p++ = '0';
         *p++ = to_char(expn);
@@ -1675,36 +1712,44 @@ void iprintf_register_formatter(int modifier, formatter_f *formatter)
 {
     struct formatter_t *old = &put_memory_fmt_g[(unsigned char)modifier];
 
-    if ((old->is_raw && old->raw_formatter != formatter)
-    ||  (!old->is_raw && old->ptr_formatter))
+    if ((old->is_raw && old->raw_formatter != formatter) ||
+        (!old->is_raw && old->ptr_formatter))
     {
-        e_panic("trying to overload already defined memory formatter for "
-                "modifier '%c'", modifier);
+        e_panic(
+            "trying to overload already defined memory formatter for "
+            "modifier '%c'",
+            modifier
+        );
     }
 
     old->is_raw = true;
     old->raw_formatter = formatter;
 }
 
-void iprintf_register_pointer_formatter(int modifier,
-                                        pointer_formatter_f *formatter)
+void iprintf_register_pointer_formatter(
+    int modifier, pointer_formatter_f *formatter
+)
 {
     struct formatter_t *old = &put_memory_fmt_g[(unsigned char)modifier];
 
-    if ((!old->is_raw && old->ptr_formatter
-      && old->ptr_formatter != formatter)
-    ||  (old->is_raw && old->raw_formatter))
+    if ((!old->is_raw && old->ptr_formatter &&
+         old->ptr_formatter != formatter) ||
+        (old->is_raw && old->raw_formatter))
     {
-        e_panic("trying to overload already defined memory formatter for "
-                "modifier '%c'", modifier);
+        e_panic(
+            "trying to overload already defined memory formatter for "
+            "modifier '%c'",
+            modifier
+        );
     }
 
     old->is_raw = false;
     old->ptr_formatter = formatter;
 }
 
-ssize_t formatter_writef(FILE *stream, char *buf, size_t buf_len,
-                         const char *fmt, ...)
+ssize_t formatter_writef(
+    FILE *stream, char *buf, size_t buf_len, const char *fmt, ...
+)
 {
     va_list arg_list;
     ssize_t n;
@@ -1721,8 +1766,9 @@ ssize_t formatter_writef(FILE *stream, char *buf, size_t buf_len,
     return n;
 }
 
-ssize_t formatter_write(FILE *stream, char *buf, size_t buf_len,
-                        const char *s, size_t len)
+ssize_t formatter_write(
+    FILE *stream, char *buf, size_t buf_len, const char *s, size_t len
+)
 {
     if (stream) {
         if (fwrite(s, 1, len, stream) != len) {

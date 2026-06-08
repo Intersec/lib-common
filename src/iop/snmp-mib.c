@@ -31,9 +31,9 @@
 #define INTERSEC_OID "32436"
 
 static struct {
-    logger_t   logger;
-    lstr_t     head;
-    bool       head_is_intersec;
+    logger_t logger;
+    lstr_t head;
+    bool head_is_intersec;
     qh_t(lstr) unicity_conformance_objects;
     qh_t(lstr) unicity_conformance_notifs;
     qv_t(lstr) conformance_objects;
@@ -41,10 +41,10 @@ static struct {
     qh_t(lstr) objects_identifier;
     qv_t(lstr) objects_identifier_parent;
 
-    bool   help;
+    bool help;
     const char *output;
 } mib_g = {
-#define _G  mib_g
+#define _G mib_g
     .logger = LOGGER_INIT_INHERITS(NULL, "iop2mib"),
 };
 
@@ -57,8 +57,11 @@ static lstr_t t_get_short_name(const lstr_t fullname, bool down)
     lstr_t out;
 
     if (ps_skip_afterlastchr(&obj_name, '.') < 0) {
-        logger_fatal(&_G.logger, "fullname `%*pM` should be at least "
-                     "composed by `pkg.name`", LSTR_FMT_ARG(fullname));
+        logger_fatal(
+            &_G.logger,
+            "fullname `%*pM` should be at least composed by `pkg.name`",
+            LSTR_FMT_ARG(fullname)
+        );
     }
     out = t_lstr_fmt("%s", obj_name.s);
     /* First letter must be down */
@@ -89,8 +92,7 @@ static lstr_t t_split_on_str(lstr_t name, const char *letter, bool enums)
             for (int j = i != 0; j < part->len; j++) {
                 parts.tab[i].v[j] = tolower(part->v[j]);
             }
-        } else
-        if (i < parts.len -1) {
+        } else if (i < parts.len - 1) {
             *part = t_lstr_cat(*part, LSTR("\'"));
         }
         sb_add_lstr(&buf, parts.tab[i]);
@@ -105,52 +107,51 @@ static lstr_t t_mib_put_enum(const iop_enum_t *en)
 
     sb_add_lstr(&names, LSTR("INTEGER {"));
     for (int i = 0; i < en->enum_len; i++) {
-        lstr_t next = i < en->enum_len -1 ? LSTR(",") : LSTR(" }");
+        lstr_t next = i < en->enum_len - 1 ? LSTR(",") : LSTR(" }");
 
-        sb_addf(&names, " %*pM(%d)%*pM",
-                LSTR_FMT_ARG(t_split_on_str(en->names[i], "_", true)), i,
-                LSTR_FMT_ARG(next));
+        sb_addf(
+            &names, " %*pM(%d)%*pM",
+            LSTR_FMT_ARG(t_split_on_str(en->names[i], "_", true)), i,
+            LSTR_FMT_ARG(next)
+        );
     }
     return t_lstr_fmt("%*pM", SB_FMT_ARG(&names));
 }
 
-static lstr_t t_get_type_to_lstr(const iop_field_t *field, bool seq,
-                                 bool is_index)
+static lstr_t
+t_get_type_to_lstr(const iop_field_t *field, bool seq, bool is_index)
 {
     switch (field->type) {
-      case IOP_T_STRING:
-        return is_index ? LSTR("OCTET STRING (SIZE(0..100))") :
-                          LSTR("OCTET STRING");
-      case IOP_T_I8:
-      case IOP_T_I16:
-      case IOP_T_I32:
+    case IOP_T_STRING:
+        return is_index ? LSTR("OCTET STRING (SIZE(0..100))")
+                        : LSTR("OCTET STRING");
+    case IOP_T_I8:
+    case IOP_T_I16:
+    case IOP_T_I32:
         return LSTR("Integer32");
-      case IOP_T_U32:
-        return is_index ? LSTR("Integer32 (1..2147483647)") :
-                          LSTR("Integer32");
-      case IOP_T_BOOL:
+    case IOP_T_U32:
+        return is_index ? LSTR("Integer32 (1..2147483647)")
+                        : LSTR("Integer32");
+    case IOP_T_BOOL:
         return LSTR("BOOLEAN");
 
-      case IOP_T_ENUM:
+    case IOP_T_ENUM:
         return seq ? LSTR("INTEGER") : t_mib_put_enum(field->u1.en_desc);
 
-      default:
+    default:
         logger_panic(&_G.logger, "type not handled");
     }
 }
 
-
-#define T_RETURN_HELP(_attr, _type, _name)  \
+#define T_RETURN_HELP(_attr, _type, _name)                                   \
     do {                                                                     \
         for (int i = 0; i < attrs->attrs_len; i++) {                         \
-            if (_attr[i].type == _type                                       \
-            ||  _attr[i].type == _type##_V2)                                 \
-            {                                                                \
+            if (_attr[i].type == _type || _attr[i].type == _type##_V2) {     \
                 const iop_help_t *help = _attr[i].args->v.p;                 \
                 lstr_t descri;                                               \
                                                                              \
-                descri = t_lstr_cat3(help->brief, help->details,             \
-                                     help->warning);                         \
+                descri =                                                     \
+                    t_lstr_cat3(help->brief, help->details, help->warning);  \
                 return t_split_on_str(descri, "\"", false);                  \
             }                                                                \
         }                                                                    \
@@ -187,21 +188,25 @@ static void mib_open_banner(sb_t *buf)
     t_scope;
     lstr_t up_name;
 
-    if(_G.head_is_intersec) {
+    if (_G.head_is_intersec) {
         up_name = LSTR_NULL_V;
     } else {
         up_name = t_lstr_fmt("-%*pM", LSTR_FMT_ARG(_G.head));
         lstr_ascii_toupper(&up_name);
     }
 
-    sb_addf(buf, "INTERSEC%*pM-MIB DEFINITIONS ::= BEGIN\n\n",
-            LSTR_FMT_ARG(up_name));
+    sb_addf(
+        buf, "INTERSEC%*pM-MIB DEFINITIONS ::= BEGIN\n\n",
+        LSTR_FMT_ARG(up_name)
+    );
 }
 
 static void mib_close_banner(sb_t *buf)
 {
-    sb_adds(buf, "\nEND\n"
-            "\n\n-- vim:syntax=mib\n");
+    sb_adds(
+        buf, "\nEND\n"
+             "\n\n-- vim:syntax=mib\n"
+    );
 }
 
 static void mib_get_head(const qv_t(pkg) *pkgs)
@@ -209,8 +214,9 @@ static void mib_get_head(const qv_t(pkg) *pkgs)
     bool resolved = false;
 
     if (pkgs->len <= 0) {
-        logger_fatal(&_G.logger,
-                     "a package must be provided to build the MIB");
+        logger_fatal(
+            &_G.logger, "a package must be provided to build the MIB"
+        );
     }
 
     tab_for_each_entry(pkg, pkgs) {
@@ -221,12 +227,16 @@ static void mib_get_head(const qv_t(pkg) *pkgs)
                 continue;
             }
             if (qh_add(lstr, &_G.objects_identifier, &desc->fullname) < 0) {
-                logger_fatal(&_G.logger, "name `%*pM` already exists",
-                             LSTR_FMT_ARG(desc->fullname));
+                logger_fatal(
+                    &_G.logger, "name `%*pM` already exists",
+                    LSTR_FMT_ARG(desc->fullname)
+                );
             }
             if (desc->snmp_attrs->parent) {
-                qv_append(&_G.objects_identifier_parent,
-                          desc->snmp_attrs->parent->fullname);
+                qv_append(
+                    &_G.objects_identifier_parent,
+                    desc->snmp_attrs->parent->fullname
+                );
             }
         }
         for (const iop_iface_t *const *it = pkg->ifaces; *it; it++) {
@@ -236,11 +246,15 @@ static void mib_get_head(const qv_t(pkg) *pkgs)
                 continue;
             }
             if (qh_add(lstr, &_G.objects_identifier, &iface->fullname) < 0) {
-                logger_fatal(&_G.logger, "name `%*pM` already exists",
-                             LSTR_FMT_ARG(iface->fullname));
+                logger_fatal(
+                    &_G.logger, "name `%*pM` already exists",
+                    LSTR_FMT_ARG(iface->fullname)
+                );
             }
-            qv_append(&_G.objects_identifier_parent,
-                      iface->snmp_iface_attrs->parent->fullname);
+            qv_append(
+                &_G.objects_identifier_parent,
+                iface->snmp_iface_attrs->parent->fullname
+            );
         }
     }
 
@@ -251,8 +265,10 @@ static void mib_get_head(const qv_t(pkg) *pkgs)
 
             if (!lstr_equal(short_name, _G.head)) {
                 if (resolved) {
-                    logger_fatal(&_G.logger, "only one snmpObj parent should "
-                                 "be imported");
+                    logger_fatal(
+                        &_G.logger,
+                        "only one snmpObj parent should be imported"
+                    );
                 }
                 lstr_copy(&_G.head, short_name);
             }
@@ -274,17 +290,20 @@ static void mib_put_imports(sb_t *buf)
     sb_adds(buf, "IMPORTS\n");
 
     if (_G.head_is_intersec) {
-        sb_adds(buf, LVL1 "MODULE-IDENTITY, " IMPORT_IF_INTERSEC
-                " FROM SNMPv2-SMI;\n\n");
+        sb_adds(
+            buf, LVL1 "MODULE-IDENTITY, " IMPORT_IF_INTERSEC
+                      " FROM SNMPv2-SMI;\n\n"
+        );
         return;
     }
-    sb_addf(buf,
-            LVL1 "MODULE-COMPLIANCE, OBJECT-GROUP, "
-            "NOTIFICATION-GROUP FROM SNMPv2-CONF\n"
-            LVL1 "MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE, "
-            "Integer32 FROM SNMPv2-SMI\n"
-            LVL1 "%*pM FROM INTERSEC-MIB;\n\n",
-            LSTR_FMT_ARG(_G.head));
+    sb_addf(
+        buf,
+        LVL1 "MODULE-COMPLIANCE, OBJECT-GROUP, "
+             "NOTIFICATION-GROUP FROM SNMPv2-CONF\n" LVL1
+             "MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE, "
+             "Integer32 FROM SNMPv2-SMI\n" LVL1 "%*pM FROM INTERSEC-MIB;\n\n",
+        LSTR_FMT_ARG(_G.head)
+    );
 }
 
 /* }}} */
@@ -294,32 +313,37 @@ static void mib_put_identity(sb_t *buf, const qv_t(mib_rev) *revisions)
 {
     mib_revision_t *last_update = tab_last(revisions);
 
-    sb_addf(buf, "-- {{{ Identity\n"
-            "\n%*pM%s MODULE-IDENTITY\n"
-            LVL1 "LAST-UPDATED \"%*pM\"\n\n"
-            LVL1 "ORGANIZATION \"Intersec\"\n"
-            LVL1 "CONTACT-INFO \"postal: Tour W - 102 Terasse Boieldieu\n"
-            LVL5 LVL1 "  92085 Paris La Defense - Cedex France\n\n"
-            LVL4 "  tel:    +33 1 55 70 33 55\n"
-            LVL4 "  email:  contact@intersec.com\n"
-            LVL4 "  \"\n\n"
-            LVL1 "DESCRIPTION \"For more details see Intersec website "
-            "http://www.intersec.com\"\n",
-            LSTR_FMT_ARG(_G.head), _G.head_is_intersec ? "" : "Identity",
-            LSTR_FMT_ARG(last_update->timestamp));
+    sb_addf(
+        buf,
+        "-- {{{ Identity\n"
+        "\n%*pM%s MODULE-IDENTITY\n" LVL1 "LAST-UPDATED \"%*pM\"\n\n" LVL1
+        "ORGANIZATION \"Intersec\"\n" LVL1
+        "CONTACT-INFO \"postal: Tour W - 102 Terasse Boieldieu\n" LVL5 LVL1
+        "  92085 Paris La Defense - Cedex France\n\n" LVL4
+        "  tel:    +33 1 55 70 33 55\n" LVL4
+        "  email:  contact@intersec.com\n" LVL4 "  \"\n\n" LVL1
+        "DESCRIPTION \"For more details see Intersec website "
+        "http://www.intersec.com\"\n",
+        LSTR_FMT_ARG(_G.head), _G.head_is_intersec ? "" : "Identity",
+        LSTR_FMT_ARG(last_update->timestamp)
+    );
 
     tab_for_each_pos_rev(pos, revisions) {
         const mib_revision_t *changmt = &revisions->tab[pos];
 
-        sb_addf(buf, LVL1 "REVISION \"%*pM\"\n",
-                LSTR_FMT_ARG(changmt->timestamp));
-        sb_addf(buf, LVL1 "DESCRIPTION \"%*pM\"\n",
-                LSTR_FMT_ARG(changmt->description));
+        sb_addf(
+            buf, LVL1 "REVISION \"%*pM\"\n", LSTR_FMT_ARG(changmt->timestamp)
+        );
+        sb_addf(
+            buf, LVL1 "DESCRIPTION \"%*pM\"\n",
+            LSTR_FMT_ARG(changmt->description)
+        );
     }
 
     if (_G.head_is_intersec) {
-        sb_adds(buf,
-                LVL1 "::= { " IMPORT_IF_INTERSEC " " INTERSEC_OID " }\n");
+        sb_adds(
+            buf, LVL1 "::= { " IMPORT_IF_INTERSEC " " INTERSEC_OID " }\n"
+        );
     } else {
         sb_addf(buf, LVL1 "::= { %*pM 100 }\n", LSTR_FMT_ARG(_G.head));
     }
@@ -337,14 +361,15 @@ static void mib_put_snmp_obj(sb_t *buf, const iop_struct_t *snmp_obj)
      * inherited from 'Intersec' */
     lstr_t parent;
 
-    parent = snmp_attrs->parent ?
-        t_get_short_name(snmp_attrs->parent->fullname, true) :
-        LSTR("intersec");
+    parent = snmp_attrs->parent
+                 ? t_get_short_name(snmp_attrs->parent->fullname, true)
+                 : LSTR("intersec");
 
-    sb_addf(buf,
-            "%*pM" LVL1 "OBJECT IDENTIFIER ::= { %*pM %d }\n",
-            LSTR_FMT_ARG(t_get_short_name(snmp_obj->fullname, true)),
-            LSTR_FMT_ARG(parent), snmp_attrs->oid);
+    sb_addf(
+        buf, "%*pM" LVL1 "OBJECT IDENTIFIER ::= { %*pM %d }\n",
+        LSTR_FMT_ARG(t_get_short_name(snmp_obj->fullname, true)),
+        LSTR_FMT_ARG(parent), snmp_attrs->oid
+    );
 }
 
 static void mib_put_snmp_iface(sb_t *buf, const iop_iface_t *snmp_iface)
@@ -356,11 +381,12 @@ static void mib_put_snmp_iface(sb_t *buf, const iop_iface_t *snmp_iface)
         logger_fatal(&_G.logger, "any snmpIface should have a parent");
     }
 
-    sb_addf(buf,
-            "%*pM" LVL1 "OBJECT IDENTIFIER ::= { %*pM %d }\n",
-            LSTR_FMT_ARG(t_get_short_name(snmp_iface->fullname, true)),
-            LSTR_FMT_ARG(t_get_short_name(snmp_attrs->parent->fullname, true)),
-            snmp_attrs->oid);
+    sb_addf(
+        buf, "%*pM" LVL1 "OBJECT IDENTIFIER ::= { %*pM %d }\n",
+        LSTR_FMT_ARG(t_get_short_name(snmp_iface->fullname, true)),
+        LSTR_FMT_ARG(t_get_short_name(snmp_attrs->parent->fullname, true)),
+        snmp_attrs->oid
+    );
 }
 
 static void mib_put_object_identifier(sb_t *buf, const qv_t(pkg) *pkgs)
@@ -396,13 +422,15 @@ static void mib_put_object_identifier(sb_t *buf, const qv_t(pkg) *pkgs)
 /* }}} */
 /* {{{ SnmpTbl */
 
-static void mib_put_tbl_entries(const iop_struct_t *st, lstr_t name_down,
-                                sb_t *buf)
+static void
+mib_put_tbl_entries(const iop_struct_t *st, lstr_t name_down, sb_t *buf)
 {
     t_scope;
 
-    sb_addf(buf, "\n%*pMEntry ::= SEQUENCE {\n",
-            LSTR_FMT_ARG(t_get_short_name(st->fullname, false)));
+    sb_addf(
+        buf, "\n%*pMEntry ::= SEQUENCE {\n",
+        LSTR_FMT_ARG(t_get_short_name(st->fullname, false))
+    );
 
     for (int i = 0; i < st->fields_len; i++) {
         const iop_field_t field = st->fields[i];
@@ -410,9 +438,10 @@ static void mib_put_tbl_entries(const iop_struct_t *st, lstr_t name_down,
         /* In the sequence, the limits should not be given so the
          * is_index argument of t_get_type_to_lstr is set at false
          */
-        sb_addf(buf, LVL1 "%*pM %*pM",
-                LSTR_FMT_ARG(field.name),
-                LSTR_FMT_ARG(t_get_type_to_lstr(&field, true, false)));
+        sb_addf(
+            buf, LVL1 "%*pM %*pM", LSTR_FMT_ARG(field.name),
+            LSTR_FMT_ARG(t_get_type_to_lstr(&field, true, false))
+        );
 
         if (i == st->fields_len - 1) {
             sb_addc(buf, '\n');
@@ -423,8 +452,8 @@ static void mib_put_tbl_entries(const iop_struct_t *st, lstr_t name_down,
     sb_adds(buf, "}\n");
 }
 
-static void mib_put_snmp_tbl(const iop_struct_t *st, bool has_index,
-                             sb_t *buf)
+static void
+mib_put_snmp_tbl(const iop_struct_t *st, bool has_index, sb_t *buf)
 {
     t_scope;
     const iop_snmp_attrs_t *snmp_attrs;
@@ -433,36 +462,33 @@ static void mib_put_snmp_tbl(const iop_struct_t *st, bool has_index,
     lstr_t help;
     int nb = 0;
 
-    assert (iop_struct_is_snmp_tbl(st));
+    assert(iop_struct_is_snmp_tbl(st));
 
     snmp_attrs = st->snmp_attrs;
     help = t_mib_tbl_get_help(st->st_attrs);
 
     help = t_split_on_str(help, "\'", false);
 
-    sb_addf(buf,
-            "\n%*pMTable OBJECT-TYPE\n"
-            LVL1 "SYNTAX SEQUENCE OF %*pMEntry\n"
-            LVL1 "MAX-ACCESS not-accessible\n"
-            LVL1 "STATUS current\n"
-            LVL1 "DESCRIPTION\n"
-            LVL2 "\"%*pM\"\n"
-            LVL1 "::= { %*pM %d }\n",
-            LSTR_FMT_ARG(name_down), LSTR_FMT_ARG(name_up), LSTR_FMT_ARG(help),
-            LSTR_FMT_ARG(t_get_short_name(snmp_attrs->parent->fullname, true)),
-            snmp_attrs->oid);
+    sb_addf(
+        buf,
+        "\n%*pMTable OBJECT-TYPE\n" LVL1 "SYNTAX SEQUENCE OF %*pMEntry\n" LVL1
+        "MAX-ACCESS not-accessible\n" LVL1 "STATUS current\n" LVL1
+        "DESCRIPTION\n" LVL2 "\"%*pM\"\n" LVL1 "::= { %*pM %d }\n",
+        LSTR_FMT_ARG(name_down), LSTR_FMT_ARG(name_up), LSTR_FMT_ARG(help),
+        LSTR_FMT_ARG(t_get_short_name(snmp_attrs->parent->fullname, true)),
+        snmp_attrs->oid
+    );
 
     /* Define the table entry that gives global information about table
      * entries */
-    sb_addf(buf,
-            "\n%*pMEntry OBJECT-TYPE\n"
-            LVL1 "SYNTAX %*pMEntry\n"
-            LVL1 "MAX-ACCESS not-accessible\n"
-            LVL1 "STATUS current\n"
-            LVL1 "DESCRIPTION\n"
-            LVL2 "\"An entry in the table of %*pM\"\n",
-            LSTR_FMT_ARG(name_down), LSTR_FMT_ARG(name_up),
-            LSTR_FMT_ARG(name_down));
+    sb_addf(
+        buf,
+        "\n%*pMEntry OBJECT-TYPE\n" LVL1 "SYNTAX %*pMEntry\n" LVL1
+        "MAX-ACCESS not-accessible\n" LVL1 "STATUS current\n" LVL1
+        "DESCRIPTION\n" LVL2 "\"An entry in the table of %*pM\"\n",
+        LSTR_FMT_ARG(name_down), LSTR_FMT_ARG(name_up),
+        LSTR_FMT_ARG(name_down)
+    );
 
     sb_adds(buf, LVL1 "INDEX { ");
     for (int i = 0; i < st->fields_len; i++) {
@@ -486,8 +512,9 @@ static void mib_put_snmp_tbl(const iop_struct_t *st, bool has_index,
 /* }}} */
 /* {{{ SnmpObj fields */
 
-static void mib_put_field(sb_t *buf, lstr_t name, int pos,
-                          const iop_struct_t *st, bool from_tbl)
+static void mib_put_field(
+    sb_t *buf, lstr_t name, int pos, const iop_struct_t *st, bool from_tbl
+)
 {
     t_scope;
     const iop_field_attrs_t *field_attrs = &st->fields_attrs[pos];
@@ -498,28 +525,27 @@ static void mib_put_field(sb_t *buf, lstr_t name, int pos,
 
     snmp_attrs = iop_get_snmp_attrs(field_attrs);
 
-    access_str = iop_struct_is_snmp_param(snmp_attrs->parent) ?
-        "accessible-for-notify" : "read-only";
+    access_str = iop_struct_is_snmp_param(snmp_attrs->parent)
+                     ? "accessible-for-notify"
+                     : "read-only";
 
-    sb_addf(buf,
-            "\n%*pM OBJECT-TYPE\n"
-            LVL1 "SYNTAX %*pM\n"
-            LVL1 "MAX-ACCESS %s\n"
-            LVL1 "STATUS current\n"
-            LVL1 "DESCRIPTION\n"
-            LVL2 "\"%*pM\"\n"
-            LVL1 "::= { %*pM%s %d }\n",
-            LSTR_FMT_ARG(name),
-            LSTR_FMT_ARG(t_get_type_to_lstr(field, false, is_index)),
-            is_index ? "not-accessible" : access_str,
-            LSTR_FMT_ARG(t_mib_field_get_help(field_attrs)),
-            LSTR_FMT_ARG(t_get_short_name(snmp_attrs->parent->fullname, true)),
-            from_tbl ? "Entry" : "",
-            snmp_attrs->oid);
+    sb_addf(
+        buf,
+        "\n%*pM OBJECT-TYPE\n" LVL1 "SYNTAX %*pM\n" LVL1
+        "MAX-ACCESS %s\n" LVL1 "STATUS current\n" LVL1 "DESCRIPTION\n" LVL2
+        "\"%*pM\"\n" LVL1 "::= { %*pM%s %d }\n",
+        LSTR_FMT_ARG(name),
+        LSTR_FMT_ARG(t_get_type_to_lstr(field, false, is_index)),
+        is_index ? "not-accessible" : access_str,
+        LSTR_FMT_ARG(t_mib_field_get_help(field_attrs)),
+        LSTR_FMT_ARG(t_get_short_name(snmp_attrs->parent->fullname, true)),
+        from_tbl ? "Entry" : "", snmp_attrs->oid
+    );
 
     if (qh_add(lstr, &_G.unicity_conformance_objects, &name) < 0) {
-        logger_fatal(&_G.logger,
-                     "conflicting field name `%*pM`", LSTR_FMT_ARG(name));
+        logger_fatal(
+            &_G.logger, "conflicting field name `%*pM`", LSTR_FMT_ARG(name)
+        );
     }
     if (!is_index) {
         qv_append(&_G.conformance_objects, name);
@@ -551,12 +577,14 @@ static void mib_put_fields_and_tbl(sb_t *buf, const iop_pkg_t *pkg)
         if (iop_struct_is_snmp_tbl(desc)) {
             t_scope;
 
-            sb_addf(buf, "-- {{{ %*pMTable\n",
-                    LSTR_FMT_ARG(t_get_short_name(desc->fullname, false)));
+            sb_addf(
+                buf, "-- {{{ %*pMTable\n",
+                LSTR_FMT_ARG(t_get_short_name(desc->fullname, false))
+            );
 
-
-            mib_put_snmp_tbl(desc, iop_struct_get_nb_snmp_indexes(desc) > 0,
-                             buf);
+            mib_put_snmp_tbl(
+                desc, iop_struct_get_nb_snmp_indexes(desc) > 0, buf
+            );
             mib_put_tbl_fields(buf, desc);
             sb_addf(buf, "\n-- }}}\n");
             continue;
@@ -565,9 +593,10 @@ static void mib_put_fields_and_tbl(sb_t *buf, const iop_pkg_t *pkg)
         if (has_fields) {
             t_scope;
 
-            sb_addf(buf,
-                "-- {{{ %*pM\n",
-                LSTR_FMT_ARG(t_get_short_name(desc->fullname, false)));
+            sb_addf(
+                buf, "-- {{{ %*pM\n",
+                LSTR_FMT_ARG(t_get_short_name(desc->fullname, false))
+            );
         }
 
         /* deal with snmp fields */
@@ -589,15 +618,18 @@ static void mib_put_fields_and_tbl(sb_t *buf, const iop_pkg_t *pkg)
 /* }}} */
 /* {{{ SnmpIface rpcs */
 
-static void mib_put_rpc(sb_t *buf, int pos, const iop_rpc_t *rpc,
-                        const iop_rpc_attrs_t attrs, lstr_t iface_name)
+static void mib_put_rpc(
+    sb_t *buf, int pos, const iop_rpc_t *rpc, const iop_rpc_attrs_t attrs,
+    lstr_t iface_name
+)
 {
     t_scope;
     const iop_struct_t *st = rpc->args;
 
-    sb_addf(buf,
-            "\n%*pM NOTIFICATION-TYPE\n"
-            LVL1 "OBJECTS { ", LSTR_FMT_ARG(rpc->name));
+    sb_addf(
+        buf, "\n%*pM NOTIFICATION-TYPE\n" LVL1 "OBJECTS { ",
+        LSTR_FMT_ARG(rpc->name)
+    );
 
     for (int i = 0; i < st->fields_len; i++) {
         sb_addf(buf, "%*pM", LSTR_FMT_ARG(st->fields[i].name));
@@ -605,18 +637,19 @@ static void mib_put_rpc(sb_t *buf, int pos, const iop_rpc_t *rpc,
             sb_addf(buf, ", ");
         }
     }
-    sb_addf(buf, " }\n"
-            LVL1 "STATUS current\n"
-            LVL1 "DESCRIPTION\n"
-            LVL2 "\"%*pM\"\n"
-            LVL1 "::= { %*pM %d }\n",
-            LSTR_FMT_ARG(t_mib_rpc_get_help(&attrs)),
-            LSTR_FMT_ARG(t_get_short_name(iface_name, true)), pos + 1);
+    sb_addf(
+        buf,
+        " }\n" LVL1 "STATUS current\n" LVL1 "DESCRIPTION\n" LVL2
+        "\"%*pM\"\n" LVL1 "::= { %*pM %d }\n",
+        LSTR_FMT_ARG(t_mib_rpc_get_help(&attrs)),
+        LSTR_FMT_ARG(t_get_short_name(iface_name, true)), pos + 1
+    );
 
     if (qh_add(lstr, &_G.unicity_conformance_notifs, &rpc->name) < 0) {
-        logger_fatal(&_G.logger,
-                     "conflicting notification name `%*pM`",
-                     LSTR_FMT_ARG(rpc->name));
+        logger_fatal(
+            &_G.logger, "conflicting notification name `%*pM`",
+            LSTR_FMT_ARG(rpc->name)
+        );
     }
     qv_append(&_G.conformance_notifs, rpc->name);
 }
@@ -633,8 +666,10 @@ static void mib_put_rpcs(sb_t *buf, const iop_pkg_t *pkg)
         if (has_rpcs) {
             t_scope;
 
-            sb_addf(buf, "-- {{{ %*pM\n",
-                    LSTR_FMT_ARG(t_get_short_name(iface->fullname, false)));
+            sb_addf(
+                buf, "-- {{{ %*pM\n",
+                LSTR_FMT_ARG(t_get_short_name(iface->fullname, false))
+            );
         }
         /* deal with snmp rpcs */
         for (int i = 0; i < iface->funs_len; i++) {
@@ -664,63 +699,71 @@ static void mib_put_compliance(sb_t *buf)
         if (objects.len) {
             sb_adds(&objects, ", ");
         }
-        sb_addf(&objects, "%*pMConformanceNotification",
-                LSTR_FMT_ARG(_G.head));
+        sb_addf(
+            &objects, "%*pMConformanceNotification", LSTR_FMT_ARG(_G.head)
+        );
     }
 
-    sb_addf(buf,
-            "\n%*pMCompliance MODULE-COMPLIANCE\n"
-            LVL1 "STATUS current\n"
-            LVL1 "DESCRIPTION \"The compliance statement for %*pM entities\"\n"
-            LVL1 "MODULE\n"
-            LVL2 "MANDATORY-GROUPS { %*pM }\n"
-            LVL1 "::= { %*pMIdentity 1}\n",
-            LSTR_FMT_ARG(_G.head),
-            LSTR_FMT_ARG(_G.head),
-            SB_FMT_ARG(&objects),
-            LSTR_FMT_ARG(_G.head));
+    sb_addf(
+        buf,
+        "\n%*pMCompliance MODULE-COMPLIANCE\n" LVL1 "STATUS current\n" LVL1
+        "DESCRIPTION \"The compliance statement for %*pM entities\"\n" LVL1
+        "MODULE\n" LVL2 "MANDATORY-GROUPS { %*pM }\n" LVL1
+        "::= { %*pMIdentity 1}\n",
+        LSTR_FMT_ARG(_G.head), LSTR_FMT_ARG(_G.head), SB_FMT_ARG(&objects),
+        LSTR_FMT_ARG(_G.head)
+    );
 }
 
 static void mib_put_objects_conformance(sb_t *buf)
 {
-    sb_addf(buf,
-            "\n%*pMConformanceObject OBJECT-GROUP\n"
-            LVL1 "OBJECTS { ", LSTR_FMT_ARG(_G.head));
+    sb_addf(
+        buf, "\n%*pMConformanceObject OBJECT-GROUP\n" LVL1 "OBJECTS { ",
+        LSTR_FMT_ARG(_G.head)
+    );
 
     tab_for_each_pos(pos, &_G.conformance_objects) {
-        sb_addf(buf, "%s%*pM", pos == 0 ? "": "  "LVL3,
-                LSTR_FMT_ARG(_G.conformance_objects.tab[pos]));
+        sb_addf(
+            buf, "%s%*pM", pos == 0 ? "" : "  " LVL3,
+            LSTR_FMT_ARG(_G.conformance_objects.tab[pos])
+        );
         if (pos < _G.conformance_objects.len - 1) {
             sb_addf(buf, ",\n");
         }
     }
-    sb_addf(buf, " }\n"
-            LVL1 "STATUS current\n"
-            LVL1 "DESCRIPTION\n"
-            LVL2 "\"%*pM conformance objects\"\n"
-            LVL1 "::= { %*pMIdentity 81 }\n",
-            LSTR_FMT_ARG(_G.head), LSTR_FMT_ARG(_G.head));
+    sb_addf(
+        buf,
+        " }\n" LVL1 "STATUS current\n" LVL1 "DESCRIPTION\n" LVL2
+        "\"%*pM conformance objects\"\n" LVL1 "::= { %*pMIdentity 81 }\n",
+        LSTR_FMT_ARG(_G.head), LSTR_FMT_ARG(_G.head)
+    );
 }
 
 static void mib_put_notifs_conformance(sb_t *buf)
 {
-    sb_addf(buf,
-            "\n%*pMConformanceNotification NOTIFICATION-GROUP\n"
-            LVL1 "NOTIFICATIONS { ", LSTR_FMT_ARG(_G.head));
+    sb_addf(
+        buf,
+        "\n%*pMConformanceNotification NOTIFICATION-GROUP\n" LVL1
+        "NOTIFICATIONS { ",
+        LSTR_FMT_ARG(_G.head)
+    );
 
     tab_for_each_pos(pos, &_G.conformance_notifs) {
-        sb_addf(buf, "%s%*pM", pos == 0 ? "": LVL5,
-                LSTR_FMT_ARG(_G.conformance_notifs.tab[pos]));
+        sb_addf(
+            buf, "%s%*pM", pos == 0 ? "" : LVL5,
+            LSTR_FMT_ARG(_G.conformance_notifs.tab[pos])
+        );
         if (pos < _G.conformance_notifs.len - 1) {
             sb_addf(buf, ",\n");
         }
     }
-    sb_addf(buf, " }\n"
-            LVL1 "STATUS current\n"
-            LVL1 "DESCRIPTION\n"
-            LVL2 "\"%*pM conformance notifications\"\n"
-            LVL1 "::= { %*pMIdentity 80 }\n",
-            LSTR_FMT_ARG(_G.head), LSTR_FMT_ARG(_G.head));
+    sb_addf(
+        buf,
+        " }\n" LVL1 "STATUS current\n" LVL1 "DESCRIPTION\n" LVL2
+        "\"%*pM conformance notifications\"\n" LVL1
+        "::= { %*pMIdentity 80 }\n",
+        LSTR_FMT_ARG(_G.head), LSTR_FMT_ARG(_G.head)
+    );
 }
 
 static void mib_put_compliance_fold(sb_t *buf)
@@ -770,16 +813,20 @@ static int iop_mib_shutdown(void)
     return 0;
 }
 
-static MODULE_BEGIN(iop_mib)
-MODULE_END()
+static MODULE_DEFINE(iop_mib)
+{
+}
 
 /* }}} */
 /* {{{ Usage */
 
 static popt_t popt_g[] = {
-    OPT_FLAG('h', "help",   &_G.help,   "show this help"),
-    OPT_STR('o',  "output", &_G.output, "define output path (if not defined, "
-             "the MIB is printed on stdout)"),
+    OPT_FLAG('h', "help", &_G.help, "show this help"),
+    OPT_STR(
+        'o', "output", &_G.output,
+        "define output path (if not defined, "
+        "the MIB is printed on stdout)"
+    ),
     OPT_END(),
 };
 
@@ -795,8 +842,9 @@ static void mib_parseopt(int argc, char **argv)
 
 /* }}} */
 
-void iop_write_mib(sb_t *sb, const qv_t(pkg) *pkgs,
-                   const qv_t(mib_rev) *revisions)
+void iop_write_mib(
+    sb_t *sb, const qv_t(pkg) *pkgs, const qv_t(mib_rev) *revisions
+)
 {
     SB_8k(buffer);
 
@@ -822,8 +870,10 @@ void iop_write_mib(sb_t *sb, const qv_t(pkg) *pkgs,
     MODULE_RELEASE(iop_mib);
 }
 
-int iop_mib(int argc, char **argv, const qv_t(pkg) *pkgs,
-            const qv_t(mib_rev) *revisions)
+int iop_mib(
+    int argc, char **argv, const qv_t(pkg) *pkgs,
+    const qv_t(mib_rev) *revisions
+)
 {
     SB_8k(sb);
 
@@ -832,8 +882,9 @@ int iop_mib(int argc, char **argv, const qv_t(pkg) *pkgs,
 
     if (_G.output) {
         if (sb_write_file(&sb, _G.output) < 0) {
-            logger_error(&_G.logger, "couldn't write MIB file `%s`: %m",
-                         _G.output);
+            logger_error(
+                &_G.logger, "couldn't write MIB file `%s`: %m", _G.output
+            );
             return -1;
         }
     } else {

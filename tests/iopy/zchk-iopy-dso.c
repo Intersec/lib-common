@@ -25,7 +25,7 @@
  */
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wredundant-decls"
-# include <Python.h>
+#include <Python.h>
 #pragma GCC diagnostic pop
 
 #include <dlfcn.h>
@@ -43,8 +43,8 @@
 
 /* LCOV_EXCL_START */
 
-# define IOPY_DSO_NAME  "iopy.so"
-# define T_PYSTRING_TO_CSTR(_obj)                                            \
+#define IOPY_DSO_NAME "iopy.so"
+#define T_PYSTRING_TO_CSTR(_obj)                                             \
     ({                                                                       \
         PyObject *_utf8 = PyUnicode_AsUTF8String(_obj);                      \
         char *_res = t_strdup(PyBytes_AsString(_utf8));                      \
@@ -56,15 +56,14 @@
 static struct {
     iop_env_t *iop_env;
     void *iopy_dso;
-#define _G  zchk_add_package_g
+#define _G zchk_add_package_g
 } zchk_add_package_g;
-
 
 typedef PyObject *(*make_plugin_from_iop_env_f)(iop_env_t *iop_env);
 typedef int (*add_iop_dso_f)(const iop_dso_t *dso, void *plugin);
 
-static const char *t_z_fetch_traceback_err(PyObject *type, PyObject *value,
-                                           PyObject *tb)
+static const char *
+t_z_fetch_traceback_err(PyObject *type, PyObject *value, PyObject *tb)
 {
     t_SB_1k(sb);
     PyObject *module;
@@ -74,8 +73,9 @@ static const char *t_z_fetch_traceback_err(PyObject *type, PyObject *value,
     module = PyImport_ImportModule("traceback");
     RETHROW_P(module);
 
-    list_errs = PyObject_CallMethod(module, (char *)"format_exception",
-                                    (char *)"OOO", type, value, tb);
+    list_errs = PyObject_CallMethod(
+        module, (char *)"format_exception", (char *)"OOO", type, value, tb
+    );
     Py_DECREF(module);
     RETHROW_P(list_errs);
 
@@ -133,8 +133,10 @@ static void z_iopy_dso_initialize_(void)
     /* Build the IOP environment */
     _G.iop_env = iop_env_new();
 
-    IOP_REGISTER_PACKAGES(_G.iop_env, &test__pkg, &tst1__pkg, &ic__pkg,
-                          &core__pkg, &testvoid__pkg);
+    IOP_REGISTER_PACKAGES(
+        _G.iop_env, &test__pkg, &tst1__pkg, &ic__pkg, &core__pkg,
+        &testvoid__pkg
+    );
 
     Py_Initialize();
 
@@ -153,11 +155,13 @@ static void z_iopy_dso_initialize_(void)
 
     /* Get iopy_dso */
     iopy_dso_path = t_fmt("%*pM" IOPY_DSO_NAME, LSTR_FMT_ARG(z_cmddir_g));
-    _G.iopy_dso = dlopen(iopy_dso_path,
-                         RTLD_NOW | RTLD_GLOBAL | RTLD_NOLOAD);
+    _G.iopy_dso = dlopen(iopy_dso_path, RTLD_NOW | RTLD_GLOBAL | RTLD_NOLOAD);
     if (!_G.iopy_dso) {
-        e_fatal("unable to dlopen iopy module at `%s`, it was not previously "
-                "loaded by the python script", iopy_dso_path);
+        e_fatal(
+            "unable to dlopen iopy module at `%s`, it was not previously "
+            "loaded by the python script",
+            iopy_dso_path
+        );
     }
 
     Py_DECREF(iopy_module);
@@ -189,9 +193,10 @@ static int z_load_plugin(PyObject **plugin_ptr)
 
     /* Get the Iopy_make_plugin_iop_env function */
     make_plugin_cb = dlsym(_G.iopy_dso, "Iopy_make_plugin_iop_env");
-    Z_ASSERT_P(make_plugin_cb,
-               "unable to get symbol Iopy_make_plugin_iop_env: %s",
-               dlerror());
+    Z_ASSERT_P(
+        make_plugin_cb, "unable to get symbol Iopy_make_plugin_iop_env: %s",
+        dlerror()
+    );
 
     /* Build the plugin */
     plugin = (*make_plugin_cb)(_G.iop_env);
@@ -214,12 +219,17 @@ static int z_load_dso(PyObject *plugin, iop_dso_t **dso_ptr)
 
     /* Get the Iopy_add_iop_package from IOPy */
     add_iop_dso_cb = dlsym(_G.iopy_dso, "Iopy_add_iop_dso");
-    Z_ASSERT_P(add_iop_dso_cb, "unable to get symbol "
-               "Iopy_add_iop_dso: %s", dlerror());
+    Z_ASSERT_P(
+        add_iop_dso_cb,
+        "unable to get symbol "
+        "Iopy_add_iop_dso: %s",
+        dlerror()
+    );
 
     /* Open the test DSO */
-    dso_path = t_fmt("%*pMtestsuite/test-iop-plugin-dso.so",
-                     LSTR_FMT_ARG(z_cmddir_g));
+    dso_path = t_fmt(
+        "%*pMtestsuite/test-iop-plugin-dso.so", LSTR_FMT_ARG(z_cmddir_g)
+    );
     dso = iop_dso_open(_G.iop_env, dso_path, &err);
     Z_ASSERT_P(dso, "%*pM", SB_FMT_ARG(&err));
 
@@ -248,21 +258,27 @@ static int z_run_script(PyObject *plugin)
 
     /* Set builtins to globals */
     script_globals = PyDict_New();
-    Z_ASSERT_N(PyDict_SetItemString(script_globals, "__builtins__",
-                                    PyEval_GetBuiltins()),
-               "unable to get python __builtins__");
+    Z_ASSERT_N(
+        PyDict_SetItemString(
+            script_globals, "__builtins__", PyEval_GetBuiltins()
+        ),
+        "unable to get python __builtins__"
+    );
 
     /* Run script */
-    script = PyRun_String(entry.s, Py_file_input, script_globals,
-                          script_globals);
-    Z_ASSERT_P(script, "unable to start zchk-iopy-dso.py: %s",
-               t_z_fetch_py_err());
+    script =
+        PyRun_String(entry.s, Py_file_input, script_globals, script_globals);
+    Z_ASSERT_P(
+        script, "unable to start zchk-iopy-dso.py: %s", t_z_fetch_py_err()
+    );
     Py_DECREF(script);
 
     /* Get the function created by the script */
     func = PyDict_GetItemString(script_globals, "test_add_iop_package");
-    Z_ASSERT_P(func, "unable to get test function with name "
-               "`test_add_iop_package`");
+    Z_ASSERT_P(
+        func, "unable to get test function with name "
+              "`test_add_iop_package`"
+    );
 
     /* Call the function with the plugin */
     res = PyObject_CallFunctionObjArgs(func, plugin, NULL);
@@ -273,9 +289,12 @@ static int z_run_script(PyObject *plugin)
     Z_HELPER_END;
 }
 
-Z_GROUP_EXPORT(iopy_dso) {
-    Z_TEST(iopy_c_func_load,
-           "Load plugin and DSO through IOPy C external functions")
+Z_GROUP_EXPORT(iopy_dso)
+{
+    Z_TEST(
+        iopy_c_func_load,
+        "Load plugin and DSO through IOPy C external functions"
+    )
     {
         t_scope;
         PyObject *plugin = NULL;
@@ -296,10 +315,12 @@ Z_GROUP_EXPORT(iopy_dso) {
         /* Cleanup */
         Py_DECREF(plugin);
         iop_dso_close(&dso);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     z_iopy_dso_shutdown();
-} Z_GROUP_END;
+}
+Z_GROUP_END;
 
 /* LCOV_EXCL_STOP */
 

@@ -64,7 +64,8 @@ static int z_huffman_test(lstr_t str, lstr_t coded_str_hex)
     Z_HELPER_END;
 }
 
-Z_GROUP_EXPORT(hpack_huffman) {
+Z_GROUP_EXPORT(hpack_huffman)
+{
 #define ZT_TEST(str, coded_str)                                              \
     Z_HELPER_RUN(z_huffman_test(LSTR_IMMED_V(str), LSTR_IMMED_V(coded_str)))
 
@@ -74,30 +75,40 @@ Z_GROUP_EXPORT(hpack_huffman) {
         ZT_TEST("1", "0f");
         ZT_TEST("&", "f8");
         ZT_TEST("\xae", "ff ff d7");
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     Z_TEST(hpack_huffman_rfc, "huffman encoding from rfc7541 examples") {
-        ZT_TEST("www.example.com",
-                "f1 e3 c2 e5 f2 3a 6b a0 ab 90 f4 ff");
+        ZT_TEST("www.example.com", "f1 e3 c2 e5 f2 3a 6b a0 ab 90 f4 ff");
         ZT_TEST("no-cache", "a8 eb 10 64 9c bf");
         ZT_TEST("custom-key", "25 a8 49 e9 5b a9 7d 7f");
         ZT_TEST("custom-value", "25 a8 49 e9 5b b8 e8 b4 bf");
         ZT_TEST("private", "ae c3 77 1a 4b");
-        ZT_TEST("Mon, 21 Oct 2013 20:13:21 GMT",
-                "d0 7a be 94 10 54 d4 44 a8 20 05 95 04 0b 81 66 e0 82 a6 2d"
-                "1b ff");
-        ZT_TEST("https://www.example.com",
-                "9d 29 ad 17 18 63 c7 8f 0b 97 c8 e9 ae 82 ae 43 d3");
-        ZT_TEST("Mon, 21 Oct 2013 20:13:22 GMT",
-                "d0 7a be 94 10 54 d4 44 a8 20 05 95 04 0b 81 66 e0 84 a6 2d"
-                "1b ff");
-        ZT_TEST("foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age=3600; version=1",
-                "94 e7 82 1d d7 f2 e6 c7 b3 35 df df cd 5b 39 60 d5 af 27 08"
-                "7f 36 72 c1 ab 27 0f b5 29 1f 95 87 31 60 65 c0 03 ed 4e e5"
-                "b1 06 3d 50 07");
-    } Z_TEST_END;
+        ZT_TEST(
+            "Mon, 21 Oct 2013 20:13:21 GMT",
+            "d0 7a be 94 10 54 d4 44 a8 20 05 95 04 0b 81 66 e0 82 a6 2d"
+            "1b ff"
+        );
+        ZT_TEST(
+            "https://www.example.com",
+            "9d 29 ad 17 18 63 c7 8f 0b 97 c8 e9 ae 82 ae 43 d3"
+        );
+        ZT_TEST(
+            "Mon, 21 Oct 2013 20:13:22 GMT",
+            "d0 7a be 94 10 54 d4 44 a8 20 05 95 04 0b 81 66 e0 84 a6 2d"
+            "1b ff"
+        );
+        ZT_TEST(
+            "foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age=3600; version=1",
+            "94 e7 82 1d d7 f2 e6 c7 b3 35 df df cd 5b 39 60 d5 af 27 08"
+            "7f 36 72 c1 ab 27 0f b5 29 1f 95 87 31 60 65 c0 03 ed 4e e5"
+            "b1 06 3d 50 07"
+        );
+    }
+    Z_TEST_END;
 
 #undef ZT_TEST
-} Z_GROUP_END;
+}
+Z_GROUP_END;
 
 /* }}} */
 /* {{{ Integer coding */
@@ -141,7 +152,8 @@ z_hpack_int_test(uint32_t val, uint8_t prefix_bits, lstr_t coded_int_hex)
     Z_HELPER_END;
 }
 
-Z_GROUP_EXPORT(hpack_enc_int) {
+Z_GROUP_EXPORT(hpack_enc_int)
+{
 #define ZT_TEST(val, prefix_bits, coded_int)                                 \
     Z_HELPER_RUN(z_hpack_int_test(val, prefix_bits, LSTR_IMMED_V(coded_int)))
 
@@ -167,36 +179,42 @@ Z_GROUP_EXPORT(hpack_enc_int) {
         ZT_TEST(0xFFFFFFFFu, 1, "01 FE FF FF FF 0F");
         ZT_TEST(0xFFFFFFFFu, 7, "7F 80 FF FF FF 0F");
         ZT_TEST(0xFFFFFFFFu, 8, "FF 80 FE FF FF 0F");
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(hpack_enc_int_simple, "integer encoding of simple cases") {
         ZT_TEST(0, 8, "00");
         ZT_TEST(4, 4, "04");
         ZT_TEST(30, 5, "1E");
         ZT_TEST(31, 5, "1F 00");
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(hpack_enc_int_rfc, "integer decoding of rfc7541 examples") {
         ZT_TEST(10, 5, "0A");
         ZT_TEST(1337, 5, "1F 9A 0A");
         ZT_TEST(42, 8, "2A");
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
 #undef ZT_TEST
-} Z_GROUP_END;
+}
+Z_GROUP_END;
 
 /* }}} */
 /* {{{ Header tables */
 
-static int z_hpack_stbl_search_test(lstr_t key, lstr_t val, int exp_idx) {
+static int z_hpack_stbl_search_test(lstr_t key, lstr_t val, int exp_idx)
+{
     int idx = hpack_stbl_find_hdr(key, val);
 
     Z_ASSERT_EQ(idx, exp_idx);
     Z_HELPER_END;
 }
 
-static int z_hpack_enc_dtbl_size_test(hpack_enc_dtbl_t *dtbl, int len,
-                                      uint32_t sz, uint32_t sz_lim)
+static int z_hpack_enc_dtbl_size_test(
+    hpack_enc_dtbl_t *dtbl, int len, uint32_t sz, uint32_t sz_lim
+)
 {
     Z_ASSERT_EQ(dtbl->entries.len, len);
     Z_ASSERT_EQ(dtbl->tbl_size, sz);
@@ -204,9 +222,9 @@ static int z_hpack_enc_dtbl_size_test(hpack_enc_dtbl_t *dtbl, int len,
     Z_HELPER_END;
 }
 
-static int
-z_hpack_enc_dtbl_search_test(hpack_enc_dtbl_t *dtbl, uint16_t key_id,
-                             uint16_t val_id, int exp_idx)
+static int z_hpack_enc_dtbl_search_test(
+    hpack_enc_dtbl_t *dtbl, uint16_t key_id, uint16_t val_id, int exp_idx
+)
 {
     int idx = hpack_enc_dtbl_find_hdr(dtbl, key_id, val_id);
 
@@ -214,8 +232,9 @@ z_hpack_enc_dtbl_search_test(hpack_enc_dtbl_t *dtbl, uint16_t key_id,
     Z_HELPER_END;
 }
 
-static int z_hpack_dec_dtbl_size_test(hpack_dec_dtbl_t *dtbl, int len,
-                                      uint32_t sz, uint32_t sz_lim)
+static int z_hpack_dec_dtbl_size_test(
+    hpack_dec_dtbl_t *dtbl, int len, uint32_t sz, uint32_t sz_lim
+)
 {
     Z_ASSERT_EQ(dtbl->entries.len, len);
     Z_ASSERT_EQ(dtbl->tbl_size, sz);
@@ -223,10 +242,12 @@ static int z_hpack_dec_dtbl_size_test(hpack_dec_dtbl_t *dtbl, int len,
     Z_HELPER_END;
 }
 
-Z_GROUP_EXPORT(hpack_tables) {
-#define HPACK_STBL_SEARCH(exp_idx, k, v)                                               \
+Z_GROUP_EXPORT(hpack_tables)
+{
+#define HPACK_STBL_SEARCH(exp_idx, k, v)                                     \
     Z_HELPER_RUN(                                                            \
-        z_hpack_stbl_search_test(LSTR_IMMED_V(k), LSTR_IMMED_V(v), exp_idx))
+        z_hpack_stbl_search_test(LSTR_IMMED_V(k), LSTR_IMMED_V(v), exp_idx)  \
+    )
 
     Z_TEST(hpack_stbl_search_exact, "search yields exact match in the STBL") {
         HPACK_STBL_SEARCH(0, "", "");
@@ -291,21 +312,28 @@ Z_GROUP_EXPORT(hpack_tables) {
         HPACK_STBL_SEARCH(59, "vary", "");
         HPACK_STBL_SEARCH(60, "via", "");
         HPACK_STBL_SEARCH(61, "www-authenticate", "");
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
-    Z_TEST(hpack_stbl_search_empty,
-           "search yields partial match in the STBL for static hdrs whose "
-           "values replaced by the emtpy string in the STBL") {
+    Z_TEST(
+        hpack_stbl_search_empty,
+        "search yields partial match in the STBL for static hdrs whose "
+        "values replaced by the emtpy string in the STBL"
+    )
+    {
 
         HPACK_STBL_SEARCH(-2, ":method", "");
         HPACK_STBL_SEARCH(-4, ":path", "");
         HPACK_STBL_SEARCH(-6, ":scheme", "");
         HPACK_STBL_SEARCH(-8, ":status", "");
         HPACK_STBL_SEARCH(-16, "accept-encoding", "");
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
-    Z_TEST(hpack_stbl_search_part,
-           "search yields partial matches in the STBL") {
+    Z_TEST(
+        hpack_stbl_search_part, "search yields partial matches in the STBL"
+    )
+    {
 
         HPACK_STBL_SEARCH(-1, ":authority", "dum-val");
         HPACK_STBL_SEARCH(-2, ":method", "dum-val");
@@ -359,12 +387,14 @@ Z_GROUP_EXPORT(hpack_tables) {
         HPACK_STBL_SEARCH(-59, "vary", "dum-val");
         HPACK_STBL_SEARCH(-60, "via", "dum-val");
         HPACK_STBL_SEARCH(-61, "www-authenticate", "dum-val");
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
 #undef HPACK_STBL_SEARCH
-#define HPACK_STBL_SEARCH(exp_idx, k)                                                  \
+#define HPACK_STBL_SEARCH(exp_idx, k)                                        \
     Z_HELPER_RUN(                                                            \
-        z_hpack_stbl_search_test(LSTR_IMMED_V(k), LSTR_NULL_V, exp_idx))
+        z_hpack_stbl_search_test(LSTR_IMMED_V(k), LSTR_NULL_V, exp_idx)      \
+    )
 
     Z_TEST(hpack_stbl_search_key, "search for key matches in the STBL") {
 
@@ -420,7 +450,8 @@ Z_GROUP_EXPORT(hpack_tables) {
         HPACK_STBL_SEARCH(59, "vary");
         HPACK_STBL_SEARCH(60, "via");
         HPACK_STBL_SEARCH(61, "www-authenticate");
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
 #undef HPACK_STBL_SEARCH
     Z_TEST(hpack_dtbl_search, "search for matches in the DTBL") {
@@ -431,8 +462,9 @@ Z_GROUP_EXPORT(hpack_tables) {
 
 #define HPACK_DTBL_INSERT(kid, vid, k, v)                                    \
     do {                                                                     \
-        hpack_enc_dtbl_add_hdr(&dtbl, LSTR_IMMED_V(k), LSTR_IMMED_V(v), kid, \
-                               vid);                                         \
+        hpack_enc_dtbl_add_hdr(                                              \
+            &dtbl, LSTR_IMMED_V(k), LSTR_IMMED_V(v), kid, vid                \
+        );                                                                   \
     } while (0)
 
 #define HPACK_DTBL_SEARCH(exp_idx, kid, vid)                                 \
@@ -503,7 +535,8 @@ Z_GROUP_EXPORT(hpack_tables) {
 #undef HPACK_DTBL_SEARCH
 #undef HPACK_DTBL_INSERT
 #undef HPACK_DTBL_SZCHCK
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(hpack_dtbl_insert, "insertions into the decoder's DTBL") {
         hpack_dec_dtbl_t dtbl;
@@ -539,16 +572,18 @@ Z_GROUP_EXPORT(hpack_tables) {
 
 #undef HPACK_DTBL_INSERT
 #undef HPACK_DTBL_SZCHCK
-    } Z_TEST_END;
-} Z_GROUP_END;
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END;
 
 /* }}} */
 /* {{{ Headers encoding */
 
-static int
-z_hpack_enc_hdr_test(hpack_enc_dtbl_t *dtbl, lstr_t key, lstr_t val,
-                     uint16_t key_id, uint16_t val_id, unsigned flags,
-                     lstr_t coded_hdr_hex, sb_t *out_)
+static int z_hpack_enc_hdr_test(
+    hpack_enc_dtbl_t *dtbl, lstr_t key, lstr_t val, uint16_t key_id,
+    uint16_t val_id, unsigned flags, lstr_t coded_hdr_hex, sb_t *out_
+)
 {
     t_scope;
     lstr_t coded_hdr = t_lstr_human_hexdecode(coded_hdr_hex);
@@ -566,12 +601,14 @@ z_hpack_enc_hdr_test(hpack_enc_dtbl_t *dtbl, lstr_t key, lstr_t val,
 #define HPACK_DTBL_SZCHCK(dtbl, cnt, sz, sz_lim)                             \
     Z_HELPER_RUN(z_hpack_##dtbl##_dtbl_size_test(&(dtbl), cnt, sz, sz_lim))
 
-Z_GROUP_EXPORT(hpack_headers) {
+Z_GROUP_EXPORT(hpack_headers)
+{
 
 #define HPACK_ENC(dtbl, out, k, v, kid, vid, flags, exp_hex)                 \
     Z_HELPER_RUN(z_hpack_enc_hdr_test(                                       \
         &(dtbl), LSTR_IMMED_V(k), LSTR_IMMED_V(v), (kid), (vid), (flags),    \
-        LSTR_IMMED_V(exp_hex), &(out)))
+        LSTR_IMMED_V(exp_hex), &(out)                                        \
+    ))
 
 #define HPACK_DEC(dtbl, in, exp)                                             \
     do {                                                                     \
@@ -581,8 +618,9 @@ Z_GROUP_EXPORT(hpack_headers) {
         int keylen_;                                                         \
         byte *out_;                                                          \
                                                                              \
-        Z_ASSERT_ZERO(hpack_decoder_extract_hdr(&(dtbl), &in, &xhdr_,        \
-                                                &len_));                     \
+        Z_ASSERT_ZERO(                                                       \
+            hpack_decoder_extract_hdr(&(dtbl), &in, &xhdr_, &len_)           \
+        );                                                                   \
         Z_ASSERT_N(len_);                                                    \
         out_ = t_new(byte, len_ + 4);                                        \
         len_ = hpack_decoder_write_hdr(&(dtbl), &xhdr_, out_, &keylen_);     \
@@ -590,8 +628,10 @@ Z_GROUP_EXPORT(hpack_headers) {
         Z_ASSERT_LSTREQUAL(LSTR_DATA_V(out_, len_), LSTR_IMMED_V(exp));      \
     } while (0);
 
-    Z_TEST(hpack_hdrs_rfc_C_2,
-           "encoding headers: examples from §C.2 of RFC7541") {
+    Z_TEST(
+        hpack_hdrs_rfc_C_2, "encoding headers: examples from §C.2 of RFC7541"
+    )
+    {
         hpack_enc_dtbl_t enc;
         hpack_dec_dtbl_t dec;
         SB_1k(out);
@@ -604,10 +644,12 @@ Z_GROUP_EXPORT(hpack_headers) {
 
         HPACK_DTBL_SZCHCK(enc, 0, 0, 256);
 
-        HPACK_ENC(enc, out, "custom-key", "custom-header", 1, 0,
-                  HPACK_FLG_NOZIP_STR,
-                  "40  0a  63  75  73  74  6f  6d  2d  6b  65  79  0d  63"
-                  "75  73  74  6f  6d  2d  68  65  61  64  65  72");
+        HPACK_ENC(
+            enc, out, "custom-key", "custom-header", 1, 0,
+            HPACK_FLG_NOZIP_STR,
+            "40  0a  63  75  73  74  6f  6d  2d  6b  65  79  0d  63"
+            "75  73  74  6f  6d  2d  68  65  61  64  65  72"
+        );
         HPACK_DTBL_SZCHCK(enc, 1, 55, 256);
 
         HPACK_DTBL_SZCHCK(dec, 0, 0, 256);
@@ -617,9 +659,10 @@ Z_GROUP_EXPORT(hpack_headers) {
         HPACK_DTBL_SZCHCK(dec, 1, 55, 256);
 
         sb_reset(&out);
-        HPACK_ENC(enc, out, ":path", "/sample/path", 0, 0,
-                  HPACK_FLG_NOZIP_STR,
-                  "04  0c  2f  73  61  6d  70  6c  65  2f  70  61  74  68");
+        HPACK_ENC(
+            enc, out, ":path", "/sample/path", 0, 0, HPACK_FLG_NOZIP_STR,
+            "04  0c  2f  73  61  6d  70  6c  65  2f  70  61  74  68"
+        );
         HPACK_DTBL_SZCHCK(enc, 1, 55, 256);
 
         in = ps_initsb(&out);
@@ -627,10 +670,12 @@ Z_GROUP_EXPORT(hpack_headers) {
         HPACK_DTBL_SZCHCK(dec, 1, 55, 256);
 
         sb_reset(&out);
-        HPACK_ENC(enc, out, "password", "secret", 0, 0,
-                  HPACK_FLG_NOZIP_STR | HPACK_FLG_NVRADD_DTBL,
-                  "10  08  70  61  73  73  77  6f  72  64  06  73  65  63"
-                  "72  65  74");
+        HPACK_ENC(
+            enc, out, "password", "secret", 0, 0,
+            HPACK_FLG_NOZIP_STR | HPACK_FLG_NVRADD_DTBL,
+            "10  08  70  61  73  73  77  6f  72  64  06  73  65  63"
+            "72  65  74"
+        );
         HPACK_DTBL_SZCHCK(enc, 1, 55, 256);
 
         in = ps_initsb(&out);
@@ -647,11 +692,13 @@ Z_GROUP_EXPORT(hpack_headers) {
 
         hpack_dec_dtbl_wipe(&dec);
         hpack_enc_dtbl_wipe(&enc);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
 #undef HPACK_DEC
 #undef HPACK_ENC
-} Z_GROUP_END;
+}
+Z_GROUP_END;
 
 typedef struct hpack_enc_hdr_t {
     lstr_t key;
@@ -672,9 +719,10 @@ static int z_hpack_enc_dts_test(hpack_enc_dtbl_t *dtbl, size_t sz, sb_t *out_)
     Z_HELPER_END;
 }
 
-static int
-z_hpack_enc_hdrs_test(hpack_enc_dtbl_t *dtbl, hpack_enc_hdr_t *hdrs, int cnt,
-                      lstr_t exp_coded_hdrs_hex, sb_t *out_)
+static int z_hpack_enc_hdrs_test(
+    hpack_enc_dtbl_t *dtbl, hpack_enc_hdr_t *hdrs, int cnt,
+    lstr_t exp_coded_hdrs_hex, sb_t *out_
+)
 {
     t_scope;
     lstr_t exp_coded_hdrs = t_lstr_human_hexdecode(exp_coded_hdrs_hex);
@@ -684,8 +732,9 @@ z_hpack_enc_hdrs_test(hpack_enc_dtbl_t *dtbl, hpack_enc_hdr_t *hdrs, int cnt,
         int len = hpack_buflen_to_write_hdr(e.key, e.val, e.flags);
         byte *out = (byte *)sb_grow(out_, len);
 
-        len = hpack_encoder_write_hdr(dtbl, e.key, e.val, e.key_id, e.val_id,
-                                      e.flags, out);
+        len = hpack_encoder_write_hdr(
+            dtbl, e.key, e.val, e.key_id, e.val_id, e.flags, out
+        );
         Z_ASSERT_N(len);
         out_->len += len;
     }
@@ -725,15 +774,15 @@ z_hpack_dec_hdrs_test(hpack_dec_dtbl_t *dtbl, pstream_t *in, lstr_t exp_hdrs)
 }
 
 #define HPACK_ENC_HDR(k, v, kid, vid, flags)                                 \
-    {                                                                        \
-        LSTR_IMMED("" k), LSTR_IMMED("" v), (kid), (vid), (flags)            \
-    }
+    {LSTR_IMMED("" k), LSTR_IMMED("" v), (kid), (vid), (flags)}
 
-Z_GROUP_EXPORT(hpack_examples) {
+Z_GROUP_EXPORT(hpack_examples)
+{
 
 #define HPACK_ENC(dtbl, out, hdrs, exp)                                      \
-    Z_HELPER_RUN(z_hpack_enc_hdrs_test(&(dtbl), (hdrs), countof(hdrs),       \
-                                       LSTR_IMMED_V(exp), &(out)))
+    Z_HELPER_RUN(z_hpack_enc_hdrs_test(                                      \
+        &(dtbl), (hdrs), countof(hdrs), LSTR_IMMED_V(exp), &(out)            \
+    ))
 
 #define HPACK_ENC_DTS(dtbl, out, sz)                                         \
     Z_HELPER_RUN(z_hpack_enc_dts_test(&(dtbl), (sz), &(out)))
@@ -769,12 +818,16 @@ Z_GROUP_EXPORT(hpack_examples) {
                 HPACK_ENC_HDR(":path", "/", 0, 0, 0),
                 /* key token: 1 :authority */
                 /* val token: 1 www.intersec.com */
-                HPACK_ENC_HDR(":authority", "www.intersec.com", 1, 1,
-                              HPACK_FLG_NOZIP_STR),
+                HPACK_ENC_HDR(
+                    ":authority", "www.intersec.com", 1, 1,
+                    HPACK_FLG_NOZIP_STR
+                ),
             };
-            HPACK_ENC(enc, out, inps,
-                      "3F  61  82  84  41  10  77  77  77  2e  69  6e  74"
-                      "65  72  73  65  63  2e  63  6f  6d");
+            HPACK_ENC(
+                enc, out, inps,
+                "3F  61  82  84  41  10  77  77  77  2e  69  6e  74"
+                "65  72  73  65  63  2e  63  6f  6d"
+            );
         }
         HPACK_DTBL_SZCHCK(enc, 1, 58, 128);
 
@@ -786,7 +839,8 @@ Z_GROUP_EXPORT(hpack_examples) {
         HPACK_DEC_DTS(dec, in);
         HPACK_DEC(
             dec, in,
-            ":method: GET\r\n:path: /\r\n:authority: www.intersec.com\r\n");
+            ":method: GET\r\n:path: /\r\n:authority: www.intersec.com\r\n"
+        );
         HPACK_DTBL_SZCHCK(dec, 1, 58, 128);
 
         /* next request */
@@ -795,24 +849,32 @@ Z_GROUP_EXPORT(hpack_examples) {
             hpack_enc_hdr_t inps[] = {
                 HPACK_ENC_HDR(":method", "GET", 0, 0, 0),
                 HPACK_ENC_HDR(":path", "/index.html", 0, 0, 0),
-                HPACK_ENC_HDR(":authority", "www.intersec.com", 1, 1,
-                              HPACK_FLG_NOZIP_STR),
+                HPACK_ENC_HDR(
+                    ":authority", "www.intersec.com", 1, 1,
+                    HPACK_FLG_NOZIP_STR
+                ),
             };
             HPACK_ENC(enc, out, inps, "82  85  be");
         }
         HPACK_DTBL_SZCHCK(enc, 1, 58, 128);
 
         in = ps_initsb(&out);
-        HPACK_DEC(dec, in,
-                  ":method: GET\r\n:path: /index.html\r\n:authority: "
-                  "www.intersec.com\r\n");
+        HPACK_DEC(
+            dec, in,
+            ":method: GET\r\n:path: /index.html\r\n:authority: "
+            "www.intersec.com\r\n"
+        );
         HPACK_DTBL_SZCHCK(dec, 1, 58, 128);
 
         hpack_dec_dtbl_wipe(&dec);
         hpack_enc_dtbl_wipe(&enc);
-    } Z_TEST_END;
-    Z_TEST(hpack_example_rfc_C_3,
-           "Request Examples without Huffman Coding (C.3. of rfc7541)") {
+    }
+    Z_TEST_END;
+    Z_TEST(
+        hpack_example_rfc_C_3,
+        "Request Examples without Huffman Coding (C.3. of rfc7541)"
+    )
+    {
         hpack_enc_dtbl_t enc;
         hpack_dec_dtbl_t dec;
         SB_1k(out);
@@ -836,18 +898,22 @@ Z_GROUP_EXPORT(hpack_examples) {
                 HPACK_ENC_HDR(":authority", "www.example.com", 1, 1, flags),
             };
 
-            HPACK_ENC(enc, out, inps,
-                      "82  86  84  41  0f  77  77  77  2e  65  78  61  6d"
-                      "70  6c  65  2e  63  6f  6d");
+            HPACK_ENC(
+                enc, out, inps,
+                "82  86  84  41  0f  77  77  77  2e  65  78  61  6d"
+                "70  6c  65  2e  63  6f  6d"
+            );
         }
         HPACK_DTBL_SZCHCK(enc, 1, 57, 256);
 
         in = ps_initsb(&out);
-        HPACK_DEC(dec, in,
-                  ":method: GET\r\n"
-                  ":scheme: http\r\n"
-                  ":path: /\r\n"
-                  ":authority: www.example.com\r\n");
+        HPACK_DEC(
+            dec, in,
+            ":method: GET\r\n"
+            ":scheme: http\r\n"
+            ":path: /\r\n"
+            ":authority: www.example.com\r\n"
+        );
         HPACK_DTBL_SZCHCK(dec, 1, 57, 256);
 
         /* second request */
@@ -864,17 +930,20 @@ Z_GROUP_EXPORT(hpack_examples) {
 
             HPACK_ENC(
                 enc, out, inps,
-                "82  86  84  be  58  08  6e  6f  2d  63  61  63  68  65");
+                "82  86  84  be  58  08  6e  6f  2d  63  61  63  68  65"
+            );
         }
         HPACK_DTBL_SZCHCK(enc, 2, 110, 256);
 
         in = ps_initsb(&out);
-        HPACK_DEC(dec, in,
-                  ":method: GET\r\n"
-                  ":scheme: http\r\n"
-                  ":path: /\r\n"
-                  ":authority: www.example.com\r\n"
-                  "cache-control: no-cache\r\n");
+        HPACK_DEC(
+            dec, in,
+            ":method: GET\r\n"
+            ":scheme: http\r\n"
+            ":path: /\r\n"
+            ":authority: www.example.com\r\n"
+            "cache-control: no-cache\r\n"
+        );
         HPACK_DTBL_SZCHCK(dec, 2, 110, 256);
 
         /* third request */
@@ -892,24 +961,31 @@ Z_GROUP_EXPORT(hpack_examples) {
             HPACK_ENC(
                 enc, out, inps,
                 "82  87  85  bf  40  0a  63  75  73  74  6f  6d  2d  6b  65"
-                "79  0c  63  75  73  74  6f  6d  2d  76  61  6c  75  65");
+                "79  0c  63  75  73  74  6f  6d  2d  76  61  6c  75  65"
+            );
         }
         HPACK_DTBL_SZCHCK(enc, 3, 164, 256);
 
         in = ps_initsb(&out);
-        HPACK_DEC(dec, in,
-                  ":method: GET\r\n"
-                  ":scheme: https\r\n"
-                  ":path: /index.html\r\n"
-                  ":authority: www.example.com\r\n"
-                  "custom-key: custom-value\r\n");
+        HPACK_DEC(
+            dec, in,
+            ":method: GET\r\n"
+            ":scheme: https\r\n"
+            ":path: /index.html\r\n"
+            ":authority: www.example.com\r\n"
+            "custom-key: custom-value\r\n"
+        );
         HPACK_DTBL_SZCHCK(dec, 3, 164, 256);
 
         hpack_dec_dtbl_wipe(&dec);
         hpack_enc_dtbl_wipe(&enc);
-    } Z_TEST_END;
-    Z_TEST(hpack_example_rfc_C_4,
-           "Request Examples with Huffman Coding (C.4. of rfc7541)") {
+    }
+    Z_TEST_END;
+    Z_TEST(
+        hpack_example_rfc_C_4,
+        "Request Examples with Huffman Coding (C.4. of rfc7541)"
+    )
+    {
         hpack_enc_dtbl_t enc;
         hpack_dec_dtbl_t dec;
         SB_1k(out);
@@ -933,18 +1009,22 @@ Z_GROUP_EXPORT(hpack_examples) {
                 HPACK_ENC_HDR(":authority", "www.example.com", 1, 1, flags),
             };
 
-            HPACK_ENC(enc, out, inps,
-                      "82  86  84  41  8c  f1  e3  c2  e5  f2  3a  6b  a0"
-                      "ab  90  f4  ff");
+            HPACK_ENC(
+                enc, out, inps,
+                "82  86  84  41  8c  f1  e3  c2  e5  f2  3a  6b  a0"
+                "ab  90  f4  ff"
+            );
         }
         HPACK_DTBL_SZCHCK(enc, 1, 57, 256);
 
         in = ps_initsb(&out);
-        HPACK_DEC(dec, in,
-                  ":method: GET\r\n"
-                  ":scheme: http\r\n"
-                  ":path: /\r\n"
-                  ":authority: www.example.com\r\n");
+        HPACK_DEC(
+            dec, in,
+            ":method: GET\r\n"
+            ":scheme: http\r\n"
+            ":path: /\r\n"
+            ":authority: www.example.com\r\n"
+        );
         HPACK_DTBL_SZCHCK(dec, 1, 57, 256);
 
         /* second request */
@@ -959,18 +1039,22 @@ Z_GROUP_EXPORT(hpack_examples) {
                 HPACK_ENC_HDR("cache-control", "no-cache", 2, 2, flags),
             };
 
-            HPACK_ENC(enc, out, inps,
-                      "82  86  84  be  58  86  a8  eb  10  64  9c  bf");
+            HPACK_ENC(
+                enc, out, inps,
+                "82  86  84  be  58  86  a8  eb  10  64  9c  bf"
+            );
         }
         HPACK_DTBL_SZCHCK(enc, 2, 110, 256);
 
         in = ps_initsb(&out);
-        HPACK_DEC(dec, in,
-                  ":method: GET\r\n"
-                  ":scheme: http\r\n"
-                  ":path: /\r\n"
-                  ":authority: www.example.com\r\n"
-                  "cache-control: no-cache\r\n");
+        HPACK_DEC(
+            dec, in,
+            ":method: GET\r\n"
+            ":scheme: http\r\n"
+            ":path: /\r\n"
+            ":authority: www.example.com\r\n"
+            "cache-control: no-cache\r\n"
+        );
         HPACK_DTBL_SZCHCK(dec, 2, 110, 256);
 
         /* third request */
@@ -985,26 +1069,34 @@ Z_GROUP_EXPORT(hpack_examples) {
                 HPACK_ENC_HDR("custom-key", "custom-value", 3, 3, flags),
             };
 
-            HPACK_ENC(enc, out, inps,
-                      "82  87  85  bf  40  88  25  a8  49  e9  5b  a9  7d"
-                      "7f  89  25  a8  49  e9  5b  b8  e8  b4  bf");
+            HPACK_ENC(
+                enc, out, inps,
+                "82  87  85  bf  40  88  25  a8  49  e9  5b  a9  7d"
+                "7f  89  25  a8  49  e9  5b  b8  e8  b4  bf"
+            );
         }
         HPACK_DTBL_SZCHCK(enc, 3, 164, 256);
 
         in = ps_initsb(&out);
-        HPACK_DEC(dec, in,
-                  ":method: GET\r\n"
-                  ":scheme: https\r\n"
-                  ":path: /index.html\r\n"
-                  ":authority: www.example.com\r\n"
-                  "custom-key: custom-value\r\n");
+        HPACK_DEC(
+            dec, in,
+            ":method: GET\r\n"
+            ":scheme: https\r\n"
+            ":path: /index.html\r\n"
+            ":authority: www.example.com\r\n"
+            "custom-key: custom-value\r\n"
+        );
         HPACK_DTBL_SZCHCK(dec, 3, 164, 256);
 
         hpack_dec_dtbl_wipe(&dec);
         hpack_enc_dtbl_wipe(&enc);
-    } Z_TEST_END;
-    Z_TEST(hpack_example_rfc_C_5,
-           "Response Examples without Huffman Coding (C.5. of rfc7541)") {
+    }
+    Z_TEST_END;
+    Z_TEST(
+        hpack_example_rfc_C_5,
+        "Response Examples without Huffman Coding (C.5. of rfc7541)"
+    )
+    {
         hpack_enc_dtbl_t enc;
         hpack_dec_dtbl_t dec;
         SB_1k(out);
@@ -1024,10 +1116,12 @@ Z_GROUP_EXPORT(hpack_examples) {
             hpack_enc_hdr_t inps[] = {
                 HPACK_ENC_HDR(":status", "302", 1, 1, flags),
                 HPACK_ENC_HDR("cache-control", "private", 2, 2, flags),
-                HPACK_ENC_HDR("date", "Mon, 21 Oct 2013 20:13:21 GMT", 3, 3,
-                              flags),
-                HPACK_ENC_HDR("location", "https://www.example.com", 4, 4,
-                              flags),
+                HPACK_ENC_HDR(
+                    "date", "Mon, 21 Oct 2013 20:13:21 GMT", 3, 3, flags
+                ),
+                HPACK_ENC_HDR(
+                    "location", "https://www.example.com", 4, 4, flags
+                ),
             };
 
             HPACK_ENC(
@@ -1036,16 +1130,19 @@ Z_GROUP_EXPORT(hpack_examples) {
                 "1d  4d  6f  6e  2c  20  32  31  20  4f  63  74  20  32  30"
                 "31  33  20  32  30  3a  31  33  3a  32  31  20  47  4d  54"
                 "6e  17  68  74  74  70  73  3a  2f  2f  77  77  77  2e  65"
-                "78  61  6d  70  6c  65  2e  63  6f  6d");
+                "78  61  6d  70  6c  65  2e  63  6f  6d"
+            );
         }
         HPACK_DTBL_SZCHCK(enc, 4, 222, 256);
 
         in = ps_initsb(&out);
-        HPACK_DEC(dec, in,
-                  ":status: 302\r\n"
-                  "cache-control: private\r\n"
-                  "date: Mon, 21 Oct 2013 20:13:21 GMT\r\n"
-                  "location: https://www.example.com\r\n");
+        HPACK_DEC(
+            dec, in,
+            ":status: 302\r\n"
+            "cache-control: private\r\n"
+            "date: Mon, 21 Oct 2013 20:13:21 GMT\r\n"
+            "location: https://www.example.com\r\n"
+        );
         HPACK_DTBL_SZCHCK(dec, 4, 222, 256);
 
         /* second request */
@@ -1055,10 +1152,12 @@ Z_GROUP_EXPORT(hpack_examples) {
             hpack_enc_hdr_t inps[] = {
                 HPACK_ENC_HDR(":status", "307", 1, 101, flags),
                 HPACK_ENC_HDR("cache-control", "private", 2, 2, flags),
-                HPACK_ENC_HDR("date", "Mon, 21 Oct 2013 20:13:21 GMT", 3, 3,
-                              flags),
-                HPACK_ENC_HDR("location", "https://www.example.com", 4, 4,
-                              flags),
+                HPACK_ENC_HDR(
+                    "date", "Mon, 21 Oct 2013 20:13:21 GMT", 3, 3, flags
+                ),
+                HPACK_ENC_HDR(
+                    "location", "https://www.example.com", 4, 4, flags
+                ),
             };
 
             HPACK_ENC(enc, out, inps, "48  03  33  30  37  c1  c0  bf");
@@ -1066,11 +1165,13 @@ Z_GROUP_EXPORT(hpack_examples) {
         HPACK_DTBL_SZCHCK(enc, 4, 222, 256);
 
         in = ps_initsb(&out);
-        HPACK_DEC(dec, in,
-                  ":status: 307\r\n"
-                  "cache-control: private\r\n"
-                  "date: Mon, 21 Oct 2013 20:13:21 GMT\r\n"
-                  "location: https://www.example.com\r\n");
+        HPACK_DEC(
+            dec, in,
+            ":status: 307\r\n"
+            "cache-control: private\r\n"
+            "date: Mon, 21 Oct 2013 20:13:21 GMT\r\n"
+            "location: https://www.example.com\r\n"
+        );
         HPACK_DTBL_SZCHCK(dec, 4, 222, 256);
 
         /* third request */
@@ -1080,15 +1181,19 @@ Z_GROUP_EXPORT(hpack_examples) {
             hpack_enc_hdr_t inps[] = {
                 HPACK_ENC_HDR(":status", "200", 0, 0, flags),
                 HPACK_ENC_HDR("cache-control", "private", 2, 2, flags),
-                HPACK_ENC_HDR("date", "Mon, 21 Oct 2013 20:13:22 GMT", 3, 103,
-                              flags),
-                HPACK_ENC_HDR("location", "https://www.example.com", 4, 4,
-                              flags),
+                HPACK_ENC_HDR(
+                    "date", "Mon, 21 Oct 2013 20:13:22 GMT", 3, 103, flags
+                ),
+                HPACK_ENC_HDR(
+                    "location", "https://www.example.com", 4, 4, flags
+                ),
                 HPACK_ENC_HDR("content-encoding", "gzip", 5, 5, flags),
-                HPACK_ENC_HDR("set-cookie",
-                              "foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; "
-                              "max-age=3600; version=1",
-                              6, 6, flags),
+                HPACK_ENC_HDR(
+                    "set-cookie",
+                    "foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; "
+                    "max-age=3600; version=1",
+                    6, 6, flags
+                ),
             };
 
             HPACK_ENC(
@@ -1099,26 +1204,33 @@ Z_GROUP_EXPORT(hpack_examples) {
                 "3d  41  53  44  4a  4b  48  51  4b  42  5a  58  4f  51  57"
                 "45  4f  50  49  55  41  58  51  57  45  4f  49  55  3b  20"
                 "6d  61  78  2d  61  67  65  3d  33  36  30  30  3b  20  76"
-                "65  72  73  69  6f  6e  3d  31");
+                "65  72  73  69  6f  6e  3d  31"
+            );
         }
         HPACK_DTBL_SZCHCK(enc, 3, 215, 256);
 
         in = ps_initsb(&out);
-        HPACK_DEC(dec, in,
-                  ":status: 200\r\n"
-                  "cache-control: private\r\n"
-                  "date: Mon, 21 Oct 2013 20:13:22 GMT\r\n"
-                  "location: https://www.example.com\r\n"
-                  "content-encoding: gzip\r\n"
-                  "set-cookie: foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; "
-                  "max-age=3600; version=1\r\n");
+        HPACK_DEC(
+            dec, in,
+            ":status: 200\r\n"
+            "cache-control: private\r\n"
+            "date: Mon, 21 Oct 2013 20:13:22 GMT\r\n"
+            "location: https://www.example.com\r\n"
+            "content-encoding: gzip\r\n"
+            "set-cookie: foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; "
+            "max-age=3600; version=1\r\n"
+        );
         HPACK_DTBL_SZCHCK(dec, 3, 215, 256);
 
         hpack_dec_dtbl_wipe(&dec);
         hpack_enc_dtbl_wipe(&enc);
-    } Z_TEST_END;
-    Z_TEST(hpack_example_rfc_C_6,
-           "Response Examples with Huffman Coding (C.6. of rfc7541)") {
+    }
+    Z_TEST_END;
+    Z_TEST(
+        hpack_example_rfc_C_6,
+        "Response Examples with Huffman Coding (C.6. of rfc7541)"
+    )
+    {
         hpack_enc_dtbl_t enc;
         hpack_dec_dtbl_t dec;
         SB_1k(out);
@@ -1138,10 +1250,12 @@ Z_GROUP_EXPORT(hpack_examples) {
             hpack_enc_hdr_t inps[] = {
                 HPACK_ENC_HDR(":status", "302", 1, 1, flags),
                 HPACK_ENC_HDR("cache-control", "private", 2, 2, flags),
-                HPACK_ENC_HDR("date", "Mon, 21 Oct 2013 20:13:21 GMT", 3, 3,
-                              flags),
-                HPACK_ENC_HDR("location", "https://www.example.com", 4, 4,
-                              flags),
+                HPACK_ENC_HDR(
+                    "date", "Mon, 21 Oct 2013 20:13:21 GMT", 3, 3, flags
+                ),
+                HPACK_ENC_HDR(
+                    "location", "https://www.example.com", 4, 4, flags
+                ),
             };
 
             HPACK_ENC(
@@ -1149,16 +1263,19 @@ Z_GROUP_EXPORT(hpack_examples) {
                 "48  82  64  02  58  85  ae  c3  77  1a  4b  61  96  d0  7a"
                 "be  94  10  54  d4  44  a8  20  05  95  04  0b  81  66  e0"
                 "82  a6  2d  1b  ff  6e  91  9d  29  ad  17  18  63  c7  8f"
-                "0b  97  c8  e9  ae  82  ae  43  d3");
+                "0b  97  c8  e9  ae  82  ae  43  d3"
+            );
         }
         HPACK_DTBL_SZCHCK(enc, 4, 222, 256);
 
         in = ps_initsb(&out);
-        HPACK_DEC(dec, in,
-                  ":status: 302\r\n"
-                  "cache-control: private\r\n"
-                  "date: Mon, 21 Oct 2013 20:13:21 GMT\r\n"
-                  "location: https://www.example.com\r\n");
+        HPACK_DEC(
+            dec, in,
+            ":status: 302\r\n"
+            "cache-control: private\r\n"
+            "date: Mon, 21 Oct 2013 20:13:21 GMT\r\n"
+            "location: https://www.example.com\r\n"
+        );
         HPACK_DTBL_SZCHCK(dec, 4, 222, 256);
 
         /* second request */
@@ -1168,10 +1285,12 @@ Z_GROUP_EXPORT(hpack_examples) {
             hpack_enc_hdr_t inps[] = {
                 HPACK_ENC_HDR(":status", "307", 1, 101, flags),
                 HPACK_ENC_HDR("cache-control", "private", 2, 2, flags),
-                HPACK_ENC_HDR("date", "Mon, 21 Oct 2013 20:13:21 GMT", 3, 3,
-                              flags),
-                HPACK_ENC_HDR("location", "https://www.example.com", 4, 4,
-                              flags),
+                HPACK_ENC_HDR(
+                    "date", "Mon, 21 Oct 2013 20:13:21 GMT", 3, 3, flags
+                ),
+                HPACK_ENC_HDR(
+                    "location", "https://www.example.com", 4, 4, flags
+                ),
             };
 
             HPACK_ENC(enc, out, inps, "48  83  64  0e  ff  c1  c0  bf");
@@ -1179,11 +1298,13 @@ Z_GROUP_EXPORT(hpack_examples) {
         HPACK_DTBL_SZCHCK(enc, 4, 222, 256);
 
         in = ps_initsb(&out);
-        HPACK_DEC(dec, in,
-                  ":status: 307\r\n"
-                  "cache-control: private\r\n"
-                  "date: Mon, 21 Oct 2013 20:13:21 GMT\r\n"
-                  "location: https://www.example.com\r\n");
+        HPACK_DEC(
+            dec, in,
+            ":status: 307\r\n"
+            "cache-control: private\r\n"
+            "date: Mon, 21 Oct 2013 20:13:21 GMT\r\n"
+            "location: https://www.example.com\r\n"
+        );
         HPACK_DTBL_SZCHCK(dec, 4, 222, 256);
 
         /* third request */
@@ -1193,15 +1314,19 @@ Z_GROUP_EXPORT(hpack_examples) {
             hpack_enc_hdr_t inps[] = {
                 HPACK_ENC_HDR(":status", "200", 0, 0, flags),
                 HPACK_ENC_HDR("cache-control", "private", 2, 2, flags),
-                HPACK_ENC_HDR("date", "Mon, 21 Oct 2013 20:13:22 GMT", 3, 103,
-                              flags),
-                HPACK_ENC_HDR("location", "https://www.example.com", 4, 4,
-                              flags),
+                HPACK_ENC_HDR(
+                    "date", "Mon, 21 Oct 2013 20:13:22 GMT", 3, 103, flags
+                ),
+                HPACK_ENC_HDR(
+                    "location", "https://www.example.com", 4, 4, flags
+                ),
                 HPACK_ENC_HDR("content-encoding", "gzip", 5, 5, flags),
-                HPACK_ENC_HDR("set-cookie",
-                              "foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; "
-                              "max-age=3600; version=1",
-                              6, 6, flags),
+                HPACK_ENC_HDR(
+                    "set-cookie",
+                    "foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; "
+                    "max-age=3600; version=1",
+                    6, 6, flags
+                ),
             };
 
             HPACK_ENC(
@@ -1211,31 +1336,35 @@ Z_GROUP_EXPORT(hpack_examples) {
                 "d9  ab  77  ad  94  e7  82  1d  d7  f2  e6  c7  b3  35  df"
                 "df  cd  5b  39  60  d5  af  27  08  7f  36  72  c1  ab  27"
                 "0f  b5  29  1f  95  87  31  60  65  c0  03  ed  4e  e5  b1"
-                "06  3d  50  07");
+                "06  3d  50  07"
+            );
         }
         HPACK_DTBL_SZCHCK(enc, 3, 215, 256);
 
         in = ps_initsb(&out);
-        HPACK_DEC(dec, in,
-                  ":status: 200\r\n"
-                  "cache-control: private\r\n"
-                  "date: Mon, 21 Oct 2013 20:13:22 GMT\r\n"
-                  "location: https://www.example.com\r\n"
-                  "content-encoding: gzip\r\n"
-                  "set-cookie: foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; "
-                  "max-age=3600; version=1\r\n");
+        HPACK_DEC(
+            dec, in,
+            ":status: 200\r\n"
+            "cache-control: private\r\n"
+            "date: Mon, 21 Oct 2013 20:13:22 GMT\r\n"
+            "location: https://www.example.com\r\n"
+            "content-encoding: gzip\r\n"
+            "set-cookie: foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; "
+            "max-age=3600; version=1\r\n"
+        );
         HPACK_DTBL_SZCHCK(dec, 3, 215, 256);
 
         hpack_dec_dtbl_wipe(&dec);
         hpack_enc_dtbl_wipe(&enc);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
 #undef HPACK_ENC
 #undef HPACK_DEC
 #undef HPACK_ENC_DTS
 #undef HPACK_DEC_DTS
-
-} Z_GROUP_END;
+}
+Z_GROUP_END;
 
 #undef HPACK_DTBL_SZCHCK
 
@@ -1245,11 +1374,13 @@ Z_GROUP_EXPORT(hpack_examples) {
 #define HPACK_DTBL_SZCHCK(dtbl, cnt, sz, sz_lim)                             \
     Z_HELPER_RUN(z_hpack_##dtbl##_dtbl_size_test(&(dtbl), cnt, sz, sz_lim))
 
-Z_GROUP_EXPORT(hpack_bugs) {
+Z_GROUP_EXPORT(hpack_bugs)
+{
 
 #define HPACK_ENC(dtbl, out, hdrs, exp)                                      \
-    Z_HELPER_RUN(z_hpack_enc_hdrs_test(&(dtbl), (hdrs), countof(hdrs),       \
-                                       LSTR_IMMED_V(exp), &(out)))
+    Z_HELPER_RUN(z_hpack_enc_hdrs_test(                                      \
+        &(dtbl), (hdrs), countof(hdrs), LSTR_IMMED_V(exp), &(out)            \
+    ))
 #define HPACK_DEC(dtbl, in, exp)                                             \
     Z_HELPER_RUN(z_hpack_dec_hdrs_test(&(dtbl), &(in), LSTR_IMMED_V(exp)))
 
@@ -1258,7 +1389,6 @@ Z_GROUP_EXPORT(hpack_bugs) {
         hpack_dec_dtbl_t dec;
         SB_1k(out);
         pstream_t in;
-
 
         /* initial agreed-upon max size: 256 */
         hpack_enc_dtbl_init(&enc);
@@ -1275,8 +1405,9 @@ Z_GROUP_EXPORT(hpack_bugs) {
                 HPACK_ENC_HDR(":status", "302", 1, 1, flags),
             };
 
-            HPACK_ENC(enc, out, inps,
-                      "40 07 3A 73 74 61 74 75 73 03 33 30 32");
+            HPACK_ENC(
+                enc, out, inps, "40 07 3A 73 74 61 74 75 73 03 33 30 32"
+            );
         }
         HPACK_DTBL_SZCHCK(enc, 1, 42, 256);
 
@@ -1287,8 +1418,8 @@ Z_GROUP_EXPORT(hpack_bugs) {
         /* second request */
         sb_reset(&out);
         {
-            unsigned flags = HPACK_FLG_NOZIP_STR | HPACK_FLG_SKIP_STBL
-                             | HPACK_FLG_ADD_DTBL;
+            unsigned flags = HPACK_FLG_NOZIP_STR | HPACK_FLG_SKIP_STBL |
+                             HPACK_FLG_ADD_DTBL;
             hpack_enc_hdr_t inps[] = {
                 HPACK_ENC_HDR(":status", "307", 1, 101, flags),
             };
@@ -1303,7 +1434,9 @@ Z_GROUP_EXPORT(hpack_bugs) {
 
         hpack_dec_dtbl_wipe(&dec);
         hpack_enc_dtbl_wipe(&enc);
-    } Z_TEST_END;
-} Z_GROUP_END;
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END;
 
 /* }}} */

@@ -29,8 +29,9 @@
 
 /* {{{ IOP testing helpers */
 
-static void t_z_yaml_pack_struct(const iop_struct_t *st, const void *v,
-                                 unsigned flags, sb_t *out)
+static void t_z_yaml_pack_struct(
+    const iop_struct_t *st, const void *v, unsigned flags, sb_t *out
+)
 {
     /* XXX: Use a small t_sb here to force a realloc during (un)packing
      *      and detect possible illegal usage of the t_pool in the
@@ -45,10 +46,10 @@ static void t_z_yaml_pack_struct(const iop_struct_t *st, const void *v,
     }
 }
 
-static int
-iop_yaml_test_unpack_error(const iop_env_t *iop_env, const iop_struct_t *st,
-                           unsigned flags, const char *yaml,
-                           const char *expected_err, bool exact_match)
+static int iop_yaml_test_unpack_error(
+    const iop_env_t *iop_env, const iop_struct_t *st, unsigned flags,
+    const char *yaml, const char *expected_err, bool exact_match
+)
 {
     t_scope;
     iop_env_ctx_scope(iop_env, iop_env_ctx);
@@ -63,19 +64,19 @@ iop_yaml_test_unpack_error(const iop_env_t *iop_env, const iop_struct_t *st,
     if (exact_match) {
         Z_ASSERT_STREQUAL(err.data, expected_err);
     } else {
-        Z_ASSERT(lstr_contains(LSTR_SB_V(&err), LSTR(expected_err)),
-                 "error mismatch: `%s` not contained in `%pL`", expected_err,
-                 &err);
+        Z_ASSERT(
+            lstr_contains(LSTR_SB_V(&err), LSTR(expected_err)),
+            "error mismatch: `%s` not contained in `%pL`", expected_err, &err
+        );
     }
 
     Z_HELPER_END;
 }
 
-static int
-iop_yaml_test_unpack(const iop_env_t * nonnull iop_env,
-                     const iop_struct_t * nonnull st, unsigned flags,
-                     const char * nonnull yaml,
-                     const char * nullable new_yaml)
+static int iop_yaml_test_unpack(
+    const iop_env_t *nonnull iop_env, const iop_struct_t *nonnull st,
+    unsigned flags, const char *nonnull yaml, const char *nullable new_yaml
+)
 {
     t_scope;
     iop_env_ctx_scope(iop_env, iop_env_ctx);
@@ -89,8 +90,8 @@ iop_yaml_test_unpack(const iop_env_t * nonnull iop_env,
     SB_1k(packed);
 
     ps = ps_initstr(yaml);
-    ret = t_iop_yunpack_ptr_ps(iop_env_ctx, &ps, st, &res, flags, &pres,
-                               &err);
+    ret =
+        t_iop_yunpack_ptr_ps(iop_env_ctx, &ps, st, &res, flags, &pres, &err);
     Z_ASSERT_N(ret, "YAML unpacking error: %pL", &err);
 
     t_z_yaml_pack_struct(st, res, 0, &packed);
@@ -99,18 +100,21 @@ iop_yaml_test_unpack(const iop_env_t * nonnull iop_env,
     /* Test iop_ypack_file / t_iop_yunpack_file */
     path = t_fmt("%*pM/tstyaml.yml", LSTR_FMT_ARG(z_tmpdir_g));
     Z_ASSERT_N(iop_ypack_file(path, st, res, pres, &err), "%pL", &err);
-    Z_ASSERT_N(t_iop_yunpack_ptr_file(iop_env_ctx, path, st, &file_res, 0,
-                                      NULL, &err),
-               "%pL", &err);
+    Z_ASSERT_N(
+        t_iop_yunpack_ptr_file(
+            iop_env_ctx, path, st, &file_res, 0, NULL, &err
+        ),
+        "%pL", &err
+    );
     Z_ASSERT_IOPEQUAL_DESC(st, res, file_res);
 
     Z_HELPER_END;
 }
 
-static int iop_yaml_test_pack(const iop_env_t *iop_env,
-                              const iop_struct_t *st, const void *value,
-                              unsigned flags, bool test_unpack,
-                              bool must_be_equal, const char *expected)
+static int iop_yaml_test_pack(
+    const iop_env_t *iop_env, const iop_struct_t *st, const void *value,
+    unsigned flags, bool test_unpack, bool must_be_equal, const char *expected
+)
 {
     t_scope;
     t_SB_1k(sb);
@@ -124,9 +128,12 @@ static int iop_yaml_test_pack(const iop_env_t *iop_env,
     if (test_unpack) {
         pstream_t ps = ps_initsb(&sb);
 
-        Z_ASSERT_N(t_iop_yunpack_ptr_ps(iop_env_ctx, &ps, st, &unpacked, 0,
-                                        NULL, &err),
-                   "YAML unpacking error (%s): %pL", st->fullname.s, &err);
+        Z_ASSERT_N(
+            t_iop_yunpack_ptr_ps(
+                iop_env_ctx, &ps, st, &unpacked, 0, NULL, &err
+            ),
+            "YAML unpacking error (%s): %pL", st->fullname.s, &err
+        );
         if (must_be_equal) {
             Z_ASSERT(iop_equals_desc(st, value, unpacked));
         }
@@ -135,13 +142,11 @@ static int iop_yaml_test_pack(const iop_env_t *iop_env,
     Z_HELPER_END;
 }
 
-static int
-z_test_json_subfiles_conversion(
-    const iop_env_t *iop_env,
-    const iop_json_subfile__array_t *json_subfiles,
-    const iop_struct_t *st, const void *value,
-    const char *yaml_expected,
-    const char *flat_subfiles_expected)
+static int z_test_json_subfiles_conversion(
+    const iop_env_t *iop_env, const iop_json_subfile__array_t *json_subfiles,
+    const iop_struct_t *st, const void *value, const char *yaml_expected,
+    const char *flat_subfiles_expected
+)
 {
     t_scope;
     SB_1k(err);
@@ -152,15 +157,19 @@ z_test_json_subfiles_conversion(
     qv_t(lstr) expected_subfiles;
     qv_t(lstr) subfiles;
 
-    pres = t_build_yaml_pres_from_json_subfiles(iop_env_ctx, json_subfiles,
-                                                st, value);
+    pres = t_build_yaml_pres_from_json_subfiles(
+        iop_env_ctx, json_subfiles, st, value
+    );
 
     /* parse yaml to get expected pres */
     ps = ps_initstr(yaml_expected);
-    Z_ASSERT_N(t_iop_yunpack_ps(iop_env_ctx, &ps,
-                                &yaml__document_presentation__s,
-                                &expected_pres, 0, NULL, &err),
-               "cannot unpack: %pL", &err);
+    Z_ASSERT_N(
+        t_iop_yunpack_ps(
+            iop_env_ctx, &ps, &yaml__document_presentation__s, &expected_pres,
+            0, NULL, &err
+        ),
+        "cannot unpack: %pL", &err
+    );
     Z_ASSERT_IOPEQUAL(yaml__document_presentation, pres, &expected_pres);
 
     /* Get flat subfiles from pres and compare with expected */
@@ -204,76 +213,93 @@ Z_GROUP_EXPORT(iop_yaml)
         iop_init(tstiop__my_class2, &my_class_2);
 
 #define TST_FLAGS(_flags, _test_unpack, _must_be_equal, _exp)                \
-        Z_HELPER_RUN(iop_yaml_test_pack(iop_env,                            \
-                                        &tstiop__struct_jpack_flags__s,      \
-                                        &st_jpack, _flags, _test_unpack,     \
-                                        _must_be_equal, _exp))
+    Z_HELPER_RUN(iop_yaml_test_pack(                                         \
+        iop_env, &tstiop__struct_jpack_flags__s, &st_jpack, _flags,          \
+        _test_unpack, _must_be_equal, _exp                                   \
+    ))
 
         /* default is to skip everything optional */
         TST_FLAGS(0, true, true, "{}");
         /* NO_WHITESPACES is not valid for YAML */
-        TST_FLAGS(IOP_JPACK_NO_WHITESPACES, true, true,
-                  "def: 1\n"
-                  "rep: []");
-        TST_FLAGS(IOP_JPACK_NO_TRAILING_EOL, true, true,
-                  "def: 1\n"
-                  "rep: []");
+        TST_FLAGS(
+            IOP_JPACK_NO_WHITESPACES, true, true,
+            "def: 1\n"
+            "rep: []"
+        );
+        TST_FLAGS(
+            IOP_JPACK_NO_TRAILING_EOL, true, true,
+            "def: 1\n"
+            "rep: []"
+        );
 
         /* SKIP_DEFAULT */
         TST_FLAGS(IOP_JPACK_SKIP_DEFAULT, true, true, "rep: []");
         st_jpack.def = 2;
-        TST_FLAGS(flags | IOP_JPACK_SKIP_DEFAULT, true, true,
-                  "def: 2\n"
-                  "rep: []");
+        TST_FLAGS(
+            flags | IOP_JPACK_SKIP_DEFAULT, true, true,
+            "def: 2\n"
+            "rep: []"
+        );
         st_jpack.def = 1;
 
         /* SKIP_EMPTY_ARRAYS */
-        TST_FLAGS(flags | IOP_JPACK_SKIP_EMPTY_ARRAYS, true, true,
-                  "def: 1");
+        TST_FLAGS(flags | IOP_JPACK_SKIP_EMPTY_ARRAYS, true, true, "def: 1");
         st_jpack.rep.tab = &st_jpack.def;
         st_jpack.rep.len = 1;
-        TST_FLAGS(flags | IOP_JPACK_SKIP_EMPTY_ARRAYS, true, true,
-                  "def: 1\n"
-                  "rep:\n"
-                  "  - 1");
+        TST_FLAGS(
+            flags | IOP_JPACK_SKIP_EMPTY_ARRAYS, true, true,
+            "def: 1\n"
+            "rep:\n"
+            "  - 1"
+        );
         st_jpack.rep.len = 0;
         flags |= IOP_JPACK_SKIP_EMPTY_ARRAYS;
 
         /* SKIP_OPTIONAL_CLASS_NAME */
         st_jpack.my_class = &my_class_1;
-        TST_FLAGS(flags, false, true,
-                  "def: 1\n"
-                  "myClass: !tstiop.MyClass1\n"
-                  "  int1: 0");
-        TST_FLAGS(flags | IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES, false, true,
-                  "def: 1\n"
-                  "myClass:\n"
-                  "  int1: 0");
+        TST_FLAGS(
+            flags, false, true,
+            "def: 1\n"
+            "myClass: !tstiop.MyClass1\n"
+            "  int1: 0"
+        );
+        TST_FLAGS(
+            flags | IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES, false, true,
+            "def: 1\n"
+            "myClass:\n"
+            "  int1: 0"
+        );
         st_jpack.my_class = &my_class_2.super;
-        TST_FLAGS(flags | IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES, false, true,
-                  "def: 1\n"
-                  "myClass: !tstiop.MyClass2\n"
-                  "  int1: 0\n"
-                  "  int2: 0");
+        TST_FLAGS(
+            flags | IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES, false, true,
+            "def: 1\n"
+            "myClass: !tstiop.MyClass2\n"
+            "  int1: 0\n"
+            "  int2: 0"
+        );
 
         /* SKIP_CLASS_NAMES is not valid for YAML */
-        TST_FLAGS(flags | IOP_JPACK_SKIP_CLASS_NAMES, false, false,
-                  "def: 1\n"
-                  "myClass: !tstiop.MyClass2\n"
-                  "  int1: 0\n"
-                  "  int2: 0");
+        TST_FLAGS(
+            flags | IOP_JPACK_SKIP_CLASS_NAMES, false, false,
+            "def: 1\n"
+            "myClass: !tstiop.MyClass2\n"
+            "  int1: 0\n"
+            "  int2: 0"
+        );
         st_jpack.my_class = NULL;
 
         /* SKIP_PRIVATE */
         OPT_SET(st_jpack.priv, 12);
-        TST_FLAGS(flags, false, true,
-                  "priv: 12\n"
-                  "def: 1");
-        TST_FLAGS(flags | IOP_JPACK_SKIP_PRIVATE, false, false,
-                  "def: 1");
+        TST_FLAGS(
+            flags, false, true,
+            "priv: 12\n"
+            "def: 1"
+        );
+        TST_FLAGS(flags | IOP_JPACK_SKIP_PRIVATE, false, false, "def: 1");
 
 #undef TST_FLAGS
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(pack_file_with_flags) { /* {{{ */
         t_scope;
@@ -288,47 +314,58 @@ Z_GROUP_EXPORT(iop_yaml)
 
         /* iop_ypack_file skips defaults: doc is empty. */
         path = t_fmt("%*pM/tstyaml-default.yml", LSTR_FMT_ARG(z_tmpdir_g));
-        Z_ASSERT_N(iop_ypack_file(path, &tstiop__struct_jpack_flags__s,
-                                  &orig, NULL, &err), "%pL", &err);
+        Z_ASSERT_N(
+            iop_ypack_file(
+                path, &tstiop__struct_jpack_flags__s, &orig, NULL, &err
+            ),
+            "%pL", &err
+        );
         Z_ASSERT_N(sb_read_file(&content, path));
         Z_ASSERT_STREQUAL(content.data, "{}\n");
 
         /* Dropping SKIP_DEFAULT from the mask makes defaults appear. */
         sb_reset(&content);
         path = t_fmt("%*pM/tstyaml-full.yml", LSTR_FMT_ARG(z_tmpdir_g));
-        Z_ASSERT_N(iop_ypack_file_with_flags(
-                       path, 0644, &tstiop__struct_jpack_flags__s, &orig,
-                       NULL,
-                       IOP_JPACK_SKIP_EMPTY_ARRAYS
-                       | IOP_JPACK_SKIP_EMPTY_STRUCTS
-                       | IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES,
-                       &err),
-                   "%pL", &err);
+        Z_ASSERT_N(
+            iop_ypack_file_with_flags(
+                path, 0644, &tstiop__struct_jpack_flags__s, &orig, NULL,
+                IOP_JPACK_SKIP_EMPTY_ARRAYS | IOP_JPACK_SKIP_EMPTY_STRUCTS |
+                    IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES,
+                &err
+            ),
+            "%pL", &err
+        );
         Z_ASSERT_N(sb_read_file(&content, path));
         Z_ASSERT_STREQUAL(content.data, "def: 1\n");
 
         /* The produced YAML still unpacks to the same struct. */
-        Z_ASSERT_N(t_iop_yunpack_ptr_file(iop_env_ctx, path,
-                       &tstiop__struct_jpack_flags__s, &unpacked, 0, NULL,
-                       &err),
-                   "%pL", &err);
-        Z_ASSERT_IOPEQUAL_DESC(&tstiop__struct_jpack_flags__s, &orig,
-                               unpacked);
-    } Z_TEST_END;
+        Z_ASSERT_N(
+            t_iop_yunpack_ptr_file(
+                iop_env_ctx, path, &tstiop__struct_jpack_flags__s, &unpacked,
+                0, NULL, &err
+            ),
+            "%pL", &err
+        );
+        Z_ASSERT_IOPEQUAL_DESC(
+            &tstiop__struct_jpack_flags__s, &orig, unpacked
+        );
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(pack_string) { /* {{{ */
         tstiop__my_union_a__t obj;
-        const char invalid_utf8[3] = { 0xC0, 0x21, '\0' };
+        const char invalid_utf8[3] = {0xC0, 0x21, '\0'};
 
         obj = IOP_UNION(tstiop__my_union_a, us, LSTR(""));
 
 #define TST(str, _exp, _must_be_equal)                                       \
-        do {                                                                 \
-            obj.us = LSTR(str);                                              \
-            Z_HELPER_RUN(iop_yaml_test_pack(iop_env,                        \
-                                            &tstiop__my_union_a__s, &obj, 0, \
-                                            true, (_must_be_equal), (_exp)));\
-        } while(0)
+    do {                                                                     \
+        obj.us = LSTR(str);                                                  \
+        Z_HELPER_RUN(iop_yaml_test_pack(                                     \
+            iop_env, &tstiop__my_union_a__s, &obj, 0, true,                  \
+            (_must_be_equal), (_exp)                                         \
+        ));                                                                  \
+    } while (0)
 
         /* test cases when packing surrounds the string with quotes */
 
@@ -394,7 +431,8 @@ Z_GROUP_EXPORT(iop_yaml)
         TST("4.2", "us: 4.2", true);
         TST("42", "us: 42", true);
 #undef TST
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(pack_corner_cases) { /* {{{ */
         tstiop__my_struct_a_opt__t obj;
@@ -402,12 +440,12 @@ Z_GROUP_EXPORT(iop_yaml)
         iop_init(tstiop__my_struct_a_opt, &obj);
 
 #define TST(_exp, _test_unpack, _must_be_equal)                              \
-        do {                                                                 \
-            Z_HELPER_RUN(iop_yaml_test_pack(iop_env,                        \
-                                            &tstiop__my_struct_a_opt__s,     \
-                                            &obj, 0, (_test_unpack),         \
-                                            (_must_be_equal), (_exp)));      \
-        } while(0)
+    do {                                                                     \
+        Z_HELPER_RUN(iop_yaml_test_pack(                                     \
+            iop_env, &tstiop__my_struct_a_opt__s, &obj, 0, (_test_unpack),   \
+            (_must_be_equal), (_exp)                                         \
+        ));                                                                  \
+    } while (0)
 
         /* test special double values */
         OPT_SET(obj.m, INFINITY);
@@ -424,7 +462,8 @@ Z_GROUP_EXPORT(iop_yaml)
         TST("k: 42", false, false);
 
 #undef TST
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(empty_struct_pack_flags) { /* {{{ */
         t_scope;
@@ -439,10 +478,10 @@ Z_GROUP_EXPORT(iop_yaml)
         empty_jpack.sub.cls = &clsb;
 
 #define TST(_flags, _must_be_equal, _exp)                                    \
-        Z_HELPER_RUN(iop_yaml_test_pack(iop_env,                            \
-                                        &tstiop__jpack_empty_struct__s,      \
-                                        &empty_jpack, _flags, false,         \
-                                        _must_be_equal, _exp))
+    Z_HELPER_RUN(iop_yaml_test_pack(                                         \
+        iop_env, &tstiop__jpack_empty_struct__s, &empty_jpack, _flags,       \
+        false, _must_be_equal, _exp                                          \
+    ))
 
         TST(flags, true, "{}");
 
@@ -502,7 +541,8 @@ Z_GROUP_EXPORT(iop_yaml)
         empty_jpack.sub.cls = &clsb;
 
 #undef TST
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(unpack_errors) { /* {{{ */
@@ -515,417 +555,517 @@ Z_GROUP_EXPORT(iop_yaml)
         SB_1k(err);
 
 #define TST_ERROR(_flags, _yaml, _error)                                     \
-        Z_HELPER_RUN(iop_yaml_test_unpack_error(iop_env, st, (_flags),      \
-                                                (_yaml), (_error), true))
+    Z_HELPER_RUN(iop_yaml_test_unpack_error(                                 \
+        iop_env, st, (_flags), (_yaml), (_error), true                       \
+    ))
 #define TST(_flags, _yaml, _new_yaml)                                        \
-        Z_HELPER_RUN(iop_yaml_test_unpack(iop_env, st, (_flags), (_yaml),   \
-                                          (_new_yaml)))
+    Z_HELPER_RUN(                                                            \
+        iop_yaml_test_unpack(iop_env, st, (_flags), (_yaml), (_new_yaml))    \
+    )
 
         st = &tstiop__full_opt__s;
-#define ERR_COMMON  \
-        "cannot unpack YAML as a `tstiop.FullOpt` IOP struct"
+#define ERR_COMMON "cannot unpack YAML as a `tstiop.FullOpt` IOP struct"
 
         /* --- Type mismatches --- */
 
         /* null -> scalar */
-        TST_ERROR(0, "d: ~",
-                  "<string>:1:4: "ERR_COMMON": cannot set field `d`: "
-                  "cannot set a null value in a field of type double\n"
-                  "d: ~\n"
-                  "   ^");
+        TST_ERROR(
+            0, "d: ~",
+            "<string>:1:4: " ERR_COMMON ": cannot set field `d`: "
+            "cannot set a null value in a field of type double\n"
+            "d: ~\n"
+            "   ^"
+        );
         /* string -> scalar */
-        TST_ERROR(0, "d: str",
-                  "<string>:1:4: "ERR_COMMON": cannot set field `d`: "
-                  "cannot set a string value in a field of type double\n"
-                  "d: str\n"
-                  "   ^^^");
+        TST_ERROR(
+            0, "d: str",
+            "<string>:1:4: " ERR_COMMON ": cannot set field `d`: "
+            "cannot set a string value in a field of type double\n"
+            "d: str\n"
+            "   ^^^"
+        );
         /* double -> scalar */
-        TST_ERROR(0, "data: 4.2",
-                  "<string>:1:7: "ERR_COMMON": cannot set field `data`: "
-                  "cannot set a double value in a field of type bytes\n"
-                  "data: 4.2\n"
-                  "      ^^^");
+        TST_ERROR(
+            0, "data: 4.2",
+            "<string>:1:7: " ERR_COMMON ": cannot set field `data`: "
+            "cannot set a double value in a field of type bytes\n"
+            "data: 4.2\n"
+            "      ^^^"
+        );
         /* uint -> scalar */
-        TST_ERROR(0, "data: 42",
-                  "<string>:1:7: "ERR_COMMON": cannot set field `data`: "
-                  "cannot set an unsigned integer value in a field of type "
-                  "bytes\n"
-                  "data: 42\n"
-                  "      ^^");
+        TST_ERROR(
+            0, "data: 42",
+            "<string>:1:7: " ERR_COMMON ": cannot set field `data`: "
+            "cannot set an unsigned integer value in a field of type "
+            "bytes\n"
+            "data: 42\n"
+            "      ^^"
+        );
         /* int -> scalar */
-        TST_ERROR(0, "s: -42",
-                  "<string>:1:4: "ERR_COMMON": cannot set field `s`: "
-                  "cannot set an integer value in a field of type string\n"
-                  "s: -42\n"
-                  "   ^^^");
+        TST_ERROR(
+            0, "s: -42",
+            "<string>:1:4: " ERR_COMMON ": cannot set field `s`: "
+            "cannot set an integer value in a field of type string\n"
+            "s: -42\n"
+            "   ^^^"
+        );
         /* bool -> scalar */
-        TST_ERROR(0, "data: true",
-                  "<string>:1:7: "ERR_COMMON": cannot set field `data`: "
-                  "cannot set a boolean value in a field of type bytes\n"
-                  "data: true\n"
-                  "      ^^^^");
+        TST_ERROR(
+            0, "data: true",
+            "<string>:1:7: " ERR_COMMON ": cannot set field `data`: "
+            "cannot set a boolean value in a field of type bytes\n"
+            "data: true\n"
+            "      ^^^^"
+        );
         /* seq -> scalar */
-        TST_ERROR(0, "s: - 42",
-                  "<string>:1:4: "ERR_COMMON": cannot set field `s`: "
-                  "cannot set a sequence in a non-array field\n"
-                  "s: - 42\n"
-                  "   ^^^^");
+        TST_ERROR(
+            0, "s: - 42",
+            "<string>:1:4: " ERR_COMMON ": cannot set field `s`: "
+            "cannot set a sequence in a non-array field\n"
+            "s: - 42\n"
+            "   ^^^^"
+        );
         /* seq -> struct */
-        TST_ERROR(0, "- 42",
-                  "<string>:1:1: "ERR_COMMON": "
-                  "cannot unpack a sequence into a struct\n"
-                  "- 42\n"
-                  "^^^^");
+        TST_ERROR(
+            0, "- 42",
+            "<string>:1:1: " ERR_COMMON ": "
+            "cannot unpack a sequence into a struct\n"
+            "- 42\n"
+            "^^^^"
+        );
         /* obj -> scalar */
-        TST_ERROR(0, "s: a: 42",
-                  "<string>:1:4: "ERR_COMMON": cannot set field `s`: "
-                  "cannot set an object in a field of type string\n"
-                  "s: a: 42\n"
-                  "   ^^^^^");
+        TST_ERROR(
+            0, "s: a: 42",
+            "<string>:1:4: " ERR_COMMON ": cannot set field `s`: "
+            "cannot set an object in a field of type string\n"
+            "s: a: 42\n"
+            "   ^^^^^"
+        );
         /* scalar -> union */
-        TST_ERROR(0, "un: true",
-                  "<string>:1:5: "ERR_COMMON": cannot set field `un`: "
-                  "cannot set a boolean value in a field of type union\n"
-                  "un: true\n"
-                  "    ^^^^");
+        TST_ERROR(
+            0, "un: true",
+            "<string>:1:5: " ERR_COMMON ": cannot set field `un`: "
+            "cannot set a boolean value in a field of type union\n"
+            "un: true\n"
+            "    ^^^^"
+        );
         /* use of tag */
-        TST_ERROR(0, "s: !str jojo",
-                  "<string>:1:4: "ERR_COMMON": cannot set field `s`: "
-                  "specifying a tag on a string value is not allowed\n"
-                  "s: !str jojo\n"
-                  "   ^^^^");
+        TST_ERROR(
+            0, "s: !str jojo",
+            "<string>:1:4: " ERR_COMMON ": cannot set field `s`: "
+            "specifying a tag on a string value is not allowed\n"
+            "s: !str jojo\n"
+            "   ^^^^"
+        );
 
         /* --- OOB --- */
 
         /* byte */
-#define ERR  "<string>:1:5: "ERR_COMMON": cannot set field `i8`: "           \
-             "the value is out of range for the field of type byte\n"
+#define ERR                                                                  \
+    "<string>:1:5: " ERR_COMMON ": cannot set field `i8`: "                  \
+    "the value is out of range for the field of type byte\n"
 
-        TST_ERROR(0, "i8: 128",
-                  ERR
-                  "i8: 128\n"
-                  "    ^^^");
-        TST_ERROR(0, "i8: -129",
-                  ERR
-                  "i8: -129\n"
-                  "    ^^^^");
+        TST_ERROR(
+            0, "i8: 128",
+            ERR "i8: 128\n"
+                "    ^^^"
+        );
+        TST_ERROR(
+            0, "i8: -129",
+            ERR "i8: -129\n"
+                "    ^^^^"
+        );
 
         /* ubyte */
 #undef ERR
-#define ERR  "<string>:1:5: "ERR_COMMON": cannot set field `u8`: "           \
-             "the value is out of range for the field of type ubyte\n"
-        TST_ERROR(0, "u8: 256",
-                  ERR
-                  "u8: 256\n"
-                  "    ^^^");
-        TST_ERROR(0, "u8: -1",
-                  ERR
-                  "u8: -1\n"
-                  "    ^^");
+#define ERR                                                                  \
+    "<string>:1:5: " ERR_COMMON ": cannot set field `u8`: "                  \
+    "the value is out of range for the field of type ubyte\n"
+        TST_ERROR(
+            0, "u8: 256",
+            ERR "u8: 256\n"
+                "    ^^^"
+        );
+        TST_ERROR(
+            0, "u8: -1",
+            ERR "u8: -1\n"
+                "    ^^"
+        );
 
         /* short */
 #undef ERR
-#define ERR  "<string>:1:6: "ERR_COMMON": cannot set field `i16`: "          \
-             "the value is out of range for the field of type short\n"
-        TST_ERROR(0, "i16: 32768",
-                  ERR
-                  "i16: 32768\n"
-                  "     ^^^^^");
-        TST_ERROR(0, "i16: -32769",
-                  ERR
-                  "i16: -32769\n"
-                  "     ^^^^^^");
+#define ERR                                                                  \
+    "<string>:1:6: " ERR_COMMON ": cannot set field `i16`: "                 \
+    "the value is out of range for the field of type short\n"
+        TST_ERROR(
+            0, "i16: 32768",
+            ERR "i16: 32768\n"
+                "     ^^^^^"
+        );
+        TST_ERROR(
+            0, "i16: -32769",
+            ERR "i16: -32769\n"
+                "     ^^^^^^"
+        );
 
         /* ushort */
 #undef ERR
-#define ERR  "<string>:1:6: "ERR_COMMON": cannot set field `u16`: "          \
-             "the value is out of range for the field of type ushort\n"
-        TST_ERROR(0, "u16: 65536",
-                  ERR
-                  "u16: 65536\n"
-                  "     ^^^^^");
-        TST_ERROR(0, "u16: -1",
-                  ERR
-                  "u16: -1\n"
-                  "     ^^");
+#define ERR                                                                  \
+    "<string>:1:6: " ERR_COMMON ": cannot set field `u16`: "                 \
+    "the value is out of range for the field of type ushort\n"
+        TST_ERROR(
+            0, "u16: 65536",
+            ERR "u16: 65536\n"
+                "     ^^^^^"
+        );
+        TST_ERROR(
+            0, "u16: -1",
+            ERR "u16: -1\n"
+                "     ^^"
+        );
 
         /* int */
 #undef ERR
-#define ERR  "<string>:1:6: "ERR_COMMON": cannot set field `i32`: "          \
-             "the value is out of range for the field of type int\n"
-        TST_ERROR(0, "i32: 2147483648",
-                  ERR
-                  "i32: 2147483648\n"
-                  "     ^^^^^^^^^^");
-        TST_ERROR(0, "i32: -2147483649",
-                  ERR
-                  "i32: -2147483649\n"
-                  "     ^^^^^^^^^^^");
+#define ERR                                                                  \
+    "<string>:1:6: " ERR_COMMON ": cannot set field `i32`: "                 \
+    "the value is out of range for the field of type int\n"
+        TST_ERROR(
+            0, "i32: 2147483648",
+            ERR "i32: 2147483648\n"
+                "     ^^^^^^^^^^"
+        );
+        TST_ERROR(
+            0, "i32: -2147483649",
+            ERR "i32: -2147483649\n"
+                "     ^^^^^^^^^^^"
+        );
 
         /* uint */
 #undef ERR
-#define ERR  "<string>:1:6: "ERR_COMMON": cannot set field `u32`: "          \
-             "the value is out of range for the field of type uint\n"
-        TST_ERROR(0, "u32: 4294967296",
-                  ERR
-                  "u32: 4294967296\n"
-                  "     ^^^^^^^^^^");
-        TST_ERROR(0, "u32: -1",
-                  ERR
-                  "u32: -1\n"
-                  "     ^^");
+#define ERR                                                                  \
+    "<string>:1:6: " ERR_COMMON ": cannot set field `u32`: "                 \
+    "the value is out of range for the field of type uint\n"
+        TST_ERROR(
+            0, "u32: 4294967296",
+            ERR "u32: 4294967296\n"
+                "     ^^^^^^^^^^"
+        );
+        TST_ERROR(
+            0, "u32: -1",
+            ERR "u32: -1\n"
+                "     ^^"
+        );
 
         /* long */
 #undef ERR
-#define ERR  "<string>:1:6: "ERR_COMMON": cannot set field `i64`: "          \
-             "the value is out of range for the field of type long\n"
-        TST_ERROR(0, "i64: 9223372036854775808",
-                  ERR
-                  "i64: 9223372036854775808\n"
-                  "     ^^^^^^^^^^^^^^^^^^^");
+#define ERR                                                                  \
+    "<string>:1:6: " ERR_COMMON ": cannot set field `i64`: "                 \
+    "the value is out of range for the field of type long\n"
+        TST_ERROR(
+            0, "i64: 9223372036854775808",
+            ERR "i64: 9223372036854775808\n"
+                "     ^^^^^^^^^^^^^^^^^^^"
+        );
 
         /* ulong */
 #undef ERR
-#define ERR  "<string>:1:6: "ERR_COMMON": cannot set field `u64`: "          \
-             "the value is out of range for the field of type ulong\n"
-        TST_ERROR(0, "u64: -1",
-                  ERR
-                  "u64: -1\n"
-                  "     ^^");
+#define ERR                                                                  \
+    "<string>:1:6: " ERR_COMMON ": cannot set field `u64`: "                 \
+    "the value is out of range for the field of type ulong\n"
+        TST_ERROR(
+            0, "u64: -1",
+            ERR "u64: -1\n"
+                "     ^^"
+        );
 
 #undef ERR
 
         /* --- object field errors --- */
 
         /* unknown field in struct */
-        TST_ERROR(0, "b: true\n"
-                  "z: 42",
-                  "<string>:2:1: "ERR_COMMON": unknown field `z`\n"
-                  "z: 42\n"
-                  "^");
+        TST_ERROR(
+            0,
+            "b: true\n"
+            "z: 42",
+            "<string>:2:1: " ERR_COMMON ": unknown field `z`\n"
+            "z: 42\n"
+            "^"
+        );
         TST(IOP_UNPACK_IGNORE_UNKNOWN, "z: 42", "{}");
 
         /* missing field in struct */
-        TST_ERROR(0, "st: i: 42",
-                  "<string>:1:5: "ERR_COMMON": cannot set field `st`: "
-                  "cannot unpack YAML as a `tstiop.TestStruct` IOP struct: "
-                  "missing field `s`\n"
-                  "st: i: 42\n"
-                  "    ^^^^^");
+        TST_ERROR(
+            0, "st: i: 42",
+            "<string>:1:5: " ERR_COMMON ": cannot set field `st`: "
+            "cannot unpack YAML as a `tstiop.TestStruct` IOP struct: "
+            "missing field `s`\n"
+            "st: i: 42\n"
+            "    ^^^^^"
+        );
 
         /* using null for a struct with mandatory fields */
-        TST_ERROR(0, "st: ~",
-                  "<string>:1:5: "ERR_COMMON": cannot set field `st`: "
-                  "cannot unpack a null value into a struct with mandatory "
-                  "fields\n"
-                  "st: ~\n"
-                  "    ^");
+        TST_ERROR(
+            0, "st: ~",
+            "<string>:1:5: " ERR_COMMON ": cannot set field `st`: "
+            "cannot unpack a null value into a struct with mandatory "
+            "fields\n"
+            "st: ~\n"
+            "    ^"
+        );
 
         /* multiple keys */
-        TST_ERROR(0, "un: i: 42\n"
-                  "    s: foo",
-                  "<string>:1:5: "ERR_COMMON": cannot set field `un`: "
-                  "cannot unpack YAML as a `tstiop.TestUnion` IOP union: "
-                  "a single key must be specified\n"
-                  "un: i: 42\n"
-                  "    ^ starting here");
+        TST_ERROR(
+            0,
+            "un: i: 42\n"
+            "    s: foo",
+            "<string>:1:5: " ERR_COMMON ": cannot set field `un`: "
+            "cannot unpack YAML as a `tstiop.TestUnion` IOP union: "
+            "a single key must be specified\n"
+            "un: i: 42\n"
+            "    ^ starting here"
+        );
 
         /* wrong keys */
-        TST_ERROR(0, "un: a: 42",
-                  "<string>:1:5: "ERR_COMMON": cannot set field `un`: "
-                  "cannot unpack YAML as a `tstiop.TestUnion` IOP union: "
-                  "unknown field `a`\n"
-                  "un: a: 42\n"
-                  "    ^");
+        TST_ERROR(
+            0, "un: a: 42",
+            "<string>:1:5: " ERR_COMMON ": cannot set field `un`: "
+            "cannot unpack YAML as a `tstiop.TestUnion` IOP union: "
+            "unknown field `a`\n"
+            "un: a: 42\n"
+            "    ^"
+        );
 
         /* error on field unpacking */
-        TST_ERROR(0, "un: i: foo",
-                  "<string>:1:8: "ERR_COMMON": cannot set field `un`: "
-                  "cannot unpack YAML as a `tstiop.TestUnion` IOP union: "
-                  "cannot set field `i`: "
-                  "cannot set a string value in a field of type int\n"
-                  "un: i: foo\n"
-                  "       ^^^");
+        TST_ERROR(
+            0, "un: i: foo",
+            "<string>:1:8: " ERR_COMMON ": cannot set field `un`: "
+            "cannot unpack YAML as a `tstiop.TestUnion` IOP union: "
+            "cannot set field `i`: "
+            "cannot set a string value in a field of type int\n"
+            "un: i: foo\n"
+            "       ^^^"
+        );
 
         /* --- struct errors --- */
 
         /* wrong explicit tag */
-        TST_ERROR(0, "!tstiop.FullDefVal i8: 1",
-                  "<string>:1:1: "ERR_COMMON": "
-                  "wrong type `tstiop.FullDefVal` provided in tag, "
-                  "expected `tstiop.FullOpt`\n"
-                  "!tstiop.FullDefVal i8: 1\n"
-                  "^^^^^^^^^^^^^^^^^^");
+        TST_ERROR(
+            0, "!tstiop.FullDefVal i8: 1",
+            "<string>:1:1: " ERR_COMMON ": "
+            "wrong type `tstiop.FullDefVal` provided in tag, "
+            "expected `tstiop.FullOpt`\n"
+            "!tstiop.FullDefVal i8: 1\n"
+            "^^^^^^^^^^^^^^^^^^"
+        );
 
         /* --- class errors --- */
 
         /* abstract class */
-        TST_ERROR(0, "o: i: 42",
-                  "<string>:1:4: "ERR_COMMON": cannot set field `o`: "
-                  "cannot unpack YAML as a `tstiop.TestClass` IOP struct: "
-                  "`tstiop.TestClass` is abstract and cannot be unpacked\n"
-                  "o: i: 42\n"
-                  "   ^^^^^");
+        TST_ERROR(
+            0, "o: i: 42",
+            "<string>:1:4: " ERR_COMMON ": cannot set field `o`: "
+            "cannot unpack YAML as a `tstiop.TestClass` IOP struct: "
+            "`tstiop.TestClass` is abstract and cannot be unpacked\n"
+            "o: i: 42\n"
+            "   ^^^^^"
+        );
 
         /* unknown class */
-        TST_ERROR(0, "o: !foo\n"
-                  "  i: 42",
-                  "<string>:1:4: "ERR_COMMON": cannot set field `o`: "
-                  "cannot unpack YAML as a `tstiop.TestClass` IOP struct: "
-                  "unknown type `foo` provided in tag, "
-                  "or not a child of `tstiop.TestClass`\n"
-                  "o: !foo\n"
-                  "   ^^^^");
+        TST_ERROR(
+            0,
+            "o: !foo\n"
+            "  i: 42",
+            "<string>:1:4: " ERR_COMMON ": cannot set field `o`: "
+            "cannot unpack YAML as a `tstiop.TestClass` IOP struct: "
+            "unknown type `foo` provided in tag, "
+            "or not a child of `tstiop.TestClass`\n"
+            "o: !foo\n"
+            "   ^^^^"
+        );
 
         /* unrelated class */
-        TST_ERROR(0, "o: !tstiop.MyClass1\n"
-                  "  int1: 42",
-                  "<string>:1:4: "ERR_COMMON": cannot set field `o`: "
-                  "cannot unpack YAML as a `tstiop.TestClass` IOP struct: "
-                  "unknown type `tstiop.MyClass1` provided in tag, "
-                  "or not a child of `tstiop.TestClass`\n"
-                  "o: !tstiop.MyClass1\n"
-                  "   ^^^^^^^^^^^^^^^^");
+        TST_ERROR(
+            0,
+            "o: !tstiop.MyClass1\n"
+            "  int1: 42",
+            "<string>:1:4: " ERR_COMMON ": cannot set field `o`: "
+            "cannot unpack YAML as a `tstiop.TestClass` IOP struct: "
+            "unknown type `tstiop.MyClass1` provided in tag, "
+            "or not a child of `tstiop.TestClass`\n"
+            "o: !tstiop.MyClass1\n"
+            "   ^^^^^^^^^^^^^^^^"
+        );
 
         st = &tstiop__my_class2__s;
 #undef ERR_COMMON
-#define ERR_COMMON  \
-        "cannot unpack YAML as a `tstiop.MyClass2` IOP struct"
+#define ERR_COMMON "cannot unpack YAML as a `tstiop.MyClass2` IOP struct"
 
         /* same parent but not a child */
-        TST_ERROR(0, "!tstiop.MyClass1\n"
-                  "int1: 42",
-                  "<string>:1:1: "ERR_COMMON": "
-                  "provided tag `tstiop.MyClass1` is not a child of "
-                  "`tstiop.MyClass2`\n"
-                  "!tstiop.MyClass1\n"
-                  "^^^^^^^^^^^^^^^^");
+        TST_ERROR(
+            0,
+            "!tstiop.MyClass1\n"
+            "int1: 42",
+            "<string>:1:1: " ERR_COMMON ": "
+            "provided tag `tstiop.MyClass1` is not a child of "
+            "`tstiop.MyClass2`\n"
+            "!tstiop.MyClass1\n"
+            "^^^^^^^^^^^^^^^^"
+        );
 
         st = &tstiop__struct_jpack_flags__s;
 #undef ERR_COMMON
-#define ERR_COMMON  \
-        "cannot unpack YAML as a `tstiop.StructJpackFlags` IOP struct"
+#define ERR_COMMON                                                           \
+    "cannot unpack YAML as a `tstiop.StructJpackFlags` IOP struct"
 
         /* private field */
-        TST_ERROR(IOP_UNPACK_FORBID_PRIVATE,
-                  "priv: 42\n",
-                  "<string>:1:1: "ERR_COMMON": unknown field `priv`\n"
-                  "priv: 42\n"
-                  "^^^^");
+        TST_ERROR(
+            IOP_UNPACK_FORBID_PRIVATE, "priv: 42\n",
+            "<string>:1:1: " ERR_COMMON ": unknown field `priv`\n"
+            "priv: 42\n"
+            "^^^^"
+        );
 
         /* private class */
-        TST_ERROR(IOP_UNPACK_FORBID_PRIVATE,
-                  "myClass: !tstiop.MyClass2Priv\n"
-                  "  int1: 4\n"
-                  "  int2: 2",
-                  "<string>:1:10: "ERR_COMMON": cannot set field `myClass`: "
-                  "cannot unpack YAML as a `tstiop.MyClass2Priv` IOP struct: "
-                  "`tstiop.MyClass2Priv` is private and cannot be "
-                  "unpacked\n"
-                  "myClass: !tstiop.MyClass2Priv\n"
-                  "         ^ starting here");
+        TST_ERROR(
+            IOP_UNPACK_FORBID_PRIVATE,
+            "myClass: !tstiop.MyClass2Priv\n"
+            "  int1: 4\n"
+            "  int2: 2",
+            "<string>:1:10: " ERR_COMMON ": cannot set field `myClass`: "
+            "cannot unpack YAML as a `tstiop.MyClass2Priv` IOP struct: "
+            "`tstiop.MyClass2Priv` is private and cannot be "
+            "unpacked\n"
+            "myClass: !tstiop.MyClass2Priv\n"
+            "         ^ starting here"
+        );
 
         /* test unpacking directly as a union */
         st = &tstiop__my_union_a__s;
 #undef ERR_COMMON
-#define ERR_COMMON  \
-        "cannot unpack YAML as a `tstiop.MyUnionA` IOP union"
+#define ERR_COMMON "cannot unpack YAML as a `tstiop.MyUnionA` IOP union"
 
         /* wrong field */
-        TST_ERROR(0, "o: ra\n",
-                  "<string>:1:1: "ERR_COMMON": unknown field `o`\n"
-                  "o: ra\n"
-                  "^");
+        TST_ERROR(
+            0, "o: ra\n",
+            "<string>:1:1: " ERR_COMMON ": unknown field `o`\n"
+            "o: ra\n"
+            "^"
+        );
 
         /* wrong tag */
-        TST_ERROR(0, "!tstiop.MyUnion o: ra\n",
-                  "<string>:1:1: "ERR_COMMON": wrong type `tstiop.MyUnion` "
-                  "provided in tag, expected `tstiop.MyUnionA`\n"
-                  "!tstiop.MyUnion o: ra\n"
-                  "^^^^^^^^^^^^^^^");
+        TST_ERROR(
+            0, "!tstiop.MyUnion o: ra\n",
+            "<string>:1:1: " ERR_COMMON ": wrong type `tstiop.MyUnion` "
+            "provided in tag, expected `tstiop.MyUnionA`\n"
+            "!tstiop.MyUnion o: ra\n"
+            "^^^^^^^^^^^^^^^"
+        );
 
         /* wrong data type */
-        TST_ERROR(0, "yare yare\n",
-                  "<string>:1:1: "ERR_COMMON": "
-                  "cannot unpack a string value into a union\n"
-                  "yare yare\n"
-                  "^^^^^^^^^");
+        TST_ERROR(
+            0, "yare yare\n",
+            "<string>:1:1: " ERR_COMMON ": "
+            "cannot unpack a string value into a union\n"
+            "yare yare\n"
+            "^^^^^^^^^"
+        );
 
         /* test an error when unpacking a file: should display the filename */
-        path = t_fmt("%*pM/test-data/yaml/invalid_union.yml",
-                     LSTR_FMT_ARG(z_cmddir_g));
-        Z_ASSERT_NEG(t_iop_yunpack_ptr_file(iop_env_ctx, path, st, &res, 0,
-                                            NULL, &err));
-        expected_err = t_fmt("%s:1:1: "ERR_COMMON": unknown field `o`\n"
-                             "o: ra\n"
-                             "^", path);
+        path = t_fmt(
+            "%*pM/test-data/yaml/invalid_union.yml", LSTR_FMT_ARG(z_cmddir_g)
+        );
+        Z_ASSERT_NEG(
+            t_iop_yunpack_ptr_file(iop_env_ctx, path, st, &res, 0, NULL, &err)
+        );
+        expected_err = t_fmt(
+            "%s:1:1: " ERR_COMMON ": unknown field `o`\n"
+            "o: ra\n"
+            "^",
+            path
+        );
         Z_ASSERT_STREQUAL(err.data, expected_err);
 
         /* on unknown file */
-        Z_ASSERT_NEG(t_iop_yunpack_ptr_file(iop_env_ctx, "foo.yml", st, &res,
-                                            0, NULL, &err));
-        Z_ASSERT_STREQUAL(err.data, "cannot read file foo.yml: "
-                          "No such file or directory");
+        Z_ASSERT_NEG(t_iop_yunpack_ptr_file(
+            iop_env_ctx, "foo.yml", st, &res, 0, NULL, &err
+        ));
+        Z_ASSERT_STREQUAL(
+            err.data, "cannot read file foo.yml: "
+                      "No such file or directory"
+        );
 
         /* --- enum errors --- */
 
         st = &tstiop__struct_with_enum_strict__s;
 #undef ERR_COMMON
-#define ERR_COMMON  \
-        "cannot unpack YAML as a `tstiop.StructWithEnumStrict` IOP struct"
+#define ERR_COMMON                                                           \
+    "cannot unpack YAML as a `tstiop.StructWithEnumStrict` IOP struct"
 
         /* invalid string */
-        TST_ERROR(0, "e: D",
-                  "<string>:1:4: "ERR_COMMON": cannot set field `e`: "
-                  "the value is not valid for the enum `EnumStrict`\n"
-                  "e: D\n"
-                  "   ^");
+        TST_ERROR(
+            0, "e: D",
+            "<string>:1:4: " ERR_COMMON ": cannot set field `e`: "
+            "the value is not valid for the enum `EnumStrict`\n"
+            "e: D\n"
+            "   ^"
+        );
         /* invalid number */
-        TST_ERROR(0, "e: 999",
-                  "<string>:1:4: "ERR_COMMON": cannot set field `e`: "
-                  "the value is not valid for the enum `EnumStrict`\n"
-                  "e: 999\n"
-                  "   ^^^");
-        TST_ERROR(0, "e: -10",
-                  "<string>:1:4: "ERR_COMMON": cannot set field `e`: "
-                  "the value is not valid for the enum `EnumStrict`\n"
-                  "e: -10\n"
-                  "   ^^^");
+        TST_ERROR(
+            0, "e: 999",
+            "<string>:1:4: " ERR_COMMON ": cannot set field `e`: "
+            "the value is not valid for the enum `EnumStrict`\n"
+            "e: 999\n"
+            "   ^^^"
+        );
+        TST_ERROR(
+            0, "e: -10",
+            "<string>:1:4: " ERR_COMMON ": cannot set field `e`: "
+            "the value is not valid for the enum `EnumStrict`\n"
+            "e: -10\n"
+            "   ^^^"
+        );
         /* overflow is handled, integer for enums is an int32 */
-        TST_ERROR(0, "e: -5000000000",
-                  "<string>:1:4: "ERR_COMMON": cannot set field `e`: "
-                  "the value is out of range for the field of type enum\n"
-                  "e: -5000000000\n"
-                  "   ^^^^^^^^^^^");
-        TST_ERROR(0, "e: 5000000000",
-                  "<string>:1:4: "ERR_COMMON": cannot set field `e`: "
-                  "the value is out of range for the field of type enum\n"
-                  "e: 5000000000\n"
-                  "   ^^^^^^^^^^");
+        TST_ERROR(
+            0, "e: -5000000000",
+            "<string>:1:4: " ERR_COMMON ": cannot set field `e`: "
+            "the value is out of range for the field of type enum\n"
+            "e: -5000000000\n"
+            "   ^^^^^^^^^^^"
+        );
+        TST_ERROR(
+            0, "e: 5000000000",
+            "<string>:1:4: " ERR_COMMON ": cannot set field `e`: "
+            "the value is out of range for the field of type enum\n"
+            "e: 5000000000\n"
+            "   ^^^^^^^^^^"
+        );
 
         /* --- array errors --- */
 
         st = &tstiop__my_struct_a_opt__s;
 #undef ERR_COMMON
-#define ERR_COMMON  \
-        "cannot unpack YAML as a `tstiop.MyStructAOpt` IOP struct"
+#define ERR_COMMON "cannot unpack YAML as a `tstiop.MyStructAOpt` IOP struct"
 
-        TST_ERROR(0, "u: - - 2",
-                  "<string>:1:6: "ERR_COMMON": cannot set field `u`: "
-                  "cannot unpack an array as an element of an array, "
-                  "did you insert one too many - ?\n"
-                  "u: - - 2\n"
-                  "     ^^^");
+        TST_ERROR(
+            0, "u: - - 2",
+            "<string>:1:6: " ERR_COMMON ": cannot set field `u`: "
+            "cannot unpack an array as an element of an array, "
+            "did you insert one too many - ?\n"
+            "u: - - 2\n"
+            "     ^^^"
+        );
 
 #undef ERR_COMMON
 #undef TST
 #undef TST_ERROR
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(unpack) { /* {{{ */
 #define TST(_st, _yaml, _new_yaml)                                           \
-        Z_HELPER_RUN(iop_yaml_test_unpack(iop_env, (_st), 0, (_yaml),       \
-                                          (_new_yaml)))
+    Z_HELPER_RUN(                                                            \
+        iop_yaml_test_unpack(iop_env, (_st), 0, (_yaml), (_new_yaml))        \
+    )
 
         /* test a lot of different types */
         TST(&tstiop__my_struct_a__s,
@@ -960,8 +1100,7 @@ Z_GROUP_EXPORT(iop_yaml)
             "r: 18\n"
             "s: 19\n"
             "t: 20",
-            NULL
-        );
+            NULL);
 
         /* test uint unpacking into different IOP number sizes */
         TST(&tstiop__my_struct_a_opt__s,
@@ -987,7 +1126,6 @@ Z_GROUP_EXPORT(iop_yaml)
             "!tstiop.JpackEmptyClsC {}");
         TST(&tstiop__jpack_empty_cls_a__s, "!tstiop.JpackEmptyClsC {}", NULL);
 
-
         /* a tag can be specified for a struct too, but will be removed on
          * packing */
         TST(&tstiop__my_struct_a_opt__s, "!tstiop.MyStructAOpt ~", "{}");
@@ -998,8 +1136,7 @@ Z_GROUP_EXPORT(iop_yaml)
             "l: !tstiop.MyUnionA\n"
             "  ua: 0",
             "l:\n"
-            "  ua: 0"
-        );
+            "  ua: 0");
 
         /* unpacking a class as a base class should work */
         TST(&tstiop__my_class2__s,
@@ -1052,21 +1189,13 @@ Z_GROUP_EXPORT(iop_yaml)
 
         /* unpacking an integer inside an enum works, but is repacked as a
          * string. */
-        TST(&tstiop__my_struct_a_opt__s,
-            "k: 0",
-            "k: A");
+        TST(&tstiop__my_struct_a_opt__s, "k: 0", "k: A");
         /* works with negative number as well */
-        TST(&tstiop__struct_with_negative_enum__s,
-            "e: -2",
-            "e: NEG");
+        TST(&tstiop__struct_with_negative_enum__s, "e: -2", "e: NEG");
         /* unpacking an integer not matching any enum element is valid for
          * a non-strict enum, and will be packed as an integer as well. */
-        TST(&tstiop__struct_with_negative_enum__s,
-            "e: -10",
-            NULL);
-        TST(&tstiop__struct_with_negative_enum__s,
-            "e: 10",
-            NULL);
+        TST(&tstiop__struct_with_negative_enum__s, "e: -10", NULL);
+        TST(&tstiop__struct_with_negative_enum__s, "e: 10", NULL);
 
         /* unpacking anything into void is allowed */
         TST(&tstiop__my_struct_a_opt__s, "w: str", "w: ~");
@@ -1130,35 +1259,40 @@ Z_GROUP_EXPORT(iop_yaml)
             NULL);
 
 #undef TST
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(unpack_compat) { /* {{{ */
 #define TST(_st, _yaml, _new_yaml)                                           \
-        Z_HELPER_RUN(iop_yaml_test_unpack(iop_env, (_st), 0, (_yaml),       \
-                                          (_new_yaml)))
+    Z_HELPER_RUN(                                                            \
+        iop_yaml_test_unpack(iop_env, (_st), 0, (_yaml), (_new_yaml))        \
+    )
 #define TST_ERROR(_st, _yaml, _error)                                        \
-        Z_HELPER_RUN(iop_yaml_test_unpack_error(iop_env, (_st), 0, (_yaml), \
-                                                (_error), false))
+    Z_HELPER_RUN(iop_yaml_test_unpack_error(                                 \
+        iop_env, (_st), 0, (_yaml), (_error), false                          \
+    ))
 
         /* a scalar can be unpacked into an array */
-        TST(&tstiop__my_struct_a_opt__s,
-            "u: 3",
-            "u:\n  - 3");
+        TST(&tstiop__my_struct_a_opt__s, "u: 3", "u:\n  - 3");
         /* must be of compatible type however */
-        TST_ERROR(&tstiop__my_struct_a_opt__s,
-                  "u: wry",
-                  "cannot set a string value in a field of type int");
+        TST_ERROR(
+            &tstiop__my_struct_a_opt__s, "u: wry",
+            "cannot set a string value in a field of type int"
+        );
 
         /* integers must be unpackable into doubles */
         TST(&tstiop__my_struct_a_opt__s, "m: 3", NULL);
         TST(&tstiop__my_struct_a_opt__s, "m: -3", NULL);
         /* reverse is not possible */
-        TST_ERROR(&tstiop__my_struct_a_opt__s, "a: 3.2",
-                  "cannot set a double value in a field of type int");
+        TST_ERROR(
+            &tstiop__my_struct_a_opt__s, "a: 3.2",
+            "cannot set a double value in a field of type int"
+        );
 
 #undef TST_ERROR
 #undef TST
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(constraints) { /* {{{ */
         tstiop__constraint_u__t u;
@@ -1168,47 +1302,53 @@ Z_GROUP_EXPORT(iop_yaml)
 #define TST_ERROR(st, v, yaml, err)                                          \
     do {                                                                     \
         Z_ASSERT_NEG(iop_check_constraints_desc((st), (v)));                 \
-        Z_HELPER_RUN(iop_yaml_test_pack(iop_env, (st), (v),                 \
-                                        IOP_JPACK_MINIMAL, false, false,     \
-                                        (yaml)));                            \
-        Z_HELPER_RUN(iop_yaml_test_unpack_error(iop_env, (st), 0, (yaml),   \
-                                                (err), true));               \
-    } while(0)
+        Z_HELPER_RUN(iop_yaml_test_pack(                                     \
+            iop_env, (st), (v), IOP_JPACK_MINIMAL, false, false, (yaml)      \
+        ));                                                                  \
+        Z_HELPER_RUN(iop_yaml_test_unpack_error(                             \
+            iop_env, (st), 0, (yaml), (err), true                            \
+        ));                                                                  \
+    } while (0)
 
         /* check constraints are properly checked on unions */
         u = IOP_UNION(tstiop__constraint_u, u8, 0);
-        TST_ERROR(&tstiop__constraint_u__s, &u,
-            "u8: 0",
+        TST_ERROR(
+            &tstiop__constraint_u__s, &u, "u8: 0",
             "<string>:1:1: cannot unpack YAML as a `tstiop.ConstraintU` "
             "IOP union: field `u8` is invalid: in type tstiop.ConstraintU: "
             "violation of constraint nonZero on field u8\n"
             "u8: 0\n"
-            "^^");
+            "^^"
+        );
 
         /* check constraints on arrays */
         iop_init(tstiop__constraint_s, &s);
-        TST_ERROR(&tstiop__constraint_s__s, &s,
-            "{}",
+        TST_ERROR(
+            &tstiop__constraint_s__s, &s, "{}",
             "<string>:1:1: cannot unpack YAML as a `tstiop.ConstraintS` "
             "IOP struct: field `s` is invalid: in type tstiop.ConstraintS: "
             "empty array not allowed for field `s`\n"
             "{}\n"
-            "^^");
+            "^^"
+        );
 
         /* check constraint on field */
         s.s.tab = &string;
         s.s.len = 1;
-        TST_ERROR(&tstiop__constraint_s__s, &s,
+        TST_ERROR(
+            &tstiop__constraint_s__s, &s,
             "s:\n"
             "  - ora",
             "<string>:2:3: cannot unpack YAML as a `tstiop.ConstraintS` "
             "IOP struct: field `s` is invalid: in type tstiop.ConstraintS: "
             "violation of constraint minOccurs (2) on field s: length=1\n"
             "  - ora\n"
-            "  ^^^^^");
+            "  ^^^^^"
+        );
 
 #undef TST_ERROR
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
 
     Z_TEST(json_subfiles_conversion) { /* {{{ */
@@ -1217,16 +1357,20 @@ Z_GROUP_EXPORT(iop_yaml)
         tstiop__full_opt__t full_opt_val;
         tstiop__test_class_child__t tcc_val;
 
-        subfiles = T_IOP_ARRAY(iop_json_subfile, {
-            .iop_path = LSTR("a"),
-            .file_path = LSTR("a.cf"),
-        }, {
-            .iop_path = LSTR("b"),
-            .file_path = LSTR("b.cf"),
-        });
+        subfiles = T_IOP_ARRAY(
+            iop_json_subfile,
+            {
+                .iop_path = LSTR("a"),
+                .file_path = LSTR("a.cf"),
+            },
+            {
+                .iop_path = LSTR("b"),
+                .file_path = LSTR("b.cf"),
+            }
+        );
 
-        Z_HELPER_RUN(z_test_json_subfiles_conversion(iop_env, &subfiles, NULL,
-                                                     NULL,
+        Z_HELPER_RUN(z_test_json_subfiles_conversion(
+            iop_env, &subfiles, NULL, NULL,
             "mappings:\n"
             "  - path: .a!\n"
             "    node:\n"
@@ -1237,31 +1381,40 @@ Z_GROUP_EXPORT(iop_yaml)
             "a.yml;b.yml"
         ));
 
-        subfiles = T_IOP_ARRAY(iop_json_subfile, {
-            .iop_path = LSTR("a[1].c[1]"),
-            .file_path = LSTR("a/5.json.cf"),
-        }, {
-            .iop_path = LSTR("a[1]"),
-            .file_path = LSTR("a/1.cf"),
-        }, {
-            .iop_path = LSTR("a[1].c[0].d"),
-            .file_path = LSTR("a/d/2.cf"),
-        }, {
-            .iop_path = LSTR("a[1].c[0].d.b"),
-            .file_path = LSTR("a/d/4"),
-        }, {
-            .iop_path = LSTR("a[2]"),
-            .file_path = LSTR("6.json"),
-        }, {
-            .iop_path = LSTR("a[2].f"),
-            .file_path = LSTR("f/7.cf"),
-        }, {
-            .iop_path = LSTR("a[1].c[0].d.a[1]"),
-            .file_path = LSTR("a/d/a/3.cf"),
-        });
+        subfiles = T_IOP_ARRAY(
+            iop_json_subfile,
+            {
+                .iop_path = LSTR("a[1].c[1]"),
+                .file_path = LSTR("a/5.json.cf"),
+            },
+            {
+                .iop_path = LSTR("a[1]"),
+                .file_path = LSTR("a/1.cf"),
+            },
+            {
+                .iop_path = LSTR("a[1].c[0].d"),
+                .file_path = LSTR("a/d/2.cf"),
+            },
+            {
+                .iop_path = LSTR("a[1].c[0].d.b"),
+                .file_path = LSTR("a/d/4"),
+            },
+            {
+                .iop_path = LSTR("a[2]"),
+                .file_path = LSTR("6.json"),
+            },
+            {
+                .iop_path = LSTR("a[2].f"),
+                .file_path = LSTR("f/7.cf"),
+            },
+            {
+                .iop_path = LSTR("a[1].c[0].d.a[1]"),
+                .file_path = LSTR("a/d/a/3.cf"),
+            }
+        );
 
-        Z_HELPER_RUN(z_test_json_subfiles_conversion(iop_env, &subfiles,
-                                                     NULL, NULL,
+        Z_HELPER_RUN(z_test_json_subfiles_conversion(
+            iop_env, &subfiles, NULL, NULL,
             "mappings:\n"
             "  - path: .a[1]!\n"
             "    node:\n"
@@ -1305,35 +1458,44 @@ Z_GROUP_EXPORT(iop_yaml)
         ));
 
         /* Test detection of raw includes */
-        subfiles = T_IOP_ARRAY(iop_json_subfile, {
-            .iop_path = LSTR("i8"),
-            .file_path = LSTR("1.cf"),
-        }, {
-            .iop_path = LSTR("s"),
-            .file_path = LSTR("2.py"),
-        }, {
-            .iop_path = LSTR("un"),
-            .file_path = LSTR("3.cf"),
-        }, {
-            .iop_path = LSTR("un.s"),
-            .file_path = LSTR("4.py"),
-        }, {
-            .iop_path = LSTR("st.s"),
-            .file_path = LSTR("5.toto"),
-        }, {
-            .iop_path = LSTR("data"),
-            .file_path = LSTR("key.pem.enc"),
-        }, {
-            .iop_path = LSTR("e"),
-            .file_path = LSTR("enum"),
-        }, {
-            .iop_path = LSTR("xml"),
-            .file_path = LSTR("doc.xml"),
-        });
+        subfiles = T_IOP_ARRAY(
+            iop_json_subfile,
+            {
+                .iop_path = LSTR("i8"),
+                .file_path = LSTR("1.cf"),
+            },
+            {
+                .iop_path = LSTR("s"),
+                .file_path = LSTR("2.py"),
+            },
+            {
+                .iop_path = LSTR("un"),
+                .file_path = LSTR("3.cf"),
+            },
+            {
+                .iop_path = LSTR("un.s"),
+                .file_path = LSTR("4.py"),
+            },
+            {
+                .iop_path = LSTR("st.s"),
+                .file_path = LSTR("5.toto"),
+            },
+            {
+                .iop_path = LSTR("data"),
+                .file_path = LSTR("key.pem.enc"),
+            },
+            {
+                .iop_path = LSTR("e"),
+                .file_path = LSTR("enum"),
+            },
+            {
+                .iop_path = LSTR("xml"),
+                .file_path = LSTR("doc.xml"),
+            }
+        );
 
-        Z_HELPER_RUN(z_test_json_subfiles_conversion(iop_env, &subfiles,
-                                                     &tstiop__full_opt__s,
-                                                     NULL,
+        Z_HELPER_RUN(z_test_json_subfiles_conversion(
+            iop_env, &subfiles, &tstiop__full_opt__s, NULL,
             "mappings:\n"
             "  - path: .data!\n"
             "    node:\n"
@@ -1367,15 +1529,16 @@ Z_GROUP_EXPORT(iop_yaml)
         ));
 
         /* Test path through a class using child fields */
-        subfiles = T_IOP_ARRAY(iop_json_subfile, {
-            .iop_path = LSTR("o.s"),
-            .file_path = LSTR("os.txt"),
-        });
+        subfiles = T_IOP_ARRAY(
+            iop_json_subfile, {
+                                  .iop_path = LSTR("o.s"),
+                                  .file_path = LSTR("os.txt"),
+                              }
+        );
 
         /* No value provided: not raw by default */
-        Z_HELPER_RUN(z_test_json_subfiles_conversion(iop_env, &subfiles,
-                                                     &tstiop__full_opt__s,
-                                                     NULL,
+        Z_HELPER_RUN(z_test_json_subfiles_conversion(
+            iop_env, &subfiles, &tstiop__full_opt__s, NULL,
             "mappings:\n"
             "  - path: .o.s!\n"
             "    node:\n"
@@ -1387,20 +1550,21 @@ Z_GROUP_EXPORT(iop_yaml)
         iop_init(tstiop__full_opt, &full_opt_val);
         iop_init(tstiop__test_class_child, &tcc_val);
         full_opt_val.o = &tcc_val.super;
-        Z_HELPER_RUN(z_test_json_subfiles_conversion(iop_env, &subfiles,
-                                                     &tstiop__full_opt__s,
-                                                     &full_opt_val,
+        Z_HELPER_RUN(z_test_json_subfiles_conversion(
+            iop_env, &subfiles, &tstiop__full_opt__s, &full_opt_val,
             "mappings:\n"
             "  - path: .o.s!\n"
             "    node:\n"
             "      included: { path: os.txt, raw: true }\n",
             "os.txt"
         ));
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
 
     MODULE_RELEASE(iop_yaml);
     iop_env_delete(&iop_env);
-} Z_GROUP_END;
+}
+Z_GROUP_END;
 
 /* LCOV_EXCL_STOP */

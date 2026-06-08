@@ -19,9 +19,9 @@
 #include <lib-common/arith.h>
 #include <lib-common/qlzo.h>
 
-#define D_BITS          14
-#define D_MASK          ((1u << D_BITS) - 1)
-#define D_HIGH          ((D_MASK >> 1) + 1)
+#define D_BITS 14
+#define D_MASK ((1u << D_BITS) - 1)
+#define D_HIGH ((D_MASK >> 1) + 1)
 
 static ALWAYS_INLINE uint32_t HASH3(const uint8_t *p)
 {
@@ -32,10 +32,7 @@ static ALWAYS_INLINE uint32_t HASH3(const uint8_t *p)
     uint32_t p0 = p[0], p1 = p[1], p2 = p[2], p3 = p[3];
     uint32_t h;
 
-    h = (p3 << (s1 + s2 + s3))
-      ^ (p2 << (s1 + s2))
-      ^ (p1 << (s1))
-      ^ (p0);
+    h = (p3 << (s1 + s2 + s3)) ^ (p2 << (s1 + s2)) ^ (p1 << (s1)) ^ (p0);
 
     h = (h << 5) + h;
     return (h >> 5) & D_MASK;
@@ -56,7 +53,7 @@ lzo_put_varlen(uint8_t *out, unsigned sz, uint32_t mask, uint32_t marker)
     *out++ = marker;
     sz -= mask;
     while (sz > 255) {
-        sz    -= 255;
+        sz -= 255;
         *out++ = 0;
     }
 
@@ -72,8 +69,9 @@ lzo_put_m1(uint8_t *out, const uint8_t *in, uint32_t sz)
         out[0] = in[0];
         if (sz > 1) {
             out[1] = in[1];
-            if (sz > 2)
+            if (sz > 2) {
                 out[2] = in[2];
+            }
         }
         return out + sz;
     }
@@ -84,9 +82,9 @@ lzo_put_m1(uint8_t *out, const uint8_t *in, uint32_t sz)
 
 static ALWAYS_INLINE uint8_t *compress(uint8_t *out, pstream_t *in, void *buf)
 {
-    const uint8_t * const orig_in = in->b;
-    const uint8_t * const ip_end  = in->b_end - LZO_M2_MAX_LEN - 5;
-    unsigned * const dict = buf;
+    const uint8_t *const orig_in = in->b;
+    const uint8_t *const ip_end = in->b_end - LZO_M2_MAX_LEN - 5;
+    unsigned *const dict = buf;
 
     const uint8_t *ii = in->b;
     uint32_t dindex;
@@ -100,31 +98,36 @@ static ALWAYS_INLINE uint8_t *compress(uint8_t *out, pstream_t *in, void *buf)
         uint32_t m_off, m_len, m_len_max;
         const uint8_t *m_pos;
 
-        word   = get_unaligned_cpu32(in->b);
+        word = get_unaligned_cpu32(in->b);
         dindex = HASH3(in->b);
-        m_pos  = orig_in + dict[dindex];
+        m_pos = orig_in + dict[dindex];
 
         if ((size_t)(m_pos + LZO_M4_MAX_OFFSET - in->b) >= LZO_M4_MAX_OFFSET)
+        {
             goto literal;
+        }
 
-        if (get_unaligned_cpu32(m_pos) == word)
+        if (get_unaligned_cpu32(m_pos) == word) {
             goto match;
+        }
 
         dindex = HASH3_SECONDARY(dindex);
-        m_pos  = orig_in + dict[dindex];
+        m_pos = orig_in + dict[dindex];
 
-        if ((size_t)(m_pos + LZO_M4_MAX_OFFSET - in->b) >= LZO_M4_MAX_OFFSET
-        ||  get_unaligned_cpu32(m_pos) != word)
+        if ((size_t)(m_pos + LZO_M4_MAX_OFFSET - in->b) >=
+                LZO_M4_MAX_OFFSET ||
+            get_unaligned_cpu32(m_pos) != word)
         {
-literal:
+        literal:
             dict[dindex] = in->b++ - orig_in;
             continue;
         }
 
-match:
+    match:
         dict[dindex] = in->b - orig_in;
-        if (in->b != ii)
+        if (in->b != ii) {
             out = lzo_put_m1(out, ii, in->b - ii);
+        }
 
         m_len_max = ps_len(in);
         for (m_len = 4; m_len + 2 <= m_len_max; m_len += 2) {
@@ -136,7 +139,7 @@ match:
         }
         m_len += m_len < m_len_max && m_pos[m_len] == in->b[m_len];
 
-        m_off  = in->b - m_pos;
+        m_off = in->b - m_pos;
         if (m_len <= LZO_M2_MAX_LEN) {
             if (m_off <= LZO_M2_MAX_OFFSET) {
                 m_off -= 1;
@@ -156,13 +159,14 @@ match:
                 out = lzo_put_varlen(out, m_len - 2, 31, LZO_M3_MARKER);
             } else {
                 m_off -= LZO_M3_MAX_OFFSET;
-                out = lzo_put_varlen(out, m_len - 2, 7,
-                                     LZO_M4_MARKER | ((m_off >> 11) & 8));
+                out = lzo_put_varlen(
+                    out, m_len - 2, 7, LZO_M4_MARKER | ((m_off >> 11) & 8)
+                );
             }
         }
         out = put_unaligned_le16(out, (m_off << 2));
 
-m2_offset_already_done:
+    m2_offset_already_done:
         __ps_skip(in, m_len);
         ii = in->b;
     }
@@ -181,12 +185,14 @@ size_t qlzo1x_compress(void *orig_out, size_t outlen, pstream_t in, void *buf)
      *
      *      but having valgrind complain sucks during debugging.
      */
-    if (mem_tool_is_running(MEM_TOOL_VALGRIND))
+    if (mem_tool_is_running(MEM_TOOL_VALGRIND)) {
         memset(buf, 0, LZO_BUF_MEM_SIZE);
+    }
 
-    if (likely(ps_has(&in, LZO_M2_MAX_LEN + 5)))
+    if (likely(ps_has(&in, LZO_M2_MAX_LEN + 5))) {
         out = compress(out, &in, buf);
-    t  = ps_len(&in);
+    }
+    t = ps_len(&in);
     if (t > 0) {
         if (out == orig_out && t <= 238) {
             *out++ = (17 + t);

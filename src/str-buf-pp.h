@@ -87,8 +87,9 @@ qvector_t(table_data, qv_t(lstr));
  * \param[in] hdr  The description of the columns.
  * \param[in] data The content of the table.
  */
-void sb_add_table(sb_t *out, const qv_t(table_hdr) *hdr,
-                  const qv_t(table_data) *data);
+void sb_add_table(
+    sb_t *out, const qv_t(table_hdr) *hdr, const qv_t(table_data) *data
+);
 
 /** Format a table in CSV.
  *
@@ -111,7 +112,9 @@ void sb_add_table(sb_t *out, const qv_t(table_hdr) *hdr,
  * \param[in] hdr      The description of the columns.
  * \param[in] data     The content of the table.
  */
-void sb_add_csv_table(sb_t *out, const qv_t(table_hdr) *hdr,
-                      const qv_t(table_data) *data, int sep);
+void sb_add_csv_table(
+    sb_t *out, const qv_t(table_hdr) *hdr, const qv_t(table_data) *data,
+    int sep
+);
 
 #endif /* IS_LIB_COMMON_STR_BUF_PP_H */

@@ -189,7 +189,7 @@ qvector_t(qps_index_vec_type, qv_t(i32));
 /* Description of steps which can be played in qpstress. */
 typedef int (*qpsstress_step_f)(qpsstress_instr_t *instr);
 typedef struct qpsstress_step_desc_t {
-    const char * const name;
+    const char *const name;
     const qpsstress_step_f run_step;
 } qpsstress_step_desc_t;
 
@@ -204,15 +204,16 @@ struct {
     qps_t *qps;
     bool has_snapshotted;
 
-    qv_t(qps_handle_vec) vec_type_h;       /* Vector of handles per type. */
-    qv_t(qps_handle_vec) vec_type_snap_h;  /* Snapshoted handles per type. */
+    qv_t(qps_handle_vec) vec_type_h;      /* Vector of handles per type. */
+    qv_t(qps_handle_vec) vec_type_snap_h; /* Snapshoted handles per type. */
 
-    qv_t(qps_obj_vec_type) vec_loaded_obj;/* Vector of loaded objects per
-                                             type. */
+    qv_t(qps_obj_vec_type) vec_loaded_obj; /* Vector of loaded objects per
+                                              type. */
 
-    qv_t(qps_index_vec_type) free_list;     /* Per type, vector of indexes
-                                             * which are currently free. */
-    qv_t(qps_index_vec_type) snap_free_list;/* Like above, after snapshots. */
+    qv_t(qps_index_vec_type) free_list; /* Per type, vector of indexes
+                                         * which are currently free. */
+    qv_t(qps_index_vec_type)
+        snap_free_list; /* Like above, after snapshots. */
 
     struct {
         bool opt_end_app;
@@ -227,25 +228,36 @@ const qpsstress_step_desc_t g_list_steps[QPS_MAX_CASES];
 
 #ifndef __fuzzing__
 
-static const char *qpsstress_usage_g = "QPS_PATH [REPLAY_FILE]\n\n"
-"Stress QPS in (QPS_PATH) folder and abort on the first issue. If a replay "
-"file\nis provided, play it before performing QPS operations randomly. This "
-"tool is\nnot supposed to be used outside Intersec R&D.\n\n"
-"Options:\n"
-"--------";
+static const char *qpsstress_usage_g =
+    "QPS_PATH [REPLAY_FILE]\n\n"
+    "Stress QPS in (QPS_PATH) folder and abort on the first issue. If a "
+    "replay "
+    "file\nis provided, play it before performing QPS operations randomly. "
+    "This "
+    "tool is\nnot supposed to be used outside Intersec R&D.\n\n"
+    "Options:\n"
+    "--------";
 
 static popt_t qpsstress_popt_g[] = {
     OPT_FLAG('h', "help", &_G.opt_help, "show this help"),
-    OPT_FLAG('o', "old-alloc", &_G.opt_old_alloc_strategy, "go back "
-             "to the legacy allocation strategy for handles (less "
-             "stimulation on QPS allocator)"),
-    OPT_FLAG('e', "end-app-after-replay", &_G.replay.opt_end_app, "stop the "
-             "application at the end of a replay (no random events "
-             "afterwards)"),
-    OPT_FLAG('s', "safe-en-after-insert-remove", &_G.opt_protect_en_access,
-             "perform only safe accesses on enumerators until next or "
-             "goto operation is triggered when keys are inserted/removed "
-             "(avoid partial sync leading to segfaults or asserts)"),
+    OPT_FLAG(
+        'o', "old-alloc", &_G.opt_old_alloc_strategy,
+        "go back "
+        "to the legacy allocation strategy for handles (less "
+        "stimulation on QPS allocator)"
+    ),
+    OPT_FLAG(
+        'e', "end-app-after-replay", &_G.replay.opt_end_app,
+        "stop the "
+        "application at the end of a replay (no random events "
+        "afterwards)"
+    ),
+    OPT_FLAG(
+        's', "safe-en-after-insert-remove", &_G.opt_protect_en_access,
+        "perform only safe accesses on enumerators until next or "
+        "goto operation is triggered when keys are inserted/removed "
+        "(avoid partial sync leading to segfaults or asserts)"
+    ),
     OPT_END(),
 };
 
@@ -254,19 +266,19 @@ static popt_t qpsstress_popt_g[] = {
 /* }}} */
 /* {{{ QPS stress helpers related to logs */
 
-#if !defined(__fuzzing__) || defined (__fuzzing_log__)
+#if !defined(__fuzzing__) || defined(__fuzzing_log__)
 
-#define log_step_may_fail e_debug
-#define log_step_extra_info e_debug
-#define log_before_step e_info
-#define log_after_step e_info
+#  define log_step_may_fail e_debug
+#  define log_step_extra_info e_debug
+#  define log_before_step e_info
+#  define log_after_step e_info
 
 #else
 
-#define log_step_may_fail(...) ((void)0)
-#define log_step_extra_info(...) ((void)0)
-#define log_before_step(...) ((void)0)
-#define log_after_step(...) ((void)0)
+#  define log_step_may_fail(...) ((void)0)
+#  define log_step_extra_info(...) ((void)0)
+#  define log_before_step(...) ((void)0)
+#  define log_after_step(...) ((void)0)
 
 #endif
 
@@ -277,25 +289,24 @@ static popt_t qpsstress_popt_g[] = {
 
 /** Define structure stored in QPS at the beginning of handle memory. */
 typedef struct blk_data {
-    uint32_t app_sz32;  /* Size of app_data field (i.e. after CRC field) */
-    uint32_t crc;       /* CRC based on handle id value and app_sz32 field. */
+    uint32_t app_sz32; /* Size of app_data field (i.e. after CRC field) */
+    uint32_t crc;      /* CRC based on handle id value and app_sz32 field. */
     uint32_t app_data[];
 } blk_data;
 
-#define PATTERN_VAL_8(h) (h & 0xff)
-#define PATTERN_VAL_32(h)                                                    \
-    (PATTERN_VAL_8(h) << 24 | PATTERN_VAL_8(h) << 16 |                       \
-     PATTERN_VAL_8(h) << 8 | PATTERN_VAL_8(h))
+#  define PATTERN_VAL_8(h) (h & 0xff)
+#  define PATTERN_VAL_32(h)                                                  \
+      (PATTERN_VAL_8(h) << 24 | PATTERN_VAL_8(h) << 16 |                     \
+       PATTERN_VAL_8(h) << 8 | PATTERN_VAL_8(h))
 
-#define BLK_APP_DATA_SIZE_FROM_QPS_BLK_T32(blk_sz)                           \
-    (((blk_sz) - offsetof(blk_data, app_data)) / sizeof(uint32_t))
+#  define BLK_APP_DATA_SIZE_FROM_QPS_BLK_T32(blk_sz)                         \
+      (((blk_sz) - offsetof(blk_data, app_data)) / sizeof(uint32_t))
 
-#define BLK_APP_DATA_SIZE_T32(data)                                          \
-    ((data)->app_sz32)
-#define BLK_APP_DATA_SIZE_T8(data)                                           \
-    (BLK_APP_DATA_SIZE_T32(data) * sizeof(uint32_t))
-#define BLK_SIZE_T8(data)                                                    \
-    (BLK_APP_DATA_SIZE_T8(data) + offsetof(blk_data, app_data))
+#  define BLK_APP_DATA_SIZE_T32(data) ((data)->app_sz32)
+#  define BLK_APP_DATA_SIZE_T8(data)                                         \
+      (BLK_APP_DATA_SIZE_T32(data) * sizeof(uint32_t))
+#  define BLK_SIZE_T8(data)                                                  \
+      (BLK_APP_DATA_SIZE_T8(data) + offsetof(blk_data, app_data))
 
 /** FIXME: Should we really duplicate this function from qps.blk? */
 /** Retrieve the associated QPS pointer from a "basic" pointer. */
@@ -312,23 +323,28 @@ static void print_h_info(qps_handle_t h)
     qps_ptr_t hptr = *qps_handle_slot(_G.qps, h);
     uint8_t *instr = qps_handle_deref(_G.qps, h);
     size_t sz = qps_sizeof(_G.qps, instr);
-    qps_ptr_t hptr_hdr = qps_encode((void*)cast(uintptr_t, instr - 8));
-    qps_ptr_t hptr_end = qps_encode((void*)cast(uintptr_t, instr + sz - 1));
+    qps_ptr_t hptr_hdr = qps_encode((void *)cast(uintptr_t, instr - 8));
+    qps_ptr_t hptr_end = qps_encode((void *)cast(uintptr_t, instr + sz - 1));
 
     e_error("error processing handle %u (size: %zu)", h, sz);
-    e_error("\thdr starting at " QPS_PTR_FMT " (%p)", QPS_PTR_ARG(hptr_hdr),
-            instr - 8);
-    e_error("\tdata starts at  " QPS_PTR_FMT " (%p)", QPS_PTR_ARG(hptr),
-            instr);
-    e_error("\tdata ends at    " QPS_PTR_FMT  " (%p)",
-            QPS_PTR_ARG(hptr_end), instr + sz - 1);
+    e_error(
+        "\thdr starting at " QPS_PTR_FMT " (%p)", QPS_PTR_ARG(hptr_hdr),
+        instr - 8
+    );
+    e_error(
+        "\tdata starts at  " QPS_PTR_FMT " (%p)", QPS_PTR_ARG(hptr), instr
+    );
+    e_error(
+        "\tdata ends at    " QPS_PTR_FMT " (%p)", QPS_PTR_ARG(hptr_end),
+        instr + sz - 1
+    );
 }
 
 static void
 set_blk_data_hdr(blk_data *data_hdr, qps_handle_t h, size_t new_sz)
 {
-    data_hdr->app_sz32 = (new_sz - offsetof(blk_data, app_data)) /
-                         sizeof(uint32_t) ;
+    data_hdr->app_sz32 =
+        (new_sz - offsetof(blk_data, app_data)) / sizeof(uint32_t);
     data_hdr->crc = icrc32(h, &data_hdr->app_sz32, offsetof(blk_data, crc));
 }
 
@@ -338,24 +354,31 @@ static void check_handle_data(blk_data *instr, qps_handle_t h, size_t new_sz)
     uint32_t check_sz32;
 
     /* Detect any corruption of this CRC in handle memory now. */
-    assert(icrc32(h, &instr->app_sz32, offsetof(blk_data, crc)) ==
-           instr->crc);
+    assert(
+        icrc32(h, &instr->app_sz32, offsetof(blk_data, crc)) == instr->crc
+    );
 
     /* The following line catches the case where realloc has been performed in
      * tlsf map (with bigger size) but pattern is not yet fully copied. */
-    check_sz32 = MIN(BLK_APP_DATA_SIZE_T32(instr),
-                     BLK_APP_DATA_SIZE_FROM_QPS_BLK_T32(new_sz));
+    check_sz32 =
+        MIN(BLK_APP_DATA_SIZE_T32(instr),
+            BLK_APP_DATA_SIZE_FROM_QPS_BLK_T32(new_sz));
 
     /* Check pattern for current handle in QPS */
     for (uint32_t i = 0; i < check_sz32 / sizeof(uint32_t); i++) {
         if (instr->app_data[i] != pattern) {
             print_h_info(h);
-            e_error("expected pattern byte is 0x%08x, found 0x%08x after "
-                    "%zu byte(s) --> %p", pattern, instr->app_data[i],
-                    offsetof(blk_data, app_data) + sizeof(uint32_t) * i,
-                    &instr->app_data[i]);
-            e_error("qps generation is %u, map generation is %u",
-                    _G.qps->generation, qps_map_of(instr)->hdr.generation);
+            e_error(
+                "expected pattern byte is 0x%08x, found 0x%08x after "
+                "%zu byte(s) --> %p",
+                pattern, instr->app_data[i],
+                offsetof(blk_data, app_data) + sizeof(uint32_t) * i,
+                &instr->app_data[i]
+            );
+            e_error(
+                "qps generation is %u, map generation is %u",
+                _G.qps->generation, qps_map_of(instr)->hdr.generation
+            );
             assert(false);
         }
     }
@@ -400,9 +423,9 @@ static void check_blk_then_set_handle_data(qps_handle_t h)
 
 #else /* ! CHECK_PATTERN_AND_HANDLE */
 
-#define set_handle_data(...)                ((void)0)
-#define check_blk_header_and_data(...)      ((void)0)
-#define check_blk_then_set_handle_data(...) ((void)0)
+#  define set_handle_data(...) ((void)0)
+#  define check_blk_header_and_data(...) ((void)0)
+#  define check_blk_then_set_handle_data(...) ((void)0)
 
 #endif
 
@@ -414,7 +437,7 @@ static void check_qps(void)
 
     __qps_check_maps(_G.qps, true);
     if (_G.has_snapshotted) {
-        assert (__qps_check_consistency(_G.path, "stress-consistency") >= 0);
+        assert(__qps_check_consistency(_G.path, "stress-consistency") >= 0);
         _G.has_snapshotted = false;
     }
 }
@@ -437,8 +460,7 @@ static void init_qpsstress_vectors(void)
     qv_growlen0(&_G.snap_free_list, QPS_MAX_TYPES_OBJECTS);
 }
 
-static void
-dealloc_slot_for_qps_obj(qps_obj_type_t type, qps_obj_t *obj)
+static void dealloc_slot_for_qps_obj(qps_obj_type_t type, qps_obj_t *obj)
 {
     p_delete(&obj->obj_ptr);
     p_delete(&obj->ctx.extra_info);
@@ -467,7 +489,8 @@ static void destroy_qpsstress_vectors(void)
     qv_deep_wipe(&_G.snap_free_list, qv_wipe);
 }
 
-static int max_of_qps_obj_reached(qps_obj_type_t type) {
+static int max_of_qps_obj_reached(qps_obj_type_t type)
+{
     const int limit_objs_per_type = 5;
     qv_t(qps_obj_vec) *v = &_G.vec_loaded_obj.tab[type];
     qv_t(i32) *v_free = &_G.free_list.tab[type];
@@ -527,10 +550,10 @@ static int find_pos_from_handle(qps_obj_type_t type, qps_handle_t h)
 
     assert(type < QPS_MAX_TYPES_OBJECTS);
     v = &_G.vec_type_h.tab[type];
-    pos = qv_find(i32)(v, h, false, ^int (int32_t const *i1,
-                                          int32_t const *i2) {
-        return CMP((*i1), (*i2));
-    });
+    pos =
+        qv_find(i32)(v, h, false, ^int(int32_t const *i1, int32_t const *i2) {
+            return CMP((*i1), (*i2));
+        });
 
     return pos;
 }
@@ -575,15 +598,19 @@ static int qalloc(qpsstress_instr_t *instr)
     void *ptr;
     size_t g;
 
-    log_step_may_fail("step=%d (%s): allocating handle, size=%zu", QPS_ALLOC,
-                      __FUNCTION__, instr->expected_sz);
+    log_step_may_fail(
+        "step=%d (%s): allocating handle, size=%zu", QPS_ALLOC, __FUNCTION__,
+        instr->expected_sz
+    );
     ptr = qps_alloc(_G.qps, &h, instr->expected_sz);
     if (likely(ptr)) {
         g = qps_sizeof(_G.qps, ptr);
         assert(g >= instr->expected_sz);
         set_handle_data(ptr, h, g);
-        log_after_step("step=%d (%s): h=%d, size=%zu, got=%zu", QPS_ALLOC,
-                       __FUNCTION__, h, instr->expected_sz, g);
+        log_after_step(
+            "step=%d (%s): h=%d, size=%zu, got=%zu", QPS_ALLOC, __FUNCTION__,
+            h, instr->expected_sz, g
+        );
         register_handle_for_type(QPS_GENERIC_TYPE, h);
 #ifdef __fuzzing__
         instr->h = h;
@@ -604,17 +631,19 @@ static int qrealloc(qpsstress_instr_t *instr)
     if (_G.opt_old_alloc_strategy && o >= 4096) {
         return -1;
     }
-    log_step_may_fail("step=%d (%s): reallocating h=%d, new_size=%zu",
-                      QPS_REALLOC, __FUNCTION__, instr->h,
-                      instr->expected_sz);
+    log_step_may_fail(
+        "step=%d (%s): reallocating h=%d, new_size=%zu", QPS_REALLOC,
+        __FUNCTION__, instr->h, instr->expected_sz
+    );
     p = qps_realloc(_G.qps, instr->h, instr->expected_sz);
     if (likely(p)) {
         g = qps_sizeof(_G.qps, p);
         assert(g >= instr->expected_sz);
         check_blk_then_set_handle_data(instr->h);
-        log_after_step("step=%d (%s): h=%d, size=%zu, old=%zu, got=%zu",
-                       QPS_REALLOC, __FUNCTION__, instr->h, instr->expected_sz, o,
-                       g);
+        log_after_step(
+            "step=%d (%s): h=%d, size=%zu, old=%zu, got=%zu", QPS_REALLOC,
+            __FUNCTION__, instr->h, instr->expected_sz, o, g
+        );
 #ifndef __fuzzing__
     } else {
         assert(0);
@@ -640,8 +669,9 @@ static int qdealloc(qpsstress_instr_t *instr)
     int pos = find_pos_from_handle(QPS_GENERIC_TYPE, instr->h);
 
     assert(pos != -1);
-    log_before_step("step=%d (%s): h=%d", QPS_DEALLOC, __FUNCTION__,
-                    instr->h);
+    log_before_step(
+        "step=%d (%s): h=%d", QPS_DEALLOC, __FUNCTION__, instr->h
+    );
     check_blk_header_and_data(instr->h);
     qps_free(_G.qps, instr->h);
     unregister_handle_for_type(QPS_GENERIC_TYPE, pos);
@@ -651,17 +681,20 @@ static int qdealloc(qpsstress_instr_t *instr)
 static int qsnapshot(qpsstress_instr_t *instr)
 {
     tab_for_each_pos(pos, &_G.vec_type_h) {
-        qv_splice(&_G.vec_type_snap_h.tab[pos], 0,
-                  _G.vec_type_snap_h.tab[pos].len,
-                  _G.vec_type_h.tab[pos].tab, _G.vec_type_h.tab[pos].len);
+        qv_splice(
+            &_G.vec_type_snap_h.tab[pos], 0, _G.vec_type_snap_h.tab[pos].len,
+            _G.vec_type_h.tab[pos].tab, _G.vec_type_h.tab[pos].len
+        );
 
-        qv_splice(&_G.snap_free_list.tab[pos], 0,
-                  _G.snap_free_list.tab[pos].len,
-                  _G.free_list.tab[pos].tab, _G.free_list.tab[pos].len);
+        qv_splice(
+            &_G.snap_free_list.tab[pos], 0, _G.snap_free_list.tab[pos].len,
+            _G.free_list.tab[pos].tab, _G.free_list.tab[pos].len
+        );
     }
 
-    log_before_step("step=%d (%s): >>>>>>>>>>>>>>>", QPS_SNAPSHOT,
-                    __FUNCTION__);
+    log_before_step(
+        "step=%d (%s): >>>>>>>>>>>>>>>", QPS_SNAPSHOT, __FUNCTION__
+    );
     qps_snapshot(_G.qps, NULL, 0, ^(uint32_t gen) {
     });
     return 0;
@@ -669,8 +702,9 @@ static int qsnapshot(qpsstress_instr_t *instr)
 
 static int qsnapshot_wait(qpsstress_instr_t *instr)
 {
-    log_before_step("step=%d (%s): <<<<<<<<<<<<<<<", QPS_SNAPSHOT_WAIT,
-                    __FUNCTION__);
+    log_before_step(
+        "step=%d (%s): <<<<<<<<<<<<<<<", QPS_SNAPSHOT_WAIT, __FUNCTION__
+    );
     qps_snapshot_wait(_G.qps);
     qps_gc_run(_G.qps);
     /* Previous call can actually make some addresses unavailable for QPS
@@ -683,19 +717,23 @@ static int qsnapshot_wait(qpsstress_instr_t *instr)
 static int qreopen(qpsstress_instr_t *instr)
 {
     tab_for_each_pos(pos, &_G.vec_type_h) {
-        qv_splice(&_G.vec_type_h.tab[pos], 0, _G.vec_type_h.tab[pos].len,
-                  _G.vec_type_snap_h.tab[pos].tab,
-                  _G.vec_type_snap_h.tab[pos].len);
+        qv_splice(
+            &_G.vec_type_h.tab[pos], 0, _G.vec_type_h.tab[pos].len,
+            _G.vec_type_snap_h.tab[pos].tab, _G.vec_type_snap_h.tab[pos].len
+        );
 
-        qv_splice(&_G.free_list.tab[pos], 0, _G.free_list.tab[pos].len,
-                  _G.snap_free_list.tab[pos].tab,
-                  _G.snap_free_list.tab[pos].len);
+        qv_splice(
+            &_G.free_list.tab[pos], 0, _G.free_list.tab[pos].len,
+            _G.snap_free_list.tab[pos].tab, _G.snap_free_list.tab[pos].len
+        );
     }
 
     dealloc_qpsstress_objs();
 
-    log_before_step("step=%d (%s): =========================================",
-                    QPS_REOPEN, __FUNCTION__);
+    log_before_step(
+        "step=%d (%s): =========================================", QPS_REOPEN,
+        __FUNCTION__
+    );
     qps_close(&_G.qps);
     _G.qps = qps_open(_G.path, "stress", NULL);
     qps_gc_run(_G.qps);
@@ -790,13 +828,12 @@ static void restrict_change_key_value(uint32_t min_key_allowed, uint32_t *key)
         *key += min_key_allowed;
     } else {
         /* Stay on the key or move by one to avoid overflow. */
-        *key = min_key_allowed == UINT32_MAX ? min_key_allowed :
-                                               min_key_allowed + (*key & 1);
+        *key = min_key_allowed == UINT32_MAX ? min_key_allowed
+                                             : min_key_allowed + (*key & 1);
     }
 }
 
-static void
-alloc_slot_for_qps_obj(qps_obj_type_t type, qps_obj_t *obj)
+static void alloc_slot_for_qps_obj(qps_obj_type_t type, qps_obj_t *obj)
 {
     switch (type) {
     case QPS_QHAT:
@@ -852,8 +889,10 @@ static int load_obj_from_instr(qpsstress_instr_t *instr, qps_obj_t **obj)
 
 #define QHAT_SLOT_PATTERN(h, key) ((h ^ key) | 1)
 
-static void set_qhat_slot(qhat_node_memory_t qhat_slot, qps_handle_t h,
-                          uint32_t key, uint32_t qhat_value_len)
+static void set_qhat_slot(
+    qhat_node_memory_t qhat_slot, qps_handle_t h, uint32_t key,
+    uint32_t qhat_value_len
+)
 {
     uint32_t val = QHAT_SLOT_PATTERN(h, key);
     uint64_t val_64 = (((uint64_t)val << 32) | val);
@@ -880,7 +919,7 @@ static void set_qhat_slot(qhat_node_memory_t qhat_slot, qps_handle_t h,
         *(qhat_slot.u64) = val_64;
         break;
 
-    default :
+    default:
         assert(0);
         break;
     }
@@ -888,14 +927,15 @@ static void set_qhat_slot(qhat_node_memory_t qhat_slot, qps_handle_t h,
 
 static void set_qhat_slot_from_key(qhat_t *hat, qps_handle_t h, uint32_t key)
 {
-    qhat_node_memory_t qhat_slot = { .raw = qhat_set(hat, key) };
+    qhat_node_memory_t qhat_slot = {.raw = qhat_set(hat, key)};
 
     set_qhat_slot(qhat_slot, h, key, hat->root->value_len);
 }
 
-static void
-check_qhat_slot(qhat_node_const_memory_t qhat_slot, qps_handle_t h,
-                uint32_t key, uint32_t qhat_value_len)
+static void check_qhat_slot(
+    qhat_node_const_memory_t qhat_slot, qps_handle_t h, uint32_t key,
+    uint32_t qhat_value_len
+)
 {
     uint32_t val = QHAT_SLOT_PATTERN(h, key);
     uint64_t val_64 = (((uint64_t)val << 32) | val);
@@ -926,7 +966,7 @@ check_qhat_slot(qhat_node_const_memory_t qhat_slot, qps_handle_t h,
         assert(*qhat_slot.u64 == val_64 || *qhat_slot.u64 == 0);
         break;
 
-    default :
+    default:
         assert(0);
     }
 }
@@ -936,14 +976,14 @@ check_qhat_slot(qhat_node_const_memory_t qhat_slot, qps_handle_t h,
 static void
 check_qhat_slot_from_key(qhat_t *hat, qps_handle_t h, uint32_t key)
 {
-    qhat_node_const_memory_t qhat_slot = { .raw = qhat_get(hat, key) };
+    qhat_node_const_memory_t qhat_slot = {.raw = qhat_get(hat, key)};
 
     check_qhat_slot(qhat_slot, h, key, hat->root->value_len);
 }
 
 static void check_qhat_slot_from_path(qhat_path_t *path, qps_handle_t h)
 {
-    qhat_node_const_memory_t qhat_slot = { .raw = qhat_get_path(path) };
+    qhat_node_const_memory_t qhat_slot = {.raw = qhat_get_path(path)};
 
     check_qhat_slot(qhat_slot, h, path->key, path->hat->root->value_len);
 }
@@ -957,15 +997,18 @@ static int qobj_create(qpsstress_instr_t *instr)
         return -1;
     }
 
-    log_step_may_fail("step=%d (%s): allocating object for type=%d,"
-                      "value_len=%u, is_nullable=%d", QPS_OBJ_CREATE,
-                      __FUNCTION__, instr->obj_instr.type,
-                      create_qobj->val_len, create_qobj->is_nullable);
+    log_step_may_fail(
+        "step=%d (%s): allocating object for type=%d,"
+        "value_len=%u, is_nullable=%d",
+        QPS_OBJ_CREATE, __FUNCTION__, instr->obj_instr.type,
+        create_qobj->val_len, create_qobj->is_nullable
+    );
 
     switch (instr->obj_instr.type) {
     case QPS_QHAT: {
-        h = qhat_create(_G.qps, create_qobj->val_len,
-                        create_qobj->is_nullable);
+        h = qhat_create(
+            _G.qps, create_qobj->val_len, create_qobj->is_nullable
+        );
     } break;
 
     case QPS_QBITMAP:
@@ -983,10 +1026,11 @@ static int qobj_create(qpsstress_instr_t *instr)
     assert(h != QPS_HANDLE_NULL);
     register_handle_for_type(instr->obj_instr.type, h);
 
-    log_after_step("step=%d (%s): h=%u, type=%d, value_len=%u, "
-                   "is_nullable=%d", QPS_OBJ_CREATE, __FUNCTION__, h,
-                   instr->obj_instr.type, create_qobj->val_len,
-                   create_qobj->is_nullable);
+    log_after_step(
+        "step=%d (%s): h=%u, type=%d, value_len=%u, is_nullable=%d",
+        QPS_OBJ_CREATE, __FUNCTION__, h, instr->obj_instr.type,
+        create_qobj->val_len, create_qobj->is_nullable
+    );
     return 0;
 }
 
@@ -1011,8 +1055,9 @@ static inline void qhat_update_next_safe_en_access(qps_obj_t *hat_obj)
      * requested by Qhat even for a simple modification (without changing Qhat
      * structure). */
     if (en->is_nullable) {
-        next_safe = !(qps_bitmap_enumerator_is_sync(&en->bitmap) &&
-                    qhat_path_is_fully_sync(&en->nu_trie.path));
+        next_safe =
+            !(qps_bitmap_enumerator_is_sync(&en->bitmap) &&
+              qhat_path_is_fully_sync(&en->nu_trie.path));
     } else {
         next_safe = !qhat_path_is_fully_sync(&en->nn_trie.path);
     }
@@ -1032,8 +1077,9 @@ qhat_compute_en_safe_access(qps_obj_t *hat_obj, bool from_instr)
     return !qhat_enumerator_is_sync(hat_obj->ctx.hat_en) || from_instr;
 }
 
-static inline void qobj_add_key(qps_obj_type_t type, qps_handle_t h,
-                                uint32_t key, qps_obj_t *obj)
+static inline void qobj_add_key(
+    qps_obj_type_t type, qps_handle_t h, uint32_t key, qps_obj_t *obj
+)
 {
     switch (type) {
     case QPS_QHAT:
@@ -1056,8 +1102,9 @@ static inline void qobj_add_key(qps_obj_type_t type, qps_handle_t h,
     }
 }
 
-static inline void qobj_get_key(qps_obj_type_t type, qps_handle_t h,
-                                uint32_t key, qps_obj_t *obj)
+static inline void qobj_get_key(
+    qps_obj_type_t type, qps_handle_t h, uint32_t key, qps_obj_t *obj
+)
 {
     switch (type) {
     case QPS_QHAT:
@@ -1074,8 +1121,8 @@ static inline void qobj_get_key(qps_obj_type_t type, qps_handle_t h,
     }
 }
 
-static inline void qobj_rm_key(qps_obj_type_t type, qps_handle_t h,
-                               uint32_t key, qps_obj_t *obj)
+static inline void
+qobj_rm_key(qps_obj_type_t type, qps_handle_t h, uint32_t key, qps_obj_t *obj)
 {
     switch (type) {
     case QPS_QHAT:
@@ -1106,10 +1153,11 @@ static int qobj_apply_mul_op(qpsstress_step_t step, qpsstress_instr_t *instr)
         instr->obj_instr.mul_op.gap_keys = 1;
     }
 
-    log_before_step("step=%d (%s): h=%u, type=%d, start_key=%u, gap=%u, "
-                    "nbr_iter=%u", step, g_list_steps[step].name, instr->h,
-                    instr->obj_instr.type, mul_op->key, mul_op->gap_keys,
-                    mul_op->nbr_iter);
+    log_before_step(
+        "step=%d (%s): h=%u, type=%d, start_key=%u, gap=%u, nbr_iter=%u",
+        step, g_list_steps[step].name, instr->h, instr->obj_instr.type,
+        mul_op->key, mul_op->gap_keys, mul_op->nbr_iter
+    );
 
     for (uint32_t i = 0; i < mul_op->nbr_iter; i++) {
         uint32_t key = mul_op->key + (i * mul_op->gap_keys);
@@ -1143,7 +1191,7 @@ static int qobj_apply_mul_op(qpsstress_step_t step, qpsstress_instr_t *instr)
     static int _func(qpsstress_instr_t *instr)                               \
     {                                                                        \
         return qobj_apply_mul_op(_step, instr);                              \
-    }                                                                        \
+    }
 
 DECLARE_QOBJ_MUL_OP_FUNC(qobj_set, QPS_OBJ_SET)
 DECLARE_QOBJ_MUL_OP_FUNC(qobj_mul_set, QPS_OBJ_MULTIPLE_SET)
@@ -1160,8 +1208,10 @@ DECLARE_QOBJ_MUL_OP_FUNC(qobj_mul_rm_entry, QPS_OBJ_MULTIPLE_RM_ENTRY)
                                                                              \
         THROW_ERR_IF(load_obj_from_instr(_instr, &obj) < 0);                 \
                                                                              \
-        log_before_step("step=%d (%s): h=%u, type=%d", _step, __FUNCTION__,  \
-                        _instr->h, _instr->obj_instr.type);                  \
+        log_before_step(                                                     \
+            "step=%d (%s): h=%u, type=%d", _step, __FUNCTION__, _instr->h,   \
+            _instr->obj_instr.type                                           \
+        );                                                                   \
                                                                              \
         switch (_instr->obj_instr.type) {                                    \
         case QPS_QHAT:                                                       \
@@ -1179,8 +1229,9 @@ DECLARE_QOBJ_MUL_OP_FUNC(qobj_mul_rm_entry, QPS_OBJ_MULTIPLE_RM_ENTRY)
                                                                              \
         if (_do_dealloc) {                                                   \
             dealloc_slot_for_qps_obj(_instr->obj_instr.type, obj);           \
-            unregister_handle_for_type(_instr->obj_instr.type,               \
-                                       _instr->obj_instr.pos);               \
+            unregister_handle_for_type(                                      \
+                _instr->obj_instr.type, _instr->obj_instr.pos                \
+            );                                                               \
         }                                                                    \
                                                                              \
     } while (0)
@@ -1227,8 +1278,9 @@ static int qhat_reset_en(qpsstress_instr_t *instr)
 
     THROW_ERR_IF(hat_obj == NULL);
 
-    log_before_step("step=%d (%s): h=%u", QPS_HAT_RESET_ENUMERATOR,
-                    __FUNCTION__, instr->h);
+    log_before_step(
+        "step=%d (%s): h=%u", QPS_HAT_RESET_ENUMERATOR, __FUNCTION__, instr->h
+    );
     qhat_reset_en_(hat_obj);
     return 0;
 }
@@ -1248,9 +1300,10 @@ static int qhat_mv_en(qpsstress_instr_t *instr)
      * asserts. */
     move->safe = qhat_compute_en_safe_access(hat_obj, move->safe);
 
-    log_before_step("step=%d (%s): h=%u, mv_count=%u, safe=%u",
-                    QPS_HAT_MV_ENUMERATOR, __FUNCTION__, instr->h,
-                    move->count, move->safe);
+    log_before_step(
+        "step=%d (%s): h=%u, mv_count=%u, safe=%u", QPS_HAT_MV_ENUMERATOR,
+        __FUNCTION__, instr->h, move->count, move->safe
+    );
 
     for (uint32_t i = 0; i < move->count && !en->end; i++) {
         qhat_enumerator_next(en, move->safe);
@@ -1279,9 +1332,10 @@ static int qhat_mv_en_to(qpsstress_instr_t *instr)
     /* Restriction on key which should be bigger or with the same value. */
     restrict_change_key_value(en->key, &instr->obj_instr.key);
 
-    log_before_step("step=%d (%s): h=%u, key=%u (safe=%d)",
-                    QPS_HAT_MV_ENUMERATOR_TO, __FUNCTION__, instr->h,
-                    instr->obj_instr.key, safe);
+    log_before_step(
+        "step=%d (%s): h=%u, key=%u (safe=%d)", QPS_HAT_MV_ENUMERATOR_TO,
+        __FUNCTION__, instr->h, instr->obj_instr.key, safe
+    );
 
     qhat_enumerator_go_to(en, instr->obj_instr.key, safe);
     if (!en->end) {
@@ -1304,9 +1358,10 @@ static int qhat_check_en(qpsstress_instr_t *instr)
     en = hat_obj->ctx.hat_en;
     check->safe = qhat_compute_en_safe_access(hat_obj, check->safe);
 
-    log_before_step("step=%d (%s): h=%u, en_path=%d, safe=%d",
-                    QPS_HAT_CHECK_ENUMERATOR, __FUNCTION__, instr->h,
-                    check->en_path, check->safe);
+    log_before_step(
+        "step=%d (%s): h=%u, en_path=%d, safe=%d", QPS_HAT_CHECK_ENUMERATOR,
+        __FUNCTION__, instr->h, check->en_path, check->safe
+    );
 
     if (instr->obj_instr.check.en_path && !hat_obj->ctx.safe_en_needed) {
         qhat_path_t path = qhat_enumerator_get_path(en);
@@ -1331,9 +1386,10 @@ static int qhat_set_current_en(qpsstress_instr_t *instr)
     en = hat_obj->ctx.hat_en;
     trie = en->is_nullable ? &en->nu_trie : &en->nn_trie;
 
-    log_before_step("step=%d (%s): h=%u (safe=%d)", QPS_HAT_SET_ENUMERATOR,
-                    __FUNCTION__, instr->h,
-                    qhat_compute_en_safe_access(hat_obj, false));
+    log_before_step(
+        "step=%d (%s): h=%u (safe=%d)", QPS_HAT_SET_ENUMERATOR, __FUNCTION__,
+        instr->h, qhat_compute_en_safe_access(hat_obj, false)
+    );
     set_qhat_slot_from_key(trie->path.hat, instr->h, en->key);
     qhat_update_next_safe_en_access(hat_obj);
     return 0;
@@ -1345,8 +1401,10 @@ static int qhat_req_compute_counts(qpsstress_instr_t *instr)
 
     THROW_ERR_IF(load_obj_from_instr(instr, &hat_obj) < 0);
 
-    log_before_step("step=%d (%s): h=%u, enable=%d", QPS_HAT_COMPUTE_COUNTS,
-                    __FUNCTION__, instr->h, instr->obj_instr.do_stats);
+    log_before_step(
+        "step=%d (%s): h=%u, enable=%d", QPS_HAT_COMPUTE_COUNTS, __FUNCTION__,
+        instr->h, instr->obj_instr.do_stats
+    );
     qhat_compute_counts(hat_obj->hat, instr->obj_instr.do_stats);
     return 0;
 }
@@ -1357,9 +1415,10 @@ static int qhat_req_compute_memory(qpsstress_instr_t *instr)
 
     THROW_ERR_IF(load_obj_from_instr(instr, &hat_obj) < 0);
 
-    log_before_step("step=%d (%s): h=%u, memory_overhead=%d",
-                    QPS_HAT_COMPUTE_MEMORY, __FUNCTION__, instr->h,
-                    instr->obj_instr.compute_memory_overhead);
+    log_before_step(
+        "step=%d (%s): h=%u, memory_overhead=%d", QPS_HAT_COMPUTE_MEMORY,
+        __FUNCTION__, instr->h, instr->obj_instr.compute_memory_overhead
+    );
 
     if (instr->obj_instr.compute_memory_overhead) {
         qhat_compute_memory_overhead(hat_obj->hat);
@@ -1375,8 +1434,9 @@ static int qhat_req_fix0(qpsstress_instr_t *instr)
 
     THROW_ERR_IF(load_obj_from_instr(instr, &hat_obj) < 0);
 
-    log_before_step("step=%d (%s): h=%u", QPS_HAT_FIX_STORED0, __FUNCTION__,
-                    instr->h);
+    log_before_step(
+        "step=%d (%s): h=%u", QPS_HAT_FIX_STORED0, __FUNCTION__, instr->h
+    );
     qhat_fix_stored0(hat_obj->hat);
     return 0;
 }
@@ -1389,8 +1449,9 @@ static int qbitmap_req_compute_stats(qpsstress_instr_t *instr)
 
     THROW_ERR_IF(load_obj_from_instr(instr, &bitmap_obj) < 0);
 
-    log_before_step("step=%d (%s): h=%u", QPS_BITMAP_COMPUTE_STATS,
-                    __FUNCTION__, instr->h);
+    log_before_step(
+        "step=%d (%s): h=%u", QPS_BITMAP_COMPUTE_STATS, __FUNCTION__, instr->h
+    );
     qps_bitmap_compute_stats(bitmap_obj->qbitmap, &memory, &entries, &slots);
     return 0;
 }
@@ -1398,7 +1459,7 @@ static int qbitmap_req_compute_stats(qpsstress_instr_t *instr)
 /* }}} */
 /* {{{ Table of all steps available in qpsstress and entry point */
 
-#define STEP_DESC_ENTRY(_fct) { #_fct, &_fct }
+#define STEP_DESC_ENTRY(_fct) {#_fct, &_fct}
 
 const qpsstress_step_desc_t g_list_steps[QPS_MAX_CASES] = {
     [QPS_ALLOC] = STEP_DESC_ENTRY(qalloc),
@@ -1461,8 +1522,9 @@ is_handle_for_fuzzing_valid(qps_obj_type_t type, qps_handle_t from_fuzzing)
     return pos >= 0 ? true : false;
 }
 
-static void adapt_type_fuzzing_obj(qpsstress_instr_t* instr,
-                                   qpsstress_fuzzing_t *fuzz_blob)
+static void adapt_type_fuzzing_obj(
+    qpsstress_instr_t *instr, qpsstress_fuzzing_t *fuzz_blob
+)
 {
     qps_obj_type_t type = fuzz_blob->mgmt_obj.obj_type;
     const uint32_t nbr_type_obj = QPS_MAX_TYPES_OBJECTS - QPS_QHAT;
@@ -1474,8 +1536,10 @@ static void adapt_type_fuzzing_obj(qpsstress_instr_t* instr,
     instr->obj_instr.type = type;
 }
 
-static void adapt_h_fuzzing(qps_obj_type_t type, qpsstress_instr_t* instr,
-                            qpsstress_fuzzing_t *fuzz_blob)
+static void adapt_h_fuzzing(
+    qps_obj_type_t type, qpsstress_instr_t *instr,
+    qpsstress_fuzzing_t *fuzz_blob
+)
 {
     int pos;
 
@@ -1489,16 +1553,18 @@ static void adapt_h_fuzzing(qps_obj_type_t type, qpsstress_instr_t* instr,
     }
 }
 
-static void set_h_and_adapt_fuzzing_obj(qpsstress_instr_t* instr,
-                                        qpsstress_fuzzing_t *fuzz_blob)
+static void set_h_and_adapt_fuzzing_obj(
+    qpsstress_instr_t *instr, qpsstress_fuzzing_t *fuzz_blob
+)
 {
     adapt_type_fuzzing_obj(instr, fuzz_blob);
     adapt_h_fuzzing(instr->obj_instr.type, instr, fuzz_blob);
 }
 
-static void set_h_and_adapt_typed_fuzzing(qps_obj_type_t type,
-                                          qpsstress_instr_t* instr,
-                                          qpsstress_fuzzing_t *fuzz_blob)
+static void set_h_and_adapt_typed_fuzzing(
+    qps_obj_type_t type, qpsstress_instr_t *instr,
+    qpsstress_fuzzing_t *fuzz_blob
+)
 {
     instr->obj_instr.type = type;
     adapt_h_fuzzing(type, instr, fuzz_blob);
@@ -1513,9 +1579,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t sz)
     static bool filter = false;
     static const qpsstress_step_t fuzzing_filters[2][2] = {
         /* Only QPS generic operations at index 1. */
-        { QPS_ALLOC, QPS_REOPEN },
+        {QPS_ALLOC, QPS_REOPEN},
         /* Only QPS object operations at index 2.  */
-        { QPS_OBJ_CREATE, QPS_MAX_CASES - 1 },
+        {QPS_OBJ_CREATE, QPS_MAX_CASES - 1},
     };
     struct stat st = {0};
     const size_t blob_sz = sizeof(qpsstress_fuzzing_t);
@@ -1530,11 +1596,11 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t sz)
         char *env_value;
 
         MODULE_REQUIRE(qps);
-#ifdef __fuzzing_log__
+#  ifdef __fuzzing_log__
         logger_set_level(LSTR(""), LOG_TRACE, LOG_RECURSIVE);
-#else
+#  else
         logger_set_level(LSTR(""), LOG_EMERG, LOG_RECURSIVE | LOG_SILENT);
-#endif
+#  endif
         /* Enforce accesses on Qhat enumerators (fuzzing can break the Qhat
          * enumerator code by simulating partial re-synchronization between
          * the following items:
@@ -1579,22 +1645,22 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t sz)
 
     init_qpsstress_vectors();
 
-#define CHECK_GET_GENERIC_HANDLE_FOR_FUZZING(_instr, _fuzz_blob)             \
-    {                                                                        \
-        adapt_h_fuzzing(QPS_GENERIC_TYPE, _instr, _fuzz_blob);               \
-        if (!is_handle_for_fuzzing_valid(QPS_GENERIC_TYPE, (_instr)->h)) {   \
-            if (qalloc(_instr) < 0) {                                        \
-                continue;                                                    \
-            }                                                                \
-        }                                                                    \
-    }
+#  define CHECK_GET_GENERIC_HANDLE_FOR_FUZZING(_instr, _fuzz_blob)           \
+      {                                                                      \
+          adapt_h_fuzzing(QPS_GENERIC_TYPE, _instr, _fuzz_blob);             \
+          if (!is_handle_for_fuzzing_valid(QPS_GENERIC_TYPE, (_instr)->h)) { \
+              if (qalloc(_instr) < 0) {                                      \
+                  continue;                                                  \
+              }                                                              \
+          }                                                                  \
+      }
 
     for (processed = 0; processed + blob_sz <= sz; processed += blob_sz) {
         qpsstress_fuzzing_t *fuzz_blob;
         qpsstress_instr_t instr;
         qpsstress_obj_instr_t *obj_instr = &instr.obj_instr;
 
-        fuzz_blob = (qpsstress_fuzzing_t *) &data[processed];
+        fuzz_blob = (qpsstress_fuzzing_t *)&data[processed];
         instr.obj_instr.pos = -1;
 
         if (fuzz_blob->step >= QPS_MAX_CASES ||
@@ -1753,7 +1819,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t sz)
 
         if (run_step(fuzz_blob->step, &instr) >= 0) {
 
-            switch(fuzz_blob->step) {
+            switch (fuzz_blob->step) {
             case QPS_SNAPSHOT_WAIT:
             case QPS_REOPEN:
                 _G.has_snapshotted = true;
@@ -1784,7 +1850,7 @@ stop_fuzzing:
     return valid_corpus;
 }
 
-#undef CHECK_GET_GENERIC_HANDLE_FOR_FUZZING
+#  undef CHECK_GET_GENERIC_HANDLE_FOR_FUZZING
 
 #else /* ! __fuzzing__ */
 
@@ -1794,8 +1860,9 @@ stop_fuzzing:
 static void init_replay(const char *replay_file)
 {
     ctype_desc_build(&_G.replay.sep, ": ,=");
-    if (lstr_init_from_file(&_G.replay.file_content, replay_file, PROT_READ,
-                            MAP_SHARED) < 0)
+    if (lstr_init_from_file(
+            &_G.replay.file_content, replay_file, PROT_READ, MAP_SHARED
+        ) < 0)
     {
         e_fatal("unable to open replay file \"%s\"", replay_file);
     }
@@ -1807,16 +1874,19 @@ static void end_replay(void)
     lstr_wipe(&_G.replay.file_content);
 }
 
-#define VALUE_REPLAY_1 (6)
-#define VALUE_REPLAY_2 (8)
-#define VALUE_REPLAY_3 (10)
-#define VALUE_REPLAY_4 (12)
-#define VALUE_REPLAY_5 (14)
+#  define VALUE_REPLAY_1 (6)
+#  define VALUE_REPLAY_2 (8)
+#  define VALUE_REPLAY_3 (10)
+#  define VALUE_REPLAY_4 (12)
+#  define VALUE_REPLAY_5 (14)
 
 static int extract_handle_replay(qv_t(lstr) *values)
 {
-    THROW_ERR_IF(lstr_to_uint(values->tab[VALUE_REPLAY_1],
-                              &_G.replay.last_step.instr.h) < 0);
+    THROW_ERR_IF(
+        lstr_to_uint(
+            values->tab[VALUE_REPLAY_1], &_G.replay.last_step.instr.h
+        ) < 0
+    );
     return 0;
 }
 
@@ -1831,8 +1901,12 @@ static int extract_qobj_type(qv_t(lstr) *values)
 
 static int extract_qobj_key(qv_t(lstr) *values)
 {
-    THROW_ERR_IF(lstr_to_uint(values->tab[VALUE_REPLAY_3],
-                              &_G.replay.last_step.instr.obj_instr.key) < 0);
+    THROW_ERR_IF(
+        lstr_to_uint(
+            values->tab[VALUE_REPLAY_3],
+            &_G.replay.last_step.instr.obj_instr.key
+        ) < 0
+    );
     return 0;
 }
 
@@ -1861,7 +1935,7 @@ static qpsstress_replay_t *read_and_set_replay_step(pstream_t *line)
     /* Retrieve step kind */
     lstr_to_uint(values.tab[3], &step);
     THROW_NULL_IF(step >= QPS_MAX_CASES);
-    _G.replay.last_step.step = (qpsstress_step_t) step;
+    _G.replay.last_step.step = (qpsstress_step_t)step;
 
     /* Initialize position of qps object to not found */
     _G.replay.last_step.instr.obj_instr.pos = -1;
@@ -1922,17 +1996,17 @@ static qpsstress_replay_t *read_and_set_replay_step(pstream_t *line)
         _G.replay.last_step.instr.obj_instr.type = QPS_QHAT;
         THROW_NULL_IF(extract_handle_replay(&values));
         THROW_NULL_IF(lstr_to_uint(values.tab[VALUE_REPLAY_2], &u32_val) < 0);
-        _G.replay.last_step.instr.obj_instr.check.en_path = (bool) u32_val;
+        _G.replay.last_step.instr.obj_instr.check.en_path = (bool)u32_val;
         THROW_NULL_IF(lstr_to_uint(values.tab[VALUE_REPLAY_3], &u32_val) < 0);
-        _G.replay.last_step.instr.obj_instr.check.safe = (bool) u32_val;
+        _G.replay.last_step.instr.obj_instr.check.safe = (bool)u32_val;
         break;
     case QPS_HAT_MV_ENUMERATOR:
         _G.replay.last_step.instr.obj_instr.type = QPS_QHAT;
         THROW_NULL_IF(extract_handle_replay(&values));
         THROW_NULL_IF(lstr_to_uint(values.tab[VALUE_REPLAY_2], &u32_val) < 0);
-        _G.replay.last_step.instr.obj_instr.move.count = (uint16_t) u32_val;
+        _G.replay.last_step.instr.obj_instr.move.count = (uint16_t)u32_val;
         THROW_NULL_IF(lstr_to_uint(values.tab[VALUE_REPLAY_3], &u32_val) < 0);
-        _G.replay.last_step.instr.obj_instr.move.safe = (bool) u32_val;
+        _G.replay.last_step.instr.obj_instr.move.safe = (bool)u32_val;
         break;
     case QPS_HAT_MV_ENUMERATOR_TO:
         _G.replay.last_step.instr.obj_instr.type = QPS_QHAT;
@@ -1964,18 +2038,18 @@ static qpsstress_replay_t *read_and_set_replay_step(pstream_t *line)
     return &_G.replay.last_step;
 }
 
-#undef VALUE_REPLAY_1
-#undef VALUE_REPLAY_2
-#undef VALUE_REPLAY_3
-#undef VALUE_REPLAY_4
-#undef VALUE_REPLAY_5
+#  undef VALUE_REPLAY_1
+#  undef VALUE_REPLAY_2
+#  undef VALUE_REPLAY_3
+#  undef VALUE_REPLAY_4
+#  undef VALUE_REPLAY_5
 
 static qpsstress_replay_t *get_replay_step(void)
 {
     qpsstress_replay_t *res = NULL;
 
     if (_G.replay.file_content.len) {
-        static const char cdesc_tok[] = { '\r', '\n', '\0' };
+        static const char cdesc_tok[] = {'\r', '\n', '\0'};
         ctype_desc_t cdesc;
         pstream_t line;
 
@@ -2011,8 +2085,11 @@ static uint32_t get_random_step(uint32_t *proba)
         proba[QPS_ALLOC] = 16384;
         proba[QPS_REALLOC] = proba[QPS_DEALLOC] = 0;
         proba[QPS_WDEREF] = 0;
-    } else if (_G.vec_type_h.tab[QPS_GENERIC_TYPE].len -
-               _G.free_list.tab[QPS_GENERIC_TYPE].len < 1000000)
+    } else if (
+        _G.vec_type_h.tab[QPS_GENERIC_TYPE].len -
+            _G.free_list.tab[QPS_GENERIC_TYPE].len <
+        1000000
+    )
     {
         proba[QPS_ALLOC] = 16384;
         proba[QPS_DEALLOC] = 8192;
@@ -2043,8 +2120,7 @@ static uint32_t get_random_step(uint32_t *proba)
 static int
 create_random_instr(qpsstress_step_t step, qpsstress_instr_t *instr)
 {
-    switch (step)
-    {
+    switch (step) {
     case QPS_ALLOC:
         instr->expected_sz = get_random_memory_size(QPS_ALLOC, 0);
         break;
@@ -2074,16 +2150,16 @@ create_random_instr(qpsstress_step_t step, qpsstress_instr_t *instr)
     case QPS_OBJ_CLEAR:
     case QPS_OBJ_DELETE:
         instr->obj_instr.type = get_random_qps_object_type();
-        instr->h = get_random_handle(instr->obj_instr.type,
-                                     &instr->obj_instr.pos);
+        instr->h =
+            get_random_handle(instr->obj_instr.type, &instr->obj_instr.pos);
         THROW_ERR_IF(instr->h == QPS_HANDLE_NULL);
         break;
     case QPS_OBJ_SET:
     case QPS_OBJ_GET:
     case QPS_OBJ_RM_ENTRY:
         instr->obj_instr.type = get_random_qps_object_type();
-        instr->h = get_random_handle(instr->obj_instr.type,
-                                     &instr->obj_instr.pos);
+        instr->h =
+            get_random_handle(instr->obj_instr.type, &instr->obj_instr.pos);
         THROW_ERR_IF(instr->h == QPS_HANDLE_NULL);
         instr->obj_instr.key = get_random_qps_obj_key();
         break;
@@ -2091,8 +2167,8 @@ create_random_instr(qpsstress_step_t step, qpsstress_instr_t *instr)
     case QPS_OBJ_MULTIPLE_GET:
     case QPS_OBJ_MULTIPLE_RM_ENTRY:
         instr->obj_instr.type = get_random_qps_object_type();
-        instr->h = get_random_handle(instr->obj_instr.type,
-                                     &instr->obj_instr.pos);
+        instr->h =
+            get_random_handle(instr->obj_instr.type, &instr->obj_instr.pos);
         THROW_ERR_IF(instr->h == QPS_HANDLE_NULL);
         instr->obj_instr.mul_op.key = get_random_qps_obj_key();
         get_random_qps_mul_op(&instr->obj_instr.mul_op);
@@ -2151,8 +2227,7 @@ create_random_instr(qpsstress_step_t step, qpsstress_instr_t *instr)
     return 0;
 }
 
-static void
-update_proba_for_next_random_step(uint32_t *proba, uint32_t step)
+static void update_proba_for_next_random_step(uint32_t *proba, uint32_t step)
 {
     switch (step) {
     case QPS_SNAPSHOT:
@@ -2213,8 +2288,10 @@ int main(int argc, char **argv)
 
     argc = parseopt(argc, argv, qpsstress_popt_g, 0);
     if (argc < 1 || _G.opt_help) {
-        makeusage(_G.opt_help ? EX_OK: EX_USAGE, arg0, qpsstress_usage_g,
-                  NULL, qpsstress_popt_g);
+        makeusage(
+            _G.opt_help ? EX_OK : EX_USAGE, arg0, qpsstress_usage_g, NULL,
+            qpsstress_popt_g
+        );
     }
 
     _G.path = NEXTARG(argc, argv);

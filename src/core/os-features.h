@@ -28,34 +28,34 @@
 
 /* <sys/poll.h> availability */
 #ifndef HAVE_SYS_POLL_H
-# define HAVE_SYS_POLL_H
+#  define HAVE_SYS_POLL_H
 #endif
 
 /* <sys/inotify.h> availability */
 #ifdef OS_LINUX
-# ifndef HAVE_SYS_INOTIFY_H
-#  define HAVE_SYS_INOTIFY_H
-# endif
+#  ifndef HAVE_SYS_INOTIFY_H
+#    define HAVE_SYS_INOTIFY_H
+#  endif
 #endif
 
 #ifndef SO_FILEEXT
-# define SO_FILEEXT  ".so"
+#  define SO_FILEEXT ".so"
 #endif
 
 /* {{{ __CLANG_PREREQ / __GNUC_PREREQ */
 
 #if defined(__clang__)
-# define __CLANG_PREREQ(maj, min) \
-    ((__clang_major__ << 16) + __clang_minor__ >= ((maj) << 16) + (min))
+#  define __CLANG_PREREQ(maj, min)                                           \
+      ((__clang_major__ << 16) + __clang_minor__ >= ((maj) << 16) + (min))
 #elif !defined(__CLANG_PREREQ)
-# define __CLANG_PREREQ(maj, min)  0
+#  define __CLANG_PREREQ(maj, min) 0
 #endif
 
 #if !defined(__GNUC_PREREQ) && defined(__GNUC__) && defined(__GNUC_MINOR__)
-#  define __GNUC_PREREQ(maj, min) \
-       ((__GNUC__ << 16) + __GNUC_MINOR__ >= ((maj) << 16) + (min))
+#  define __GNUC_PREREQ(maj, min)                                            \
+      ((__GNUC__ << 16) + __GNUC_MINOR__ >= ((maj) << 16) + (min))
 #elif !defined(__GNUC_PREREQ)
-#  define __GNUC_PREREQ(maj, min)   0
+#  define __GNUC_PREREQ(maj, min) 0
 #endif
 
 /* }}} */

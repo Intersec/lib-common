@@ -26,41 +26,41 @@
 /* {{{ Private API and definitions */
 
 typedef enum iop_json_error {
-    IOP_JERR_EOF                             =   0,
-    IOP_JERR_UNKNOWN                         =  -1,
+    IOP_JERR_EOF = 0,
+    IOP_JERR_UNKNOWN = -1,
 
     /* unterminated things */
-    IOP_JERR_UNCLOSED_COMMENT                =  -2,
-    IOP_JERR_UNCLOSED_STRING                 =  -3,
+    IOP_JERR_UNCLOSED_COMMENT = -2,
+    IOP_JERR_UNCLOSED_STRING = -3,
 
     /* numerical conversion */
-    IOP_JERR_TOO_BIG_INT                     =  -4,
-    IOP_JERR_OUT_OF_RANGE                    =  -5,
-    IOP_JERR_PARSE_NUM                       =  -6,
-    IOP_JERR_BAD_INT_EXT                     =  -7,
+    IOP_JERR_TOO_BIG_INT = -4,
+    IOP_JERR_OUT_OF_RANGE = -5,
+    IOP_JERR_PARSE_NUM = -6,
+    IOP_JERR_BAD_INT_EXT = -7,
 
     /* (un)expected things */
-    IOP_JERR_EXP_SMTH                        =  -8,
-    IOP_JERR_EXP_VAL                         =  -9,
-    IOP_JERR_BAD_TOKEN                       = -10,
-    IOP_JERR_INVALID_FILE                    = -11,
+    IOP_JERR_EXP_SMTH = -8,
+    IOP_JERR_EXP_VAL = -9,
+    IOP_JERR_BAD_TOKEN = -10,
+    IOP_JERR_INVALID_FILE = -11,
 
     /* unreadable values */
-    IOP_JERR_BAD_IDENT                       = -12,
-    IOP_JERR_BAD_VALUE                       = -13,
-    IOP_JERR_ENUM_VALUE                      = -14,
+    IOP_JERR_BAD_IDENT = -12,
+    IOP_JERR_BAD_VALUE = -13,
+    IOP_JERR_ENUM_VALUE = -14,
 
     /* structure checking */
-    IOP_JERR_DUPLICATED_MEMBER               = -15,
-    IOP_JERR_MISSING_MEMBER                  = -16,
-    IOP_JERR_UNION_ARR                       = -17,
-    IOP_JERR_UNION_RESERVED                  = -18,
-    IOP_JERR_NOTHING_TO_READ                 = -19,
+    IOP_JERR_DUPLICATED_MEMBER = -15,
+    IOP_JERR_MISSING_MEMBER = -16,
+    IOP_JERR_UNION_ARR = -17,
+    IOP_JERR_UNION_RESERVED = -18,
+    IOP_JERR_NOTHING_TO_READ = -19,
 
-    IOP_JERR_CONSTRAINT                      = -20,
+    IOP_JERR_CONSTRAINT = -20,
 
     /* Various errors (information is in err_str) */
-    IOP_JERR_VARIOUS                         = -21,
+    IOP_JERR_VARIOUS = -21,
 } iop_json_error;
 
 typedef struct iop_json_lex_ctx_t {
@@ -71,7 +71,7 @@ typedef struct iop_json_lex_ctx_t {
 
     union {
         int64_t i;
-        double  d;
+        double d;
     } u;
     bool is_signed;
 } iop_json_lex_ctx_t;
@@ -83,21 +83,21 @@ typedef struct iop_json_lex_t {
     int flags;
 
     /* Context storage */
-    int             s_line;
-    int             s_col;
-    pstream_t       s_ps;
-    iop_cfolder_t  * nonnull cfolder;
+    int s_line;
+    int s_col;
+    pstream_t s_ps;
+    iop_cfolder_t *nonnull cfolder;
 
     iop_json_error err;
-    char *         nullable err_str;
+    char *nullable err_str;
 
-    mem_pool_t * nonnull mp;
-    const iop_env_ctx_t * nonnull iop_env_ctx;
-    pstream_t  * nullable ps;
+    mem_pool_t *nonnull mp;
+    const iop_env_ctx_t *nonnull iop_env_ctx;
+    pstream_t *nullable ps;
 
-    iop_json_lex_ctx_t  cur_ctx;
-    iop_json_lex_ctx_t  peeked_ctx;
-    iop_json_lex_ctx_t * nullable ctx;
+    iop_json_lex_ctx_t cur_ctx;
+    iop_json_lex_ctx_t peeked_ctx;
+    iop_json_lex_ctx_t *nullable ctx;
 } iop_json_lex_t;
 
 qvector_t(iop_json_subfile, iop_json_subfile__t);
@@ -111,25 +111,24 @@ qvector_t(iop_json_subfile, iop_json_subfile__t);
  * \param[in] iop_env_ctx The IOP environment.
  * \param[in] ll          JSon parser to initialize.
  */
-iop_json_lex_t * nonnull
-iop_jlex_init(mem_pool_t * nonnull mp,
-              const iop_env_ctx_t * nonnull iop_env_ctx,
-              iop_json_lex_t * nonnull ll);
+iop_json_lex_t *nonnull iop_jlex_init(
+    mem_pool_t *nonnull mp, const iop_env_ctx_t *nonnull iop_env_ctx,
+    iop_json_lex_t *nonnull ll
+);
 
 /** New JSon parser.
  *
  * \param[in] mp  Memory pool to use for memory allocations (including the
  *                JSon parser).
  */
-static inline iop_json_lex_t * nonnull
-iop_jlex_new(mem_pool_t * nonnull mp,
-             const iop_env_ctx_t * nonnull iop_env_ctx)
+static inline iop_json_lex_t *nonnull
+iop_jlex_new(mem_pool_t *nonnull mp, const iop_env_ctx_t *nonnull iop_env_ctx)
 {
     return iop_jlex_init(mp, iop_env_ctx, mp_new(mp, iop_json_lex_t, 1));
 }
 
 /** Wipe a JSon parser */
-void iop_jlex_wipe(iop_json_lex_t * nonnull ll);
+void iop_jlex_wipe(iop_json_lex_t *nonnull ll);
 
 /** Delete a JSon parser */
 static inline void iop_jlex_delete(iop_json_lex_t * nullable * nonnull ll)
@@ -149,14 +148,14 @@ static inline void iop_jlex_delete(iop_json_lex_t * nullable * nonnull ll)
  * \param[in] ll  JSon parser.
  * \param[in] ps  pstream_t containing the JSon to parse.
  */
-void iop_jlex_attach(iop_json_lex_t * nonnull ll, pstream_t * nonnull ps);
+void iop_jlex_attach(iop_json_lex_t *nonnull ll, pstream_t *nonnull ps);
 
 /** Detach the JSon parser.
  *
  * When calling this function the JSon parser forgets its current data stream.
  * This function is useless in most usages.
  */
-static inline void iop_jlex_detach(iop_json_lex_t * nonnull ll)
+static inline void iop_jlex_detach(iop_json_lex_t *nonnull ll)
 {
     ll->ps = NULL;
 }
@@ -168,7 +167,7 @@ static inline void iop_jlex_detach(iop_json_lex_t * nonnull ll)
  * \param[in] ll     The JSon parser.
  * \param[in] flags  Bitfield of flags to use (see iop_unpack_flags in iop.h)
  */
-static inline void iop_jlex_set_flags(iop_json_lex_t * nonnull ll, int flags)
+static inline void iop_jlex_set_flags(iop_json_lex_t *nonnull ll, int flags)
 {
     ll->flags = flags;
 }
@@ -205,9 +204,10 @@ static inline void iop_jlex_set_flags(iop_json_lex_t * nonnull ll, int flags)
  *    read successfully, or 0 if it reaches EOF. An empty buffer will not
  *    raise an error.
  */
-__must_check__
-int iop_junpack(iop_json_lex_t * nonnull ll, const iop_struct_t * nonnull st,
-                void * nonnull out, bool single_value);
+__must_check__ int iop_junpack(
+    iop_json_lex_t *nonnull ll, const iop_struct_t *nonnull st,
+    void *nonnull out, bool single_value
+);
 
 /** Convert IOP-JSon to an IOP C structure.
  *
@@ -223,11 +223,10 @@ int iop_junpack(iop_json_lex_t * nonnull ll, const iop_struct_t * nonnull st,
  * Use iop_dup() if you want to transfer the unpacked object to a pool with a
  * single allocation.
  */
-__must_check__
-int iop_junpack_ptr(iop_json_lex_t * nonnull ll,
-                    const iop_struct_t * nonnull st,
-                    void * nullable * nonnull out,
-                    bool single_value);
+__must_check__ int iop_junpack_ptr(
+    iop_json_lex_t *nonnull ll, const iop_struct_t *nonnull st,
+    void *nullable *nonnull out, bool single_value
+);
 
 /** Convert IOP-JSon to an IOP C structure using the t_pool().
  *
@@ -259,11 +258,11 @@ int iop_junpack_ptr(iop_json_lex_t * nonnull ll,
  * \return
  *   The iop_junpack() result.
  */
-__must_check__
-int t_iop_junpack_ps(const iop_env_ctx_t * nonnull iop_env_ctx,
-                     pstream_t * nonnull ps,
-                     const iop_struct_t * nonnull st,
-                     void * nonnull out, int flags, sb_t * nullable errb);
+__must_check__ int t_iop_junpack_ps(
+    const iop_env_ctx_t *nonnull iop_env_ctx, pstream_t *nonnull ps,
+    const iop_struct_t *nonnull st, void *nonnull out, int flags,
+    sb_t *nullable errb
+);
 
 /** Convert IOP-JSon to an IOP C structure using the t_pool().
  *
@@ -277,20 +276,19 @@ int t_iop_junpack_ps(const iop_env_ctx_t * nonnull iop_env_ctx,
  * Only the t_pool() version is provided since the provided memory pool of
  * iop_junpack_ptr() must be a frame-based pool.
  */
-__must_check__
-int t_iop_junpack_ptr_ps(const iop_env_ctx_t * nonnull iop_env_ctx,
-                         pstream_t * nonnull ps,
-                         const iop_struct_t * nonnull st,
-                         void * nullable * nonnull out,
-                         int flags, sb_t * nullable errb);
+__must_check__ int t_iop_junpack_ptr_ps(
+    const iop_env_ctx_t *nonnull iop_env_ctx, pstream_t *nonnull ps,
+    const iop_struct_t *nonnull st, void *nullable *nonnull out, int flags,
+    sb_t *nullable errb
+);
 
 /** Convert an IOP-JSon structure contained in a file to an IOP C structure.
  *
  * This function read a file containing an IOP-JSon structure and set the
  * fields in an IOP C structure.
  *
- * This function cannot be used to unpack a class; use `t_iop_junpack_ptr_file`
- * instead.
+ * This function cannot be used to unpack a class; use
+ * `t_iop_junpack_ptr_file` instead.
  *
  * Only the t_pool() version is provided since the provided memory pool of
  * iop_junpack() must be a frame-based pool.
@@ -307,13 +305,11 @@ int t_iop_junpack_ptr_ps(const iop_env_ctx_t * nonnull iop_env_ctx,
  *   The t_iop_junpack_ps() result,
  *   or IOP_JERR_INVALID_FILE in case of invalid file.
  */
-__must_check__
-int t_iop_junpack_file(const iop_env_ctx_t * nonnull iop_env_ctx,
-                       const char * nonnull filename,
-                       const iop_struct_t * nonnull st,
-                       void * nonnull out, int flags,
-                       qv_t(iop_json_subfile) * nullable subfiles,
-                       sb_t * nullable errb);
+__must_check__ int t_iop_junpack_file(
+    const iop_env_ctx_t *nonnull iop_env_ctx, const char *nonnull filename,
+    const iop_struct_t *nonnull st, void *nonnull out, int flags,
+    qv_t(iop_json_subfile) *nullable subfiles, sb_t *nullable errb
+);
 
 /** Convert an IOP-JSon structure contained in a file to an IOP C structure.
  *
@@ -327,29 +323,27 @@ int t_iop_junpack_file(const iop_env_ctx_t * nonnull iop_env_ctx,
  * Only the t_pool() version is provided since the provided memory pool of
  * iop_junpack_ptr() must be a frame-based pool.
  */
-__must_check__
-int t_iop_junpack_ptr_file(const iop_env_ctx_t * nonnull iop_env_ctx,
-                           const char * nonnull filename,
-                           const iop_struct_t * nonnull st,
-                           void * nullable * nonnull out, int flags,
-                           qv_t(iop_json_subfile) * nullable subfiles,
-                           sb_t * nullable errb);
+__must_check__ int t_iop_junpack_ptr_file(
+    const iop_env_ctx_t *nonnull iop_env_ctx, const char *nonnull filename,
+    const iop_struct_t *nonnull st, void *nullable *nonnull out, int flags,
+    qv_t(iop_json_subfile) *nullable subfiles, sb_t *nullable errb
+);
 
 /** Print a textual error after iop_junpack() failure.
  *
  * When iop_junpack() fails, you can print the error textual description in
  * a sb_t with this function.
  */
-void iop_jlex_write_error(iop_json_lex_t * nonnull ll, sb_t * nonnull sb);
+void iop_jlex_write_error(iop_json_lex_t *nonnull ll, sb_t *nonnull sb);
 
 /** Print a textual error after iop_junpack() failure.
  *
  * When iop_junpack() fails, you can print the error textual description in
  * a buffer with this function.
  */
-int  iop_jlex_write_error_buf(iop_json_lex_t * nonnull ll,
-                              char * nonnull buf, int len);
-
+int iop_jlex_write_error_buf(
+    iop_json_lex_t *nonnull ll, char *nonnull buf, int len
+);
 
 /* }}} */
 /* {{{ Generating JSon */
@@ -418,16 +412,15 @@ enum iop_jpack_flags {
     IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES = (1U << 10),
 
     /** Produce the smallest non-lossy possible json. */
-    IOP_JPACK_MINIMAL = IOP_JPACK_NO_WHITESPACES
-                      | IOP_JPACK_NO_TRAILING_EOL
-                      | IOP_JPACK_SKIP_DEFAULT
-                      | IOP_JPACK_SKIP_EMPTY_ARRAYS
-                      | IOP_JPACK_SKIP_EMPTY_STRUCTS
-                      | IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES,
+    IOP_JPACK_MINIMAL = IOP_JPACK_NO_WHITESPACES | IOP_JPACK_NO_TRAILING_EOL |
+                        IOP_JPACK_SKIP_DEFAULT | IOP_JPACK_SKIP_EMPTY_ARRAYS |
+                        IOP_JPACK_SKIP_EMPTY_STRUCTS |
+                        IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES,
 };
 
-typedef int (iop_jpack_writecb_f)(void * nonnull priv,
-                                  const void * nonnull buf, int len);
+typedef int(iop_jpack_writecb_f)(
+    void *nonnull priv, const void *nonnull buf, int len
+);
 
 /** Convert an IOP C structure to IOP-JSon.
  *
@@ -439,9 +432,10 @@ typedef int (iop_jpack_writecb_f)(void * nonnull priv,
  * \param[in] priv     Private data to give to the callback.
  * \param[in] flags    Packer flags bitfield (see iop_jpack_flags).
  */
-int iop_jpack(const iop_struct_t * nonnull st, const void * nonnull value,
-              iop_jpack_writecb_f * nonnull writecb,
-              void * nonnull priv, unsigned flags);
+int iop_jpack(
+    const iop_struct_t *nonnull st, const void *nonnull value,
+    iop_jpack_writecb_f *nonnull writecb, void *nonnull priv, unsigned flags
+);
 
 /** Serialize an IOP C structure in an IOP-JSon file.
  *
@@ -464,28 +458,28 @@ int iop_jpack(const iop_struct_t * nonnull st, const void * nonnull value,
  * \param[out] err         Buffer filled in case of error.
  * \param[out] err         NULL or the buffer to use to write textual error.
  */
-int __iop_jpack_file(const iop_env_ctx_t * nonnull iop_env_ctx,
-                     const char * nonnull filename, unsigned file_flags,
-                     mode_t file_mode, const iop_struct_t * nonnull st,
-                     const void * nonnull value, unsigned flags,
-                     const qv_t(iop_json_subfile) * nullable subfiles,
-                     sb_t * nullable err);
+int __iop_jpack_file(
+    const iop_env_ctx_t *nonnull iop_env_ctx, const char *nonnull filename,
+    unsigned file_flags, mode_t file_mode, const iop_struct_t *nonnull st,
+    const void *nonnull value, unsigned flags,
+    const qv_t(iop_json_subfile) *nullable subfiles, sb_t *nullable err
+);
 
-static inline int
-iop_jpack_file(const iop_env_ctx_t * nonnull iop_env_ctx,
-               const char * nonnull filename,
-               const iop_struct_t * nonnull st,
-               const void * nonnull value, unsigned flags,
-               sb_t * nullable err)
+static inline int iop_jpack_file(
+    const iop_env_ctx_t *nonnull iop_env_ctx, const char *nonnull filename,
+    const iop_struct_t *nonnull st, const void *nonnull value, unsigned flags,
+    sb_t *nullable err
+)
 {
-    return __iop_jpack_file(iop_env_ctx, filename,
-                            FILE_WRONLY | FILE_CREATE | FILE_TRUNC,
-                            0644, st, value, flags, NULL, err);
+    return __iop_jpack_file(
+        iop_env_ctx, filename, FILE_WRONLY | FILE_CREATE | FILE_TRUNC, 0644,
+        st, value, flags, NULL, err
+    );
 }
 
 /** Callback to use for writing JSon into a sb_t. */
-static inline int iop_sb_write(void * nonnull _b, const void * nonnull buf,
-                               int len)
+static inline int
+iop_sb_write(void *nonnull _b, const void *nonnull buf, int len)
 {
     sb_add((sb_t *)_b, buf, len);
     return len;
@@ -495,39 +489,44 @@ static inline int iop_sb_write(void * nonnull _b, const void * nonnull buf,
  *
  * See iop_jpack().
  */
-static inline int
-iop_sb_jpack(sb_t * nonnull sb, const iop_struct_t * nonnull st,
-             const void * nonnull value, unsigned flags)
+static inline int iop_sb_jpack(
+    sb_t *nonnull sb, const iop_struct_t *nonnull st,
+    const void *nonnull value, unsigned flags
+)
 {
     return iop_jpack(st, value, &iop_sb_write, sb, flags);
 }
 
 /** Dump IOP structures in JSon format using e_trace */
 #ifndef NDEBUG
-void iop_jtrace_(int lvl, lstr_t fname, int lno, lstr_t func, lstr_t name,
-                 const iop_struct_t * nonnull, const void * nonnull);
-#define iop_jtrace(lvl, st, v) \
-    do {                                                     \
-        if (e_is_traced(lvl)) {                              \
-            const st##__t *__v = (v);                        \
-            iop_jtrace_(lvl, LSTR(__FILE__), __LINE__,       \
-                        LSTR(__func__), LSTR_NULL_V,         \
-                        &st##__s, __v);                      \
-        }                                                    \
-    } while (0)
-#define iop_named_jtrace(lvl, name, st, v)                   \
-    do {                                                     \
-        if (e_name_is_traced(lvl, name)) {                   \
-            const st##__t *__v = (v);                        \
-            iop_jtrace_(lvl, LSTR(__FILE__), __LINE__,       \
-                        LSTR(__func__), LSTR_OPT(name),      \
-                        &st##__s, __v);                      \
-        }                                                    \
-    } while (0)
+void iop_jtrace_(
+    int lvl, lstr_t fname, int lno, lstr_t func, lstr_t name,
+    const iop_struct_t *nonnull, const void *nonnull
+);
+#  define iop_jtrace(lvl, st, v)                                             \
+      do {                                                                   \
+          if (e_is_traced(lvl)) {                                            \
+              const st##__t *__v = (v);                                      \
+              iop_jtrace_(                                                   \
+                  lvl, LSTR(__FILE__), __LINE__, LSTR(__func__),             \
+                  LSTR_NULL_V, &st##__s, __v                                 \
+              );                                                             \
+          }                                                                  \
+      } while (0)
+#  define iop_named_jtrace(lvl, name, st, v)                                 \
+      do {                                                                   \
+          if (e_name_is_traced(lvl, name)) {                                 \
+              const st##__t *__v = (v);                                      \
+              iop_jtrace_(                                                   \
+                  lvl, LSTR(__FILE__), __LINE__, LSTR(__func__),             \
+                  LSTR_OPT(name), &st##__s, __v                              \
+              );                                                             \
+          }                                                                  \
+      } while (0)
 #else
-#define iop_jtrace_(lvl, ...)               e_trace_ignore(lvl, ##__VA_ARGS__)
-#define iop_jtrace(lvl, st, v)              e_trace_ignore(lvl, v)
-#define iop_named_jtrace(lvl, name, st, v)  e_trace_ignore(lvl, name, v)
+#  define iop_jtrace_(lvl, ...) e_trace_ignore(lvl, ##__VA_ARGS__)
+#  define iop_jtrace(lvl, st, v) e_trace_ignore(lvl, v)
+#  define iop_named_jtrace(lvl, name, st, v) e_trace_ignore(lvl, name, v)
 #endif
 
 /* }}} */
@@ -538,9 +537,9 @@ struct iop_struct_value {
     /* Struct/union description, can be null only when the element is an
      * object.
      */
-    const iop_struct_t * nullable st;
+    const iop_struct_t *nullable st;
 
-    const void * nonnull val;
+    const void *nonnull val;
 };
 
 /** Provide the appropriate arguments to the %*pS modifier.
@@ -556,9 +555,13 @@ struct iop_struct_value {
  * See \ref IOP_ST_FMT_ARG() for a convenience helper to print compact JSON.
  */
 #define IOP_ST_FMT_ARG_FLAGS(pfx, _val, _flags)                              \
-    (_flags), &(struct iop_struct_value){                                    \
-        .st = &pfx##__s,                                                     \
-        .val = ({ const pfx##__t *__val = (_val); __val; }) }
+    (_flags), &(struct iop_struct_value)                                     \
+    {                                                                        \
+        .st = &pfx##__s, .val = ({                                           \
+                             const pfx##__t *__val = (_val);                 \
+                             __val;                                          \
+                         })                                                  \
+    }
 
 /** Provide the appropriate argument to print compact JSON with the %*pS
  * format.
@@ -573,15 +576,17 @@ struct iop_struct_value {
  *       formatting helper instead to get the code smaller.
  */
 #define IOP_ST_FMT_ARG(pfx, _val)                                            \
-    IOP_ST_FMT_ARG_FLAGS(pfx, _val,                                          \
-                         IOP_JPACK_NO_WHITESPACES | IOP_JPACK_NO_TRAILING_EOL)
+    IOP_ST_FMT_ARG_FLAGS(                                                    \
+        pfx, _val, IOP_JPACK_NO_WHITESPACES | IOP_JPACK_NO_TRAILING_EOL      \
+    )
 
 /** Same as \ref IOP_ST_FMT_ARG_FLAGS but with explicit description pointer.
  */
 #define IOP_ST_DESC_FMT_ARG_FLAGS(desc, _val, _flags)                        \
-    (_flags), &(struct iop_struct_value){                                    \
-        .st = desc,                                                          \
-        .val = (_val) }
+    (_flags), &(struct iop_struct_value)                                     \
+    {                                                                        \
+        .st = desc, .val = (_val)                                            \
+    }
 
 /** Provide the appropriate arguments to print an IOP class instance in JSON
  *  with the %*pS modifier.
@@ -597,8 +602,8 @@ struct iop_struct_value {
  * See \ref IOP_OBJ_FMT_ARG() for a convenience helper to print compact JSON.
  */
 #define IOP_OBJ_FMT_ARG_FLAGS(_obj, _flags)                                  \
-    (_flags),                                                                \
-    &(struct iop_struct_value){                                              \
+    (_flags), &(struct iop_struct_value)                                     \
+    {                                                                        \
         .st = NULL,                                                          \
         .val = ({                                                            \
             typeof(*_obj) *_fmt_obj = (_obj);                                \
@@ -616,8 +621,9 @@ struct iop_struct_value {
  * \param[in]  _obj  The object to print.
  */
 #define IOP_OBJ_FMT_ARG(_obj)                                                \
-    IOP_OBJ_FMT_ARG_FLAGS((_obj),                                            \
-                          IOP_JPACK_NO_WHITESPACES | IOP_JPACK_NO_TRAILING_EOL)
+    IOP_OBJ_FMT_ARG_FLAGS(                                                   \
+        (_obj), IOP_JPACK_NO_WHITESPACES | IOP_JPACK_NO_TRAILING_EOL         \
+    )
 
 /* }}} */
 /* {{{ Packing helpers */
@@ -625,9 +631,9 @@ struct iop_struct_value {
 /* Get a pointer to the index'th value for the field.
  * To be used in conjunction with iop_json_get_n_and_ptr.
  */
-const void * nonnull
-iop_json_get_struct_field_value(const iop_field_t * nonnull fdesc,
-                                const void * nonnull ptr, int index);
+const void *nonnull iop_json_get_struct_field_value(
+    const iop_field_t *nonnull fdesc, const void *nonnull ptr, int index
+);
 
 /* Get details about the packed value.
  *
@@ -636,11 +642,11 @@ iop_json_get_struct_field_value(const iop_field_t * nonnull fdesc,
  * is set to the first element.
  * Otherwise, n is set to 1 and value to the element.
  */
-const void * nullable
-iop_json_get_n_and_ptr(const iop_struct_t * nonnull desc, unsigned flags,
-                       const iop_field_t * nonnull fdesc,
-                       const void * nonnull value, int * nonnull n,
-                       bool * nonnull is_skipped);
+const void *nullable iop_json_get_n_and_ptr(
+    const iop_struct_t *nonnull desc, unsigned flags,
+    const iop_field_t *nonnull fdesc, const void *nonnull value,
+    int *nonnull n, bool *nonnull is_skipped
+);
 
 /* }}} */
 /* {{{ Check IOP json examples */
@@ -665,9 +671,10 @@ iop_json_get_n_and_ptr(const iop_struct_t * nonnull desc, unsigned flags,
  *
  * \return  0 in case of success, -1 in case of error.
  */
-int iop_check_package_examples(const iop_env_ctx_t *nonnull iop_env_ctx,
-                               const iop_pkg_t *nonnull pkg,
-                               sb_t *nonnull err);
+int iop_check_package_examples(
+    const iop_env_ctx_t *nonnull iop_env_ctx, const iop_pkg_t *nonnull pkg,
+    sb_t *nonnull err
+);
 
 /* }}} */
 

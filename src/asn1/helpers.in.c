@@ -40,16 +40,18 @@ static ALWAYS_INLINE size_t asn1_uint32_size(uint32_t u32)
 
 static ALWAYS_INLINE size_t asn1_uint64_size(uint64_t u64)
 {
-    if (unlikely((0x1ULL << 63) & u64))
+    if (unlikely((0x1ULL << 63) & u64)) {
         return 9;
+    }
 
     return asn1_int64_size(u64);
 }
 
 static ALWAYS_INLINE size_t asn1_length_size(uint32_t len)
 {
-    if (len < 0x80)
+    if (len < 0x80) {
         return 1;
+    }
 
     return 2 + bsr32(len) / 8;
 }

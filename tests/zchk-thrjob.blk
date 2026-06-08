@@ -31,8 +31,8 @@ struct {
 
 static int z_wake_up(void)
 {
-    const bool fast = Z_HAS_MODE(FAST)
-                   || mem_tool_is_running(MEM_TOOL_VALGRIND | MEM_TOOL_ASAN);
+    const bool fast = Z_HAS_MODE(FAST) ||
+                      mem_tool_is_running(MEM_TOOL_VALGRIND | MEM_TOOL_ASAN);
     int iterations = 100000;
 
     if (fast) {
@@ -44,7 +44,7 @@ static int z_wake_up(void)
         for (int i = 0; i < iterations; i++) {
             struct timeval start;
 
-            assert (!thr_is_on_queue(thr_queue_main_g));
+            assert(!thr_is_on_queue(thr_queue_main_g));
             lp_gettv(&start);
             thr_queue_sync_b(thr_queue_main_g, ^{
                 struct timeval job;
@@ -66,8 +66,9 @@ static int z_wake_up(void)
     }
     Z_ASSERT_ZERO(z_wake_up_g.count);
 
-    e_trace(3, "count: %d - %jd", z_wake_up_g.count,
-            z_wake_up_g.diff / iterations);
+    e_trace(
+        3, "count: %d - %jd", z_wake_up_g.count, z_wake_up_g.diff / iterations
+    );
 
     Z_HELPER_END;
 }
@@ -77,12 +78,12 @@ static int z_wake_up(void)
 
 struct {
     mpsc_queue_t queue;
-    thr_job_t    job;
-    thr_syn_t    syn;
+    thr_job_t job;
+    thr_syn_t syn;
 
     unsigned val __attribute__((aligned(64)));
     atomic_uint thr __attribute__((aligned(64)));
-    unsigned mq  __attribute__((aligned(64)));
+    unsigned mq __attribute__((aligned(64)));
     atomic_uint pmq __attribute__((aligned(64)));
     atomic_bool flushed __attribute__((aligned(64)));
 } z_post_notify_g;
@@ -92,11 +93,10 @@ struct post_notify_node {
     bool flush;
 } __attribute__((aligned(64)));
 
-
 static void run_post_check(mpsc_node_t *n, data_t data)
 {
-    assert (!container_of(n, struct post_notify_node, node)->flush);
-    assert (!atomic_load(&z_post_notify_g.flushed));
+    assert(!container_of(n, struct post_notify_node, node)->flush);
+    assert(!atomic_load(&z_post_notify_g.flushed));
 }
 
 static void run_post_notify(thr_job_t *job, thr_syn_t *syn)
@@ -106,10 +106,11 @@ static void run_post_notify(thr_job_t *job, thr_syn_t *syn)
 
     mpsc_queue_drain_start(&it, &z_post_notify_g.queue);
     do {
-        mpsc_node_t *n = mpsc_queue_drain_fast(&it, &run_post_check,
-                                               (data_t){ .ptr = NULL });
+        mpsc_node_t *n = mpsc_queue_drain_fast(
+            &it, &run_post_check, (data_t){.ptr = NULL}
+        );
 
-        assert (!atomic_load(&z_post_notify_g.flushed));
+        assert(!atomic_load(&z_post_notify_g.flushed));
         if (container_of(n, struct post_notify_node, node)->flush) {
             atomic_fetch_add(&z_post_notify_g.thr, 1);
             flush = true;
@@ -126,8 +127,9 @@ static void run_post_notify(thr_job_t *job, thr_syn_t *syn)
     if (flush) {
         bool exp = false;
 
-        assert (atomic_compare_exchange_strong(&z_post_notify_g.flushed,
-                                               &exp, true));
+        assert(atomic_compare_exchange_strong(
+            &z_post_notify_g.flushed, &exp, true
+        ));
     }
 }
 
@@ -136,12 +138,13 @@ static void run_post_notify(thr_job_t *job, thr_syn_t *syn)
 
 struct contention_job {
     thr_job_t job;
-    int       i;
+    int i;
 };
 
 static void run_contention(thr_job_t *job_, thr_syn_t *syn)
 {
-    struct contention_job *job = container_of(job_, struct contention_job, job);
+    struct contention_job *job =
+        container_of(job_, struct contention_job, job);
 
     job->i *= 2;
 }
@@ -150,17 +153,17 @@ static void run_contention(thr_job_t *job_, thr_syn_t *syn)
 /* Sort {{{ */
 
 static struct {
-    int  help;
+    int help;
 
-    int  sort_minsize;
+    int sort_minsize;
 } z_sort_g = {
     .sort_minsize = 128,
 };
 
 struct sort_job {
-    thr_job_t  job;
-    uint32_t  *a;
-    size_t     n;
+    thr_job_t job;
+    uint32_t *a;
+    size_t n;
 };
 
 static void par_qsort_run(thr_job_t *job, thr_syn_t *syn);
@@ -170,9 +173,9 @@ static void par_qsort(thr_syn_t *syn, uint32_t *a, size_t n, bool use_blocks)
     uint32_t *mean, *i, *j;
     size_t n1;
 
-#define swap(p,q)        (qstmp = *(p), *(p) = *(q), *(q) = qstmp)
-#define rotate(p,r,q)    (qstmp = *(p), *(p) = *(r), *(r) = *(q), *(q) = qstmp)
-#define comp_gt(a,b)     (*(a) > *(b))
+#define swap(p, q) (qstmp = *(p), *(p) = *(q), *(q) = qstmp)
+#define rotate(p, r, q) (qstmp = *(p), *(p) = *(r), *(r) = *(q), *(q) = qstmp)
+#define comp_gt(a, b) (*(a) > *(b))
 
     for (;;) {
         i = a;
@@ -181,20 +184,21 @@ static void par_qsort(thr_syn_t *syn, uint32_t *a, size_t n, bool use_blocks)
         if (comp_gt(i, j)) {
             swap(i, j);
         }
-        if (n <= 2)
+        if (n <= 2) {
             return;
+        }
 
         mean = i + (n >> 1);
         if (comp_gt(i, mean)) {
             swap(i, mean);
-        } else
-        if (comp_gt(mean, j)) {
+        } else if (comp_gt(mean, j)) {
             swap(j, mean);
         }
-        if (n == 3)
-            return;         /* in case of 3 items */
+        if (n == 3) {
+            return; /* in case of 3 items */
+        }
 
-        qsop2 = *mean;       /* cause *mean is gonna change */
+        qsop2 = *mean; /* cause *mean is gonna change */
 
         for (;;) {
             /* We do not have guards in these loops because we assume
@@ -202,15 +206,15 @@ static void par_qsort(thr_syn_t *syn, uint32_t *a, size_t n, bool use_blocks)
              * regular and returns != 0 on identical arguments, all bets
              * are off and this code may crash.
              */
-            while (comp_gt(&qsop2, ++i)) {  /* find GE in left part */
+            while (comp_gt(&qsop2, ++i)) { /* find GE in left part */
                 continue;
             }
-            while (comp_gt(--j, &qsop2)) {  /* find LE in right part */
+            while (comp_gt(--j, &qsop2)) { /* find LE in right part */
                 continue;
             }
 
             if (i < j) {
-                swap(i, j);        /* swap if needed */
+                swap(i, j); /* swap if needed */
                 continue;
             }
             break;
@@ -224,7 +228,7 @@ static void par_qsort(thr_syn_t *syn, uint32_t *a, size_t n, bool use_blocks)
         /* Fix ranges: [a..i[ U [j+1..a+n[ become [a..a+n[ U [j..j+n1[ */
         j++;
         n1 = a + n - j;
-        n  = i - a;
+        n = i - a;
 
         /* We want to recurse on [a..a+n[ and [j..j+n1[, but in order
          * to minimize stack usage, we only recurse on the smaller
@@ -248,14 +252,14 @@ static void par_qsort(thr_syn_t *syn, uint32_t *a, size_t n, bool use_blocks)
 
                 job = p_new_raw(struct sort_job, 1);
                 job->job.run = &par_qsort_run;
-                job->a    = j;
-                job->n    = n1;
+                job->a = j;
+                job->n = n1;
                 thr_syn_schedule(syn, &job->job);
 
                 job = p_new_raw(struct sort_job, 1);
                 job->job.run = &par_qsort_run;
-                job->a    = a;
-                job->n    = n;
+                job->a = a;
+                job->n = n;
                 thr_syn_schedule(syn, &job->job);
             }
             return;
@@ -270,8 +274,7 @@ static void par_qsort(thr_syn_t *syn, uint32_t *a, size_t n, bool use_blocks)
 #undef rotate
 }
 
-__attr_flatten__
-static void par_qsort_run(thr_job_t *job, thr_syn_t *syn)
+__attr_flatten__ static void par_qsort_run(thr_job_t *job, thr_syn_t *syn)
 {
     struct sort_job *j = container_of(job, struct sort_job, job);
 
@@ -282,8 +285,8 @@ static void par_qsort_run(thr_job_t *job, thr_syn_t *syn)
 static int test_qsort(bool use_blocks)
 {
     t_scope;
-    const bool fast = Z_HAS_MODE(FAST)
-                   || mem_tool_is_running(MEM_TOOL_VALGRIND | MEM_TOOL_ASAN);
+    const bool fast = Z_HAS_MODE(FAST) ||
+                      mem_tool_is_running(MEM_TOOL_VALGRIND | MEM_TOOL_ASAN);
     const size_t len = fast ? (8 << 10) : (8 << 15);
     uint32_t *vec[thr_parallelism_g];
     thr_syn_t syn;
@@ -312,9 +315,9 @@ static int test_qsort(bool use_blocks)
         for (size_t j = 0; j < thr_parallelism_g; j++) {
             struct sort_job *job = p_new_raw(struct sort_job, 1);
 
-            job->job.run    = &par_qsort_run;
-            job->a          = vec[j];
-            job->n          = len;
+            job->job.run = &par_qsort_run;
+            job->a = vec[j];
+            job->n = len;
             thr_syn_schedule(&syn, &job->job);
         }
     }
@@ -357,7 +360,7 @@ static int test_queue(void)
             struct test_queue *qj = &q[j];
 
             thr_queue_b(qj->q, ^{
-                assert (qj->i == i - 1);
+                assert(qj->i == i - 1);
                 qj->i = i;
                 if (trace) {
                     fputc('1' + j, stderr);
@@ -369,7 +372,7 @@ static int test_queue(void)
         struct test_queue *qj = &q[j];
 
         thr_queue_b(qj->q, ^{
-            assert (qj->i == 19);
+            assert(qj->i == 19);
             qj->i = 20;
             if (trace) {
                 fputc('A' + j, stderr);
@@ -427,7 +430,7 @@ static int test_queue_sync(void)
 
 typedef struct rci_t {
     mpsc_node_t node;
-    int   seqid;
+    int seqid;
     byte *data;
 } rci_t;
 qvector_t(rci, rci_t *);
@@ -459,8 +462,8 @@ static void run_job(thr_job_t *j, thr_syn_t *syn)
         mpsc_node_t *node;
         rci_t *rci;
 
-        node = mpsc_queue_drain_fast(&it, run_node,
-                                     (data_t){ .ptr = &unqueued });
+        node =
+            mpsc_queue_drain_fast(&it, run_node, (data_t){.ptr = &unqueued});
 
         rci = container_of(node, rci_t, node);
         to_sync = rci->seqid;
@@ -473,7 +476,7 @@ static void run_job(thr_job_t *j, thr_syn_t *syn)
             rci_t *rci = queue_steal_g.ci_ring.tab[0];
 
             queue_steal_g.last_acked++;
-            assert (queue_steal_g.last_acked == rci->seqid);
+            assert(queue_steal_g.last_acked == rci->seqid);
             p_delete(&rci->data);
             p_delete(&rci);
             qv_skip(&queue_steal_g.ci_ring, 1);
@@ -496,11 +499,15 @@ static int z_thr_for_each(void)
     __block uint64_t tds = 0;
     uint64_t sum;
 
-    thr_syn_declare_td(syn, ^{
-        return &p_new(struct thr_int_td_t, 1)->td;
-    }, ^(thr_td_t **ptd) {
-        p_delete(ptd);
-    });
+    thr_syn_declare_td(
+        syn,
+        ^{
+            return &p_new(struct thr_int_td_t, 1)->td;
+        },
+        ^(thr_td_t **ptd) {
+            p_delete(ptd);
+        }
+    );
 
     thr_for_each(1000000, ^(size_t pos) {
         struct thr_int_td_t *td;
@@ -591,9 +598,10 @@ static int z_thr_syn_wait_flags_test(void)
 
 /* }}} */
 
-Z_GROUP_EXPORT(thrjobs) {
-    const bool fast = Z_HAS_MODE(FAST)
-                   || mem_tool_is_running(MEM_TOOL_VALGRIND | MEM_TOOL_ASAN);
+Z_GROUP_EXPORT(thrjobs)
+{
+    const bool fast = Z_HAS_MODE(FAST) ||
+                      mem_tool_is_running(MEM_TOOL_VALGRIND | MEM_TOOL_ASAN);
 
     MODULE_REQUIRE(thr);
 
@@ -611,9 +619,9 @@ Z_GROUP_EXPORT(thrjobs) {
             thr_acc_reset();
             thr_syn_init(&syn);
             for (int i = 0; i < countof(jobs); i++) {
-                jobs[i] = (struct contention_job) {
+                jobs[i] = (struct contention_job){
                     .job.run = run_contention,
-                    .i       = i,
+                    .i = i,
                 };
                 thr_syn_schedule(&syn, &jobs[i].job);
             }
@@ -627,25 +635,29 @@ Z_GROUP_EXPORT(thrjobs) {
             thr_acc_trace(3, "");
             thr_syn_wipe(&syn);
         }
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(sort_job, "test sort with thr_job_t structure") {
         for (int i = 0; i < 16; i++) {
             z_sort_g.sort_minsize = 1 << i;
             Z_HELPER_RUN(test_qsort(false));
         }
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(sort_block, "test sort with blocks") {
         for (int i = 0; i < 16; i++) {
             z_sort_g.sort_minsize = 1 << i;
             Z_HELPER_RUN(test_qsort(true));
         }
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(queue) {
         Z_HELPER_RUN(test_queue());
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(queue_syn) {
         int loops = fast ? 100 : 10000;
@@ -653,11 +665,13 @@ Z_GROUP_EXPORT(thrjobs) {
         for (int i = 0; i < loops; i++) {
             Z_HELPER_RUN(test_queue_sync());
         }
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(wake_up_thr0, "test the main thread wake up procedure") {
         Z_HELPER_RUN(z_wake_up());
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(post_notify) {
         int iterations = 300000; /* approximatively 1s */
@@ -676,15 +690,17 @@ Z_GROUP_EXPORT(thrjobs) {
             bool posted_flush = false;
             int posted = 0;
             unsigned val = z_post_notify_g.val;
-            unsigned mq  = z_post_notify_g.mq;
-            struct post_notify_node *nodes = t_new(struct post_notify_node,
-                                                   count + 1);
+            unsigned mq = z_post_notify_g.mq;
+            struct post_notify_node *nodes =
+                t_new(struct post_notify_node, count + 1);
 
             atomic_store(&z_post_notify_g.flushed, false);
             for (int i = 0; i < count; i++) {
                 nodes[i].flush = false;
                 if (mpsc_queue_push(&z_post_notify_g.queue, &nodes[i].node)) {
-                    thr_syn_schedule(&z_post_notify_g.syn, &z_post_notify_g.job);
+                    thr_syn_schedule(
+                        &z_post_notify_g.syn, &z_post_notify_g.job
+                    );
                     posted++;
                 }
             }
@@ -696,23 +712,28 @@ Z_GROUP_EXPORT(thrjobs) {
             }
             thr_syn_wait(&z_post_notify_g.syn);
 
-            e_trace(3, "val=%d thr=%d => jobs=%d mq=%d pmq=%d flush=%d",
-                    z_post_notify_g.val, atomic_load(&z_post_notify_g.thr),
-                    mq + posted, z_post_notify_g.mq,
-                    atomic_load(&z_post_notify_g.pmq), posted_flush);
+            e_trace(
+                3, "val=%d thr=%d => jobs=%d mq=%d pmq=%d flush=%d",
+                z_post_notify_g.val, atomic_load(&z_post_notify_g.thr),
+                mq + posted, z_post_notify_g.mq,
+                atomic_load(&z_post_notify_g.pmq), posted_flush
+            );
             Z_ASSERT_EQ(val + 1, z_post_notify_g.val);
-            Z_ASSERT_EQ(z_post_notify_g.val, atomic_load(&z_post_notify_g.thr));
+            Z_ASSERT_EQ(
+                z_post_notify_g.val, atomic_load(&z_post_notify_g.thr)
+            );
             Z_ASSERT_EQ(atomic_load(&z_post_notify_g.pmq), mq + posted);
             Z_ASSERT_EQ(z_post_notify_g.mq, mq + posted);
             Z_ASSERT(atomic_load(&z_post_notify_g.flushed));
         }
 
         thr_syn_wipe(&z_post_notify_g.syn);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(queue_steal) {
         int seqid = 0;
-        thr_job_t job = { .run = &run_job };
+        thr_job_t job = {.run = &run_job};
         struct timeval start;
 
         mpsc_queue_init(&queue_steal_g.mpsc);
@@ -720,7 +741,7 @@ Z_GROUP_EXPORT(thrjobs) {
         while (seqid < 30000) {
             rci_t *rci = p_new(rci_t, 1);
 
-            rci->data  = p_new(byte, 16 << 10);
+            rci->data = p_new(byte, 16 << 10);
             rci->seqid = seqid++;
 
             qv_append(&queue_steal_g.ci_ring, rci);
@@ -749,15 +770,19 @@ Z_GROUP_EXPORT(thrjobs) {
         }
         Z_ASSERT_EQ(queue_steal_g.last_acked, seqid - 1);
         Z_ASSERT_ZERO(queue_steal_g.ci_ring.len);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(for_each) {
         Z_HELPER_RUN(z_thr_for_each());
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(syn_wait_flags) {
         Z_HELPER_RUN(z_thr_syn_wait_flags_test());
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     MODULE_RELEASE(thr);
-} Z_GROUP_END;
+}
+Z_GROUP_END;

@@ -111,10 +111,10 @@ void __iopsq_type_table_delete(iopsq_type_table_t **table);
  *
  * \param[out]     type        The IOP² type.
  */
-void iopsq_type_table_fill_type(iopsq_type_table_t *table,
-                                const iop_env_ctx_t *iop_env_ctx,
-                                const iop_full_type_t *ftype,
-                                iop__type__t *type);
+void iopsq_type_table_fill_type(
+    iopsq_type_table_t *table, const iop_env_ctx_t *iop_env_ctx,
+    const iop_full_type_t *ftype, iop__type__t *type
+);
 
 /* }}} */
 /* }}} */
@@ -136,11 +136,11 @@ void iopsq_type_table_fill_type(iopsq_type_table_t *table,
  *
  * \param[out]    err         Error buffer.
  */
-iop_pkg_t *mp_iopsq_build_pkg(mem_pool_t *nonnull mp,
-                              const iop_env_ctx_t *nonnull iop_env_ctx,
-                              const iop__package__t *nonnull pkg_desc,
-                              const iopsq_type_table_t *nullable type_table,
-                              sb_t *nonnull err);
+iop_pkg_t *mp_iopsq_build_pkg(
+    mem_pool_t *nonnull mp, const iop_env_ctx_t *nonnull iop_env_ctx,
+    const iop__package__t *nonnull pkg_desc,
+    const iopsq_type_table_t *nullable type_table, sb_t *nonnull err
+);
 
 /** Generates an IOP struct or union description from its IOP version.
  *
@@ -157,36 +157,34 @@ iop_pkg_t *mp_iopsq_build_pkg(mem_pool_t *nonnull mp,
  *
  * \param[out]    err         Error buffer.
  */
-const iop_struct_t *
-mp_iopsq_build_struct(mem_pool_t *nonnull mp,
-                      const iop_env_ctx_t *nonnull iop_env_ctx,
-                      const iopsq__structure__t *nonnull st_desc,
-                      const iopsq_type_table_t *nullable type_table,
-                      sb_t *nonnull err);
+const iop_struct_t *mp_iopsq_build_struct(
+    mem_pool_t *nonnull mp, const iop_env_ctx_t *nonnull iop_env_ctx,
+    const iopsq__structure__t *nonnull st_desc,
+    const iopsq_type_table_t *nullable type_table, sb_t *nonnull err
+);
 
 /** Generates an dumb IOP package from a single package elem description.
  *
  * \note Mainly meant to be used for testing.
  */
-iop_pkg_t *
-mp_iopsq_build_mono_element_pkg(mem_pool_t *nonnull mp,
-                                const iop_env_ctx_t *nonnull iop_env_ctx,
-                                const iop__package_elem__t *nonnull elem,
-                                const iopsq_type_table_t *nullable type_table,
-                                sb_t *nonnull err);
+iop_pkg_t *mp_iopsq_build_mono_element_pkg(
+    mem_pool_t *nonnull mp, const iop_env_ctx_t *nonnull iop_env_ctx,
+    const iop__package_elem__t *nonnull elem,
+    const iopsq_type_table_t *nullable type_table, sb_t *nonnull err
+);
 
 /* {{{ Helper: iopsq_iop_struct_t */
 
 typedef struct iopsq_iop_struct_t {
     const iop_struct_t *st;
-/* {{{ Internal: used to allocate and wipe the above iop_struct_t object. */
+    /* {{{ Internal: used to allocate and wipe the above iop_struct_t object.
+     */
     mem_pool_t *mp;
     const void *release_cookie;
-/* }}} */
+    /* }}} */
 } iopsq_iop_struct_t;
 
 GENERIC_INIT(iopsq_iop_struct_t, iopsq_iop_struct);
-
 
 /** Build iopsq_iop_struct_t object.
  *
@@ -203,11 +201,11 @@ GENERIC_INIT(iopsq_iop_struct_t, iopsq_iop_struct);
  *
  * \return -1 in case of error, 0 otherwise.
  */
-int iopsq_iop_struct_build(iopsq_iop_struct_t *nonnull st,
-                           const iop_env_ctx_t *nonnull iop_env_ctx,
-                           const iopsq__structure__t *nonnull st_desc,
-                           const iopsq_type_table_t *nullable type_table,
-                           sb_t *nonnull err);
+int iopsq_iop_struct_build(
+    iopsq_iop_struct_t *nonnull st, const iop_env_ctx_t *nonnull iop_env_ctx,
+    const iopsq__structure__t *nonnull st_desc,
+    const iopsq_type_table_t *nullable type_table, sb_t *nonnull err
+);
 
 /** Wipe an iopsq_iop_struct_t object.
  *
@@ -220,7 +218,7 @@ void iopsq_iop_struct_wipe(iopsq_iop_struct_t *nonnull st);
 
 static inline iopsq__int_size__t iopsq_int_type_to_int_size(iop_type_t type)
 {
-    assert (type <= IOP_T_U64);
+    assert(type <= IOP_T_U64);
     return (iopsq__int_size__t)(type >> 1);
 }
 

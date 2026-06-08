@@ -27,7 +27,7 @@
 
 /** Set the configuration of the logging system.
  */
-void logger_configure(const core__log_configuration__t * nonnull conf);
+void logger_configure(const core__log_configuration__t *nonnull conf);
 
 /** IOP configuration interface.
  */
@@ -49,8 +49,9 @@ qvector_t(logger_conf, core__logger_configuration__t);
  *                   LSTR_NULL_V can be used to avoid filtering.
  * \param[out] confs The vector holding the information about each logger.
  */
-void logger_get_all_configurations(lstr_t prefix,
-                                   qv_t(logger_conf) * nonnull confs);
+void logger_get_all_configurations(
+    lstr_t prefix, qv_t(logger_conf) *nonnull confs
+);
 
 void IOP_RPC_IMPL(core__core, log, list_loggers);
 

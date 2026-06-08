@@ -94,8 +94,8 @@ typedef struct dlist_t {
     struct dlist_t *next, *prev;
 } dlist_t;
 
-#define DLIST_INIT(name)  { .next = &(name), .prev = &(name) }
-#define DLIST(name)       dlist_t name = DLIST_INIT(name)
+#define DLIST_INIT(name) {.next = &(name), .prev = &(name)}
+#define DLIST(name) dlist_t name = DLIST_INIT(name)
 
 /** Put a \p dlist_t element in a safe and detached state.
  *
@@ -153,8 +153,7 @@ static inline void __dlist_add(dlist_t *e, dlist_t *prev, dlist_t *next)
 /* XXX Private: remove all elements between `prev` and `next`. Do nothing to
  * clean the state of removed elements. The use of this fonction is strongly
  * discouraged for non-internal uses. */
-static inline void
-__dlist_remove(dlist_t *prev, dlist_t *next)
+static inline void __dlist_remove(dlist_t *prev, dlist_t *next)
 {
     next->prev = prev;
     prev->next = next;
@@ -270,9 +269,9 @@ static inline void
 __dlist_splice2(dlist_t *prev, dlist_t *next, dlist_t *first, dlist_t *last)
 {
     first->prev = prev;
-    prev->next  = first;
-    last->next  = next;
-    next->prev  = last;
+    prev->next = first;
+    last->next = next;
+    next->prev = last;
 }
 
 static inline void __dlist_splice(dlist_t *prev, dlist_t *next, dlist_t *src)
@@ -335,53 +334,57 @@ static inline void dlist_cut_at(dlist_t *src, dlist_t *e, dlist_t *dst)
     }
 }
 
-
 /* Macros used to get a pointer on the enclosing structure. */
-#define dlist_entry(ptr, type, member)  container_of(ptr, type, member)
-#define dlist_entry_of(ptr, n, member)  dlist_entry(ptr, typeof(*n), member)
-#define dlist_entry_safe(ptr, type, member) \
-    ({ typeof(ptr) *__ptr = (ptr);          \
-       __ptr ? dlist_entry(__ptr, type, member) : NULL })
-#define dlist_entry_of_safe(ptr, n, member) \
+#define dlist_entry(ptr, type, member) container_of(ptr, type, member)
+#define dlist_entry_of(ptr, n, member) dlist_entry(ptr, typeof(*n), member)
+#define dlist_entry_safe(ptr, type, member)                                  \
+    ({                                                                       \
+        typeof(ptr) *__ptr = (ptr);                                          \
+        __ptr ? dlist_entry(__ptr, type, member) : NULL                      \
+    })
+#define dlist_entry_of_safe(ptr, n, member)                                  \
     dlist_entry_safe(ptr, typeof(*n), member)
 
-#define dlist_next_entry(e, mber)  dlist_entry((e)->mber.next, typeof(*e), mber)
-#define dlist_prev_entry(e, mber)  dlist_entry((e)->mber.prev, typeof(*e), mber)
-#define dlist_first_entry(l, type, mber)  dlist_entry((l)->next, type, mber)
-#define dlist_last_entry(l, type, mber)   dlist_entry((l)->prev, type, mber)
+#define dlist_next_entry(e, mber)                                            \
+    dlist_entry((e)->mber.next, typeof(*e), mber)
+#define dlist_prev_entry(e, mber)                                            \
+    dlist_entry((e)->mber.prev, typeof(*e), mber)
+#define dlist_first_entry(l, type, mber) dlist_entry((l)->next, type, mber)
+#define dlist_last_entry(l, type, mber) dlist_entry((l)->prev, type, mber)
 
 /* Loops macros for dlists (iterate with a `dlist_t`). */
-#define __dlist_for_each(pos, n, head, doit) \
-    for (dlist_t *n = pos, *n##_next_ = n->next; \
-         n != (head) && ({ doit; 1; }); \
+#define __dlist_for_each(pos, n, head, doit)                                 \
+    for (dlist_t *n = pos, *n##_next_ = n->next; n != (head) && ({           \
+                                                     doit;                   \
+                                                     1;                      \
+                                                 });                         \
          n = n##_next_, n##_next_ = n->next)
 
-#define dlist_for_each(n, head) \
-    __dlist_for_each((head)->next, n, head, )
-#define dlist_for_each_start(pos, n, head) \
-    __dlist_for_each(pos, n, head, )
-#define dlist_for_each_continue(pos, n, head) \
+#define dlist_for_each(n, head) __dlist_for_each((head)->next, n, head, )
+#define dlist_for_each_start(pos, n, head) __dlist_for_each(pos, n, head, )
+#define dlist_for_each_continue(pos, n, head)                                \
     __dlist_for_each((pos)->next, n, head, )
 
-
-#define __dlist_for_each_rev(pos, n, head, doit) \
-    for (dlist_t *n = pos, *__prev = n->prev; \
-         n != (head) && ({ doit; 1; }); \
+#define __dlist_for_each_rev(pos, n, head, doit)                             \
+    for (dlist_t *n = pos, *__prev = n->prev; n != (head) && ({              \
+                                                  doit;                      \
+                                                  1;                         \
+                                              });                            \
          n = __prev, __prev = n->prev)
 
-#define dlist_for_each_rev(n, head) \
+#define dlist_for_each_rev(n, head)                                          \
     __dlist_for_each_rev((head)->prev, n, head, )
-#define dlist_for_each_rev_start(pos, n, head) \
+#define dlist_for_each_rev_start(pos, n, head)                               \
     __dlist_for_each_rev(pos, n, head, )
-#define dlist_for_each_rev_continue(pos, n, head) \
+#define dlist_for_each_rev_continue(pos, n, head)                            \
     __dlist_for_each_rev((pos)->prev, n, head, )
 
-
-#define __dlist_for_each_entry(pos, type_t, n, head, member) \
-    FOR_INSTR1(dlist_for_each_entry##n, type_t *n) \
-    __dlist_for_each(pos, dlist_for_each_entry_real##n, head, \
-                     n = dlist_entry_of(dlist_for_each_entry_real##n, n, \
-                                        member))
+#define __dlist_for_each_entry(pos, type_t, n, head, member)                 \
+    FOR_INSTR1(dlist_for_each_entry##n, type_t *n)                           \
+    __dlist_for_each(                                                        \
+        pos, dlist_for_each_entry_real##n, head,                             \
+        n = dlist_entry_of(dlist_for_each_entry_real##n, n, member)          \
+    )
 
 /** In a dlist \p head, iterate on each entry using a local variable \p n to
  * iterate.
@@ -389,23 +392,24 @@ static inline void dlist_cut_at(dlist_t *src, dlist_t *e, dlist_t *dst)
  * The caller should provide the entry type \p type_t and the anchor attribute
  * \p member that links the list together.
  */
-#define dlist_for_each_entry(type_t, n, head, member) \
+#define dlist_for_each_entry(type_t, n, head, member)                        \
     __dlist_for_each_entry((head)->next, type_t, n, head, member)
 
 /** Iterate on each entry of a dlist, starting from the element \p pos. */
-#define dlist_for_each_entry_start(pos, n, head, member) \
+#define dlist_for_each_entry_start(pos, n, head, member)                     \
     __dlist_for_each_entry(&(pos)->member, typeof(*pos), n, head, member)
 
 /** Iterate on each entry of a dlist, starting from the element after \p pos.
  */
-#define dlist_for_each_entry_after(pos, n, head, member) \
+#define dlist_for_each_entry_after(pos, n, head, member)                     \
     __dlist_for_each_entry((pos)->member.next, typeof(*pos), n, head, member)
 
 /** Iterate on each entry of a dlist, starting from the element after \p n and
  * reusing \p n to iterate in the list. */
-#define dlist_for_each_entry_continue(n, head, member) \
-    __dlist_for_each((n)->member.next, __real_##n, head,                     \
-                     n = dlist_entry_of(__real_##n, n, member))
-
+#define dlist_for_each_entry_continue(n, head, member)                       \
+    __dlist_for_each(                                                        \
+        (n)->member.next, __real_##n, head,                                  \
+        n = dlist_entry_of(__real_##n, n, member)                            \
+    )
 
 #endif

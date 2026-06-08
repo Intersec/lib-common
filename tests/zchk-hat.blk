@@ -32,10 +32,13 @@
         Z_ASSERT(!is_suboptimal);                                            \
         Z_HELPER_RUN(check_leak(&trie));                                     \
     } while (0)
-#define CHECK_TRIE       if (!Z_HAS_MODE(FAST)) _CHECK_TRIE
-#define PRINT_TRIE  \
+#define CHECK_TRIE                                                           \
+    if (!Z_HAS_MODE(FAST))                                                   \
+    _CHECK_TRIE
+#define PRINT_TRIE                                                           \
     _CHECK_TRIE;                                                             \
-    if (e_name_is_traced(1, "trie/test")) qhat_debug_print(&trie, 0)
+    if (e_name_is_traced(1, "trie/test"))                                    \
+    qhat_debug_print(&trie, 0)
 
 static int check_leak(qhat_t *hat)
 {
@@ -53,7 +56,7 @@ static int test_zeros(qps_t *qps, uint8_t size)
     qps_handle_t htrie = qhat_create(qps, size, true);
     qhat_t trie;
     uint32_t count;
-    qhat_128_t zero = { 0, 0 };
+    qhat_128_t zero = {0, 0};
 
     qhat_init(&trie, qps, htrie);
 
@@ -80,7 +83,7 @@ static int test_zeros(qps_t *qps, uint8_t size)
     PRINT_TRIE;
 
     count = 0;
-    qhat_for_each_unsafe (en, &trie) {
+    qhat_for_each_unsafe(en, &trie) {
         const void *slot;
 
         slot = qhat_enumerator_get_value_unsafe(&en);
@@ -100,7 +103,6 @@ static int test_zeros(qps_t *qps, uint8_t size)
     qhat_destroy(&trie);
     Z_HELPER_END;
 }
-
 
 static int test_128(qps_t *qps, bool null)
 {
@@ -154,8 +156,7 @@ static int test_128(qps_t *qps, bool null)
         if (i < 0x400 - 512) {
             Z_ASSERT_EQ(val.l, bswap32(0x800 - i));
             Z_ASSERT_EQ(1024u - (i + 1), trie.root->entry_count);
-        } else
-        if (i > 0x400 - 512) {
+        } else if (i > 0x400 - 512) {
             Z_ASSERT_EQ(val.l, bswap32(0x800 - i));
             Z_ASSERT_EQ(1024u - i, trie.root->entry_count);
         } else {
@@ -334,8 +335,7 @@ static int test_16(qps_t *qps, bool null)
                 } else {
                     Z_ASSERT(slot == NULL || *slot == 0);
                 }
-            } else
-            if (en.key < 10050) {
+            } else if (en.key < 10050) {
                 Z_ASSERT_EQ(*slot, (uint16_t)i | 1);
                 i++;
             } else {
@@ -391,15 +391,16 @@ static int test_8(qps_t *qps, bool null)
                 } else {
                     Z_ASSERT(slot == NULL || *slot == 0);
                 }
-            } else
-            if (en.key < 10050) {
+            } else if (en.key < 10050) {
                 Z_ASSERT_EQ(*slot, (uint8_t)i | 1, "error at %u", en.key);
                 i++;
             } else {
                 if (null) {
                     Z_ASSERT_NULL(slot, "error at %u", en.key);
                 } else {
-                    Z_ASSERT(slot == NULL || *slot == 0, "error at %u", en.key);
+                    Z_ASSERT(
+                        slot == NULL || *slot == 0, "error at %u", en.key
+                    );
                 }
             }
         }
@@ -411,8 +412,8 @@ static int test_8(qps_t *qps, bool null)
 }
 
 /* Fill a trie with 32 bits values with entries. */
-static void z_fill_nonnull_trie32(qhat_t *trie, int nb_entries,
-                                  qv_t(u32) *keys)
+static void
+z_fill_nonnull_trie32(qhat_t *trie, int nb_entries, qv_t(u32) *keys)
 {
     for (int i = 0; i < nb_entries; i++) {
         uint32_t key;
@@ -476,8 +477,10 @@ z_nr_en_val_after_rm(qps_t *qps, bool want_compact, bool want_struct_change)
     }
 
     en = qhat_get_enumerator_at(&trie, rm_key);
-    Z_ASSERT_EQ(en.nn_trie.compact, want_compact,
-                "unexpected leaf type for the key to remove");
+    Z_ASSERT_EQ(
+        en.nn_trie.compact, want_compact,
+        "unexpected leaf type for the key to remove"
+    );
 
     /* Remove the element pointed by the enumerator. */
     Z_ASSERT(qhat_remove(&trie, rm_key, &rm_val));
@@ -488,8 +491,10 @@ z_nr_en_val_after_rm(qps_t *qps, bool want_compact, bool want_struct_change)
         for (int i = first_limit; i < second_limit; i += step) {
             *(uint32_t *)qhat_set(&trie, i) = i;
         }
-        Z_ASSERT(en.nn_trie.path.gen.s.struct_gen != trie.gen.s.struct_gen,
-                 "hat structure unchanged");
+        Z_ASSERT(
+            en.nn_trie.path.gen.s.struct_gen != trie.gen.s.struct_gen,
+            "hat structure unchanged"
+        );
     }
 
     /* {{{ First attempt. */
@@ -507,9 +512,10 @@ z_nr_en_val_after_rm(qps_t *qps, bool want_compact, bool want_struct_change)
     Z_ASSERT_EQ(en.key, rm_key);
 
     qhat_enumerator_go_to(&en, rm_key, true);
-    Z_ASSERT_EQ(en.key, rm_key + step,
-                "the enumerator did not reach the next key after "
-                "go_to(rm_key)");
+    Z_ASSERT_EQ(
+        en.key, rm_key + step,
+        "the enumerator did not reach the next key after go_to(rm_key)"
+    );
 
     /* }}} */
 
@@ -517,7 +523,7 @@ z_nr_en_val_after_rm(qps_t *qps, bool want_compact, bool want_struct_change)
     Z_HELPER_END;
 }
 
-typedef int (z_qhat_test_f)(qhat_t *hat);
+typedef int(z_qhat_test_f)(qhat_t *hat);
 
 /* Run a test with all QHAT sizes, nullable or not. */
 static int z_run_qhat_test(qps_t *qps, z_qhat_test_f *test_f)
@@ -530,9 +536,11 @@ static int z_run_qhat_test(qps_t *qps, z_qhat_test_f *test_f)
             htrie = qhat_create(qps, value_len, !!is_nullable);
             qhat_init(&trie, qps, htrie);
 
-            Z_HELPER_RUN((*test_f)(&trie),
-                         "test failed with value_len=%u, is_nullable=%s",
-                         value_len, is_nullable ? "true" : "false");
+            Z_HELPER_RUN(
+                (*test_f)(&trie),
+                "test failed with value_len=%u, is_nullable=%s", value_len,
+                is_nullable ? "true" : "false"
+            );
 
             qhat_destroy(&trie);
         }
@@ -552,38 +560,50 @@ static int z_test_qhat_gen(qhat_t *hat)
     gen = hat->gen;
     ptr = qhat_set(hat, 10);
     memcpy(ptr, value, hat->root->value_len);
-    Z_ASSERT_NE(hat->gen.s.write_access_gen, gen.s.write_access_gen,
-                "generation unchanged after qhat_set() (new row)");
+    Z_ASSERT_NE(
+        hat->gen.s.write_access_gen, gen.s.write_access_gen,
+        "generation unchanged after qhat_set() (new row)"
+    );
 
     gen = hat->gen;
     ptr = qhat_set(hat, 10);
     memcpy(ptr, value, hat->root->value_len);
-    Z_ASSERT_NE(hat->gen.s.write_access_gen, gen.s.write_access_gen,
-                "generation unchanged after qhat_set() (existing row)");
+    Z_ASSERT_NE(
+        hat->gen.s.write_access_gen, gen.s.write_access_gen,
+        "generation unchanged after qhat_set() (existing row)"
+    );
 
     if (hat->root->is_nullable) {
         gen = hat->gen;
         qhat_set0(hat, 50, NULL);
-        Z_ASSERT_NE(hat->gen.s.write_access_gen, gen.s.write_access_gen,
-                    "generation unchanged after qhat_set0()");
+        Z_ASSERT_NE(
+            hat->gen.s.write_access_gen, gen.s.write_access_gen,
+            "generation unchanged after qhat_set0()"
+        );
     }
 
     gen = hat->gen;
     Z_ASSERT(qhat_remove(hat, 10, NULL));
-    Z_ASSERT_NE(hat->gen.s.write_access_gen, gen.s.write_access_gen,
-                "generation unchanged after qhat_remove()");
+    Z_ASSERT_NE(
+        hat->gen.s.write_access_gen, gen.s.write_access_gen,
+        "generation unchanged after qhat_remove()"
+    );
 
     gen = hat->gen;
     Z_ASSERT(!qhat_remove(hat, 100, NULL));
-    Z_ASSERT_NE(hat->gen.s.write_access_gen, gen.s.write_access_gen,
-                "generation unchanged after qhat_remove() of a row that "
-                "did not exist");
+    Z_ASSERT_NE(
+        hat->gen.s.write_access_gen, gen.s.write_access_gen,
+        "generation unchanged after qhat_remove() of a row that "
+        "did not exist"
+    );
 
     if (hat->root->is_nullable) {
         gen = hat->gen;
         qhat_remove(hat, 50, NULL);
-        Z_ASSERT_NE(hat->gen.s.write_access_gen, gen.s.write_access_gen,
-                    "generation unchanged after qhat_remove() (zero value)");
+        Z_ASSERT_NE(
+            hat->gen.s.write_access_gen, gen.s.write_access_gen,
+            "generation unchanged after qhat_remove() (zero value)"
+        );
     }
 #else
     Z_ASSERT(true);
@@ -597,17 +617,20 @@ static int z_test_qhat_gen(qhat_t *hat)
         *p = ((k) & 0xFF) | 1;                                               \
     } while (0)
 
-#define Z_QHAT_VALUE_IS_VALID(p, k) (*((uint8_t*)p) == ((k & 0xFF) | 1))
+#define Z_QHAT_VALUE_IS_VALID(p, k) (*((uint8_t *)p) == ((k & 0xFF) | 1))
 
 static inline int z_qhat_check_slot(qhat_t *hat, uint32_t key, const void *p)
 {
-    Z_ASSERT(Z_QHAT_VALUE_IS_VALID(p, key),
-             "invalid content for key %u in qhat", key);
+    Z_ASSERT(
+        Z_QHAT_VALUE_IS_VALID(p, key), "invalid content for key %u in qhat",
+        key
+    );
     Z_HELPER_END;
 }
 
-static int z_qhat_create_mul_keys(qhat_t *hat, uint32_t start,
-                                  uint32_t gap, uint32_t nbr_iter)
+static int z_qhat_create_mul_keys(
+    qhat_t *hat, uint32_t start, uint32_t gap, uint32_t nbr_iter
+)
 {
     const uint32_t k_end = start + gap * nbr_iter;
 
@@ -622,8 +645,9 @@ static int z_qhat_create_mul_keys(qhat_t *hat, uint32_t start,
 
 #undef Z_QHAT_VALUE_IS_VALID
 
-static int z_qhat_rm_mul_keys(qhat_t *hat, uint32_t start,
-                              uint32_t gap, uint32_t nbr_iter)
+static int z_qhat_rm_mul_keys(
+    qhat_t *hat, uint32_t start, uint32_t gap, uint32_t nbr_iter
+)
 {
     const uint32_t k_end = start + gap * nbr_iter;
 
@@ -635,7 +659,8 @@ static int z_qhat_rm_mul_keys(qhat_t *hat, uint32_t start,
 
 /* }}} */
 
-Z_GROUP_EXPORT(qps_hat) {
+Z_GROUP_EXPORT(qps_hat)
+{
     qps_t *qps;
 
     MODULE_REQUIRE(qps);
@@ -645,81 +670,96 @@ Z_GROUP_EXPORT(qps_hat) {
     } else {
         qps = qps_create(z_grpdir_g.s, "qps-hat", 0755, NULL, 0);
     }
-    assert (qps);
+    assert(qps);
 
     Z_TEST(128) { /* {{{ */
         Z_HELPER_RUN(test_128(qps, false));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(128_null) { /* {{{ */
         Z_HELPER_RUN(test_128(qps, true));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(128_null_zero) { /* {{{ */
         Z_HELPER_RUN(test_zeros(qps, 16));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(64) { /* {{{ */
         Z_HELPER_RUN(test_64(qps, false));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(64_null) { /* {{{ */
         Z_HELPER_RUN(test_64(qps, true));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(64_null_zero) { /* {{{ */
         Z_HELPER_RUN(test_zeros(qps, 8));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(32) { /* {{{ */
         Z_HELPER_RUN(test_32(qps, false));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(32_null) { /* {{{ */
         Z_HELPER_RUN(test_32(qps, true));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(32_null_zero) { /* {{{ */
         Z_HELPER_RUN(test_zeros(qps, 4));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(16) { /* {{{ */
         Z_HELPER_RUN(test_16(qps, false));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(16_null) { /* {{{ */
         Z_HELPER_RUN(test_16(qps, true));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(16_null_zero) { /* {{{ */
         Z_HELPER_RUN(test_zeros(qps, 2));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(8) { /* {{{ */
         Z_HELPER_RUN(test_8(qps, false));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(8_null) { /* {{{ */
         Z_HELPER_RUN(test_8(qps, true));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(8_null_zero) { /* {{{ */
         Z_HELPER_RUN(test_zeros(qps, 1));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(debug_print) { /* {{{ */
@@ -749,8 +789,8 @@ Z_GROUP_EXPORT(qps_hat) {
             *v = i * 100;
         }
 
-        output_path = t_fmt("%*pMqhat-debug-print.txt",
-                            LSTR_FMT_ARG(z_tmpdir_g));
+        output_path =
+            t_fmt("%*pMqhat-debug-print.txt", LSTR_FMT_ARG(z_tmpdir_g));
         file = fopen(output_path, "w");
         Z_ASSERT_P(file);
         qhat_debug_print_stream(&trie, QHAT_PRINT_KEYS, file);
@@ -758,15 +798,20 @@ Z_GROUP_EXPORT(qps_hat) {
 
         Z_ASSERT_N(sb_read_file(&output, output_path));
 
-        exp_output_path = t_fmt("%*pMtest-data/qhat/qhat-debug-print.txt",
-                                LSTR_FMT_ARG(z_cmddir_g));
-        Z_ASSERT_N(sb_read_file(&exp_output, exp_output_path),
-                   "cannot read path `%s`", exp_output_path);
+        exp_output_path = t_fmt(
+            "%*pMtest-data/qhat/qhat-debug-print.txt",
+            LSTR_FMT_ARG(z_cmddir_g)
+        );
+        Z_ASSERT_N(
+            sb_read_file(&exp_output, exp_output_path),
+            "cannot read path `%s`", exp_output_path
+        );
 
         Z_ASSERT_STREQUAL(output.data, exp_output.data);
 
         qhat_destroy(&trie);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(compute_memory) { /* {{{ */
@@ -796,7 +841,8 @@ Z_GROUP_EXPORT(qps_hat) {
         Z_ASSERT_EQ(qhat_compute_memory(&trie), 622592ul);
         Z_ASSERT_EQ(qhat_compute_memory_overhead(&trie), 170136ul);
         qhat_destroy(&trie);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(enumeration) { /* {{{ */
@@ -842,7 +888,8 @@ Z_GROUP_EXPORT(qps_hat) {
 
         qhat_clear(&trie);
         qhat_destroy(&trie);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(go_to_current_key_removed) { /* {{{ */
@@ -894,7 +941,8 @@ Z_GROUP_EXPORT(qps_hat) {
 
         qhat_clear(&trie);
         qhat_destroy(&trie);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(nullable_trie_nr) { /* {{{ */
@@ -926,7 +974,8 @@ Z_GROUP_EXPORT(qps_hat) {
         }
 
         Z_ASSERT(en.end);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(enumerator_get_value_safe) { /* {{{ */
@@ -989,7 +1038,8 @@ Z_GROUP_EXPORT(qps_hat) {
         Z_ASSERT_EQ(*v, 80u);
 
         qhat_destroy(&trie);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(enumerator_safe_single_removal) { /* {{{ */
@@ -1027,13 +1077,16 @@ Z_GROUP_EXPORT(qps_hat) {
             qhat_enumerator_next(&en, true);
             /* Check path is still sync after next operation (until we have
              * reached the end of the trie). */
-            Z_ASSERT(qhat_path_is_sync(&en.nn_trie.path) || en.end == true,
-                     "enumerator still out-of-sync after 'next'");
+            Z_ASSERT(
+                qhat_path_is_sync(&en.nn_trie.path) || en.end == true,
+                "enumerator still out-of-sync after 'next'"
+            );
         }
 
         Z_ASSERT(en.end);
         qhat_destroy(&trie);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(enumerator_next) { /* {{{ */
@@ -1072,15 +1125,18 @@ Z_GROUP_EXPORT(qps_hat) {
             const uint32_t *value;
 
             qhat_enumerator_next(&en, true);
-            Z_ASSERT(!en.end, "end reached too early, key(%u) < max_key(%u)",
-                     key, max_key);
+            Z_ASSERT(
+                !en.end, "end reached too early, key(%u) < max_key(%u)", key,
+                max_key
+            );
             value = qhat_enumerator_get_value_unsafe(&en);
             Z_ASSERT_EQ(*value, key);
             Z_ASSERT_EQ(en.key, key);
         }
         qhat_enumerator_next(&en, true);
         Z_ASSERT(en.end);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(enumerator_next_after_zero) { /* {{{ */
@@ -1116,7 +1172,8 @@ Z_GROUP_EXPORT(qps_hat) {
         Z_ASSERT_EQ(*value, 51u);
 
         qhat_destroy(&trie);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(repair) { /* {{{ */
@@ -1135,25 +1192,27 @@ Z_GROUP_EXPORT(qps_hat) {
             *v = i + 1;
         }
 
-        memory = (qhat_node_memory_t){ .nodes = trie.root->nodes };
+        memory = (qhat_node_memory_t){.nodes = trie.root->nodes};
         /* Break the QHAT. */
         memory.nodes[1].page = 0xbbbbbbb;
 
         /* Check that we detect that the QHAT is broken. */
-        Z_ASSERT_NEG(qhat_check_consistency_flags(&trie, QHAT_CHECK_FULL_SCAN,
-                                                  NULL));
+        Z_ASSERT_NEG(
+            qhat_check_consistency_flags(&trie, QHAT_CHECK_FULL_SCAN, NULL)
+        );
 
         /* Repair it. */
-        Z_ASSERT_N(qhat_check_consistency_flags(&trie,
-                                                QHAT_CHECK_FULL_SCAN |
-                                                QHAT_CHECK_REPAIR_NODES,
-                                                NULL));
+        Z_ASSERT_N(qhat_check_consistency_flags(
+            &trie, QHAT_CHECK_FULL_SCAN | QHAT_CHECK_REPAIR_NODES, NULL
+        ));
 
         /* The QHAT should be fixed now. */
-        Z_ASSERT_N(qhat_check_consistency_flags(&trie, QHAT_CHECK_FULL_SCAN,
-                                                NULL));
+        Z_ASSERT_N(
+            qhat_check_consistency_flags(&trie, QHAT_CHECK_FULL_SCAN, NULL)
+        );
         qhat_destroy(&trie);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(nr_stat_update_after_rm_from_flat) { /* {{{ */
@@ -1201,7 +1260,8 @@ Z_GROUP_EXPORT(qps_hat) {
         Z_ASSERT_EQ(val, 0);
 
         qhat_destroy(&trie);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(nr_bad_en_value_after_rm) { /* {{{ */
@@ -1210,12 +1270,14 @@ Z_GROUP_EXPORT(qps_hat) {
         Z_HELPER_RUN(z_nr_en_val_after_rm(qps, true, false));
         Z_HELPER_RUN(z_nr_en_val_after_rm(qps, false, true));
         Z_HELPER_RUN(z_nr_en_val_after_rm(qps, false, false));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(generation) { /* {{{ */
         Z_HELPER_RUN(z_run_qhat_test(qps, &z_test_qhat_gen));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(nr_94699) { /* {{{ */
@@ -1257,12 +1319,14 @@ Z_GROUP_EXPORT(qps_hat) {
         for (int k = 0; k < 6300; k++) {
             cv = qhat_get(&trie, k);
             if (k > 6205 || k % 3 != 1) {
-                Z_ASSERT_NULL(cv,
-                              "unexpected entry [%d] -> %d", k, cv ? *cv : 0);
+                Z_ASSERT_NULL(
+                    cv, "unexpected entry [%d] -> %d", k, cv ? *cv : 0
+                );
             } else {
                 Z_ASSERT(cv, "missing entry for key [%d]", k);
-                Z_ASSERT_EQ(*cv, k,
-                            "unexpected entry value [%d] -> %d", k, *cv);
+                Z_ASSERT_EQ(
+                    *cv, k, "unexpected entry value [%d] -> %d", k, *cv
+                );
             }
         }
 
@@ -1276,7 +1340,8 @@ Z_GROUP_EXPORT(qps_hat) {
         *v = 100;
         cv = qhat_get(&trie, 4);
         Z_ASSERT_EQ(*cv, 100, "unexpected value for entry [4]");
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(nr_97147) { /* {{{ */
@@ -1298,7 +1363,8 @@ Z_GROUP_EXPORT(qps_hat) {
         v = qhat_enumerator_get_value_safe(&en);
         Z_ASSERT(en.nn_trie.compact);
         Z_ASSERT_EQ(*v, 0u);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(nr_100254_1) { /* {{{ */
@@ -1322,7 +1388,8 @@ Z_GROUP_EXPORT(qps_hat) {
         Z_ASSERT(qhat_remove(&trie, 16843009, NULL));
 
         qhat_destroy(&trie);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(nr_100254_2) { /* {{{ */
@@ -1345,7 +1412,8 @@ Z_GROUP_EXPORT(qps_hat) {
         Z_HELPER_RUN(z_qhat_rm_mul_keys(&trie, 1, 1, 259));
 
         qhat_destroy(&trie);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(nr_100765_1) { /* {{{ */
@@ -1384,7 +1452,8 @@ Z_GROUP_EXPORT(qps_hat) {
 
         qhat_destroy(&trie1);
         qhat_destroy(&trie2);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(nr_100765_2) { /* {{{ */
@@ -1407,8 +1476,9 @@ Z_GROUP_EXPORT(qps_hat) {
             htrie = qhat_create(qps, 16, true);
             qhat_init(&trie, qps, htrie);
 
-            Z_HELPER_RUN(z_qhat_create_mul_keys(&trie, 4177066232, gap,
-                                                63736));
+            Z_HELPER_RUN(
+                z_qhat_create_mul_keys(&trie, 4177066232, gap, 63736)
+            );
 
             en = qhat_get_enumerator_at(&trie, key_en);
             Z_HELPER_RUN(z_qhat_rm_mul_keys(&trie, 4177066232, gap, 63736));
@@ -1425,8 +1495,9 @@ Z_GROUP_EXPORT(qps_hat) {
 
             /* Creating again values should resync enunerator with end =
              * false if inserted values are after the end of trie key. */
-            Z_HELPER_RUN(z_qhat_create_mul_keys(&trie, 4177066232, gap,
-                                                63736));
+            Z_HELPER_RUN(
+                z_qhat_create_mul_keys(&trie, 4177066232, gap, 63736)
+            );
 
             slot = qhat_enumerator_get_value_safe(&en);
 
@@ -1456,7 +1527,8 @@ Z_GROUP_EXPORT(qps_hat) {
         end_iteration:
             qhat_destroy(&trie);
         }
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(nu_trie_end_reset) { /* {{{ */
@@ -1484,9 +1556,11 @@ Z_GROUP_EXPORT(qps_hat) {
 
         /* We should reach the key 2 and the value should be 2 as well. */
         Z_ASSERT_EQ(en.key, 2U);
-        Z_ASSERT_EQ(*(const uint32_t *)qhat_enumerator_get_value_safe(&en),
-                    2U);
-    } Z_TEST_END;
+        Z_ASSERT_EQ(
+            *(const uint32_t *)qhat_enumerator_get_value_safe(&en), 2U
+        );
+    }
+    Z_TEST_END;
 
     /* }}} */
     Z_TEST(nr_101129) { /* {{{ */
@@ -1546,18 +1620,20 @@ Z_GROUP_EXPORT(qps_hat) {
             /* Next check ensures we point on the correct slot for key
              * 16058625 with the correct pattern associated with it. */
             Z_ASSERT_EQ(en.key, 16058625U);
-            z_qhat_check_slot(&trie, 16058625U,
-                              qhat_enumerator_get_value_safe(&en));
+            z_qhat_check_slot(
+                &trie, 16058625U, qhat_enumerator_get_value_safe(&en)
+            );
         }
 
         qhat_destroy(&trie);
-
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
 
     qps_close(&qps);
     MODULE_RELEASE(qps);
-} Z_GROUP_END
+}
+Z_GROUP_END
 
 /* LCOV_EXCL_STOP */

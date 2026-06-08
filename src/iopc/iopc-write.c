@@ -19,10 +19,10 @@
 #include <lib-common/unix.h>
 #include "iopc-internal.h"
 
-int
-iopc_set_path(const char *outdir, const iopc_pkg_t *pkg,
-              const char *ext, int max_len, char *path,
-              bool only_pkg)
+int iopc_set_path(
+    const char *outdir, const iopc_pkg_t *pkg, const char *ext, int max_len,
+    char *path, bool only_pkg
+)
 {
     char dpath[max_len];
     int res;
@@ -35,11 +35,14 @@ iopc_set_path(const char *outdir, const iopc_pkg_t *pkg,
              * given extension. */
             sp.len -= strlen(".iop");
 
-            res = snprintf(path, max_len, "%s/%*pM%s", outdir,
-                           LSTR_FMT_ARG(sp), ext);
+            res = snprintf(
+                path, max_len, "%s/%*pM%s", outdir, LSTR_FMT_ARG(sp), ext
+            );
         } else {
-            res = snprintf(path, max_len, "%s/%s%s", outdir,
-                           iopc_path_basename(pkg->name), ext);
+            res = snprintf(
+                path, max_len, "%s/%s%s", outdir,
+                iopc_path_basename(pkg->name), ext
+            );
         }
         path_dirname(dpath, max_len, path);
         if (mkdir_p(dpath, 0777) < 0) {
@@ -47,8 +50,10 @@ iopc_set_path(const char *outdir, const iopc_pkg_t *pkg,
         }
     } else {
         path_dirname(dpath, max_len, pkg->file);
-        res = snprintf(path, max_len, "%s/%s%s", dpath,
-                       iopc_path_basename(pkg->name), ext);
+        res = snprintf(
+            path, max_len, "%s/%s%s", dpath, iopc_path_basename(pkg->name),
+            ext
+        );
     }
     return res;
 }
@@ -72,12 +77,12 @@ void iopc_write_buf_init(iopc_write_buf_t *wbuf, sb_t *buf, sb_t *tab)
     sb_addc(tab, '\n');
 }
 
-void iopc_write_buf_tab_inc(const iopc_write_buf_t* wbuf)
+void iopc_write_buf_tab_inc(const iopc_write_buf_t *wbuf)
 {
     sb_addc(wbuf->tab, '\t');
 }
 
-void iopc_write_buf_tab_dec(const iopc_write_buf_t* wbuf)
+void iopc_write_buf_tab_dec(const iopc_write_buf_t *wbuf)
 {
     sb_shrink(wbuf->tab, 1);
 }

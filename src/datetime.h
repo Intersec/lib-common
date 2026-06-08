@@ -24,13 +24,13 @@
 #include <lib-common/core.h>
 #include <lib-common/log.h>
 
-#define TIME_T_ERROR  ((time_t)-1)
+#define TIME_T_ERROR ((time_t)-1)
 
 #if defined _BSD_SOURCE || defined _SVID_SOURCE || defined _DEFAULT_SOURCE
 /* nanosecond precision on file times from struct stat */
-#define st_atimensec  st_atim.tv_nsec   /* Backward compatibility.  */
-#define st_mtimensec  st_mtim.tv_nsec
-#define st_ctimensec  st_ctim.tv_nsec
+#  define st_atimensec st_atim.tv_nsec /* Backward compatibility.  */
+#  define st_mtimensec st_mtim.tv_nsec
+#  define st_ctimensec st_ctim.tv_nsec
 #endif
 
 unsigned long hardclock(void);
@@ -62,8 +62,7 @@ static inline int nb_leap_years_since_1900(int year)
  */
 static inline bool year_is_leap_year(int year)
 {
-    return ((year % 4) == 0 && (year % 100) != 0)
-        || (year % 400) == 0;
+    return ((year % 4) == 0 && (year % 100) != 0) || (year % 400) == 0;
 }
 
 /* }}} */
@@ -187,8 +186,8 @@ time_t lstrtotime(lstr_t date);
  * you should not call it concurrently to another call of it or to a call
  * to the localtime_r function.
  */
-struct tm *time_get_localtime(const time_t *p_ts, struct tm *p_tm,
-                              const char *tz);
+struct tm *
+time_get_localtime(const time_t *p_ts, struct tm *p_tm, const char *tz);
 
 /* Format a timestamp according to given locale and format.
  * locale should be a string similar to the output of the locale (unix)
@@ -200,9 +199,9 @@ struct tm *time_get_localtime(const time_t *p_ts, struct tm *p_tm,
  * Returns the number of bytes placed in the array out (not including the
  * terminating null byte) in case of success, -1 in case of error.
  */
-__must_check__
-int format_timestamp(const char *fmt, time_t ts, const char *locale,
-                     char out[], int out_size)__attr_nonnull__((1));
+__must_check__ int format_timestamp(
+    const char *fmt, time_t ts, const char *locale, char out[], int out_size
+) __attr_nonnull__((1));
 
 /** Count the number of days since January 1st, 1900.
  */
@@ -230,7 +229,7 @@ int time_diff_days(time_t from, time_t to);
  *
  * Daylight saving time and leap seconds are not considered in the count.
  */
-static inline int tm_diff_hours(struct tm* from, struct tm *to)
+static inline int tm_diff_hours(struct tm *from, struct tm *to)
 {
     unsigned long nb_days = tm_diff_days(from, to);
 
@@ -241,7 +240,7 @@ static inline int tm_diff_hours(struct tm* from, struct tm *to)
  *
  * Daylight saving time and leap seconds are not considered in the count.
  */
-static inline int tm_diff_minutes(struct tm* from, struct tm *to)
+static inline int tm_diff_minutes(struct tm *from, struct tm *to)
 {
     unsigned long nb_hours = tm_diff_hours(from, to);
 
@@ -290,8 +289,7 @@ lstr_t t_get_time_split_p_lstr_en(uint64_t seconds, int precision);
  *
  *  \see t_get_time_split_lstr_en
  */
-static inline
-lstr_t t_get_time_split_lstr_en(uint64_t seconds)
+static inline lstr_t t_get_time_split_lstr_en(uint64_t seconds)
 {
     return t_get_time_split_p_lstr_en(seconds, -1);
 }
@@ -310,8 +308,7 @@ lstr_t t_get_time_split_p_lstr_fr(uint64_t seconds, int precision);
  *
  *  \see t_get_time_split_lstr_en
  */
-static inline
-lstr_t t_get_time_split_lstr_fr(uint64_t seconds)
+static inline lstr_t t_get_time_split_lstr_fr(uint64_t seconds)
 {
     return t_get_time_split_p_lstr_fr(seconds, -1);
 }
@@ -343,40 +340,32 @@ static inline int tz_utc_offset(const struct tm *tm)
  */
 #define ISO8601_LOCAL_TIME_SIZE (5 + 3 + 3 + 3 + 3 + 2 + 6 + 1)
 
-#define ISO8601_BASE_FMT          "%04d-%02d-%02dT%02d:%02d:%02d"
+#define ISO8601_BASE_FMT "%04d-%02d-%02dT%02d:%02d:%02d"
 #define ISO8601_BASE_FMT_ARG(tm)                                             \
-    (tm)->tm_year + 1900,                                                    \
-    (tm)->tm_mon + 1,                                                        \
-    (tm)->tm_mday,                                                           \
-    (tm)->tm_hour,                                                           \
-    (tm)->tm_min,                                                            \
-    (tm)->tm_sec
+    (tm)->tm_year + 1900, (tm)->tm_mon + 1, (tm)->tm_mday, (tm)->tm_hour,    \
+        (tm)->tm_min, (tm)->tm_sec
 
-#define ISO8601_BASE_MSEC_FMT                ISO8601_BASE_FMT ".%03d"
-#define ISO8601_BASE_MSEC_FMT_ARG(tm, msec)  ISO8601_BASE_FMT_ARG(tm), (msec)
+#define ISO8601_BASE_MSEC_FMT ISO8601_BASE_FMT ".%03d"
+#define ISO8601_BASE_MSEC_FMT_ARG(tm, msec) ISO8601_BASE_FMT_ARG(tm), (msec)
 
-#define ISO8601_GMT_FMT          ISO8601_BASE_FMT "Z"
-#define ISO8601_GMT_FMT_ARG(tm)  ISO8601_BASE_FMT_ARG(tm)
+#define ISO8601_GMT_FMT ISO8601_BASE_FMT "Z"
+#define ISO8601_GMT_FMT_ARG(tm) ISO8601_BASE_FMT_ARG(tm)
 
-#define ISO8601_GMT_MSEC_FMT                                                 \
-    ISO8601_BASE_MSEC_FMT "Z"
-#define ISO8601_GMT_MSEC_FMT_ARG(tm, msec)                                   \
-    ISO8601_BASE_MSEC_FMT_ARG(tm, msec)
+#define ISO8601_GMT_MSEC_FMT ISO8601_BASE_MSEC_FMT "Z"
+#define ISO8601_GMT_MSEC_FMT_ARG(tm, msec) ISO8601_BASE_MSEC_FMT_ARG(tm, msec)
 
-#define ISO8601_TZ_FMT                                                       \
-    ISO8601_BASE_FMT "%+03d:%02d"
+#define ISO8601_TZ_FMT ISO8601_BASE_FMT "%+03d:%02d"
 #define ISO8601_TZ_FMT_ARG(tm, delta_h, delta_m)                             \
     ISO8601_BASE_FMT_ARG(tm), (delta_h), (delta_m)
 
-#define ISO8601_TZ_MSEC_FMT                                                  \
-    ISO8601_BASE_MSEC_FMT "%+03d:%02d"
+#define ISO8601_TZ_MSEC_FMT ISO8601_BASE_MSEC_FMT "%+03d:%02d"
 #define ISO8601_TZ_MSEC_FMT_ARG(tm, msec, delta_h, delta_m)                  \
     ISO8601_BASE_MSEC_FMT_ARG(tm, msec), (delta_h), (delta_m)
 
 #define ISO8601_SPACE_FMT "%04d-%02d-%02d %02d:%02d:%02d %+05d"
 #define ISO8601_SPACE_FMT_ARG(tm)                                            \
-    (tm).tm_year + 1900, (tm).tm_mon + 1, (tm).tm_mday,                      \
-    (tm).tm_hour, (tm).tm_min, (tm).tm_sec, tz_utc_offset(&tm)
+    (tm).tm_year + 1900, (tm).tm_mon + 1, (tm).tm_mday, (tm).tm_hour,        \
+        (tm).tm_min, (tm).tm_sec, tz_utc_offset(&tm)
 
 /** Format a date in a "human-readable ISO8601" localtime format.
  *
@@ -388,14 +377,15 @@ static inline int tz_utc_offset(const struct tm *tm)
  * - local ISO8601: 2024-12-13T17:24:25+01:00
  * - this function: 2024-12-13 17:24:25 +0100
  */
-void
-time_fmt_localtime_iso8601_readable(char out[static ISO8601_LOCAL_TIME_SIZE],
-                                    time_t ts);
+void time_fmt_localtime_iso8601_readable(
+    char out[static ISO8601_LOCAL_TIME_SIZE], time_t ts
+);
 
 static inline void sb_add_localtime_iso8601_readable(sb_t *sb, time_t ts)
 {
     time_fmt_localtime_iso8601_readable(
-        sb_growlen(sb, ISO8601_LOCAL_TIME_SIZE - 1), ts);
+        sb_growlen(sb, ISO8601_LOCAL_TIME_SIZE - 1), ts
+    );
 }
 
 static inline lstr_t t_fmt_localtime_iso8601_readable(time_t ts)
@@ -422,8 +412,11 @@ static inline void time_fmt_iso8601(char buf[static 21], time_t t)
 
     len = snprintf(buf, 21, ISO8601_GMT_FMT, ISO8601_GMT_FMT_ARG(&tm));
     if (len != 20) {
-        e_error("error when trying to print timestamp: %jd, "
-                "length printed: %d", t, len);
+        e_error(
+            "error when trying to print timestamp: %jd, "
+            "length printed: %d",
+            t, len
+        );
         assert(false);
     }
 }
@@ -441,9 +434,9 @@ static inline lstr_t t_fmt_date_time_iso8601(time_t ts)
  * another call of it or to a call to the time_get_localtime or to the
  * localtime_r function. See time_get_localtime for more information.
  */
-static inline void
-time_fmt_localtime_iso8601(char buf[static ISO8601_LOCAL_TIME_SIZE],
-                           time_t t, const char *tz)
+static inline void time_fmt_localtime_iso8601(
+    char buf[static ISO8601_LOCAL_TIME_SIZE], time_t t, const char *tz
+)
 {
     int len;
     struct tm tm;
@@ -452,17 +445,22 @@ time_fmt_localtime_iso8601(char buf[static ISO8601_LOCAL_TIME_SIZE],
     time_get_localtime(&t, &tm, tz);
     time_get_gmt_delta(&tm, &delta_h, &delta_m);
 
-    len = snprintf(buf, ISO8601_LOCAL_TIME_SIZE, ISO8601_TZ_FMT,
-                   ISO8601_TZ_FMT_ARG(&tm, delta_h, delta_m));
+    len = snprintf(
+        buf, ISO8601_LOCAL_TIME_SIZE, ISO8601_TZ_FMT,
+        ISO8601_TZ_FMT_ARG(&tm, delta_h, delta_m)
+    );
     if (len != ISO8601_LOCAL_TIME_SIZE - 1) {
-        e_error("error when trying to print timestamp: %jd, "
-                "length printed: %d", t, len);
+        e_error(
+            "error when trying to print timestamp: %jd, "
+            "length printed: %d",
+            t, len
+        );
         assert(false);
     }
 }
 
-static inline void time_fmt_iso8601_msec(char buf[static 25], time_t t,
-                                         int msec)
+static inline void
+time_fmt_iso8601_msec(char buf[static 25], time_t t, int msec)
 {
     int len;
     struct tm tm;
@@ -476,11 +474,15 @@ static inline void time_fmt_iso8601_msec(char buf[static 25], time_t t,
     if (!gmtime_r(&t, &tm)) {
         e_panic("invalid timestamp: %jd", t);
     }
-    len = snprintf(buf, 25, ISO8601_GMT_MSEC_FMT,
-                   ISO8601_GMT_MSEC_FMT_ARG(&tm, msec));
+    len = snprintf(
+        buf, 25, ISO8601_GMT_MSEC_FMT, ISO8601_GMT_MSEC_FMT_ARG(&tm, msec)
+    );
     if (len != 24) {
-        e_error("error when trying to print timestamp: %jd, "
-                "length printed: %d", t, len);
+        e_error(
+            "error when trying to print timestamp: %jd, "
+            "length printed: %d",
+            t, len
+        );
         assert(false);
     }
 }
@@ -490,9 +492,9 @@ static inline void time_fmt_iso8601_msec(char buf[static 25], time_t t,
  * another call of it or to a call to the time_get_localtime or to the
  * localtime_r function. See time_get_localtime for more information.
  */
-static inline
-void time_fmt_localtime_iso8601_msec(char buf[static 30], time_t t,
-                                     int msec, const char *tz)
+static inline void time_fmt_localtime_iso8601_msec(
+    char buf[static 30], time_t t, int msec, const char *tz
+)
 {
     int len;
     struct tm tm;
@@ -501,11 +503,16 @@ void time_fmt_localtime_iso8601_msec(char buf[static 30], time_t t,
     time_get_localtime(&t, &tm, tz);
     time_get_gmt_delta(&tm, &delta_h, &delta_m);
 
-    len = snprintf(buf, 30, ISO8601_TZ_MSEC_FMT,
-                   ISO8601_TZ_MSEC_FMT_ARG(&tm, msec, delta_h, delta_m));
+    len = snprintf(
+        buf, 30, ISO8601_TZ_MSEC_FMT,
+        ISO8601_TZ_MSEC_FMT_ARG(&tm, msec, delta_h, delta_m)
+    );
     if (len != 29) {
-        e_error("error when trying to print timestamp: %jd, "
-                "length printed: %d", t, len);
+        e_error(
+            "error when trying to print timestamp: %jd, "
+            "length printed: %d",
+            t, len
+        );
         assert(false);
     }
 }
@@ -520,8 +527,8 @@ static inline void sb_add_time_iso8601(sb_t *sb, time_t t)
  * another call of it or to a call to the time_get_localtime or to the
  * localtime_r function. See time_get_localtime for more information.
  */
-static inline
-void sb_add_localtime_iso8601(sb_t *sb, time_t t, const char *tz)
+static inline void
+sb_add_localtime_iso8601(sb_t *sb, time_t t, const char *tz)
 {
     time_fmt_localtime_iso8601(sb_growlen(sb, 25), t, tz);
 }
@@ -536,9 +543,8 @@ static inline void sb_add_time_iso8601_msec(sb_t *sb, time_t t, int msec)
  * another call of it or to a call to the time_get_localtime or to the
  * localtime_r function. See time_get_localtime for more information.
  */
-static inline
-void sb_add_localtime_iso8601_msec(sb_t *sb, time_t t,
-                                   int msec, const char *tz)
+static inline void
+sb_add_localtime_iso8601_msec(sb_t *sb, time_t t, int msec, const char *tz)
 {
     time_fmt_localtime_iso8601_msec(sb_growlen(sb, 29), t, msec, tz);
 }
@@ -567,7 +573,8 @@ enum iso8601_flags {
 };
 
 int time_parse_iso8601_flags(pstream_t *ps, time_t *res, unsigned flags);
-static inline int time_parse_iso8601(pstream_t *ps, time_t *res) {
+static inline int time_parse_iso8601(pstream_t *ps, time_t *res)
+{
     return time_parse_iso8601_flags(ps, res, 0);
 }
 
@@ -627,7 +634,7 @@ static inline struct timeval timeval_add(struct timeval a, struct timeval b)
 {
     struct timeval res;
 
-    res.tv_sec  = a.tv_sec + b.tv_sec;
+    res.tv_sec = a.tv_sec + b.tv_sec;
     res.tv_usec = a.tv_usec + b.tv_usec;
     if (res.tv_usec >= 1000 * 1000) {
         res.tv_sec += 1;
@@ -640,7 +647,7 @@ static inline struct timeval timeval_addmsec(struct timeval a, int64_t msec)
 {
     struct timeval res;
 
-    res.tv_sec  = a.tv_sec + msec / 1000;
+    res.tv_sec = a.tv_sec + msec / 1000;
     res.tv_usec = a.tv_usec + ((msec % 1000) * 1000);
     if (res.tv_usec >= 1000 * 1000) {
         res.tv_sec += 1;
@@ -666,42 +673,49 @@ struct timeval timeval_mul(struct timeval tv, int k);
 struct timeval timeval_div(struct timeval tv, int k);
 
 /* Compute diff between two timeval in microseconds (µs) */
-static inline long long timeval_diff64(const struct timeval *tv2,
-                                       const struct timeval *tv1) {
+static inline long long
+timeval_diff64(const struct timeval *tv2, const struct timeval *tv1)
+{
     return (tv2->tv_sec - tv1->tv_sec) * 1000000LL +
-            (tv2->tv_usec - tv1->tv_usec);
+           (tv2->tv_usec - tv1->tv_usec);
 }
 
 /* Compute diff between two timeval in microseconds (µs)
  * use with care as it's not safe for intervals larger than 4000s */
-static inline int timeval_diff(const struct timeval *tv2,
-                               const struct timeval *tv1) {
+static inline int
+timeval_diff(const struct timeval *tv2, const struct timeval *tv1)
+{
     return (tv2->tv_sec - tv1->tv_sec) * 1000000 +
-            (tv2->tv_usec - tv1->tv_usec);
+           (tv2->tv_usec - tv1->tv_usec);
 }
 
 /* Compute diff between two timeval in milliseconds (ms) */
-static inline int64_t timeval_diffmsec(const struct timeval *tv2,
-                                       const struct timeval *tv1)
+static inline int64_t
+timeval_diffmsec(const struct timeval *tv2, const struct timeval *tv1)
 {
     int64_t delta = tv2->tv_sec - tv1->tv_sec;
 
     return delta * 1000 + (tv2->tv_usec - tv1->tv_usec) / 1000;
 }
 
-static inline bool timeval_is_eq0(const struct timeval t) {
+static inline bool timeval_is_eq0(const struct timeval t)
+{
     return t.tv_sec == 0 && t.tv_usec == 0;
 }
-static inline bool timeval_is_lt0(const struct timeval t) {
+static inline bool timeval_is_lt0(const struct timeval t)
+{
     return t.tv_sec < 0;
 }
-static inline bool timeval_is_le0(const struct timeval t) {
+static inline bool timeval_is_le0(const struct timeval t)
+{
     return timeval_is_lt0(t) || timeval_is_eq0(t);
 }
-static inline bool timeval_is_gt0(const struct timeval t) {
+static inline bool timeval_is_gt0(const struct timeval t)
+{
     return !timeval_is_le0(t);
 }
-static inline bool timeval_is_ge0(const struct timeval t) {
+static inline bool timeval_is_ge0(const struct timeval t)
+{
     return !timeval_is_lt0(t);
 }
 
@@ -710,8 +724,10 @@ static inline int64_t timeval_to_msec(const struct timeval tv)
     return tv.tv_sec * 1000 + (tv.tv_usec / 1000);
 }
 
-bool is_expired(const struct timeval *date, const struct timeval *now,
-                struct timeval *left);
+bool is_expired(
+    const struct timeval *date, const struct timeval *now,
+    struct timeval *left
+);
 
 /* }}} */
 /* {{{ Timers for benchmarks */
@@ -729,10 +745,10 @@ typedef struct proctimer_t {
     struct timeval tv, tv1;
     struct rusage ru, ru1;
     unsigned long hc, hc1;
-    unsigned int  elapsed_real;
-    unsigned int  elapsed_user;
-    unsigned int  elapsed_sys;
-    unsigned int  elapsed_proc;
+    unsigned int elapsed_real;
+    unsigned int elapsed_user;
+    unsigned int elapsed_sys;
+    unsigned int elapsed_proc;
     unsigned long elapsed_hard;
 } proctimer_t;
 
@@ -741,30 +757,32 @@ typedef struct proctimer_t {
  * - maximal value
  * - cumulated sum (tot)
  */
-#define PTIMER_STATS(T, type)  \
-    T type##_min; \
-    T type##_max; \
+#define PTIMER_STATS(T, type)                                                \
+    T type##_min;                                                            \
+    T type##_max;                                                            \
     T type##_tot
 
 typedef struct proctimerstat_t {
     unsigned int nb;
 
-    PTIMER_STATS(unsigned int,  real);
-    PTIMER_STATS(unsigned int,  user);
-    PTIMER_STATS(unsigned int,  sys);
-    PTIMER_STATS(unsigned int,  proc);
+    PTIMER_STATS(unsigned int, real);
+    PTIMER_STATS(unsigned int, user);
+    PTIMER_STATS(unsigned int, sys);
+    PTIMER_STATS(unsigned int, proc);
     PTIMER_STATS(unsigned long, hard);
 } proctimerstat_t;
 
 #undef PTIMER_STATS
 
-static inline void proctimer_start(proctimer_t *tp) {
+static inline void proctimer_start(proctimer_t *tp)
+{
     gettimeofday(&tp->tv, NULL);
     getrusage(RUSAGE_SELF, &tp->ru);
     tp->hc = hardclock();
 }
 
-static inline long long proctimer_stop(proctimer_t *tp) {
+static inline long long proctimer_stop(proctimer_t *tp)
+{
     tp->hc1 = hardclock();
     getrusage(RUSAGE_SELF, &tp->ru1);
     gettimeofday(&tp->tv1, NULL);
@@ -776,19 +794,20 @@ static inline long long proctimer_stop(proctimer_t *tp) {
     return tp->elapsed_proc;
 }
 
-static inline void proctimerstat_addsample(proctimerstat_t *pts,
-                                           proctimer_t *tp) {
-#define PTIMER_COUNT(type)                                              \
-    do {                                                                \
-        if (pts->nb != 0) {                                             \
-            pts->type##_min = MIN(tp->elapsed_##type, pts->type##_min); \
-            pts->type##_max = MAX(tp->elapsed_##type, pts->type##_max); \
-            pts->type##_tot += tp->elapsed_##type;                      \
-        } else {                                                        \
-            pts->type##_min = tp->elapsed_##type;                       \
-            pts->type##_max = tp->elapsed_##type;                       \
-            pts->type##_tot = tp->elapsed_##type;                       \
-        }                                                               \
+static inline void
+proctimerstat_addsample(proctimerstat_t *pts, proctimer_t *tp)
+{
+#define PTIMER_COUNT(type)                                                   \
+    do {                                                                     \
+        if (pts->nb != 0) {                                                  \
+            pts->type##_min = MIN(tp->elapsed_##type, pts->type##_min);      \
+            pts->type##_max = MAX(tp->elapsed_##type, pts->type##_max);      \
+            pts->type##_tot += tp->elapsed_##type;                           \
+        } else {                                                             \
+            pts->type##_min = tp->elapsed_##type;                            \
+            pts->type##_max = tp->elapsed_##type;                            \
+            pts->type##_tot = tp->elapsed_##type;                            \
+        }                                                                    \
     } while (0)
 
     PTIMER_COUNT(real);
@@ -875,10 +894,10 @@ typedef struct timing_scope_ctx_t {
  *
  * \return  a timing scope context.
  */
-__attr_printf__(7, 8)
-timing_scope_ctx_t
-timing_scope_start(logger_t *logger, lstr_t file, lstr_t func, int line,
-                   int64_t threshold_ms, int level, const char *fmt, ...);
+__attr_printf__(7, 8) timing_scope_ctx_t timing_scope_start(
+    logger_t *logger, lstr_t file, lstr_t func, int line,
+    int64_t threshold_ms, int level, const char *fmt, ...
+);
 
 /** Finish a timing scope.
  *
@@ -890,11 +909,11 @@ timing_scope_start(logger_t *logger, lstr_t file, lstr_t func, int line,
 void timing_scope_finish(timing_scope_ctx_t *ctx);
 
 #define _timing_scope(_logger, _threshold_ms, _level, _fmt, ...)             \
-    __attribute__((unused,cleanup(timing_scope_finish)))                     \
-    timing_scope_ctx_t PFX_LINE(timer_scope_ctx_) =                          \
-        timing_scope_start((_logger), LSTR(__FILE__), LSTR(__func__),        \
-                           __LINE__, (_threshold_ms), (_level),              \
-                           _fmt, ##__VA_ARGS__)
+    __attribute__((unused, cleanup(timing_scope_finish))) timing_scope_ctx_t \
+    PFX_LINE(timer_scope_ctx_) = timing_scope_start(                         \
+        (_logger), LSTR(__FILE__), LSTR(__func__), __LINE__,                 \
+        (_threshold_ms), (_level), _fmt, ##__VA_ARGS__                       \
+    )
 
 /** Emit a \p LOG_NOTICE log with the time spent in the scope.
  *
@@ -946,8 +965,9 @@ const char *nonnull t_time_spent_to_str(struct timeval from_tv);
  *
  * \return  whether the timeval expired or not
  */
-bool timeval_has_expired(struct timeval *tv, unsigned timeout_msec,
-                         struct timeval *nullable diff);
+bool timeval_has_expired(
+    struct timeval *tv, unsigned timeout_msec, struct timeval *nullable diff
+);
 
 /* }}} */
 

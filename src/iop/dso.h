@@ -19,14 +19,16 @@
 #if !defined(IS_LIB_COMMON_IOP_H) || defined(IS_LIB_COMMON_IOP_DSO_H)
 #  error "you must include <lib-common/iop.h> instead"
 #else
-#define IS_LIB_COMMON_IOP_DSO_H
+#  define IS_LIB_COMMON_IOP_DSO_H
 
-#include <dlfcn.h>
+#  include <dlfcn.h>
 
-#include <lib-common/farch.h>
+#  include <lib-common/farch.h>
 
-qm_kvec_t(iop_struct, lstr_t, const iop_struct_t * nonnull,
-          qhash_lstr_hash, qhash_lstr_equal);
+qm_kvec_t(
+    iop_struct, lstr_t, const iop_struct_t *nonnull, qhash_lstr_hash,
+    qhash_lstr_equal
+);
 
 /** Stat of a DSO file used for LMID cache. */
 typedef struct iop_dso_file_stat_t {
@@ -41,26 +43,26 @@ typedef struct iop_dso_t {
      * reference and may be released from any thread, so the final
      * \ref iop_dso_delete that reclaims the DSO can run off the main
      * thread, concurrently with main-thread (un)registration. */
-    atomic_int        refcnt;
-    void             * nonnull handle;
-    lstr_t            path;
-    uint32_t          version;
+    atomic_int refcnt;
+    void *nonnull handle;
+    lstr_t path;
+    uint32_t version;
 
     /* The IChannel version loaded from this DSO. */
     ic_user_version_t ic_user_version;
 
     /* The IOP environment loaded by this DSO. */
-    iop_env_t * nonnull iop_env;
+    iop_env_t *nonnull iop_env;
 
     /* The stat of the DSO file if the DSO is used to create a new LMID */
     iop_dso_file_stat_t file_stat;
 
-    qm_t(iop_pkg)     pkg_h;
-    qm_t(iop_enum)    enum_h;
-    qm_t(iop_struct)  struct_h;
+    qm_t(iop_pkg) pkg_h;
+    qm_t(iop_enum) enum_h;
+    qm_t(iop_struct) struct_h;
     qm_t(iop_typedef) typedef_h;
-    qm_t(iop_iface)   iface_h;
-    qm_t(iop_mod)     mod_h;
+    qm_t(iop_iface) iface_h;
+    qm_t(iop_mod) mod_h;
 
     /* Hash table of other iop_dso_t used by this one (in case of fixups). */
     qh_t(ptr) depends_on;
@@ -69,8 +71,8 @@ typedef struct iop_dso_t {
     qh_t(ptr) needed_by;
 
     bool use_external_packages : 1;
-    bool is_registered         : 1;
-    bool dont_replace_fix_pkg  : 1;
+    bool is_registered : 1;
+    bool dont_replace_fix_pkg : 1;
 } iop_dso_t;
 
 /** Load a DSO from a file, and register its packages.
@@ -95,9 +97,9 @@ typedef struct iop_dso_t {
  * \param[in]  path    path to the DSO.
  * \param[out] err     error description in case of error.
  */
-iop_dso_t * nullable iop_dso_open(iop_env_t * nonnull iop_env,
-                                  const char * nonnull path,
-                                  sb_t * nonnull err);
+iop_dso_t *nullable iop_dso_open(
+    iop_env_t *nonnull iop_env, const char *nonnull path, sb_t *nonnull err
+);
 
 /** Take an additional reference on a DSO.
  *
@@ -135,10 +137,10 @@ void iop_dso_close(iop_dso_t * nullable * nonnull dsop);
  * \ref iop_dso_open already registers the DSO packages, so calling this
  * function only makes sense if you've called \ref iop_dso_unregister before.
  */
-void iop_dso_register(iop_dso_t * nonnull dso);
+void iop_dso_register(iop_dso_t *nonnull dso);
 
 /** Unregister the packages contained in a DSO. */
-void iop_dso_unregister(iop_dso_t * nonnull dso);
+void iop_dso_unregister(iop_dso_t *nonnull dso);
 
 /* Called by iop module. */
 void iop_dso_initialize(void);

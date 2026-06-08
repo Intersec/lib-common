@@ -19,7 +19,7 @@
 #if !defined(IS_LIB_COMMON_CORE_H) || defined(IS_LIB_COMMON_STR_BUF_H)
 #  error "you must include core.h instead"
 #else
-#define IS_LIB_COMMON_STR_BUF_H
+#  define IS_LIB_COMMON_STR_BUF_H
 
 /* sb_t is a wrapper type for a reallocatable byte array.  Its internal
  * representation is accessible to client code but care must be exercised to
@@ -73,48 +73,49 @@
  */
 
 typedef struct sb_t {
-    char * nonnull data;
+    char *nonnull data;
     int len, size, skip;
-    mem_pool_t * nullable mp;
-#ifdef __cplusplus
+    mem_pool_t *nullable mp;
+#  ifdef __cplusplus
     inline sb_t();
-    inline sb_t(void * nonnull buf, int len, int size,
-                mem_pool_t * nullable mp);
+    inline sb_t(
+        void *nonnull buf, int len, int size, mem_pool_t *nullable mp
+    );
     inline ~sb_t();
 
   private:
     DISALLOW_COPY_AND_ASSIGN(sb_t);
-#endif
+#  endif
 } sb_t;
 
 /* Default byte array for empty strbufs.
  */
 extern const char __sb_slop[1];
 
-
 /**************************************************************************/
 /* Initialization                                                         */
 /**************************************************************************/
 
-static inline void sb_set_trailing0(sb_t * nonnull sb)
+static inline void sb_set_trailing0(sb_t *nonnull sb)
 {
     if (sb->data != __sb_slop) {
         sb->data[sb->len] = '\0';
     } else {
-        assert (sb->data[0] == '\0');
+        assert(sb->data[0] == '\0');
     }
 }
 
-static inline sb_t * nonnull
-sb_init_full(sb_t * nonnull sb, void * nonnull buf, int blen, int bsize,
-             mem_pool_t * nullable mp)
+static inline sb_t *nonnull sb_init_full(
+    sb_t *nonnull sb, void *nonnull buf, int blen, int bsize,
+    mem_pool_t *nullable mp
+)
 {
-    assert (blen < bsize);
+    assert(blen < bsize);
     sb->data = cast(char *, buf);
-    sb->len  = blen;
+    sb->len = blen;
     sb->size = bsize;
     sb->skip = 0;
-    sb->mp   = mp;
+    sb->mp = mp;
     sb_set_trailing0(sb);
     return sb;
 }
@@ -123,139 +124,133 @@ sb_init_full(sb_t * nonnull sb, void * nonnull buf, int blen, int bsize,
  *
  * It will be automatically wiped when leaving the current scope.
  */
-#ifdef __cplusplus
+#  ifdef __cplusplus
 
-# define SB(name, sz)                                                        \
-    CONST_SIZE_ARRAY(__##name##_buf, char, (sz));                            \
-    sb_t name(__##name##_buf, 0, sz, &mem_pool_static)
+#    define SB(name, sz)                                                     \
+        CONST_SIZE_ARRAY(__##name##_buf, char, (sz));                        \
+        sb_t name(__##name##_buf, 0, sz, &mem_pool_static)
 
-# define t_SB(name, sz)  sb_t name(t_new_raw(char, sz), 0, sz, t_pool())
+#    define t_SB(name, sz) sb_t name(t_new_raw(char, sz), 0, sz, t_pool())
 
-#else
+#  else
 
-# define SB_INIT(buf, sz, pool)                                              \
-    {   .data = memset(buf, 0, 1),                                           \
-        .size = sz, .mp = pool }
+#    define SB_INIT(buf, sz, pool)                                           \
+        {.data = memset(buf, 0, 1), .size = sz, .mp = pool}
 
-# define SB(name, sz)                                                        \
-    CONST_SIZE_ARRAY(__##name##_buf, char, (sz));                            \
-    scoped(sb_t, name, sb_wipe) =                                           \
-        SB_INIT(__##name##_buf, sz, &mem_pool_static)
+#    define SB(name, sz)                                                     \
+        CONST_SIZE_ARRAY(__##name##_buf, char, (sz));                        \
+        scoped(sb_t, name, sb_wipe) =                                        \
+            SB_INIT(__##name##_buf, sz, &mem_pool_static)
 
-# define t_SB(name, sz)                                                      \
-    sb_t name = SB_INIT(t_new_raw(char, sz), sz, t_pool())
+#    define t_SB(name, sz)                                                   \
+        sb_t name = SB_INIT(t_new_raw(char, sz), sz, t_pool())
 
-#endif
+#  endif
 
-#define t_SB_1k(name)  t_SB(name, 1 << 10)
-#define t_SB_8k(name)  t_SB(name, 8 << 10)
-#define SB_1k(name)    SB(name, 1 << 10)
-#define SB_8k(name)    SB(name, 8 << 10)
+#  define t_SB_1k(name) t_SB(name, 1 << 10)
+#  define t_SB_8k(name) t_SB(name, 8 << 10)
+#  define SB_1k(name) SB(name, 1 << 10)
+#  define SB_8k(name) SB(name, 8 << 10)
 
-static inline sb_t * nonnull sb_init(sb_t * nonnull sb)
+static inline sb_t *nonnull sb_init(sb_t *nonnull sb)
 {
     return sb_init_full(sb, (char *)__sb_slop, 0, 1, &mem_pool_libc);
 }
 
-static inline sb_t * nonnull mp_sb_init(mem_pool_t * nullable mp,
-                                        sb_t * nonnull sb, int size)
+static inline sb_t *nonnull
+mp_sb_init(mem_pool_t *nullable mp, sb_t *nonnull sb, int size)
 {
     return sb_init_full(sb, mp_new_raw(mp, char, size), 0, size, mp);
 }
 
-static inline sb_t * nonnull t_sb_init(sb_t * nonnull sb, int size)
+static inline sb_t *nonnull t_sb_init(sb_t *nonnull sb, int size)
 {
     return mp_sb_init(t_pool(), sb, size);
 }
 
-static inline sb_t * nonnull r_sb_init(sb_t * nonnull sb, int size)
+static inline sb_t *nonnull r_sb_init(sb_t *nonnull sb, int size)
 {
     return mp_sb_init(r_pool(), sb, size);
 }
 
-void sb_reset(sb_t * nonnull sb) __attr_leaf__;
+void sb_reset(sb_t *nonnull sb) __attr_leaf__;
 
 /** Resets the buffer but keeps the allocated memory, however big it is. */
-void sb_reset_keep_mem(sb_t * nonnull sb) __attr_leaf__;
+void sb_reset_keep_mem(sb_t *nonnull sb) __attr_leaf__;
 
-void sb_wipe(sb_t * nonnull sb) __attr_leaf__;
+void sb_wipe(sb_t *nonnull sb) __attr_leaf__;
 
 GENERIC_NEW(sb_t, sb);
 GENERIC_DELETE(sb_t, sb);
-#ifdef __cplusplus
-sb_t::sb_t() :
-    data((char *)__sb_slop),
-    len(0),
-    size(1),
-    skip(0),
-    mp(NULL)
+#  ifdef __cplusplus
+sb_t::sb_t() : data((char *)__sb_slop), len(0), size(1), skip(0), mp(NULL)
 {
 }
-sb_t::sb_t(void * nonnull buf, int len_, int size_, mem_pool_t * nullable mp_)
-    : data(static_cast<char *>(memset(buf, 0, 1))),
-    len(len_),
-    size(size_),
-    skip(0),
-    mp(mp_)
+sb_t::sb_t(void *nonnull buf, int len_, int size_, mem_pool_t *nullable mp_)
+    : data(static_cast<char *>(memset(buf, 0, 1))), len(len_), size(size_),
+      skip(0), mp(mp_)
 {
-    assert (len < size);
+    assert(len < size);
 }
-sb_t::~sb_t() { sb_wipe(this); }
-#endif
+sb_t::~sb_t()
+{
+    sb_wipe(this);
+}
+#  endif
 
 /**************************************************************************/
 /* str/mem-functions wrappers                                             */
 /**************************************************************************/
 
-static inline int sb_cmp(const sb_t * nonnull sb1, const sb_t * nonnull sb2)
+static inline int sb_cmp(const sb_t *nonnull sb1, const sb_t *nonnull sb2)
 {
     int len = MIN(sb1->len, sb2->len);
     int res = memcmp(sb1->data, sb2->data, len);
     return res ? res : sb1->len - sb2->len;
 }
 
-int sb_search(const sb_t * nonnull sb, int pos,
-              const void * nonnull what, int wlen)
-    __attr_leaf__;
-
+int sb_search(
+    const sb_t *nonnull sb, int pos, const void *nonnull what, int wlen
+) __attr_leaf__;
 
 /**************************************************************************/
 /* buffer raw manipulations                                               */
 /**************************************************************************/
 
-static inline char * nonnull sb_end(const sb_t * nonnull sb)
+static inline char *nonnull sb_end(const sb_t *nonnull sb)
 {
     return sb->data + sb->len;
 }
 
-static inline int sb_avail(const sb_t * nonnull sb)
+static inline int sb_avail(const sb_t *nonnull sb)
 {
     return sb->size - sb->len - 1;
 }
 
-char * nonnull sb_detach(sb_t * nonnull sb, int * nullable len)
-    __attr_leaf__;
+char *nonnull sb_detach(sb_t *nonnull sb, int *nullable len) __attr_leaf__;
 
-int  __sb_rewind_adds(sb_t * nonnull sb, const sb_t * nonnull orig)
-    __attr_leaf__;
-void __sb_grow(sb_t * nonnull sb, int extra) __attr_leaf__;
-void __sb_optimize(sb_t * nonnull sb, size_t len) __attr_leaf__;
-static inline void __sb_fixlen(sb_t * nonnull sb, int len)
+int __sb_rewind_adds(
+    sb_t *nonnull sb, const sb_t *nonnull orig
+) __attr_leaf__;
+void __sb_grow(sb_t *nonnull sb, int extra) __attr_leaf__;
+void __sb_optimize(sb_t *nonnull sb, size_t len) __attr_leaf__;
+static inline void __sb_fixlen(sb_t *nonnull sb, int len)
 {
     sb->len = len;
     sb_set_trailing0(sb);
 }
 
-static inline void sb_optimize(sb_t * nonnull sb, size_t extra)
+static inline void sb_optimize(sb_t *nonnull sb, size_t extra)
 {
     size_t size = sb->size + sb->skip;
-    size_t len  = sb->len + 1;
+    size_t len = sb->len + 1;
 
-    if (unlikely(size > BUFSIZ && (len + extra) * 8 < size))
+    if (unlikely(size > BUFSIZ && (len + extra) * 8 < size)) {
         __sb_optimize(sb, len + extra);
+    }
 }
 
-static inline char * nonnull sb_grow(sb_t * nonnull sb, int extra)
+static inline char *nonnull sb_grow(sb_t *nonnull sb, int extra)
 {
     if (sb->len + extra >= sb->size) {
         __sb_grow(sb, extra);
@@ -265,10 +260,11 @@ static inline char * nonnull sb_grow(sb_t * nonnull sb, int extra)
     return sb_end(sb);
 }
 
-static inline char * nonnull sb_growlen(sb_t * nonnull sb, int extra)
+static inline char *nonnull sb_growlen(sb_t *nonnull sb, int extra)
 {
-    if (sb->len + extra >= sb->size)
+    if (sb->len + extra >= sb->size) {
         __sb_grow(sb, extra);
+    }
     __sb_fixlen(sb, sb->len + extra);
 
     /* workaround for a false positive of -Warray-bounds in gcc 8
@@ -285,8 +281,8 @@ static inline char * nonnull sb_growlen(sb_t * nonnull sb, int extra)
 /* splicing                                                               */
 /**************************************************************************/
 
-static inline bool sb_overlaps(const sb_t * nonnull sb,
-                               const void * nonnull data, size_t dlen)
+static inline bool
+sb_overlaps(const sb_t *nonnull sb, const void *nonnull data, size_t dlen)
 {
     size_t min_len = MIN((size_t)sb->len, dlen);
 
@@ -310,56 +306,58 @@ static inline bool sb_overlaps(const sb_t * nonnull sb,
     return !((uintptr_t)data - (uintptr_t)sb->data - min_len <= -2 * min_len);
 }
 
-static inline void sb_add(sb_t * nonnull sb, const void * nonnull data,
-                          int dlen)
+static inline void
+sb_add(sb_t *nonnull sb, const void *nonnull data, int dlen)
 {
     char *buf;
 
-    assert(!sb_overlaps(sb, data, dlen) &&
-           "the data buffer is overlapping with the sb, please copy the "
-           "buffer elsewhere before using sb_add");
+    assert(
+        !sb_overlaps(sb, data, dlen) &&
+        "the data buffer is overlapping with the sb, please copy the "
+        "buffer elsewhere before using sb_add"
+    );
     buf = sb_growlen(sb, dlen);
 
     memcpy(buf, data, dlen);
 }
 
-static inline void sb_addsb(sb_t * nonnull sb, const sb_t * nonnull sb2)
+static inline void sb_addsb(sb_t *nonnull sb, const sb_t *nonnull sb2)
 {
     sb_add(sb, sb2->data, sb2->len);
 }
 
-static inline void sb_addc(sb_t * nonnull sb, unsigned char c)
+static inline void sb_addc(sb_t *nonnull sb, unsigned char c)
 {
     sb_add(sb, &c, 1);
 }
 
-static inline void sb_adduc(sb_t * nonnull sb, int c)
+static inline void sb_adduc(sb_t *nonnull sb, int c)
 {
     int len = __pstrputuc(sb_grow(sb, 4), c);
     __sb_fixlen(sb, sb->len + len);
 }
 
-static inline void sb_addnc(sb_t * nonnull sb, int extralen, unsigned char c)
+static inline void sb_addnc(sb_t *nonnull sb, int extralen, unsigned char c)
 {
     memset(sb_growlen(sb, extralen), c, extralen);
 }
-static inline void sb_add0s(sb_t * nonnull sb, int extralen)
+static inline void sb_add0s(sb_t *nonnull sb, int extralen)
 {
     sb_addnc(sb, extralen, 0);
 }
-static inline void sb_adds(sb_t * nonnull sb, const char * nonnull s)
+static inline void sb_adds(sb_t *nonnull sb, const char *nonnull s)
 {
     sb_add(sb, s, strlen(s));
 }
-static inline void sb_add_lstr(sb_t * nonnull sb, lstr_t s)
+static inline void sb_add_lstr(sb_t *nonnull sb, lstr_t s)
 {
     sb_add(sb, s.s, s.len);
 }
 
 /* Prepare the string buffer for deletion of length "rm_len" followed by an
  * insertion of length "insert_len" at position "pos". */
-char * nonnull
-__sb_splice(sb_t * nonnull sb, int pos, int rm_len, int insert_len);
+char *nonnull
+__sb_splice(sb_t *nonnull sb, int pos, int rm_len, int insert_len);
 
 /** Deletes and inserts data at a given position in a string buffer.
  *
@@ -369,21 +367,22 @@ __sb_splice(sb_t * nonnull sb, int pos, int rm_len, int insert_len);
  * \param[in]      data    Data to insert.
  * \param[in]      dlen    Length of the data to insert.
  */
-static inline char * nonnull
-sb_splice(sb_t * nonnull sb, int pos, int rm_len, const void * nullable data,
-          int dlen)
+static inline char *nonnull sb_splice(
+    sb_t *nonnull sb, int pos, int rm_len, const void *nullable data, int dlen
+)
 {
     char *res;
 
-    assert (pos >= 0 && rm_len >= 0 && dlen >= 0);
-    assert ((unsigned)pos <= (unsigned)sb->len);
-    assert ((unsigned)pos + (unsigned)rm_len <= (unsigned)sb->len);
+    assert(pos >= 0 && rm_len >= 0 && dlen >= 0);
+    assert((unsigned)pos <= (unsigned)sb->len);
+    assert((unsigned)pos + (unsigned)rm_len <= (unsigned)sb->len);
 
-#ifndef __cplusplus
+#  ifndef __cplusplus
     if (__builtin_constant_p(dlen)) {
         if (dlen == 0 || (__builtin_constant_p(rm_len) && rm_len >= dlen)) {
-            p_move2(sb->data, pos + dlen, pos + rm_len,
-                    sb->len - pos - rm_len);
+            p_move2(
+                sb->data, pos + dlen, pos + rm_len, sb->len - pos - rm_len
+            );
             __sb_fixlen(sb, sb->len + dlen - rm_len);
             return sb->data + pos;
         }
@@ -393,42 +392,43 @@ sb_splice(sb_t * nonnull sb, int pos, int rm_len, const void * nullable data,
     } else {
         res = __sb_splice(sb, pos, rm_len, dlen);
     }
-#else
+#  else
     res = __sb_splice(sb, pos, rm_len, dlen);
-#endif
+#  endif
     return data ? (char *)memcpy(res, data, dlen) : res;
 }
 
-static inline char * nonnull
-sb_splice_lstr(sb_t * nonnull sb, int pos, int rm_len, lstr_t insert)
+static inline char *nonnull
+sb_splice_lstr(sb_t *nonnull sb, int pos, int rm_len, lstr_t insert)
 {
     return sb_splice(sb, pos, rm_len, insert.s, insert.len);
 }
 
 static inline void
-sb_splicenc(sb_t * nonnull sb, int pos, int len, int extralen, unsigned char c)
+sb_splicenc(sb_t *nonnull sb, int pos, int len, int extralen, unsigned char c)
 {
     memset(sb_splice(sb, pos, len, NULL, extralen), c, extralen);
 }
-static inline void sb_splice0s(sb_t * nonnull sb, int pos, int len, int extralen)
+static inline void
+sb_splice0s(sb_t *nonnull sb, int pos, int len, int extralen)
 {
     sb_splicenc(sb, pos, len, extralen, 0);
 }
-static inline void sb_prepends(sb_t * nonnull sb, const char * nonnull s)
+static inline void sb_prepends(sb_t *nonnull sb, const char *nonnull s)
 {
     sb_splice(sb, 0, 0, s, strlen(s));
 }
-static inline void sb_prepend_lstr(sb_t * nonnull sb, lstr_t s)
+static inline void sb_prepend_lstr(sb_t *nonnull sb, lstr_t s)
 {
     sb_splice_lstr(sb, 0, 0, s);
 }
-static inline void sb_prependc(sb_t * nonnull sb, unsigned char c)
+static inline void sb_prependc(sb_t *nonnull sb, unsigned char c)
 {
     sb_splice(sb, 0, 0, &c, 1);
 }
-static inline void sb_skip(sb_t * nonnull sb, int len)
+static inline void sb_skip(sb_t *nonnull sb, int len)
 {
-    assert (len >= 0 && len <= sb->len);
+    assert(len >= 0 && len <= sb->len);
     if ((sb->len -= len)) {
         sb->data += len;
         sb->skip += len;
@@ -437,68 +437,72 @@ static inline void sb_skip(sb_t * nonnull sb, int len)
         sb_reset(sb);
     }
 }
-static inline void sb_skip_upto(sb_t * nonnull sb, const void * nonnull where)
+static inline void sb_skip_upto(sb_t *nonnull sb, const void *nonnull where)
 {
     sb_skip(sb, (const char *)where - sb->data);
 }
-static inline void sb_clip(sb_t * nonnull sb, int len)
+static inline void sb_clip(sb_t *nonnull sb, int len)
 {
-    assert (len >= 0 && len <= sb->len);
+    assert(len >= 0 && len <= sb->len);
     __sb_fixlen(sb, len);
 }
-static inline void sb_shrink(sb_t * nonnull sb, int len)
+static inline void sb_shrink(sb_t *nonnull sb, int len)
 {
-    assert (len >= 0 && len <= sb->len);
+    assert(len >= 0 && len <= sb->len);
     __sb_fixlen(sb, sb->len - len);
 }
-static inline void sb_shrink_upto(sb_t * nonnull sb, const void * nonnull where)
+static inline void sb_shrink_upto(sb_t *nonnull sb, const void *nonnull where)
 {
     sb_clip(sb, (const char *)where - sb->data);
 }
 
-static inline void sb_ltrim_ctype(sb_t * nonnull sb,
-                                  const ctype_desc_t * nonnull desc)
+static inline void
+sb_ltrim_ctype(sb_t *nonnull sb, const ctype_desc_t *nonnull desc)
 {
     const char *p = sb->data, *end = p + sb->len;
 
-    while (p < end && ctype_desc_contains(desc, *p))
+    while (p < end && ctype_desc_contains(desc, *p)) {
         p++;
+    }
     sb_skip_upto(sb, p);
 }
-static inline void sb_ltrim(sb_t * nonnull sb)
+static inline void sb_ltrim(sb_t *nonnull sb)
 {
     sb_ltrim_ctype(sb, &ctype_isspace);
 }
 
-static inline void sb_rtrim_ctype(sb_t * nonnull sb,
-                                  const ctype_desc_t * nonnull desc)
+static inline void
+sb_rtrim_ctype(sb_t *nonnull sb, const ctype_desc_t *nonnull desc)
 {
     const char *p = sb->data, *end = p + sb->len;
 
-    while (p < end && ctype_desc_contains(desc, end[-1]))
+    while (p < end && ctype_desc_contains(desc, end[-1])) {
         --end;
+    }
     sb_shrink_upto(sb, end);
 }
-static inline void sb_rtrim(sb_t * nonnull sb)
+static inline void sb_rtrim(sb_t *nonnull sb)
 {
     sb_rtrim_ctype(sb, &ctype_isspace);
 }
 
-static inline void sb_trim_ctype(sb_t * nonnull sb,
-                                 const ctype_desc_t * nonnull desc)
+static inline void
+sb_trim_ctype(sb_t *nonnull sb, const ctype_desc_t *nonnull desc)
 {
     sb_ltrim_ctype(sb, desc);
     sb_rtrim_ctype(sb, desc);
 }
-static inline void sb_trim(sb_t * nonnull sb)
+static inline void sb_trim(sb_t *nonnull sb)
 {
     sb_trim_ctype(sb, &ctype_isspace);
 }
 
-int sb_addvf(sb_t * nonnull sb, const char * nonnull fmt, va_list ap)
-    __attr_leaf__ __attr_printf__(2, 0);
-int sb_addf(sb_t * nonnull sb, const char * nonnull fmt, ...)
-    __attr_leaf__ __attr_printf__(2, 3);
+int sb_addvf(
+    sb_t *nonnull sb, const char *nonnull fmt, va_list ap
+) __attr_leaf__ __attr_printf__(2, 0);
+int sb_addf(
+    sb_t *nonnull sb, const char *nonnull fmt, ...
+) __attr_leaf__ __attr_printf__(2, 3);
 
 /** Reset and optimize a string buffer for sb_prepend().
  *
@@ -509,7 +513,7 @@ int sb_addf(sb_t * nonnull sb, const char * nonnull fmt, ...)
  * \note This optimization won't last after first "sb_add" or first realloc of
  * the sb.
  */
-static inline void sb_reset_reverse(sb_t * nonnull sb)
+static inline void sb_reset_reverse(sb_t *nonnull sb)
 {
     sb_reset(sb);
     sb->data += sb->size - 1;
@@ -518,10 +522,12 @@ static inline void sb_reset_reverse(sb_t * nonnull sb)
     sb->size = 1;
 }
 
-int sb_prependvf(sb_t * nonnull sb, const char * nonnull fmt, va_list ap)
-    __attr_leaf__ __attr_printf__(2, 0);
-int sb_prependf(sb_t * nonnull sb, const char * nonnull fmt, ...)
-    __attr_leaf__ __attr_printf__(2, 3);
+int sb_prependvf(
+    sb_t *nonnull sb, const char *nonnull fmt, va_list ap
+) __attr_leaf__ __attr_printf__(2, 0);
+int sb_prependf(
+    sb_t *nonnull sb, const char *nonnull fmt, ...
+) __attr_leaf__ __attr_printf__(2, 3);
 
 /** Appends content to a string buffer, filtering out characters that are not
  *  part of a given character set.
@@ -532,8 +538,9 @@ int sb_prependf(sb_t * nonnull sb, const char * nonnull fmt, ...)
  * \param[in]    s  String to be filtered and added
  * \param[in]    d  Character set
  */
-void sb_add_filtered(sb_t * nonnull sb, lstr_t s,
-                     const ctype_desc_t * nonnull d);
+void sb_add_filtered(
+    sb_t *nonnull sb, lstr_t s, const ctype_desc_t *nonnull d
+);
 
 /** Appends content to a string buffer, filtering out characters that are part
  *  of a given character set.
@@ -544,8 +551,9 @@ void sb_add_filtered(sb_t * nonnull sb, lstr_t s,
  * \param[in]    s  String to be filtered and added
  * \param[in]    d  Character set
  */
-void sb_add_filtered_out(sb_t * nonnull sb, lstr_t s,
-                         const ctype_desc_t * nonnull d);
+void sb_add_filtered_out(
+    sb_t *nonnull sb, lstr_t s, const ctype_desc_t *nonnull d
+);
 
 /** Appends content to a string buffer, replacing characters that are not
  *  part of a given character set with another character.
@@ -557,8 +565,9 @@ void sb_add_filtered_out(sb_t * nonnull sb, lstr_t s,
  * \param[in]    c  Character to add to the buffer in place of substrings
  *                  that are replaced. -1 to simply ignore those substrings.
  */
-void sb_add_sanitized(sb_t * nonnull sb, lstr_t s,
-                      const ctype_desc_t * nonnull d, int c);
+void sb_add_sanitized(
+    sb_t *nonnull sb, lstr_t s, const ctype_desc_t *nonnull d, int c
+);
 
 /** Appends content to a string buffer, replacing characters that are part of
  *  a given character set with another character.
@@ -570,32 +579,43 @@ void sb_add_sanitized(sb_t * nonnull sb, lstr_t s,
  * \param[in]    c  Character to add to the buffer in place of substrings
  *                  that are replaced. -1 to simply ignore those substrings.
  */
-void sb_add_sanitized_out(sb_t * nonnull sb, lstr_t s,
-                          const ctype_desc_t * nonnull d, int c);
+void sb_add_sanitized_out(
+    sb_t *nonnull sb, lstr_t s, const ctype_desc_t *nonnull d, int c
+);
 
-#define sb_setvf(sb, fmt, ap) \
-    ({ sb_t *__b = (sb); sb_reset(__b); sb_addvf(__b, fmt, ap); })
-#define sb_setf(sb, fmt, ...) \
-    ({ sb_t *__b = (sb); sb_reset(__b); sb_addf(__b, fmt, ##__VA_ARGS__); })
+#  define sb_setvf(sb, fmt, ap)                                              \
+      ({                                                                     \
+        sb_t *__b = (sb);                                                    \
+        sb_reset(__b);                                                       \
+        sb_addvf(__b, fmt, ap);                                              \
+      })
+#  define sb_setf(sb, fmt, ...)                                              \
+      ({                                                                     \
+        sb_t *__b = (sb);                                                    \
+        sb_reset(__b);                                                       \
+        sb_addf(__b, fmt, ##__VA_ARGS__);                                    \
+      })
 
-static inline void sb_set(sb_t * nonnull sb, const void * nonnull data,
-                          int dlen)
+static inline void
+sb_set(sb_t *nonnull sb, const void *nonnull data, int dlen)
 {
-    assert(!sb_overlaps(sb, data, dlen) &&
-           "the data buffer is overlapping with the sb, please use "
-           "sb_skip/sb_shrink and/or sb_clip instead");
+    assert(
+        !sb_overlaps(sb, data, dlen) &&
+        "the data buffer is overlapping with the sb, please use "
+        "sb_skip/sb_shrink and/or sb_clip instead"
+    );
     sb->len = 0;
     sb_add(sb, data, dlen);
 }
-static inline void sb_setsb(sb_t * nonnull sb, const sb_t * nonnull sb2)
+static inline void sb_setsb(sb_t *nonnull sb, const sb_t *nonnull sb2)
 {
     sb_set(sb, sb2->data, sb2->len);
 }
-static inline void sb_sets(sb_t * nonnull sb, const char * nonnull s)
+static inline void sb_sets(sb_t *nonnull sb, const char *nonnull s)
 {
     sb_set(sb, s, strlen(s));
 }
-static inline void sb_set_lstr(sb_t * nonnull sb, lstr_t s)
+static inline void sb_set_lstr(sb_t *nonnull sb, lstr_t s)
 {
     sb_set(sb, s.s, s.len);
 }
@@ -608,7 +628,7 @@ static inline void sb_set_lstr(sb_t * nonnull sb, lstr_t s)
  * \param[in]    thousand_sep Character used as thousand separator. Use -1 for
  *                            none.
  */
-void sb_add_uint_fmt(sb_t * nonnull sb, uint64_t val, int thousand_sep);
+void sb_add_uint_fmt(sb_t *nonnull sb, uint64_t val, int thousand_sep);
 
 /** Appends a pretty-formated integer to a string buffer with a thousand
  *  separator.
@@ -618,7 +638,7 @@ void sb_add_uint_fmt(sb_t * nonnull sb, uint64_t val, int thousand_sep);
  * \param[in]    thousand_sep Character used as thousand separator. Use -1 for
  *                            none.
  */
-void sb_add_int_fmt(sb_t * nonnull sb, int64_t val, int thousand_sep);
+void sb_add_int_fmt(sb_t *nonnull sb, int64_t val, int thousand_sep);
 
 /** Appends a pretty-formated number to a string buffer.
  *
@@ -645,8 +665,10 @@ void sb_add_int_fmt(sb_t * nonnull sb, int64_t val, int thousand_sep);
  * \param[in]    thousand_sep    Character used as thousand separator for
  *                               integer part. Use -1 for none.
  */
-void sb_add_double_fmt(sb_t * nonnull sb, double val, uint8_t nb_max_decimals,
-                       int dec_sep, int thousand_sep);
+void sb_add_double_fmt(
+    sb_t *nonnull sb, double val, uint8_t nb_max_decimals, int dec_sep,
+    int thousand_sep
+);
 
 /** Appends a pretty-formatted duration to a string buffer.
  *
@@ -659,9 +681,9 @@ void sb_add_double_fmt(sb_t * nonnull sb, double val, uint8_t nb_max_decimals,
  * \param[in]    ms       The duration, in milliseconds.
  * \param[in]    print_ms Whether to print the milliseconds or not.
  */
-void _sb_add_duration_ms(sb_t * nonnull sb, uint64_t ms, bool print_ms);
+void _sb_add_duration_ms(sb_t *nonnull sb, uint64_t ms, bool print_ms);
 
-static inline void sb_add_duration_s(sb_t * nonnull sb, uint64_t s)
+static inline void sb_add_duration_s(sb_t *nonnull sb, uint64_t s)
 {
     _sb_add_duration_ms(sb, s * 1000ULL, false);
 }
@@ -714,9 +736,10 @@ struct sockaddr;
  *   0 if at EOF
  *   >0 the number of octets read
  */
-int sb_getline(sb_t * nonnull sb, FILE * nonnull f) __attr_leaf__;
-int sb_fread(sb_t * nonnull sb, int size, int nmemb,
-             FILE * nonnull f) __attr_leaf__;
+int sb_getline(sb_t *nonnull sb, FILE *nonnull f) __attr_leaf__;
+int sb_fread(
+    sb_t *nonnull sb, int size, int nmemb, FILE *nonnull f
+) __attr_leaf__;
 
 /* Read a whole file using a file descriptor.
  *
@@ -728,41 +751,48 @@ int sb_fread(sb_t * nonnull sb, int size, int nmemb,
  * Return the number of bytes appended to the sb, negative value indicates an
  * error.
  */
-int sb_read_fd(sb_t * nonnull sb, int fd) __attr_leaf__;
+int sb_read_fd(sb_t *nonnull sb, int fd) __attr_leaf__;
 
-int sb_read_file(sb_t * nonnull sb, const char * nonnull filename)
-    __attr_leaf__;
-int sb_write_file(const sb_t * nonnull sb,
-                  const char * nonnull filename) __attr_leaf__;
-int sb_append_to_file(const sb_t * nonnull sb,
-                      const char * nonnull filename) __attr_leaf__;
+int sb_read_file(
+    sb_t *nonnull sb, const char *nonnull filename
+) __attr_leaf__;
+int sb_write_file(
+    const sb_t *nonnull sb, const char *nonnull filename
+) __attr_leaf__;
+int sb_append_to_file(
+    const sb_t *nonnull sb, const char *nonnull filename
+) __attr_leaf__;
 
-int sb_read(sb_t * nonnull sb, int fd, int hint) __attr_leaf__;
-int sb_recv(sb_t * nonnull sb, int fd, int hint, int flags) __attr_leaf__;
-int sb_recvfrom(sb_t * nonnull sb, int fd, int hint, int flags,
-                struct sockaddr * nullable addr, socklen_t * nullable alen)
-    __attr_leaf__;
-
+int sb_read(sb_t *nonnull sb, int fd, int hint) __attr_leaf__;
+int sb_recv(sb_t *nonnull sb, int fd, int hint, int flags) __attr_leaf__;
+int sb_recvfrom(
+    sb_t *nonnull sb, int fd, int hint, int flags,
+    struct sockaddr *nullable addr, socklen_t *nullable alen
+) __attr_leaf__;
 
 /**************************************************************************/
 /* usual quoting mechanisms (base64, addslashes, ...)                     */
 /**************************************************************************/
 
-void sb_add_slashes(sb_t * nonnull sb, const void * nonnull data, int len,
-                    const char * nonnull toesc,
-                    const char * nonnull esc) __attr_leaf__;
-static inline void
-sb_adds_slashes(sb_t * nonnull sb, const char * nonnull s,
-                const char * nonnull toesc, const char * nonnull esc)
+void sb_add_slashes(
+    sb_t *nonnull sb, const void *nonnull data, int len,
+    const char *nonnull toesc, const char *nonnull esc
+) __attr_leaf__;
+static inline void sb_adds_slashes(
+    sb_t *nonnull sb, const char *nonnull s, const char *nonnull toesc,
+    const char *nonnull esc
+)
 {
     sb_add_slashes(sb, s, strlen(s), toesc, esc);
 }
-void sb_add_unslashes(sb_t * nonnull sb, const void * nonnull data, int len,
-                      const char * nonnull tounesc,
-                      const char * nonnull unesc) __attr_leaf__;
-static inline void
-sb_adds_unslashes(sb_t * nonnull sb, const char * nonnull s,
-                  const char * nonnull tounesc, const char * nonnull unesc)
+void sb_add_unslashes(
+    sb_t *nonnull sb, const void *nonnull data, int len,
+    const char *nonnull tounesc, const char *nonnull unesc
+) __attr_leaf__;
+static inline void sb_adds_unslashes(
+    sb_t *nonnull sb, const char *nonnull s, const char *nonnull tounesc,
+    const char *nonnull unesc
+)
 {
     sb_add_unslashes(sb, s, strlen(s), tounesc, unesc);
 }
@@ -774,55 +804,59 @@ sb_adds_unslashes(sb_t * nonnull sb, const char * nonnull s,
  * <code>${VAR_NAME}</code> or <code>$VAR_NAME</code>. Literal <code>$</code>
  * or <code>\</code> must be escaped using backslashes.
  */
-int sb_add_expandenv(sb_t * nonnull sb, const void * nonnull data, int len)
-    __attr_leaf__;
-int sb_adds_expandenv(sb_t * nonnull sb, const char * nonnull s)
-    __attr_leaf__;
-int sb_add_lstr_expandenv(sb_t * nonnull sb, lstr_t s) __attr_leaf__;
+int sb_add_expandenv(
+    sb_t *nonnull sb, const void *nonnull data, int len
+) __attr_leaf__;
+int sb_adds_expandenv(sb_t *nonnull sb, const char *nonnull s) __attr_leaf__;
+int sb_add_lstr_expandenv(sb_t *nonnull sb, lstr_t s) __attr_leaf__;
 
-void sb_add_unquoted(sb_t * nonnull sb, const void * nonnull data, int len)
-    __attr_leaf__;
-void sb_adds_unquoted(sb_t * nonnull sb, const char * nonnull s)
-    __attr_leaf__;
-void sb_add_lstr_unquoted(sb_t * nonnull sb, lstr_t s) __attr_leaf__;
+void sb_add_unquoted(
+    sb_t *nonnull sb, const void *nonnull data, int len
+) __attr_leaf__;
+void sb_adds_unquoted(sb_t *nonnull sb, const char *nonnull s) __attr_leaf__;
+void sb_add_lstr_unquoted(sb_t *nonnull sb, lstr_t s) __attr_leaf__;
 
-void sb_add_urlencode(sb_t * nonnull sb, const void * nonnull data, int len)
-    __attr_leaf__;
-void sb_adds_urlencode(sb_t * nonnull sb, const char * nonnull s)
-    __attr_leaf__;
-void sb_add_lstr_urlencode(sb_t * nonnull sb, lstr_t s) __attr_leaf__;
+void sb_add_urlencode(
+    sb_t *nonnull sb, const void *nonnull data, int len
+) __attr_leaf__;
+void sb_adds_urlencode(sb_t *nonnull sb, const char *nonnull s) __attr_leaf__;
+void sb_add_lstr_urlencode(sb_t *nonnull sb, lstr_t s) __attr_leaf__;
 
-void sb_add_urldecode(sb_t * nonnull sb, const void * nonnull data, int len)
-    __attr_leaf__;
-void sb_adds_urldecode(sb_t * nonnull sb, const char * nonnull s)
-    __attr_leaf__;
-void sb_add_lstr_urldecode(sb_t * nonnull sb, lstr_t s) __attr_leaf__;
+void sb_add_urldecode(
+    sb_t *nonnull sb, const void *nonnull data, int len
+) __attr_leaf__;
+void sb_adds_urldecode(sb_t *nonnull sb, const char *nonnull s) __attr_leaf__;
+void sb_add_lstr_urldecode(sb_t *nonnull sb, lstr_t s) __attr_leaf__;
 
-void sb_urldecode(sb_t * nonnull sb) __attr_leaf__;
+void sb_urldecode(sb_t *nonnull sb) __attr_leaf__;
 
-void sb_add_hex(sb_t * nonnull sb, const void * nonnull data, int len)
-    __attr_leaf__;
-void sb_adds_hex(sb_t * nonnull sb, const char * nonnull s) __attr_leaf__;
-void sb_add_lstr_hex(sb_t * nonnull sb, lstr_t s) __attr_leaf__;
+void sb_add_hex(
+    sb_t *nonnull sb, const void *nonnull data, int len
+) __attr_leaf__;
+void sb_adds_hex(sb_t *nonnull sb, const char *nonnull s) __attr_leaf__;
+void sb_add_lstr_hex(sb_t *nonnull sb, lstr_t s) __attr_leaf__;
 
-int sb_add_unhex(sb_t * nonnull sb, const void * nonnull data, int len)
-    __attr_leaf__;
-int sb_adds_unhex(sb_t * nonnull sb, const char * nonnull s) __attr_leaf__;
-int sb_add_lstr_unhex(sb_t * nonnull sb, lstr_t s) __attr_leaf__;
+int sb_add_unhex(
+    sb_t *nonnull sb, const void *nonnull data, int len
+) __attr_leaf__;
+int sb_adds_unhex(sb_t *nonnull sb, const char *nonnull s) __attr_leaf__;
+int sb_add_lstr_unhex(sb_t *nonnull sb, lstr_t s) __attr_leaf__;
 
 /* this all assumes utf8 data ! */
-void sb_add_xmlescape(sb_t * nonnull sb, const void * nonnull data, int len)
-    __attr_leaf__;
-void sb_adds_xmlescape(sb_t * nonnull sb, const char * nonnull s)
-    __attr_leaf__;
-void sb_add_lstr_xmlescape(sb_t * nonnull sb, lstr_t s) __attr_leaf__;
+void sb_add_xmlescape(
+    sb_t *nonnull sb, const void *nonnull data, int len
+) __attr_leaf__;
+void sb_adds_xmlescape(sb_t *nonnull sb, const char *nonnull s) __attr_leaf__;
+void sb_add_lstr_xmlescape(sb_t *nonnull sb, lstr_t s) __attr_leaf__;
 
 /* FIXME This function has no dedicated unit test at all ! */
-int sb_add_xmlunescape(sb_t * nonnull sb, const void * nonnull data, int len)
-    __attr_leaf__;
-int sb_adds_xmlunescape(sb_t * nonnull sb, const char * nonnull s)
-    __attr_leaf__;
-int sb_add_lstr_xmlunescape(sb_t * nonnull sb, lstr_t s) __attr_leaf__;
+int sb_add_xmlunescape(
+    sb_t *nonnull sb, const void *nonnull data, int len
+) __attr_leaf__;
+int sb_adds_xmlunescape(
+    sb_t *nonnull sb, const char *nonnull s
+) __attr_leaf__;
+int sb_add_lstr_xmlunescape(sb_t *nonnull sb, lstr_t s) __attr_leaf__;
 
 /* FIXME This function has no dedicated unit test at all ! */
 
@@ -830,26 +864,28 @@ int sb_add_lstr_xmlunescape(sb_t * nonnull sb, lstr_t s) __attr_leaf__;
  *
  * \note "qpe" is for Quoted-Printable Escaping.
  */
-void sb_add_qpe(sb_t * nonnull sb, const void * nonnull data, int len)
-    __attr_leaf__;
-void sb_adds_qpe(sb_t * nonnull sb, const char * nonnull s) __attr_leaf__;
-void sb_add_lstr_qpe(sb_t * nonnull sb, lstr_t s) __attr_leaf__;
+void sb_add_qpe(
+    sb_t *nonnull sb, const void *nonnull data, int len
+) __attr_leaf__;
+void sb_adds_qpe(sb_t *nonnull sb, const char *nonnull s) __attr_leaf__;
+void sb_add_lstr_qpe(sb_t *nonnull sb, lstr_t s) __attr_leaf__;
 
 /* FIXME This function has no dedicated unit test at all ! */
 /** Decode "Quoted-Printable" data.
  *
  * \note "qpe" is for Quoted-Printable Escaping.
  */
-void sb_add_unqpe(sb_t * nonnull sb, const void * nonnull data, int len)
-    __attr_leaf__;
-void sb_adds_unqpe(sb_t * nonnull sb, const char * nonnull s) __attr_leaf__;
-void sb_add_lstr_unqpe(sb_t * nonnull sb, lstr_t s) __attr_leaf__;
+void sb_add_unqpe(
+    sb_t *nonnull sb, const void *nonnull data, int len
+) __attr_leaf__;
+void sb_adds_unqpe(sb_t *nonnull sb, const char *nonnull s) __attr_leaf__;
+void sb_add_lstr_unqpe(sb_t *nonnull sb, lstr_t s) __attr_leaf__;
 
 typedef struct sb_b64_ctx_t {
     short packs_per_line;
     short pack_num;
-    byte  trail[2];
-    byte  trail_len;
+    byte trail[2];
+    byte trail_len;
 } sb_b64_ctx_t;
 
 /** Start a multiple step base 64 encoding.
@@ -861,8 +897,9 @@ typedef struct sb_b64_ctx_t {
  *                     for unlimited line length.
  * \param[out]  ctx  encoding context (may be uninitialized).
  */
-void sb_add_b64_start(sb_t * nonnull sb, int len, int width,
-                      sb_b64_ctx_t * nonnull ctx) __attr_leaf__;
+void sb_add_b64_start(
+    sb_t *nonnull sb, int len, int width, sb_b64_ctx_t *nonnull ctx
+) __attr_leaf__;
 
 /** Next base 64 encoding step.
  *
@@ -871,16 +908,19 @@ void sb_add_b64_start(sb_t * nonnull sb, int len, int width,
  * \param[in]  len  number of bytes to encode from src0.
  * \param[in|out]  ctx  encoding context.
  */
-void sb_add_b64_update(sb_t * nonnull sb, const void * nonnull src0, int len,
-                       sb_b64_ctx_t * nonnull ctx) __attr_leaf__;
+void sb_add_b64_update(
+    sb_t *nonnull sb, const void *nonnull src0, int len,
+    sb_b64_ctx_t *nonnull ctx
+) __attr_leaf__;
 
 /** Terminates a multiple step base 64 encoding.
  *
  * \param[out]  sb  the output buffer, receiving encoded data.
  * \param[in]  ctx  encoding context.
  */
-void sb_add_b64_finish(sb_t * nonnull sb, sb_b64_ctx_t * nonnull ctx)
-    __attr_leaf__;
+void sb_add_b64_finish(
+    sb_t *nonnull sb, sb_b64_ctx_t *nonnull ctx
+) __attr_leaf__;
 
 /** Encode data to base64.
  *
@@ -891,11 +931,12 @@ void sb_add_b64_finish(sb_t * nonnull sb, sb_b64_ctx_t * nonnull ctx)
  *                     line markers.  0 for standard 76 character lines, -1
  *                     for unlimited line length.
  */
-void sb_add_b64(sb_t * nonnull sb, const void * nonnull data,
-                int len, int width) __attr_leaf__;
+void sb_add_b64(
+    sb_t *nonnull sb, const void *nonnull data, int len, int width
+) __attr_leaf__;
 
-void sb_adds_b64(sb_t * nonnull sb, const char * nonnull s, int width);
-void sb_add_lstr_b64(sb_t * nonnull sb, lstr_t data, int width);
+void sb_adds_b64(sb_t *nonnull sb, const char *nonnull s, int width);
+void sb_add_lstr_b64(sb_t *nonnull sb, lstr_t data, int width);
 
 /** Decode data from base64.
  *
@@ -904,10 +945,11 @@ void sb_add_lstr_b64(sb_t * nonnull sb, lstr_t data, int width);
  * \param[in]  len  number of bytes to decode.
  * \return 0 on success, -1 on error. The sb is unchanged on error.
  */
-int sb_add_unb64(sb_t * nonnull sb, const void * nonnull data, int len)
-    __attr_leaf__;
-int sb_adds_unb64(sb_t * nonnull sb, const char * nonnull s) __attr_leaf__;
-int sb_add_lstr_unb64(sb_t * nonnull sb, lstr_t s) __attr_leaf__;
+int sb_add_unb64(
+    sb_t *nonnull sb, const void *nonnull data, int len
+) __attr_leaf__;
+int sb_adds_unb64(sb_t *nonnull sb, const char *nonnull s) __attr_leaf__;
+int sb_add_lstr_unb64(sb_t *nonnull sb, lstr_t s) __attr_leaf__;
 
 /** base64url encoder/decoder.
  *
@@ -916,24 +958,29 @@ int sb_add_lstr_unb64(sb_t * nonnull sb, lstr_t s) __attr_leaf__;
  * names.
  */
 
-#define sb_add_b64url_start  sb_add_b64_start
+#  define sb_add_b64url_start sb_add_b64_start
 
-void sb_add_b64url_update(sb_t * nonnull sb, const void * nonnull src0,
-                          int len, sb_b64_ctx_t * nonnull ctx) __attr_leaf__;
-void sb_add_b64url_finish(sb_t * nonnull sb, sb_b64_ctx_t * nonnull ctx)
-    __attr_leaf__;
+void sb_add_b64url_update(
+    sb_t *nonnull sb, const void *nonnull src0, int len,
+    sb_b64_ctx_t *nonnull ctx
+) __attr_leaf__;
+void sb_add_b64url_finish(
+    sb_t *nonnull sb, sb_b64_ctx_t *nonnull ctx
+) __attr_leaf__;
 
-void sb_add_b64url(sb_t * nonnull sb, const void * nonnull data,
-                   int len, int width) __attr_leaf__;
+void sb_add_b64url(
+    sb_t *nonnull sb, const void *nonnull data, int len, int width
+) __attr_leaf__;
 
-void sb_add_lstr_b64url(sb_t * nonnull sb, lstr_t data, int width);
+void sb_add_lstr_b64url(sb_t *nonnull sb, lstr_t data, int width);
 
-int sb_add_unb64url(sb_t * nonnull sb, const void * nonnull data, int len)
-    __attr_leaf__;
-int sb_adds_unb64url(sb_t * nonnull sb, const char * nonnull s) __attr_leaf__;
-int sb_add_lstr_unb64url(sb_t * nonnull sb, lstr_t s) __attr_leaf__;
-static inline void sb_adds_b64url(sb_t * nonnull sb, const char * nonnull s,
-                                  int width)
+int sb_add_unb64url(
+    sb_t *nonnull sb, const void *nonnull data, int len
+) __attr_leaf__;
+int sb_adds_unb64url(sb_t *nonnull sb, const char *nonnull s) __attr_leaf__;
+int sb_add_lstr_unb64url(sb_t *nonnull sb, lstr_t s) __attr_leaf__;
+static inline void
+sb_adds_b64url(sb_t *nonnull sb, const char *nonnull s, int width)
 {
     sb_add_b64url(sb, s, strlen(s), width);
 }
@@ -946,14 +993,15 @@ static inline void sb_adds_b64url(sb_t * nonnull sb, const char * nonnull s,
  * Otherwise, it is double-quoted, and the double-quotes of the content of the
  * string (and only them) are escaped with double-quotes.
  */
-void sb_add_csvescape(sb_t * nonnull sb, int sep, const void * nonnull data,
-                      int len) __attr_leaf__;
-static inline void sb_adds_csvescape(sb_t * nonnull sb, int sep,
-                                     const char * nonnull s)
+void sb_add_csvescape(
+    sb_t *nonnull sb, int sep, const void *nonnull data, int len
+) __attr_leaf__;
+static inline void
+sb_adds_csvescape(sb_t *nonnull sb, int sep, const char *nonnull s)
 {
     sb_add_csvescape(sb, sep, s, strlen(s));
 }
-static inline void sb_add_lstr_csvescape(sb_t * nonnull sb, int sep, lstr_t s)
+static inline void sb_add_lstr_csvescape(sb_t *nonnull sb, int sep, lstr_t s)
 {
     sb_add_csvescape(sb, sep, s.s, s.len);
 }
@@ -968,9 +1016,9 @@ static inline void sb_add_lstr_csvescape(sb_t * nonnull sb, int sep, lstr_t s)
  * \param[in]  code_points  array of the input code points.
  * \param[in]  nbcode_points  number of input code points.
  */
-int sb_add_punycode_vec(sb_t * nonnull sb,
-                        const uint32_t * nonnull code_points,
-                        int nb_code_points) __attr_leaf__;
+int sb_add_punycode_vec(
+    sb_t *nonnull sb, const uint32_t *nonnull code_points, int nb_code_points
+) __attr_leaf__;
 
 /** Append the Punycode-encoded string corresponding to the input UFT8 string.
  *
@@ -981,14 +1029,14 @@ int sb_add_punycode_vec(sb_t * nonnull sb,
  * \param[in]  src  input UTF8 string to encode.
  * \param[in]  src_len  length (in bytes) of the input UTF8 string.
  */
-int sb_add_punycode_str(sb_t * nonnull sb, const char * nonnull src,
-                        int src_len) __attr_leaf__;
-
+int sb_add_punycode_str(
+    sb_t *nonnull sb, const char *nonnull src, int src_len
+) __attr_leaf__;
 
 enum idna_flags_t {
     IDNA_USE_STD3_ASCII_RULES = 1 << 0, /* UseSTD3ASCIIRules                */
-    IDNA_ALLOW_UNASSIGNED     = 1 << 1, /* AllowUnassigned                  */
-    IDNA_ASCII_TOLOWER        = 1 << 2, /* Lower characters of ASCII labels */
+    IDNA_ALLOW_UNASSIGNED = 1 << 1,     /* AllowUnassigned                  */
+    IDNA_ASCII_TOLOWER = 1 << 2,        /* Lower characters of ASCII labels */
 };
 
 /** Append the IDNA-encoded string corresponding to the input UTF8 domain
@@ -1004,88 +1052,103 @@ enum idna_flags_t {
  *
  * \return  the (positive) number of encoded labels on success, -1 on failure.
  */
-int sb_add_idna_domain_name(sb_t * nonnull sb, const char * nonnull src,
-                            int src_len, unsigned flags);
+int sb_add_idna_domain_name(
+    sb_t *nonnull sb, const char *nonnull src, int src_len, unsigned flags
+);
 
 /**************************************************************************/
 /* charset conversions (when implicit, charset is utf8)                   */
 /**************************************************************************/
 
-void sb_conv_from_latin1(sb_t * nonnull sb, const void * nonnull s, int len)
-    __attr_leaf__;
-void sb_conv_from_latin9(sb_t * nonnull sb, const void * nonnull s, int len)
-    __attr_leaf__;
-int  sb_conv_to_latin1(sb_t * nonnull sb, const void * nonnull s,
-                       int len, int rep) __attr_leaf__;
+void sb_conv_from_latin1(
+    sb_t *nonnull sb, const void *nonnull s, int len
+) __attr_leaf__;
+void sb_conv_from_latin9(
+    sb_t *nonnull sb, const void *nonnull s, int len
+) __attr_leaf__;
+int sb_conv_to_latin1(
+    sb_t *nonnull sb, const void *nonnull s, int len, int rep
+) __attr_leaf__;
 
 /* ucs2 */
-int  sb_conv_to_ucs2le(sb_t * nonnull sb, const void * nonnull s, int len)
-    __attr_leaf__;
-int  sb_conv_to_ucs2be(sb_t * nonnull sb, const void * nonnull s, int len)
-    __attr_leaf__;
-int  sb_conv_to_ucs2be_hex(sb_t * nonnull sb, const void * nonnull s, int len)
-    __attr_leaf__;
-int  sb_conv_from_ucs2be_hex(sb_t * nonnull sb, const void * nonnull s,
-                             int slen) __attr_leaf__;
-int  sb_conv_from_ucs2le_hex(sb_t * nonnull sb, const void * nonnull s,
-                             int slen) __attr_leaf__;
+int sb_conv_to_ucs2le(
+    sb_t *nonnull sb, const void *nonnull s, int len
+) __attr_leaf__;
+int sb_conv_to_ucs2be(
+    sb_t *nonnull sb, const void *nonnull s, int len
+) __attr_leaf__;
+int sb_conv_to_ucs2be_hex(
+    sb_t *nonnull sb, const void *nonnull s, int len
+) __attr_leaf__;
+int sb_conv_from_ucs2be_hex(
+    sb_t *nonnull sb, const void *nonnull s, int slen
+) __attr_leaf__;
+int sb_conv_from_ucs2le_hex(
+    sb_t *nonnull sb, const void *nonnull s, int slen
+) __attr_leaf__;
 
 typedef enum gsm_conv_plan_t {
     /* use only default gsm7 alphabet */
-    GSM_DEFAULT_PLAN    = 0,
+    GSM_DEFAULT_PLAN = 0,
     /* use default gsm7 alphabet + extension table (escape mechanism) */
-    GSM_EXTENSION_PLAN  = 1,
+    GSM_EXTENSION_PLAN = 1,
 
-    GSM_CIMD_PLAN       = 2,
+    GSM_CIMD_PLAN = 2,
 } gsm_conv_plan_t;
-#define GSM_LATIN1_PLAN GSM_EXTENSION_PLAN
+#  define GSM_LATIN1_PLAN GSM_EXTENSION_PLAN
 
-int  sb_conv_from_gsm_plan(sb_t * nullable sb, const void * nullable src,
-                           int len, int plan) __attr_leaf__;
-static inline int sb_conv_from_gsm(sb_t * nullable sb,
-                                   const void * nullable src, int len)
+int sb_conv_from_gsm_plan(
+    sb_t *nullable sb, const void *nullable src, int len, int plan
+) __attr_leaf__;
+static inline int
+sb_conv_from_gsm(sb_t *nullable sb, const void *nullable src, int len)
 {
     return sb_conv_from_gsm_plan(sb, src, len, GSM_EXTENSION_PLAN);
 }
 
-int  sb_conv_from_gsm_hex(sb_t * nullable sb, const void * nullable src,
-                          int len) __attr_leaf__;
-bool sb_conv_to_gsm_isok(const void * nonnull data, int len,
-                         gsm_conv_plan_t plan) __attr_leaf__;
-void sb_conv_to_gsm(sb_t * nonnull sb, const void * nonnull src, int len)
-    __attr_leaf__;
-void sb_conv_to_gsm_hex(sb_t * nonnull sb, const void * nonnull src, int len)
-    __attr_leaf__;
-void sb_conv_to_cimd(sb_t * nonnull sb, const void * nonnull src, int len)
-    __attr_leaf__;
+int sb_conv_from_gsm_hex(
+    sb_t *nullable sb, const void *nullable src, int len
+) __attr_leaf__;
+bool sb_conv_to_gsm_isok(
+    const void *nonnull data, int len, gsm_conv_plan_t plan
+) __attr_leaf__;
+void sb_conv_to_gsm(
+    sb_t *nonnull sb, const void *nonnull src, int len
+) __attr_leaf__;
+void sb_conv_to_gsm_hex(
+    sb_t *nonnull sb, const void *nonnull src, int len
+) __attr_leaf__;
+void sb_conv_to_cimd(
+    sb_t *nonnull sb, const void *nonnull src, int len
+) __attr_leaf__;
 
 /* packed gsm */
-int  gsm7_charlen(int c)
-    __attr_leaf__;
-int unicode_to_gsm7(int c, int unknown, gsm_conv_plan_t plan)
-    __attr_leaf__;
-int  sb_conv_to_gsm7(sb_t * nonnull sb, int gsm_start,
-                     const char * nonnull utf8, int unknown,
-                     gsm_conv_plan_t plan, int max_len) __attr_leaf__;
-int  sb_conv_from_gsm7(sb_t * nonnull sb, const void * nonnull src,
-                       int gsmlen, int udhlen) __attr_leaf__;
-int gsm7_to_unicode(uint8_t u8, int unknown)
-    __attr_leaf__;
+int gsm7_charlen(int c) __attr_leaf__;
+int unicode_to_gsm7(int c, int unknown, gsm_conv_plan_t plan) __attr_leaf__;
+int sb_conv_to_gsm7(
+    sb_t *nonnull sb, int gsm_start, const char *nonnull utf8, int unknown,
+    gsm_conv_plan_t plan, int max_len
+) __attr_leaf__;
+int sb_conv_from_gsm7(
+    sb_t *nonnull sb, const void *nonnull src, int gsmlen, int udhlen
+) __attr_leaf__;
+int gsm7_to_unicode(uint8_t u8, int unknown) __attr_leaf__;
 
 /* normalisation */
-int sb_normalize_utf8(sb_t * nonnull sb, const char * nonnull s, int len,
-                      bool ci) __attr_leaf__;
+int sb_normalize_utf8(
+    sb_t *nonnull sb, const char *nonnull s, int len, bool ci
+) __attr_leaf__;
 
 /** append to \p sb the string describe by \p s with a lower case */
-int sb_add_utf8_tolower(sb_t * nonnull sb, const char * nonnull s, int len);
+int sb_add_utf8_tolower(sb_t *nonnull sb, const char *nonnull s, int len);
 
 /** append to \p sb the string describe by \p s with an upper case */
-int sb_add_utf8_toupper(sb_t * nonnull sb, const char * nonnull s, int len);
+int sb_add_utf8_toupper(sb_t *nonnull sb, const char *nonnull s, int len);
 
 /**************************************************************************/
 /* misc helpers                                                           */
 /**************************************************************************/
 
-#define SB_FMT_ARG(sb)  (sb)->len, (sb)->data
+#  define SB_FMT_ARG(sb) (sb)->len, (sb)->data
 
 #endif /* IS_LIB_COMMON_STR_BUF_H */

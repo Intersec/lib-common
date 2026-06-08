@@ -17,11 +17,12 @@
 /***************************************************************************/
 
 #ifndef IS_LIB_COMMON_SORT_H
-# error "you must include sort.h instead"
+#  error "you must include sort.h instead"
 #endif
 
-static inline size_t (bisect)(type_t what, const type_t data[], size_t len,
-                              bool *found)
+static inline size_t(bisect)(
+    type_t what, const type_t data[], size_t len, bool *found
+)
 {
     size_t l = 0, r = len;
 
@@ -46,15 +47,16 @@ static inline size_t (bisect)(type_t what, const type_t data[], size_t len,
     return r;
 }
 
-static inline bool (contains)(type_t what, const type_t data[], size_t len)
+static inline bool(contains)(type_t what, const type_t data[], size_t len)
 {
     size_t l = 0, r = len;
 
     while (l < r) {
         size_t i = (l + r) / 2;
 
-        if (what == data[i])
+        if (what == data[i]) {
             return true;
+        }
         if (what < data[i]) {
             r = i;
         } else {

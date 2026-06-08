@@ -25,7 +25,9 @@
 #if PY_VERSION_HEX < 0x03090000
 #  define py_eval_init_threads() PyEval_InitThreads()
 #else
-#  define py_eval_init_threads() do { } while(0)
+#  define py_eval_init_threads()                                             \
+      do {                                                                   \
+      } while (0)
 #endif
 
 #endif /* IS_CYTHON_LIBCOMMON_THR_H */

@@ -23,44 +23,35 @@ static int time_parse_timezone(pstream_t *ps, int *tz_h, int *tz_m)
     *tz_m = 0;
     *tz_h = 0;
 
-    if (ps_strcaseequal(ps, "ut") || ps_strcaseequal(ps, "gmt")
-    ||  ps_strcaseequal(ps, "z"))
+    if (ps_strcaseequal(ps, "ut") || ps_strcaseequal(ps, "gmt") ||
+        ps_strcaseequal(ps, "z"))
     {
         return 0;
-    } else
-    if (ps_strcaseequal(ps, "edt")) {
+    } else if (ps_strcaseequal(ps, "edt")) {
         *tz_h = -4;
         return 0;
-    } else
-    if (ps_strcaseequal(ps, "est") || ps_strcaseequal(ps, "cdt")) {
+    } else if (ps_strcaseequal(ps, "est") || ps_strcaseequal(ps, "cdt")) {
         *tz_h = -5;
         return 0;
-    } else
-    if (ps_strcaseequal(ps, "cst") || ps_strcaseequal(ps, "mdt")) {
+    } else if (ps_strcaseequal(ps, "cst") || ps_strcaseequal(ps, "mdt")) {
         *tz_h = -6;
         return 0;
-    } else
-    if (ps_strcaseequal(ps, "mst") || ps_strcaseequal(ps, "pdt")) {
+    } else if (ps_strcaseequal(ps, "mst") || ps_strcaseequal(ps, "pdt")) {
         *tz_h = -7;
         return 0;
-    } else
-    if (ps_strcaseequal(ps, "pst")) {
+    } else if (ps_strcaseequal(ps, "pst")) {
         *tz_h = -8;
         return 0;
-    } else
-    if (ps_strcaseequal(ps, "a")) {
+    } else if (ps_strcaseequal(ps, "a")) {
         *tz_h = -1;
         return 0;
-    } else
-    if (ps_strcaseequal(ps, "m")) {
+    } else if (ps_strcaseequal(ps, "m")) {
         *tz_h = -12;
         return 0;
-    } else
-    if (ps_strcaseequal(ps, "n")) {
+    } else if (ps_strcaseequal(ps, "n")) {
         *tz_h = +1;
         return 0;
-    } else
-    if (ps_strcaseequal(ps, "y")) {
+    } else if (ps_strcaseequal(ps, "y")) {
         *tz_h = +12;
         return 0;
     } else {
@@ -77,15 +68,13 @@ static int time_parse_timezone(pstream_t *ps, int *tz_h, int *tz_m)
             PS_WANT(isdigit(ps->b[0]));
             *tz_m = ps_geti(ps);
             PS_WANT(errno == 0 && ps_done(ps));
-        } else
-        if (ps_len(ps) == 4) {
+        } else if (ps_len(ps) == 4) {
             uint32_t raw = ps_geti(ps);
 
             PS_WANT(errno == 0 && ps_done(ps));
             *tz_h = raw / 100;
             *tz_m = raw % 100;
-        } else
-        if (ps_len(ps) == 2) {
+        } else if (ps_len(ps) == 2) {
             *tz_h = ps_geti(ps);
             PS_WANT(errno == 0 && ps_done(ps));
         } else {
@@ -132,25 +121,29 @@ int time_parse_iso8601_flags(pstream_t *ps, time_t *res, unsigned flags)
         localtime_r(&now, &t);
 
         __ps_skip(ps, 1);
-        if (ps_done(ps))
+        if (ps_done(ps)) {
             goto end_rel;
+        }
         RETHROW(time_parse_iso8601_tok(ps, &nb, &tok));
         if (tok == 'Y') {
             t.tm_year += nb;
-            if (ps_done(ps))
+            if (ps_done(ps)) {
                 goto end_rel;
+            }
             RETHROW(time_parse_iso8601_tok(ps, &nb, &tok));
         }
         if (tok == 'M') {
             t.tm_mon += nb;
-            if (ps_done(ps))
+            if (ps_done(ps)) {
                 goto end_rel;
+            }
             RETHROW(time_parse_iso8601_tok(ps, &nb, &tok));
         }
         if (tok == 'D') {
             t.tm_mday += nb;
-            if (ps_done(ps))
+            if (ps_done(ps)) {
                 goto end_rel;
+            }
             RETHROW(time_parse_iso8601_tok(ps, &nb, &tok));
         }
         if (tok != 'T') {
@@ -160,21 +153,23 @@ int time_parse_iso8601_flags(pstream_t *ps, time_t *res, unsigned flags)
         RETHROW(time_parse_iso8601_tok(ps, &nb, &tok));
         if (tok == 'H') {
             t.tm_hour += nb;
-            if (ps_done(ps))
+            if (ps_done(ps)) {
                 goto end_rel;
+            }
             RETHROW(time_parse_iso8601_tok(ps, &nb, &tok));
         }
         if (tok == 'M') {
             t.tm_min += nb;
-            if (ps_done(ps))
+            if (ps_done(ps)) {
                 goto end_rel;
+            }
             RETHROW(time_parse_iso8601_tok(ps, &nb, &tok));
         }
         if (tok == 'S') {
             t.tm_sec += nb;
         }
 
-      end_rel:
+    end_rel:
         t.tm_isdst = -1;
         *res = mktime(&t);
         return 0;
@@ -209,8 +204,8 @@ int time_parse_iso8601_flags(pstream_t *ps, time_t *res, unsigned flags)
     }
 
     if (ps_done(ps)) {
-        if ((flags & ISO8601_RESTRICT_DAY_DATE_FORMAT)
-        ||  (flags & ISO8601_ALLOW_DAY_DATE_FORMAT))
+        if ((flags & ISO8601_RESTRICT_DAY_DATE_FORMAT) ||
+            (flags & ISO8601_ALLOW_DAY_DATE_FORMAT))
         {
             t.tm_isdst = -1;
             *res = mktime(&t);
@@ -238,15 +233,15 @@ int time_parse_iso8601_flags(pstream_t *ps, time_t *res, unsigned flags)
 
     t.tm_hour = ps_geti(ps);
     switch (ps_getc(ps)) {
-      case 'L':
-      case 'l':
+    case 'L':
+    case 'l':
         local = true;
         break;
 
-      case ':':
+    case ':':
         break;
 
-      default:
+    default:
         e_debug("invalid date format, invalid char after hour");
         return -1;
     }
@@ -282,7 +277,7 @@ int time_parse_iso8601_flags(pstream_t *ps, time_t *res, unsigned flags)
 
     /* subtract the offset from the local time to get UTC time */
     t.tm_hour -= tz_h;
-    t.tm_min  -= tz_m;
+    t.tm_min -= tz_m;
     t.tm_isdst = 0;
     *res = timegm(&t);
     return 0;
@@ -303,8 +298,7 @@ int time_parse(pstream_t *ps, time_t *d)
                                                                              \
         if (end == NULL) {                                                   \
             return -1;                                                       \
-        } else                                                               \
-        if (*end != '\0') {                                                  \
+        } else if (*end != '\0') {                                           \
             pstream_t ts = ps_initstr(end);                                  \
             int tz_h, tz_m;                                                  \
                                                                              \
@@ -313,7 +307,7 @@ int time_parse(pstream_t *ps, time_t *d)
             }                                                                \
             RETHROW(time_parse_timezone(&ts, &tz_h, &tz_m));                 \
             date.tm_hour -= tz_h;                                            \
-            date.tm_min  -= tz_m;                                            \
+            date.tm_min -= tz_m;                                             \
             *d = timegm(&date);                                              \
             return 0;                                                        \
         }                                                                    \
@@ -327,12 +321,10 @@ int time_parse(pstream_t *ps, time_t *d)
         /* ISO8601: YYYY-MM-DD[Thh:mm:ss] */
         flags = ISO8601_ALLOW_SYSLOG_FORMAT | ISO8601_ALLOW_DAY_DATE_FORMAT;
         return time_parse_iso8601_flags(ps, d, flags);
-    } else
-    if (len > 3 && (ps->s[1] == ' ' || ps->s[2] == ' ')) {
+    } else if (len > 3 && (ps->s[1] == ' ' || ps->s[2] == ' ')) {
         /* RFC822: D month YYYY hh:mm:ss tz */
         PARSE_FORMAT("%d%n%h%n%Y%n%T", true);
-    } else
-    if (len > 4 && ps->s[3] == ',') {
+    } else if (len > 4 && ps->s[3] == ',') {
         /* RFC822: Day, D month YYYY hh:mm:ss tz */
         PARSE_FORMAT("%a,%n%d%n%h%n%Y%n%T", true);
     } else {
@@ -351,9 +343,9 @@ int time_parse(pstream_t *ps, time_t *d)
 #undef PARSE_FORMAT
 }
 
-void
-time_fmt_localtime_iso8601_readable(char out[static ISO8601_LOCAL_TIME_SIZE],
-                                    time_t ts)
+void time_fmt_localtime_iso8601_readable(
+    char out[static ISO8601_LOCAL_TIME_SIZE], time_t ts
+)
 {
     static __thread time_t last_ts;
     static __thread char buf[ISO8601_LOCAL_TIME_SIZE];
@@ -363,12 +355,17 @@ time_fmt_localtime_iso8601_readable(char out[static ISO8601_LOCAL_TIME_SIZE],
         int len;
 
         localtime_r(&ts, &tm);
-        len = snprintf(buf, ISO8601_LOCAL_TIME_SIZE, ISO8601_SPACE_FMT,
-                       ISO8601_SPACE_FMT_ARG(tm));
+        len = snprintf(
+            buf, ISO8601_LOCAL_TIME_SIZE, ISO8601_SPACE_FMT,
+            ISO8601_SPACE_FMT_ARG(tm)
+        );
         last_ts = ts;
         if (len != ISO8601_LOCAL_TIME_SIZE - 1) {
-            e_error("error when trying to print timestamp: %jd, "
-                    "length printed: %d", ts, len);
+            e_error(
+                "error when trying to print timestamp: %jd, "
+                "length printed: %d",
+                ts, len
+            );
             assert(false);
         }
     }

@@ -18,8 +18,8 @@
 
 #include <lib-common/qlzo.h>
 
-#define MODE_C  0
-#define MODE_D  1
+#define MODE_C 0
+#define MODE_D 1
 
 static int compress(const char *in, const char *out)
 {
@@ -40,8 +40,9 @@ static int compress(const char *in, const char *out)
 
     sb_add(&sbout, &sb.len, 4);
     sz = lzo_cbuf_size(sb.len);
-    sz = qlzo1x_compress(sb_growlen(&sbout, sz), sz,
-                         ps_init(sb.data, sb.len), buf);
+    sz = qlzo1x_compress(
+        sb_growlen(&sbout, sz), sz, ps_init(sb.data, sb.len), buf
+    );
     __sb_fixlen(&sbout, 4 + sz);
 
     if (!out) {
@@ -64,18 +65,19 @@ static int do_self_test(void)
         t_scope;
 
         ilen = rand_range(0, (64 << 10) - 1);
-        ibuf  = t_new_raw(char, ilen + 1);
+        ibuf = t_new_raw(char, ilen + 1);
         obuf = t_new_raw(char, ilen);
 
-        for (ssize_t j = 0; j < ilen / 2; j++)
+        for (ssize_t j = 0; j < ilen / 2; j++) {
             ((uint16_t *)ibuf)[j] = rand();
+        }
 
         clen = lzo_cbuf_size(ilen);
         cbuf = t_new_raw(char, clen + LZO_INPUT_PADDING);
         clen = qlzo1x_compress(cbuf, clen, ps_init(ibuf, ilen), dict);
 
         olen = qlzo1x_decompress(obuf, ilen, ps_init(cbuf, clen));
-        assert (olen == ilen && memcmp(ibuf, obuf, ilen) == 0);
+        assert(olen == ilen && memcmp(ibuf, obuf, ilen) == 0);
         e_trace(0, "%d: %zd bytes ok", i, ilen);
     }
 
@@ -90,18 +92,18 @@ int main(int argc, char **argv)
 
     while ((c = getopt(argc, argv, "cdo:r")) >= 0) {
         switch (c) {
-          case 'c':
+        case 'c':
             mode = MODE_C;
             break;
-          case 'd':
+        case 'd':
             mode = MODE_D;
             break;
-          case 'o':
+        case 'o':
             out = optarg;
             break;
-          case 'r':
+        case 'r':
             return do_self_test();
-          default:
+        default:
             fprintf(stderr, "error: unknown option '%c'", c);
             exit(1);
         }
@@ -114,7 +116,7 @@ int main(int argc, char **argv)
     if (mode == MODE_C) {
         return compress(argv[argc - 1], out);
     } else {
-        //decompress(argv[argc - 1], out);
+        // decompress(argv[argc - 1], out);
         return -1;
     }
 }

@@ -39,8 +39,8 @@
 /** Size tuning parameters.
  * These are multiplicative factors over rp_alloc_mean.
  */
-#define RESET_MIN   56 /*< minimum size in mem_ring_reset */
-#define RESET_MAX  256 /*< maximum size in mem_ring_reset */
+#define RESET_MIN 56  /*< minimum size in mem_ring_reset */
+#define RESET_MAX 256 /*< maximum size in mem_ring_reset */
 
 static struct {
     logger_t logger;
@@ -48,7 +48,7 @@ static struct {
     dlist_t all_pools;
     spinlock_t all_pools_lock;
 } core_mem_ring_g = {
-#define _G  core_mem_ring_g
+#define _G core_mem_ring_g
     .logger = LOGGER_INIT_INHERITS(NULL, "core-mem-ring"),
     .all_pools = DLIST_INIT(_G.all_pools),
 };
@@ -56,48 +56,48 @@ static struct {
 typedef struct ring_pool_t ring_pool_t;
 
 typedef struct ring_blk_t {
-    void        *start;
-    size_t       size;
-    dlist_t      blist;
-    byte         area[];
+    void *start;
+    size_t size;
+    dlist_t blist;
+    byte area[];
 } ring_blk_t;
 
 typedef struct frame_t {
-    dlist_t      flist;
-    ring_blk_t  *blk;
-    uintptr_t    rp;
+    dlist_t flist;
+    ring_blk_t *blk;
+    uintptr_t rp;
 } frame_t;
-#define FRAME_IS_FREE   (1ULL << 0)
+#define FRAME_IS_FREE (1ULL << 0)
 
 struct ring_pool_t {
-    dlist_t      fhead;
-    frame_t     *ring;
+    dlist_t fhead;
+    frame_t *ring;
 
-    void        *last;
-    void        *pos;
-    ring_blk_t  *cblk;
+    void *last;
+    void *pos;
+    ring_blk_t *cblk;
 
-    size_t       minsize;
-    size_t       ringsize;
+    size_t minsize;
+    size_t ringsize;
 
-    size_t       alloc_sz;
-    uint32_t     alloc_nb;
-    uint32_t     nbpages;
-    spinlock_t   lock;
+    size_t alloc_sz;
+    uint32_t alloc_nb;
+    uint32_t nbpages;
+    spinlock_t lock;
 
-    uint32_t     frames_cnt;
-    uint32_t     nb_frames_release;
+    uint32_t frames_cnt;
+    uint32_t nb_frames_release;
 
-    bool         alive : 1;
+    bool alive : 1;
 
-    mem_pool_t   mp;
+    mem_pool_t mp;
 };
 
 struct mem_ring_checkpoint {
-    frame_t     *frame;
-    ring_blk_t  *cblk;
-    void        *last;
-    void        *pos;
+    frame_t *frame;
+    ring_blk_t *cblk;
+    void *last;
+    void *pos;
 };
 
 static size_t rp_alloc_mean(ring_pool_t *rp)
@@ -142,8 +142,8 @@ static ring_blk_t *blk_create(ring_pool_t *rp, size_t size_hint)
     blksize = ROUND_UP(blksize, PAGE_SIZE);
     icheck_alloc(blksize);
     blk = imalloc(blksize, alignof(ring_blk_t), MEM_RAW | MEM_LIBC);
-    blk->start    = blk->area;
-    blk->size     = blksize - sizeof(*blk);
+    blk->start = blk->area;
+    blk->size = blksize - sizeof(*blk);
     rp->ringsize += blk->size;
     if (likely(rp->cblk)) {
         dlist_add_after(&rp->cblk->blist, &blk->blist);
@@ -165,8 +165,8 @@ static void blk_destroy(ring_pool_t *rp, ring_blk_t *blk)
 
 static bool blk_contains(const ring_blk_t *blk, const void *ptr)
 {
-    return (const byte *)ptr >= (const byte *)blk->start
-        && (const byte *)ptr <= (const byte *)blk->start + blk->size;
+    return (const byte *)ptr >= (const byte *)blk->start &&
+           (const byte *)ptr <= (const byte *)blk->start + blk->size;
 }
 
 static byte *blk_end(ring_blk_t *blk)
@@ -174,8 +174,7 @@ static byte *blk_end(ring_blk_t *blk)
     return blk->area + blk->size;
 }
 
-static ring_blk_t *
-frame_get_next_blk(ring_pool_t *rp, size_t size)
+static ring_blk_t *frame_get_next_blk(ring_pool_t *rp, size_t size)
 {
     ring_blk_t *cur = rp->cblk;
     frame_t *start = dlist_first_entry(&rp->fhead, frame_t, flist);
@@ -200,15 +199,15 @@ frame_get_next_blk(ring_pool_t *rp, size_t size)
     return blk_create(rp, size);
 }
 
-static void *rp_reserve(ring_pool_t *rp, size_t size, size_t alignment,
-                        ring_blk_t **blkp)
+static void *
+rp_reserve(ring_pool_t *rp, size_t size, size_t alignment, ring_blk_t **blkp)
 {
     byte *res = align_for(rp->pos, size, alignment);
 
     /* Note for programmers: if you abort() here, it's because you're
      * allocating in a pool where you haven't performed a r_newframe() first
      */
-    assert (rp->pos);
+    assert(rp->pos);
 
     if (unlikely(res + size > blk_end(rp->cblk))) {
         size_t effective = MAX(align_boundary(size), alignment);
@@ -220,8 +219,8 @@ static void *rp_reserve(ring_pool_t *rp, size_t size, size_t alignment,
         *blkp = rp->cblk;
     }
     mem_tool_allow_memory(res, size, false);
-    if (unlikely(rp->alloc_sz + size < rp->alloc_sz)
-    ||  unlikely(rp->alloc_nb == UINT32_MAX))
+    if (unlikely(rp->alloc_sz + size < rp->alloc_sz) ||
+        unlikely(rp->alloc_nb == UINT32_MAX))
     {
         rp->alloc_sz /= 2;
         rp->alloc_nb /= 2;
@@ -231,9 +230,8 @@ static void *rp_reserve(ring_pool_t *rp, size_t size, size_t alignment,
     return res;
 }
 
-__attr_flatten__
-static void *rp_alloc(mem_pool_t *_rp, size_t size, size_t alignment,
-                      mem_flags_t flags)
+__attr_flatten__ static void *
+rp_alloc(mem_pool_t *_rp, size_t size, size_t alignment, mem_flags_t flags)
 {
     ring_pool_t *rp = container_of(_rp, ring_pool_t, mp);
     byte *res;
@@ -259,8 +257,10 @@ static void rp_free(mem_pool_t *_rp, void *mem)
 {
 }
 
-static void *rp_realloc(mem_pool_t *_rp, void *mem, size_t oldsize,
-                        size_t size, size_t alignment, mem_flags_t flags)
+static void *rp_realloc(
+    mem_pool_t *_rp, void *mem, size_t oldsize, size_t size, size_t alignment,
+    mem_flags_t flags
+)
 {
     ring_pool_t *rp = container_of(_rp, ring_pool_t, mp);
     byte *res;
@@ -281,12 +281,12 @@ static void *rp_realloc(mem_pool_t *_rp, void *mem, size_t oldsize,
         return size ? mem : MEM_EMPTY_ALLOC;
     }
 
-    if (mem != NULL && mem == rp->last
-    &&  is_aligned_to(mem, MAX(align_boundary(size), alignment))
-    &&  (byte *)rp->last + size <= blk_end(rp->cblk))
+    if (mem != NULL && mem == rp->last &&
+        is_aligned_to(mem, MAX(align_boundary(size), alignment)) &&
+        (byte *)rp->last + size <= blk_end(rp->cblk))
     {
         rp->pos = (byte *)rp->last + size;
-        rp->alloc_sz  += size - oldsize;
+        rp->alloc_sz += size - oldsize;
         mem_tool_allow_memory(mem, size, true);
         res = mem;
     } else {
@@ -302,46 +302,46 @@ static void *rp_realloc(mem_pool_t *_rp, void *mem, size_t oldsize,
     return res;
 }
 
-
 static mem_pool_t const ring_pool_base_g = {
-    .malloc  = &rp_alloc,
+    .malloc = &rp_alloc,
     .realloc = &rp_realloc,
-    .free    = &rp_free,
+    .free = &rp_free,
     .mem_pool = MEM_OTHER | MEM_BY_FRAME,
     .name = NULL,
-    .pool_link = { NULL, NULL },
+    .pool_link = {NULL, NULL},
 };
 
 #ifndef NDEBUG
-static void
-mem_ring_protect(const ring_pool_t *rp, const ring_blk_t *blk,
-                 const void *_start, const void *_end)
+static void mem_ring_protect(
+    const ring_pool_t *rp, const ring_blk_t *blk, const void *_start,
+    const void *_end
+)
 {
-    const byte *end   = _end;
+    const byte *end = _end;
     const byte *start = _start;
 
     while (!blk_contains(blk, end)) {
         mem_tool_disallow_memory(start, blk->area + blk->size - start);
-        blk   = dlist_next_entry(blk, blist);
+        blk = dlist_next_entry(blk, blist);
         start = blk->start;
     }
     mem_tool_disallow_memory(start, end - start);
 }
 #else
-#define mem_ring_protect(...)  ((void)0)
+#  define mem_ring_protect(...) ((void)0)
 #endif
 
-static ALWAYS_INLINE
-void ring_reset_frame(ring_pool_t *rp, frame_t *frame, bool protect)
+static ALWAYS_INLINE void
+ring_reset_frame(ring_pool_t *rp, frame_t *frame, bool protect)
 {
-    assert (rp->ring == frame);
+    assert(rp->ring == frame);
 
     if (protect && rp->pos) {
         mem_ring_protect(rp, frame->blk, &frame[1], rp->pos);
     }
 
     rp->last = NULL;
-    rp->pos  = NULL;
+    rp->pos = NULL;
     rp->cblk = frame->blk;
 
     /* TODO: evaluate the possibility to reset to the _previous_ frame if:
@@ -350,30 +350,29 @@ void ring_reset_frame(ring_pool_t *rp, frame_t *frame, bool protect)
      */
 }
 
-static ALWAYS_INLINE
-void frame_unregister(frame_t *frame)
+static ALWAYS_INLINE void frame_unregister(frame_t *frame)
 {
     dlist_remove(&frame->flist);
     mem_tool_disallow_memory(frame, sizeof(frame_t));
 }
 
-static ALWAYS_INLINE
-void ring_reset_to_prevframe(ring_pool_t *rp, frame_t *fprev, frame_t *frame)
+static ALWAYS_INLINE void
+ring_reset_to_prevframe(ring_pool_t *rp, frame_t *fprev, frame_t *frame)
 {
-    assert (frame == rp->ring);
+    assert(frame == rp->ring);
 
     frame_unregister(frame);
-    rp->ring   = fprev;
-    rp->cblk   = fprev->blk;
+    rp->ring = fprev;
+    rp->cblk = fprev->blk;
     fprev->rp &= ~FRAME_IS_FREE;
 }
 
-static ALWAYS_INLINE
-void ring_setup_frame(ring_pool_t *rp, ring_blk_t *blk, frame_t *frame)
+static ALWAYS_INLINE void
+ring_setup_frame(ring_pool_t *rp, ring_blk_t *blk, frame_t *frame)
 {
     spin_lock(&rp->lock);
     frame->blk = blk;
-    frame->rp  = (uintptr_t)rp;
+    frame->rp = (uintptr_t)rp;
     dlist_add_tail(&rp->fhead, &frame->flist);
 
     rp->ring = frame;
@@ -383,8 +382,8 @@ void ring_setup_frame(ring_pool_t *rp, ring_blk_t *blk, frame_t *frame)
 
 /*------ Public API -{{{-*/
 
-mem_pool_t *mem_ring_new_flags(const char *name, int initialsize,
-                               unsigned flags)
+mem_pool_t *
+mem_ring_new_flags(const char *name, int initialsize, unsigned flags)
 {
     ring_pool_t *rp = p_new(ring_pool_t, 1);
     ring_blk_t *blk;
@@ -395,9 +394,9 @@ mem_pool_t *mem_ring_new_flags(const char *name, int initialsize,
     if (initialsize <= 0) {
         initialsize = 640 << 10;
     }
-    rp->minsize    = ROUND_UP(initialsize, PAGE_SIZE);
-    rp->alloc_nb   = 1; /* avoid the division by 0 */
-    rp->frames_cnt  = 0;
+    rp->minsize = ROUND_UP(initialsize, PAGE_SIZE);
+    rp->alloc_nb = 1; /* avoid the division by 0 */
+    rp->frames_cnt = 0;
     rp->alive = true;
 
     /* Makes the first frame */
@@ -405,8 +404,10 @@ mem_pool_t *mem_ring_new_flags(const char *name, int initialsize,
     mem_tool_allow_memory(blk->area, sizeof(frame_t), false);
     ring_setup_frame(rp, blk, acast(frame_t, &blk->area));
 
-    mem_pool_set(&rp->mp, name, &_G.all_pools, &_G.all_pools_lock,
-                 &ring_pool_base_g, flags);
+    mem_pool_set(
+        &rp->mp, name, &_G.all_pools, &_G.all_pools_lock, &ring_pool_base_g,
+        flags
+    );
 
     return &rp->mp;
 }
@@ -426,17 +427,20 @@ void mem_ring_delete(mem_pool_t **rpp)
         spin_lock(&rp->lock);
 
         if (rp->frames_cnt) {
-            assert (rp->alive);
+            assert(rp->alive);
             rp->alive = false;
 
             /* XXX: the log module may have been deleted already,
              * but we cannot depend on it. See #54184 */
             if (MODULE_IS_LOADED(log)) {
-                e_trace(0, "keep ring-pool alive: %d frames in use",
-                        rp->frames_cnt);
+                e_trace(
+                    0, "keep ring-pool alive: %d frames in use",
+                    rp->frames_cnt
+                );
             } else {
-                printf("keep ring-pool alive: %d frames in use",
-                       rp->frames_cnt);
+                printf(
+                    "keep ring-pool alive: %d frames in use", rp->frames_cnt
+                );
             }
             spin_unlock(&rp->lock);
 
@@ -506,9 +510,9 @@ static void __mem_ring_reset(ring_pool_t *rp)
         return;
     }
 
-    saved_blk  = NULL;
+    saved_blk = NULL;
     saved_size = RESET_MIN * rp_alloc_mean(rp);
-    max_size   = RESET_MAX * rp_alloc_mean(rp);
+    max_size = RESET_MAX * rp_alloc_mean(rp);
 
     /* Keep the current block plus the one with more adapted size
      * regarding the mean allocation size.
@@ -525,7 +529,7 @@ static void __mem_ring_reset(ring_pool_t *rp)
             if (saved_blk) {
                 blk_destroy(rp, saved_blk);
             }
-            saved_blk  = blk;
+            saved_blk = blk;
             saved_size = blk->size;
         } else {
             blk_destroy(rp, blk);
@@ -546,7 +550,7 @@ void mem_ring_reset(mem_pool_t *_rp)
 
 void mem_ring_release(const void *cookie)
 {
-    frame_t *frame  = (frame_t *)cookie;
+    frame_t *frame = (frame_t *)cookie;
     ring_pool_t *rp;
     bool to_delete = false;
 
@@ -555,7 +559,7 @@ void mem_ring_release(const void *cookie)
     }
 
     rp = (ring_pool_t *)frame->rp;
-    assert (!(frame->rp & FRAME_IS_FREE));
+    assert(!(frame->rp & FRAME_IS_FREE));
 
     spin_lock(&rp->lock);
     if (rp->ring == frame) {
@@ -600,7 +604,7 @@ void mem_ring_release(const void *cookie)
                 blk2 = fnext->blk;
                 if (blk1 != blk2 && dlist_next_entry(blk1, blist) != blk2) {
                     dlist_t *first = blk1->blist.next;
-                    dlist_t *last  = blk2->blist.prev;
+                    dlist_t *last = blk2->blist.prev;
                     dlist_t *at;
 
                     /* remove elements strictly between blk1 and blk2 */
@@ -636,15 +640,16 @@ const void *mem_ring_checkpoint(mem_pool_t *_rp)
     ring_pool_t *rp = container_of(_rp, ring_pool_t, mp);
     struct mem_ring_checkpoint cp = {
         .frame = rp->ring,
-        .cblk  = rp->cblk,
-        .last  = rp->last,
-        .pos   = rp->pos,
+        .cblk = rp->cblk,
+        .last = rp->last,
+        .pos = rp->pos,
     };
     void *res;
 
-    res = memcpy(rp_alloc(_rp, sizeof(cp), mem_bit_align(_rp, alignof(cp)),
-                          MEM_RAW),
-                 &cp, sizeof(cp));
+    res = memcpy(
+        rp_alloc(_rp, sizeof(cp), mem_bit_align(_rp, alignof(cp)), MEM_RAW),
+        &cp, sizeof(cp)
+    );
     mem_ring_seal(_rp);
 
     return res;
@@ -656,12 +661,12 @@ void mem_ring_rewind(mem_pool_t *_rp, const void *ckpoint)
     struct mem_ring_checkpoint *cp = (void *)ckpoint;
     frame_t *frame = cp->frame;
 
-    assert (!(frame->rp & FRAME_IS_FREE));
+    assert(!(frame->rp & FRAME_IS_FREE));
     __dlist_remove(&frame->flist, &rp->fhead);
     rp->ring = frame;
     rp->last = cp->last;
     rp->cblk = cp->cblk;
-    rp->pos  = cp->pos;
+    rp->pos = cp->pos;
 }
 
 static __thread mem_pool_t *r_pool_g;
@@ -669,8 +674,9 @@ static __thread mem_pool_t *r_pool_g;
 mem_pool_t *r_pool(void)
 {
     if (unlikely(!r_pool_g)) {
-        r_pool_g = mem_ring_new_flags("r_pool", 64 << 10,
-                                      MEM_DISABLE_POOL_LEAK_DETECTION);
+        r_pool_g = mem_ring_new_flags(
+            "r_pool", 64 << 10, MEM_DISABLE_POOL_LEAK_DETECTION
+        );
     }
     return r_pool_g;
 }
@@ -745,18 +751,23 @@ void mem_ring_dump(const mem_pool_t *_rp)
 
     frame = dlist_first_entry(&rp->fhead, frame_t, flist);
     if ((const byte *)frame > frame->blk->area) {
-        printf("--   slack: size=%zd\n",
-               (const byte *)frame - frame->blk->area);
+        printf(
+            "--   slack: size=%zd\n", (const byte *)frame - frame->blk->area
+        );
     }
     dlist_for_each(e, &rp->fhead) {
         frame = container_of(e, frame_t, flist);
 
-        printf("--   frame %d at %p: size=%zd%s\n",
-               ++num, frame, frame_getsize(frame, rp->pos),
-               (frame->rp & FRAME_IS_FREE) ? " FREE" : "");
+        printf(
+            "--   frame %d at %p: size=%zd%s\n", ++num, frame,
+            frame_getsize(frame, rp->pos),
+            (frame->rp & FRAME_IS_FREE) ? " FREE" : ""
+        );
     }
-    printf("--   unallocated: size=%zd\n",
-           frame_getsize(rp->ring, NULL) - frame_getsize(rp->ring, rp->pos));
+    printf(
+        "--   unallocated: size=%zd\n",
+        frame_getsize(rp->ring, NULL) - frame_getsize(rp->ring, rp->pos)
+    );
     printf("-- }\n");
 }
 
@@ -777,35 +788,43 @@ static void core_mem_ring_print_state(void)
     t_scope;
     qv_t(table_hdr) hdr;
     qv_t(table_data) rows;
-    table_hdr_t hdr_data[] = { {
+    table_hdr_t hdr_data[] = {
+        {
             .title = LSTR_IMMED("RING POOL NAME"),
-        }, {
+        },
+        {
             .title = LSTR_IMMED("POINTER"),
-        }, {
+        },
+        {
             .title = LSTR_IMMED("MIN SIZE"),
-        }, {
+        },
+        {
             .title = LSTR_IMMED("RING SIZE"),
-        }, {
+        },
+        {
             .title = LSTR_IMMED("NB PAGES"),
-        }, {
+        },
+        {
             .title = LSTR_IMMED("ALLOC SIZE"),
-        }, {
+        },
+        {
             .title = LSTR_IMMED("ALLOC NB"),
-        }, {
+        },
+        {
             .title = LSTR_IMMED("ALLOC MEAN"),
         }
     };
     uint32_t hdr_size = countof(hdr_data);
-    size_t   total_ringsize = 0;
-    size_t   total_nbpages  = 0;
-    size_t   total_alloc_sz = 0;
+    size_t total_ringsize = 0;
+    size_t total_nbpages = 0;
+    size_t total_alloc_sz = 0;
     uint64_t total_alloc_nb = 0;
     int nb_ring_pool = 0;
 
     qv_init_static(&hdr, hdr_data, hdr_size);
     t_qv_init(&rows, 200);
 
-#define ADD_NUMBER_FIELD(_what)  \
+#define ADD_NUMBER_FIELD(_what)                                              \
     do {                                                                     \
         t_SB(_buf, 16);                                                      \
                                                                              \
@@ -819,8 +838,8 @@ static void core_mem_ring_print_state(void)
         qv_t(lstr) *tab = qv_growlen(&rows, 1);
 
         t_qv_init(tab, hdr_size);
-        qv_append(tab, t_lstr_fmt("%s",  rp->mp.name));
-        qv_append(tab, t_lstr_fmt("%p",  rp));
+        qv_append(tab, t_lstr_fmt("%s", rp->mp.name));
+        qv_append(tab, t_lstr_fmt("%p", rp));
 
         ADD_NUMBER_FIELD(rp->minsize);
         ADD_NUMBER_FIELD(rp->ringsize);
@@ -830,10 +849,10 @@ static void core_mem_ring_print_state(void)
         ADD_NUMBER_FIELD(rp_alloc_mean(rp));
 
         nb_ring_pool++;
-        total_ringsize  += rp->ringsize;
-        total_nbpages   += rp->nbpages;
-        total_alloc_sz  += rp->alloc_sz;
-        total_alloc_nb  += rp->alloc_nb;
+        total_ringsize += rp->ringsize;
+        total_nbpages += rp->nbpages;
+        total_alloc_sz += rp->alloc_sz;
+        total_alloc_nb += rp->alloc_nb;
     }
 
     spin_unlock(&_G.all_pools_lock);
@@ -855,8 +874,9 @@ static void core_mem_ring_print_state(void)
 
         sb_add_table(&buf, &hdr, &rows);
         sb_shrink(&buf, 1);
-        logger_notice(&_G.logger, "ring pools summary:\n%*pM",
-                      SB_FMT_ARG(&buf));
+        logger_notice(
+            &_G.logger, "ring pools summary:\n%*pM", SB_FMT_ARG(&buf)
+        );
     }
 
 #undef ADD_NUMBER_FIELD
@@ -869,14 +889,15 @@ static int core_mem_ring_initialize(void *arg)
 
 static int core_mem_ring_shutdown(void)
 {
-    mem_pool_list_clean(&_G.all_pools, "mem ring",
-                        &_G.all_pools_lock, &_G.logger);
+    mem_pool_list_clean(
+        &_G.all_pools, "mem ring", &_G.all_pools_lock, &_G.logger
+    );
 
     return 0;
 }
 
-MODULE_BEGIN(core_mem_ring)
+MODULE_DEFINE(core_mem_ring) {
     MODULE_IMPLEMENTS_VOID(print_state, &core_mem_ring_print_state);
-MODULE_END()
+}
 
 /* }}} */

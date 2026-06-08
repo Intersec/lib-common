@@ -19,14 +19,14 @@
 #if !defined(IS_LIB_COMMON_THR_H) || defined(IS_LIB_COMMON_THR_JOB_H)
 #  error "you must include thr.h instead"
 #else
-#define IS_LIB_COMMON_THR_JOB_H
+#  define IS_LIB_COMMON_THR_JOB_H
 
-#include <lib-common/unix.h>
+#  include <lib-common/unix.h>
 
-#define THR_JOB_MAX   256
+#  define THR_JOB_MAX 256
 
-typedef struct thr_job_t   thr_job_t;
-typedef struct thr_syn_t   thr_syn_t;
+typedef struct thr_job_t thr_job_t;
+typedef struct thr_syn_t thr_syn_t;
 typedef struct thr_queue_t thr_queue_t;
 
 struct thr_job_t {
@@ -63,24 +63,24 @@ struct thr_syn_t {
     /** 1 for the owner + 1 for each people inside a thr_syn_wait() call */
     atomic_uint refcnt;
     /** the eventcount used for the blocking part of the thr_syn_wait() */
-    thr_evc_t         ec;
+    thr_evc_t ec;
 
-#ifdef __has_blocks
+#  ifdef __has_blocks
     /** Thread data allocator */
     thr_td_t *(BLOCK_CARET new_td)(void);
     /** Thread data deallocator */
-    void (BLOCK_CARET delete_td)(thr_td_t **);
+    void(BLOCK_CARET delete_td)(thr_td_t **);
     /** Stack of thread data */
     _Atomic(struct thr_td_t *) head;
-#endif
+#  endif
 } __attribute__((aligned(64)));
 
-#ifdef __has_blocks
+#  ifdef __has_blocks
 static ALWAYS_INLINE thr_job_t *thr_job_from_blk(block_t blk)
 {
     return (thr_job_t *)((uintptr_t)Block_copy(blk) | 1);
 }
-#endif
+#  endif
 
 /** \brief returns the amount of parralelism (number of threads) used.
  *
@@ -132,7 +132,7 @@ size_t thr_id(void) __attr_leaf__ __attribute__((pure));
 void thr_schedule(thr_job_t *job);
 void thr_syn_schedule(thr_syn_t *syn, thr_job_t *job);
 
-#ifdef __has_blocks
+#  ifdef __has_blocks
 static ALWAYS_INLINE void thr_schedule_b(block_t blk)
 {
     thr_schedule(thr_job_from_blk(blk));
@@ -141,7 +141,7 @@ static ALWAYS_INLINE void thr_syn_schedule_b(thr_syn_t *syn, block_t blk)
 {
     thr_syn_schedule(syn, thr_job_from_blk(blk));
 }
-#endif
+#  endif
 
 thr_queue_t *thr_queue_create(void) __attr_leaf__;
 void thr_queue_destroy(thr_queue_t *q, bool wait) __attr_leaf__;
@@ -164,7 +164,7 @@ void thr_queue(thr_queue_t *q, thr_job_t *job);
 void thr_queue_sync(thr_queue_t *q, thr_job_t *job);
 void thr_syn_queue(thr_syn_t *syn, thr_queue_t *q, thr_job_t *job);
 
-#ifdef __has_blocks
+#  ifdef __has_blocks
 static ALWAYS_INLINE void thr_queue_b(thr_queue_t *q, block_t blk)
 {
     thr_queue(q, thr_job_from_blk(blk));
@@ -173,30 +173,29 @@ static ALWAYS_INLINE void thr_queue_sync_b(thr_queue_t *q, block_t blk)
 {
     thr_queue_sync(q, (thr_job_t *)((uintptr_t)blk | 2));
 }
-static ALWAYS_INLINE void thr_syn_queue_b(thr_syn_t *syn, thr_queue_t *q, block_t blk)
+static ALWAYS_INLINE void
+thr_syn_queue_b(thr_syn_t *syn, thr_queue_t *q, block_t blk)
 {
     thr_syn_queue(syn, q, thr_job_from_blk(blk));
 }
-#endif
+#  endif
 
 /** \brief low level function to retain a refcnt
  */
-static ALWAYS_INLINE
-void thr_syn__retain(thr_syn_t *syn)
+static ALWAYS_INLINE void thr_syn__retain(thr_syn_t *syn)
 {
     unsigned res = atomic_fetch_add(&syn->refcnt, 1);
 
-    assert (res != 0);
+    assert(res != 0);
 }
 
 /** \brief low level function to release a refcnt
  */
-static ALWAYS_INLINE
-void thr_syn__release(thr_syn_t *syn)
+static ALWAYS_INLINE void thr_syn__release(thr_syn_t *syn)
 {
     unsigned res = atomic_fetch_sub(&syn->refcnt, 1);
 
-    assert (res != 0);
+    assert(res != 0);
 }
 
 /** \brief initializes a #thr_syn_t structure.
@@ -224,13 +223,13 @@ GENERIC_DELETE(thr_syn_t, thr_syn);
  * before the actual completion due to races.
  */
 void thr_syn_notify(thr_syn_t *syn, thr_queue_t *q, thr_job_t *job);
-#ifdef __has_blocks
-static ALWAYS_INLINE
-void thr_syn_notify_b(thr_syn_t *syn, thr_queue_t *q, block_t blk)
+#  ifdef __has_blocks
+static ALWAYS_INLINE void
+thr_syn_notify_b(thr_syn_t *syn, thr_queue_t *q, block_t blk)
 {
     thr_syn_notify(syn, q, thr_job_from_blk(blk));
 }
-#endif
+#  endif
 
 /** \brief low level function to account for a task
  *
@@ -239,8 +238,7 @@ void thr_syn_notify_b(thr_syn_t *syn, thr_queue_t *q, block_t blk)
  * because you're inside a job that is not yet done and is accounted in this
  * thr_syn_t.
  */
-static ALWAYS_INLINE
-void thr_syn__job_prepare(thr_syn_t *syn)
+static ALWAYS_INLINE void thr_syn__job_prepare(thr_syn_t *syn)
 {
     thr_syn__retain(syn);
     atomic_fetch_add(&syn->pending, 1);
@@ -248,20 +246,18 @@ void thr_syn__job_prepare(thr_syn_t *syn)
 
 /** \brief low level function to wake up people waiting on a thr_syn_t
  */
-static ALWAYS_INLINE
-void thr_syn__broacast(thr_syn_t *syn)
+static ALWAYS_INLINE void thr_syn__broacast(thr_syn_t *syn)
 {
     thr_ec_broadcast(&syn->ec);
 }
 
 /** \brief low level function to notify a task is done.
  */
-static ALWAYS_INLINE
-void thr_syn__job_done(thr_syn_t *syn)
+static ALWAYS_INLINE void thr_syn__job_done(thr_syn_t *syn)
 {
     unsigned res = atomic_fetch_sub(&syn->pending, 1);
 
-    assert (res != 0);
+    assert(res != 0);
     if (res == 1) {
         thr_syn__broacast(syn);
     }
@@ -300,7 +296,7 @@ static inline void thr_syn_wait(thr_syn_t *syn)
     thr_syn_wait_flags(syn, 0);
 }
 
-#ifdef __has_blocks
+#  ifdef __has_blocks
 
 /** Wait for a condition to become true.
  *
@@ -319,13 +315,14 @@ static inline void thr_syn_wait(thr_syn_t *syn)
  *                   \ref thr_syn_wait. The callback must be pure and you have
  *                   no guarantees on the number of times it will be called.
  */
-void thr_syn_wait_until_flags(thr_syn_t *syn, unsigned flags,
-                              bool (BLOCK_CARET cond)(void));
+void thr_syn_wait_until_flags(
+    thr_syn_t *syn, unsigned flags, bool(BLOCK_CARET cond)(void)
+);
 
 /** Shortcut to \ref thr_syn_wait_until_flags with default flags.
  */
 static inline void
-thr_syn_wait_until(thr_syn_t *syn, bool (BLOCK_CARET cond)(void))
+thr_syn_wait_until(thr_syn_t *syn, bool(BLOCK_CARET cond)(void))
 {
     thr_syn_wait_until_flags(syn, 0, cond);
 }
@@ -336,18 +333,18 @@ thr_syn_wait_until(thr_syn_t *syn, bool (BLOCK_CARET cond)(void))
  * depends on this #thr_syn_t and that must be local to one thread at a time.
  */
 void thr_syn_declare_td(
-    thr_syn_t * nonnull syn,
-    thr_td_t * nonnull (BLOCK_CARET nonnull new_td)(void),
-    void (BLOCK_CARET nonnull delete_td)(thr_td_t * nullable * nonnull))
-    __attr_leaf__;
+    thr_syn_t *nonnull syn,
+    thr_td_t *nonnull(BLOCK_CARET nonnull new_td)(void),
+    void(BLOCK_CARET nonnull delete_td)(thr_td_t * nullable * nonnull)
+) __attr_leaf__;
 
 /** Acquire an instance of the associated thread data.
  */
-thr_td_t * nonnull thr_syn_acquire_td(thr_syn_t * nonnull syn);
+thr_td_t *nonnull thr_syn_acquire_td(thr_syn_t *nonnull syn);
 
 /** Release a thread data.
  */
-void thr_syn_release_td(thr_syn_t * nonnull syn, thr_td_t * nonnull td);
+void thr_syn_release_td(thr_syn_t *nonnull syn, thr_td_t *nonnull td);
 
 /** Iterates on the allocated thread data.
  *
@@ -356,10 +353,12 @@ void thr_syn_release_td(thr_syn_t * nonnull syn, thr_td_t * nonnull td);
  * data associated to that #thr_syn_t in order to merge them into a final
  * result.
  */
-void thr_syn_collect_td(thr_syn_t * nonnull syn,
-                        void (BLOCK_CARET collector)(const thr_td_t * nonnull td));
+void thr_syn_collect_td(
+    thr_syn_t *nonnull syn,
+    void(BLOCK_CARET collector)(const thr_td_t *nonnull td)
+);
 
-#endif
+#  endif
 
 /** \brief process one job from the main queue.
  */
@@ -372,8 +371,7 @@ void thr_queue_main_drain(void);
 bool thr_job_reload_at_fork(bool enabled);
 
 /** \brief fork() preserving threads-jobs */
-__must_check__
-static inline pid_t thr_job_fork(void)
+__must_check__ static inline pid_t thr_job_fork(void)
 {
     bool prev_val = thr_job_reload_at_fork(true);
     pid_t pid = ifork();
@@ -398,24 +396,25 @@ void thr_enter_blocking_syscall(void);
  */
 void thr_exit_blocking_syscall(void);
 
-#ifdef __has_blocks
+#  ifdef __has_blocks
 
 /** Run \p count concurrent jobs.
  *
  * The function exits when all the jobs have run.
  */
-void thr_for_each(size_t count, void (BLOCK_CARET blk)(size_t pos));
+void thr_for_each(size_t count, void(BLOCK_CARET blk)(size_t pos));
 
-#endif
+#  endif
 
 /*- accounting -----------------------------------------------------------*/
 
-#if !defined(NDEBUG) && !defined(__has_tsan)
+#  if !defined(NDEBUG) && !defined(__has_tsan)
 void thr_acc_reset(void);
-void thr_acc_trace(int lvl, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
-#else
-#define thr_acc_reset()            ((void)0)
-#define thr_acc_trace(...)         ((void)0)
-#endif
+void thr_acc_trace(int lvl, const char *fmt, ...)
+    __attribute__((format(printf, 2, 3)));
+#  else
+#    define thr_acc_reset() ((void)0)
+#    define thr_acc_trace(...) ((void)0)
+#  endif
 
 #endif

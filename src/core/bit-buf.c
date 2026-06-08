@@ -71,13 +71,13 @@ void bb_init_sb(bb_t *bb, sb_t *sb)
     }
 }
 
-
 void bb_transfer_to_sb(bb_t *bb, sb_t *sb)
 {
     sb_wipe(sb);
     bb_grow(bb, 8);
-    sb_init_full(sb, bb->data, DIV_ROUND_UP(bb->len, 8), bb->size * 8,
-                 bb->mp);
+    sb_init_full(
+        sb, bb->data, DIV_ROUND_UP(bb->len, 8), bb->size * 8, bb->mp
+    );
     bb->data = NULL;
     bb_wipe(bb);
     bb_init(bb);
@@ -92,11 +92,12 @@ void __bb_grow(bb_t *bb, size_t extra)
     if (newsz < newlen) {
         newsz = newlen;
     }
-    assert (bb->alignment && bb->alignment % 8 == 0);
+    assert(bb->alignment && bb->alignment % 8 == 0);
     newsz = ROUND_UP(newsz, bb->alignment / 8);
 
-    bb->data = mp_irealloc_fallback(&bb->mp, bb->data, bb->size * 8,
-                                    newsz * 8, bb->alignment, 0);
+    bb->data = mp_irealloc_fallback(
+        &bb->mp, bb->data, bb->size * 8, newsz * 8, bb->alignment, 0
+    );
     bb->size = newsz;
 }
 
@@ -138,8 +139,7 @@ void bb_shift_left(bb_t *bb, size_t shift)
 {
     if (shift >= bb->len) {
         bb_reset(bb);
-    } else
-    if (shift % 8 == 0) {
+    } else if (shift % 8 == 0) {
         /* Shift is nicely aligned */
         const size_t bshift = shift / 8;
         const size_t blen = DIV_ROUND_UP(bb->len, 8);
@@ -158,8 +158,8 @@ void bb_shift_left(bb_t *bb, size_t shift)
          * 8 bytes. */
         while (src < bb->word) {
             /* Copy the bits from src which have to be shifted in dst */
-            bb->data[dst++] = ((bb->data[src] >> wshift)
-                               | (bb->data[src + 1] << rwshift));
+            bb->data[dst++] =
+                ((bb->data[src] >> wshift) | (bb->data[src + 1] << rwshift));
             src++;
         }
 
@@ -178,7 +178,7 @@ void bb_shift_left(bb_t *bb, size_t shift)
 char *t_print_bits(uint8_t bits, uint8_t bstart, uint8_t blen)
 {
     char *str = t_new(char, blen + 1);
-    char *w   = str;
+    char *w = str;
 
     for (int i = bstart; i < blen; i++) {
         *w++ = (bits & (1 << i)) ? '1' : '0';
@@ -219,8 +219,7 @@ int z_set_be_bb(bb_t *bb, const char *bits, sb_t *err)
             if (c == '1') {
                 u |= 1;
             }
-        } else
-        if (c == '.' || !c) {
+        } else if (c == '.' || !c) {
             bb_add_bits(bb, u, blen);
 
             if (!c) {
@@ -259,20 +258,20 @@ char *t_print_bb(const bb_t *bb, size_t *len)
 
 #include <lib-common/z.h>
 
-#define T_TEST_BB(bb, bits) \
-    do {                                                                    \
-        bit_stream_t _bs = bs_init_bb(bb);                                  \
-                                                                            \
-        Z_ASSERT_STREQUAL(bits, t_print_bs(_bs, NULL));                     \
+#define T_TEST_BB(bb, bits)                                                  \
+    do {                                                                     \
+        bit_stream_t _bs = bs_init_bb(bb);                                   \
+                                                                             \
+        Z_ASSERT_STREQUAL(bits, t_print_bs(_bs, NULL));                      \
     } while (0)
 
-#define T_TEST_PREV_BB(bb, oldlen, bits) \
-    do {                                                                    \
-        bb_t _tmp_bb = *(bb);                                               \
-                                                                            \
-        _tmp_bb.len = (oldlen);                                             \
-        assert (_tmp_bb.len <= _tmp_bb.size * 64);                          \
-        T_TEST_BB(&_tmp_bb, bits);                                          \
+#define T_TEST_PREV_BB(bb, oldlen, bits)                                     \
+    do {                                                                     \
+        bb_t _tmp_bb = *(bb);                                                \
+                                                                             \
+        _tmp_bb.len = (oldlen);                                              \
+        assert(_tmp_bb.len <= _tmp_bb.size * 64);                            \
+        T_TEST_BB(&_tmp_bb, bits);                                           \
     } while (0)
 
 Z_GROUP_EXPORT(bit_buf)
@@ -305,44 +304,45 @@ Z_GROUP_EXPORT(bit_buf)
         Z_ASSERT_STREQUAL(".10110001.01010110.0", t_print_bs(bs, NULL));
 
         Z_ASSERT_EQ(bs_len(&bs), 17U, "Check length #2");
-        Z_ASSERT_EQ(__bs_get_bit(&bs), true,  "Check bit #1");
+        Z_ASSERT_EQ(__bs_get_bit(&bs), true, "Check bit #1");
         Z_ASSERT_EQ(__bs_get_bit(&bs), false, "Check bit #2");
-        Z_ASSERT_EQ(__bs_get_bit(&bs), true,  "Check bit #3");
-        Z_ASSERT_EQ(__bs_get_bit(&bs), true,  "Check bit #4");
+        Z_ASSERT_EQ(__bs_get_bit(&bs), true, "Check bit #3");
+        Z_ASSERT_EQ(__bs_get_bit(&bs), true, "Check bit #4");
         Z_ASSERT_EQ(__bs_get_bit(&bs), false, "Check bit #5");
         Z_ASSERT_EQ(__bs_get_bit(&bs), false, "Check bit #6");
         Z_ASSERT_EQ(__bs_get_bit(&bs), false, "Check bit #7");
-        Z_ASSERT_EQ(__bs_get_bit(&bs), true,  "Check bit #8");
+        Z_ASSERT_EQ(__bs_get_bit(&bs), true, "Check bit #8");
         Z_ASSERT_EQ(__bs_get_bit(&bs), false, "Check bit #9");
-        Z_ASSERT_EQ(__bs_get_bit(&bs), true,  "Check bit #10");
+        Z_ASSERT_EQ(__bs_get_bit(&bs), true, "Check bit #10");
 
         /* Reverse check */
         bs = bs_init_bb(&bb);
         Z_ASSERT_N(bs_shrink(&bs, 7), "Shrink #1");
         Z_ASSERT_EQ(bs_len(&bs), 10U, "Check length #2");
-        Z_ASSERT_EQ(__bs_peek_last_bit(&bs), true,  "Check bit #10");
-        Z_ASSERT_EQ(__bs_get_last_bit(&bs), true,  "Check bit #10");
+        Z_ASSERT_EQ(__bs_peek_last_bit(&bs), true, "Check bit #10");
+        Z_ASSERT_EQ(__bs_get_last_bit(&bs), true, "Check bit #10");
         Z_ASSERT_EQ(__bs_peek_last_bit(&bs), false, "Check bit #9");
         Z_ASSERT_EQ(__bs_get_last_bit(&bs), false, "Check bit #9");
-        Z_ASSERT_EQ(__bs_peek_last_bit(&bs), true,  "Check bit #8");
-        Z_ASSERT_EQ(__bs_get_last_bit(&bs), true,  "Check bit #8");
+        Z_ASSERT_EQ(__bs_peek_last_bit(&bs), true, "Check bit #8");
+        Z_ASSERT_EQ(__bs_get_last_bit(&bs), true, "Check bit #8");
         Z_ASSERT_EQ(__bs_peek_last_bit(&bs), false, "Check bit #7");
         Z_ASSERT_EQ(__bs_get_last_bit(&bs), false, "Check bit #7");
         Z_ASSERT_EQ(__bs_peek_last_bit(&bs), false, "Check bit #6");
         Z_ASSERT_EQ(__bs_get_last_bit(&bs), false, "Check bit #6");
         Z_ASSERT_EQ(__bs_peek_last_bit(&bs), false, "Check bit #5");
         Z_ASSERT_EQ(__bs_get_last_bit(&bs), false, "Check bit #5");
-        Z_ASSERT_EQ(__bs_peek_last_bit(&bs), true,  "Check bit #4");
-        Z_ASSERT_EQ(__bs_get_last_bit(&bs), true,  "Check bit #4");
-        Z_ASSERT_EQ(__bs_peek_last_bit(&bs), true,  "Check bit #3");
-        Z_ASSERT_EQ(__bs_get_last_bit(&bs), true,  "Check bit #3");
+        Z_ASSERT_EQ(__bs_peek_last_bit(&bs), true, "Check bit #4");
+        Z_ASSERT_EQ(__bs_get_last_bit(&bs), true, "Check bit #4");
+        Z_ASSERT_EQ(__bs_peek_last_bit(&bs), true, "Check bit #3");
+        Z_ASSERT_EQ(__bs_get_last_bit(&bs), true, "Check bit #3");
         Z_ASSERT_EQ(__bs_peek_last_bit(&bs), false, "Check bit #2");
         Z_ASSERT_EQ(__bs_get_last_bit(&bs), false, "Check bit #2");
-        Z_ASSERT_EQ(__bs_peek_last_bit(&bs), true,  "Check bit #1");
-        Z_ASSERT_EQ(__bs_get_last_bit(&bs), true,  "Check bit #1");
+        Z_ASSERT_EQ(__bs_peek_last_bit(&bs), true, "Check bit #1");
+        Z_ASSERT_EQ(__bs_get_last_bit(&bs), true, "Check bit #1");
 
         bb_wipe(&bb);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(le_add_0_1) {
         BB_1k(bb);
@@ -375,7 +375,8 @@ Z_GROUP_EXPORT(bit_buf)
         }
 
         bb_wipe(&bb);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(le_add_bytes) {
         BB_1k(bb);
@@ -414,7 +415,8 @@ Z_GROUP_EXPORT(bit_buf)
         }
 
         bb_wipe(&bb);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(be_full, "bit-buf/bit-stream: full check") {
         t_scope;
@@ -444,44 +446,45 @@ Z_GROUP_EXPORT(bit_buf)
         Z_ASSERT_STREQUAL(".10110001.01001101.0", t_print_be_bs(bs, NULL));
 
         Z_ASSERT_EQ(bs_len(&bs), 17U, "Check length #2");
-        Z_ASSERT_EQ(__bs_be_get_bit(&bs), true,  "Check bit #1");
+        Z_ASSERT_EQ(__bs_be_get_bit(&bs), true, "Check bit #1");
         Z_ASSERT_EQ(__bs_be_get_bit(&bs), false, "Check bit #2");
-        Z_ASSERT_EQ(__bs_be_get_bit(&bs), true,  "Check bit #3");
-        Z_ASSERT_EQ(__bs_be_get_bit(&bs), true,  "Check bit #4");
+        Z_ASSERT_EQ(__bs_be_get_bit(&bs), true, "Check bit #3");
+        Z_ASSERT_EQ(__bs_be_get_bit(&bs), true, "Check bit #4");
         Z_ASSERT_EQ(__bs_be_get_bit(&bs), false, "Check bit #5");
         Z_ASSERT_EQ(__bs_be_get_bit(&bs), false, "Check bit #6");
         Z_ASSERT_EQ(__bs_be_get_bit(&bs), false, "Check bit #7");
-        Z_ASSERT_EQ(__bs_be_get_bit(&bs), true,  "Check bit #8");
+        Z_ASSERT_EQ(__bs_be_get_bit(&bs), true, "Check bit #8");
         Z_ASSERT_EQ(__bs_be_get_bit(&bs), false, "Check bit #9");
-        Z_ASSERT_EQ(__bs_be_get_bit(&bs), true,  "Check bit #10");
+        Z_ASSERT_EQ(__bs_be_get_bit(&bs), true, "Check bit #10");
 
         /* Reverse check */
         bs = bs_init_bb(&bb);
         Z_ASSERT_N(bs_shrink(&bs, 7), "Shrink #1");
         Z_ASSERT_EQ(bs_len(&bs), 10U, "Check length #2");
-        Z_ASSERT_EQ(__bs_be_peek_last_bit(&bs), true,  "Check bit #10");
-        Z_ASSERT_EQ(__bs_be_get_last_bit(&bs), true,  "Check bit #10");
+        Z_ASSERT_EQ(__bs_be_peek_last_bit(&bs), true, "Check bit #10");
+        Z_ASSERT_EQ(__bs_be_get_last_bit(&bs), true, "Check bit #10");
         Z_ASSERT_EQ(__bs_be_peek_last_bit(&bs), false, "Check bit #9");
         Z_ASSERT_EQ(__bs_be_get_last_bit(&bs), false, "Check bit #9");
-        Z_ASSERT_EQ(__bs_be_peek_last_bit(&bs), true,  "Check bit #8");
-        Z_ASSERT_EQ(__bs_be_get_last_bit(&bs), true,  "Check bit #8");
+        Z_ASSERT_EQ(__bs_be_peek_last_bit(&bs), true, "Check bit #8");
+        Z_ASSERT_EQ(__bs_be_get_last_bit(&bs), true, "Check bit #8");
         Z_ASSERT_EQ(__bs_be_peek_last_bit(&bs), false, "Check bit #7");
         Z_ASSERT_EQ(__bs_be_get_last_bit(&bs), false, "Check bit #7");
         Z_ASSERT_EQ(__bs_be_peek_last_bit(&bs), false, "Check bit #6");
         Z_ASSERT_EQ(__bs_be_get_last_bit(&bs), false, "Check bit #6");
         Z_ASSERT_EQ(__bs_be_peek_last_bit(&bs), false, "Check bit #5");
         Z_ASSERT_EQ(__bs_be_get_last_bit(&bs), false, "Check bit #5");
-        Z_ASSERT_EQ(__bs_be_peek_last_bit(&bs), true,  "Check bit #4");
-        Z_ASSERT_EQ(__bs_be_get_last_bit(&bs), true,  "Check bit #4");
-        Z_ASSERT_EQ(__bs_be_peek_last_bit(&bs), true,  "Check bit #3");
-        Z_ASSERT_EQ(__bs_be_get_last_bit(&bs), true,  "Check bit #3");
+        Z_ASSERT_EQ(__bs_be_peek_last_bit(&bs), true, "Check bit #4");
+        Z_ASSERT_EQ(__bs_be_get_last_bit(&bs), true, "Check bit #4");
+        Z_ASSERT_EQ(__bs_be_peek_last_bit(&bs), true, "Check bit #3");
+        Z_ASSERT_EQ(__bs_be_get_last_bit(&bs), true, "Check bit #3");
         Z_ASSERT_EQ(__bs_be_peek_last_bit(&bs), false, "Check bit #2");
         Z_ASSERT_EQ(__bs_be_get_last_bit(&bs), false, "Check bit #2");
-        Z_ASSERT_EQ(__bs_be_peek_last_bit(&bs), true,  "Check bit #1");
-        Z_ASSERT_EQ(__bs_be_get_last_bit(&bs), true,  "Check bit #1");
+        Z_ASSERT_EQ(__bs_be_peek_last_bit(&bs), true, "Check bit #1");
+        Z_ASSERT_EQ(__bs_be_get_last_bit(&bs), true, "Check bit #1");
 
         bb_wipe(&bb);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(le_bug, "bit-buf: add 64nth bit") {
         t_scope;
@@ -490,8 +493,13 @@ Z_GROUP_EXPORT(bit_buf)
         bb_add0s(&bb, 63);
         bb_add_bit(&bb, true);
         bb_add0s(&bb, 8);
-        Z_ASSERT_STREQUAL(".00000000.00000000.00000000.00000000.00000000.00000000.00000000.00000001.00000000", t_print_bb(&bb, NULL));
-    } Z_TEST_END;
+        Z_ASSERT_STREQUAL(
+            ".00000000.00000000.00000000.00000000.00000000."
+            "00000000.00000000.00000001.00000000",
+            t_print_bb(&bb, NULL)
+        );
+    }
+    Z_TEST_END;
 
     Z_TEST(align, "bit-buf: alignment on 512 bytes") {
         bb_t bb;
@@ -508,7 +516,8 @@ Z_GROUP_EXPORT(bit_buf)
         Z_ASSERT(((intptr_t)bb.bytes) % 512 == 0);
 
         bb_wipe(&bb);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(sb, "bit-buf: init/transfer sb") {
         t_scope;
@@ -537,7 +546,8 @@ Z_GROUP_EXPORT(bit_buf)
 
         bb_wipe(&bb);
         sb_wipe(&sb);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(left_shit, "bit-buf: left shift") {
         t_scope;
@@ -572,16 +582,55 @@ Z_GROUP_EXPORT(bit_buf)
             bb_add_bit(&bb, false);
             bb_add_bit(&bb, false);
         }
-        T_TEST_BB(&bb, ".10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.0100");
+        T_TEST_BB(
+            &bb,
+            ".10010010.01001001.00100100.10010010.01001001.00100100.10010010."
+            "01001001.00100100.10010010.01001001.00100100.10010010.01001001."
+            "00100100.10010010.01001001.00100100.10010010.01001001.00100100."
+            "10010010.01001001.00100100.10010010.01001001.00100100.10010010."
+            "01001001.00100100.10010010.01001001.00100100.10010010.01001001."
+            "00100100.10010010.0100"
+        );
 
         bb_shift_left(&bb, 16);
-        T_TEST_BB(&bb, ".00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.0100");
-        T_TEST_PREV_BB(&bb, 300, ".00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01000000.00000000.0000");
+        T_TEST_BB(
+            &bb, ".00100100.10010010.01001001.00100100.10010010.01001001."
+                 "00100100.10010010.01001001.00100100.10010010.01001001."
+                 "00100100.10010010.01001001.00100100.10010010.01001001."
+                 "00100100.10010010.01001001.00100100.10010010.01001001."
+                 "00100100.10010010.01001001.00100100.10010010.01001001."
+                 "00100100.10010010.01001001.00100100.10010010.0100"
+        );
+        T_TEST_PREV_BB(
+            &bb, 300,
+            ".00100100.10010010.01001001.00100100.10010010.01001001.00100100."
+            "10010010.01001001.00100100.10010010.01001001.00100100.10010010."
+            "01001001.00100100.10010010.01001001.00100100.10010010.01001001."
+            "00100100.10010010.01001001.00100100.10010010.01001001.00100100."
+            "10010010.01001001.00100100.10010010.01001001.00100100.10010010."
+            "01000000.00000000.0000"
+        );
 
         bb_shift_left(&bb, 79);
-        T_TEST_BB(&bb, ".01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100");
-        T_TEST_PREV_BB(&bb, 300, ".01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100100.10010010.01001001.00100000.00000000.00000000.00000000.00000000.00000000.00000000.00000000.00000000.00000000.00000000.00000000.0000");
-    } Z_TEST_END;
-} Z_GROUP_END;
+        T_TEST_BB(
+            &bb,
+            ".01001001.00100100.10010010.01001001.00100100.10010010.01001001."
+            "00100100.10010010.01001001.00100100.10010010.01001001.00100100."
+            "10010010.01001001.00100100.10010010.01001001.00100100.10010010."
+            "01001001.00100100.10010010.01001001.00100"
+        );
+        T_TEST_PREV_BB(
+            &bb, 300,
+            ".01001001.00100100.10010010.01001001.00100100.10010010.01001001."
+            "00100100.10010010.01001001.00100100.10010010.01001001.00100100."
+            "10010010.01001001.00100100.10010010.01001001.00100100.10010010."
+            "01001001.00100100.10010010.01001001.00100000.00000000.00000000."
+            "00000000.00000000.00000000.00000000.00000000.00000000.00000000."
+            "00000000.00000000.0000"
+        );
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END;
 
 /* }}} */

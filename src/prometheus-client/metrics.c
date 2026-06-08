@@ -26,7 +26,7 @@
 static struct {
     logger_t logger;
 } prom_metrics_g = {
-#define _G  prom_metrics_g
+#define _G prom_metrics_g
     .logger = LOGGER_INIT_INHERITS(&prom_logger_g, "metrics"),
 };
 
@@ -44,9 +44,7 @@ static uint32_t qv_lstr_hash(const qhash_t *qh, const qv_t(cstr) *qv)
 }
 
 static bool
-qv_lstr_equal(const qhash_t *qh,
-              const qv_t(cstr) *qv1,
-              const qv_t(cstr) *qv2)
+qv_lstr_equal(const qhash_t *qh, const qv_t(cstr) *qv1, const qv_t(cstr) *qv2)
 {
     if (qv1->len != qv2->len) {
         return false;
@@ -59,8 +57,9 @@ qv_lstr_equal(const qhash_t *qh,
     return true;
 }
 
-qm_kptr_ckey_t(prom_metric, qv_t(cstr), prom_metric_t *,
-               qv_lstr_hash, qv_lstr_equal);
+qm_kptr_ckey_t(
+    prom_metric, qv_t(cstr), prom_metric_t *, qv_lstr_hash, qv_lstr_equal
+);
 
 /* }}} */
 /* {{{ base metric classes */
@@ -76,15 +75,16 @@ static void prom_metric_wipe(prom_metric_t *self)
 {
     /* Remove self from parent's children. */
     if (self->parent) {
-        qm_del_key(prom_metric, self->parent->children_by_labels,
-                   &self->label_values);
+        qm_del_key(
+            prom_metric, self->parent->children_by_labels, &self->label_values
+        );
     }
 
     /* Wipe */
     lstr_wipe(&self->name);
     lstr_wipe(&self->documentation);
 
-#define cstr_wipe(str)  p_delete((char **)str)
+#define cstr_wipe(str) p_delete((char **)str)
     qv_deep_wipe(&self->label_names, cstr_wipe);
     qv_deep_wipe(&self->label_values, cstr_wipe);
 #undef cstr_wipe
@@ -92,8 +92,9 @@ static void prom_metric_wipe(prom_metric_t *self)
     dlist_remove(&self->children_list);
     dlist_remove(&self->siblings_list);
 
-    qm_deep_delete(prom_metric, &self->children_by_labels, IGNORE,
-                   obj_delete);
+    qm_deep_delete(
+        prom_metric, &self->children_by_labels, IGNORE, obj_delete
+    );
 }
 
 int prom_metric_check_name(lstr_t name)
@@ -142,14 +143,17 @@ int prom_metric_check_label_name(const char *name)
 }
 
 __attr_printf__(3, 4) __attr_noreturn__ __attr_cold__
-static void prom_metric_panic(prom_metric_t *self, const char *func,
-                              const char *fmt, ...)
+    static void prom_metric_panic(
+        prom_metric_t *self, const char *func, const char *fmt, ...
+    )
 {
     SB_1k(err);
     va_list args;
 
-    sb_addf(&err, "invalid call to %s() method of metric `%*pM`: ",
-            func, LSTR_FMT_ARG(self->name));
+    sb_addf(
+        &err, "invalid call to %s() method of metric `%*pM`: ", func,
+        LSTR_FMT_ARG(self->name)
+    );
 
     va_start(args, fmt);
     sb_addvf(&err, fmt, args);
@@ -162,25 +166,29 @@ static void prom_metric_register(prom_metric_t *self)
 {
     /* Consistency checks */
     if (self->parent || self->label_values.len) {
-        prom_metric_panic(self, "do_register",
-                          "only parent metrics can be registered");
+        prom_metric_panic(
+            self, "do_register", "only parent metrics can be registered"
+        );
     }
     if (!dlist_is_empty(&self->siblings_list)) {
-        prom_metric_panic(self, "do_register",
-                          "metric is already registered");
+        prom_metric_panic(
+            self, "do_register", "metric is already registered"
+        );
     }
     if (!dlist_is_empty(&self->children_list) || self->children_by_labels) {
         prom_metric_panic(self, "do_register", "metric already has children");
     }
     if (prom_metric_check_name(self->name) < 0) {
-        prom_metric_panic(self, "do_register", "invalid metric name `%*pM`",
-                          LSTR_FMT_ARG(self->name));
+        prom_metric_panic(
+            self, "do_register", "invalid metric name `%*pM`",
+            LSTR_FMT_ARG(self->name)
+        );
     }
     tab_for_each_entry(label_name, &self->label_names) {
         if (prom_metric_check_label_name(label_name)) {
-            prom_metric_panic(self, "do_register",
-                              "invalid label name `%s`",
-                              label_name);
+            prom_metric_panic(
+                self, "do_register", "invalid label name `%s`", label_name
+            );
         }
     }
     if (!self->documentation.len) {
@@ -198,31 +206,35 @@ static void prom_metric_unregister(prom_metric_t *self)
 {
     /* Consistency checks */
     if (self->parent || self->label_values.len) {
-        prom_metric_panic(self, "unregister",
-                          "only parent metrics can be unregistered");
+        prom_metric_panic(
+            self, "unregister", "only parent metrics can be unregistered"
+        );
     }
 
     /* Unregister */
     dlist_remove(&self->siblings_list);
 }
 
-static void prom_metric_check_labels(prom_metric_t *self, const char *func,
-                                     const qv_t(cstr) *label_values)
+static void prom_metric_check_labels(
+    prom_metric_t *self, const char *func, const qv_t(cstr) *label_values
+)
 {
     if (!self->label_names.len) {
         prom_metric_panic(self, func, "no label names defined in metric");
     }
     if (label_values->len != self->label_names.len) {
-        prom_metric_panic(self, func, "incorrect labels count (%d != %d)",
-                          label_values->len, self->label_names.len);
+        prom_metric_panic(
+            self, func, "incorrect labels count (%d != %d)",
+            label_values->len, self->label_names.len
+        );
     }
     if (!self->children_by_labels) {
         prom_metric_panic(self, func, "no children_by_labels defined");
     }
 }
 
-static prom_metric_t *
-(prom_metric_labels)(prom_metric_t *self, const qv_t(cstr) *label_values)
+static prom_metric_t *(prom_metric_labels)(prom_metric_t * self,
+                                           const qv_t(cstr) *label_values)
 {
     uint32_t pos;
     prom_metric_t *child;
@@ -258,8 +270,9 @@ static prom_metric_t *
     return child;
 }
 
-static void
-(prom_metric_remove)(prom_metric_t *self, const qv_t(cstr) *label_values)
+static void(prom_metric_remove)(
+    prom_metric_t *self, const qv_t(cstr) *label_values
+)
 {
     int pos;
 
@@ -284,25 +297,25 @@ static void prom_metric_clear(prom_metric_t *self)
     qm_deep_clear(prom_metric, self->children_by_labels, IGNORE, obj_delete);
 }
 
-OBJ_VTABLE(prom_metric)
-    prom_metric.init        = prom_metric_init;
-    prom_metric.wipe        = prom_metric_wipe;
-    prom_metric.do_register = prom_metric_register;
-    prom_metric.unregister  = prom_metric_unregister;
-    prom_metric.labels      = prom_metric_labels;
-    prom_metric.remove      = prom_metric_remove;
-    prom_metric.clear       = prom_metric_clear;
-OBJ_VTABLE_END()
-
+OBJ_VTABLE(prom_metric) {
+    cls->init = prom_metric_init;
+    cls->wipe = prom_metric_wipe;
+    cls->do_register = prom_metric_register;
+    cls->unregister = prom_metric_unregister;
+    cls->labels = prom_metric_labels;
+    cls->remove = prom_metric_remove;
+    cls->clear = prom_metric_clear;
+}
 
 static bool is_metric_observable(const prom_metric_t *metric)
 {
     return metric->parent || !metric->label_names.len;
 }
 
-prom_metric_t *prom_metric_new(const object_class_t *cls,
-                               const char *name, const char *documentation,
-                               const char **labels, int nb_labels)
+prom_metric_t *prom_metric_new(
+    const object_class_t *cls, const char *name, const char *documentation,
+    const char **labels, int nb_labels
+)
 {
     prom_metric_t *res;
 
@@ -342,9 +355,9 @@ prom_simple_value_metric_get_value(prom_simple_value_metric_t *self)
     return res;
 }
 
-OBJ_VTABLE(prom_simple_value_metric)
-    prom_simple_value_metric.get_value = prom_simple_value_metric_get_value;
-OBJ_VTABLE_END()
+OBJ_VTABLE(prom_simple_value_metric) {
+    cls->get_value = prom_simple_value_metric_get_value;
+}
 
 /* }}} */
 /* {{{ prom_counter_t */
@@ -363,10 +376,10 @@ static void prom_counter_inc(prom_counter_t *self)
     }
 }
 
-OBJ_VTABLE(prom_counter)
-    prom_counter.add = prom_counter_add;
-    prom_counter.inc = prom_counter_inc;
-OBJ_VTABLE_END()
+OBJ_VTABLE(prom_counter) {
+    cls->add = prom_counter_add;
+    cls->inc = prom_counter_inc;
+}
 
 /* }}} */
 /* {{{ prom_gauge_t */
@@ -408,13 +421,13 @@ static void prom_gauge_set(prom_gauge_t *self, double value)
     }
 }
 
-OBJ_VTABLE(prom_gauge)
-    prom_gauge.add = prom_gauge_add;
-    prom_gauge.inc = prom_gauge_inc;
-    prom_gauge.sub = prom_gauge_sub;
-    prom_gauge.dec = prom_gauge_dec;
-    prom_gauge.set = prom_gauge_set;
-OBJ_VTABLE_END()
+OBJ_VTABLE(prom_gauge) {
+    cls->add = prom_gauge_add;
+    cls->inc = prom_gauge_inc;
+    cls->sub = prom_gauge_sub;
+    cls->dec = prom_gauge_dec;
+    cls->set = prom_gauge_set;
+}
 
 /* }}} */
 /* {{{ prom_histogram_t */
@@ -432,38 +445,51 @@ static void prom_histogram_register(prom_histogram_t *self)
     /* Check that "le" is not used as a label name */
     tab_for_each_entry(label, &self->label_names) {
         if (strequal(label, "le")) {
-            prom_metric_panic(obj_vcast(prom_metric, self), "do_register",
-                              "label name `le` is reserved for histograms");
+            prom_metric_panic(
+                obj_vcast(prom_metric, self), "do_register",
+                "label name `le` is reserved for histograms"
+            );
         }
     }
 }
 
-static void (prom_histogram_set_buckets)(prom_histogram_t *self,
-                                         const qv_t(double) *upper_bounds)
+static void(prom_histogram_set_buckets)(
+    prom_histogram_t *self, const qv_t(double) *upper_bounds
+)
 {
     double prev_bound = -INFINITY;
 
     /* Consistency checks */
     if (self->parent) {
-        prom_metric_panic(obj_vcast(prom_metric, self), "set_buckets",
-                          "buckets can only be set on parent histogram");
+        prom_metric_panic(
+            obj_vcast(prom_metric, self), "set_buckets",
+            "buckets can only be set on parent histogram"
+        );
     }
     if (self->nb_buckets || self->bucket_upper_bounds) {
-        prom_metric_panic(obj_vcast(prom_metric, self), "set_buckets",
-                          "buckets are already set");
+        prom_metric_panic(
+            obj_vcast(prom_metric, self), "set_buckets",
+            "buckets are already set"
+        );
     }
     if (!upper_bounds->len) {
-        prom_metric_panic(obj_vcast(prom_metric, self), "set_buckets",
-                          "upper_bounds table is empty");
+        prom_metric_panic(
+            obj_vcast(prom_metric, self), "set_buckets",
+            "upper_bounds table is empty"
+        );
     }
     tab_for_each_entry(bound, upper_bounds) {
         if (!isfinite(bound)) {
-            prom_metric_panic(obj_vcast(prom_metric, self), "set_buckets",
-                              "upper bounds must be finite");
+            prom_metric_panic(
+                obj_vcast(prom_metric, self), "set_buckets",
+                "upper bounds must be finite"
+            );
         }
         if (bound <= prev_bound) {
-            prom_metric_panic(obj_vcast(prom_metric, self), "set_buckets",
-                              "upper_bounds must be sorted");
+            prom_metric_panic(
+                obj_vcast(prom_metric, self), "set_buckets",
+                "upper_bounds must be sorted"
+            );
         }
         prev_bound = bound;
     }
@@ -477,20 +503,25 @@ static void (prom_histogram_set_buckets)(prom_histogram_t *self,
     }
 }
 
-void prom_histogram_set_linear_buckets(prom_histogram_t *self,
-                                       double start, double width, int count)
+void prom_histogram_set_linear_buckets(
+    prom_histogram_t *self, double start, double width, int count
+)
 {
     t_scope;
     qv_t(double) upper_bounds;
 
     /* Consistency checks */
     if (!isfinite(start) || !isfinite(width)) {
-        prom_metric_panic(obj_vcast(prom_metric, self), "set_linear_buckets",
-                          "start and width must be finite numbers");
+        prom_metric_panic(
+            obj_vcast(prom_metric, self), "set_linear_buckets",
+            "start and width must be finite numbers"
+        );
     }
     if (width <= 0 || count <= 0) {
-        prom_metric_panic(obj_vcast(prom_metric, self), "set_linear_buckets",
-                          "width and count must be strictly positive");
+        prom_metric_panic(
+            obj_vcast(prom_metric, self), "set_linear_buckets",
+            "width and count must be strictly positive"
+        );
     }
 
     /* Build upper bounds vector */
@@ -504,28 +535,31 @@ void prom_histogram_set_linear_buckets(prom_histogram_t *self,
     obj_vcall(self, set_buckets, &upper_bounds);
 }
 
-void prom_histogram_set_exponential_buckets(prom_histogram_t *self,
-                                            double start, double factor,
-                                            int count)
+void prom_histogram_set_exponential_buckets(
+    prom_histogram_t *self, double start, double factor, int count
+)
 {
     t_scope;
     qv_t(double) upper_bounds;
 
     /* Consistency checks */
     if (!isfinite(start) || !isfinite(factor)) {
-        prom_metric_panic(obj_vcast(prom_metric, self),
-                          "set_exponential_buckets",
-                          "start and factor must be finite numbers");
+        prom_metric_panic(
+            obj_vcast(prom_metric, self), "set_exponential_buckets",
+            "start and factor must be finite numbers"
+        );
     }
     if (start <= 0 || count <= 0) {
-        prom_metric_panic(obj_vcast(prom_metric, self),
-                          "set_exponential_buckets",
-                          "start and count must be strictly positive");
+        prom_metric_panic(
+            obj_vcast(prom_metric, self), "set_exponential_buckets",
+            "start and count must be strictly positive"
+        );
     }
     if (factor <= 1) {
-        prom_metric_panic(obj_vcast(prom_metric, self),
-                          "set_exponential_buckets",
-                          "factor must be strictly greater than 1");
+        prom_metric_panic(
+            obj_vcast(prom_metric, self), "set_exponential_buckets",
+            "factor must be strictly greater than 1"
+        );
     }
 
     /* Build upper bounds vector */
@@ -539,9 +573,9 @@ void prom_histogram_set_exponential_buckets(prom_histogram_t *self,
     obj_vcall(self, set_buckets, &upper_bounds);
 }
 
-static prom_histogram_t *
-(prom_histogram_labels)(prom_histogram_t *self,
-                        const qv_t(cstr) *label_values)
+static prom_histogram_t
+    *(prom_histogram_labels)(prom_histogram_t * self,
+                             const qv_t(cstr) *label_values)
 {
     prom_metric_t *child_metric;
     prom_histogram_t *child;
@@ -564,12 +598,16 @@ static void prom_histogram_observe(prom_histogram_t *self, double value)
     prom_histogram_t *parent = self->parent ?: self;
 
     if (!is_metric_observable(obj_ccast(prom_metric, self))) {
-        prom_metric_panic(obj_vcast(prom_metric, self), "observe",
-                          "histogram is not observable");
+        prom_metric_panic(
+            obj_vcast(prom_metric, self), "observe",
+            "histogram is not observable"
+        );
     }
     if (!self->nb_buckets) {
-        prom_metric_panic(obj_vcast(prom_metric, self), "observe",
-                          "histogram buckets were not initialized");
+        prom_metric_panic(
+            obj_vcast(prom_metric, self), "observe",
+            "histogram buckets were not initialized"
+        );
     }
 
     spin_lock(&self->lock);
@@ -587,14 +625,13 @@ static void prom_histogram_observe(prom_histogram_t *self, double value)
     spin_unlock(&self->lock);
 }
 
-OBJ_VTABLE(prom_histogram)
-    prom_histogram.wipe        = prom_histogram_wipe;
-    prom_histogram.do_register = prom_histogram_register;
-    prom_histogram.set_buckets = prom_histogram_set_buckets;
-    prom_histogram.labels      = prom_histogram_labels;
-    prom_histogram.observe     = prom_histogram_observe;
-OBJ_VTABLE_END()
-
+OBJ_VTABLE(prom_histogram) {
+    cls->wipe = prom_histogram_wipe;
+    cls->do_register = prom_histogram_register;
+    cls->set_buckets = prom_histogram_set_buckets;
+    cls->labels = prom_histogram_labels;
+    cls->observe = prom_histogram_observe;
+}
 
 prom_histogram_timer_ctx_t
 prom_histogram_timer_start(prom_histogram_t *histogram)
@@ -672,9 +709,10 @@ static void bridge_histogram(prom_histogram_t *metric, sb_t *out)
         if (metric->label_values.len) {
             sb_addc(out, ',');
         }
-        sb_addf(out, "le=\"%g\"} %g\n",
-                parent->bucket_upper_bounds[i],
-                metric->bucket_counts[i]);
+        sb_addf(
+            out, "le=\"%g\"} %g\n", parent->bucket_upper_bounds[i],
+            metric->bucket_counts[i]
+        );
     }
 
     /* Add the line for the "+Inf" bucket */
@@ -721,49 +759,48 @@ static void prom_collector_bridge_metric(prom_metric_t *metric, sb_t *out)
     lstr_t metric_type = LSTR_NULL_V;
 
     /* Skip metrics without samples */
-    if (metric->label_names.len
-    &&  !qm_len(prom_metric, metric->children_by_labels))
+    if (metric->label_names.len &&
+        !qm_len(prom_metric, metric->children_by_labels))
     {
         return;
     }
 
     /* Ensure there is an empty line between each metric */
-    if (out->len >= 2
-    &&  (out->data[out->len - 1] != '\n'
-      || out->data[out->len - 2] != '\n'))
+    if (out->len >= 2 &&
+        (out->data[out->len - 1] != '\n' || out->data[out->len - 2] != '\n'))
     {
         sb_adds(out, "\n");
     }
 
     /* Add HELP and TYPE */
     sb_addf(out, "# HELP %*pM ", LSTR_FMT_ARG(metric->name));
-    sb_add_slashes(out,
-                   metric->documentation.s, metric->documentation.len,
-                   "\\\n", "\\n");
+    sb_add_slashes(
+        out, metric->documentation.s, metric->documentation.len, "\\\n", "\\n"
+    );
     sb_addc(out, '\n');
 
     /* Add TYPE */
     if (obj_is_a(metric, prom_counter)) {
         metric_type = LSTR("counter");
-    } else
-    if (obj_is_a(metric, prom_gauge)) {
+    } else if (obj_is_a(metric, prom_gauge)) {
         metric_type = LSTR("gauge");
-    } else
-    if (obj_is_a(metric, prom_histogram)) {
+    } else if (obj_is_a(metric, prom_histogram)) {
         metric_type = LSTR("histogram");
     } else {
-        assert (false);
+        assert(false);
     }
-    sb_addf(out, "# TYPE %*pM %*pM\n",
-            LSTR_FMT_ARG(metric->name),
-            LSTR_FMT_ARG(metric_type));
+    sb_addf(
+        out, "# TYPE %*pM %*pM\n", LSTR_FMT_ARG(metric->name),
+        LSTR_FMT_ARG(metric_type)
+    );
 
     /* Add values */
     if (is_metric_observable(metric)) {
         bridge_sample(metric, out);
     } else {
-        dlist_for_each_entry(prom_metric_t, child, &metric->children_list,
-                             siblings_list)
+        dlist_for_each_entry(
+            prom_metric_t, child, &metric->children_list, siblings_list
+        )
         {
             spin_lock(&child->lock);
             bridge_sample(child, out);

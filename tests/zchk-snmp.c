@@ -43,8 +43,9 @@ static int z_check_wanted_file(const char *filename, sb_t *sb)
     char path[PATH_MAX];
     lstr_t file_map;
 
-    snprintf(path, sizeof(path), "%*pM/%s",
-             LSTR_FMT_ARG(z_cmddir_g), filename);
+    snprintf(
+        path, sizeof(path), "%*pM/%s", LSTR_FMT_ARG(z_cmddir_g), filename
+    );
 
     Z_ASSERT_N(lstr_init_from_file(&file_map, path, PROT_READ, MAP_SHARED));
 
@@ -91,7 +92,8 @@ Z_GROUP_EXPORT(iop_snmp_mib)
         Z_HELPER_RUN(z_check_wanted_file(ref_file, &sb));
 
         qv_wipe(&pkgs);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(test_intersec_mib_smilint, "test intersec mib using smilint") {
         t_scope;
@@ -113,7 +115,8 @@ Z_GROUP_EXPORT(iop_snmp_mib)
         Z_HELPER_RUN(z_run_smilint(&smilint_args));
 
         qv_wipe(&pkgs);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(test_entire_mib) {
         t_scope;
@@ -133,17 +136,23 @@ Z_GROUP_EXPORT(iop_snmp_mib)
         /* Check smilint compliance level 6 */
         t_qv_init(&smilint_args, 8);
         qv_append(&smilint_args, "-inotification-not-reversible");
-        qv_append(&smilint_args,
-                  t_fmt("-p%*pM/test-data/snmp/mibs/REF-INTERSEC-MIB.txt",
-                        LSTR_FMT_ARG(z_cmddir_g)));
-        qv_append(&smilint_args,
-                  t_fmt("%*pM%s", LSTR_FMT_ARG(z_cmddir_g), ref_file));
+        qv_append(
+            &smilint_args,
+            t_fmt(
+                "-p%*pM/test-data/snmp/mibs/REF-INTERSEC-MIB.txt",
+                LSTR_FMT_ARG(z_cmddir_g)
+            )
+        );
+        qv_append(
+            &smilint_args, t_fmt("%*pM%s", LSTR_FMT_ARG(z_cmddir_g), ref_file)
+        );
         Z_HELPER_RUN(z_run_smilint(&smilint_args));
 
         qv_wipe(&pkgs);
-    } Z_TEST_END;
-
-} Z_GROUP_END;
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END;
 
 /* }}} */
 /* {{{ SNMP-doc tests */
@@ -166,9 +175,10 @@ Z_GROUP_EXPORT(iop_snmp_doc)
         Z_HELPER_RUN(z_check_wanted_file(ref_obj_file, &objects_sb));
 
         qv_wipe(&pkgs);
-    } Z_TEST_END;
-
-} Z_GROUP_END;
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END;
 
 /* LCOV_EXCL_STOP */
 

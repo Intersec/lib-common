@@ -27,7 +27,7 @@
 
 /* {{{ Private API */
 
-#define FARCH_MAX_SYMBOL_SIZE  128
+#define FARCH_MAX_SYMBOL_SIZE 128
 
 /** Farch archives data structures.
  *
@@ -50,7 +50,7 @@ typedef lstr_t farch_data_t;
 
 typedef struct farch_entry_t {
     lstr_t name; /* obfuscated filename, its length is the obfuscation key */
-    const lstr_t * nonnull chunks; /* obfuscated content chunks */
+    const lstr_t *nonnull chunks; /* obfuscated content chunks */
     int compressed_size;
     int size;
     int nb_chunks;
@@ -59,7 +59,7 @@ typedef struct farch_entry_t {
 /* }}} */
 /* {{{ Public API */
 
-#define FARCH_MAX_FILENAME  (2 * PATH_MAX)
+#define FARCH_MAX_FILENAME (2 * PATH_MAX)
 
 /** Get the filename of this entry.
  *
@@ -78,15 +78,16 @@ typedef struct farch_entry_t {
  *                       FARCH_MAX_FILENAME bytes.
  * \return  NULL if there is no entry or if an error occurs, name otherwise.
  */
-char * nullable farch_get_filename(const farch_entry_t * nonnull file,
-                                   char * nonnull name_outbuf);
+char *nullable farch_get_filename(
+    const farch_entry_t *nonnull file, char *nonnull name_outbuf
+);
 
 /** Get the uncompressed content of a farch entry.
  *
  * \param[in]  entry  the farch entry.
  * \return  the uncompressed content.
  */
-lstr_t t_farch_unarchive(const farch_entry_t * nonnull entry);
+lstr_t t_farch_unarchive(const farch_entry_t *nonnull entry);
 
 /** Similar to t_farch_unarchive, but make the data persistent.
  *
@@ -95,7 +96,7 @@ lstr_t t_farch_unarchive(const farch_entry_t * nonnull entry);
  * \param[in]  entry  the farch entry.
  * \return  the uncompressed content.
  */
-lstr_t farch_unarchive_persist(const farch_entry_t * nonnull entry);
+lstr_t farch_unarchive_persist(const farch_entry_t *nonnull entry);
 
 /** Get the uncompressed content of a farch entry by its name.
  *
@@ -108,8 +109,9 @@ lstr_t farch_unarchive_persist(const farch_entry_t * nonnull entry);
  * \return  the uncompressed content if the entry is found,
  *          LSTR_NULL otherwise.
  */
-lstr_t t_farch_get_data(const farch_entry_t * nonnull files,
-                        const char * nullable name);
+lstr_t t_farch_get_data(
+    const farch_entry_t *nonnull files, const char *nullable name
+);
 
 /** Similar to t_farch_get_data, but make the data persistent.
  *
@@ -120,8 +122,9 @@ lstr_t t_farch_get_data(const farch_entry_t * nonnull files,
  * \return  the uncompressed content if the entry is found,
  *          LSTR_NULL otherwise.
  */
-lstr_t farch_get_data_persist(const farch_entry_t * nonnull files,
-                              const char * nullable name);
+lstr_t farch_get_data_persist(
+    const farch_entry_t *nonnull files, const char *nullable name
+);
 
 /* }}} */
 

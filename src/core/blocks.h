@@ -19,44 +19,45 @@
 #if !defined(IS_LIB_COMMON_CORE_H) || defined(IS_LIB_COMMON_CORE_BLOCKS_H)
 #  error "you must include core.h instead"
 #else
-#define IS_LIB_COMMON_CORE_BLOCKS_H
+#  define IS_LIB_COMMON_CORE_BLOCKS_H
 
-#ifdef __BLOCKS__
-#   define __has_blocks
-#   define BLOCK_CARET  ^
-    typedef void (^block_t)(void);
-#elif defined(__block)  /* ugly works because it's defined by the rewriter */
-#   define __has_blocks
-#   define BLOCK_CARET  *
-    typedef void (*block_t)(void);
-#else
-    typedef void * block_t;
-#endif
+#  ifdef __BLOCKS__
+#    define __has_blocks
+#    define BLOCK_CARET ^
+typedef void (^block_t)(void);
+#  elif defined(__block) /* ugly works because it's defined by the rewriter  \
+                          */
+#    define __has_blocks
+#    define BLOCK_CARET *
+typedef void (*block_t)(void);
+#  else
+typedef void *block_t;
+#  endif
 
-#ifdef __has_blocks
-static inline void block_run(void * nonnull blk_)
+#  ifdef __has_blocks
+static inline void block_run(void *nonnull blk_)
 {
     block_t blk = (__bridge block_t)blk_;
     blk();
 }
 
-static inline void block_run_and_release(void * nonnull blk_)
+static inline void block_run_and_release(void *nonnull blk_)
 {
     block_t blk = (__bridge block_t)blk_;
     blk();
     Block_release(blk);
 }
 
-#define Block_release_p(pBlock) \
-    do {                                            \
-        typeof(*(pBlock)) *pp = (pBlock);           \
-        \
-        if (*pp) {                                  \
-            Block_release(*pp);                     \
-            *pp = NULL;                             \
-        }                                           \
-    } while (0)
+#    define Block_release_p(pBlock)                                          \
+        do {                                                                 \
+            typeof(*(pBlock)) *pp = (pBlock);                                \
+                                                                             \
+            if (*pp) {                                                       \
+                Block_release(*pp);                                          \
+                *pp = NULL;                                                  \
+            }                                                                \
+        } while (0)
 
-#endif
+#  endif
 
 #endif

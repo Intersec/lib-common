@@ -25,7 +25,7 @@
 #include <lib-common/datetime.h>
 
 struct z_el_data {
-    int  calls;
+    int calls;
     bool end;
 };
 
@@ -49,13 +49,13 @@ static int writeall(el_t el, int fd, short ev, data_t priv)
     socklen_t data_sz = sizeof(size_t);
     size_t bufsiz = 0;
 
-    assert (ev & POLLOUT);
+    assert(ev & POLLOUT);
 
     if (d->end) {
         return 0;
     }
 
-    assert (getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &bufsiz, &data_sz) == 0);
+    assert(getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &bufsiz, &data_sz) == 0);
     data = t_new(byte, bufsiz);
 
     while (write(fd, data, bufsiz) > 0) {
@@ -66,8 +66,8 @@ static int writeall(el_t el, int fd, short ev, data_t priv)
 }
 
 #ifdef HAVE_SYS_INOTIFY_H
-static void fs_notify(el_t el, uint32_t event, uint32_t cookie,
-                      lstr_t name, data_t data)
+static void
+fs_notify(el_t el, uint32_t event, uint32_t cookie, lstr_t name, data_t data)
 {
     (*(int *)data.ptr)++;
 }
@@ -76,17 +76,20 @@ static void fs_notify(el_t el, uint32_t event, uint32_t cookie,
 static int z_spawn_child(void)
 {
     pid_t pid;
-    const char *argv[] = { "-l", NULL };
+    const char *argv[] = {"-l", NULL};
     __block _Bool done = false;
 
-    pid = el_spawn_child("ls", argv, NULL,
-                         ^void (void) {
-        devnull_dup(STDIN_FILENO);
-        devnull_dup(STDOUT_FILENO);
-    },
-    ^void (el_t ev, pid_t _pid, int _st) {
-        done = true;
-    }, NULL);
+    pid = el_spawn_child(
+        "ls", argv, NULL,
+        ^void(void) {
+            devnull_dup(STDIN_FILENO);
+            devnull_dup(STDOUT_FILENO);
+        },
+        ^void(el_t ev, pid_t _pid, int _st) {
+            done = true;
+        },
+        NULL
+    );
 
     Z_ASSERT_N(pid);
 
@@ -104,13 +107,16 @@ static int z_spawn_child(void)
 static int z_spawn_child_capture(void)
 {
     pid_t pid;
-    const char *argv[] = { "hello", NULL };
+    const char *argv[] = {"hello", NULL};
     __block lstr_t capture = LSTR_NULL_V;
 
-    pid = el_spawn_child_capture("echo", argv, NULL, 0, NULL,
-    ^void (el_t ev, pid_t _pid, int _st, lstr_t _capture) {
-        capture = lstr_dup(_capture);
-    }, NULL);
+    pid = el_spawn_child_capture(
+        "echo", argv, NULL, 0, NULL,
+        ^void(el_t ev, pid_t _pid, int _st, lstr_t _capture) {
+            capture = lstr_dup(_capture);
+        },
+        NULL
+    );
 
     Z_ASSERT_N(pid);
 
@@ -133,13 +139,16 @@ static int z_spawn_child_capture(void)
 static int z_spawn_child_capture_timeout(void)
 {
     pid_t pid;
-    const char *argv[] = { "10", NULL };
+    const char *argv[] = {"10", NULL};
     __block int status = 0;
 
-    pid = el_spawn_child_capture("sleep", argv, NULL, 10, NULL,
-    ^void (el_t ev, pid_t _pid, int _st, lstr_t _capture) {
-        status = _st;
-    }, NULL);
+    pid = el_spawn_child_capture(
+        "sleep", argv, NULL, 10, NULL,
+        ^void(el_t ev, pid_t _pid, int _st, lstr_t _capture) {
+            status = _st;
+        },
+        NULL
+    );
 
     Z_ASSERT_N(pid);
 
@@ -171,11 +180,14 @@ static int z_timer_tolerance(void)
 
     /* Set a timer that will run 600ms after the event loop starts,
      * and repeat every minute. */
-    timer = el_timer_register_blk(600, 60 * 1000, EL_TIMER_LOWRES,
+    timer = el_timer_register_blk(
+        600, 60 * 1000, EL_TIMER_LOWRES,
         ^(el_t ev) {
             /* When the timer is fired, save the the timestamp. */
             *p_running = lp_getmsec();
-        }, NULL);
+        },
+        NULL
+    );
 
     /* Save the timestamp just before the event loop starts */
     before = lp_getmsec();
@@ -198,7 +210,7 @@ Z_GROUP_EXPORT(el)
 {
     Z_TEST(fd_priority) {
         t_scope;
-        el_t *els   = t_new(el_t, 2 *3);
+        el_t *els = t_new(el_t, 2 * 3);
         struct z_el_data *calls = t_new(struct z_el_data, 3);
 
         for (int i = 0; i < 3; i++) {
@@ -206,10 +218,10 @@ Z_GROUP_EXPORT(el)
 
             socketpairx(AF_UNIX, SOCK_STREAM, 0, O_NONBLOCK, fds);
 
-            els[2 * i]     = el_fd_register(fds[0], true, POLLIN, &readall,
-                                        &calls[i]);
-            els[2 * i + 1] = el_fd_register(fds[1], true, POLLOUT, &writeall,
-                                            &calls[i]);
+            els[2 * i] =
+                el_fd_register(fds[0], true, POLLIN, &readall, &calls[i]);
+            els[2 * i + 1] =
+                el_fd_register(fds[1], true, POLLOUT, &writeall, &calls[i]);
         }
 
         el_loop_timeout(100);
@@ -245,7 +257,6 @@ Z_GROUP_EXPORT(el)
         Z_ASSERT_EQ(12, calls[2].calls);
         el_fd_set_mask(els[2 * 2 + 1], 0);
 
-
         el_fd_set_priority(els[1 * 2], LOW);
         el_fd_set_priority(els[1 * 2 + 1], LOW);
 
@@ -267,7 +278,8 @@ Z_GROUP_EXPORT(el)
         for (int i = 0; i < 6; i++) {
             el_fd_unregister(&els[i]);
         }
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
 #ifdef HAVE_SYS_INOTIFY_H
     Z_TEST(fs_watch) {
@@ -276,16 +288,15 @@ Z_GROUP_EXPORT(el)
         int fd;
         int called = 0;
 
-        watch = el_fs_watch_register(z_grpdir_g.s, IN_CREATE, fs_notify, &called);
+        watch =
+            el_fs_watch_register(z_grpdir_g.s, IN_CREATE, fs_notify, &called);
 
-        fd = open(t_fmt("%s/blah", z_grpdir_g.s),
-                  O_WRONLY | O_CREAT, 0660);
+        fd = open(t_fmt("%s/blah", z_grpdir_g.s), O_WRONLY | O_CREAT, 0660);
         el_loop_timeout(100);
         Z_ASSERT_EQ(called, 1);
         close(fd);
 
-        fd = open(t_fmt("%s/blah", z_grpdir_g.s),
-                  O_WRONLY | O_CREAT, 0660);
+        fd = open(t_fmt("%s/blah", z_grpdir_g.s), O_WRONLY | O_CREAT, 0660);
         el_loop_timeout(100);
         Z_ASSERT_EQ(called, 1);
         close(fd);
@@ -293,7 +304,6 @@ Z_GROUP_EXPORT(el)
         Z_ASSERT_EQ(called, 1);
 
         el_fs_watch_change(watch, IN_OPEN | IN_CLOSE);
-
 
         fd = open(t_fmt("%s/blah2", z_grpdir_g.s), O_WRONLY | O_CREAT, 0660);
         el_loop_timeout(100);
@@ -308,7 +318,8 @@ Z_GROUP_EXPORT(el)
         Z_ASSERT_EQ(called, 5);
 
         el_fs_watch_unregister(&watch);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(fs_watch_delete) {
         t_scope;
@@ -317,7 +328,7 @@ Z_GROUP_EXPORT(el)
         int fd;
         int called = 0;
         int dummy_called = 0;
-        char *filename  = t_fmt("%*pM/blah", LSTR_FMT_ARG(z_grpdir_g));
+        char *filename = t_fmt("%*pM/blah", LSTR_FMT_ARG(z_grpdir_g));
         char *dummy = t_fmt("%*pM/dummy", LSTR_FMT_ARG(z_grpdir_g));
 
         /* Create 2 file */
@@ -327,10 +338,11 @@ Z_GROUP_EXPORT(el)
         close(fd);
 
         /* Add watch descriptors */
-        watch = el_fs_watch_register(filename, IN_ALL_EVENTS, fs_notify,
-                                     &called);
-        dummy_watch = el_fs_watch_register(dummy, IN_ALL_EVENTS, fs_notify,
-                                           &dummy_called);
+        watch =
+            el_fs_watch_register(filename, IN_ALL_EVENTS, fs_notify, &called);
+        dummy_watch = el_fs_watch_register(
+            dummy, IN_ALL_EVENTS, fs_notify, &dummy_called
+        );
         el_loop_timeout(100);
         Z_ASSERT_EQ(called, 0);
 
@@ -354,22 +366,26 @@ Z_GROUP_EXPORT(el)
         el_fs_watch_unregister(&dummy_watch);
         el_loop_timeout(100);
         Z_ASSERT_EQ(dummy_called, 0);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 #endif
 
     Z_TEST(spawn_child) {
         Z_HELPER_RUN(z_spawn_child());
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(spawn_child_capture) {
         Z_HELPER_RUN(z_spawn_child_capture());
         Z_HELPER_RUN(z_spawn_child_capture_timeout());
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(el_repeat_timer_tolerance) {
         Z_HELPER_RUN(z_timer_tolerance());
-    } Z_TEST_END;
-
-} Z_GROUP_END;
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END;
 
 /* LCOV_EXCL_STOP */

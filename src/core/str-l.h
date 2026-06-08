@@ -19,7 +19,7 @@
 #if !defined(IS_LIB_COMMON_CORE_H) || defined(IS_LIB_COMMON_STR_L_H)
 #  error "you must include core.h instead"
 #else
-#define IS_LIB_COMMON_STR_L_H
+#  define IS_LIB_COMMON_STR_L_H
 
 /** \brief representation of a string with length.
  *
@@ -31,9 +31,9 @@
  */
 typedef struct lstr_t {
     union {
-        const char * nullable s;
-        char       * nullable v;
-        void       * nullable data;
+        const char *nullable s;
+        char *nullable v;
+        void *nullable data;
     };
     int len;
     unsigned mem_pool;
@@ -41,56 +41,57 @@ typedef struct lstr_t {
 
 /* Static initializers {{{ */
 
-#define LSTR_INIT(s_, len_)     { { (s_) }, (len_), 0 }
-#define LSTR_INIT_V(s, len)     (lstr_t)LSTR_INIT(s, len)
-#define LSTR_IMMED(str)         LSTR_INIT(""str, sizeof(str) - 1)
-#define LSTR_IMMED_V(str)       LSTR_INIT_V(""str, sizeof(str) - 1)
-#define LSTR(str)                                                            \
-    ({                                                                       \
+#  define LSTR_INIT(s_, len_) {{(s_)}, (len_), 0}
+#  define LSTR_INIT_V(s, len) (lstr_t) LSTR_INIT(s, len)
+#  define LSTR_IMMED(str) LSTR_INIT("" str, sizeof(str) - 1)
+#  define LSTR_IMMED_V(str) LSTR_INIT_V("" str, sizeof(str) - 1)
+#  define LSTR(str)                                                          \
+      ({                                                                     \
         const char *PFX_LINE(lstr_macro_s) = (str);                          \
-        LSTR_INIT_V(PFX_LINE(lstr_macro_s),                                  \
-                    (int)strlen(PFX_LINE(lstr_macro_s)));                    \
-    })
-#define LSTR_NULL               LSTR_INIT(NULL, 0)
-#define LSTR_NULL_V             LSTR_INIT_V(NULL, 0)
-#define LSTR_EMPTY              LSTR_INIT("", 0)
-#define LSTR_EMPTY_V            LSTR_INIT_V("", 0)
-#define LSTR_SB(sb)             LSTR_INIT((sb)->data, (sb)->len)
-#define LSTR_SB_V(sb)           LSTR_INIT_V((sb)->data, (sb)->len)
-#define LSTR_PS(ps)             LSTR_INIT((ps)->s, ps_len(ps))
-#define LSTR_PS_V(ps)           LSTR_INIT_V((ps)->s, ps_len(ps))
-#define LSTR_PTR(start, end)    LSTR_INIT((start), (end) - (start))
-#define LSTR_PTR_V(start, end)  LSTR_INIT_V((start), (end) - (start))
+        LSTR_INIT_V(                                                         \
+            PFX_LINE(lstr_macro_s), (int)strlen(PFX_LINE(lstr_macro_s))      \
+        );                                                                   \
+      })
+#  define LSTR_NULL LSTR_INIT(NULL, 0)
+#  define LSTR_NULL_V LSTR_INIT_V(NULL, 0)
+#  define LSTR_EMPTY LSTR_INIT("", 0)
+#  define LSTR_EMPTY_V LSTR_INIT_V("", 0)
+#  define LSTR_SB(sb) LSTR_INIT((sb)->data, (sb)->len)
+#  define LSTR_SB_V(sb) LSTR_INIT_V((sb)->data, (sb)->len)
+#  define LSTR_PS(ps) LSTR_INIT((ps)->s, ps_len(ps))
+#  define LSTR_PS_V(ps) LSTR_INIT_V((ps)->s, ps_len(ps))
+#  define LSTR_PTR(start, end) LSTR_INIT((start), (end) - (start))
+#  define LSTR_PTR_V(start, end) LSTR_INIT_V((start), (end) - (start))
 
-#define LSTR_DATA(data, len)    LSTR_INIT((const char *)(data), (len))
-#define LSTR_DATA_V(data, len)  (lstr_t)LSTR_DATA(data, len)
+#  define LSTR_DATA(data, len) LSTR_INIT((const char *)(data), (len))
+#  define LSTR_DATA_V(data, len) (lstr_t) LSTR_DATA(data, len)
 
-#define LSTR_CARRAY(carray)     LSTR_DATA((carray), sizeof(carray))
-#define LSTR_CARRAY_V(carray)   (lstr_t)LSTR_CARRAY(carray)
+#  define LSTR_CARRAY(carray) LSTR_DATA((carray), sizeof(carray))
+#  define LSTR_CARRAY_V(carray) (lstr_t) LSTR_CARRAY(carray)
 
-#define LSTR_FMT_ARG(s_)      (s_).len, (s_).s
+#  define LSTR_FMT_ARG(s_) (s_).len, (s_).s
 
-#define LSTR_OPT(str)                                                        \
-    ({                                                                       \
+#  define LSTR_OPT(str)                                                      \
+      ({                                                                     \
         const char *PFX_LINE(lstr_opt_s) = (str);                            \
         PFX_LINE(lstr_opt_s) ? LSTR(PFX_LINE(lstr_opt_s)) : LSTR_NULL_V;     \
-    })
+      })
 
 /* obsolete stuff, please try not to use anymore */
-#define LSTR_STR_V      LSTR
-#define LSTR_OPT_STR_V  LSTR_OPT
+#  define LSTR_STR_V LSTR
+#  define LSTR_OPT_STR_V LSTR_OPT
 
 /* }}} */
 /* Base helpers {{{ */
 
-static ALWAYS_INLINE lstr_t lstr_init_(const void * nullable s, int len,
-                                       unsigned flags)
+static ALWAYS_INLINE lstr_t
+lstr_init_(const void *nullable s, int len, unsigned flags)
 {
-    return (lstr_t){ { (const char *)s }, len, flags };
+    return (lstr_t){{(const char *)s}, len, flags};
 }
 
-static ALWAYS_INLINE
-lstr_t mp_lstr_init(mem_pool_t * nullable mp, const void * nullable s, int len)
+static ALWAYS_INLINE lstr_t
+mp_lstr_init(mem_pool_t *nullable mp, const void *nullable s, int len)
 {
     mp = mp ?: &mem_pool_libc;
     return lstr_init_(s, len, mp->mem_pool & MEM_POOL_MASK);
@@ -101,8 +102,9 @@ lstr_t mp_lstr_init(mem_pool_t * nullable mp, const void * nullable s, int len)
  * This functions opens the file under \p path then calls \ref
  * lstr_init_from_fd. See \ref lstr_init_from_fd for details and limitations.
  */
-int lstr_init_from_file(lstr_t * nonnull dst, const char * nonnull path,
-                        int prot, int flags);
+int lstr_init_from_file(
+    lstr_t *nonnull dst, const char *nonnull path, int prot, int flags
+);
 
 /** Initialize a lstr_t from the content of a file pointed by a fd.
  *
@@ -115,40 +117,44 @@ int lstr_init_from_file(lstr_t * nonnull dst, const char * nonnull path,
  * To check whether \c mmap is being used, users can check if the \c mem_pool
  * member of \p dst is set to \ref MEM_MMAP.
  */
-int lstr_init_from_fd(lstr_t * nonnull dst, int fd, int prot, int flags);
+int lstr_init_from_fd(lstr_t *nonnull dst, int fd, int prot, int flags);
 
 /** lstr_wipe helper.
  */
-void lstr_munmap(lstr_t * nonnull dst);
-#define lstr_munmap(...)  lstr_munmap_DO_NOT_CALL_DIRECTLY(__VA_ARGS__)
-
+void lstr_munmap(lstr_t *nonnull dst);
+#  define lstr_munmap(...) lstr_munmap_DO_NOT_CALL_DIRECTLY(__VA_ARGS__)
 
 /** lstr_copy_* helper. */
-void mp_lstr_copy_(mem_pool_t * nullable mp, lstr_t * nonnull dst,
-                   const void * nullable s, int len);
+void mp_lstr_copy_(
+    mem_pool_t *nullable mp, lstr_t *nonnull dst, const void *nullable s,
+    int len
+);
 
 /** Sets \p dst to a new \p mp allocated lstr from its arguments. */
-void mp_lstr_copys(mem_pool_t * nullable mp, lstr_t * nonnull dst,
-                   const char * nullable s, int len);
+void mp_lstr_copys(
+    mem_pool_t *nullable mp, lstr_t *nonnull dst, const char *nullable s,
+    int len
+);
 
 /** Sets \p dst to a new \p mp allocated lstr from its arguments. */
-void mp_lstr_copy(mem_pool_t * nullable mp, lstr_t * nonnull dst,
-                  const lstr_t src);
+void mp_lstr_copy(
+    mem_pool_t *nullable mp, lstr_t *nonnull dst, const lstr_t src
+);
 
 /** Returns new \p mp allocated lstr from its arguments. */
-lstr_t mp_lstr_dups(mem_pool_t * nullable mp, const char * nonnull s, int len);
+lstr_t mp_lstr_dups(mem_pool_t *nullable mp, const char *nonnull s, int len);
 
 /** Returns new \p mp allocated lstr from its arguments. */
-lstr_t mp_lstr_dup(mem_pool_t * nullable mp, const lstr_t s);
+lstr_t mp_lstr_dup(mem_pool_t *nullable mp, const lstr_t s);
 
 /** Ensure \p s is \p mp or heap allocated. */
-void mp_lstr_persists(mem_pool_t * nullable mp, lstr_t * nonnull s);
+void mp_lstr_persists(mem_pool_t *nullable mp, lstr_t *nonnull s);
 
 /** Duplicates \p v on the t_stack and reverse its content.
  *
  * This function is not unicode-aware.
  */
-lstr_t mp_lstr_dup_ascii_reversed(mem_pool_t * nullable mp, const lstr_t v);
+lstr_t mp_lstr_dup_ascii_reversed(mem_pool_t *nullable mp, const lstr_t v);
 
 /** Duplicates \p v on the mem_pool and reverse its content.
  *
@@ -159,18 +165,19 @@ lstr_t mp_lstr_dup_ascii_reversed(mem_pool_t * nullable mp, const lstr_t v);
  *
  * In case of error, LSTR_NULL_V is returned.
  */
-lstr_t mp_lstr_dup_utf8_reversed(mem_pool_t * nullable mp, const lstr_t v);
+lstr_t mp_lstr_dup_utf8_reversed(mem_pool_t *nullable mp, const lstr_t v);
 
 /** Concatenates its argument to form a new lstr on the mem pool. */
-lstr_t mp_lstr_cat(mem_pool_t * nullable mp, const lstr_t s1, const lstr_t s2);
+lstr_t mp_lstr_cat(mem_pool_t *nullable mp, const lstr_t s1, const lstr_t s2);
 
 /** Concatenates its argument to form a new lstr on the mem pool. */
-lstr_t mp_lstr_cat3(mem_pool_t * nullable mp, const lstr_t s1, const lstr_t s2,
-                    const lstr_t s3);
+lstr_t mp_lstr_cat3(
+    mem_pool_t *nullable mp, const lstr_t s1, const lstr_t s2, const lstr_t s3
+);
 
 /** Copy the lstr and return it as a null-terminated string. */
-static inline char *nonnull mp_lstr_dupz(mem_pool_t *nullable mp,
-                                         const lstr_t s)
+static inline char *nonnull
+mp_lstr_dupz(mem_pool_t *nullable mp, const lstr_t s)
 {
     return (char *)mp_dupz(mp, s.s, s.len);
 }
@@ -180,7 +187,7 @@ static inline char *nonnull mp_lstr_dupz(mem_pool_t *nullable mp,
  * This flavour assumes that the passed memory pool is the one to deallocate
  * from if the lstr_t is known as beeing allocated in a pool.
  */
-static inline void mp_lstr_wipe(mem_pool_t * nullable mp, lstr_t * nonnull s)
+static inline void mp_lstr_wipe(mem_pool_t *nullable mp, lstr_t *nonnull s)
 {
     mp_lstr_copy_(mp, s, NULL, 0);
 }
@@ -190,7 +197,7 @@ static inline void mp_lstr_wipe(mem_pool_t * nullable mp, lstr_t * nonnull s)
 
 /** \brief copies \v src into \dst tranferring memory ownership to \v dst.
  */
-static inline void lstr_transfer(lstr_t * nonnull dst, lstr_t * nonnull src)
+static inline void lstr_transfer(lstr_t *nonnull dst, lstr_t *nonnull src)
 {
     mp_lstr_copy_(ipool(src->mem_pool), dst, src->s, src->len);
     src->mem_pool = MEM_STATIC;
@@ -207,12 +214,13 @@ struct sb_t;
  * on the heap (\ref sb_detach). If \p keep_pool is true, the memory will be
  * transfered as-is including the allocation pool.
  */
-void lstr_transfer_sb(lstr_t * nonnull dst, struct sb_t * nonnull sb,
-                      bool keep_pool);
+void lstr_transfer_sb(
+    lstr_t *nonnull dst, struct sb_t *nonnull sb, bool keep_pool
+);
 
 /** \brief copies a constant of \v s into \v dst.
  */
-static inline void lstr_copyc(lstr_t * nonnull dst, const lstr_t s)
+static inline void lstr_copyc(lstr_t *nonnull dst, const lstr_t s)
 {
     mp_lstr_copy_(&mem_pool_static, dst, s.s, s.len);
 }
@@ -229,14 +237,14 @@ static inline lstr_t lstr_dupc(const lstr_t s)
 
 /** \brief wipe a lstr_t (frees memory if needed).
  */
-static inline void lstr_wipe(lstr_t * nonnull s)
+static inline void lstr_wipe(lstr_t *nonnull s)
 {
     return mp_lstr_wipe(NULL, s);
 }
 
 /** \brief returns new libc allocated lstr from its arguments.
  */
-static inline lstr_t lstr_dups(const char * nullable s, int len)
+static inline lstr_t lstr_dups(const char *nullable s, int len)
 {
     return mp_lstr_dups(NULL, s, len);
 }
@@ -258,15 +266,15 @@ static inline char *nonnull lstr_dupz(const lstr_t s)
 
 /** \brief sets \v dst to a new libc allocated lstr from its arguments.
  */
-static inline void lstr_copys(lstr_t * nonnull dst, const char * nullable s,
-                              int len)
+static inline void
+lstr_copys(lstr_t *nonnull dst, const char *nullable s, int len)
 {
     mp_lstr_copys(NULL, dst, s, len);
 }
 
 /** \brief sets \v dst to a new libc allocated lstr from its arguments.
  */
-static inline void lstr_copy(lstr_t * nonnull dst, const lstr_t src)
+static inline void lstr_copy(lstr_t *nonnull dst, const lstr_t src)
 {
     mp_lstr_copy(NULL, dst, src);
 }
@@ -276,7 +284,7 @@ static inline void lstr_copy(lstr_t * nonnull dst, const lstr_t src)
  * This function ensure the lstr_t is allocated on the heap and thus is
  * guaranteed to be persistent.
  */
-static inline void lstr_persists(lstr_t * nonnull s)
+static inline void lstr_persists(lstr_t *nonnull s)
 {
     mp_lstr_persists(NULL, s);
 }
@@ -313,8 +321,8 @@ static inline lstr_t lstr_cat(const lstr_t s1, const lstr_t s2)
 
 /** \brief concatenates its argument to form a new lstr on the heap.
  */
-static inline lstr_t lstr_cat3(const lstr_t s1, const lstr_t s2,
-                               const lstr_t s3)
+static inline lstr_t
+lstr_cat3(const lstr_t s1, const lstr_t s2, const lstr_t s3)
 {
     return mp_lstr_cat3(NULL, s1, s2, s3);
 }
@@ -331,7 +339,7 @@ static inline lstr_t t_lstr_dup(const lstr_t s)
 
 /** \brief returns a duplicated lstr from the mem stack.
  */
-static inline lstr_t t_lstr_dups(const char * nullable s, int len)
+static inline lstr_t t_lstr_dups(const char *nullable s, int len)
 {
     return mp_lstr_dups(t_pool(), s, len);
 }
@@ -345,15 +353,15 @@ static inline const char *nonnull t_lstr_dupz(const lstr_t s)
 
 /** \brief sets \v dst to a mem stack allocated copy of its arguments.
  */
-static inline void t_lstr_copys(lstr_t * nonnull dst, const char * nullable s,
-                                int len)
+static inline void
+t_lstr_copys(lstr_t *nonnull dst, const char *nullable s, int len)
 {
     return mp_lstr_copys(t_pool(), dst, s, len);
 }
 
 /** \brief sets \v dst to a mem stack allocated copy of its arguments.
  */
-static inline void t_lstr_copy(lstr_t * nonnull dst, const lstr_t s)
+static inline void t_lstr_copy(lstr_t *nonnull dst, const lstr_t s)
 {
     return mp_lstr_copy(t_pool(), dst, s);
 }
@@ -363,7 +371,7 @@ static inline void t_lstr_copy(lstr_t * nonnull dst, const lstr_t s)
  * This function ensure the lstr_t is allocated on the t_stack and thus is
  * guaranteed to be persistent.
  */
-static inline void t_lstr_persists(lstr_t * nonnull s)
+static inline void t_lstr_persists(lstr_t *nonnull s)
 {
     return mp_lstr_persists(t_pool(), s);
 }
@@ -400,8 +408,8 @@ static inline lstr_t t_lstr_cat(const lstr_t s1, const lstr_t s2)
 
 /** \brief concatenates its argument to form a new lstr on the t_stack.
  */
-static inline lstr_t t_lstr_cat3(const lstr_t s1, const lstr_t s2,
-                                 const lstr_t s3)
+static inline lstr_t
+t_lstr_cat3(const lstr_t s1, const lstr_t s2, const lstr_t s3)
 {
     return mp_lstr_cat3(t_pool(), s1, s2, s3);
 }
@@ -472,8 +480,8 @@ static ALWAYS_INLINE int lstr_cmp(const lstr_t s1, const lstr_t s2)
  *
  * Can be used with qv_qsort.
  */
-static ALWAYS_INLINE int lstr_cmp_p(const lstr_t * nonnull s1,
-                                    const lstr_t * nonnull s2)
+static ALWAYS_INLINE int
+lstr_cmp_p(const lstr_t *nonnull s1, const lstr_t *nonnull s2)
 {
     return lstr_cmp(*s1, *s2);
 }
@@ -486,8 +494,8 @@ int lstr_ascii_icmp(const lstr_t s1, const lstr_t s2);
  *
  * Can be used with qv_qsort.
  */
-static inline int lstr_ascii_icmp_p(const lstr_t * nonnull s1,
-                                    const lstr_t * nonnull s2)
+static inline int
+lstr_ascii_icmp_p(const lstr_t *nonnull s1, const lstr_t *nonnull s2)
 {
     return lstr_ascii_icmp(*s1, *s2);
 }
@@ -495,8 +503,8 @@ static inline int lstr_ascii_icmp_p(const lstr_t * nonnull s1,
 /** Returns whether \v s1 and \v s2 contents are equal. */
 static ALWAYS_INLINE bool lstr_equal(const lstr_t s1, const lstr_t s2)
 {
-    return !!s1.s == !!s2.s && s1.len == s2.len
-        && memcmp(s1.s, s2.s, s1.len) == 0;
+    return !!s1.s == !!s2.s && s1.len == s2.len &&
+           memcmp(s1.s, s2.s, s1.len) == 0;
 }
 
 /** Returns whether \p s1 and \p s2 contents are case-insentively equal.
@@ -603,16 +611,16 @@ static ALWAYS_INLINE bool lstr_utf8_equal(const lstr_t s1, const lstr_t s2)
 /** Returns whether \v s starts with \v p, in a case-insensitive utf8-aware
  * way.
  */
-static ALWAYS_INLINE
-bool lstr_utf8_istartswith(const lstr_t s1, const lstr_t s2)
+static ALWAYS_INLINE bool
+lstr_utf8_istartswith(const lstr_t s1, const lstr_t s2)
 {
     return utf8_str_istartswith(s1.s, s1.len, s2.s, s2.len);
 }
 
 /** Returns whether \v s starts with \v p, in a case-sensitive utf8-aware way.
  */
-static ALWAYS_INLINE
-bool lstr_utf8_startswith(const lstr_t s1, const lstr_t s2)
+static ALWAYS_INLINE bool
+lstr_utf8_startswith(const lstr_t s1, const lstr_t s2)
 {
     return utf8_str_startswith(s1.s, s1.len, s2.s, s2.len);
 }
@@ -626,7 +634,7 @@ bool lstr_utf8_iendswith(const lstr_t s1, const lstr_t s2);
 bool lstr_utf8_endswith(const lstr_t s1, const lstr_t s2);
 
 /** Checks if the input string has only characters in the given ctype. */
-bool lstr_match_ctype(lstr_t s, const ctype_desc_t * nonnull d);
+bool lstr_match_ctype(lstr_t s, const ctype_desc_t *nonnull d);
 
 /** Returns the Damerau–Levenshtein distance between two strings.
  *
@@ -682,7 +690,7 @@ bool lstr_utf8_is_ilike(const lstr_t s, const lstr_t pattern);
 lstr_t t_lstr_ascii_tolower(lstr_t s);
 
 /** In-place version of \p t_lstr_ascii_tolower. */
-void lstr_ascii_tolower(lstr_t * nonnull s);
+void lstr_ascii_tolower(lstr_t *nonnull s);
 
 /** Upper case the given lstr.
  *
@@ -691,7 +699,7 @@ void lstr_ascii_tolower(lstr_t * nonnull s);
 lstr_t t_lstr_ascii_toupper(lstr_t s);
 
 /** In-place version of \p t_lstr_ascii_toupper. */
-void lstr_ascii_toupper(lstr_t * nonnull s);
+void lstr_ascii_toupper(lstr_t *nonnull s);
 
 /** In-place reversing of the lstr.
  *
@@ -700,7 +708,7 @@ void lstr_ascii_toupper(lstr_t * nonnull s);
 lstr_t t_lstr_ascii_reverse(lstr_t s);
 
 /** In-place version of \p t_lstr_ascii_reverse. */
-void lstr_ascii_reverse(lstr_t * nonnull s);
+void lstr_ascii_reverse(lstr_t *nonnull s);
 
 /** Convert a lstr into an int.
  *
@@ -712,7 +720,7 @@ void lstr_ascii_reverse(lstr_t * nonnull s);
  *  \retval  0   success
  *  \retval -1   failure (errno set)
  */
-int lstr_to_int(lstr_t lstr, int * nonnull out);
+int lstr_to_int(lstr_t lstr, int *nonnull out);
 
 /** Convert a lstr into an int64.
  *
@@ -724,7 +732,7 @@ int lstr_to_int(lstr_t lstr, int * nonnull out);
  *  \retval  0   success
  *  \retval -1   failure (errno set)
  */
-int lstr_to_int64(lstr_t lstr, int64_t * nonnull out);
+int lstr_to_int64(lstr_t lstr, int64_t *nonnull out);
 
 /** Convert a lstr into an uint64.
  *
@@ -739,7 +747,7 @@ int lstr_to_int64(lstr_t lstr, int64_t * nonnull out);
  *  \retval  0   success
  *  \retval -1   failure (errno set)
  */
-int lstr_to_uint64(lstr_t lstr, uint64_t * nonnull out);
+int lstr_to_uint64(lstr_t lstr, uint64_t *nonnull out);
 
 /** Convert a lstr into an uint32.
  *
@@ -754,7 +762,7 @@ int lstr_to_uint64(lstr_t lstr, uint64_t * nonnull out);
  *  \retval  0   success
  *  \retval -1   failure (errno set)
  */
-int lstr_to_uint(lstr_t lstr, uint32_t * nonnull out);
+int lstr_to_uint(lstr_t lstr, uint32_t *nonnull out);
 
 /** Convert a lstr into a double.
  *
@@ -766,7 +774,7 @@ int lstr_to_uint(lstr_t lstr, uint32_t * nonnull out);
  *  \retval  0   success
  *  \retval -1   failure (errno set)
  */
-int lstr_to_double(lstr_t lstr, double * nonnull out);
+int lstr_to_double(lstr_t lstr, double *nonnull out);
 
 /** Decode a hexadecimal lstr
  *
@@ -807,7 +815,7 @@ lstr_t t_lstr_human_hexdecode(lstr_t str);
  */
 static inline void lstr_xor(lstr_t in, lstr_t key, lstr_t out)
 {
-    assert (in.len == out.len);
+    assert(in.len == out.len);
     for (int i = 0; i < in.len; i++) {
         out.v[i] = in.s[i] ^ key.s[i % key.len];
     }
@@ -827,7 +835,7 @@ static inline void lstr_xor(lstr_t in, lstr_t key, lstr_t out)
  *                   `in`; its length is unchanged.
  */
 void lstr_obfuscate(lstr_t in, uint64_t key, lstr_t out);
-#define lstr_unobfuscate(in, key, out)  lstr_obfuscate(in, key, out)
+#  define lstr_unobfuscate(in, key, out) lstr_obfuscate(in, key, out)
 
 /** Trim 1 to 8 padding bytes (PKCS#7).
  *
@@ -844,26 +852,35 @@ lstr_t lstr_trim_pkcs7_padding(lstr_t padded);
 /* }}} */
 /* Format {{{ */
 
-#define lstr_fmt(fmt, ...)                                                   \
-    ({ const char *__s = asprintf(fmt, ##__VA_ARGS__);                       \
-       lstr_init_(__s, strlen(__s), MEM_LIBC); })
+#  define lstr_fmt(fmt, ...)                                                 \
+      ({                                                                     \
+        const char *__s = asprintf(fmt, ##__VA_ARGS__);                      \
+        lstr_init_(__s, strlen(__s), MEM_LIBC);                              \
+      })
 
-#define mp_lstr_fmt(mp, fmt, ...)                                            \
-    ({ int __len; const char *__s = mp_fmt(mp, &__len, fmt, ##__VA_ARGS__);  \
-       mp_lstr_init((mp), __s, __len); })
+#  define mp_lstr_fmt(mp, fmt, ...)                                          \
+      ({                                                                     \
+        int __len;                                                           \
+        const char *__s = mp_fmt(mp, &__len, fmt, ##__VA_ARGS__);            \
+        mp_lstr_init((mp), __s, __len);                                      \
+      })
 
-#define t_lstr_fmt(fmt, ...)  mp_lstr_fmt(t_pool(), fmt, ##__VA_ARGS__)
+#  define t_lstr_fmt(fmt, ...) mp_lstr_fmt(t_pool(), fmt, ##__VA_ARGS__)
 
+#  define lstr_vfmt(fmt, va)                                                 \
+      ({                                                                     \
+        const char *__s = vasprintf(fmt, va);                                \
+        lstr_init_(__s, strlen(__s), MEM_LIBC);                              \
+      })
 
-#define lstr_vfmt(fmt, va)                                                   \
-    ({ const char *__s = vasprintf(fmt, va);                                 \
-       lstr_init_(__s, strlen(__s), MEM_LIBC); })
+#  define mp_lstr_vfmt(mp, fmt, va)                                          \
+      ({                                                                     \
+        int __len;                                                           \
+        const char *__s = mp_vfmt(mp, &__len, fmt, va);                      \
+        mp_lstr_init((mp), __s, __len);                                      \
+      })
 
-#define mp_lstr_vfmt(mp, fmt, va) \
-    ({ int __len; const char *__s = mp_vfmt(mp, &__len, fmt, va); \
-       mp_lstr_init((mp), __s, __len); })
-
-#define t_lstr_vfmt(fmt, va)  mp_lstr_vfmt(t_pool(), fmt, va)
+#  define t_lstr_vfmt(fmt, va) mp_lstr_vfmt(t_pool(), fmt, va)
 
 /* }}} */
 #endif

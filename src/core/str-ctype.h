@@ -19,7 +19,7 @@
 #if !defined(IS_LIB_COMMON_CORE_H) || defined(IS_LIB_COMMON_STR_CTYPE_H)
 #  error "you must include core.h instead"
 #else
-#define IS_LIB_COMMON_STR_CTYPE_H
+#  define IS_LIB_COMMON_STR_CTYPE_H
 
 /* @typedef ctype_desc_t
  * @brief is an array of 256 bits which represents in
@@ -45,7 +45,7 @@ extern ctype_desc_t const ctype_iscvar;
 /* @func ctype_desc_reset
  * @param[in] d
  */
-static inline void ctype_desc_reset(ctype_desc_t * nonnull d)
+static inline void ctype_desc_reset(ctype_desc_t *nonnull d)
 {
     p_clear(d, 1);
 }
@@ -55,8 +55,8 @@ static inline void ctype_desc_reset(ctype_desc_t * nonnull d)
  * @param[in] toks string of characters containing a token at every
  *                 characters.
  */
-static inline void ctype_desc_build(ctype_desc_t * nonnull d,
-                                    const char * nonnull toks)
+static inline void
+ctype_desc_build(ctype_desc_t *nonnull d, const char *nonnull toks)
 {
     ctype_desc_reset(d);
     while (*toks) {
@@ -66,8 +66,7 @@ static inline void ctype_desc_build(ctype_desc_t * nonnull d,
 }
 
 static inline void
-ctype_desc_build2(ctype_desc_t * nonnull d, const char * nonnull toks,
-                  int len)
+ctype_desc_build2(ctype_desc_t *nonnull d, const char *nonnull toks, int len)
 {
     ctype_desc_reset(d);
     for (int i = 0; i < len; i++) {
@@ -81,12 +80,12 @@ ctype_desc_build2(ctype_desc_t * nonnull d, const char * nonnull toks,
 
 /* @func ctype_desc_contains
  * @param[in] d
- * @param[in] b 
+ * @param[in] b
  * @return the function returns true in the case b is present in d
  * @brief This function checks if a byte is set on in a ctype_desc
  *        structure
  */
-static inline bool ctype_desc_contains(const ctype_desc_t * nonnull d, byte b)
+static inline bool ctype_desc_contains(const ctype_desc_t *nonnull d, byte b)
 {
     return TST_BIT(d->tab, b);
 }
@@ -97,10 +96,10 @@ static inline bool ctype_desc_contains(const ctype_desc_t * nonnull d, byte b)
  * param[inout] dout
  * TODO binary operation on memory instead of a stupid bit per bit operating
  */
-static inline void
-ctype_desc_combine(ctype_desc_t * nonnull dst,
-                   const ctype_desc_t * nonnull d1,
-                   const ctype_desc_t * nonnull d2)
+static inline void ctype_desc_combine(
+    ctype_desc_t *nonnull dst, const ctype_desc_t *nonnull d1,
+    const ctype_desc_t *nonnull d2
+)
 {
     for (int i = 0; i < countof(d1->tab); i++) {
         dst->tab[i] = d1->tab[i] | d2->tab[i];
@@ -110,10 +109,11 @@ ctype_desc_combine(ctype_desc_t * nonnull dst,
 /* @func ctype_desc_invert
  * param[inout] d
  */
-static inline void ctype_desc_invert(ctype_desc_t * nonnull d)
+static inline void ctype_desc_invert(ctype_desc_t *nonnull d)
 {
-    for (int i = 0 ; i < countof(d->tab) ; i++)
+    for (int i = 0; i < countof(d->tab); i++) {
         d->tab[i] = ~(d->tab[i]);
+    }
 }
 
 #endif

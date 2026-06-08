@@ -19,11 +19,12 @@
 #if !defined(IS_LIB_COMMON_THR_H) || defined(IS_LIB_COMMON_THR_SPSC_H)
 #  error "you must include thr.h instead"
 #else
-#define IS_LIB_COMMON_THR_SPSC_H
+#  define IS_LIB_COMMON_THR_SPSC_H
 
-#if !defined(__x86_64__) && !defined(__i386__)
-#  error "this file assumes a strict memory model and is probably buggy on !x86"
-#endif
+#  if !defined(__x86_64__) && !defined(__i386__)
+#    error                                                                   \
+        "this file assumes a strict memory model and is probably buggy on !x86"
+#  endif
 
 /*
  * This file provides an implementation of:
@@ -71,20 +72,19 @@
  * policies, either expressed or implied, of Dmitry Vyukov
  */
 
-typedef struct spsc_node_t  spsc_node_t;
+typedef struct spsc_node_t spsc_node_t;
 typedef struct spsc_queue_t spsc_queue_t;
 typedef _Atomic(spsc_node_t *) atomic_spsc_node_t;
 
 struct spsc_node_t {
     atomic_spsc_node_t next;
-    void              *value;
+    void *value;
 };
-
 
 struct spsc_queue_t {
     /* Consumer part */
     atomic_spsc_node_t head;
-    char         pad_after_head[64 - sizeof(spsc_node_t *)];
+    char pad_after_head[64 - sizeof(spsc_node_t *)];
     /* Producer part */
     spsc_node_t *tail;
     spsc_node_t *first;
@@ -92,7 +92,7 @@ struct spsc_queue_t {
 };
 
 spsc_queue_t *spsc_queue_init(spsc_queue_t *q, size_t v_size) __attr_leaf__;
-void          spsc_queue_wipe(spsc_queue_t *q) __attr_leaf__;
+void spsc_queue_wipe(spsc_queue_t *q) __attr_leaf__;
 
 static inline spsc_node_t *spsc_queue_alloc_node(spsc_queue_t *q)
 {
@@ -123,17 +123,18 @@ static ALWAYS_INLINE void spsc_queue_push(spsc_queue_t *q, void *v)
     q->tail = n;
 }
 
-static ALWAYS_INLINE bool spsc_queue_pop(spsc_queue_t *q, void *v, size_t v_size)
+static ALWAYS_INLINE bool
+spsc_queue_pop(spsc_queue_t *q, void *v, size_t v_size)
 {
     spsc_node_t *head = atomic_load_explicit(&q->head, memory_order_relaxed);
     spsc_node_t *n = atomic_load(&head->next);
 
     if (n) {
-#if __BYTE_ORDER == __LITTLE_ENDIAN
+#  if __BYTE_ORDER == __LITTLE_ENDIAN
         memcpy(v, &n->value, v_size);
-#else
+#  else
         memcpy(v, (char *)&n->value[1] - v_size, v_size);
-#endif
+#  endif
         atomic_store(&q->head, n);
         return true;
     }
@@ -153,37 +154,44 @@ static inline void *spsc_queue_pop_ptr(spsc_queue_t *q)
     return NULL;
 }
 
-#define spsc_t(name)    spsc__##name##_t
+#  define spsc_t(name) spsc__##name##_t
 
-#define spsc_queue_t(name, type_t) \
-    typedef struct { spsc_queue_t q; } spsc_t(name);                       \
-                                                                           \
-    static inline spsc_t(name) *spsc__##name##_init(spsc_t(name) *q) {     \
-        STATIC_ASSERT(sizeof(type_t) <= 8);                                \
-        spsc_queue_init(&q->q, sizeof(type_t));                            \
-        return q;                                                          \
-    }                                                                      \
-    static inline void spsc__##name##_wipe(spsc_t(name) *q) {              \
-        spsc_queue_wipe(&q->q);                                            \
-    }                                                                      \
-                                                                           \
-    static inline void spsc__##name##_push(spsc_t(name) *q, type_t v) {    \
-        spsc_queue_push(&q->q, (void *)(uintptr_t)v);                      \
-    }                                                                      \
-    static inline bool spsc__##name##_pop(spsc_t(name) *q, type_t *v) {    \
-        return spsc_queue_pop(&q->q, v, sizeof(type_t));                   \
-    }
+#  define spsc_queue_t(name, type_t)                                         \
+      typedef struct {                                                       \
+          spsc_queue_t q;                                                    \
+      } spsc_t(name);                                                        \
+                                                                             \
+      static inline spsc_t(name) *spsc__##name##_init(spsc_t(name) *q)       \
+      {                                                                      \
+          STATIC_ASSERT(sizeof(type_t) <= 8);                                \
+          spsc_queue_init(&q->q, sizeof(type_t));                            \
+          return q;                                                          \
+      }                                                                      \
+      static inline void spsc__##name##_wipe(spsc_t(name) *q)                \
+      {                                                                      \
+          spsc_queue_wipe(&q->q);                                            \
+      }                                                                      \
+                                                                             \
+      static inline void spsc__##name##_push(spsc_t(name) *q, type_t v)      \
+      {                                                                      \
+          spsc_queue_push(&q->q, (void *)(uintptr_t)v);                      \
+      }                                                                      \
+      static inline bool spsc__##name##_pop(spsc_t(name) *q, type_t *v)      \
+      {                                                                      \
+          return spsc_queue_pop(&q->q, v, sizeof(type_t));                   \
+      }
 
-#define spsc_queue_ptr_t(name, type_t) \
-    spsc_queue_t(name, type_t *)                                           \
-    static inline type_t *spsc__##name##_pop_ptr(spsc_t(name) *q) {        \
-        return spsc_queue_pop_ptr(&q->q);                                  \
-    }
+#  define spsc_queue_ptr_t(name, type_t)                                     \
+      spsc_queue_t(name, type_t *) static inline type_t *                    \
+      spsc__##name##_pop_ptr(spsc_t(name) *q)                                \
+      {                                                                      \
+          return spsc_queue_pop_ptr(&q->q);                                  \
+      }
 
-#define spsc_init(name, q)      spsc__##name##_init(q)
-#define spsc_wipe(name, q)      spsc__##name##_wipe(q)
-#define spsc_push(name, q, v)   spsc__##name##_push(q, v)
-#define spsc_pop(name,  q, v)   spsc__##name##_pop(q, v)
-#define spsc_pop2(name, q)      spsc__##name##_pop_ptr(q)
+#  define spsc_init(name, q) spsc__##name##_init(q)
+#  define spsc_wipe(name, q) spsc__##name##_wipe(q)
+#  define spsc_push(name, q, v) spsc__##name##_push(q, v)
+#  define spsc_pop(name, q, v) spsc__##name##_pop(q, v)
+#  define spsc_pop2(name, q) spsc__##name##_pop_ptr(q)
 
 #endif

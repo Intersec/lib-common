@@ -32,21 +32,27 @@ static struct {
 
 static popt_t popts_g[] = {
     OPT_FLAG('h', "help", &settings_g.help, "show this help"),
-    OPT_FLAG('n', "nullable", &settings_g.nullable_bitmap,
-             "test a nullable bitmap"),
-    OPT_FLAG('p', "specialized", &settings_g.specialized_impl,
-             "use specialized bitmap enumerator"),
-    OPT_FLAG('u', "unsafe", &settings_g.unsafe_impl,
-             "use unsafe bitmap enumerator"),
-    OPT_INT('r', "repeat", &settings_g.repeat,
-            "repeat the scan <value> time(s) to get smoother results"),
+    OPT_FLAG(
+        'n', "nullable", &settings_g.nullable_bitmap, "test a nullable bitmap"
+    ),
+    OPT_FLAG(
+        'p', "specialized", &settings_g.specialized_impl,
+        "use specialized bitmap enumerator"
+    ),
+    OPT_FLAG(
+        'u', "unsafe", &settings_g.unsafe_impl, "use unsafe bitmap enumerator"
+    ),
+    OPT_INT(
+        'r', "repeat", &settings_g.repeat,
+        "repeat the scan <value> time(s) to get smoother results"
+    ),
     /* TODO set dir */
     /* TODO nb elements */
     OPT_END(),
 };
 
-static void z_qps_bitmap_fill(qps_bitmap_t *bitmap, int nb_elements,
-                              bool is_nullable)
+static void
+z_qps_bitmap_fill(qps_bitmap_t *bitmap, int nb_elements, bool is_nullable)
 {
     for (int i = 0; i < nb_elements; i++) {
         if (is_nullable && (rand() & 1)) {
@@ -57,8 +63,10 @@ static void z_qps_bitmap_fill(qps_bitmap_t *bitmap, int nb_elements,
     }
 }
 
-static void z_qps_bitmap_scan(qps_bitmap_t *bitmap, bool is_nullable,
-                              bool generic, bool safe, int repeat)
+static void z_qps_bitmap_scan(
+    qps_bitmap_t *bitmap, bool is_nullable, bool generic, bool safe,
+    int repeat
+)
 {
     int nb_elements = 0;
     proctimer_t pt;
@@ -99,31 +107,37 @@ static void z_qps_bitmap_scan(qps_bitmap_t *bitmap, bool is_nullable,
 #undef BITMAP_SCAN_LOOP
 
     elapsed = proctimer_stop(&pt);
-    printf("\t(%s %s scan)\t%d element(s) scanned %d time(s) in %d.%06d s\n",
-           safe ? "safe" : "unsafe",
-           generic ? "generic" : "specialized",
-           nb_elements, repeat,
-           elapsed / 1000000, elapsed % 1000000);
+    printf(
+        "\t(%s %s scan)\t%d element(s) scanned %d time(s) in %d.%06d s\n",
+        safe ? "safe" : "unsafe", generic ? "generic" : "specialized",
+        nb_elements, repeat, elapsed / 1000000, elapsed % 1000000
+    );
 }
 
-static void z_qps_bitmap_bench(qps_t *qps, int nb_elements, bool is_nullable,
-                               bool generic, bool safe, int repeat)
+static void z_qps_bitmap_bench(
+    qps_t *qps, int nb_elements, bool is_nullable, bool generic, bool safe,
+    int repeat
+)
 {
     qps_handle_t bitmap_handle;
     qps_bitmap_t bitmap;
     proctimer_t pt;
     int elapsed;
 
-    printf("QPS bitmap bench %d element(s), nullable=%d\n", nb_elements,
-           is_nullable);
+    printf(
+        "QPS bitmap bench %d element(s), nullable=%d\n", nb_elements,
+        is_nullable
+    );
     bitmap_handle = qps_bitmap_create(qps, is_nullable);
     qps_bitmap_init(&bitmap, qps, bitmap_handle);
 
     proctimer_start(&pt);
     z_qps_bitmap_fill(&bitmap, nb_elements, is_nullable);
     elapsed = proctimer_stop(&pt);
-    printf("\tbitmap filled with %d element(s) in %d.%06d s\n",
-           nb_elements, elapsed / 1000000, elapsed % 1000000);
+    printf(
+        "\tbitmap filled with %d element(s) in %d.%06d s\n", nb_elements,
+        elapsed / 1000000, elapsed % 1000000
+    );
 
     z_qps_bitmap_scan(&bitmap, is_nullable, generic, safe, repeat);
 
@@ -157,10 +171,10 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
-    z_qps_bitmap_bench(qps, 64 << 20,
-                       settings_g.nullable_bitmap,
-                       generic, safe,
-                       settings_g.repeat);
+    z_qps_bitmap_bench(
+        qps, 64 << 20, settings_g.nullable_bitmap, generic, safe,
+        settings_g.repeat
+    );
 
     qps_close(&qps);
     MODULE_RELEASE(qps);

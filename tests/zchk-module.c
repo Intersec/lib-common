@@ -30,8 +30,9 @@
     {                                                                        \
         return shut_ret;                                                     \
     }                                                                        \
-    static MODULE_BEGIN(name)                                                \
-    MODULE_END()
+    static MODULE_DEFINE(name)                                               \
+    {                                                                        \
+    }
 
 static MODULE_METHOD(PTR, DEPS_BEFORE, before);
 static MODULE_METHOD(PTR, DEPS_AFTER, after);
@@ -40,7 +41,6 @@ NEW_MOCK_MODULE(mock_ic, 1, 1);
 NEW_MOCK_MODULE(mock_log, 1, 1);
 NEW_MOCK_MODULE(mock_platform, 1, 1);
 NEW_MOCK_MODULE(mock_thr, 1, 1);
-
 
 NEW_MOCK_MODULE(mod1, 1, 1);
 NEW_MOCK_MODULE(mod2, 1, 4);
@@ -63,17 +63,17 @@ static struct _load_shut_state_g {
 
 static int load_shut_initialize(void *args)
 {
-    load_shut_state_g.loaded       = MODULE_IS_LOADED(load_shut);
+    load_shut_state_g.loaded = MODULE_IS_LOADED(load_shut);
     load_shut_state_g.initializing = MODULE_IS_INITIALIZING(load_shut);
-    load_shut_state_g.shutting     = MODULE_IS_SHUTTING_DOWN(load_shut);
+    load_shut_state_g.shutting = MODULE_IS_SHUTTING_DOWN(load_shut);
     return 0;
 }
 
 static int load_shut_shutdown(void)
 {
-    load_shut_state_g.loaded       = MODULE_IS_LOADED(load_shut);
+    load_shut_state_g.loaded = MODULE_IS_LOADED(load_shut);
     load_shut_state_g.initializing = MODULE_IS_INITIALIZING(load_shut);
-    load_shut_state_g.shutting     = MODULE_IS_SHUTTING_DOWN(load_shut);
+    load_shut_state_g.shutting = MODULE_IS_SHUTTING_DOWN(load_shut);
     return 0;
 }
 
@@ -132,13 +132,13 @@ NEW_MOCK_MODULE(modmethod6, 1, 1);
 static int modmethod1_initialize(void *args)
 {
     switch (modmethod1_run_method) {
-      case RUN_METHOD_BEFORE_DURING_INITIALIZATION:
+    case RUN_METHOD_BEFORE_DURING_INITIALIZATION:
         MODULE_METHOD_RUN_PTR(before, &val_method);
         break;
-      case RUN_METHOD_AFTER_DURING_INITIALIZATION:
+    case RUN_METHOD_AFTER_DURING_INITIALIZATION:
         MODULE_METHOD_RUN_PTR(after, &val_method);
         break;
-      default:
+    default:
         break;
     }
 
@@ -147,13 +147,13 @@ static int modmethod1_initialize(void *args)
 static int modmethod1_shutdown(void)
 {
     switch (modmethod1_run_method) {
-      case RUN_METHOD_BEFORE_DURING_SHUTDOWN:
+    case RUN_METHOD_BEFORE_DURING_SHUTDOWN:
         MODULE_METHOD_RUN_PTR(before, &val_method);
         break;
-      case RUN_METHOD_AFTER_DURING_SHUTDOWN:
+    case RUN_METHOD_AFTER_DURING_SHUTDOWN:
         MODULE_METHOD_RUN_PTR(after, &val_method);
         break;
-      default:
+    default:
         break;
     }
 
@@ -163,11 +163,11 @@ static _MODULE_ADD_DECLS(modmethod1);
 
 #undef NEW_MOCK_MODULE
 
-
-static int module_arg_initialize(void * args)
+static int module_arg_initialize(void *args)
 {
-    if (args == NULL)
+    if (args == NULL) {
         return -1;
+    }
     return *((int *)args);
 }
 
@@ -178,8 +178,7 @@ static int module_arg_shutdown(void)
 static _MODULE_ADD_DECLS(module_arg);
 
 #define Z_MODULE_REGISTER(name)                                              \
-    module_implement(MODULE(name), &name##_initialize,  &name##_shutdown,    \
-                     NULL)
+    module_implement(MODULE(name), &name##_initialize, &name##_shutdown, NULL)
 
 #define Z_MODULE_DEPENDS_ON(name, dep)                                       \
     module_add_dep(MODULE(name), MODULE(dep))
@@ -189,7 +188,7 @@ static _MODULE_ADD_DECLS(module_arg);
 
 /** Provide arguments in constructor. */
 lstr_t *word_global;
-lstr_t  provide_arg = LSTR_IMMED("HELLO");
+lstr_t provide_arg = LSTR_IMMED("HELLO");
 
 MODULE_DECLARE(modprovide);
 
@@ -201,10 +200,11 @@ static int modprovide2_shutdown(void)
 {
     return 0;
 }
-static MODULE_BEGIN(modprovide2)
+static MODULE_DEFINE(modprovide2)
+{
     MODULE_PROVIDE(modprovide, &provide_arg);
     MODULE_DEPENDS_ON(modprovide);
-MODULE_END()
+}
 
 static int modprovide_initialize(void *arg)
 {
@@ -215,8 +215,8 @@ static int modprovide_shutdown(void)
 {
     return 0;
 }
-MODULE_BEGIN(modprovide)
-MODULE_END()
+MODULE_DEFINE(modprovide) {
+}
 
 /** Dependency checks
  * ex. module_a depends on module_b and module_c
@@ -236,7 +236,7 @@ MODULE_END()
  *
  */
 
-#define MODULE_INIT_SHUTDOWN_FUNCTIONS(mod) \
+#define MODULE_INIT_SHUTDOWN_FUNCTIONS(mod)                                  \
     static int mod##_initialize(void *arg)                                   \
     {                                                                        \
         return 0;                                                            \
@@ -258,47 +258,56 @@ MODULE_INIT_SHUTDOWN_FUNCTIONS(module_i)
 
 #undef MODULE_INIT_SHUTDOWN_FUNCTIONS
 
-static MODULE_BEGIN(module_i)
-MODULE_END()
+static MODULE_DEFINE(module_i)
+{
+}
 
-static MODULE_BEGIN(module_h)
+static MODULE_DEFINE(module_h)
+{
     MODULE_DEPENDS_ON(module_i);
-MODULE_END()
+}
 
-static MODULE_BEGIN(module_g)
+static MODULE_DEFINE(module_g)
+{
     MODULE_DEPENDS_ON(module_h);
-MODULE_END()
+}
 
-static MODULE_BEGIN(module_f)
+static MODULE_DEFINE(module_f)
+{
     MODULE_DEPENDS_ON(module_i);
-MODULE_END()
+}
 
-static MODULE_BEGIN(module_e)
+static MODULE_DEFINE(module_e)
+{
     MODULE_DEPENDS_ON(module_f);
-MODULE_END()
+}
 
-static MODULE_BEGIN(module_d)
-MODULE_END()
+static MODULE_DEFINE(module_d)
+{
+}
 
-static MODULE_BEGIN(module_c)
+static MODULE_DEFINE(module_c)
+{
     MODULE_DEPENDS_ON(module_d);
-MODULE_END()
+}
 
-static MODULE_BEGIN(module_b)
-MODULE_END()
+static MODULE_DEFINE(module_b)
+{
+}
 
-static MODULE_BEGIN(module_a)
+static MODULE_DEFINE(module_a)
+{
     MODULE_DEPENDS_ON(module_b);
     MODULE_DEPENDS_ON(module_c);
-MODULE_END()
+}
 
 /* }}} */
 
 Z_GROUP_EXPORT(module)
 {
-/* basic behavior {{{ */
+    /* basic behavior {{{ */
 
-    Z_TEST(basic,  "basic registering require shutdown") {
+    Z_TEST(basic, "basic registering require shutdown") {
         /*         platform
          *        /   |    \
          *       /    |     \
@@ -322,42 +331,51 @@ Z_GROUP_EXPORT(module)
         Z_ASSERT(MODULE_IS_LOADED(mock_log));
         Z_ASSERT(MODULE_IS_LOADED(mock_thr));
         Z_ASSERT(MODULE_IS_LOADED(mock_ic));
-        Z_ASSERT(!MODULE_IS_LOADED(mock_platform),
-                 "mock_platform should be shutdown");
+        Z_ASSERT(
+            !MODULE_IS_LOADED(mock_platform),
+            "mock_platform should be shutdown"
+        );
 
         MODULE_RELEASE(mock_log);
         Z_ASSERT(!MODULE_IS_LOADED(mock_log));
         Z_ASSERT(MODULE_IS_LOADED(mock_thr));
         Z_ASSERT(MODULE_IS_LOADED(mock_ic));
-        Z_ASSERT(!MODULE_IS_LOADED(mock_platform),
-                 "mock_platform should be shutdown");
+        Z_ASSERT(
+            !MODULE_IS_LOADED(mock_platform),
+            "mock_platform should be shutdown"
+        );
         MODULE_RELEASE(mock_thr);
         Z_ASSERT(!MODULE_IS_LOADED(mock_log));
         Z_ASSERT(!MODULE_IS_LOADED(mock_thr));
         Z_ASSERT(MODULE_IS_LOADED(mock_ic));
-        Z_ASSERT(!MODULE_IS_LOADED(mock_platform),
-                 "mock_platform should be shutdown");
+        Z_ASSERT(
+            !MODULE_IS_LOADED(mock_platform),
+            "mock_platform should be shutdown"
+        );
         MODULE_RELEASE(mock_ic);
-
 
         Z_ASSERT(!MODULE_IS_LOADED(mock_log), "mock_log should be shutdown");
         Z_ASSERT(!MODULE_IS_LOADED(mock_ic), "mock_ic should be shutdown");
         Z_ASSERT(!MODULE_IS_LOADED(mock_thr), "mock_thr should be shutdown");
-        Z_ASSERT(!MODULE_IS_LOADED(mock_platform),
-                 "mock_platform should be shutdown");
-    } Z_TEST_END;
+        Z_ASSERT(
+            !MODULE_IS_LOADED(mock_platform),
+            "mock_platform should be shutdown"
+        );
+    }
+    Z_TEST_END;
 
-    Z_TEST(basic2,  "Require submodule") {
-       MODULE_REQUIRE(mock_platform);
-       MODULE_REQUIRE(mock_ic);
-       Z_ASSERT(MODULE_IS_LOADED(mock_ic));
-       MODULE_RELEASE(mock_platform);
-       Z_ASSERT(!MODULE_IS_LOADED(mock_thr));
-       Z_ASSERT(!MODULE_IS_LOADED(mock_log));
-       Z_ASSERT(MODULE_IS_LOADED(mock_ic));
-       MODULE_RELEASE(mock_ic);
-       Z_ASSERT(!MODULE_IS_LOADED(mock_ic));
-    } Z_TEST_END;
+    Z_TEST(basic2, "Require submodule") {
+        MODULE_REQUIRE(mock_platform);
+        MODULE_REQUIRE(mock_ic);
+        Z_ASSERT(MODULE_IS_LOADED(mock_ic));
+        MODULE_RELEASE(mock_platform);
+        Z_ASSERT(!MODULE_IS_LOADED(mock_thr));
+        Z_ASSERT(!MODULE_IS_LOADED(mock_log));
+        Z_ASSERT(MODULE_IS_LOADED(mock_ic));
+        MODULE_RELEASE(mock_ic);
+        Z_ASSERT(!MODULE_IS_LOADED(mock_ic));
+    }
+    Z_TEST_END;
 
     Z_TEST(load_shut, "Initialize and shutting down states") {
         Z_MODULE_REGISTER(load_shut);
@@ -365,99 +383,100 @@ Z_GROUP_EXPORT(module)
         Z_ASSERT(!MODULE_IS_INITIALIZING(load_shut));
         Z_ASSERT(!MODULE_IS_SHUTTING_DOWN(load_shut));
         MODULE_REQUIRE(load_shut);
-        Z_ASSERT(load_shut_state_g.loaded       == false);
+        Z_ASSERT(load_shut_state_g.loaded == false);
         Z_ASSERT(load_shut_state_g.initializing == true);
-        Z_ASSERT(load_shut_state_g.shutting     == false);
-        Z_ASSERT( MODULE_IS_LOADED(load_shut));
+        Z_ASSERT(load_shut_state_g.shutting == false);
+        Z_ASSERT(MODULE_IS_LOADED(load_shut));
         Z_ASSERT(!MODULE_IS_INITIALIZING(load_shut));
         Z_ASSERT(!MODULE_IS_SHUTTING_DOWN(load_shut));
         MODULE_RELEASE(load_shut);
-        Z_ASSERT(load_shut_state_g.loaded       == false);
+        Z_ASSERT(load_shut_state_g.loaded == false);
         Z_ASSERT(load_shut_state_g.initializing == false);
-        Z_ASSERT(load_shut_state_g.shutting     == true);
+        Z_ASSERT(load_shut_state_g.shutting == true);
         Z_ASSERT(!MODULE_IS_LOADED(load_shut));
         Z_ASSERT(!MODULE_IS_INITIALIZING(load_shut));
         Z_ASSERT(!MODULE_IS_SHUTTING_DOWN(load_shut));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(use_case1) {
-      /*           mod1           mod6
-       *         /   |   \         |
-       *        /    |    \        |
-       *      mod2  mod3  mod4    mod2
-       *             |
-       *             |
-       *            mod5
-       */
-      Z_MODULE_DEPENDS_ON(mod1, mod2);
-      Z_MODULE_DEPENDS_ON(mod1, mod3);
-      Z_MODULE_DEPENDS_ON(mod1, mod4);
-      Z_MODULE_DEPENDS_ON(mod3, mod5);
-      Z_MODULE_DEPENDS_ON(mod6, mod2);
+        /*           mod1           mod6
+         *         /   |   \         |
+         *        /    |    \        |
+         *      mod2  mod3  mod4    mod2
+         *             |
+         *             |
+         *            mod5
+         */
+        Z_MODULE_DEPENDS_ON(mod1, mod2);
+        Z_MODULE_DEPENDS_ON(mod1, mod3);
+        Z_MODULE_DEPENDS_ON(mod1, mod4);
+        Z_MODULE_DEPENDS_ON(mod3, mod5);
+        Z_MODULE_DEPENDS_ON(mod6, mod2);
 
-      /* Test 1 All init work and shutdown work */
-      MODULE_REQUIRE(mod1);
-      Z_ASSERT(MODULE_IS_LOADED(mod1));
-      Z_ASSERT(MODULE_IS_LOADED(mod2));
-      Z_ASSERT(MODULE_IS_LOADED(mod3));
-      Z_ASSERT(MODULE_IS_LOADED(mod4));
-      Z_ASSERT(MODULE_IS_LOADED(mod5));
-      Z_ASSERT(!MODULE_IS_LOADED(mod6));
-      MODULE_REQUIRE(mod1);
-      Z_ASSERT(MODULE_IS_LOADED(mod1));
-      Z_ASSERT(MODULE_IS_LOADED(mod2));
-      Z_ASSERT(MODULE_IS_LOADED(mod3));
-      Z_ASSERT(MODULE_IS_LOADED(mod4));
-      Z_ASSERT(MODULE_IS_LOADED(mod5));
-      Z_ASSERT(!MODULE_IS_LOADED(mod6));
-      MODULE_REQUIRE(mod6);
-      Z_ASSERT(MODULE_IS_LOADED(mod1));
-      Z_ASSERT(MODULE_IS_LOADED(mod2));
-      Z_ASSERT(MODULE_IS_LOADED(mod3));
-      Z_ASSERT(MODULE_IS_LOADED(mod4));
-      Z_ASSERT(MODULE_IS_LOADED(mod5));
-      Z_ASSERT(MODULE_IS_LOADED(mod6));
-      MODULE_REQUIRE(mod3);
-      Z_ASSERT(MODULE_IS_LOADED(mod1));
-      Z_ASSERT(MODULE_IS_LOADED(mod2));
-      Z_ASSERT(MODULE_IS_LOADED(mod3));
-      Z_ASSERT(MODULE_IS_LOADED(mod4));
-      Z_ASSERT(MODULE_IS_LOADED(mod5));
-      Z_ASSERT(MODULE_IS_LOADED(mod6));
+        /* Test 1 All init work and shutdown work */
+        MODULE_REQUIRE(mod1);
+        Z_ASSERT(MODULE_IS_LOADED(mod1));
+        Z_ASSERT(MODULE_IS_LOADED(mod2));
+        Z_ASSERT(MODULE_IS_LOADED(mod3));
+        Z_ASSERT(MODULE_IS_LOADED(mod4));
+        Z_ASSERT(MODULE_IS_LOADED(mod5));
+        Z_ASSERT(!MODULE_IS_LOADED(mod6));
+        MODULE_REQUIRE(mod1);
+        Z_ASSERT(MODULE_IS_LOADED(mod1));
+        Z_ASSERT(MODULE_IS_LOADED(mod2));
+        Z_ASSERT(MODULE_IS_LOADED(mod3));
+        Z_ASSERT(MODULE_IS_LOADED(mod4));
+        Z_ASSERT(MODULE_IS_LOADED(mod5));
+        Z_ASSERT(!MODULE_IS_LOADED(mod6));
+        MODULE_REQUIRE(mod6);
+        Z_ASSERT(MODULE_IS_LOADED(mod1));
+        Z_ASSERT(MODULE_IS_LOADED(mod2));
+        Z_ASSERT(MODULE_IS_LOADED(mod3));
+        Z_ASSERT(MODULE_IS_LOADED(mod4));
+        Z_ASSERT(MODULE_IS_LOADED(mod5));
+        Z_ASSERT(MODULE_IS_LOADED(mod6));
+        MODULE_REQUIRE(mod3);
+        Z_ASSERT(MODULE_IS_LOADED(mod1));
+        Z_ASSERT(MODULE_IS_LOADED(mod2));
+        Z_ASSERT(MODULE_IS_LOADED(mod3));
+        Z_ASSERT(MODULE_IS_LOADED(mod4));
+        Z_ASSERT(MODULE_IS_LOADED(mod5));
+        Z_ASSERT(MODULE_IS_LOADED(mod6));
 
-      MODULE_RELEASE(mod3);
-      Z_ASSERT(MODULE_IS_LOADED(mod1));
-      Z_ASSERT(MODULE_IS_LOADED(mod2));
-      Z_ASSERT(MODULE_IS_LOADED(mod3));
-      Z_ASSERT(MODULE_IS_LOADED(mod4));
-      Z_ASSERT(MODULE_IS_LOADED(mod5));
-      Z_ASSERT(MODULE_IS_LOADED(mod6));
-      MODULE_RELEASE(mod1);
-      Z_ASSERT(MODULE_IS_LOADED(mod1));
-      Z_ASSERT(MODULE_IS_LOADED(mod2));
-      Z_ASSERT(MODULE_IS_LOADED(mod3));
-      Z_ASSERT(MODULE_IS_LOADED(mod4));
-      Z_ASSERT(MODULE_IS_LOADED(mod5));
-      Z_ASSERT(MODULE_IS_LOADED(mod6));
-      MODULE_RELEASE(mod1);
-      Z_ASSERT(!MODULE_IS_LOADED(mod1));
-      Z_ASSERT(MODULE_IS_LOADED(mod2));
-      Z_ASSERT(!MODULE_IS_LOADED(mod3));
-      Z_ASSERT(!MODULE_IS_LOADED(mod4));
-      Z_ASSERT(!MODULE_IS_LOADED(mod5));
-      Z_ASSERT(MODULE_IS_LOADED(mod6));
-      MODULE_RELEASE(mod6);
-      Z_ASSERT(!MODULE_IS_LOADED(mod1));
-      Z_ASSERT(!MODULE_IS_LOADED(mod2));
-      Z_ASSERT(!MODULE_IS_LOADED(mod3));
-      Z_ASSERT(!MODULE_IS_LOADED(mod4));
-      Z_ASSERT(!MODULE_IS_LOADED(mod5));
-      Z_ASSERT(!MODULE_IS_LOADED(mod6));
+        MODULE_RELEASE(mod3);
+        Z_ASSERT(MODULE_IS_LOADED(mod1));
+        Z_ASSERT(MODULE_IS_LOADED(mod2));
+        Z_ASSERT(MODULE_IS_LOADED(mod3));
+        Z_ASSERT(MODULE_IS_LOADED(mod4));
+        Z_ASSERT(MODULE_IS_LOADED(mod5));
+        Z_ASSERT(MODULE_IS_LOADED(mod6));
+        MODULE_RELEASE(mod1);
+        Z_ASSERT(MODULE_IS_LOADED(mod1));
+        Z_ASSERT(MODULE_IS_LOADED(mod2));
+        Z_ASSERT(MODULE_IS_LOADED(mod3));
+        Z_ASSERT(MODULE_IS_LOADED(mod4));
+        Z_ASSERT(MODULE_IS_LOADED(mod5));
+        Z_ASSERT(MODULE_IS_LOADED(mod6));
+        MODULE_RELEASE(mod1);
+        Z_ASSERT(!MODULE_IS_LOADED(mod1));
+        Z_ASSERT(MODULE_IS_LOADED(mod2));
+        Z_ASSERT(!MODULE_IS_LOADED(mod3));
+        Z_ASSERT(!MODULE_IS_LOADED(mod4));
+        Z_ASSERT(!MODULE_IS_LOADED(mod5));
+        Z_ASSERT(MODULE_IS_LOADED(mod6));
+        MODULE_RELEASE(mod6);
+        Z_ASSERT(!MODULE_IS_LOADED(mod1));
+        Z_ASSERT(!MODULE_IS_LOADED(mod2));
+        Z_ASSERT(!MODULE_IS_LOADED(mod3));
+        Z_ASSERT(!MODULE_IS_LOADED(mod4));
+        Z_ASSERT(!MODULE_IS_LOADED(mod5));
+        Z_ASSERT(!MODULE_IS_LOADED(mod6));
+    }
+    Z_TEST_END;
 
-    } Z_TEST_END;
-
-/* }}} */
-/* provide {{{ */
+    /* }}} */
+    /* provide {{{ */
 
     Z_TEST(provide) {
         int a = 4;
@@ -468,50 +487,62 @@ Z_GROUP_EXPORT(module)
         MODULE_REQUIRE(module_arg);
         Z_ASSERT(MODULE_IS_LOADED(module_arg));
         MODULE_RELEASE(module_arg);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(provide_constructor) {
         MODULE_REQUIRE(modprovide2);
         Z_ASSERT_LSTREQUAL(*word_global, provide_arg);
         MODULE_RELEASE(modprovide2);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
-/* }}} */
-/* methods {{{ */
+    /* }}} */
+    /* methods {{{ */
 
     Z_TEST(method) {
         Z_MODULE_REGISTER(modmethod1);
         Z_MODULE_DEPENDS_ON(modmethod1, modmethod2);
         module_implement_method_ptr_no_custom_data(
-            MODULE(modmethod1), &after_method, &modmethod1_ztst);
+            MODULE(modmethod1), &after_method, &modmethod1_ztst
+        );
         module_implement_method_ptr_no_custom_data(
-            MODULE(modmethod1), &before_method, &modmethod1_ztst);
+            MODULE(modmethod1), &before_method, &modmethod1_ztst
+        );
 
         Z_MODULE_DEPENDS_ON(modmethod2, modmethod3);
         module_implement_method_ptr_no_custom_data(
-            MODULE(modmethod2), &after_method, &modmethod2_ztst);
+            MODULE(modmethod2), &after_method, &modmethod2_ztst
+        );
         module_implement_method_ptr_no_custom_data(
-            MODULE(modmethod2), &before_method, &modmethod2_ztst);
+            MODULE(modmethod2), &before_method, &modmethod2_ztst
+        );
 
         Z_MODULE_DEPENDS_ON(modmethod3, modmethod4);
         module_implement_method_ptr_no_custom_data(
-            MODULE(modmethod3), &after_method, &modmethod3_ztst);
+            MODULE(modmethod3), &after_method, &modmethod3_ztst
+        );
         module_implement_method_ptr_no_custom_data(
-            MODULE(modmethod3), &before_method, &modmethod3_ztst);
+            MODULE(modmethod3), &before_method, &modmethod3_ztst
+        );
 
         Z_MODULE_DEPENDS_ON(modmethod4, modmethod5);
         module_implement_method_ptr_no_custom_data(
-            MODULE(modmethod5), &after_method, &modmethod5_ztst);
+            MODULE(modmethod5), &after_method, &modmethod5_ztst
+        );
         module_implement_method_ptr_no_custom_data(
-            MODULE(modmethod5), &before_method, &modmethod5_ztst);
+            MODULE(modmethod5), &before_method, &modmethod5_ztst
+        );
 
         Z_MODULE_DEPENDS_ON(modmethod6, modmethod5);
         module_implement_method_ptr(
             MODULE(modmethod6), &after_method, &modmethod6_ztst,
-            &custom_data_modmethod6);
+            &custom_data_modmethod6
+        );
         module_implement_method_ptr(
             MODULE(modmethod6), &before_method, &modmethod6_ztst,
-            &custom_data_modmethod6);
+            &custom_data_modmethod6
+        );
 
         val_method = 1;
         modmethod1 = modmethod2 = modmethod3 = modmethod5 = modmethod6 = 0;
@@ -577,7 +608,6 @@ Z_GROUP_EXPORT(module)
         Z_ASSERT_EQ(custom_data_modmethod6, 1);
         Z_ASSERT(modmethod5);
         Z_ASSERT_EQ(val_method, 6);
-
 
         MODULE_RELEASE(modmethod6);
         MODULE_RELEASE(modmethod1);
@@ -675,11 +705,11 @@ Z_GROUP_EXPORT(module)
         Z_ASSERT_GT(modmethod5, modmethod3);
         Z_ASSERT_ZERO(custom_data_modmethod6);
         Z_ASSERT_EQ(val_method, 4);
+    }
+    Z_TEST_END;
 
-    } Z_TEST_END;
-
-/* }}} */
-/* invert dependency {{{ */
+    /* }}} */
+    /* invert dependency {{{ */
 
     Z_TEST(invert_dependency) {
         Z_MODULE_DEPENDS_ON(depmod1, depmod2);
@@ -696,30 +726,37 @@ Z_GROUP_EXPORT(module)
         Z_ASSERT(!MODULE_IS_LOADED(depmod1));
         Z_ASSERT(!MODULE_IS_LOADED(depmod2));
         Z_ASSERT(!MODULE_IS_LOADED(depmod3));
+    }
+    Z_TEST_END;
 
-    } Z_TEST_END;
-
-/* }}} */
-/* dependency check {{{ */
+    /* }}} */
+    /* dependency check {{{ */
 
     Z_TEST(dependency) {
-        module_t *liste1[] = { MODULE(module_a), MODULE(module_e) };
-        module_t *liste2[] = { MODULE(module_a), MODULE(module_e),
-                               MODULE(module_g) };
-        module_t *liste3[] = { MODULE(module_a), MODULE(module_e),
-                               MODULE(module_i) };
+        module_t *liste1[] = {MODULE(module_a), MODULE(module_e)};
+        module_t *liste2[] = {
+            MODULE(module_a), MODULE(module_e), MODULE(module_g)
+        };
+        module_t *liste3[] = {
+            MODULE(module_a), MODULE(module_e), MODULE(module_i)
+        };
         lstr_t collision;
 
-        Z_ASSERT_N(module_check_no_dependencies(liste1, countof(liste1),
-                                                &collision));
-        Z_ASSERT_N(module_check_no_dependencies(liste2, countof(liste2),
-                                                &collision));
-        Z_ASSERT_NEG(module_check_no_dependencies(liste3, countof(liste3),
-                                                  &collision));
-        Z_ASSERT_LSTREQUAL(collision,
-                           LSTR(module_get_name(MODULE(module_i))));
-    } Z_TEST_END;
+        Z_ASSERT_N(
+            module_check_no_dependencies(liste1, countof(liste1), &collision)
+        );
+        Z_ASSERT_N(
+            module_check_no_dependencies(liste2, countof(liste2), &collision)
+        );
+        Z_ASSERT_NEG(
+            module_check_no_dependencies(liste3, countof(liste3), &collision)
+        );
+        Z_ASSERT_LSTREQUAL(
+            collision, LSTR(module_get_name(MODULE(module_i)))
+        );
+    }
+    Z_TEST_END;
 
-/* }}} */
-
-} Z_GROUP_END;
+    /* }}} */
+}
+Z_GROUP_END;

@@ -24,11 +24,11 @@
 #include <lib-common/str-outbuf.h>
 
 #if __has_feature(nullability)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic error "-Wnullability-completeness"
-#if __has_warning("-Wnullability-completeness-on-arrays")
-#pragma GCC diagnostic ignored "-Wnullability-completeness-on-arrays"
-#endif
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic error "-Wnullability-completeness"
+#  if __has_warning("-Wnullability-completeness-on-arrays")
+#    pragma GCC diagnostic ignored "-Wnullability-completeness-on-arrays"
+#  endif
 #endif
 
 /** Add compressed data in the string buffer.
@@ -45,14 +45,16 @@
  * @return amount of data written in the stream or a negative zlib error in
  * case of error.
  */
-ssize_t sb_add_compressed(sb_t * nonnull out, const void * nonnull data,
-                          size_t dlen, int level, bool do_gzip);
+ssize_t sb_add_compressed(
+    sb_t *nonnull out, const void *nonnull data, size_t dlen, int level,
+    bool do_gzip
+);
 
-#define ob_add_compressed(ob, data, dlen, level, do_gzip)  \
+#define ob_add_compressed(ob, data, dlen, level, do_gzip)                    \
     OB_WRAP(sb_add_compressed, ob, data, dlen, level, do_gzip)
 
 #if __has_feature(nullability)
-#pragma GCC diagnostic pop
+#  pragma GCC diagnostic pop
 #endif
 
 #endif

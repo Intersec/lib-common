@@ -40,11 +40,18 @@ AllowShortBlocksOnASingleLine: Never
 InsertBraces: true
 
 # --- Control-flow macros ---
-# Treat the Z_TEST(...) test macro like a conditional so its opening brace
-# stays on the same line (Z_TEST(name) {) and its body is indented as a block,
+# Treat these "block-opening" macros like conditionals so their opening brace
+# stays on the same line (MACRO(name) {) and the body is indented as a block,
 # instead of being mis-parsed as a function definition.
 IfMacros:
   - Z_TEST
+  - MODULE_DEFINE
+  - OBJ_VTABLE
+  - OBJ_EXT_VTABLE
+  - OBJ_EXT_VTABLE_WITH_PRIO
+  - SO_OBJ_VTABLE
+  - SO_OBJ_EXT_VTABLE
+  - SO_OBJ_EXT_VTABLE_WITH_PRIO
 
 # --- Spacing ---
 # One space after if/while/switch/for, no space before fn() or foreach macros.
@@ -59,8 +66,11 @@ DerivePointerAlignment: false
 AccessModifierOffset: -2
 
 # --- Function calls and declarations ---
-# When a call wraps, align arguments at the opening parenthesis.
-AlignAfterOpenBracket: Align
+# When a call or declaration wraps, break right after the opening parenthesis,
+# block-indent the arguments, and put the closing parenthesis on its own line.
+# This keeps multi-line function declarations/calls consistent instead of the
+# mix produced by argument alignment.
+AlignAfterOpenBracket: BlockIndent
 BinPackArguments:     true
 BinPackParameters:    true
 # Don't put all parameters on the next line as a block when they don't fit.

@@ -24,8 +24,9 @@ int ps_copyv(pstream_t *ps, struct iovec *iov, size_t *iov_len, int *flags)
     size_t i;
 
     for (i = 0; !ps_done(ps) && i < *iov_len; i++) {
-        if (iov[i].iov_len > ps_len(ps))
+        if (iov[i].iov_len > ps_len(ps)) {
             iov[i].iov_len = ps_len(ps);
+        }
         memcpy(iov[i].iov_base, ps->b, iov[i].iov_len);
         ps_skip(ps, iov[i].iov_len);
     }
@@ -36,15 +37,17 @@ int ps_copyv(pstream_t *ps, struct iovec *iov, size_t *iov_len, int *flags)
             *flags &= ~MSG_TRUNC;
             return orig_len;
         }
-        if (*flags & MSG_TRUNC)
+        if (*flags & MSG_TRUNC) {
             return orig_len;
+        }
         *flags |= MSG_TRUNC;
     }
     return orig_len - ps_len(ps);
 }
 
-static int ps_get_csv_quoted_field(mem_pool_t *mp, pstream_t *ps, int quote,
-                                   qv_t(lstr) *fields)
+static int ps_get_csv_quoted_field(
+    mem_pool_t *mp, pstream_t *ps, int quote, qv_t(lstr) *fields
+)
 {
     SB_8k(sb);
 
@@ -57,8 +60,7 @@ static int ps_get_csv_quoted_field(mem_pool_t *mp, pstream_t *ps, int quote,
         if (!ps_done(ps) && *ps->s == quote) {
             __ps_skip(ps, 1);
             sb_add(&sb, part.s, ps_len(&part) + 1);
-        } else
-        if (sb.len == 0) {
+        } else if (sb.len == 0) {
             qv_append(fields, LSTR_PS_V(&part));
             return 0;
         } else {
@@ -79,11 +81,13 @@ static int ps_get_csv_quoted_field(mem_pool_t *mp, pstream_t *ps, int quote,
     return 0;
 }
 
-int ps_get_csv_line(mem_pool_t *mp, pstream_t *ps, int sep, int quote,
-                    qv_t(lstr) *fields, pstream_t *out_line)
+int ps_get_csv_line(
+    mem_pool_t *mp, pstream_t *ps, int sep, int quote, qv_t(lstr) *fields,
+    pstream_t *out_line
+)
 {
     ctype_desc_t cdesc;
-    char cdesc_tok[] = { '\r', '\n', sep, '\0' };
+    char cdesc_tok[] = {'\r', '\n', sep, '\0'};
     pstream_t out = *ps;
 
     ctype_desc_build(&cdesc, cdesc_tok);
@@ -102,8 +106,7 @@ int ps_get_csv_line(mem_pool_t *mp, pstream_t *ps, int sep, int quote,
             qv_append(fields, LSTR_NULL_V);
             *out_line = ps_initptr(out.s, ps->s);
             return 0;
-        } else
-        if (*ps->s == quote) {
+        } else if (*ps->s == quote) {
             PS_CHECK(ps_get_csv_quoted_field(mp, ps, quote, fields));
         } else {
             pstream_t field = ps_get_cspan(ps, &cdesc);
@@ -116,19 +119,19 @@ int ps_get_csv_line(mem_pool_t *mp, pstream_t *ps, int sep, int quote,
         }
 
         switch (ps_getc(ps)) {
-          case '\r':
+        case '\r':
             *out_line = ps_initptr(out.s, ps->s - 1);
             return ps_skipc(ps, '\n');
 
-          case '\n':
+        case '\n':
             *out_line = ps_initptr(out.s, ps->s - 1);
             return 0;
 
-          case EOF:
+        case EOF:
             *out_line = ps_initptr(out.s, ps->s);
             return 0;
 
-          default:
+        default:
             PS_WANT(ps->s[-1] == sep);
             break;
         }
@@ -137,8 +140,9 @@ int ps_get_csv_line(mem_pool_t *mp, pstream_t *ps, int sep, int quote,
     return 0;
 }
 
-void ps_split(pstream_t ps, const ctype_desc_t *sep, unsigned flags,
-              qv_t(lstr) *res)
+void ps_split(
+    pstream_t ps, const ctype_desc_t *sep, unsigned flags, qv_t(lstr) *res
+)
 {
     if (flags & PS_SPLIT_SKIP_EMPTY) {
         ps_skip_span(&ps, sep);
@@ -155,9 +159,10 @@ void ps_split(pstream_t ps, const ctype_desc_t *sep, unsigned flags,
     }
 }
 
-void ps_split_escaped(mem_pool_t *nullable mp, pstream_t ps,
-                      const ctype_desc_t *nonnull sep, const char escape,
-                      unsigned flags, qv_t(lstr) *res)
+void ps_split_escaped(
+    mem_pool_t *nullable mp, pstream_t ps, const ctype_desc_t *nonnull sep,
+    const char escape, unsigned flags, qv_t(lstr) *res
+)
 {
     SB_1k(sb);
     pstream_t tmp;
@@ -195,15 +200,12 @@ void ps_split_escaped(mem_pool_t *nullable mp, pstream_t ps,
             } else {
                 ps_skip(&ps, 1);
             }
-        } else
-        if (escape && escape == *ps.s) {
+        } else if (escape && escape == *ps.s) {
             /* Check if next character is a separator
              * An escape character is removed if followed by an other escape
              * character or a separator.
              */
-            if (ps_has(&ps, 2)
-            &&  ctype_desc_contains(&sep_esc, ps.s[1]))
-            {
+            if (ps_has(&ps, 2) && ctype_desc_contains(&sep_esc, ps.s[1])) {
                 /* add next character, skip escape character */
                 sb_add(&sb, ps.s + 1, 1);
                 ps_skip(&ps, 2);
@@ -215,8 +217,8 @@ void ps_split_escaped(mem_pool_t *nullable mp, pstream_t ps,
         }
     }
 
-    if (!(flags & PS_SPLIT_SKIP_EMPTY)  /* last character is a separator */
-    ||  (sb.len != 0))                  /* last character is an escape */
+    if (!(flags & PS_SPLIT_SKIP_EMPTY) /* last character is a separator */
+        || (sb.len != 0))              /* last character is an escape */
     {
         qv_append(res, mp_lstr_dup(mp, LSTR_SB_V(&sb)));
     }

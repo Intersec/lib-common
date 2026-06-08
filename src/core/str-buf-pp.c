@@ -18,9 +18,10 @@
 
 #include <lib-common/str-buf-pp.h>
 
-static void sb_add_cell(sb_t *out, const struct table_hdr_t *col,
-                        int col_size, bool is_hdr, bool is_last,
-                        lstr_t content)
+static void sb_add_cell(
+    sb_t *out, const struct table_hdr_t *col, int col_size, bool is_hdr,
+    bool is_last, lstr_t content
+)
 {
     int len = lstr_utf8_strlen(content);
 
@@ -28,8 +29,7 @@ static void sb_add_cell(sb_t *out, const struct table_hdr_t *col,
         content = lstr_utf8_truncate(content, col_size - 1);
         sb_add(out, content.s, content.len);
         sb_adduc(out, 0x2026 /* … */);
-    } else
-    if (len >= col_size) {
+    } else if (len >= col_size) {
         content = lstr_utf8_truncate(content, col_size);
         sb_add(out, content.s, content.len);
     } else {
@@ -38,14 +38,14 @@ static void sb_add_cell(sb_t *out, const struct table_hdr_t *col,
         int right_padding = 0;
 
         switch (is_hdr ? ALIGN_LEFT : col->align) {
-          case ALIGN_LEFT:
+        case ALIGN_LEFT:
             break;
 
-          case ALIGN_CENTER:
+        case ALIGN_CENTER:
             left_padding = padding / 2;
             break;
 
-          case ALIGN_RIGHT:
+        case ALIGN_RIGHT:
             left_padding = padding;
             break;
         }
@@ -61,10 +61,10 @@ static void sb_add_cell(sb_t *out, const struct table_hdr_t *col,
 }
 
 /* Return 0 if something has been written. */
-static int
-sb_write_table_cell(sb_t *out, const struct table_hdr_t *col, int col_size,
-                    bool is_hdr, bool is_first, bool is_last, lstr_t content,
-                    int csv_sep)
+static int sb_write_table_cell(
+    sb_t *out, const struct table_hdr_t *col, int col_size, bool is_hdr,
+    bool is_first, bool is_last, lstr_t content, int csv_sep
+)
 {
     if (col_size == 0) {
         /* Omit column. */
@@ -93,17 +93,19 @@ sb_write_table_cell(sb_t *out, const struct table_hdr_t *col, int col_size,
 }
 
 /** Write table or a csv if csv_sep != 0. */
-static void
-sb_write_table(sb_t *out, const qv_t(table_hdr) *hdr,
-               const qv_t(table_data) *data, int *col_sizes, int csv_sep)
+static void sb_write_table(
+    sb_t *out, const qv_t(table_hdr) *hdr, const qv_t(table_data) *data,
+    int *col_sizes, int csv_sep
+)
 {
     bool first_column = true;
 
     /* Write the header. */
     tab_enumerate_ptr(pos, col_hdr, hdr) {
-        if (sb_write_table_cell(out, col_hdr, col_sizes[pos], true,
-                                first_column, pos == hdr->len - 1,
-                                col_hdr->title, csv_sep) == 0)
+        if (sb_write_table_cell(
+                out, col_hdr, col_sizes[pos], true, first_column,
+                pos == hdr->len - 1, col_hdr->title, csv_sep
+            ) == 0)
         {
             first_column = false;
         }
@@ -121,9 +123,10 @@ sb_write_table(sb_t *out, const qv_t(table_hdr) *hdr,
                 content = row->tab[pos];
             }
 
-            if (sb_write_table_cell(out, col_hdr, col_sizes[pos],
-                                    false, first_column, pos == hdr->len - 1,
-                                    content, csv_sep) == 0)
+            if (sb_write_table_cell(
+                    out, col_hdr, col_sizes[pos], false, first_column,
+                    pos == hdr->len - 1, content, csv_sep
+                ) == 0)
             {
                 first_column = false;
             }
@@ -132,8 +135,9 @@ sb_write_table(sb_t *out, const qv_t(table_hdr) *hdr,
     }
 }
 
-void sb_add_table(sb_t *out, const qv_t(table_hdr) *hdr,
-                  const qv_t(table_data) *data)
+void sb_add_table(
+    sb_t *out, const qv_t(table_hdr) *hdr, const qv_t(table_data) *data
+)
 {
     int *col_sizes = p_alloca(int, hdr->len);
     int row_size = 0;
@@ -175,8 +179,10 @@ void sb_add_table(sb_t *out, const qv_t(table_hdr) *hdr,
     sb_write_table(out, hdr, data, col_sizes, 0);
 }
 
-void sb_add_csv_table(sb_t *out, const qv_t(table_hdr) *hdr,
-                      const qv_t(table_data) *data, int sep)
+void sb_add_csv_table(
+    sb_t *out, const qv_t(table_hdr) *hdr, const qv_t(table_data) *data,
+    int sep
+)
 {
     int *populated_cols = p_alloca(int, hdr->len);
 

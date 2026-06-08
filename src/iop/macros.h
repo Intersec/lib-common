@@ -19,25 +19,25 @@
 #if !defined(IS_LIB_COMMON_IOP_H) || defined(IS_LIB_COMMON_IOP_MACROS_H)
 #  error "you must include <lib-common/iop.h> instead"
 #else
-#define IS_LIB_COMMON_IOP_MACROS_H
+#  define IS_LIB_COMMON_IOP_MACROS_H
 
 /* {{{ IOP union helpers */
 
 /** Union tag  type */
-#define IOP_UNION_TAG_T(pfx) pfx##__tag_t
+#  define IOP_UNION_TAG_T(pfx) pfx##__tag_t
 
 /** Get the tag value of a union field. */
-#define IOP_UNION_TAG(pfx, field) pfx##__##field##__ft
+#  define IOP_UNION_TAG(pfx, field) pfx##__##field##__ft
 
 /** Get the description of a union field. */
-#define IOP_UNION_FDESC(pfx, field) pfx##__##field##__fdesc
+#  define IOP_UNION_FDESC(pfx, field) pfx##__##field##__fdesc
 
 /** Get the tag value of a union void field.
  *
  * This will not work with non-void field, so we can prevent the use of
  * IOP_UNION_VOID() and IOP_UNION_SET_V() with non-void fields.
  */
-#define IOP_UNION_TAG_VOID(pfx, field) pfx##__##field##__empty_ft
+#  define IOP_UNION_TAG_VOID(pfx, field) pfx##__##field##__empty_ft
 
 /** Allow to make a switch on a union depending on the field chosen.
  *
@@ -57,8 +57,7 @@
  *
  * \param[in] u The union to switch on.
  */
-#define IOP_UNION_SWITCH(u) \
-    switch ((u)->iop_tag)
+#  define IOP_UNION_SWITCH(u) switch ((u)->iop_tag)
 
 /** Case giving the value by pointer.
  *
@@ -70,12 +69,13 @@
  * \param[out] val  Pointer on the field value.
  */
 
-#define IOP_UNION_CASE_P(pfx, u, field, val) \
-        break;                                                          \
-      case IOP_UNION_TAG(pfx, field):                                   \
-        { const pfx##__t __attribute__((unused)) *val = (u); }          \
-        for (typeof((u)->field) *val##_2 = &(u)->field, *val = val##_2; \
-             val##_2; val##_2 = NULL)
+#  define IOP_UNION_CASE_P(pfx, u, field, val)                               \
+      break;                                                                 \
+  case IOP_UNION_TAG(pfx, field): {                                          \
+      const pfx##__t __attribute__((unused)) *val = (u);                     \
+  }                                                                          \
+      for (typeof((u)->field) *val##_2 = &(u)->field, *val = val##_2;        \
+           val##_2; val##_2 = NULL)
 
 /** Case giving the field value by value.
  *
@@ -86,12 +86,13 @@
  * \param[in] field The union field to select.
  * \param[out] val  A copy of the field value.
  */
-#define IOP_UNION_CASE(pfx, u, field, val) \
-        break;                                                          \
-      case IOP_UNION_TAG(pfx, field):                                   \
-        { const pfx##__t __attribute__((unused)) *val = (u); }          \
-        for (typeof((u)->field) *val##_p = &(u)->field, val = *val##_p; \
-             val##_p; val##_p = NULL)
+#  define IOP_UNION_CASE(pfx, u, field, val)                                 \
+      break;                                                                 \
+  case IOP_UNION_TAG(pfx, field): {                                          \
+      const pfx##__t __attribute__((unused)) *val = (u);                     \
+  }                                                                          \
+      for (typeof((u)->field) *val##_p = &(u)->field, val = *val##_p;        \
+           val##_p; val##_p = NULL)
 
 /** Case not giving the field value.
  *
@@ -101,15 +102,17 @@
  * \param[in] u     The union given to IOP_UNION_SWITCH().
  * \param[in] field The union field to select.
  */
-#define IOP_UNION_CASE_V(pfx, u, field)  \
-        break;                                                          \
-      case IOP_UNION_TAG(pfx, field):                                   \
-        { const pfx##__t __attribute__((unused)) *_tmp = (u); }
+#  define IOP_UNION_CASE_V(pfx, u, field)                                    \
+      break;                                                                 \
+  case IOP_UNION_TAG(pfx, field): {                                          \
+      const pfx##__t __attribute__((unused)) *_tmp = (u);                    \
+  }
 
 /** Default case. */
-#define IOP_UNION_DEFAULT() \
-        break;              \
-      default: (void)0;
+#  define IOP_UNION_DEFAULT()                                                \
+      break;                                                                 \
+  default:                                                                   \
+      (void)0;
 
 /** Check if a union field is selected.
  *
@@ -117,9 +120,11 @@
  * \param[in] u     The union object.
  * \param[in] field The union field to check.
  */
-#define IOP_UNION_IS(pfx, u, field) \
-    ({ const pfx##__t *_tmp_union_is = (u);                                  \
-       _tmp_union_is->iop_tag == IOP_UNION_TAG(pfx, field); })
+#  define IOP_UNION_IS(pfx, u, field)                                        \
+      ({                                                                     \
+        const pfx##__t *_tmp_union_is = (u);                                 \
+        _tmp_union_is->iop_tag == IOP_UNION_TAG(pfx, field);                 \
+      })
 
 /** Extract a value from a union.
  *
@@ -130,10 +135,12 @@
  * \return
  *   A pointer on the wanted field or NULL if this field isn't selected.
  */
-#define IOP_UNION_GET(pfx, u, field) \
-    ({ const pfx##__t *_tmp0 = (u);                                      \
-       typeof(u) _tmp = (typeof(u))_tmp0;                                \
-       IOP_UNION_IS(pfx, _tmp, field) ? &_tmp->field : NULL; })
+#  define IOP_UNION_GET(pfx, u, field)                                       \
+      ({                                                                     \
+        const pfx##__t *_tmp0 = (u);                                         \
+        typeof(u) _tmp = (typeof(u))_tmp0;                                   \
+        IOP_UNION_IS(pfx, _tmp, field) ? &_tmp->field : NULL;                \
+      })
 
 /** Select an union field.
  *
@@ -144,11 +151,12 @@
  * \return
  *   A pointer on the selected field.
  */
-#define IOP_UNION_SET(pfx, u, field) \
-    ({ pfx##__t *_tmp = (u);                                             \
-       _tmp->iop_tag = IOP_UNION_TAG(pfx, field);                        \
-       &_tmp->field;                                                     \
-    })
+#  define IOP_UNION_SET(pfx, u, field)                                       \
+      ({                                                                     \
+        pfx##__t *_tmp = (u);                                                \
+        _tmp->iop_tag = IOP_UNION_TAG(pfx, field);                           \
+        &_tmp->field;                                                        \
+      })
 
 /** Select a void union field.
  *
@@ -156,11 +164,11 @@
  * \param[inout] u     The union object.
  * \param[in]    field The union field to select.
  */
-#define IOP_UNION_SET_V(pfx, u, field)  \
-    do {                                                                     \
-        pfx##__t *_tmp = (u);                                                \
-        _tmp->iop_tag = IOP_UNION_TAG_VOID(pfx, field);                      \
-    } while(0)
+#  define IOP_UNION_SET_V(pfx, u, field)                                     \
+      do {                                                                   \
+          pfx##__t *_tmp = (u);                                              \
+          _tmp->iop_tag = IOP_UNION_TAG_VOID(pfx, field);                    \
+      } while (0)
 
 /** Extract a value from a union by copying it.
  *
@@ -172,13 +180,14 @@
  * \return
  *   True if the wanted field is selected, false otherwise.
  */
-#define IOP_UNION_COPY(dst, pfx, u, field) \
-    ({ pfx##__t *_tmp = (u);                                         \
-       bool _copyok  = IOP_UNION_IS(pfx, _tmp, field);               \
-       if (_copyok)                                                  \
-           dst = _tmp->field;                                        \
-       _copyok;                                                      \
-    })
+#  define IOP_UNION_COPY(dst, pfx, u, field)                                 \
+      ({                                                                     \
+        pfx##__t *_tmp = (u);                                                \
+        bool _copyok = IOP_UNION_IS(pfx, _tmp, field);                       \
+        if (_copyok)                                                         \
+            dst = _tmp->field;                                               \
+        _copyok;                                                             \
+      })
 
 /** Make an immediate IOP union.
  *
@@ -186,16 +195,25 @@
  * \param[in]  field The field to select.
  * \param[in]  val   The field value.
  */
-#define IOP_UNION_CST(pfx, field, val) \
-    { IOP_UNION_TAG(pfx, field), { .field = val } }
+#  define IOP_UNION_CST(pfx, field, val)                                     \
+      {                                                                      \
+          IOP_UNION_TAG(pfx, field),                                         \
+          {                                                                  \
+              .field = val                                                   \
+          }                                                                  \
+      }
 
 /** Make an immediate IOP union with no value.
  *
  * \param[in]  pfx   The union prefix (pkg__name).
  * \param[in]  field The field to select.
  */
-#define IOP_UNION_VOID_CST(pfx, field) \
-    { IOP_UNION_TAG_VOID(pfx, field), {} }
+#  define IOP_UNION_VOID_CST(pfx, field)                                     \
+      {                                                                      \
+          IOP_UNION_TAG_VOID(pfx, field),                                    \
+          {                                                                  \
+          }                                                                  \
+      }
 
 /** Make an immediate IOP union.
  *
@@ -203,8 +221,13 @@
  * \param[in]  field The field to select.
  * \param[in]  val   The field values.
  */
-#define IOP_UNION_VA_CST(pfx, field, ...) \
-    { IOP_UNION_TAG(pfx, field), { .field = { __VA_ARGS__ } } }
+#  define IOP_UNION_VA_CST(pfx, field, ...)                                  \
+      {                                                                      \
+          IOP_UNION_TAG(pfx, field),                                         \
+          {                                                                  \
+              .field = { __VA_ARGS__ }                                       \
+          }                                                                  \
+      }
 
 /** Make an IOP union.
  *
@@ -212,16 +235,27 @@
  * \param[in]  field The field to select.
  * \param[in]  val   The field value.
  */
-#define IOP_UNION(pfx, field, val) \
-    (pfx##__t){ IOP_UNION_TAG(pfx, field), { .field = val } }
+#  define IOP_UNION(pfx, field, val)                                         \
+      (pfx##__t)                                                             \
+      {                                                                      \
+          IOP_UNION_TAG(pfx, field),                                         \
+          {                                                                  \
+              .field = val                                                   \
+          }                                                                  \
+      }
 
 /** Make an IOP union with no value.
  *
  * \param[in]  pfx   The union prefix (pkg__name).
  * \param[in]  field The field to select.
  */
-#define IOP_UNION_VOID(pfx, field) \
-    (pfx##__t){ IOP_UNION_TAG_VOID(pfx, field), {} }
+#  define IOP_UNION_VOID(pfx, field)                                         \
+      (pfx##__t)                                                             \
+      {                                                                      \
+          IOP_UNION_TAG_VOID(pfx, field),                                    \
+          {                                                                  \
+          }                                                                  \
+      }
 
 /** Make an IOP union.
  *
@@ -229,37 +263,43 @@
  * \param[in]  field The field to select.
  * \param[in]  val   The field values.
  */
-#define IOP_UNION_VA(pfx, field, ...) \
-    (pfx##__t){ IOP_UNION_TAG(pfx, field), { .field = { __VA_ARGS__ } } }
+#  define IOP_UNION_VA(pfx, field, ...)                                      \
+      (pfx##__t)                                                             \
+      {                                                                      \
+          IOP_UNION_TAG(pfx, field),                                         \
+          {                                                                  \
+              .field = { __VA_ARGS__ }                                       \
+          }                                                                  \
+      }
 
 /** Get the associated field name of an IOP union tag.
  *
  * \param[in] _iop_tag   The IOP union tag.
  * \param[in] _type_desc The IOP union description.
  */
-#define IOP_UNION_TAG_TO_LSTR(_iop_tag, _type_desc)                          \
-    ({                                                                       \
-        int _res = iop_ranges_search((_type_desc).ranges,                    \
-                                     (_type_desc).ranges_len,                \
-                                     (_iop_tag));                            \
+#  define IOP_UNION_TAG_TO_LSTR(_iop_tag, _type_desc)                        \
+      ({                                                                     \
+        int _res = iop_ranges_search(                                        \
+            (_type_desc).ranges, (_type_desc).ranges_len, (_iop_tag)         \
+        );                                                                   \
         _res >= 0 ? (_type_desc).fields[_res].name : LSTR_NULL_V;            \
-    })
+      })
 
 /** Get the selected field name of an IOP union.
  *
  * \param[in] _data      The IOP union.
  * \param[in] _type_desc The IOP union description.
  */
-#define IOP_UNION_TYPE_TO_LSTR(_data, _type_desc)  \
-    IOP_UNION_TAG_TO_LSTR((_data)->iop_tag, (_type_desc))
+#  define IOP_UNION_TYPE_TO_LSTR(_data, _type_desc)                          \
+      IOP_UNION_TAG_TO_LSTR((_data)->iop_tag, (_type_desc))
 
 /** Get the selected field name of an IOP union.
  *
  * \param[in] _data      The IOP union.
  * \param[in] _type_desc The IOP union description.
  */
-#define IOP_UNION_TYPE_TO_STR(_data, _type_desc)  \
-    IOP_UNION_TYPE_TO_LSTR((_data), (_type_desc)).s
+#  define IOP_UNION_TYPE_TO_STR(_data, _type_desc)                           \
+      IOP_UNION_TYPE_TO_LSTR((_data), (_type_desc)).s
 
 /* }}} */
 /* {{{ Data packing helpers */
@@ -274,13 +314,12 @@
  * \return
  *   The buffer containing the packed structure.
  */
-#define t_iop_bpack_flags(_pfx, _val, _flags)                            \
-    ({                                                                   \
-        const _pfx##__t *_tval = (_val);                                 \
-        \
-        t_iop_bpack_struct_flags(&_pfx##__s, _tval, _flags);             \
-    })
-
+#  define t_iop_bpack_flags(_pfx, _val, _flags)                              \
+      ({                                                                     \
+        const _pfx##__t *_tval = (_val);                                     \
+                                                                             \
+        t_iop_bpack_struct_flags(&_pfx##__s, _tval, _flags);                 \
+      })
 
 /** Pack an IOP structure into IOP binary format using the t_pool().
  *
@@ -291,12 +330,12 @@
  * \return
  *   The buffer containing the packed structure.
  */
-#define t_iop_bpack(_pfx, _val)                            \
-    ({                                                     \
-        const _pfx##__t *_tval = (_val);                   \
-        \
-        t_iop_bpack_struct(&_pfx##__s, _tval);             \
-    })
+#  define t_iop_bpack(_pfx, _val)                                            \
+      ({                                                                     \
+        const _pfx##__t *_tval = (_val);                                     \
+                                                                             \
+        t_iop_bpack_struct(&_pfx##__s, _tval);                               \
+      })
 
 /** Unpack an IOP structure from IOP binary format using the t_pool().
  *
@@ -311,14 +350,14 @@
  * \param[in]  _pfx     Prefix of the IOP structure.
  * \param[out] _valp    Pointer on the structure to use for unpacking.
  */
-#define t_iop_bunpack(_iop_env, _str,  _pfx, _valp)                      \
-    ({                                                                   \
-        _pfx##__t *_tval = (_valp);                                      \
-        typeof(_str) _str2 = (_str);                                     \
-        pstream_t _ps = ps_init(_str2->s, _str2->len);                   \
-                                                                         \
-        t_iop_bunpack_ps((_iop_env), &_pfx##__s, _tval, _ps, false);     \
-    })
+#  define t_iop_bunpack(_iop_env, _str, _pfx, _valp)                         \
+      ({                                                                     \
+        _pfx##__t *_tval = (_valp);                                          \
+        typeof(_str) _str2 = (_str);                                         \
+        pstream_t _ps = ps_init(_str2->s, _str2->len);                       \
+                                                                             \
+        t_iop_bunpack_ps((_iop_env), &_pfx##__s, _tval, _ps, false);         \
+      })
 
 /** Unpack an IOP structure from IOP binary format using the t_pool().
  *
@@ -333,14 +372,14 @@
  * \param[in]  _pfx     Prefix of the IOP structure.
  * \param[out] _valp    Pointer on the structure to use for unpacking.
  */
-#define t_iop_bunpack_dup(_iop_env, _str, _pfx, _valp)                  \
-    ({                                                                  \
-        _pfx##__t *_tval = (_valp);                                     \
-        typeof(_str) _str2 = (_str);                                    \
-        pstream_t _ps = ps_init(_str2->s, _str2->len);                  \
-                                                                        \
-        t_iop_bunpack_ps((_iop_env), &_pfx##__s, _tval, _ps, true);     \
-    })
+#  define t_iop_bunpack_dup(_iop_env, _str, _pfx, _valp)                     \
+      ({                                                                     \
+        _pfx##__t *_tval = (_valp);                                          \
+        typeof(_str) _str2 = (_str);                                         \
+        pstream_t _ps = ps_init(_str2->s, _str2->len);                       \
+                                                                             \
+        t_iop_bunpack_ps((_iop_env), &_pfx##__s, _tval, _ps, true);          \
+      })
 
 /* }}} */
 /* {{{ RPC helpers */
@@ -350,7 +389,7 @@
  * \param[in] _mod  RPC module name.
  * \param[in] _if   RPC interface name.
  */
-#define IOP_IFACE(_mod, _if)              _mod##__##_if(ifp)
+#  define IOP_IFACE(_mod, _if) _mod##__##_if(ifp)
 
 /** Get an RPC structure definition.
  *
@@ -358,7 +397,7 @@
  * \param[in] _if   RPC interface name.
  * \param[in] _rpc  RPC name.
  */
-#define IOP_RPC(_mod, _if, _rpc)          _mod##__##_if(_rpc##__rpc)
+#  define IOP_RPC(_mod, _if, _rpc) _mod##__##_if(_rpc##__rpc)
 
 /** Get the type of RPC arguments/response/exception.
  *
@@ -367,7 +406,7 @@
  * \param[in] _rpc  RPC name.
  * \param[in] what  `args`, `res` or `exn`.
  */
-#define IOP_RPC_T(_mod, _if, _rpc, what)  _mod##__##_if(_rpc##_##what##__t)
+#  define IOP_RPC_T(_mod, _if, _rpc, what) _mod##__##_if(_rpc##_##what##__t)
 
 /** Get the command tag of an RPC.
  *
@@ -375,45 +414,45 @@
  * \param[in] _if   RPC interface name.
  * \param[in] _rpc  RPC name.
  */
-#define IOP_RPC_CMD(_mod, _if, _rpc) \
-    (_mod##__##_if##__TAG << 16) | _mod##__##_if(_rpc##__rpc__tag)
+#  define IOP_RPC_CMD(_mod, _if, _rpc)                                       \
+      (_mod##__##_if##__TAG << 16) | _mod##__##_if(_rpc##__rpc__tag)
 
 /* }}} */
 /* {{{ Helpers generated for enums */
 
-#define IOP_ENUM(pfx)
+#  define IOP_ENUM(pfx)
 
 /* }}} */
 /* {{{ Helpers generated for structures and unions */
 
-#define IOP_GENERIC(pfx)
+#  define IOP_GENERIC(pfx)
 
 /* }}} */
 /* {{{ Helpers generated for classes */
 
-#define IOP_CLASS(pfx)
+#  define IOP_CLASS(pfx)
 
 /* }}} */
 /* {{{ Helpers for classes manipulation */
 
-#ifndef NDEBUG
-#  define iop_obj_cast_debug(pfx, o)  \
-    ({                                                                       \
+#  ifndef NDEBUG
+#    define iop_obj_cast_debug(pfx, o)                                       \
+        ({                                                                   \
         typeof(*o) *__o = (o);                                               \
         if (!iop_obj_is_a(__o, pfx)) {                                       \
             e_panic("cannot cast %p to type " TOSTR(pfx), __o);              \
         }                                                                    \
         __o;                                                                 \
-    })
-#else
-#  define iop_obj_cast_debug(pfx, o)  (o)
-#endif
+        })
+#  else
+#    define iop_obj_cast_debug(pfx, o) (o)
+#  endif
 
-#define iop_obj_dyn_cast(pfx, o)                                             \
-    ({                                                                       \
+#  define iop_obj_dyn_cast(pfx, o)                                           \
+      ({                                                                     \
         typeof(*o) *__o = (o);                                               \
         iop_obj_is_a(__o, pfx) ? __o : NULL;                                 \
-    })
+      })
 
 /** Cast an IOP class object to the wanted type.
  *
@@ -429,42 +468,43 @@
  *
  * \return  a pointer equal to \p o, of the \p pfx type.
  */
-#define iop_obj_vcast(pfx, o)                                                \
-    ({                                                                       \
+#  define iop_obj_vcast(pfx, o)                                              \
+      ({                                                                     \
         void *_arg_o = (o); /* check constness with cast to void * */        \
                                                                              \
         (pfx##__t *)iop_obj_cast_debug(pfx, (typeof(o))_arg_o);              \
-    })
+      })
 
 /** Cast an IOP class object to the wanted type.
  *
  * Same as iop_obj_vcast, but returns a const pointer.
  */
-#define iop_obj_ccast(pfx, o)  ((const pfx##__t *)iop_obj_cast_debug(pfx, o))
+#  define iop_obj_ccast(pfx, o) ((const pfx##__t *)iop_obj_cast_debug(pfx, o))
 
 /** Dynamically cast an IOP class object to the wanted type.
  *
  * This macro will cast \p o to \p pfx if \p o inherits from \p pfx and will
  * return NULL if this is not the case.
  */
-#define iop_obj_dynvcast(pfx, o)                                             \
-    ({                                                                       \
+#  define iop_obj_dynvcast(pfx, o)                                           \
+      ({                                                                     \
         void *_arg_o = (o); /* check constness with cast to void * */        \
                                                                              \
         (pfx##__t *)iop_obj_dyn_cast(pfx, (typeof(o))_arg_o);                \
-    })
+      })
 
 /** Dynamically cast an IOP class object to the wanted type.
  *
  * This macro will cast \p o to \p pfx if \p o inherits from \p pfx and will
  * return NULL if this is not the case.
  */
-#define iop_obj_dynccast(pfx, o)  ((const pfx##__t *)iop_obj_dyn_cast(pfx, o))
+#  define iop_obj_dynccast(pfx, o)                                           \
+      ((const pfx##__t *)iop_obj_dyn_cast(pfx, o))
 
 /** Get the class id of a class type. */
-#define IOP_CLASS_ID(type)   type##__class_id
+#  define IOP_CLASS_ID(type) type##__class_id
 /** Get the class id of a class instance. */
-#define IOP_OBJ_CLASS_ID(o)  (o)->__vptr->class_attrs->class_id
+#  define IOP_OBJ_CLASS_ID(o) (o)->__vptr->class_attrs->class_id
 
 /** Allow to make a switch on a class instance.
  *
@@ -503,8 +543,8 @@
  *     break;
  * }
  */
-#define IOP_OBJ_EXACT_SWITCH(inst) \
-    switch ((inst)->__vptr->class_attrs->class_id)
+#  define IOP_OBJ_EXACT_SWITCH(inst)                                         \
+      switch ((inst)->__vptr->class_attrs->class_id)
 
 /** Allow to make a switch on a class descriptor.
  *
@@ -528,8 +568,7 @@
  *     break;
  * }
  */
-#define IOP_CLASS_EXACT_SWITCH(cls) \
-    switch ((cls)->class_attrs->class_id)
+#  define IOP_CLASS_EXACT_SWITCH(cls) switch ((cls)->class_attrs->class_id)
 
 /** Case matching a given IOP class and giving the casted value.
  *
@@ -540,10 +579,10 @@
  * \param[out] val   Pointer to the instance casted to the given class if the
  *                   case matched.
  */
-#define IOP_OBJ_CASE(pfx, inst, val) \
-        break;                                                               \
-      case IOP_CLASS_ID(pfx):                                                \
-        for (pfx##__t *val = iop_obj_vcast(pfx, (inst)); val; val = NULL)
+#  define IOP_OBJ_CASE(pfx, inst, val)                                       \
+      break;                                                                 \
+  case IOP_CLASS_ID(pfx):                                                    \
+      for (pfx##__t *val = iop_obj_vcast(pfx, (inst)); val; val = NULL)
 
 /** Case matching a given IOP class and giving the const casted value.
  *
@@ -554,16 +593,17 @@
  * \param[out] val   Pointer to the instance casted to the given class if the
  *                   case matched. The pointer is const.
  */
-#define IOP_OBJ_CASE_CONST(pfx, inst, val) \
-        break;                                                               \
-      case IOP_CLASS_ID(pfx):                                                \
-        for (const pfx##__t *val = iop_obj_ccast(pfx, (inst)); val; val = NULL)
+#  define IOP_OBJ_CASE_CONST(pfx, inst, val)                                 \
+      break;                                                                 \
+  case IOP_CLASS_ID(pfx):                                                    \
+      for (const pfx##__t *val = iop_obj_ccast(pfx, (inst)); val; val = NULL)
 
 /** Default case.
  */
-#define IOP_OBJ_EXACT_DEFAULT()  \
-        break;                                                               \
-      default: (void)0;
+#  define IOP_OBJ_EXACT_DEFAULT()                                            \
+      break;                                                                 \
+  default:                                                                   \
+      (void)0;
 
 /** Case matching a given IOP class.
  *
@@ -571,9 +611,9 @@
  *
  * \param[in] pfx    The class name (pkg__name)
  */
-#define IOP_CLASS_CASE(pfx) \
-        break;                                                               \
-      case IOP_CLASS_ID(pfx):
+#  define IOP_CLASS_CASE(pfx)                                                \
+      break;                                                                 \
+  case IOP_CLASS_ID(pfx):
 
 /** Allow to make a switch on a class descriptor.
  *
@@ -596,13 +636,13 @@
  *                 imbricated IOP_OBJ_SWITCH
  * \param[in] cls  The class descriptor to be matched.
  */
-#define IOP_CLASS_SWITCH(name, cls)  \
-    for (const iop_struct_t *__##name##_st = cls,                            \
-                            *__##name##_next_st = cls,                       \
-                            *__##name##_missing_switch_default = NULL;       \
-         __##name##_st == __##name##_next_st;                                \
-         __##name##_st = __##name##_st->class_attrs->parent)                 \
-        switch (__##name##_st->class_attrs->class_id)
+#  define IOP_CLASS_SWITCH(name, cls)                                        \
+      for (const iop_struct_t *__##name##_st = cls,                          \
+                              *__##name##_next_st = cls,                     \
+                              *__##name##_missing_switch_default = NULL;     \
+           __##name##_st == __##name##_next_st;                              \
+           __##name##_st = __##name##_st->class_attrs->parent)               \
+          switch (__##name##_st->class_attrs->class_id)
 
 /** Allow to make a switch on an inherited class instance.
  *
@@ -625,7 +665,7 @@
  *                 imbricated IOP_OBJ_SWITCH
  * \param[in] inst The class instance to be matched.
  */
-#define IOP_OBJ_SWITCH(name, inst)  IOP_CLASS_SWITCH(name, (inst)->__vptr)
+#  define IOP_OBJ_SWITCH(name, inst) IOP_CLASS_SWITCH(name, (inst)->__vptr)
 
 /** Case to match unsupported classes.
  *
@@ -633,61 +673,64 @@
  *
  * \param[in] name The name of the IOP_(OBJ|CLASS)_SWITCH()
  */
-#define IOP_CLASS_DEFAULT(name)  \
-        break;                                                               \
-      default:                                                               \
-        IGNORE(__##name##_missing_switch_default);                           \
-        if (__##name##_next_st->class_attrs->parent) {                       \
-            __##name##_next_st = __##name##_next_st->class_attrs->parent;    \
-            continue;                                                        \
-        } else
+#  define IOP_CLASS_DEFAULT(name)                                            \
+      break;                                                                 \
+  default:                                                                   \
+      IGNORE(__##name##_missing_switch_default);                             \
+      if (__##name##_next_st->class_attrs->parent) {                         \
+          __##name##_next_st = __##name##_next_st->class_attrs->parent;      \
+          continue;                                                          \
+      } else
 
-#define IOP_OBJ_DEFAULT  IOP_CLASS_DEFAULT
+#  define IOP_OBJ_DEFAULT IOP_CLASS_DEFAULT
 
 /* }}} */
 /* {{{ Helpers for use of IOPs as key in QH/QM */
 
-#define qhash_iop_hash_fn(name, pfx)    qhash_##name##_##pfx##__hash
-#define qhash_iop_equals_fn(name, pfx)  qhash_##name##_##pfx##__equals
+#  define qhash_iop_hash_fn(name, pfx) qhash_##name##_##pfx##__hash
+#  define qhash_iop_equals_fn(name, pfx) qhash_##name##_##pfx##__equals
 
-#define QHASH_IOP_FUNCS(name, pfx)                                           \
-    static inline uint32_t                                                   \
-    qhash_iop_hash_fn(name, pfx)(const qhash_t * nullable qhash,             \
-                                 const pfx##__t * nonnull key)               \
-    {                                                                        \
-        uint8_t hash[4];                                                     \
+#  define QHASH_IOP_FUNCS(name, pfx)                                         \
+      static inline uint32_t qhash_iop_hash_fn(name, pfx)(                   \
+          const qhash_t *nullable qhash, const pfx##__t *nonnull key         \
+      )                                                                      \
+      {                                                                      \
+          uint8_t hash[4];                                                   \
                                                                              \
-        iop_hash32(&pfx##__s, key, hash, 0);                                 \
+          iop_hash32(&pfx##__s, key, hash, 0);                               \
                                                                              \
-        return get_unaligned_cpu32(hash);                                    \
-    }                                                                        \
-    static inline bool                                                       \
-    qhash_iop_equals_fn(name, pfx)(const qhash_t * nullable qhash,           \
-                                   const pfx##__t * nonnull k1,              \
-                                   const pfx##__t * nonnull k2)              \
-    {                                                                        \
-        return iop_equals_strict(pfx, k1, k2);                               \
-    }
+          return get_unaligned_cpu32(hash);                                  \
+      }                                                                      \
+      static inline bool qhash_iop_equals_fn(name, pfx)(                     \
+          const qhash_t *nullable qhash, const pfx##__t *nonnull k1,         \
+          const pfx##__t *nonnull k2                                         \
+      )                                                                      \
+      {                                                                      \
+          return iop_equals_strict(pfx, k1, k2);                             \
+      }
 
-#define QH_K_IOP_T(type, name, pfx)                                          \
-    QHASH_IOP_FUNCS(name, pfx)                                               \
-    qh_k##type##_t(name, pfx##__t, qhash_iop_hash_fn(name, pfx),             \
-                   qhash_iop_equals_fn(name, pfx))
+#  define QH_K_IOP_T(type, name, pfx)                                        \
+      QHASH_IOP_FUNCS(name, pfx)                                             \
+      qh_k##type##_t(                                                        \
+          name, pfx##__t, qhash_iop_hash_fn(name, pfx),                      \
+          qhash_iop_equals_fn(name, pfx)                                     \
+      )
 
-#define qh_iop_kvec_t(name, pfx)       QH_K_IOP_T(vec, name, pfx)
-#define qh_iop_kptr_t(name, pfx)       QH_K_IOP_T(ptr, name, pfx)
-#define qh_iop_kptr_ckey_t(name, pfx)  QH_K_IOP_T(ptr_ckey, name, pfx)
+#  define qh_iop_kvec_t(name, pfx) QH_K_IOP_T(vec, name, pfx)
+#  define qh_iop_kptr_t(name, pfx) QH_K_IOP_T(ptr, name, pfx)
+#  define qh_iop_kptr_ckey_t(name, pfx) QH_K_IOP_T(ptr_ckey, name, pfx)
 
-#define QM_K_IOP_T(type, name, pfx, val_t)                                   \
-    QHASH_IOP_FUNCS(name, pfx)                                               \
-    qm_k##type##_t(name, pfx##__t, val_t, qhash_iop_hash_fn(name, pfx),      \
-                   qhash_iop_equals_fn(name, pfx))
+#  define QM_K_IOP_T(type, name, pfx, val_t)                                 \
+      QHASH_IOP_FUNCS(name, pfx)                                             \
+      qm_k##type##_t(                                                        \
+          name, pfx##__t, val_t, qhash_iop_hash_fn(name, pfx),               \
+          qhash_iop_equals_fn(name, pfx)                                     \
+      )
 
-#define qm_iop_kvec_t(name, pfx, val_t)  QM_K_IOP_T(vec, name, pfx, val_t)
-#define qm_iop_kptr_t(name, pfx, val_t)  QM_K_IOP_T(ptr, name, pfx, val_t)
-#define qm_iop_kptr_ckey_t(name, pfx, val_t)                                 \
-    QM_K_IOP_T(ptr_ckey, name, pfx, val_t)
-
+#  define qm_iop_kvec_t(name, pfx, val_t) QM_K_IOP_T(vec, name, pfx, val_t)
+#  define qm_iop_kptr_t(name, pfx, val_t) QM_K_IOP_T(ptr, name, pfx, val_t)
+#  define qm_iop_kptr_ckey_t(name, pfx, val_t)                               \
+      QM_K_IOP_T(ptr_ckey, name, pfx, val_t)
 
 /* }}} */
 

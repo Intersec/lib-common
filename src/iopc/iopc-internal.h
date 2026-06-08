@@ -30,33 +30,33 @@
 #define SNMP_IFACE_OID_MAX 0xFFFF
 
 typedef enum iopc_tok_type_t {
-    ITOK_EOF       = -1,
-    ITOK_DOT       = '.',
-    ITOK_SEMI      = ';',
-    ITOK_EQUAL     = '=',
-    ITOK_MINUS     = '-',
-    ITOK_COLON     = ':',
-    ITOK_COMMA     = ',',
-    ITOK_LPAREN    = '(',
-    ITOK_RPAREN    = ')',
-    ITOK_LBRACKET  = '[',
-    ITOK_RBRACKET  = ']',
-    ITOK_LBRACE    = '{',
-    ITOK_RBRACE    = '}',
-    ITOK_QUESTION  = '?',
-    ITOK_STAR      = '*',
-    ITOK_UNDER     = '_',
-    ITOK_SLASH     = '/',
-    ITOK_TILDE     = '~',
-    ITOK_CARET     = '^',
-    ITOK_PLUS      = '+',
-    ITOK_PERCENT   = '%',
-    ITOK_AMP       = '&',
-    ITOK_VBAR      = '|',
-    ITOK_LT        = '<',
-    ITOK_GT        = '>',
+    ITOK_EOF = -1,
+    ITOK_DOT = '.',
+    ITOK_SEMI = ';',
+    ITOK_EQUAL = '=',
+    ITOK_MINUS = '-',
+    ITOK_COLON = ':',
+    ITOK_COMMA = ',',
+    ITOK_LPAREN = '(',
+    ITOK_RPAREN = ')',
+    ITOK_LBRACKET = '[',
+    ITOK_RBRACKET = ']',
+    ITOK_LBRACE = '{',
+    ITOK_RBRACE = '}',
+    ITOK_QUESTION = '?',
+    ITOK_STAR = '*',
+    ITOK_UNDER = '_',
+    ITOK_SLASH = '/',
+    ITOK_TILDE = '~',
+    ITOK_CARET = '^',
+    ITOK_PLUS = '+',
+    ITOK_PERCENT = '%',
+    ITOK_AMP = '&',
+    ITOK_VBAR = '|',
+    ITOK_LT = '<',
+    ITOK_GT = '>',
 
-    ITOK_IDENT     = 128,
+    ITOK_IDENT = 128,
     ITOK_LSHIFT,
     ITOK_RSHIFT,
     ITOK_EXP,
@@ -84,7 +84,7 @@ extern struct {
     logger_t logger;
 
     const char *prefix_dir;
-    bool        display_prefix;
+    bool display_prefix;
 
     qv_t(iopc_loc) loc_stack;
 
@@ -97,16 +97,15 @@ extern struct {
 void iopc_loc_merge(iopc_loc_t *l1, iopc_loc_t l2);
 iopc_loc_t iopc_loc_merge2(iopc_loc_t l1, iopc_loc_t l2);
 
-#define print_warning(fmt, ...)  \
+#define print_warning(fmt, ...)                                              \
     logger_warning(&iopc_g.logger, fmt, ##__VA_ARGS__)
 
-#define print_error(fmt, ...)  \
-    logger_error(&iopc_g.logger, fmt, ##__VA_ARGS__)
+#define print_error(fmt, ...) logger_error(&iopc_g.logger, fmt, ##__VA_ARGS__)
 
-#define throw_error(fmt, ...)  \
-    do {                                    \
-        print_error(fmt, ##__VA_ARGS__);    \
-        return -1;                          \
+#define throw_error(fmt, ...)                                                \
+    do {                                                                     \
+        print_error(fmt, ##__VA_ARGS__);                                     \
+        return -1;                                                           \
     } while (0)
 
 const char *__get_path(const char *file, bool display_prefix);
@@ -126,16 +125,19 @@ static inline const char *get_full_path(const char *file)
         const typeof(loc) *__loc = &(loc);                                   \
                                                                              \
         if (__loc->file) {                                                   \
-            logger_log(&iopc_g.logger, level, "%s:%d:%d: %s: "fmt,           \
-                       get_print_path(__loc->file),                          \
-                       __loc->lmin, __loc->cmin, (t), ##__VA_ARGS__);        \
+            logger_log(                                                      \
+                &iopc_g.logger, level, "%s:%d:%d: %s: " fmt,                 \
+                get_print_path(__loc->file), __loc->lmin, __loc->cmin, (t),  \
+                ##__VA_ARGS__                                                \
+            );                                                               \
         } else {                                                             \
-            logger_log(&iopc_g.logger, level, "%s: "fmt, (t),                \
-                       ##__VA_ARGS__);                                       \
+            logger_log(                                                      \
+                &iopc_g.logger, level, "%s: " fmt, (t), ##__VA_ARGS__        \
+            );                                                               \
         }                                                                    \
     } while (0)
 
-#define do_loc(fmt, level, t, loc, ...)  \
+#define do_loc(fmt, level, t, loc, ...)                                      \
     do {                                                                     \
         do_loc_(fmt, level, t, loc, ##__VA_ARGS__);                          \
         for (int i_ = 0; i_ < iopc_g.loc_stack.len; i_++) {                  \
@@ -144,35 +146,35 @@ static inline const char *get_full_path(const char *file)
         }                                                                    \
     } while (0)
 
-#define t_push_loc(loc, ...)  \
+#define t_push_loc(loc, ...)                                                 \
     do {                                                                     \
         qv_append(&iopc_g.loc_stack, loc);                                   \
         tab_last(&iopc_g.loc_stack)->comment = t_fmt(__VA_ARGS__);           \
     } while (0)
 
-#define pop_loc()          qv_shrink(&iopc_g.loc_stack, 1)
-#define clear_loc()        qv_clear(&iopc_g.loc_stack)
+#define pop_loc() qv_shrink(&iopc_g.loc_stack, 1)
+#define clear_loc() qv_clear(&iopc_g.loc_stack)
 
-#define info_loc(fmt, loc, ...)   \
+#define info_loc(fmt, loc, ...)                                              \
     do {                                                                     \
         if (iopc_g.print_info) {                                             \
             do_loc(fmt, LOG_INFO, "info", loc, ##__VA_ARGS__);               \
         }                                                                    \
     } while (0)
 
-#define warn_loc(fmt, loc, ...)   \
+#define warn_loc(fmt, loc, ...)                                              \
     do_loc(fmt, LOG_WARNING, "warning", loc, ##__VA_ARGS__)
 
-#define error_loc(fmt, loc, ...)  \
+#define error_loc(fmt, loc, ...)                                             \
     do_loc(fmt, LOG_ERR, "error", loc, ##__VA_ARGS__)
 
-#define throw_loc(fmt, loc, ...)  \
+#define throw_loc(fmt, loc, ...)                                             \
     do {                                                                     \
         error_loc(fmt, loc, ##__VA_ARGS__);                                  \
         return -1;                                                           \
     } while (0)
 
-#define throw_loc_p(fmt, loc, ...)  \
+#define throw_loc_p(fmt, loc, ...)                                           \
     do {                                                                     \
         error_loc(fmt, loc, ##__VA_ARGS__);                                  \
         return NULL;                                                         \
@@ -183,12 +185,12 @@ static inline const char *get_full_path(const char *file)
 qvector_t(sb, sb_t);
 
 typedef struct dox_chunk_t {
-    lstr_t     keyword;
+    lstr_t keyword;
     qv_t(lstr) params;      /* params inside [] following the keyword */
     qv_t(lstr) params_args; /* IDs starting the first paragraph */
-    qv_t(sb)   paragraphs;
-    int        paragraph0_args_len;
-    int        first_sentence_len; /* used for auto-brief */
+    qv_t(sb) paragraphs;
+    int paragraph0_args_len;
+    int first_sentence_len; /* used for auto-brief */
     iopc_loc_t loc;
 } dox_chunk_t;
 GENERIC_INIT(dox_chunk_t, dox_chunk);
@@ -206,7 +208,8 @@ typedef struct dox_tok_t {
     qv_t(dox_chunk) chunks;
     bool is_back : 1;
 } dox_tok_t;
-static inline void dox_tok_wipe(dox_tok_t *p) {
+static inline void dox_tok_wipe(dox_tok_t *p)
+{
     /* XXX: don't deep_wipe chunks when wiping dox_tok
      *      elements of chunks will be used after deletion of the token
      */
@@ -232,7 +235,7 @@ lstr_t iopc_dox_type_to_lstr(iopc_dox_type_t);
 
 typedef struct iopc_dox_t {
     iopc_dox_type_t type;
-    lstr_t          desc;
+    lstr_t desc;
 } iopc_dox_t;
 GENERIC_INIT(iopc_dox_t, iopc_dox);
 static inline void iopc_dox_wipe(iopc_dox_t *dox)
@@ -247,25 +250,27 @@ iopc_dox_t *iopc_dox_find_type(const qv_t(iopc_dox) *, iopc_dox_type_t);
 /*----- lexer and tokens -----*/
 
 typedef struct iopc_token_t {
-    iopc_loc_t      loc;
+    iopc_loc_t loc;
     iopc_tok_type_t token;
 
     int refcnt;
     union {
         uint64_t i;
-        double   d;
+        double d;
     };
     bool i_is_signed;
     bool b_is_char;
     sb_t b;
     dox_tok_t *dox;
 } iopc_token_t;
-static inline iopc_token_t *iopc_token_init(iopc_token_t *tk) {
+static inline iopc_token_t *iopc_token_init(iopc_token_t *tk)
+{
     p_clear(tk, 1);
     sb_init(&tk->b);
     return tk;
 }
-static inline void iopc_token_wipe(iopc_token_t *tk) {
+static inline void iopc_token_wipe(iopc_token_t *tk)
+{
     sb_wipe(&tk->b);
     dox_tok_delete(&tk->dox);
 }
@@ -278,14 +283,15 @@ typedef enum iopc_file_t {
     IOPC_FILE_BUFFER,
 } iopc_file_t;
 
-struct lexdata *iopc_lexer_new(const char *file, const char *data,
-                               iopc_file_t type);
+struct lexdata *
+iopc_lexer_new(const char *file, const char *data, iopc_file_t type);
 int iopc_lexer_fd(struct lexdata *);
 void iopc_lexer_push_state_attr(struct lexdata *ld);
 void iopc_lexer_pop_state(struct lexdata *ld);
 void iopc_lexer_delete(struct lexdata **);
-int iopc_next_token(struct lexdata *, bool want_comments,
-                    iopc_token_t **out_tk);
+int iopc_next_token(
+    struct lexdata *, bool want_comments, iopc_token_t **out_tk
+);
 
 /*----- ast -----*/
 
@@ -300,12 +306,14 @@ typedef struct iopc_path_t {
     /* Full IOP file path from root level: "foo/bar.iop". */
     char *slash_path;
 } iopc_path_t;
-static inline iopc_path_t *iopc_path_init(iopc_path_t *path) {
+static inline iopc_path_t *iopc_path_init(iopc_path_t *path)
+{
     p_clear(path, 1);
     qv_init(&path->bits);
     return path;
 }
-static inline void iopc_path_wipe(iopc_path_t *path) {
+static inline void iopc_path_wipe(iopc_path_t *path)
+{
     p_delete(&path->dot_path);
     p_delete(&path->slash_path);
     qv_deep_wipe(&path->bits, p_delete);
@@ -362,18 +370,17 @@ typedef enum iopc_attr_type_t {
     IOPC_ATTR_T_UNION = 1 << 7,
     IOPC_ATTR_T_STRUCT = 1 << 8,
     IOPC_ATTR_T_CLASS = 1 << 9,
-#define IOPC_ATTR_T_ALL_FIELDS  BITMASK_LE(int64_t, 9)
+#define IOPC_ATTR_T_ALL_FIELDS BITMASK_LE(int64_t, 9)
     /* declarations */
     IOPC_ATTR_T_RPC = 1 << 10,
     IOPC_ATTR_T_IFACE = 1 << 11,
     IOPC_ATTR_T_MOD = 1 << 12,
-#define IOPC_ATTR_T_ALL         BITMASK_LE(int64_t, 12)
+#define IOPC_ATTR_T_ALL BITMASK_LE(int64_t, 12)
     /* snmp */
     IOPC_ATTR_T_SNMP_OBJ = 1 << 13,
     IOPC_ATTR_T_SNMP_IFACE = 1 << 14,
     IOPC_ATTR_T_SNMP_TBL = 1 << 15,
 } iopc_attr_type_t;
-
 
 typedef enum iopc_attr_flag_t {
     /* attribute can apply to required fields */
@@ -384,8 +391,8 @@ typedef enum iopc_attr_flag_t {
     IOPC_ATTR_F_FIELD_OPTIONAL = 1 << 2,
     /* attribute can apply to repeated fields */
     IOPC_ATTR_F_FIELD_REPEATED = 1 << 3,
-#define IOPC_ATTR_F_FIELD_ALL  BITMASK_LE(int64_t, 3)
-#define IOPC_ATTR_F_FIELD_ALL_BUT_REQUIRED                \
+#define IOPC_ATTR_F_FIELD_ALL BITMASK_LE(int64_t, 3)
+#define IOPC_ATTR_F_FIELD_ALL_BUT_REQUIRED                                   \
     (IOPC_ATTR_F_FIELD_ALL & ~IOPC_ATTR_F_FIELD_REQUIRED)
 
     /* attribute can also apply to required void fields without applying to
@@ -400,18 +407,19 @@ typedef enum iopc_attr_flag_t {
     IOPC_ATTR_F_CONSTRAINT = 1 << 7,
 } iopc_attr_flag_t;
 
-
 typedef struct iopc_arg_desc_t {
-    lstr_t          name;
+    lstr_t name;
     /* ITOK_STRING / ITOK_IDENT / ITOK_DOUBLE / ITOK_INTEGER
      * when set to ITOK_DOUBLE, ITOK_INTEGER is accepted as well */
     iopc_tok_type_t type;
 } iopc_arg_desc_t;
-static inline iopc_arg_desc_t *iopc_arg_desc_init(iopc_arg_desc_t *arg) {
+static inline iopc_arg_desc_t *iopc_arg_desc_init(iopc_arg_desc_t *arg)
+{
     p_clear(arg, 1);
     return arg;
 }
-static inline void iopc_arg_desc_wipe(iopc_arg_desc_t *arg) {
+static inline void iopc_arg_desc_wipe(iopc_arg_desc_t *arg)
+{
     lstr_wipe(&arg->name);
 }
 GENERIC_NEW(iopc_arg_desc_t, iopc_arg_desc);
@@ -419,74 +427,79 @@ GENERIC_DELETE(iopc_arg_desc_t, iopc_arg_desc);
 qvector_t(iopc_arg_desc, iopc_arg_desc_t);
 
 typedef struct iopc_attr_desc_t {
-    iopc_attr_id_t      id;
-    lstr_t              name;
+    iopc_attr_id_t id;
+    lstr_t name;
     qv_t(iopc_arg_desc) args;
     /* bitfield of iopc_attr_type_t */
-    int64_t             types;
+    int64_t types;
     /* bitfield of iopc_attr_flag_t */
-    int64_t             flags;
+    int64_t flags;
 } iopc_attr_desc_t;
-#define IOPC_ATTR_REPEATED_MONO_ARG(desc)  \
+#define IOPC_ATTR_REPEATED_MONO_ARG(desc)                                    \
     ({                                                                       \
         const iopc_attr_desc_t *__desc = (desc);                             \
         __desc->args.len == 1 && (__desc->flags & IOPC_ATTR_F_MULTI);        \
     })
 
-static inline iopc_attr_desc_t *iopc_attr_desc_init(iopc_attr_desc_t *d) {
+static inline iopc_attr_desc_t *iopc_attr_desc_init(iopc_attr_desc_t *d)
+{
     p_clear(d, 1);
     qv_init(&d->args);
     return d;
 }
-static inline void iopc_attr_desc_wipe(iopc_attr_desc_t *d) {
+static inline void iopc_attr_desc_wipe(iopc_attr_desc_t *d)
+{
     lstr_wipe(&d->name);
     qv_deep_wipe(&d->args, iopc_arg_desc_wipe);
 }
 GENERIC_NEW(iopc_attr_desc_t, iopc_attr_desc);
 GENERIC_DELETE(iopc_attr_desc_t, iopc_attr_desc);
-qm_kvec_t(attr_desc, lstr_t, iopc_attr_desc_t,
-          qhash_lstr_hash, qhash_lstr_equal);
-
+qm_kvec_t(
+    attr_desc, lstr_t, iopc_attr_desc_t, qhash_lstr_hash, qhash_lstr_equal
+);
 
 typedef struct iopc_arg_t {
-    iopc_loc_t           loc;
-    iopc_arg_desc_t     *desc;
+    iopc_loc_t loc;
+    iopc_arg_desc_t *desc;
     /* ITOK_STRING / ITOK_IDENT / ITOK_DOUBLE / ITOK_INTEGER */
-    iopc_tok_type_t      type;
+    iopc_tok_type_t type;
     union {
         int64_t i64;
-        double  d;
-        lstr_t  s;
+        double d;
+        lstr_t s;
     } v;
 } iopc_arg_t;
 
-static inline iopc_arg_t iopc_arg_dup(const iopc_arg_t *arg) {
+static inline iopc_arg_t iopc_arg_dup(const iopc_arg_t *arg)
+{
     iopc_arg_t a = *arg;
 
     if (a.desc) {
         switch (a.desc->type) {
-          case ITOK_STRING:
-          case ITOK_IDENT:
+        case ITOK_STRING:
+        case ITOK_IDENT:
             a.v.s = lstr_dup(arg->v.s);
             break;
-          default:
+        default:
             break;
         }
     }
     return a;
 }
-static inline iopc_arg_t *iopc_arg_init(iopc_arg_t *a) {
+static inline iopc_arg_t *iopc_arg_init(iopc_arg_t *a)
+{
     p_clear(a, 1);
     return a;
 }
-static inline void iopc_arg_wipe(iopc_arg_t *a) {
+static inline void iopc_arg_wipe(iopc_arg_t *a)
+{
     if (a->desc) {
         switch (a->desc->type) {
-          case ITOK_STRING:
-          case ITOK_IDENT:
+        case ITOK_STRING:
+        case ITOK_IDENT:
             lstr_wipe(&a->v.s);
             break;
-          default:
+        default:
             break;
         }
     }
@@ -496,10 +509,10 @@ GENERIC_DELETE(iopc_arg_t, iopc_arg);
 qvector_t(iopc_arg, iopc_arg_t);
 
 typedef struct iopc_extends_t {
-    bool       is_snmp_root : 1;
+    bool is_snmp_root : 1;
     iopc_loc_t loc;
     iopc_path_t *path;
-    iopc_pkg_t  *pkg;
+    iopc_pkg_t *pkg;
     char *name;
     struct iopc_struct_t *st;
 } iopc_extends_t;
@@ -509,25 +522,27 @@ GENERIC_DELETE(iopc_extends_t, iopc_extends);
 qvector_t(iopc_extends, iopc_extends_t *);
 
 typedef struct iopc_attr_t {
-    int                  refcnt;
-    iopc_loc_t           loc;
-    iopc_attr_desc_t    *desc;
-    qv_t(iopc_arg)       args;
+    int refcnt;
+    iopc_loc_t loc;
+    iopc_attr_desc_t *desc;
+    qv_t(iopc_arg) args;
 
     /* Used only for generic attributes */
-    lstr_t               real_name;
+    lstr_t real_name;
 
     /* Used only for snmp_params_from attributes */
-    qv_t(iopc_extends)   snmp_params_from;
+    qv_t(iopc_extends) snmp_params_from;
 } iopc_attr_t;
 
-static inline iopc_attr_t *iopc_attr_init(iopc_attr_t *a) {
+static inline iopc_attr_t *iopc_attr_init(iopc_attr_t *a)
+{
     p_clear(a, 1);
     qv_init(&a->args);
     qv_init(&a->snmp_params_from);
     return a;
 }
-static inline void iopc_attr_wipe(iopc_attr_t *a) {
+static inline void iopc_attr_wipe(iopc_attr_t *a)
+{
     lstr_wipe(&a->real_name);
     qv_deep_wipe(&a->args, iopc_arg_wipe);
     qv_deep_wipe(&a->snmp_params_from, iopc_extends_delete);
@@ -535,17 +550,17 @@ static inline void iopc_attr_wipe(iopc_attr_t *a) {
 DO_REFCNT(iopc_attr_t, iopc_attr);
 qvector_t(iopc_attr, iopc_attr_t *);
 
-int
-iopc_attr_check(const qv_t(iopc_attr) *, iopc_attr_id_t,
-                const qv_t(iopc_arg) **out);
+int iopc_attr_check(
+    const qv_t(iopc_attr) *, iopc_attr_id_t, const qv_t(iopc_arg) **out
+);
 
 int t_iopc_attr_check_prefix(const qv_t(iopc_attr) *, lstr_t *out);
 
 typedef enum iopc_struct_type_t {
-    STRUCT_TYPE_STRUCT   = 0,
-    STRUCT_TYPE_CLASS    = 1,
-    STRUCT_TYPE_UNION    = 2,
-    STRUCT_TYPE_TYPEDEF  = 3,
+    STRUCT_TYPE_STRUCT = 0,
+    STRUCT_TYPE_CLASS = 1,
+    STRUCT_TYPE_UNION = 2,
+    STRUCT_TYPE_TYPEDEF = 3,
     STRUCT_TYPE_SNMP_OBJ = 4,
     STRUCT_TYPE_SNMP_TBL = 5,
 } iopc_struct_type_t;
@@ -569,19 +584,19 @@ static inline bool iopc_is_snmp_st(iopc_struct_type_t type)
 static inline const char *iopc_struct_type_to_str(iopc_struct_type_t type)
 {
     switch (type) {
-      case STRUCT_TYPE_CLASS:
+    case STRUCT_TYPE_CLASS:
         return "class";
-      case STRUCT_TYPE_SNMP_OBJ:
+    case STRUCT_TYPE_SNMP_OBJ:
         return "snmpObj";
-      case STRUCT_TYPE_UNION:
+    case STRUCT_TYPE_UNION:
         return "union";
-      case STRUCT_TYPE_TYPEDEF:
+    case STRUCT_TYPE_TYPEDEF:
         return "typedef";
-      case STRUCT_TYPE_STRUCT:
+    case STRUCT_TYPE_STRUCT:
         return "struct";
-      case STRUCT_TYPE_SNMP_TBL:
+    case STRUCT_TYPE_SNMP_TBL:
         return "snmpTbl";
-      default:
+    default:
         e_panic("type not handled");
     }
 }
@@ -594,8 +609,8 @@ typedef enum iopc_defval_t {
 } iopc_defval_t;
 
 typedef enum iopc_iface_type_t {
-    IFACE_TYPE_IFACE        = 0,
-    IFACE_TYPE_SNMP_IFACE   = 1,
+    IFACE_TYPE_IFACE = 0,
+    IFACE_TYPE_SNMP_IFACE = 1,
 } iopc_iface_type_t;
 
 static inline bool iopc_is_snmp_iface(iopc_iface_type_t type)
@@ -604,9 +619,9 @@ static inline bool iopc_is_snmp_iface(iopc_iface_type_t type)
 }
 
 typedef struct iopc_field_t {
-    int        refcnt;
-    uint16_t   size;
-    uint8_t    align;
+    int refcnt;
+    uint16_t size;
+    uint8_t align;
     iopc_struct_type_t type;
 
     iopc_loc_t loc;
@@ -628,9 +643,9 @@ typedef struct iopc_field_t {
     iopc_defval_t defval_type;
     bool defval_is_signed : 1;
     bool is_visible : 1;
-    bool resolving  : 1;
-    bool is_static  : 1;
-    bool is_ref     : 1;
+    bool resolving : 1;
+    bool is_static : 1;
+    bool is_ref : 1;
     /* In case the field is contained by a snmpIface rpc struct', it
      * references another snmpObj field */
     bool snmp_is_from_param : 1;
@@ -652,26 +667,28 @@ typedef struct iopc_field_t {
     /** definition of the resolved complex type */
     union {
         struct iopc_struct_t *struct_def;
-        struct iopc_enum_t   *enum_def;
+        struct iopc_enum_t *enum_def;
 
         /* For IOP², when the field has a type taken from IOP environment. */
         const iop_struct_t *external_st;
-        const iop_enum_t   *external_en;
+        const iop_enum_t *external_en;
     };
     char *type_name;
     char *pp_type;
 
     qv_t(iopc_attr) attrs;
-    qv_t(iopc_dox)  comments;
+    qv_t(iopc_dox) comments;
 
     /* In case the field is contained by a snmpIface rpc struct' */
     struct iopc_field_t *field_origin; /* the reference field */
     qv_t(iopc_extends) parents;
 } iopc_field_t;
-static inline bool iopc_struct_is_field_ignored(const iopc_field_t *field) {
+static inline bool iopc_struct_is_field_ignored(const iopc_field_t *field)
+{
     return field->kind == IOP_T_VOID && field->repeat == IOP_R_REQUIRED;
 }
-static inline iopc_field_t *iopc_field_init(iopc_field_t *field) {
+static inline iopc_field_t *iopc_field_init(iopc_field_t *field)
+{
     p_clear(field, 1);
     field->type = STRUCT_TYPE_TYPEDEF;
     qv_init(&field->attrs);
@@ -679,7 +696,8 @@ static inline iopc_field_t *iopc_field_init(iopc_field_t *field) {
     qv_init(&field->parents);
     return field;
 }
-static inline void iopc_field_wipe(iopc_field_t *field) {
+static inline void iopc_field_wipe(iopc_field_t *field)
+{
     p_delete(&field->name);
     p_delete(&field->type_name);
     p_delete(&field->pp_type);
@@ -700,10 +718,10 @@ int iopc_field_add_attr(iopc_field_t *f, iopc_attr_t **attrp, bool tdef);
 
 /* used for the code generation of field attributes */
 typedef struct iopc_attrs_t {
-    unsigned                 flags;  /**< bitfield of iop_field_attr_type_t */
-    uint16_t                 attrs_len;
-    lstr_t                   attrs_name;
-    lstr_t                   checkf_name;
+    unsigned flags; /**< bitfield of iop_field_attr_type_t */
+    uint16_t attrs_len;
+    lstr_t attrs_name;
+    lstr_t checkf_name;
 } iopc_attrs_t;
 qvector_t(iopc_attrs, iopc_attrs_t);
 GENERIC_INIT(iopc_attrs_t, iopc_attrs);
@@ -713,52 +731,51 @@ static inline void iopc_attrs_wipe(iopc_attrs_t *attrs)
     lstr_wipe(&attrs->checkf_name);
 }
 
-
 /* Used to detect duplicated ids in an inheritance tree */
 qm_k32_t(id_class, struct iopc_struct_t *);
 
 typedef struct iopc_struct_t {
-    uint16_t   size;
-    uint8_t    align;
+    uint16_t size;
+    uint8_t align;
     iopc_struct_type_t type;
     iopc_loc_t loc;
-    bool       is_visible : 1;
-    bool       optimized : 1;
-    bool       resolving : 1;
-    bool       resolved  : 1;
-    bool       resolving_inheritance : 1;
-    bool       resolved_inheritance  : 1;
-    bool       checked_constraints  : 1;
-    bool       has_constraints      : 1;
-    bool       has_fields_attrs     : 1;    /**< st.fields_attrs existence  */
-    bool       is_abstract          : 1;
-    bool       is_local             : 1;
+    bool is_visible : 1;
+    bool optimized : 1;
+    bool resolving : 1;
+    bool resolved : 1;
+    bool resolving_inheritance : 1;
+    bool resolved_inheritance : 1;
+    bool checked_constraints : 1;
+    bool has_constraints : 1;
+    bool has_fields_attrs : 1; /**< st.fields_attrs existence  */
+    bool is_abstract : 1;
+    bool is_local : 1;
     /* struct has snmpParams attribute */
-    bool       is_snmp_params       : 1;
+    bool is_snmp_params : 1;
     /* struct is a snmpIface rpc' struct */
-    bool       contains_snmp_info : 1;
+    bool contains_snmp_info : 1;
     /* C writer */
-    bool       c_hdr_written : 1;
-    unsigned   flags;                       /**< st.flags                   */
+    bool c_hdr_written : 1;
+    unsigned flags; /**< st.flags                   */
 
-    char      *name;
-    lstr_t     sig;
+    char *name;
+    lstr_t sig;
     union {
-        int    class_id;
-        int    oid;
+        int class_id;
+        int oid;
     };
     struct iopc_struct_t *same_as;
-    struct iopc_iface_t  *iface;
-    qv_t(iopc_field)   fields;
+    struct iopc_iface_t *iface;
+    qv_t(iopc_field) fields;
 
-    qv_t(iopc_field)   fields_by_tag;
-    qv_t(iopc_field)   fields_in_c_struct_order;
+    qv_t(iopc_field) fields_by_tag;
+    qv_t(iopc_field) fields_in_c_struct_order;
 
-    qv_t(iopc_field)   static_fields;
-    int                nb_real_static_fields; /**< those with a defval */
+    qv_t(iopc_field) static_fields;
+    int nb_real_static_fields; /**< those with a defval */
     qv_t(iopc_extends) extends;
-    qv_t(iopc_attr)    attrs;
-    qv_t(iopc_dox)     comments;
+    qv_t(iopc_attr) attrs;
+    qv_t(iopc_dox) comments;
 
     /* Used for master classes (ie. not having a parent); indexes all the
      * children classes by their id. */
@@ -768,7 +785,8 @@ typedef struct iopc_struct_t {
      * descriptions from iopc structures). */
     const iop_struct_t *desc;
 } iopc_struct_t;
-static inline iopc_struct_t *iopc_struct_init(iopc_struct_t *st) {
+static inline iopc_struct_t *iopc_struct_init(iopc_struct_t *st)
+{
     p_clear(st, 1);
     qv_init(&st->fields);
     qv_init(&st->fields_by_tag);
@@ -782,7 +800,8 @@ static inline iopc_struct_t *iopc_struct_init(iopc_struct_t *st) {
 }
 static inline void iopc_struct_delete(iopc_struct_t **);
 static inline void iopc_iface_delete(struct iopc_iface_t **);
-static inline void iopc_struct_wipe(iopc_struct_t *st) {
+static inline void iopc_struct_wipe(iopc_struct_t *st)
+{
     qv_deep_wipe(&st->extends, iopc_extends_delete);
     qv_wipe(&st->fields_by_tag);
     qv_wipe(&st->fields_in_c_struct_order);
@@ -797,10 +816,12 @@ static inline void iopc_struct_wipe(iopc_struct_t *st) {
 GENERIC_NEW(iopc_struct_t, iopc_struct);
 GENERIC_DELETE(iopc_struct_t, iopc_struct);
 qvector_t(iopc_struct, iopc_struct_t *);
-qm_kptr_t(iopc_struct, char, iopc_struct_t *,
-          qhash_str_hash, qhash_str_equal);
+qm_kptr_t(
+    iopc_struct, char, iopc_struct_t *, qhash_str_hash, qhash_str_equal
+);
 
-static inline void iopc_extends_wipe(iopc_extends_t *extends) {
+static inline void iopc_extends_wipe(iopc_extends_t *extends)
+{
     iopc_path_delete(&extends->path);
     p_delete(&extends->name);
 }
@@ -812,13 +833,15 @@ typedef struct iopc_enum_field_t {
     qv_t(iopc_attr) attrs;
     qv_t(iopc_dox) comments;
 } iopc_enum_field_t;
-static inline iopc_enum_field_t *iopc_enum_field_init(iopc_enum_field_t *e) {
+static inline iopc_enum_field_t *iopc_enum_field_init(iopc_enum_field_t *e)
+{
     p_clear(e, 1);
     qv_init(&e->attrs);
     qv_init(&e->comments);
     return e;
 }
-static inline void iopc_enum_field_wipe(iopc_enum_field_t *e) {
+static inline void iopc_enum_field_wipe(iopc_enum_field_t *e)
+{
     p_delete(&e->name);
     qv_deep_wipe(&e->attrs, iopc_attr_delete);
     qv_deep_wipe(&e->comments, iopc_dox_wipe);
@@ -828,25 +851,27 @@ GENERIC_DELETE(iopc_enum_field_t, iopc_enum_field);
 qvector_t(iopc_enum_field, iopc_enum_field_t *);
 
 typedef struct iopc_enum_t {
-    bool       is_visible : 1;
+    bool is_visible : 1;
     iopc_loc_t loc;
     char *name;
     qv_t(iopc_enum_field) values;
-    qv_t(iopc_attr)       attrs;
-    qv_t(iopc_dox)        comments;
+    qv_t(iopc_attr) attrs;
+    qv_t(iopc_dox) comments;
 
     /* IOP description of the enum (used by IOP² when generating IOP
      * descriptions from iopc enumerations). */
     const iop_enum_t *desc;
 } iopc_enum_t;
-static inline iopc_enum_t *iopc_enum_init(iopc_enum_t *e) {
+static inline iopc_enum_t *iopc_enum_init(iopc_enum_t *e)
+{
     p_clear(e, 1);
     qv_init(&e->values);
     qv_init(&e->attrs);
     qv_init(&e->comments);
     return e;
 }
-static inline void iopc_enum_wipe(iopc_enum_t *e) {
+static inline void iopc_enum_wipe(iopc_enum_t *e)
+{
     qv_deep_wipe(&e->values, iopc_enum_field_delete);
     qv_deep_wipe(&e->attrs, iopc_attr_delete);
     qv_deep_wipe(&e->comments, iopc_dox_wipe);
@@ -878,9 +903,9 @@ static inline bool iopc_fun_struct_is_void(const iopc_fun_struct_t *fun_st)
 
 typedef struct iopc_fun_t {
     iopc_loc_t loc;
-    int        tag;
-    int        pos; /* To sort funs by order of appearance in iface. */
-    char      *name;
+    int tag;
+    int pos; /* To sort funs by order of appearance in iface. */
+    char *name;
 
     bool fun_is_async;
 
@@ -889,22 +914,25 @@ typedef struct iopc_fun_t {
     iopc_fun_struct_t exn;
 
     qv_t(iopc_attr) attrs;
-    qv_t(iopc_dox)  comments;
+    qv_t(iopc_dox) comments;
 } iopc_fun_t;
-static inline iopc_fun_t *iopc_fun_init(iopc_fun_t *fun) {
+static inline iopc_fun_t *iopc_fun_init(iopc_fun_t *fun)
+{
     p_clear(fun, 1);
     qv_init(&fun->attrs);
     qv_init(&fun->comments);
     return fun;
 }
-static inline void iopc_fun_struct_wipe(iopc_fun_struct_t *fun_st) {
+static inline void iopc_fun_struct_wipe(iopc_fun_struct_t *fun_st)
+{
     if (fun_st->is_anonymous) {
         iopc_struct_delete(&fun_st->anonymous_struct);
     } else {
         iopc_field_delete(&fun_st->existing_struct);
     }
 }
-static inline void iopc_fun_wipe(iopc_fun_t *fun) {
+static inline void iopc_fun_wipe(iopc_fun_t *fun)
+{
     iopc_fun_struct_wipe(&fun->arg);
     iopc_fun_struct_wipe(&fun->res);
     iopc_fun_struct_wipe(&fun->exn);
@@ -918,21 +946,22 @@ qvector_t(iopc_fun, iopc_fun_t *);
 qm_kptr_t(iopc_fun, char, iopc_fun_t *, qhash_str_hash, qhash_str_equal);
 
 typedef struct iopc_iface_t {
-    bool       is_visible : 1;
+    bool is_visible : 1;
     iopc_loc_t loc;
-    unsigned   flags;
+    unsigned flags;
 
     char *name;
-    qv_t(iopc_fun)  funs;
+    qv_t(iopc_fun) funs;
     qv_t(iopc_attr) attrs;
-    qv_t(iopc_dox)  comments;
+    qv_t(iopc_dox) comments;
 
     /* Used only for snmpIface*/
     iopc_iface_type_t type;
     int oid;
     qv_t(iopc_extends) extends;
 } iopc_iface_t;
-static inline iopc_iface_t *iopc_iface_init(iopc_iface_t *iface) {
+static inline iopc_iface_t *iopc_iface_init(iopc_iface_t *iface)
+{
     p_clear(iface, 1);
     qv_init(&iface->funs);
     qv_init(&iface->attrs);
@@ -940,7 +969,8 @@ static inline iopc_iface_t *iopc_iface_init(iopc_iface_t *iface) {
     qv_init(&iface->extends);
     return iface;
 }
-static inline void iopc_iface_wipe(iopc_iface_t *iface) {
+static inline void iopc_iface_wipe(iopc_iface_t *iface)
+{
     qv_deep_wipe(&iface->funs, iopc_fun_delete);
     qv_deep_wipe(&iface->attrs, iopc_attr_delete);
     qv_deep_wipe(&iface->comments, iopc_dox_wipe);
@@ -955,22 +985,23 @@ qh_khptr_t(iopc_pkg, iopc_pkg_t);
 struct iopc_pkg_t {
     bool t_resolving : 1;
     bool i_resolving : 1;
-    bool t_resolved  : 1;
-    bool i_resolved  : 1;
+    bool t_resolved : 1;
+    bool i_resolved : 1;
 
-    char        *file;
-    char        *base;
+    char *file;
+    char *base;
     iopc_path_t *name;
 
-    qv_t(iopc_enum)   enums;
+    qv_t(iopc_enum) enums;
     qv_t(iopc_struct) structs;
-    qv_t(iopc_iface)  ifaces;
+    qv_t(iopc_iface) ifaces;
     qv_t(iopc_struct) modules;
-    qv_t(iopc_field)  typedefs;
-    qv_t(iopc_dox)    comments;
-    qh_t(iopc_pkg)    deps;
+    qv_t(iopc_field) typedefs;
+    qv_t(iopc_dox) comments;
+    qh_t(iopc_pkg) deps;
 };
-static inline iopc_pkg_t *iopc_pkg_init(iopc_pkg_t *pkg) {
+static inline iopc_pkg_t *iopc_pkg_init(iopc_pkg_t *pkg)
+{
     p_clear(pkg, 1);
     qv_init(&pkg->enums);
     qv_init(&pkg->structs);
@@ -981,7 +1012,8 @@ static inline iopc_pkg_t *iopc_pkg_init(iopc_pkg_t *pkg) {
     qh_init(iopc_pkg, &pkg->deps);
     return pkg;
 }
-static inline void iopc_pkg_wipe(iopc_pkg_t *pkg) {
+static inline void iopc_pkg_wipe(iopc_pkg_t *pkg)
+{
     qh_wipe(iopc_pkg, &pkg->deps);
     qv_deep_wipe(&pkg->ifaces, iopc_iface_delete);
     qv_deep_wipe(&pkg->structs, iopc_struct_delete);
@@ -1016,14 +1048,14 @@ static inline const char *iopc_path_basename(iopc_path_t *path)
 void iopc_path_join(const iopc_path_t *path, const char *sep, sb_t *buf);
 const char *t_iopc_path_join(const iopc_path_t *path, const char *sep);
 
-
 /*----- parser & typer -----*/
 
 void iopc_parser_initialize(void);
 void iopc_parser_shutdown(void);
-iopc_pkg_t *iopc_parse_file(qv_t(cstr) *includes,
-                            const qm_t(iopc_env) *env, const char *file,
-                            const char *data, bool is_main_pkg);
+iopc_pkg_t *iopc_parse_file(
+    qv_t(cstr) *includes, const qm_t(iopc_env) *env, const char *file,
+    const char *data, bool is_main_pkg
+);
 
 void iopc_typer_initialize(void);
 void iopc_typer_shutdown(void);
@@ -1035,18 +1067,18 @@ void iopc_depends_uniquify(qv_t(iopc_pkg) *deps);
 /** Flags to be used by iopc_pkg_get_deps(). */
 typedef enum iopc_pkg_get_deps_flags_t {
     /** Include the iface dependencies. */
-    IOPC_PKG_GET_DEPS_INCLUDE_IFACES          = 1 << 0,
+    IOPC_PKG_GET_DEPS_INCLUDE_IFACES = 1 << 0,
 
     /** Include the SNMP structures dependencies. */
-    IOPC_PKG_GET_DEPS_INCLUDE_SNMP            = 1 << 1,
+    IOPC_PKG_GET_DEPS_INCLUDE_SNMP = 1 << 1,
 
     /** Include the dependencies of all ancestors of the classes. */
     IOPC_PKG_GET_DEPS_INCLUDE_CLASS_ANCESTORS = 1 << 2,
 
     /** Include all possible dependencies. */
-    IOPC_PKG_GET_DEPS_INCLUDE_ALL = IOPC_PKG_GET_DEPS_INCLUDE_IFACES
-                                  | IOPC_PKG_GET_DEPS_INCLUDE_SNMP
-                                  | IOPC_PKG_GET_DEPS_INCLUDE_CLASS_ANCESTORS,
+    IOPC_PKG_GET_DEPS_INCLUDE_ALL = IOPC_PKG_GET_DEPS_INCLUDE_IFACES |
+                                    IOPC_PKG_GET_DEPS_INCLUDE_SNMP |
+                                    IOPC_PKG_GET_DEPS_INCLUDE_CLASS_ANCESTORS,
 } iopc_pkg_get_deps_flags_t;
 
 /** For a given IOPC package, list the other IOPC packages it depends on.
@@ -1068,9 +1100,10 @@ typedef enum iopc_pkg_get_deps_flags_t {
  *                     header as structs/union/classes so their dependencies
  *                     are listed separately.
  */
-void iopc_pkg_get_deps(iopc_pkg_t *pkg, unsigned flags,
-                       qv_t(iopc_pkg) *t_deps, qv_t(iopc_pkg) *t_weak_deps,
-                       qv_t(iopc_pkg) *i_deps);
+void iopc_pkg_get_deps(
+    iopc_pkg_t *pkg, unsigned flags, qv_t(iopc_pkg) *t_deps,
+    qv_t(iopc_pkg) *t_weak_deps, qv_t(iopc_pkg) *i_deps
+);
 
 static inline void iopc_parser_typer_initialize(void)
 {
@@ -1090,25 +1123,26 @@ int iopc_field_get_signed(const iopc_field_t *f, bool *is_signed);
 
 /*----- writing output files -----*/
 
-#define DOUBLE_FMT  "%.17e"
+#define DOUBLE_FMT "%.17e"
 
-#define IOPC_ATTR_GET_ARG_V(_type, _a)  \
-    ((_a)->type == ITOK_INTEGER || (_a)->type == ITOK_BOOL ? \
-     (_type)(_a)->v.i64 : (_type)(_a)->v.d)
+#define IOPC_ATTR_GET_ARG_V(_type, _a)                                       \
+    ((_a)->type == ITOK_INTEGER || (_a)->type == ITOK_BOOL                   \
+         ? (_type)(_a)->v.i64                                                \
+         : (_type)(_a)->v.d)
 
 typedef struct iopc_write_buf_t {
     sb_t *buf;
     sb_t *tab; /* for tabulations in start of lines */
 } iopc_write_buf_t;
 
-#define IOPC_WRITE_START_LINE(_wbuf, _fct, _fmt, ...)  \
-    do {                                               \
-        const iopc_write_buf_t *__b = (_wbuf);         \
-        sb_addsb(__b->buf, __b->tab);                  \
-        _fct(__b->buf, _fmt, ##__VA_ARGS__);           \
+#define IOPC_WRITE_START_LINE(_wbuf, _fct, _fmt, ...)                        \
+    do {                                                                     \
+        const iopc_write_buf_t *__b = (_wbuf);                               \
+        sb_addsb(__b->buf, __b->tab);                                        \
+        _fct(__b->buf, _fmt, ##__VA_ARGS__);                                 \
     } while (0)
 
-#define IOPC_WRITE_START_LINE_CSTR(_wbuf, _str)  \
+#define IOPC_WRITE_START_LINE_CSTR(_wbuf, _str)                              \
     IOPC_WRITE_START_LINE((_wbuf), sb_add_lstr, LSTR(_str))
 
 void iopc_write_buf_init(iopc_write_buf_t *wbuf, sb_t *buf, sb_t *tab);
@@ -1117,9 +1151,10 @@ void iopc_write_buf_tab_inc(const iopc_write_buf_t *);
 
 void iopc_write_buf_tab_dec(const iopc_write_buf_t *);
 
-int
-iopc_set_path(const char *outdir, const iopc_pkg_t *pkg,
-              const char *ext, int max_len, char *path, bool only_pkg);
+int iopc_set_path(
+    const char *outdir, const iopc_pkg_t *pkg, const char *ext, int max_len,
+    char *path, bool only_pkg
+);
 
 int iopc_write_file(const sb_t *buf, const char *path);
 

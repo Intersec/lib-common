@@ -62,22 +62,22 @@
 
 #include <lib-common/container-qvector.h>
 
-#define FILE_BIN_DEFAULT_SLOT_SIZE  (1 << 20) /* 1 Megabyte */
+#define FILE_BIN_DEFAULT_SLOT_SIZE (1 << 20) /* 1 Megabyte */
 
 typedef struct file_bin_t {
     bool read_mode;
 
     /* Read/Write mode common fields. */
-    FILE     *f;
-    off_t     cur;
-    lstr_t    path;
-    uint32_t  slot_size;
-    uint16_t  version;
+    FILE *f;
+    off_t cur;
+    lstr_t path;
+    uint32_t slot_size;
+    uint16_t version;
 
     /* Read mode fields. */
-    off_t     length;
-    byte     *map;
-    sb_t      record_buf;
+    off_t length;
+    byte *map;
+    sb_t record_buf;
 } file_bin_t;
 static inline file_bin_t *file_bin_init(file_bin_t *var)
 {
@@ -118,27 +118,26 @@ file_bin_t *file_bin_create(lstr_t path, uint32_t slot_size, bool truncate);
  *
  * \return  0 on success, negative value otherwise.
  */
-__must_check__
-int file_bin_put_record(file_bin_t *file, const void *data, uint32_t len);
+__must_check__ int
+file_bin_put_record(file_bin_t *file, const void *data, uint32_t len);
 
-__must_check__
-static inline int file_bin_put_record_lstr(file_bin_t *file, lstr_t data) {
+__must_check__ static inline int
+file_bin_put_record_lstr(file_bin_t *file, lstr_t data)
+{
     return file_bin_put_record(file, data.data, data.len);
 }
 
-__must_check__
-static inline int file_bin_put_record_sb(file_bin_t *file, sb_t data) {
+__must_check__ static inline int
+file_bin_put_record_sb(file_bin_t *file, sb_t data)
+{
     return file_bin_put_record(file, data.data, data.len);
 }
 
-__must_check__
-int file_bin_truncate(file_bin_t *file, off_t pos);
+__must_check__ int file_bin_truncate(file_bin_t *file, off_t pos);
 
-__must_check__
-int file_bin_flush(file_bin_t *file);
+__must_check__ int file_bin_flush(file_bin_t *file);
 
-__must_check__
-int file_bin_sync(file_bin_t *file);
+__must_check__ int file_bin_sync(file_bin_t *file);
 
 /* }}} */
 /* {{{ Reading */
@@ -162,8 +161,7 @@ file_bin_t *file_bin_open(lstr_t path);
  *
  * \return 0 on success, a negative value otherwise.
  */
-__must_check__
-int file_bin_refresh(file_bin_t *file);
+__must_check__ int file_bin_refresh(file_bin_t *file);
 
 /** Read last records from a binary file.
  *
@@ -177,8 +175,8 @@ int file_bin_refresh(file_bin_t *file);
  *
  * \return  0 on success, negative value otherwise.
  */
-__must_check__
-int t_file_bin_get_last_records(file_bin_t *file, int count, qv_t(lstr) *out);
+__must_check__ int
+t_file_bin_get_last_records(file_bin_t *file, int count, qv_t(lstr) *out);
 
 /** Get next record from a file.
  *
@@ -210,8 +208,8 @@ lstr_t file_bin_get_next_record(file_bin_t *file);
  *                    will contains each record.
  */
 #define file_bin_for_each_entry(file, entry)                                 \
-    for (lstr_t entry = file_bin_get_next_record(file);                      \
-         entry.s; entry = file_bin_get_next_record(file))
+    for (lstr_t entry = file_bin_get_next_record(file); entry.s;             \
+         entry = file_bin_get_next_record(file))
 
 /** Tell if the parsing of a binary file is finished or not.
  *
@@ -243,8 +241,7 @@ static inline bool file_bin_has(file_bin_t *file, off_t len)
  *
  * \return  0 on success, a negative value otherwise.
  */
-__must_check__
-int _file_bin_seek(file_bin_t *file, off_t pos);
+__must_check__ int _file_bin_seek(file_bin_t *file, off_t pos);
 
 /* }}} */
 
@@ -254,7 +251,6 @@ int _file_bin_seek(file_bin_t *file, off_t pos);
  *
  * \return  0 on success, a negative value on failure.
  */
-__must_check__
-int file_bin_close(file_bin_t **file);
+__must_check__ int file_bin_close(file_bin_t **file);
 
 #endif /* IS_FILE_BIN_H */

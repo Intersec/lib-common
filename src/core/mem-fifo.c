@@ -25,10 +25,10 @@
 
 #ifdef MEM_BENCH
 
-#include "mem-bench.h"
-#include <lib-common/thr.h>
+#  include "mem-bench.h"
+#  include <lib-common/thr.h>
 
-#define WRITE_PERIOD 256
+#  define WRITE_PERIOD 256
 #endif
 
 static struct {
@@ -37,7 +37,7 @@ static struct {
     dlist_t all_pools;
     spinlock_t all_pools_lock;
 } core_mem_fifo_g = {
-#define _G  core_mem_fifo_g
+#define _G core_mem_fifo_g
     .logger = LOGGER_INIT_INHERITS(NULL, "core-mem-fifo"),
     .all_pools = DLIST_INIT(_G.all_pools),
 };
@@ -46,8 +46,8 @@ typedef struct mem_page_t {
 
     uint32_t used_size;
     uint32_t used_blocks;
-    size_t   size;
-    void    *last;           /* last result of an allocation */
+    size_t size;
+    void *last; /* last result of an allocation */
 
     byte __attribute__((aligned(8))) area[];
 } mem_page_t;
@@ -55,25 +55,25 @@ typedef struct mem_page_t {
 typedef struct mem_block_t {
     uint32_t page_offs;
     uint32_t blk_size;
-    byte     area[];
+    byte area[];
 } mem_block_t;
 
 typedef struct mem_fifo_pool_t {
-    mem_pool_t  mp;
+    mem_pool_t mp;
     union {
         mem_page_t *freepage;
         mem_pool_t **owner;
     };
-    mem_page_t  *current;
-    size_t      occupied:63;
-    bool        alive:1;
-    size_t      map_size;
-    uint32_t    page_size;
-    uint32_t    nb_pages;
+    mem_page_t *current;
+    size_t occupied : 63;
+    bool alive : 1;
+    size_t map_size;
+    uint32_t page_size;
+    uint32_t nb_pages;
 
 #ifdef MEM_BENCH
     /* Instrumentation */
-    mem_bench_t  mem_bench;
+    mem_bench_t mem_bench;
 #endif
 
 } mem_fifo_pool_t;
@@ -99,12 +99,12 @@ static mem_page_t *mem_page_new(mem_fifo_pool_t *mfp, uint32_t minsize)
         mapsize = ROUND_UP(minsize + sizeof(mem_page_t), PAGE_SIZE);
     }
 
-    page = (mem_page_t *) pa_new(byte, mapsize, 8);
+    page = (mem_page_t *)pa_new(byte, mapsize, 8);
 
-    page->size  = mapsize - sizeof(mem_page_t);
+    page->size = mapsize - sizeof(mem_page_t);
     mem_tool_disallow_memory(page->area, page->size);
     mfp->nb_pages++;
-    mfp->map_size   += mapsize;
+    mfp->map_size += mapsize;
 
 #ifdef MEM_BENCH
     mfp->mem_bench.malloc_calls++;
@@ -124,8 +124,8 @@ static void mem_page_reset(mem_page_t *page)
     mem_tool_disallow_memory(page->area, page->size);
 
     page->used_blocks = 0;
-    page->used_size   = 0;
-    page->last        = NULL;
+    page->used_size = 0;
+    page->last = NULL;
 }
 
 static void mem_page_delete(mem_fifo_pool_t *mfp, mem_page_t **pagep)
@@ -151,8 +151,8 @@ static uint32_t mem_page_size_left(mem_page_t *page)
     return (page->size - page->used_size);
 }
 
-static void *mfp_alloc(mem_pool_t *_mfp, size_t size, size_t alignment,
-                       mem_flags_t flags)
+static void *
+mfp_alloc(mem_pool_t *_mfp, size_t size, size_t alignment, mem_flags_t flags)
 {
     mem_fifo_pool_t *mfp = container_of(_mfp, mem_fifo_pool_t, mp);
     mem_block_t *blk;
@@ -200,10 +200,10 @@ static void *mfp_alloc(mem_pool_t *_mfp, size_t size, size_t alignment,
     mem_tool_allow_memory(blk, sizeof(*blk), true);
     mem_tool_malloclike(blk->area, req_size, 0, true);
     blk->page_offs = (uintptr_t)blk - (uintptr_t)page;
-    blk->blk_size  = size;
+    blk->blk_size = size;
     mem_tool_disallow_memory(blk, sizeof(*blk));
 
-    mfp->occupied   += size;
+    mfp->occupied += size;
     page->used_size += size;
     page->used_blocks++;
 
@@ -236,7 +236,7 @@ static void mfp_free(mem_pool_t *_mfp, void *mem)
         return;
     }
 
-    blk  = container_of(mem, mem_block_t, area);
+    blk = container_of(mem, mem_block_t, area);
     mem_tool_allow_memory(blk, sizeof(*blk), true);
     page = pageof(blk);
     mfp->occupied -= blk->blk_size;
@@ -259,8 +259,9 @@ static void mfp_free(mem_pool_t *_mfp, void *mem)
     /* specific case for a dying pool */
     if (unlikely(!mfp->alive)) {
         mem_page_delete(mfp, &page);
-        if (mfp->nb_pages == 0)
+        if (mfp->nb_pages == 0) {
             p_delete(mfp->owner);
+        }
         return;
     }
 
@@ -281,8 +282,7 @@ static void mfp_free(mem_pool_t *_mfp, void *mem)
                 }
                 mem_page_reset(page);
                 mfp->current = page;
-            } else
-            if (mfp->freepage->size >= page->size) {
+            } else if (mfp->freepage->size >= page->size) {
                 mem_page_delete(mfp, &page);
             } else {
                 mem_page_delete(mfp, &mfp->freepage);
@@ -307,8 +307,10 @@ static void mfp_free(mem_pool_t *_mfp, void *mem)
 #endif
 }
 
-static void *mfp_realloc(mem_pool_t *_mfp, void *mem, size_t oldsize,
-                         size_t size, size_t alignment, mem_flags_t flags)
+static void *mfp_realloc(
+    mem_pool_t *_mfp, void *mem, size_t oldsize, size_t size,
+    size_t alignment, mem_flags_t flags
+)
 {
     mem_fifo_pool_t *mfp = container_of(_mfp, mem_fifo_pool_t, mp);
     mem_block_t *blk;
@@ -339,7 +341,7 @@ static void *mfp_realloc(mem_pool_t *_mfp, void *mem, size_t oldsize,
         return mfp_alloc(_mfp, size, alignment, flags);
     }
 
-    blk  = container_of(mem, mem_block_t, area);
+    blk = container_of(mem, mem_block_t, area);
     mem_tool_allow_memory(blk, sizeof(*blk), true);
     page = pageof(blk);
 
@@ -348,47 +350,49 @@ static void *mfp_realloc(mem_pool_t *_mfp, void *mem, size_t oldsize,
         oldsize = alloced_size;
         guessed_size = true;
     }
-    assert (oldsize <= alloced_size);
+    assert(oldsize <= alloced_size);
     if (req_size <= alloced_size) {
         mem_tool_freelike(mem, oldsize, 0);
         mem_tool_malloclike(mem, req_size, 0, false);
         mem_tool_allow_memory(mem, MIN(req_size, oldsize), true);
-        if (!(flags & MEM_RAW) && oldsize < req_size)
+        if (!(flags & MEM_RAW) && oldsize < req_size) {
             memset(blk->area + oldsize, 0, req_size - oldsize);
-    } else
-    /* optimization if it's the last block allocated */
-    if (mem == page->last
-    && req_size - alloced_size <= mem_page_size_left(page))
-    {
-        size_t diff;
-
-        size = ROUND_UP((size_t)req_size + sizeof(*blk), 8);
-        diff = size - blk->blk_size;
-        blk->blk_size    = size;
-
-        mfp->occupied   += diff;
-        page->used_size += diff;
-        mem_tool_freelike(mem, oldsize, 0);
-        mem_tool_malloclike(mem, req_size, 0, false);
-        mem_tool_allow_memory(mem, MIN(req_size, oldsize), true);
-    } else {
-        void *old = mem;
-
-        mem = mfp_alloc(_mfp, size, alignment, flags);
-
-        if (guessed_size) {
-            /* XXX we guessed the size from the size of the block, as a
-             * consequence, we don't know the exact amount of used memory, and
-             * only have an upper bound, this means that some trailing bytes
-             * may be part of oldsize but not actually part of the allocation,
-             * so we must ensure we are allowed to copy those bytes.
-             */
-            mem_tool_allow_memory(old, oldsize, true);
         }
-        memcpy(mem, old, oldsize);
-        mfp_free(_mfp, old);
-        return mem;
-    }
+    } else
+        /* optimization if it's the last block allocated */
+        if (mem == page->last &&
+            req_size - alloced_size <= mem_page_size_left(page))
+        {
+            size_t diff;
+
+            size = ROUND_UP((size_t)req_size + sizeof(*blk), 8);
+            diff = size - blk->blk_size;
+            blk->blk_size = size;
+
+            mfp->occupied += diff;
+            page->used_size += diff;
+            mem_tool_freelike(mem, oldsize, 0);
+            mem_tool_malloclike(mem, req_size, 0, false);
+            mem_tool_allow_memory(mem, MIN(req_size, oldsize), true);
+        } else {
+            void *old = mem;
+
+            mem = mfp_alloc(_mfp, size, alignment, flags);
+
+            if (guessed_size) {
+                /* XXX we guessed the size from the size of the block, as a
+                 * consequence, we don't know the exact amount of used memory,
+                 * and only have an upper bound, this means that some trailing
+                 * bytes may be part of oldsize but not actually part of the
+                 * allocation, so we must ensure we are allowed to copy those
+                 * bytes.
+                 */
+                mem_tool_allow_memory(old, oldsize, true);
+            }
+            memcpy(mem, old, oldsize);
+            mfp_free(_mfp, old);
+            return mem;
+        }
 
 #ifdef MEM_BENCH
     proctimer_stop(&ptimer);
@@ -404,13 +408,13 @@ static void *mfp_realloc(mem_pool_t *_mfp, void *mem, size_t oldsize,
 }
 
 static mem_pool_t const mem_fifo_pool_base_g = {
-    .malloc   = &mfp_alloc,
-    .realloc  = &mfp_realloc,
-    .free     = &mfp_free,
+    .malloc = &mfp_alloc,
+    .realloc = &mfp_realloc,
+    .free = &mfp_free,
     .mem_pool = MEM_OTHER,
     .min_alignment = 8,
     .name = NULL,
-    .pool_link = { NULL, NULL },
+    .pool_link = {NULL, NULL},
 };
 
 mem_pool_t *mem_fifo_pool_new(const char *name, int page_size_hint)
@@ -424,17 +428,18 @@ mem_pool_t *mem_fifo_pool_new(const char *name, int page_size_hint)
     }
 
     STATIC_ASSERT((offsetof(mem_page_t, area) % 8) == 0);
-    mfp->page_size = MAX(16 * PAGE_SIZE,
-                         ROUND_UP(page_size_hint, PAGE_SIZE));
-    mfp->alive     = true;
-    mfp->current   = mem_page_new(mfp, 0);
+    mfp->page_size = MAX(16 * PAGE_SIZE, ROUND_UP(page_size_hint, PAGE_SIZE));
+    mfp->alive = true;
+    mfp->current = mem_page_new(mfp, 0);
 
 #ifdef MEM_BENCH
     mem_bench_init(&mfp->mem_bench, LSTR("fifo"), WRITE_PERIOD);
 #endif
 
-    mem_pool_set(&mfp->mp, name, &_G.all_pools, &_G.all_pools_lock,
-                 &mem_fifo_pool_base_g, 0);
+    mem_pool_set(
+        &mfp->mp, name, &_G.all_pools, &_G.all_pools_lock,
+        &mem_fifo_pool_base_g, 0
+    );
 
     return &mfp->mp;
 }
@@ -470,9 +475,11 @@ void mem_fifo_pool_delete(mem_pool_t **poolp)
     }
 
     if (mfp->nb_pages) {
-        e_trace(0, "keep fifo-pool alive: %d pages in use (mem: %lubytes)",
-                mfp->nb_pages, (unsigned long) mfp->occupied);
-        mfp->owner   = poolp;
+        e_trace(
+            0, "keep fifo-pool alive: %d pages in use (mem: %lubytes)",
+            mfp->nb_pages, (unsigned long)mfp->occupied
+        );
+        mfp->owner = poolp;
         return;
     }
     p_delete(poolp);
@@ -490,7 +497,7 @@ void mem_fifo_pool_stats(mem_pool_t *mp, ssize_t *allocated, ssize_t *used)
     /* we don't want to account the 'spare' page as allocated, it's an
        optimization that should not leak. */
     *allocated = mfp->map_size - (mfp->freepage ? mfp->freepage->size : 0);
-    *used      = mfp->occupied;
+    *used = mfp->occupied;
 }
 
 void mem_fifo_pool_print_stats(mem_pool_t *mp)
@@ -530,30 +537,36 @@ static void core_mem_fifo_print_state(void)
     t_scope;
     qv_t(table_hdr) hdr;
     qv_t(table_data) rows;
-    table_hdr_t hdr_data[] = { {
+    table_hdr_t hdr_data[] = {
+        {
             .title = LSTR_IMMED("FIFO POOL NAME"),
-        }, {
+        },
+        {
             .title = LSTR_IMMED("POINTER"),
-        }, {
+        },
+        {
             .title = LSTR_IMMED("SIZE"),
-        }, {
+        },
+        {
             .title = LSTR_IMMED("OCCUPIED"),
-        }, {
+        },
+        {
             .title = LSTR_IMMED("PAGE SIZE"),
-        }, {
+        },
+        {
             .title = LSTR_IMMED("NB PAGES"),
         }
     };
     uint32_t hdr_size = countof(hdr_data);
-    size_t   total_size = 0;
-    size_t   total_occupied = 0;
+    size_t total_size = 0;
+    size_t total_occupied = 0;
     uint32_t total_nb_pages = 0;
     int nb_fifo_pool = 0;
 
     qv_init_static(&hdr, hdr_data, hdr_size);
     t_qv_init(&rows, 200);
 
-#define ADD_NUMBER_FIELD(_what)  \
+#define ADD_NUMBER_FIELD(_what)                                              \
     do {                                                                     \
         t_SB(_buf, 16);                                                      \
                                                                              \
@@ -576,7 +589,7 @@ static void core_mem_fifo_print_state(void)
         ADD_NUMBER_FIELD(fp->nb_pages);
 
         nb_fifo_pool++;
-        total_size     += fp->map_size;
+        total_size += fp->map_size;
         total_occupied += fp->occupied;
         total_nb_pages += fp->nb_pages;
     }
@@ -598,8 +611,9 @@ static void core_mem_fifo_print_state(void)
 
         sb_add_table(&buf, &hdr, &rows);
         sb_shrink(&buf, 1);
-        logger_notice(&_G.logger, "fifo pools summary:\n%*pM",
-                      SB_FMT_ARG(&buf));
+        logger_notice(
+            &_G.logger, "fifo pools summary:\n%*pM", SB_FMT_ARG(&buf)
+        );
     }
 #undef ADD_NUMBER_FIELD
 }
@@ -611,13 +625,14 @@ static int core_mem_fifo_initialize(void *arg)
 
 static int core_mem_fifo_shutdown(void)
 {
-    mem_pool_list_clean(&_G.all_pools, "mem fifo",
-                        &_G.all_pools_lock, &_G.logger);
+    mem_pool_list_clean(
+        &_G.all_pools, "mem fifo", &_G.all_pools_lock, &_G.logger
+    );
     return 0;
 }
 
-MODULE_BEGIN(core_mem_fifo)
+MODULE_DEFINE(core_mem_fifo) {
     MODULE_IMPLEMENTS_VOID(print_state, &core_mem_fifo_print_state);
-MODULE_END()
+}
 
 /* }}} */

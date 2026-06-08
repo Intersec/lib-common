@@ -139,34 +139,34 @@ static inline int hpack_dec_dtbl_get_count(hpack_dec_dtbl_t *dtbl)
 /* flags for hpack_xhdr_t */
 enum {
     HPACK_XHDR_ADD_DTBL = 1 << 0,
-    HPACK_XHDR_NEW_KEY  = 1 << 1,
-    HPACK_XHDR_NEW_VAL  = 1 << 2,
-    HPACK_XHDR_RAW_KEY  = 1 << 3,
-    HPACK_XHDR_RAW_VAL  = 1 << 4,
+    HPACK_XHDR_NEW_KEY = 1 << 1,
+    HPACK_XHDR_NEW_VAL = 1 << 2,
+    HPACK_XHDR_RAW_KEY = 1 << 3,
+    HPACK_XHDR_RAW_VAL = 1 << 4,
 };
 
 /* flag values to control the header encoding function */
 enum {
-    HPACK_FLG_NOZIP_KEY   = 1u << 0,  /* Encode key as-is (raw)             */
-    HPACK_FLG_ZIP_KEY     = 1u << 1,  /* Encode key as Huffman string       */
-    HPACK_FLG_NOZIP_VAL   = 1u << 2,  /* Encode value as-is                 */
-    HPACK_FLG_ZIP_VAL     = 1u << 3,  /* Encode value as Huffman string     */
-    HPACK_FLG_SKIP_STBL   = 1u << 4,  /* Don't look up in the static table  */
-    HPACK_FLG_SKIP_DTBL   = 1u << 5,  /* Don't loop up in the dynamic table */
-    HPACK_FLG_LWR_KEY     = 1u << 6,  /* Normalize key (lowercase)          */
-    HPACK_FLG_SKIP_VAL    = 1u << 7,  /* Don't try to match the value       */
-    HPACK_FLG_NOADD_DTBL  = 1u << 8,  /* Don't add hdr to the dynamic table */
-    HPACK_FLG_NVRADD_DTBL = 1u << 9,  /* Don't add hdr to the dynamic table
-                                       * and instruct proxies to reuse the
-                                       * same encoding for this hdr if
-                                       * they are to re-encode headers
-                                       * (used for sensitive headers)       */
-    HPACK_FLG_ADD_DTBL    = 1u << 10, /* Force adding hdr to the dynamic
-                                       * table                              */
+    HPACK_FLG_NOZIP_KEY = 1u << 0,   /* Encode key as-is (raw)             */
+    HPACK_FLG_ZIP_KEY = 1u << 1,     /* Encode key as Huffman string       */
+    HPACK_FLG_NOZIP_VAL = 1u << 2,   /* Encode value as-is                 */
+    HPACK_FLG_ZIP_VAL = 1u << 3,     /* Encode value as Huffman string     */
+    HPACK_FLG_SKIP_STBL = 1u << 4,   /* Don't look up in the static table  */
+    HPACK_FLG_SKIP_DTBL = 1u << 5,   /* Don't loop up in the dynamic table */
+    HPACK_FLG_LWR_KEY = 1u << 6,     /* Normalize key (lowercase)          */
+    HPACK_FLG_SKIP_VAL = 1u << 7,    /* Don't try to match the value       */
+    HPACK_FLG_NOADD_DTBL = 1u << 8,  /* Don't add hdr to the dynamic table */
+    HPACK_FLG_NVRADD_DTBL = 1u << 9, /* Don't add hdr to the dynamic table
+                                      * and instruct proxies to reuse the
+                                      * same encoding for this hdr if
+                                      * they are to re-encode headers
+                                      * (used for sensitive headers)       */
+    HPACK_FLG_ADD_DTBL = 1u << 10,   /* Force adding hdr to the dynamic
+                                      * table                              */
 
-    HPACK_FLG_NOZIP_STR   = HPACK_FLG_NOZIP_KEY | HPACK_FLG_NOZIP_VAL,
-    HPACK_FLG_ZIP_STR     = HPACK_FLG_ZIP_KEY | HPACK_FLG_ZIP_VAL,
-    HPACK_FLG_SKIP_TBLS   = HPACK_FLG_SKIP_STBL | HPACK_FLG_SKIP_DTBL,
+    HPACK_FLG_NOZIP_STR = HPACK_FLG_NOZIP_KEY | HPACK_FLG_NOZIP_VAL,
+    HPACK_FLG_ZIP_STR = HPACK_FLG_ZIP_KEY | HPACK_FLG_ZIP_VAL,
+    HPACK_FLG_SKIP_TBLS = HPACK_FLG_SKIP_STBL | HPACK_FLG_SKIP_DTBL,
 };
 
 static inline int
@@ -192,9 +192,10 @@ hpack_buflen_to_write_hdr(lstr_t key, lstr_t val, unsigned flags)
  * \note as a side effect, this changes the max size of the dtbl with implied
  * entry evictions if any.
  */
-int hpack_encoder_write_dts_update(hpack_enc_dtbl_t *nonnull dtbl,
-                                   uint32_t new_sz,
-                                   byte out[HPACK_BUFLEN_INT]);
+int hpack_encoder_write_dts_update(
+    hpack_enc_dtbl_t *nonnull dtbl, uint32_t new_sz,
+    byte out[HPACK_BUFLEN_INT]
+);
 
 /** Write a single hdr to \p out using the encoding options in \p flags
  *
@@ -205,10 +206,10 @@ int hpack_encoder_write_dts_update(hpack_enc_dtbl_t *nonnull dtbl,
  * \note caller must ensure that \p out has enough capacity, e.g, using \ref
  * hpack_buflen_to_write_hdr.
  */
-int hpack_encoder_write_hdr(hpack_enc_dtbl_t *nonnull dtbl, lstr_t key,
-                            lstr_t val, uint16_t key_id, uint16_t val_id,
-                            unsigned flags, byte *out);
-
+int hpack_encoder_write_hdr(
+    hpack_enc_dtbl_t *nonnull dtbl, lstr_t key, lstr_t val, uint16_t key_id,
+    uint16_t val_id, unsigned flags, byte *out
+);
 
 int hpack_decoder_read_dts_update_(hpack_dec_dtbl_t *dtbl, pstream_t *in);
 
@@ -222,7 +223,7 @@ hpack_decoder_read_dts_update(hpack_dec_dtbl_t *dtbl, pstream_t *in)
     if (likely(ps_done(in) || (0xE0u & in->b[0]) != 0x20u)) {
         return 0;
     }
-    return hpack_decoder_read_dts_update_(dtbl,in);
+    return hpack_decoder_read_dts_update_(dtbl, in);
 }
 
 /* a type to reference an extracted hdr to be decoded */
@@ -250,9 +251,10 @@ typedef enum hpack_parser_status_t {
  *
  * \return 0 on success, -1 on error and -2 on a missing dtbl entry
  */
-hpack_parser_status_t
-hpack_decoder_extract_hdr(hpack_dec_dtbl_t *dtbl, pstream_t *in,
-                          hpack_xhdr_t *xhdr, int *nonnull entry_len);
+hpack_parser_status_t hpack_decoder_extract_hdr(
+    hpack_dec_dtbl_t *dtbl, pstream_t *in, hpack_xhdr_t *xhdr,
+    int *nonnull entry_len
+);
 
 /** Decode and write the header line referenced by \p xhdr into \p out
  *
@@ -263,7 +265,8 @@ hpack_decoder_extract_hdr(hpack_dec_dtbl_t *dtbl, pstream_t *in,
  * written hdr line. So, it is up to the caller to ensure that \p out has at
  * least 4 bytes more than the value return by \ref hpack_decoder_extract_hdr.
  */
-int hpack_decoder_write_hdr(hpack_dec_dtbl_t *dtbl, hpack_xhdr_t *xhdr,
-                            byte *out, int *keylen);
+int hpack_decoder_write_hdr(
+    hpack_dec_dtbl_t *dtbl, hpack_xhdr_t *xhdr, byte *out, int *keylen
+);
 
 #endif /* IS_LIB_COMMON_NET_HPACK_H */

@@ -52,8 +52,9 @@ static int z_metric_labels_thread_safety(void)
     thr_syn_wipe(&syn);
 
     /* Check all the children were actually created */
-    dlist_for_each_entry(prom_metric_t, child, &counter->children_list,
-                         siblings_list)
+    dlist_for_each_entry(
+        prom_metric_t, child, &counter->children_list, siblings_list
+    )
     {
         lstr_t label = LSTR(child->label_values.tab[0]);
         int child_ind;
@@ -206,13 +207,14 @@ static int z_histogram_value_thread_safety(void)
 
 /* }}} */
 
-Z_GROUP_EXPORT(prometheus_client) {
+Z_GROUP_EXPORT(prometheus_client)
+{
 
     MODULE_REQUIRE(thr);
 
     Z_TEST(metrics_name) {
-#define T_OK(_name)  Z_ASSERT_N(prom_metric_check_name(LSTR(_name)))
-#define T_KO(_name)  Z_ASSERT_NEG(prom_metric_check_name(LSTR(_name)))
+#define T_OK(_name) Z_ASSERT_N(prom_metric_check_name(LSTR(_name)))
+#define T_KO(_name) Z_ASSERT_NEG(prom_metric_check_name(LSTR(_name)))
 
         T_KO("");
         T_KO("123");
@@ -229,11 +231,12 @@ Z_GROUP_EXPORT(prometheus_client) {
 
 #undef T_OK
 #undef T_KO
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(metrics_label_name) {
-#define T_OK(_name)  Z_ASSERT_N(prom_metric_check_label_name(_name))
-#define T_KO(_name)  Z_ASSERT_NEG(prom_metric_check_label_name(_name))
+#define T_OK(_name) Z_ASSERT_N(prom_metric_check_label_name(_name))
+#define T_KO(_name) Z_ASSERT_NEG(prom_metric_check_label_name(_name))
 
         T_KO("");
         T_KO("__reserved");
@@ -250,7 +253,8 @@ Z_GROUP_EXPORT(prometheus_client) {
 
 #undef T_OK
 #undef T_KO
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(single_value_metrics_basics) {
         prom_counter_t *counter;
@@ -261,8 +265,9 @@ Z_GROUP_EXPORT(prometheus_client) {
         MODULE_REQUIRE(prometheus_client);
 
         /* Create a counter, and check its fields */
-        counter = prom_counter_new("test_counter", "test counter",
-                                   "label1", "label2");
+        counter = prom_counter_new(
+            "test_counter", "test counter", "label1", "label2"
+        );
         Z_ASSERT_LSTREQUAL(counter->name, LSTR("test_counter"));
         Z_ASSERT_LSTREQUAL(counter->documentation, LSTR("test counter"));
         Z_ASSERT_EQ(counter->label_names.len, 2);
@@ -310,8 +315,8 @@ Z_GROUP_EXPORT(prometheus_client) {
         Z_ASSERT_EQ(counter_child->value, 0);
 
         /* Create a gauge without labels */
-        gauge = prom_gauge_new("gauge_without_labels",
-                               "gauge without labels");
+        gauge =
+            prom_gauge_new("gauge_without_labels", "gauge without labels");
         Z_ASSERT_EQ(gauge->label_names.len, 0);
         Z_ASSERT_EQ(gauge->label_values.len, 0);
 
@@ -338,18 +343,20 @@ Z_GROUP_EXPORT(prometheus_client) {
         Z_ASSERT_STREQUAL(gauge_child->label_values.tab[0], "label value");
 
         MODULE_RELEASE(prometheus_client);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(histogram_basics) {
-        const double default_buckets[] = { PROM_DEFAULT_BUCKETS };
+        const double default_buckets[] = {PROM_DEFAULT_BUCKETS};
         prom_histogram_t *histogram;
         prom_histogram_t *child;
 
         MODULE_REQUIRE(prometheus_client);
 
         /* Create an histogram without labels and with default buckets */
-        histogram = prom_histogram_new("histogram_without_labels",
-                                       "histogram without labels");
+        histogram = prom_histogram_new(
+            "histogram_without_labels", "histogram without labels"
+        );
         prom_histogram_set_default_buckets(histogram);
 
         /* Check the buckets were properly initialized */
@@ -357,15 +364,16 @@ Z_GROUP_EXPORT(prometheus_client) {
         Z_ASSERT_P(histogram->bucket_upper_bounds);
         Z_ASSERT_P(histogram->bucket_counts);
         for (int i = 0; i < countof(default_buckets); i++) {
-            Z_ASSERT_EQ(histogram->bucket_upper_bounds[i],
-                        default_buckets[i]);
+            Z_ASSERT_EQ(
+                histogram->bucket_upper_bounds[i], default_buckets[i]
+            );
             Z_ASSERT_ZERO(histogram->bucket_counts[i]);
         }
 
-
         /* Now try an histogram with labels */
-        histogram = prom_histogram_new("histogram_with_labels",
-                                       "histogram with labels", "label");
+        histogram = prom_histogram_new(
+            "histogram_with_labels", "histogram with labels", "label"
+        );
         prom_histogram_set_default_buckets(histogram);
 
         /* It should have buckets upper bounds, but no values */
@@ -383,22 +391,23 @@ Z_GROUP_EXPORT(prometheus_client) {
             Z_ASSERT_ZERO(child->bucket_counts[i]);
         }
 
-
         /* Test linear buckets creation */
-        histogram = prom_histogram_new("histogram_linear",
-                                       "histogram with linear buckets");
+        histogram = prom_histogram_new(
+            "histogram_linear", "histogram with linear buckets"
+        );
         prom_histogram_set_linear_buckets(histogram, -10, 10, 5);
         Z_ASSERT_EQ(histogram->nb_buckets, 5);
         Z_ASSERT_P(histogram->bucket_upper_bounds);
         Z_ASSERT_EQ(histogram->bucket_upper_bounds[0], -10);
-        Z_ASSERT_EQ(histogram->bucket_upper_bounds[1],   0);
-        Z_ASSERT_EQ(histogram->bucket_upper_bounds[2],  10);
-        Z_ASSERT_EQ(histogram->bucket_upper_bounds[3],  20);
-        Z_ASSERT_EQ(histogram->bucket_upper_bounds[4],  30);
+        Z_ASSERT_EQ(histogram->bucket_upper_bounds[1], 0);
+        Z_ASSERT_EQ(histogram->bucket_upper_bounds[2], 10);
+        Z_ASSERT_EQ(histogram->bucket_upper_bounds[3], 20);
+        Z_ASSERT_EQ(histogram->bucket_upper_bounds[4], 30);
 
         /* Test exponential buckets creation */
-        histogram = prom_histogram_new("histogram_exponential",
-                                       "histogram with exponential buckets");
+        histogram = prom_histogram_new(
+            "histogram_exponential", "histogram with exponential buckets"
+        );
         prom_histogram_set_exponential_buckets(histogram, 1, 10, 5);
         Z_ASSERT_EQ(histogram->nb_buckets, 5);
         Z_ASSERT_P(histogram->bucket_upper_bounds);
@@ -408,29 +417,33 @@ Z_GROUP_EXPORT(prometheus_client) {
         Z_ASSERT_EQ(histogram->bucket_upper_bounds[3], 1000);
         Z_ASSERT_EQ(histogram->bucket_upper_bounds[4], 10000);
 
-
         MODULE_RELEASE(prometheus_client);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(metric_labels_thread_safety) {
         /* Not implemented directly here because of block rewriting issues */
         Z_HELPER_RUN(z_metric_labels_thread_safety());
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(counter_value_thread_safety) {
         /* Not implemented directly here because of block rewriting issues */
         Z_HELPER_RUN(z_counter_value_thread_safety());
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(gauge_value_thread_safety) {
         /* Not implemented directly here because of block rewriting issues */
         Z_HELPER_RUN(z_gauge_value_thread_safety());
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(histogram_value_thread_safety) {
         /* Not implemented directly here because of block rewriting issues */
         Z_HELPER_RUN(z_histogram_value_thread_safety());
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(text_histogram_timer) {
         prom_histogram_t *histo;
@@ -456,7 +469,8 @@ Z_GROUP_EXPORT(prometheus_client) {
         Z_ASSERT_LT(histo->sum, 0.002);
 
         MODULE_RELEASE(prometheus_client);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(text_exposition, "test the metrics exposition in text format") {
         t_scope;
@@ -473,42 +487,47 @@ Z_GROUP_EXPORT(prometheus_client) {
         MODULE_REQUIRE(prometheus_client);
 
         /* Add a simple counter with no labels */
-        counter = prom_counter_new("zchk:counter_no_label",
-                                   "Simple counter with no label");
+        counter = prom_counter_new(
+            "zchk:counter_no_label", "Simple counter with no label"
+        );
         counter->value = 12345.5;
 
         /* Add a counter with two labels */
-        counter = prom_counter_new("zchk:counter_with_labels",
-                                   "A counter with two labels (and a \\ in "
-                                   "its description)",
-                                   "label_1", "label_2");
+        counter = prom_counter_new(
+            "zchk:counter_with_labels",
+            "A counter with two labels (and a \\ in its description)",
+            "label_1", "label_2"
+        );
         counter_child = prom_counter_labels(counter, "value\n1", "value\\2");
         counter_child->value = 12;
         counter_child = prom_counter_labels(counter, "value 3", "value 4!");
         counter_child->value = 25;
 
         /* Add a simple gauge with no label */
-        gauge = prom_gauge_new("zchk:gauge_no_label",
-                               "Simple gauge with no label "
-                               "(but a line break\nin its description)");
+        gauge = prom_gauge_new(
+            "zchk:gauge_no_label", "Simple gauge with no label "
+                                   "(but a line break\nin its description)"
+        );
         gauge->value = 5000;
 
         /* Add a gauge with one label */
-        gauge = prom_gauge_new("zchk:gauge_with_one_label",
-                               "A gauge with two one label",
-                               "aFunnyLabel");
+        gauge = prom_gauge_new(
+            "zchk:gauge_with_one_label", "A gauge with two one label",
+            "aFunnyLabel"
+        );
         gauge_child = prom_gauge_labels(gauge, "funnyLabelValue");
         gauge_child->value = -12345.5;
         prom_gauge_labels(gauge, "non initialized value");
 
         /* Add a metric without samples */
-        prom_gauge_new("zchk:gauge_without_samples",
-                       "A gauge without samples",
-                       "label");
+        prom_gauge_new(
+            "zchk:gauge_without_samples", "A gauge without samples", "label"
+        );
 
         /* Add an histogram with no label */
-        histo = prom_histogram_new("zchk:histogram_no_label",
-                                   "Histogram with no label");
+        histo = prom_histogram_new(
+            "zchk:histogram_no_label", "Histogram with no label"
+        );
         prom_histogram_set_linear_buckets(histo, 10, 10, 3);
         obj_vcall(histo, observe, 5);
         obj_vcall(histo, observe, 10);
@@ -518,9 +537,10 @@ Z_GROUP_EXPORT(prometheus_client) {
         obj_vcall(histo, observe, 200);
 
         /* Add an histogram with two labels */
-        histo = prom_histogram_new("zchk:histogram_labels",
-                                   "Histogram with two labels",
-                                   "label1", "label2");
+        histo = prom_histogram_new(
+            "zchk:histogram_labels", "Histogram with two labels", "label1",
+            "label2"
+        );
         prom_histogram_set_exponential_buckets(histo, 10, 10, 3);
 
         histo_child = prom_histogram_labels(histo, "value 1", "value 2");
@@ -537,19 +557,22 @@ Z_GROUP_EXPORT(prometheus_client) {
         prom_collector_bridge(&prom_collector_g, &text);
 
         /* Compare it with the expected result */
-        path = t_fmt("%*pM/test-data/prometheus-client/"
-                     "test-exposition-expected.txt",
-                     LSTR_FMT_ARG(z_cmddir_g));
-        Z_ASSERT_ZERO(lstr_init_from_file(&expected, path,
-                                          PROT_READ, MAP_SHARED));
+        path = t_fmt(
+            "%*pM/test-data/prometheus-client/test-exposition-expected.txt",
+            LSTR_FMT_ARG(z_cmddir_g)
+        );
+        Z_ASSERT_ZERO(
+            lstr_init_from_file(&expected, path, PROT_READ, MAP_SHARED)
+        );
         Z_ASSERT_LSTREQUAL(LSTR_SB_V(&text), expected);
         lstr_wipe(&expected);
 
         MODULE_RELEASE(prometheus_client);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     MODULE_RELEASE(thr);
-
-} Z_GROUP_END;
+}
+Z_GROUP_END;
 
 /* LCOV_EXCL_STOP */

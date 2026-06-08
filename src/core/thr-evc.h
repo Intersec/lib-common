@@ -19,7 +19,7 @@
 #if !defined(IS_LIB_COMMON_THR_H) || defined(IS_LIB_COMMON_THR_EVC_H)
 #  error "you must include thr.h instead"
 #else
-#define IS_LIB_COMMON_THR_EVC_H
+#  define IS_LIB_COMMON_THR_EVC_H
 
 /*
  * An eventcount usage pattern is usually of the form:
@@ -91,45 +91,40 @@
 typedef struct thr_evc_t {
     atomic_uint64_t key;
     atomic_uint waiters;
-#ifndef OS_LINUX
+#  ifndef OS_LINUX
     pthread_mutex_t mutex;
-    pthread_cond_t  cond;
-#endif
+    pthread_cond_t cond;
+#  endif
 } thr_evc_t;
 
 thr_evc_t *thr_ec_init(thr_evc_t *ec);
 void thr_ec_wipe(thr_evc_t *ec);
 
-static ALWAYS_INLINE
-uint64_t thr_ec_get(thr_evc_t *ec)
+static ALWAYS_INLINE uint64_t thr_ec_get(thr_evc_t *ec)
 {
     atomic_thread_fence(memory_order_acq_rel);
     return atomic_load(&ec->key);
 }
 void thr_ec_timedwait(thr_evc_t *ec, uint64_t key, long timeout);
-#define thr_ec_wait(ec, key)  thr_ec_timedwait(ec, key, 0)
+#  define thr_ec_wait(ec, key) thr_ec_timedwait(ec, key, 0)
 void thr_ec_signal_n(thr_evc_t *ec, int count) __attr_leaf__;
 
-static ALWAYS_INLINE
-void thr_ec_signal(thr_evc_t *ec)
+static ALWAYS_INLINE void thr_ec_signal(thr_evc_t *ec)
 {
     thr_ec_signal_n(ec, 1);
 }
-static ALWAYS_INLINE
-void thr_ec_signal_relaxed(thr_evc_t *ec)
+static ALWAYS_INLINE void thr_ec_signal_relaxed(thr_evc_t *ec)
 {
     if (atomic_load_explicit(&ec->waiters, memory_order_relaxed)) {
         thr_ec_signal(ec);
     }
 }
 
-static ALWAYS_INLINE
-void thr_ec_broadcast(thr_evc_t *ec)
+static ALWAYS_INLINE void thr_ec_broadcast(thr_evc_t *ec)
 {
     thr_ec_signal_n(ec, INT_MAX);
 }
-static ALWAYS_INLINE
-void thr_ec_broadcast_relaxed(thr_evc_t *ec)
+static ALWAYS_INLINE void thr_ec_broadcast_relaxed(thr_evc_t *ec)
 {
     if (atomic_load_explicit(&ec->waiters, memory_order_relaxed)) {
         thr_ec_broadcast(ec);

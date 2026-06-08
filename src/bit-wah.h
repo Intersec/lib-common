@@ -72,19 +72,19 @@
 
 typedef struct wah_header_t {
 #if __BYTE_ORDER == __BIG_ENDIAN
-    unsigned  bit   : 1;
-    unsigned  words : 31;
+    unsigned bit : 1;
+    unsigned words : 31;
 #else
-    unsigned  words : 31;
-    unsigned  bit   : 1;
+    unsigned words : 31;
+    unsigned bit : 1;
 #endif
 } wah_header_t;
-#define WAH_MAX_WORDS_IN_RUN  ((1ull << 31) - 1)
+#define WAH_MAX_WORDS_IN_RUN ((1ull << 31) - 1)
 
 typedef union wah_word_t {
     wah_header_t head;
-    uint32_t     count;
-    uint32_t     literal;
+    uint32_t count;
+    uint32_t literal;
 } wah_word_t;
 qvector_t(wah_word, wah_word_t);
 
@@ -123,9 +123,7 @@ typedef union wah_bucket_t {
     } inlined;
 } wah_bucket_t;
 
-
-static ALWAYS_INLINE bool
-wah_bucket_is_inlined(const wah_bucket_t *bucket)
+static ALWAYS_INLINE bool wah_bucket_is_inlined(const wah_bucket_t *bucket)
 {
     if (bucket->inlined.len <= WAH_BUCKET_INLINED_WORDS) {
         return true;
@@ -137,18 +135,16 @@ wah_bucket_is_inlined(const wah_bucket_t *bucket)
 
 static ALWAYS_INLINE int wah_bucket_len(const wah_bucket_t *bucket)
 {
-    return wah_bucket_is_inlined(bucket) ? bucket->inlined.len :
-        bucket->qv.len;
+    return wah_bucket_is_inlined(bucket) ? bucket->inlined.len
+                                         : bucket->qv.len;
 }
-
 
 typedef struct wah_words_t {
     wah_word_t *tab;
     int len;
 } wah_words_t;
 
-static inline wah_words_t
-wah_bucket_get_words(wah_bucket_t *bucket)
+static inline wah_words_t wah_bucket_get_words(wah_bucket_t *bucket)
 {
     if (wah_bucket_is_inlined(bucket)) {
         return (wah_words_t){
@@ -166,8 +162,8 @@ wah_bucket_get_words(wah_bucket_t *bucket)
 qvector_t(wah_bucket, wah_bucket_t);
 
 typedef struct wah_t {
-    uint64_t  len;
-    uint64_t  active;
+    uint64_t len;
+    uint64_t active;
 
     int previous_run_pos;
     int last_run_pos;
@@ -191,11 +187,10 @@ typedef struct wah_t {
     wah_word_t _padding[1]; /* Ensure sizeof(wah_t) == 64 */
 } wah_t;
 
-#define WAH_BIT_IN_WORD  bitsizeof(wah_word_t)
+#define WAH_BIT_IN_WORD bitsizeof(wah_word_t)
 
 /* }}} */
 /* Public API {{{ */
-
 
 wah_t *wah_init(wah_t *map) __attr_leaf__;
 wah_t *wah_new(void) __attr_leaf__;
@@ -267,16 +262,16 @@ void wah_not_and(wah_t *map, const wah_t *other) __attr_leaf__;
 void wah_or(wah_t *map, const wah_t *other) __attr_leaf__;
 void wah_not(wah_t *map) __attr_leaf__;
 
-wah_t *wah_multi_or(const wah_t *src[], int len, wah_t * __restrict dest)
-    __attr_leaf__;
+wah_t *wah_multi_or(
+    const wah_t *src[], int len, wah_t *__restrict dest
+) __attr_leaf__;
 
 /** Get the value of a bit in a WAH.
  *
  * \warning this function is really inefficient, and should be used with
  *          caution (or in tests context).
  */
-__must_check__ __attr_leaf__
-bool wah_get(const wah_t *map, uint64_t pos);
+__must_check__ __attr_leaf__ bool wah_get(const wah_t *map, uint64_t pos);
 
 /** Get the amount of memory consumed by a WAH.
  */
@@ -293,17 +288,17 @@ typedef enum wah_enum_state_t {
 } wah_enum_state_t;
 
 typedef struct wah_word_enum_t {
-    const wah_t     *map;
+    const wah_t *map;
     wah_enum_state_t state;
-    int              bucket;
-    int              pos;
-    uint32_t         remain_words;
-    uint32_t         current;
-    uint32_t         reverse;
+    int bucket;
+    int pos;
+    uint32_t remain_words;
+    uint32_t current;
+    uint32_t reverse;
 } wah_word_enum_t;
 
-wah_word_enum_t wah_word_enum_start(const wah_t *map, bool reverse)
-    __attr_leaf__;
+wah_word_enum_t
+wah_word_enum_start(const wah_t *map, bool reverse) __attr_leaf__;
 bool wah_word_enum_next(wah_word_enum_t *en) __attr_leaf__;
 uint32_t wah_word_enum_skip0(wah_word_enum_t *en) __attr_leaf__;
 
@@ -317,40 +312,42 @@ uint32_t wah_word_enum_skip0(wah_word_enum_t *en) __attr_leaf__;
  */
 typedef struct wah_bit_enum_t {
     wah_word_enum_t word_en;
-    uint64_t        key;
-    uint64_t        remain_bits;
-    uint32_t        current_word;
+    uint64_t key;
+    uint64_t remain_bits;
+    uint32_t current_word;
 } wah_bit_enum_t;
 
 bool wah_bit_enum_scan_word(wah_bit_enum_t *en) __attr_leaf__;
 
 static ALWAYS_INLINE void wah_bit_enum_scan(wah_bit_enum_t *en)
 {
-    if (en->current_word == 0 && !wah_bit_enum_scan_word(en))
+    if (en->current_word == 0 && !wah_bit_enum_scan_word(en)) {
         return;
+    }
 
-    assert (en->current_word);
+    assert(en->current_word);
     if (en->remain_bits <= WAH_BIT_IN_WORD) {
         uint32_t bit = bsf32(en->current_word);
 
-        assert (bit < en->remain_bits);
-        en->key           += bit;
+        assert(bit < en->remain_bits);
+        en->key += bit;
         en->current_word >>= bit;
-        en->remain_bits   -= bit;
+        en->remain_bits -= bit;
     }
 }
 
 static ALWAYS_INLINE void wah_bit_enum_next(wah_bit_enum_t *en)
 {
     en->key++;
-    if (en->remain_bits <= WAH_BIT_IN_WORD)
+    if (en->remain_bits <= WAH_BIT_IN_WORD) {
         en->current_word >>= 1;
+    }
     en->remain_bits--;
     wah_bit_enum_scan(en);
 }
 
-wah_bit_enum_t wah_bit_enum_start(const wah_t *wah, bool reverse)
-    __attr_leaf__;
+wah_bit_enum_t
+wah_bit_enum_start(const wah_t *wah, bool reverse) __attr_leaf__;
 void wah_bit_enum_skip1s(wah_bit_enum_t *en, uint64_t to_skip) __attr_leaf__;
 
 #define wah_for_each_1(en, map)                                              \
@@ -364,8 +361,7 @@ void wah_bit_enum_skip1s(wah_bit_enum_t *en, uint64_t to_skip) __attr_leaf__;
 /* }}} */
 /* Debugging {{{ */
 
-__attr_cold__
-void wah_debug_print(const wah_t *wah, bool print_content);
+__attr_cold__ void wah_debug_print(const wah_t *wah, bool print_content);
 
 /* }}} */
 /* {{{ Exposed for testing. */

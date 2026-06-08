@@ -28,7 +28,7 @@ pid_t psinfo_get_tracer_pid(pid_t pid)
 void ps_panic_sighandler(int signum, siginfo_t *si, void *addr)
 {
     static const struct sigaction sa = {
-        .sa_flags   = SA_RESTART,
+        .sa_flags = SA_RESTART,
         .sa_handler = SIG_DFL,
     };
 
@@ -41,17 +41,17 @@ void ps_install_panic_sighandlers(void)
 {
 #ifndef __has_asan
     struct sigaction sa = {
-        .sa_flags     = SA_RESTART | SA_SIGINFO,
+        .sa_flags = SA_RESTART | SA_SIGINFO,
         .sa_sigaction = &ps_panic_sighandler,
     };
 
-    sigaction(SIGABRT,   &sa, NULL);
-    sigaction(SIGILL,    &sa, NULL);
-    sigaction(SIGFPE,    &sa, NULL);
-    sigaction(SIGSEGV,   &sa, NULL);
-    sigaction(SIGBUS,    &sa, NULL);
-#if defined(__linux__)
+    sigaction(SIGABRT, &sa, NULL);
+    sigaction(SIGILL, &sa, NULL);
+    sigaction(SIGFPE, &sa, NULL);
+    sigaction(SIGSEGV, &sa, NULL);
+    sigaction(SIGBUS, &sa, NULL);
+#  if defined(__linux__)
     sigaction(SIGSTKFLT, &sa, NULL);
-#endif
+#  endif
 #endif
 }

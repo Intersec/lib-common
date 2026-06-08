@@ -37,28 +37,34 @@ static iop_dso_t *open_dso(iop_env_t *iop_env, const char *dso_path)
 
     dso = iop_dso_open(iop_env, dso_path, &err);
     if (dso == NULL) {
-        e_fatal("unable to load `%s` (%*pM)\n", dso_path,
-                SB_FMT_ARG(&err));
+        e_fatal("unable to load `%s` (%*pM)\n", dso_path, SB_FMT_ARG(&err));
     }
     return dso;
 }
 
 static const char *usage[] = {
     "print out on stderr if a newer dso is compatible with an old one by ",
-    "checking all packages.",
-    "",
-    NULL
+    "checking all packages.", "", NULL
 };
 
 static struct popt_t popt[] = {
     OPT_GROUP("Options:"),
     OPT_FLAG('h', "help", &_G.help, "show this help"),
-    OPT_STR('n', "new_dso", &_G.new_dso, "the absolute path to the new "
-            "dso file"),
-    OPT_STR('o', "old_dso", &_G.old_dso, "the absolute path to the old "
-            "dso file"),
-    OPT_STR('m', "mode", &_G.mode, "check dso compatibility by checking: "
-            "JSON, BINARY, ALL (default)"),
+    OPT_STR(
+        'n', "new_dso", &_G.new_dso,
+        "the absolute path to the new "
+        "dso file"
+    ),
+    OPT_STR(
+        'o', "old_dso", &_G.old_dso,
+        "the absolute path to the old "
+        "dso file"
+    ),
+    OPT_STR(
+        'm', "mode", &_G.mode,
+        "check dso compatibility by checking: "
+        "JSON, BINARY, ALL (default)"
+    ),
     OPT_END(),
 };
 
@@ -91,16 +97,11 @@ int main(int argc, char *argv[])
     if (_G.mode) {
         if (lstr_ascii_iequal(mode, LSTR("JSON"))) {
             flags = IOP_COMPAT_JSON;
-        }
-        else
-        if (lstr_ascii_iequal(mode, LSTR("BINARY"))) {
+        } else if (lstr_ascii_iequal(mode, LSTR("BINARY"))) {
             flags = IOP_COMPAT_BIN;
-        }
-        else
-        if (lstr_ascii_iequal(mode, LSTR("ALL"))) {
+        } else if (lstr_ascii_iequal(mode, LSTR("ALL"))) {
             flags = IOP_COMPAT_ALL;
-        }
-        else {
+        } else {
             e_fatal("unkown mode `%*pM`", LSTR_FMT_ARG(mode));
         }
     } else {
@@ -133,14 +134,17 @@ int main(int argc, char *argv[])
 
             pkg = qm_get_def(iop_pkg, &dso->pkg_h, &name, NULL);
             if (!pkg) {
-                fprintf(stderr, "package `%*pM` is not in the new dso\n",
-                        LSTR_FMT_ARG(name));
+                fprintf(
+                    stderr, "package `%*pM` is not in the new dso\n",
+                    LSTR_FMT_ARG(name)
+                );
                 continue;
             }
 
-            if (iop_pkg_check_backward_compat_ctx(iop_env_ctx_old, pkg_old,
-                                                  iop_env_ctx, pkg, ctx,
-                                                  flags, &err) < 0)
+            if (iop_pkg_check_backward_compat_ctx(
+                    iop_env_ctx_old, pkg_old, iop_env_ctx, pkg, ctx, flags,
+                    &err
+                ) < 0)
             {
                 fprintf(stderr, "%*pM\n", SB_FMT_ARG(&err));
                 sb_reset(&err);

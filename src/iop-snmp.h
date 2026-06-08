@@ -41,13 +41,13 @@ qvector_t(pkg, const iop_pkg_t *);
  * \param[in]   _timestamp    Timestamp of the new revision.
  * \param[in]   _description  Description of the new revision.
  */
-#define mib_register_revision(_vec, _timestamp, _description)  \
+#define mib_register_revision(_vec, _timestamp, _description)                \
     ({                                                                       \
         mib_revision_t _rev = {                                              \
             .timestamp = LSTR(_timestamp),                                   \
             .description = LSTR(_description),                               \
         };                                                                   \
-        qv_append(_vec, _rev);                                      \
+        qv_append(_vec, _rev);                                               \
     })
 
 /** Generate a MIB into a sb_t.
@@ -60,8 +60,9 @@ qvector_t(pkg, const iop_pkg_t *);
  *                         qv must follow the chronological order, from the
  *                         initial to the last revision.
  */
-void iop_write_mib(sb_t *sb, const qv_t(pkg) *pkgs,
-                   const qv_t(mib_rev) *revisions);
+void iop_write_mib(
+    sb_t *sb, const qv_t(pkg) *pkgs, const qv_t(mib_rev) *revisions
+);
 
 /** Run a MIB generation tool.
  *
@@ -73,8 +74,10 @@ void iop_write_mib(sb_t *sb, const qv_t(pkg) *pkgs,
  * \param[in]  pkgs        \ref iop_write_mib.
  * \param[in]  revisions   \ref iop_write_mib.
  */
-int iop_mib(int argc, char **argv, const qv_t(pkg) *pkgs,
-            const qv_t(mib_rev) *revisions);
+int iop_mib(
+    int argc, char **argv, const qv_t(pkg) *pkgs,
+    const qv_t(mib_rev) *revisions
+);
 
 /* }}} */
 /* {{{ SNMP doc generation API */
@@ -86,8 +89,9 @@ int iop_mib(int argc, char **argv, const qv_t(pkg) *pkgs,
  * \param[in]  pkgs       List of the different iop packages that will be
  *                        added to the documentation.
  */
-void iop_write_snmp_doc(sb_t *notif_sb, sb_t *object_sb,
-                        const qv_t(pkg) *pkgs);
+void iop_write_snmp_doc(
+    sb_t *notif_sb, sb_t *object_sb, const qv_t(pkg) *pkgs
+);
 
 /** Run a SNMP doc generation tool.
  *

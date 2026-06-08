@@ -23,23 +23,23 @@
 #include "iop/tstiop.iop.h"
 
 static struct {
-    int  port;
-    int   help;
-    bool  wsdl;
+    int port;
+    int help;
+    bool wsdl;
 
-    el_t  httpd;
-    el_t  blocker;
+    el_t httpd;
+    el_t blocker;
 
     httpd_trigger__ic_t *itcb;
 } httpd_g = {
-#define _G  httpd_g
+#define _G httpd_g
     .port = 1080,
 };
 
 static popt_t popts[] = {
     OPT_FLAG('h', "help", &_G.help, "show help"),
     OPT_FLAG('w', "wsdl", &_G.wsdl, "dump wsdl"),
-    OPT_INT('p', NULL,   &_G.port, "port to listen to (default: 1080)"),
+    OPT_INT('p', NULL, &_G.port, "port to listen to (default: 1080)"),
     OPT_END(),
 };
 
@@ -53,7 +53,7 @@ static void f_cb(IOP_RPC_IMPL_ARGS(tstiop__t, iface, f))
     ic_reply(ic, slot, tstiop__t, iface, f, .i = arg->i);
 }
 
-#define SCHEMA  "http://example.com/tstiop"
+#define SCHEMA "http://example.com/tstiop"
 
 int main(int argc, char **argv)
 {
@@ -63,7 +63,7 @@ int main(int argc, char **argv)
     sockunion_t su = {
         .sin = {
             .sin_family = AF_INET,
-            .sin_addr   = { INADDR_ANY },
+            .sin_addr = {INADDR_ANY},
         }
     };
 
@@ -80,30 +80,36 @@ int main(int argc, char **argv)
         iop_env_ctx_scope(iop_env, iop_env_ctx);
         int ret;
 
-        iop_xwsdl(&sb, iop_env_ctx, &tstiop__t__mod, NULL, SCHEMA,
-                  "http://localhost:1080/iop/", false, true);
+        iop_xwsdl(
+            &sb, iop_env_ctx, &tstiop__t__mod, NULL, SCHEMA,
+            "http://localhost:1080/iop/", false, true
+        );
         ret = xwrite(STDOUT_FILENO, sb.data, sb.len);
         iop_env_delete(&iop_env);
         return ret;
     }
 
     cfg = httpd_cfg_new();
-    httpd_trigger_register(cfg, GET,  "t", httpd_trigger__static_dir_new("/boot"));
-    httpd_trigger_register(cfg, HEAD, "t", httpd_trigger__static_dir_new("/boot"));
+    httpd_trigger_register(
+        cfg, GET, "t", httpd_trigger__static_dir_new("/boot")
+    );
+    httpd_trigger_register(
+        cfg, HEAD, "t", httpd_trigger__static_dir_new("/boot")
+    );
 
-    _G.itcb = httpd_trigger__ic_new(iop_env, &tstiop__t__mod, SCHEMA,
-                                    2 << 20);
+    _G.itcb =
+        httpd_trigger__ic_new(iop_env, &tstiop__t__mod, SCHEMA, 2 << 20);
     _G.itcb->query_max_size = 2 << 20;
     httpd_trigger_register(cfg, POST, "iop", &_G.itcb->cb);
     ichttp_register_(_G.itcb, tstiop__t, iface, f, f_cb);
 
     su.sin.sin_port = htons(_G.port);
-    _G.httpd   = httpd_listen(&su, cfg);
+    _G.httpd = httpd_listen(&su, cfg);
     httpd_cfg_delete(&cfg);
 
     _G.blocker = el_blocker_register();
     el_signal_register(SIGTERM, on_term, NULL);
-    el_signal_register(SIGINT,  on_term, NULL);
+    el_signal_register(SIGINT, on_term, NULL);
     el_signal_register(SIGQUIT, on_term, NULL);
     el_loop();
     httpd_unlisten(&_G.httpd);

@@ -39,19 +39,19 @@
 struct prom_metric_t;
 union qm_prom_metric_t;
 
-#define PROM_METRIC_FIELDS(pfx) \
+#define PROM_METRIC_FIELDS(pfx)                                              \
     OBJECT_FIELDS(pfx);                                                      \
                                                                              \
     /* Parent fields */                                                      \
     lstr_t name;                                                             \
     lstr_t documentation;                                                    \
     qv_t(cstr) label_names;                                                  \
-    union qm_prom_metric_t * nullable children_by_labels;                    \
+    union qm_prom_metric_t *nullable children_by_labels;                     \
     dlist_t children_list;                                                   \
                                                                              \
     /* Children fields */                                                    \
     qv_t(cstr) label_values;                                                 \
-    pfx##_t * nullable parent;                                               \
+    pfx##_t *nullable parent;                                                \
                                                                              \
     /** Spinlock used for threaded access.                                   \
      *                                                                       \
@@ -70,86 +70,87 @@ union qm_prom_metric_t;
     spinlock_t lock;                                                         \
                                                                              \
     /* Common fields */                                                      \
-    dlist_t siblings_list;                                                   \
+    dlist_t siblings_list;
 
-#define PROM_METRIC_METHODS(type_t) \
-    OBJECT_METHODS(type_t);                                                  \
-                                                                             \
-    /** Register the metric in the (unique) collector.                       \
-     *                                                                       \
-     * This method attaches the metric to the collector (ie. the metric will \
-     * be scrapped). Only parent metrics can be registered.                  \
-     *                                                                       \
-     * At registration, the name of the metric and the labels are checked,   \
-     * so they must be set at this point. They must follow the guidelines    \
-     * explained here:                                                       \
-     *                                                                       \
+#define PROM_METRIC_METHODS(type_t)                                            \
+    OBJECT_METHODS(type_t);                                                    \
+                                                                               \
+    /** Register the metric in the (unique) collector.                         \
+     *                                                                         \
+     * This method attaches the metric to the collector (ie. the metric will   \
+     * be scrapped). Only parent metrics can be registered.                    \
+     *                                                                         \
+     * At registration, the name of the metric and the labels are checked,     \
+     * so they must be set at this point. They must follow the guidelines      \
+     * explained here:                                                         \
+     *                                                                         \
      * https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels \
-     *                                                                       \
-     * A description must be set too.                                        \
-     *                                                                       \
-     * The program aborts in case of error.                                  \
-     *                                                                       \
-     * This operation is NOT thread-safe.                                    \
-     *                                                                       \
-     * XXX: not simply called "register" because it is a reserved keyword in \
-     *      C...                                                             \
-     */                                                                      \
-    void (*do_register)(type_t *self);                                       \
-                                                                             \
-    /** Unregister the metric from the (unique) collector.                   \
-     *                                                                       \
-     * This is usually not needed as all metrics are destroyed when module   \
-     * prometheus_client is shutdown.                                        \
-     * Unregistered metrics must be manually destroyed.                      \
-     *                                                                       \
-     * This operation is NOT thread-safe.                                    \
-     */                                                                      \
-    void (*unregister)(type_t *self);                                        \
-                                                                             \
-    /** Get the child metric corresponding to the given label values.        \
-     *                                                                       \
-     * Should be callled only on parent metrics having label names, and with \
-     * the correct number of label values. The program will abort otherwise. \
-     *                                                                       \
-     * The returned child is created if needed. It is safe to keep a pointer \
-     * on the returned value, as long as it (or the parent metric) is not    \
-     * explicitly destroyed. And it is encouraged in performance-critical    \
-     * pieces of code.                                                       \
-     *                                                                       \
-     * This operation is thread-safe.                                        \
-     */                                                                      \
-    type_t *(*labels)(type_t *self, const qv_t(cstr) *label_values);         \
-                                                                             \
-    /** Remove the child metric corresponding to the given label values.     \
-     *                                                                       \
-     * Should be callled only on parent metrics having label names, and with \
-     * the correct number of label values. The program will abort otherwise. \
-     *                                                                       \
-     * This operation is NOT thread-safe.                                    \
-     */                                                                      \
-    void (*remove)(type_t *self, const qv_t(cstr) *label_values);            \
-                                                                             \
-    /** Remove all the child metrics.                                        \
-     *                                                                       \
-     * This operation is NOT thread-safe.                                    \
-     */                                                                      \
-    void (*clear)(type_t *self);                                             \
+     *                                                                         \
+     * A description must be set too.                                          \
+     *                                                                         \
+     * The program aborts in case of error.                                    \
+     *                                                                         \
+     * This operation is NOT thread-safe.                                      \
+     *                                                                         \
+     * XXX: not simply called "register" because it is a reserved keyword in   \
+     *      C...                                                               \
+     */                                                                        \
+    void (*do_register)(type_t * self);                                        \
+                                                                               \
+    /** Unregister the metric from the (unique) collector.                     \
+     *                                                                         \
+     * This is usually not needed as all metrics are destroyed when module     \
+     * prometheus_client is shutdown.                                          \
+     * Unregistered metrics must be manually destroyed.                        \
+     *                                                                         \
+     * This operation is NOT thread-safe.                                      \
+     */                                                                        \
+    void (*unregister)(type_t * self);                                         \
+                                                                               \
+    /** Get the child metric corresponding to the given label values.          \
+     *                                                                         \
+     * Should be callled only on parent metrics having label names, and with   \
+     * the correct number of label values. The program will abort otherwise.   \
+     *                                                                         \
+     * The returned child is created if needed. It is safe to keep a pointer   \
+     * on the returned value, as long as it (or the parent metric) is not      \
+     * explicitly destroyed. And it is encouraged in performance-critical      \
+     * pieces of code.                                                         \
+     *                                                                         \
+     * This operation is thread-safe.                                          \
+     */                                                                        \
+    type_t *(*labels)(type_t * self, const qv_t(cstr) *label_values);          \
+                                                                               \
+    /** Remove the child metric corresponding to the given label values.       \
+     *                                                                         \
+     * Should be callled only on parent metrics having label names, and with   \
+     * the correct number of label values. The program will abort otherwise.   \
+     *                                                                         \
+     * This operation is NOT thread-safe.                                      \
+     */                                                                        \
+    void (*remove)(type_t * self, const qv_t(cstr) *label_values);             \
+                                                                               \
+    /** Remove all the child metrics.                                          \
+     *                                                                         \
+     * This operation is NOT thread-safe.                                      \
+     */                                                                        \
+    void (*clear)(type_t * self);
 
 /** Base class for all prometheus metric. */
 OBJ_CLASS(prom_metric, object, PROM_METRIC_FIELDS, PROM_METRIC_METHODS);
 
 /* Private helper for metrics creation. Do not use, prefer variants of
  * children classes. */
-prom_metric_t *prom_metric_new(const object_class_t *cls,
-                               const char *name, const char *documentation,
-                               const char **labels, int nb_labels);
+prom_metric_t *prom_metric_new(
+    const object_class_t *cls, const char *name, const char *documentation,
+    const char **labels, int nb_labels
+);
 
 /* Private helper for getting a metric's child. Do not use, prefer variants
  * of children classes. */
-#define prom_metric_labels(metric, ...)  \
+#define prom_metric_labels(metric, ...)                                      \
     ({                                                                       \
-        const char *__labels[] = { __VA_ARGS__ };                            \
+        const char *__labels[] = {__VA_ARGS__};                              \
         qv_t(cstr) __labels_qv;                                              \
                                                                              \
         qv_init_static(&__labels_qv, __labels, countof(__labels));           \
@@ -158,19 +159,18 @@ prom_metric_t *prom_metric_new(const object_class_t *cls,
 
 /* Private remove a child metric. Do not use, prefer variants of children
  * classes. */
-#define prom_metric_remove(metric, ...)  \
+#define prom_metric_remove(metric, ...)                                      \
     do {                                                                     \
-        const char *__labels[] = { __VA_ARGS__ };                            \
+        const char *__labels[] = {__VA_ARGS__};                              \
         qv_t(cstr) __labels_qv;                                              \
                                                                              \
         qv_init_static(&__labels_qv, __labels, countof(__labels));           \
         obj_vcall(metric, remove, &__labels_qv);                             \
     } while (0)
 
-
 /* {{{ Simple value metric */
 
-#define PROM_SIMPLE_VALUE_METRIC_FIELDS(pfx) \
+#define PROM_SIMPLE_VALUE_METRIC_FIELDS(pfx)                                 \
     PROM_METRIC_FIELDS(pfx);                                                 \
                                                                              \
     /** Metric value.                                                        \
@@ -178,18 +178,19 @@ prom_metric_t *prom_metric_new(const object_class_t *cls,
      * You can safely directy modify it in non multi-threaded environments.  \
      * If you need thread safety, use the provided helpers.                  \
      */                                                                      \
-    double value;                                                            \
+    double value;
 
-
-#define PROM_SIMPLE_VALUE_METRIC_METHODS(type_t) \
+#define PROM_SIMPLE_VALUE_METRIC_METHODS(type_t)                             \
     PROM_METRIC_METHODS(type_t);                                             \
                                                                              \
     /** Get the current value of the metric. */                              \
-    double (*get_value)(type_t *self);                                       \
+    double (*get_value)(type_t * self);
 
 /** Base class for prometheus metrics have a simple double value. */
-OBJ_CLASS(prom_simple_value_metric, prom_metric,
-          PROM_SIMPLE_VALUE_METRIC_FIELDS, PROM_SIMPLE_VALUE_METRIC_METHODS);
+OBJ_CLASS(
+    prom_simple_value_metric, prom_metric, PROM_SIMPLE_VALUE_METRIC_FIELDS,
+    PROM_SIMPLE_VALUE_METRIC_METHODS
+);
 
 /* }}} */
 /* }}} */
@@ -203,21 +204,22 @@ OBJ_CLASS(prom_simple_value_metric, prom_metric,
  * https://prometheus.io/docs/concepts/metric_types/#counter
  */
 
-#define PROM_COUNTER_METHODS(type_t) \
+#define PROM_COUNTER_METHODS(type_t)                                         \
     PROM_SIMPLE_VALUE_METRIC_METHODS(type_t);                                \
                                                                              \
     /** Add the given value to the counter.                                  \
      *                                                                       \
      * The value must be positive.                                           \
      */                                                                      \
-    void (*add)(type_t *self, double value);                                 \
+    void (*add)(type_t * self, double value);                                \
                                                                              \
     /** Increment (add 1) the counter. */                                    \
-    void (*inc)(type_t *self);                                               \
+    void (*inc)(type_t * self);
 
-
-OBJ_CLASS(prom_counter, prom_simple_value_metric,
-          PROM_SIMPLE_VALUE_METRIC_FIELDS, PROM_COUNTER_METHODS);
+OBJ_CLASS(
+    prom_counter, prom_simple_value_metric, PROM_SIMPLE_VALUE_METRIC_FIELDS,
+    PROM_COUNTER_METHODS
+);
 
 /** All-in-one helper to declare and register a counter metric.
  *
@@ -228,14 +230,15 @@ OBJ_CLASS(prom_counter, prom_simple_value_metric,
  *
  * \return  the newly created metric, that was registered in the collector
  */
-#define prom_counter_new(name, documentation, ...)  \
+#define prom_counter_new(name, documentation, ...)                           \
     ({                                                                       \
-        const char *__labels[] = { __VA_ARGS__ };                            \
+        const char *__labels[] = {__VA_ARGS__};                              \
         prom_metric_t *__new_metric;                                         \
                                                                              \
-        __new_metric = prom_metric_new(obj_class(prom_counter),              \
-                                       name, documentation,                  \
-                                       __labels, countof(__labels));         \
+        __new_metric = prom_metric_new(                                      \
+            obj_class(prom_counter), name, documentation, __labels,          \
+            countof(__labels)                                                \
+        );                                                                   \
         (prom_counter_t *)__new_metric;                                      \
     })
 
@@ -250,9 +253,10 @@ OBJ_CLASS(prom_counter, prom_simple_value_metric,
  *
  * \return  the child counter
  */
-#define prom_counter_labels(counter, ...)  \
-    (prom_counter_t *)prom_metric_labels(obj_vcast(prom_metric, counter),    \
-                                         __VA_ARGS__)
+#define prom_counter_labels(counter, ...)                                    \
+    (prom_counter_t *)prom_metric_labels(                                    \
+        obj_vcast(prom_metric, counter), __VA_ARGS__                         \
+    )
 
 /** Remove the child counter corresponding to the given label values.
  *
@@ -263,7 +267,7 @@ OBJ_CLASS(prom_counter, prom_simple_value_metric,
  * \param[in]  ...      the label values (must be in the same number as the
  *                      label names in the parent).
  */
-#define prom_counter_remove(counter, ...)  \
+#define prom_counter_remove(counter, ...)                                    \
     prom_metric_remove(obj_vcast(prom_metric, counter), __VA_ARGS__)
 
 /* }}} */
@@ -276,27 +280,28 @@ OBJ_CLASS(prom_counter, prom_simple_value_metric,
  * https://prometheus.io/docs/concepts/metric_types/#gauge
  */
 
-#define PROM_GAUGE_METHODS(type_t) \
+#define PROM_GAUGE_METHODS(type_t)                                           \
     PROM_SIMPLE_VALUE_METRIC_METHODS(type_t);                                \
                                                                              \
     /** Add the given value to the gauge. */                                 \
-    void (*add)(type_t *self, double value);                                 \
+    void (*add)(type_t * self, double value);                                \
                                                                              \
     /** Increment (add 1) to the gauge. */                                   \
-    void (*inc)(type_t *self);                                               \
+    void (*inc)(type_t * self);                                              \
                                                                              \
     /** Substract the given value from the gauge. */                         \
-    void (*sub)(type_t *self, double value);                                 \
+    void (*sub)(type_t * self, double value);                                \
                                                                              \
     /** Decrement (substract 1) the gauge. */                                \
-    void (*dec)(type_t *self);                                               \
+    void (*dec)(type_t * self);                                              \
                                                                              \
     /** Set the value of the gauge. */                                       \
-    void (*set)(type_t *self, double value);                                 \
+    void (*set)(type_t * self, double value);
 
-
-OBJ_CLASS(prom_gauge, prom_simple_value_metric,
-          PROM_SIMPLE_VALUE_METRIC_FIELDS, PROM_GAUGE_METHODS);
+OBJ_CLASS(
+    prom_gauge, prom_simple_value_metric, PROM_SIMPLE_VALUE_METRIC_FIELDS,
+    PROM_GAUGE_METHODS
+);
 
 /** All-in-one helper to declare and register a gauge metric.
  *
@@ -307,14 +312,15 @@ OBJ_CLASS(prom_gauge, prom_simple_value_metric,
  *
  * \return  the newly created metric, that was registered in the collector
  */
-#define prom_gauge_new(name, documentation, ...)  \
+#define prom_gauge_new(name, documentation, ...)                             \
     ({                                                                       \
-        const char *__labels[] = { __VA_ARGS__ };                            \
+        const char *__labels[] = {__VA_ARGS__};                              \
         prom_metric_t *__new_metric;                                         \
                                                                              \
-        __new_metric = prom_metric_new(obj_class(prom_gauge),                \
-                                       name, documentation,                  \
-                                       __labels, countof(__labels));         \
+        __new_metric = prom_metric_new(                                      \
+            obj_class(prom_gauge), name, documentation, __labels,            \
+            countof(__labels)                                                \
+        );                                                                   \
         (prom_gauge_t *)__new_metric;                                        \
     })
 
@@ -329,9 +335,10 @@ OBJ_CLASS(prom_gauge, prom_simple_value_metric,
  *
  * \return  the child gauge
  */
-#define prom_gauge_labels(gauge, ...)  \
-    (prom_gauge_t *)prom_metric_labels(obj_vcast(prom_metric, gauge),        \
-                                         __VA_ARGS__)
+#define prom_gauge_labels(gauge, ...)                                        \
+    (prom_gauge_t *)prom_metric_labels(                                      \
+        obj_vcast(prom_metric, gauge), __VA_ARGS__                           \
+    )
 
 /** Remove the child gauge corresponding to the given label values.
  *
@@ -342,7 +349,7 @@ OBJ_CLASS(prom_gauge, prom_simple_value_metric,
  * \param[in]  ...    the label values (must be in the same number as the
  *                    label names in the parent).
  */
-#define prom_gauge_remove(gauge, ...)  \
+#define prom_gauge_remove(gauge, ...)                                        \
     prom_metric_remove(obj_vcast(prom_metric, gauge), __VA_ARGS__)
 
 /* }}} */
@@ -356,7 +363,7 @@ OBJ_CLASS(prom_gauge, prom_simple_value_metric,
  * https://prometheus.io/docs/concepts/metric_types/#histogram
  */
 
-#define PROM_HISTOGRAM_FIELDS(pfx) \
+#define PROM_HISTOGRAM_FIELDS(pfx)                                           \
     PROM_METRIC_FIELDS(pfx);                                                 \
                                                                              \
     /* Buckets configuration (only set in parent metric) */                  \
@@ -371,10 +378,9 @@ OBJ_CLASS(prom_gauge, prom_simple_value_metric,
      */                                                                      \
     double count;                                                            \
     double sum;                                                              \
-    double *bucket_counts;                                                   \
+    double *bucket_counts;
 
-
-#define PROM_HISTOGRAM_METHODS(type_t) \
+#define PROM_HISTOGRAM_METHODS(type_t)                                       \
     PROM_METRIC_METHODS(type_t);                                             \
                                                                              \
     /** Set the buckets.                                                     \
@@ -383,14 +389,14 @@ OBJ_CLASS(prom_gauge, prom_simple_value_metric,
      * The provided upper bounds MUST be sorted, and MUST NOT contain the    \
      * infinite value.                                                       \
      */                                                                      \
-    void (*set_buckets)(type_t *self, const qv_t(double) *upper_bounds);     \
+    void (*set_buckets)(type_t * self, const qv_t(double) *upper_bounds);    \
                                                                              \
     /** Observe the given value. */                                          \
-    void (*observe)(type_t *self, double value);                             \
+    void (*observe)(type_t * self, double value);
 
-
-OBJ_CLASS(prom_histogram, prom_metric,
-          PROM_HISTOGRAM_FIELDS, PROM_HISTOGRAM_METHODS);
+OBJ_CLASS(
+    prom_histogram, prom_metric, PROM_HISTOGRAM_FIELDS, PROM_HISTOGRAM_METHODS
+);
 
 /** All-in-one helper to declare and register a histogram metric.
  *
@@ -404,14 +410,15 @@ OBJ_CLASS(prom_histogram, prom_metric,
  *
  * \return  the newly created metric, that was registered in the collector
  */
-#define prom_histogram_new(name, documentation, ...)  \
+#define prom_histogram_new(name, documentation, ...)                         \
     ({                                                                       \
-        const char *__labels[] = { __VA_ARGS__ };                            \
+        const char *__labels[] = {__VA_ARGS__};                              \
         prom_metric_t *__new_metric;                                         \
                                                                              \
-        __new_metric = prom_metric_new(obj_class(prom_histogram),            \
-                                       name, documentation,                  \
-                                       __labels, countof(__labels));         \
+        __new_metric = prom_metric_new(                                      \
+            obj_class(prom_histogram), name, documentation, __labels,        \
+            countof(__labels)                                                \
+        );                                                                   \
         (prom_histogram_t *)__new_metric;                                    \
     })
 
@@ -421,13 +428,14 @@ OBJ_CLASS(prom_histogram, prom_metric,
  * \param[in]  histogram  name histogram (parent) metric
  * \param[in]  ...        the list of ordered upper bounds (double type)
  */
-#define prom_histogram_set_buckets(histogram, ...)  \
+#define prom_histogram_set_buckets(histogram, ...)                           \
     do {                                                                     \
-        const double __upper_bounds[] = { __VA_ARGS__ };                     \
+        const double __upper_bounds[] = {__VA_ARGS__};                       \
         qv_t(double) __upper_bounds_qv;                                      \
                                                                              \
-        qv_init_static(&__upper_bounds_qv, __upper_bounds,                   \
-                       countof(__upper_bounds));                             \
+        qv_init_static(                                                      \
+            &__upper_bounds_qv, __upper_bounds, countof(__upper_bounds)      \
+        );                                                                   \
         obj_vcall(histogram, set_buckets, &__upper_bounds_qv);               \
     } while (0)
 
@@ -439,10 +447,10 @@ OBJ_CLASS(prom_histogram, prom_metric,
  *
  * (inspired by official golang client default buckets)
  */
-#define PROM_DEFAULT_BUCKETS  .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10
+#define PROM_DEFAULT_BUCKETS .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10
 
 /** Set the default buckets for an histogram metric. */
-#define prom_histogram_set_default_buckets(histogram)  \
+#define prom_histogram_set_default_buckets(histogram)                        \
     prom_histogram_set_buckets(histogram, PROM_DEFAULT_BUCKETS)
 
 /** Set linear buckets for an histogram metric.
@@ -453,8 +461,9 @@ OBJ_CLASS(prom_histogram, prom_metric,
  * \p count and \p width MUST be strictly positive.
  * \p start and \p width MUST be finite numbers.
  */
-void prom_histogram_set_linear_buckets(prom_histogram_t *histogram,
-                                       double start, double width, int count);
+void prom_histogram_set_linear_buckets(
+    prom_histogram_t *histogram, double start, double width, int count
+);
 
 /** Set exponential buckets for an histogram metric.
  *
@@ -466,10 +475,9 @@ void prom_histogram_set_linear_buckets(prom_histogram_t *histogram,
  * \p factor MUST be strictly greater than 1.
  * \p start and \p factor MUST be finite numbers.
  */
-void prom_histogram_set_exponential_buckets(prom_histogram_t *histogram,
-                                            double start, double factor,
-                                            int count);
-
+void prom_histogram_set_exponential_buckets(
+    prom_histogram_t *histogram, double start, double factor, int count
+);
 
 /** Get the child histogram corresponding to the given label values.
  *
@@ -482,10 +490,10 @@ void prom_histogram_set_exponential_buckets(prom_histogram_t *histogram,
  *
  * \return  the child histogram
  */
-#define prom_histogram_labels(histogram, ...)  \
-    (prom_histogram_t *)prom_metric_labels(obj_vcast(prom_metric, histogram),\
-                                           __VA_ARGS__)
-
+#define prom_histogram_labels(histogram, ...)                                \
+    (prom_histogram_t *)prom_metric_labels(                                  \
+        obj_vcast(prom_metric, histogram), __VA_ARGS__                       \
+    )
 
 /** Context structure for histogram timer. */
 typedef struct prom_histogram_timer_ctx_t {
@@ -504,7 +512,6 @@ prom_histogram_timer_start(prom_histogram_t *histogram);
  */
 void prom_histogram_timer_finish(prom_histogram_timer_ctx_t *ctx);
 
-
 /** Observe the execution time of a block of code in an histogram.
  *
  * Use this helper to measure the execution time of a block of code:
@@ -515,9 +522,11 @@ void prom_histogram_timer_finish(prom_histogram_timer_ctx_t *ctx);
  *      ...
  *  }
  */
-#define prom_histogram_timer_scope(_histogram)  \
-    __attribute__((unused,cleanup(prom_histogram_timer_finish)))             \
-    prom_histogram_timer_ctx_t PFX_LINE(rom_histogram_timer_ctx_) =          \
+#define prom_histogram_timer_scope(_histogram)                               \
+    __attribute__((                                                          \
+        unused, cleanup(prom_histogram_timer_finish)                         \
+    )) prom_histogram_timer_ctx_t                                            \
+    PFX_LINE(rom_histogram_timer_ctx_) =                                     \
         prom_histogram_timer_start(_histogram)
 
 /* }}} */
@@ -530,8 +539,7 @@ void prom_histogram_timer_finish(prom_histogram_timer_ctx_t *ctx);
  *
  * \return  0 on success, a negative value on error.
  */
-int prom_http_start_server(const core__httpd_cfg__t *cfg,
-                           sb_t * nullable err);
+int prom_http_start_server(const core__httpd_cfg__t *cfg, sb_t *nullable err);
 
 /** Get the information of the running HTTP server.
  *
@@ -541,8 +549,9 @@ int prom_http_start_server(const core__httpd_cfg__t *cfg,
  * \param[out] port  the listening port.
  * \param[out] fd    the file descriptor of the server.
  */
-void prom_http_get_infos(lstr_t * nullable host, in_port_t * nullable port,
-                         int * nullable fd);
+void prom_http_get_infos(
+    lstr_t *nullable host, in_port_t *nullable port, int *nullable fd
+);
 
 /* }}} */
 /* {{{ Module */

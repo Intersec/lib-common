@@ -19,27 +19,27 @@
 #if !defined(IS_LIB_COMMON_CORE_H) || defined(IS_LIB_COMMON_CORE_MEM_H)
 #  error "you must include core.h instead"
 #else
-#define IS_LIB_COMMON_CORE_MEM_H
+#  define IS_LIB_COMMON_CORE_MEM_H
 
-#include <lib-common/container-dlist.h>
+#  include <lib-common/container-dlist.h>
 
 /* Memory Copy/Move {{{ */
 /**************************************************************************/
 /* Memory pools high level APIs                                           */
 /**************************************************************************/
 
-#ifndef __USE_GNU
-static inline void * nonnull mempcpy(void * nonnull restrict dst,
-                                     const void * nonnull restrict src,
-                                     size_t n)
+#  ifndef __USE_GNU
+static inline void *nonnull mempcpy(
+    void *nonnull restrict dst, const void *nonnull restrict src, size_t n
+)
 {
     return (void *)((byte *)memcpy(dst, src, n) + n);
 }
 
-static inline void * nullable memrchr(const void * nonnull s, int c, size_t n)
+static inline void *nullable memrchr(const void *nonnull s, int c, size_t n)
 {
     const uint8_t *start = (const uint8_t *)s;
-    const uint8_t *end   = start + n;
+    const uint8_t *end = start + n;
 
     while (end > start) {
         --end;
@@ -50,65 +50,79 @@ static inline void * nullable memrchr(const void * nonnull s, int c, size_t n)
     return NULL;
 }
 
-static inline
-char * nonnull strchrnul(const char * nonnull s, int c)
+static inline char *nonnull strchrnul(const char *nonnull s, int c)
 {
     while ((unsigned char)*s != c && (unsigned char)*s != '\0') {
         s++;
     }
     return (char *)s;
 }
-#endif
+#  endif
 
-static inline void * nonnull memcpyz(void * nonnull restrict dst,
-                                     const void * nonnull restrict src,
-                                     size_t n)
+static inline void *nonnull memcpyz(
+    void *nonnull restrict dst, const void *nonnull restrict src, size_t n
+)
 {
     *(char *)mempcpy(dst, src, n) = '\0';
     return dst;
 }
-static inline void * nonnull mempcpyz(void * nonnull restrict dst,
-                                      const void * nonnull restrict src,
-                                      size_t n)
+static inline void *nonnull mempcpyz(
+    void *nonnull restrict dst, const void *nonnull restrict src, size_t n
+)
 {
     dst = mempcpy(dst, src, n);
     *(char *)dst = '\0';
     return (char *)dst + 1;
 }
 
-#define p_clear(p, count)                                                    \
-    ({ (typeof(*(p)) *)memset((p), 0, sizeof(*(p)) * (count)); })
+#  define p_clear(p, count)                                                  \
+      ({ (typeof(*(p)) *)memset((p), 0, sizeof(*(p)) * (count)); })
 
-#define p_alloc_nr(x) (((x) + 16) * 3 / 2)
+#  define p_alloc_nr(x) (((x) + 16) * 3 / 2)
 
-
-#ifdef __cplusplus
-#define memcpy_check_types(e1, e2) \
-    STATIC_ASSERT(sizeof(*(e1)) == sizeof(*(e2)))
-#else
-#define memcpy_check_types(e1, e2) \
-    STATIC_ASSERT(                                                           \
-        __builtin_choose_expr(                                               \
+#  ifdef __cplusplus
+#    define memcpy_check_types(e1, e2)                                       \
+        STATIC_ASSERT(sizeof(*(e1)) == sizeof(*(e2)))
+#  else
+#    define memcpy_check_types(e1, e2)                                       \
+        STATIC_ASSERT(                                                       \
             __builtin_choose_expr(                                           \
-                __builtin_types_compatible_p(typeof(e2), void *),            \
-                true, sizeof(*(e2)) == 1), true,                             \
-            __builtin_types_compatible_p(typeof(*(e1)), typeof(*(e2)))))
-#endif
+                __builtin_choose_expr(                                       \
+                    __builtin_types_compatible_p(typeof(e2), void *), true,  \
+                    sizeof(*(e2)) == 1                                       \
+                ),                                                           \
+                true,                                                        \
+                __builtin_types_compatible_p(typeof(*(e1)), typeof(*(e2)))   \
+            )                                                                \
+        )
+#  endif
 
-#define p_move(to, src, n) \
-    ({ memcpy_check_types(to, src);                                          \
-       (typeof(*(to)) *)memmove(to, src, sizeof(*(to)) * (n)); })
-#define p_copy(to, src, n) \
-    ({ memcpy_check_types(to, src);                                          \
-       (typeof(*(to)) *)memcpy(to, src, sizeof(*(to)) * (n)); })
-#define p_pcopy(to, src, n) \
-    ({ memcpy_check_types(to, src);                                          \
-       (typeof(*(to)) *)mempcpy(to, src, sizeof(*(to)) * (n)); })
+#  define p_move(to, src, n)                                                 \
+      ({                                                                     \
+        memcpy_check_types(to, src);                                         \
+        (typeof(*(to)) *)memmove(to, src, sizeof(*(to)) * (n));              \
+      })
+#  define p_copy(to, src, n)                                                 \
+      ({                                                                     \
+        memcpy_check_types(to, src);                                         \
+        (typeof(*(to)) *)memcpy(to, src, sizeof(*(to)) * (n));               \
+      })
+#  define p_pcopy(to, src, n)                                                \
+      ({                                                                     \
+        memcpy_check_types(to, src);                                         \
+        (typeof(*(to)) *)mempcpy(to, src, sizeof(*(to)) * (n));              \
+      })
 
-#define p_move2(p, to, from, n) \
-    ({ typeof(*(p)) *__p = (p); p_move(__p + (to), __p + (from), n); })
-#define p_copy2(p, to, from, n) \
-    ({ typeof(*(p)) __p = (p); p_copy(__p + (to), __p + (from), n); })
+#  define p_move2(p, to, from, n)                                            \
+      ({                                                                     \
+        typeof(*(p)) *__p = (p);                                             \
+        p_move(__p + (to), __p + (from), n);                                 \
+      })
+#  define p_copy2(p, to, from, n)                                            \
+      ({                                                                     \
+        typeof(*(p)) __p = (p);                                              \
+        p_copy(__p + (to), __p + (from), n);                                 \
+      })
 
 /** Copies at <code>n</code> characters from the string pointed to by
  * <code>src</code> to the buffer <code>dest</code> of <code>size</code>
@@ -122,9 +136,10 @@ static inline void * nonnull mempcpyz(void * nonnull restrict dst,
  *
  * @return <code>n</code>
  */
-size_t pstrcpymem(char * nonnull restrict dest, ssize_t size,
-                  const void * nonnull restrict src, size_t n)
-    __attr_leaf__;
+size_t pstrcpymem(
+    char *nonnull restrict dest, ssize_t size,
+    const void *nonnull restrict src, size_t n
+) __attr_leaf__;
 
 /** Copies the string pointed to by <code>src</code> to the buffer
  * <code>dest</code> of <code>size</code> bytes.
@@ -152,10 +167,10 @@ size_t pstrcpymem(char * nonnull restrict dest, ssize_t size,
  * }
  *
  */
-__attr_nonnull__((1, 3))
-static ALWAYS_INLINE
-size_t pstrcpy(char * nonnull restrict dest, ssize_t size,
-               const char * nonnull restrict src)
+__attr_nonnull__((1, 3)) static ALWAYS_INLINE size_t pstrcpy(
+    char *nonnull restrict dest, ssize_t size,
+    const char *nonnull restrict src
+)
 {
     return pstrcpymem(dest, size, src, strlen(src));
 }
@@ -172,10 +187,10 @@ size_t pstrcpy(char * nonnull restrict dest, ssize_t size,
  *
  * @return the length of the source string or <code>n</code> if smaller.
  */
-__attr_nonnull__((1, 3))
-static ALWAYS_INLINE
-size_t pstrcpylen(char * nonnull restrict dest, ssize_t size,
-                  const char * nonnull restrict src, size_t n)
+__attr_nonnull__((1, 3)) static ALWAYS_INLINE size_t pstrcpylen(
+    char *nonnull restrict dest, ssize_t size,
+    const char *nonnull restrict src, size_t n
+)
 {
     return pstrcpymem(dest, size, src, strnlen(src, n));
 }
@@ -194,10 +209,10 @@ size_t pstrcpylen(char * nonnull restrict dest, ssize_t size,
  * @return the length of the source string plus the length of the
  * destination string.
  */
-__attr_nonnull__((1, 3))
-static inline size_t
-pstrcat(char * nonnull restrict dest, ssize_t size,
-        const char * nonnull restrict src)
+__attr_nonnull__((1, 3)) static inline size_t pstrcat(
+    char *nonnull restrict dest, ssize_t size,
+    const char *nonnull restrict src
+)
 {
     size_t dlen = size > 0 ? strnlen(dest, size) : 0;
     return dlen + pstrcpy(dest + dlen, size - dlen, src);
@@ -211,14 +226,14 @@ pstrcat(char * nonnull restrict dest, ssize_t size,
  * If not, all the memory pools should fallback
  * mem_pool_libc.
  */
-#ifndef NDEBUG
+#  ifndef NDEBUG
 bool mem_pool_is_enabled(void);
-#else
+#  else
 static inline bool mem_pool_is_enabled(void)
 {
     return true;
 }
-#endif
+#  endif
 
 typedef unsigned mem_flags_t;
 
@@ -226,9 +241,9 @@ typedef unsigned mem_flags_t;
  * 1 << 30 is 1 Gig, we check that the user hasn't made any mistake with
  * roundings and so on.
  */
-#define MEM_ALLOC_MAX    (1ull << 30)
-#define MEM_UNKNOWN      ((size_t)-1)
-#define MEM_EMPTY_ALLOC  ((void *)0x1000)
+#  define MEM_ALLOC_MAX (1ull << 30)
+#  define MEM_UNKNOWN ((size_t)-1)
+#  define MEM_EMPTY_ALLOC ((void *)0x1000)
 
 /*
  * mem_flags_t modify the ialloc functions behaviours.
@@ -259,59 +274,61 @@ typedef unsigned mem_flags_t;
  */
 enum mem_pools_t {
     MEM_STATIC = 0,
-    MEM_OTHER  = 1,
-    MEM_LIBC   = 2,
-    MEM_STACK  = 3,
-    MEM_MMAP   = 4,
+    MEM_OTHER = 1,
+    MEM_LIBC = 2,
+    MEM_STACK = 3,
+    MEM_MMAP = 4,
 };
-#define MEM_POOL_MASK          0x00ff
-#define MEM_FLAGS_MASK         0xff00
-#define MEM_RAW                (1 << 8)
-#define MEM_ERRORS_OK          (1 << 9)
-#define MEM_UNALIGN_OK         (1 << 10)
-#define MEM_BY_FRAME           (1 << 11)
-#define MEM_EFFICIENT_REALLOC  (1 << 12)
+#  define MEM_POOL_MASK 0x00ff
+#  define MEM_FLAGS_MASK 0xff00
+#  define MEM_RAW (1 << 8)
+#  define MEM_ERRORS_OK (1 << 9)
+#  define MEM_UNALIGN_OK (1 << 10)
+#  define MEM_BY_FRAME (1 << 11)
+#  define MEM_EFFICIENT_REALLOC (1 << 12)
 
 /* Do not consider the pool as leaked if it is still present at shutdown.
  * Can be set for pools that are allocated and freed using thread hooks. In
  * this case, the deallocation happens *after* the part of the code that
  * looks for leaked pools, so the pool is mistakenly considered as leaked.
  */
-#define MEM_DISABLE_POOL_LEAK_DETECTION (1 << 13)
+#  define MEM_DISABLE_POOL_LEAK_DETECTION (1 << 13)
 
 /* Do not keep the pool in a global list for tracking.  Recommended for
  * short-lived memory pools, especially in multi-threaded environments.
  */
-#define MEM_DISABLE_POOL_TRACKING (1 << 14)
+#  define MEM_DISABLE_POOL_TRACKING (1 << 14)
 
 /* Collection of memory pool flags allowed at user-level. */
-#define MEM_USER_FLAGS (MEM_DISABLE_POOL_LEAK_DETECTION |                    \
-                        MEM_DISABLE_POOL_TRACKING)
+#  define MEM_USER_FLAGS                                                     \
+      (MEM_DISABLE_POOL_LEAK_DETECTION | MEM_DISABLE_POOL_TRACKING)
 
-#define CACHE_LINE_SIZE   64
+#  define CACHE_LINE_SIZE 64
 
 typedef struct mem_pool_t {
     /* Hot data: try to make them fit in the 64 first bytes of the memory pool
      * structure. */
     mem_flags_t mem_pool;
-    uint32_t    min_alignment;
-    struct mem_pool_t * nullable realloc_fallback;
+    uint32_t min_alignment;
+    struct mem_pool_t *nullable realloc_fallback;
 
     /* DO NOT USE DIRECTLY, use mp_imalloc/mp_irealloc/mp_ifree instead */
-    void * nonnull (* nonnull malloc)(struct mem_pool_t * nonnull, size_t,
-                                      size_t, mem_flags_t);
-    void * nonnull (* nonnull realloc)(struct mem_pool_t * nonnull,
-                                       void * nullable, size_t, size_t,
-                                       size_t, mem_flags_t);
-    void  (* nonnull free)(struct mem_pool_t * nonnull, void * nullable);
+    void *nonnull (*nonnull malloc)(
+        struct mem_pool_t *nonnull, size_t, size_t, mem_flags_t
+    );
+    void *nonnull (*nonnull realloc)(
+        struct mem_pool_t *nonnull, void *nullable, size_t, size_t, size_t,
+        mem_flags_t
+    );
+    void (*nonnull free)(struct mem_pool_t *nonnull, void *nullable);
 
     /* Cold data. */
     /* Pool link used for listing all the memory pools of a given type. */
     dlist_t pool_link;
 
     union {
-        const char * nonnull name;
-        char * nonnull name_v;
+        const char *nonnull name;
+        char *nonnull name_v;
     };
 } mem_pool_t;
 
@@ -322,24 +339,23 @@ typedef struct mem_pool_t {
 extern mem_pool_t mem_pool_libc;
 extern mem_pool_t mem_pool_cl_aligned;
 extern mem_pool_t mem_pool_static;
-static ALWAYS_INLINE mem_pool_t * nonnull t_pool(void);
+static ALWAYS_INLINE mem_pool_t *nonnull t_pool(void);
 
-#if __GNUC_PREREQ(4, 3) || __has_attribute(error)
+#  if __GNUC_PREREQ(4, 3) || __has_attribute(error)
 __attribute__((error("you cannot allocate that much memory")))
-#endif
+#  endif
 extern void __imalloc_too_large(void);
 
-__attr_noreturn__ __attr_cold__
-extern void __mem_alignment_unset(void);
+__attr_noreturn__ __attr_cold__ extern void __mem_alignment_unset(void);
 
-#ifdef PAGE_SIZE
-# undef PAGE_SIZE
-#endif
-#define PAGE_SIZE_SHIFT     12
-#define PAGE_SIZE   ((uintptr_t) 1 << PAGE_SIZE_SHIFT)
+#  ifdef PAGE_SIZE
+#    undef PAGE_SIZE
+#  endif
+#  define PAGE_SIZE_SHIFT 12
+#  define PAGE_SIZE ((uintptr_t)1 << PAGE_SIZE_SHIFT)
 
 static ALWAYS_INLINE
-size_t mem_bit_align(const mem_pool_t * nonnull mp, size_t alignment)
+    size_t mem_bit_align(const mem_pool_t *nonnull mp, size_t alignment)
 {
     if (unlikely(alignment == 0)) {
         __mem_alignment_unset();
@@ -348,8 +364,7 @@ size_t mem_bit_align(const mem_pool_t * nonnull mp, size_t alignment)
     return MAX(mp->min_alignment, alignment);
 }
 
-static ALWAYS_INLINE
-uintptr_t mem_align_ptr(uintptr_t ptr, size_t align)
+static ALWAYS_INLINE uintptr_t mem_align_ptr(uintptr_t ptr, size_t align)
 {
     return ROUND_UP_2EXP(ptr, align);
 }
@@ -363,11 +378,12 @@ static ALWAYS_INLINE void icheck_alloc_constant(size_t size)
 
 void icheck_alloc(size_t size);
 
-#ifndef alignof
-# define alignof(type)  __alignof__(type)
-#endif
+#  ifndef alignof
+#    define alignof(type) __alignof__(type)
+#  endif
 
-#define extra_field_size(type, field, size)  ({                              \
+#  define extra_field_size(type, field, size)                                \
+      ({                                                                     \
         size_t __efz = offsetof(type, field);                                \
                                                                              \
         __efz += fieldsizeof(type, field[0]) * (size);                       \
@@ -376,328 +392,350 @@ void icheck_alloc(size_t size);
          * on the result of a new_extra_field allocation.                    \
          */                                                                  \
         MAX(sizeof(type), __efz);                                            \
-    })
-
+      })
 
 /*
  * Intersec memory allocation wrappers allow people to write APIs that are not
  * aware that the memory was actually allocated from a pool.
  */
 
-__attribute__((malloc, warn_unused_result))
-void * nonnull __mp_imalloc(mem_pool_t * nullable mp, size_t size,
-                            size_t alignment, mem_flags_t flags);
+__attribute__((malloc, warn_unused_result)) void *nonnull __mp_imalloc(
+    mem_pool_t *nullable mp, size_t size, size_t alignment, mem_flags_t flags
+);
 
-__attribute__((malloc, warn_unused_result))
-static ALWAYS_INLINE void * nonnull
-mp_imalloc(mem_pool_t * null_unspecified mp, size_t size, size_t alignment,
-           mem_flags_t flags)
+__attribute__((malloc, warn_unused_result)) static ALWAYS_INLINE void *nonnull
+mp_imalloc(
+    mem_pool_t *null_unspecified mp, size_t size, size_t alignment,
+    mem_flags_t flags
+)
 {
     icheck_alloc_constant(size);
     return __mp_imalloc(mp, size, alignment, flags);
 }
 
-__attribute__((warn_unused_result))
-void * nonnull __mp_irealloc(mem_pool_t * nullable mp, void * nullable mem,
-                             size_t oldsize, size_t size, size_t alignment,
-                             mem_flags_t flags);
+__attribute__((warn_unused_result)) void *nonnull __mp_irealloc(
+    mem_pool_t *nullable mp, void *nullable mem, size_t oldsize, size_t size,
+    size_t alignment, mem_flags_t flags
+);
 
-__attribute__((warn_unused_result))
-static ALWAYS_INLINE
-void * nonnull mp_irealloc(mem_pool_t * nullable mp, void * nullable mem,
-                           size_t oldsize, size_t size, size_t alignment,
-                           mem_flags_t flags)
+__attribute__((warn_unused_result)) static ALWAYS_INLINE void *nonnull
+mp_irealloc(
+    mem_pool_t *nullable mp, void *nullable mem, size_t oldsize, size_t size,
+    size_t alignment, mem_flags_t flags
+)
 {
     icheck_alloc_constant(size);
     return __mp_irealloc(mp, mem, oldsize, size, alignment, flags);
 }
 
-void mp_ifree(mem_pool_t * nullable mp, void * nullable mem);
+void mp_ifree(mem_pool_t *nullable mp, void *nullable mem);
 
-__attribute__((warn_unused_result))
-void * nonnull __mp_irealloc_fallback(mem_pool_t * nullable * nonnull pmp,
-                                      void * nullable mem, size_t oldsize,
-                                      size_t size, size_t alignment,
-                                      mem_flags_t flags);
+__attribute__((warn_unused_result)) void *nonnull __mp_irealloc_fallback(
+    mem_pool_t * nullable * nonnull pmp, void *nullable mem, size_t oldsize,
+    size_t size, size_t alignment, mem_flags_t flags
+);
 
-__attribute__((warn_unused_result))
-static ALWAYS_INLINE
-void * nonnull mp_irealloc_fallback(mem_pool_t * nullable * nonnull pmp,
-                                    void * nullable mem, size_t oldsize,
-                                    size_t size, size_t alignment,
-                                    mem_flags_t flags)
+__attribute__((warn_unused_result)) static ALWAYS_INLINE void *nonnull
+mp_irealloc_fallback(
+    mem_pool_t * nullable * nonnull pmp, void *nullable mem, size_t oldsize,
+    size_t size, size_t alignment, mem_flags_t flags
+)
 {
     icheck_alloc_constant(size);
     return __mp_irealloc_fallback(pmp, mem, oldsize, size, alignment, flags);
 }
 
-mem_pool_t * nonnull ipool(mem_flags_t flags);
+mem_pool_t *nonnull ipool(mem_flags_t flags);
 
-static ALWAYS_INLINE
-mem_pool_t * nonnull mp_ipool(mem_pool_t * nullable mp)
+static ALWAYS_INLINE mem_pool_t *nonnull mp_ipool(mem_pool_t *nullable mp)
 {
     return mp ?: &mem_pool_libc;
 }
 
-__attribute__((warn_unused_result, malloc))
-static ALWAYS_INLINE
-void * nonnull imalloc(size_t size, size_t alignment, mem_flags_t flags)
+__attribute__((warn_unused_result, malloc)) static ALWAYS_INLINE void *nonnull
+imalloc(size_t size, size_t alignment, mem_flags_t flags)
 {
     return mp_imalloc(ipool(flags), size, alignment, flags);
 }
 
-__attribute__((warn_unused_result))
-static ALWAYS_INLINE
-void * nonnull irealloc(void * nullable mem, size_t oldsize, size_t size,
-                        size_t alignment, mem_flags_t flags)
+__attribute__((warn_unused_result)) static ALWAYS_INLINE void *nonnull
+irealloc(
+    void *nullable mem, size_t oldsize, size_t size, size_t alignment,
+    mem_flags_t flags
+)
 {
     return mp_irealloc(ipool(flags), mem, oldsize, size, alignment, flags);
 }
 
-static ALWAYS_INLINE
-void ifree(void * nullable mem, mem_flags_t flags)
+static ALWAYS_INLINE void ifree(void *nullable mem, mem_flags_t flags)
 {
     return mp_ifree(ipool(flags), mem);
 }
 
-__attribute__((malloc, warn_unused_result))
-static inline void * nonnull
-mp_idup(mem_pool_t * nullable mp, const void * nonnull src, size_t size,
-        size_t alignment)
+__attribute__((malloc, warn_unused_result)) static inline void *nonnull
+mp_idup(
+    mem_pool_t *nullable mp, const void *nonnull src, size_t size,
+    size_t alignment
+)
 {
     return memcpy(mp_imalloc(mp, size, alignment, MEM_RAW), src, size);
 }
 
-__attribute__((malloc, warn_unused_result))
-static inline void * nonnull
-mp_dupz(mem_pool_t * nullable mp, const void * nonnull src, size_t len)
+__attribute__((malloc, warn_unused_result)) static inline void *nonnull
+mp_dupz(mem_pool_t *nullable mp, const void *nonnull src, size_t len)
 {
     void *res = mp_imalloc(mp, len + 1, 1, MEM_RAW);
     return memcpyz(res, src, len);
 }
 
-__attribute__((malloc, warn_unused_result))
-static inline char * nonnull
-mp_strdup(mem_pool_t * nullable mp, const char * nonnull src)
+__attribute__((malloc, warn_unused_result)) static inline char *nonnull
+mp_strdup(mem_pool_t *nullable mp, const char *nonnull src)
 {
     return (char *)mp_idup(mp, src, strlen(src) + 1, 1);
 }
 
-char * nonnull mp_fmt(mem_pool_t * nullable mp, int * nullable lenp,
-                      const char * nonnull fmt, ...)
-    __attr_leaf__ __attr_printf__(3, 4);
+char *nonnull mp_fmt(
+    mem_pool_t *nullable mp, int *nullable lenp, const char *nonnull fmt, ...
+) __attr_leaf__ __attr_printf__(3, 4);
 
-char * nonnull mp_vfmt(mem_pool_t * nullable mp, int * nullable lenp,
-                       const char * nonnull fmt, va_list va)
-    __attr_leaf__ __attr_printf__(3, 0);
+char *nonnull mp_vfmt(
+    mem_pool_t *nullable mp, int *nullable lenp, const char *nonnull fmt,
+    va_list va
+) __attr_leaf__ __attr_printf__(3, 0);
 
 /* Generic Helpers */
 
-#define mpa_new_raw(mp, type, count, alignment)                              \
-    ((type *)mp_imalloc((mp), sizeof(type) * (count), (alignment), MEM_RAW))
-#define mpa_new(mp, type, count, alignment)                                  \
-    ((type *)mp_imalloc((mp), sizeof(type) * (count), (alignment), 0))
-#define mpa_new_extra(mp, type, size, alignment)                             \
-    ((type *)mp_imalloc((mp), sizeof(type) + (size), (alignment), 0))
-#define mpa_new_extra_field(mp, type, field, size, alignment)                \
-    ((type *)mp_imalloc((mp), extra_field_size(type, field, (size)),         \
-                        (alignment), 0))
-#define mpa_new_extra_raw(mp, type, size, alignment)                         \
-    ((type *)mp_imalloc((mp), sizeof(type) + (size), (alignment), MEM_RAW))
-#define mpa_new_extra_field_raw(mp, type, field, size, alignment)            \
-    ((type *)mp_imalloc((mp), extra_field_size(type, field, (size)),         \
-                        (alignment), MEM_RAW))
+#  define mpa_new_raw(mp, type, count, alignment)                            \
+      ((type *)mp_imalloc((mp), sizeof(type) * (count), (alignment), MEM_RAW))
+#  define mpa_new(mp, type, count, alignment)                                \
+      ((type *)mp_imalloc((mp), sizeof(type) * (count), (alignment), 0))
+#  define mpa_new_extra(mp, type, size, alignment)                           \
+      ((type *)mp_imalloc((mp), sizeof(type) + (size), (alignment), 0))
+#  define mpa_new_extra_field(mp, type, field, size, alignment)              \
+      ((type *)mp_imalloc(                                                   \
+          (mp), extra_field_size(type, field, (size)), (alignment), 0        \
+      ))
+#  define mpa_new_extra_raw(mp, type, size, alignment)                       \
+      ((type *)mp_imalloc((mp), sizeof(type) + (size), (alignment), MEM_RAW))
+#  define mpa_new_extra_field_raw(mp, type, field, size, alignment)          \
+      ((type *)mp_imalloc(                                                   \
+          (mp), extra_field_size(type, field, (size)), (alignment), MEM_RAW  \
+      ))
 
-#define __mpa_realloc(mp, pp, old, now, alignment, flags)                    \
-    ({                                                                       \
+#  define __mpa_realloc(mp, pp, old, now, alignment, flags)                  \
+      ({                                                                     \
         typeof(**(pp)) **__ptr = (pp);                                       \
-        *__ptr = mp_irealloc((mp), *__ptr, sizeof(**__ptr) * (old),          \
-                             sizeof(**__ptr) * (now),                        \
-                             (alignment), (flags));                          \
-    })
+        *__ptr = mp_irealloc(                                                \
+            (mp), *__ptr, sizeof(**__ptr) * (old), sizeof(**__ptr) * (now),  \
+            (alignment), (flags)                                             \
+        );                                                                   \
+      })
 
-#define mpa_realloc(mp, pp, count, alignment)                                \
-    __mpa_realloc((mp), (pp), MEM_UNKNOWN, (count), (alignment), MEM_RAW)
-#define mpa_realloc0(mp, pp, old, now, alignment)                            \
-    __mpa_realloc((mp), (pp), (old), (now), (alignment), 0)
-#define mpa_realloc_from(mp, pp, old, now, alignment)                        \
-    __mpa_realloc((mp), (pp), (old), (now), (alignment), MEM_RAW)
+#  define mpa_realloc(mp, pp, count, alignment)                              \
+      __mpa_realloc((mp), (pp), MEM_UNKNOWN, (count), (alignment), MEM_RAW)
+#  define mpa_realloc0(mp, pp, old, now, alignment)                          \
+      __mpa_realloc((mp), (pp), (old), (now), (alignment), 0)
+#  define mpa_realloc_from(mp, pp, old, now, alignment)                      \
+      __mpa_realloc((mp), (pp), (old), (now), (alignment), MEM_RAW)
 
-#define mpa_realloc_extra(mp, pp, extra, alignment)                          \
-    ({                                                                       \
+#  define mpa_realloc_extra(mp, pp, extra, alignment)                        \
+      ({                                                                     \
         typeof(**(pp)) **__ptr = (pp);                                       \
-        *__ptr = mp_irealloc((mp), *__ptr, MEM_UNKNOWN,                      \
-                             sizeof(**__ptr) + (extra),                      \
-                             (alignment), MEM_RAW);                          \
-    })
+        *__ptr = mp_irealloc(                                                \
+            (mp), *__ptr, MEM_UNKNOWN, sizeof(**__ptr) + (extra),            \
+            (alignment), MEM_RAW                                             \
+        );                                                                   \
+      })
 
-#define __mpa_realloc_extra_from(mp, pp, old_extra, new_extra, alignment,    \
-                                 flags)                                      \
-    ({                                                                       \
+#  define __mpa_realloc_extra_from(                                          \
+      mp, pp, old_extra, new_extra, alignment, flags                         \
+  )                                                                          \
+      ({                                                                     \
         typeof(**(pp)) **__ptr = (pp);                                       \
-        *__ptr = mp_irealloc((mp), *__ptr, sizeof(**__ptr) + (old_extra),    \
-                             sizeof(**__ptr) + (new_extra), (alignment),     \
-                             (flags));                                       \
-    })
+        *__ptr = mp_irealloc(                                                \
+            (mp), *__ptr, sizeof(**__ptr) + (old_extra),                     \
+            sizeof(**__ptr) + (new_extra), (alignment), (flags)              \
+        );                                                                   \
+      })
 
-#define mpa_realloc0_extra(mp, pp, old_extra, new_extra, alignment)          \
-    __mpa_realloc_extra_from((mp), (pp), (old_extra), (new_extra),           \
-                             (alignment), 0)
+#  define mpa_realloc0_extra(mp, pp, old_extra, new_extra, alignment)        \
+      __mpa_realloc_extra_from(                                              \
+          (mp), (pp), (old_extra), (new_extra), (alignment), 0               \
+      )
 
-#define mpa_realloc_extra_from(mp, pp, old_extra, new_extra, alignment)      \
-    __mpa_realloc_extra_from((mp), (pp), (old_extra), (new_extra),           \
-                             (alignment), MEM_RAW)
+#  define mpa_realloc_extra_from(mp, pp, old_extra, new_extra, alignment)    \
+      __mpa_realloc_extra_from(                                              \
+          (mp), (pp), (old_extra), (new_extra), (alignment), MEM_RAW         \
+      )
 
-#define mpa_realloc_extra_field(mp, pp, field, count, alignment)             \
-    ({                                                                       \
+#  define mpa_realloc_extra_field(mp, pp, field, count, alignment)           \
+      ({                                                                     \
         typeof(**(pp)) **__ptr = (pp);                                       \
-        *__ptr = mp_irealloc((mp), *__ptr, MEM_UNKNOWN,                      \
-                             extra_field_size(typeof(**pp), field, (count)), \
-                             (alignment), MEM_RAW);                          \
-    })
+        *__ptr = mp_irealloc(                                                \
+            (mp), *__ptr, MEM_UNKNOWN,                                       \
+            extra_field_size(typeof(**pp), field, (count)), (alignment),     \
+            MEM_RAW                                                          \
+        );                                                                   \
+      })
 
-#define __mpa_realloc_extra_field_from(mp, pp, field, old_count, new_count,  \
-                                       alignment, flags)                     \
-    ({                                                                       \
+#  define __mpa_realloc_extra_field_from(                                    \
+      mp, pp, field, old_count, new_count, alignment, flags                  \
+  )                                                                          \
+      ({                                                                     \
         typeof(**(pp)) **__ptr = (pp);                                       \
-        *__ptr = mp_irealloc((mp), *__ptr,                                   \
-                     extra_field_size(typeof(**pp), field, (old_count)),     \
-                     extra_field_size(typeof(**pp), field, (new_count)),     \
-                     (alignment), (flags));                                  \
-    })
-#define mpa_realloc0_extra_field(mp, pp, field, old_count, new_count,        \
-                                 alignment)                                  \
-    __mpa_realloc_extra_field_from((mp), (pp), field, (old_count),           \
-                                   (new_count), (alignment), 0)
+        *__ptr = mp_irealloc(                                                \
+            (mp), *__ptr,                                                    \
+            extra_field_size(typeof(**pp), field, (old_count)),              \
+            extra_field_size(typeof(**pp), field, (new_count)), (alignment), \
+            (flags)                                                          \
+        );                                                                   \
+      })
+#  define mpa_realloc0_extra_field(                                          \
+      mp, pp, field, old_count, new_count, alignment                         \
+  )                                                                          \
+      __mpa_realloc_extra_field_from(                                        \
+          (mp), (pp), field, (old_count), (new_count), (alignment), 0        \
+      )
 
-#define mpa_realloc_extra_field_from(mp, pp, field, old_count, new_count,    \
-                                 alignment)                                  \
-    __mpa_realloc_extra_field_from((mp), (pp), field, (old_count),           \
-                                   (new_count), (alignment), MEM_RAW)
+#  define mpa_realloc_extra_field_from(                                      \
+      mp, pp, field, old_count, new_count, alignment                         \
+  )                                                                          \
+      __mpa_realloc_extra_field_from(                                        \
+          (mp), (pp), field, (old_count), (new_count), (alignment), MEM_RAW  \
+      )
 
-#define mpa_dup(mp, ptr, count, alignment)                                   \
-    mp_idup((mp), (ptr), sizeof(*ptr) * (count), (alignment))
-
+#  define mpa_dup(mp, ptr, count, alignment)                                 \
+      mp_idup((mp), (ptr), sizeof(*ptr) * (count), (alignment))
 
 /* Alignement aware helpers */
 
-#define mp_new_raw(mp, type, count)                                          \
-    mpa_new_raw((mp), type, (count), alignof(type))
-#define mp_new(mp, type, count)                                              \
-    mpa_new((mp), type, (count), alignof(type))
-#define mp_new_extra(mp, type, size)                                         \
-    mpa_new_extra((mp), type, (size), alignof(type))
-#define mp_new_extra_raw(mp, type, size)                                     \
-    mpa_new_extra_raw((mp), type, (size), alignof(type))
-#define mp_new_extra_field(mp, type, field, size)                            \
-    mpa_new_extra_field((mp), type, field, (size), alignof(type))
-#define mp_new_extra_field_raw(mp, type, field, size)                        \
-    mpa_new_extra_field_raw((mp), type, field, (size), alignof(type))
+#  define mp_new_raw(mp, type, count)                                        \
+      mpa_new_raw((mp), type, (count), alignof(type))
+#  define mp_new(mp, type, count) mpa_new((mp), type, (count), alignof(type))
+#  define mp_new_extra(mp, type, size)                                       \
+      mpa_new_extra((mp), type, (size), alignof(type))
+#  define mp_new_extra_raw(mp, type, size)                                   \
+      mpa_new_extra_raw((mp), type, (size), alignof(type))
+#  define mp_new_extra_field(mp, type, field, size)                          \
+      mpa_new_extra_field((mp), type, field, (size), alignof(type))
+#  define mp_new_extra_field_raw(mp, type, field, size)                      \
+      mpa_new_extra_field_raw((mp), type, field, (size), alignof(type))
 
-#define mp_realloc(mp, pp, count)                                            \
-    mpa_realloc((mp), (pp), (count), alignof(**(pp)))
-#define mp_realloc_from(mp, pp, old, now)                                    \
-    mpa_realloc_from((mp), (pp), (old), (now), alignof(**(pp)))
-#define mp_realloc0(mp, pp, old, now)                                        \
-    mpa_realloc0((mp), (pp), (old), (now), alignof(**(pp)))
-#define mp_realloc_extra(mp, pp, extra)                                      \
-    mpa_realloc0_extra((mp), (pp), (extra), alignof(**(pp)))
-#define mp_realloc0_extra(mp, pp, old_extra, new_extra)                      \
-    mpa_realloc0_extra((mp), (pp), (old_extra), (new_extra), alignof(**(pp)))
+#  define mp_realloc(mp, pp, count)                                          \
+      mpa_realloc((mp), (pp), (count), alignof(**(pp)))
+#  define mp_realloc_from(mp, pp, old, now)                                  \
+      mpa_realloc_from((mp), (pp), (old), (now), alignof(**(pp)))
+#  define mp_realloc0(mp, pp, old, now)                                      \
+      mpa_realloc0((mp), (pp), (old), (now), alignof(**(pp)))
+#  define mp_realloc_extra(mp, pp, extra)                                    \
+      mpa_realloc0_extra((mp), (pp), (extra), alignof(**(pp)))
+#  define mp_realloc0_extra(mp, pp, old_extra, new_extra)                    \
+      mpa_realloc0_extra(                                                    \
+          (mp), (pp), (old_extra), (new_extra), alignof(**(pp))              \
+      )
 
-#define mp_realloc_extra_field(mp, pp, field, count)                         \
-    mpa_realloc_extra_field((mp), (pp), field, (count), alignof(**(pp)))
-#define mp_realloc0_extra_field(mp, pp, field, old_count, new_count)         \
-    mpa_realloc0_extra_field((mp), (pp), field, (old_count), (new_count),    \
-                             alignof(**(pp)))
+#  define mp_realloc_extra_field(mp, pp, field, count)                       \
+      mpa_realloc_extra_field((mp), (pp), field, (count), alignof(**(pp)))
+#  define mp_realloc0_extra_field(mp, pp, field, old_count, new_count)       \
+      mpa_realloc0_extra_field(                                              \
+          (mp), (pp), field, (old_count), (new_count), alignof(**(pp))       \
+      )
 
-#define mp_delete(mp, pp)  ({                                                \
-        typeof(**(pp))  **__ptr = (pp);                                      \
+#  define mp_delete(mp, pp)                                                  \
+      ({                                                                     \
+        typeof(**(pp)) **__ptr = (pp);                                       \
         mp_ifree((mp), *__ptr);                                              \
         *__ptr = NULL;                                                       \
-    })
+      })
 
-#define mp_dup(mp, src, size)  mpa_dup((mp), (src), (size), alignof(src))
-
+#  define mp_dup(mp, src, size) mpa_dup((mp), (src), (size), alignof(src))
 
 /* }}} */
 /* LibC {{{ */
 
 /* Generic Helpers */
 
-#define pa_new_raw(type, count, alignment)                                   \
-    mpa_new_raw(&mem_pool_libc, type, (count), (alignment))
-#define pa_new(type, count, alignment)                                       \
-    mpa_new(&mem_pool_libc, type, (count), (alignment))
-#define pa_new_extra(type, size, alignment)                                  \
-    mpa_new_extra(&mem_pool_libc, type, (size), (alignment))
-#define pa_new_extra_raw(type, size, alignment)                              \
-    mpa_new_extra_raw(&mem_pool_libc, type, (size), (alignment))
-#define pa_new_extra_field(type, field, size, alignment)                     \
-    mpa_new_extra_field(&mem_pool_libc, type, field, (size), (alignment))
-#define pa_new_extra_field_raw(type, field, size, alignment)                 \
-    mpa_new_extra_field_raw(&mem_pool_libc, type, field, (size), (alignment))
+#  define pa_new_raw(type, count, alignment)                                 \
+      mpa_new_raw(&mem_pool_libc, type, (count), (alignment))
+#  define pa_new(type, count, alignment)                                     \
+      mpa_new(&mem_pool_libc, type, (count), (alignment))
+#  define pa_new_extra(type, size, alignment)                                \
+      mpa_new_extra(&mem_pool_libc, type, (size), (alignment))
+#  define pa_new_extra_raw(type, size, alignment)                            \
+      mpa_new_extra_raw(&mem_pool_libc, type, (size), (alignment))
+#  define pa_new_extra_field(type, field, size, alignment)                   \
+      mpa_new_extra_field(&mem_pool_libc, type, field, (size), (alignment))
+#  define pa_new_extra_field_raw(type, field, size, alignment)               \
+      mpa_new_extra_field_raw(                                               \
+          &mem_pool_libc, type, field, (size), (alignment)                   \
+      )
 
-#define pa_realloc(pp, count, alignment)                                     \
-    mpa_realloc(&mem_pool_libc, (pp), (count), (alignment))
-#define pa_realloc0(pp, old, now, alignment)                                 \
-    mpa_realloc0(&mem_pool_libc, (pp), (old), (now), (alignment))
-#define pa_realloc_extra(pp, extra, alignment)                               \
-    mpa_realloc_extra(&mem_pool_libc, (pp), (extra), (alignment))
-#define pa_realloc0_extra(pp, old_extra, new_extra, alignment)               \
-    mpa_realloc0_extra(&mem_pool_libc, (pp), (old_extra), (new_extra),       \
-                       (alignment))
+#  define pa_realloc(pp, count, alignment)                                   \
+      mpa_realloc(&mem_pool_libc, (pp), (count), (alignment))
+#  define pa_realloc0(pp, old, now, alignment)                               \
+      mpa_realloc0(&mem_pool_libc, (pp), (old), (now), (alignment))
+#  define pa_realloc_extra(pp, extra, alignment)                             \
+      mpa_realloc_extra(&mem_pool_libc, (pp), (extra), (alignment))
+#  define pa_realloc0_extra(pp, old_extra, new_extra, alignment)             \
+      mpa_realloc0_extra(                                                    \
+          &mem_pool_libc, (pp), (old_extra), (new_extra), (alignment)        \
+      )
 
-#define pa_realloc_extra_field(pp, field, count, alignment)                  \
-    mpa_realloc_extra_field(&mem_pool_libc, (pp), field, (count),            \
-                            (alignment))
-#define pa_realloc0_extra_field(pp, field, old_count, new_count, alignment)  \
-    mpa_realloc0_extra_field(&mem_pool_libc, (pp), field, (old_count),       \
-                             (new_count), (alignment))
+#  define pa_realloc_extra_field(pp, field, count, alignment)                \
+      mpa_realloc_extra_field(                                               \
+          &mem_pool_libc, (pp), field, (count), (alignment)                  \
+      )
+#  define pa_realloc0_extra_field(                                           \
+      pp, field, old_count, new_count, alignment                             \
+  )                                                                          \
+      mpa_realloc0_extra_field(                                              \
+          &mem_pool_libc, (pp), field, (old_count), (new_count), (alignment) \
+      )
 
-#define pa_dup(src, size, alignment)                                         \
-    mpa_dup(&mem_pool_libc, (src), (size), (alignment))
+#  define pa_dup(src, size, alignment)                                       \
+      mpa_dup(&mem_pool_libc, (src), (size), (alignment))
 
 /* Alignement aware helpers */
 
-#define p_new_raw(type, count)       pa_new_raw(type, (count), alignof(type))
-#define p_new(type, count)           pa_new(type, (count), alignof(type))
-#define p_new_extra(type, size)      pa_new_extra(type, (size), alignof(type))
-#define p_new_extra_raw(type, size)                                          \
-    pa_new_extra_raw(type, (size), alignof(type))
-#define p_new_extra_field(type, field, size)                                 \
-    pa_new_extra_field(type, field, (size), alignof(type))
-#define p_new_extra_field_raw(type, field, size)                             \
-    pa_new_extra_field_raw(type, field, (size), alignof(type))
+#  define p_new_raw(type, count) pa_new_raw(type, (count), alignof(type))
+#  define p_new(type, count) pa_new(type, (count), alignof(type))
+#  define p_new_extra(type, size) pa_new_extra(type, (size), alignof(type))
+#  define p_new_extra_raw(type, size)                                        \
+      pa_new_extra_raw(type, (size), alignof(type))
+#  define p_new_extra_field(type, field, size)                               \
+      pa_new_extra_field(type, field, (size), alignof(type))
+#  define p_new_extra_field_raw(type, field, size)                           \
+      pa_new_extra_field_raw(type, field, (size), alignof(type))
 
-#define p_realloc(pp, count)        pa_realloc((pp), (count), alignof(**(pp)))
-#define p_realloc0(pp, old, now)                                             \
-    pa_realloc0((pp), (old), (now), alignof(**(pp)))
-#define p_realloc_extra(pp, extra)                                           \
-    pa_realloc_extra((pp), (extra), alignof(**(pp)))
-#define p_realloc0_extra(pp, old_extra, new_extra)                           \
-    pa_realloc0_extra((pp), (old_extra), (new_extra), alignof(**(pp)))
+#  define p_realloc(pp, count) pa_realloc((pp), (count), alignof(**(pp)))
+#  define p_realloc0(pp, old, now)                                           \
+      pa_realloc0((pp), (old), (now), alignof(**(pp)))
+#  define p_realloc_extra(pp, extra)                                         \
+      pa_realloc_extra((pp), (extra), alignof(**(pp)))
+#  define p_realloc0_extra(pp, old_extra, new_extra)                         \
+      pa_realloc0_extra((pp), (old_extra), (new_extra), alignof(**(pp)))
 
-#define p_realloc_extra_field(pp, field, count)                              \
-    pa_realloc_extra_field((pp), field, (count), alignof(**(pp)))
-#define p_realloc0_extra_field(pp, field, old_count, new_count)              \
-    pa_realloc0_extra_field((pp), field, (old_count), (new_count),           \
-                            alignof(**(pp)))
+#  define p_realloc_extra_field(pp, field, count)                            \
+      pa_realloc_extra_field((pp), field, (count), alignof(**(pp)))
+#  define p_realloc0_extra_field(pp, field, old_count, new_count)            \
+      pa_realloc0_extra_field(                                               \
+          (pp), field, (old_count), (new_count), alignof(**(pp))             \
+      )
 
-#define p_dup(p, count)         pa_dup((p), (count), alignof(p))
-#define p_dupz(p, count)        mp_dupz(&mem_pool_libc, (p), (count))
-#define p_strdup(p)             mp_strdup(&mem_pool_libc, (p))
+#  define p_dup(p, count) pa_dup((p), (count), alignof(p))
+#  define p_dupz(p, count) mp_dupz(&mem_pool_libc, (p), (count))
+#  define p_strdup(p) mp_strdup(&mem_pool_libc, (p))
 
 /* Deallocation */
 
-#define p_delete(pp)  mp_delete(&mem_pool_libc, (pp))
+#  define p_delete(pp) mp_delete(&mem_pool_libc, (pp))
 
-#ifndef __cplusplus
-static inline void (p_delete)(void * nullable * nonnull p)
+#  ifndef __cplusplus
+static inline void(p_delete)(void *nullable *nonnull p)
 {
     p_delete(p);
 }
-#endif
+#  endif
 
 /** Set the period for the cron that calls malloc_trim().
  *
@@ -714,16 +752,17 @@ void core_mem_malloc_trim(void);
 /* }}} */
 /* Mem-fifo Pool {{{ */
 
-mem_pool_t * nonnull mem_fifo_pool_new(const char * nonnull name,
-                                       int page_size_hint)
-    __attr_leaf__ __attribute__((malloc));
-void mem_fifo_pool_delete(mem_pool_t * nullable * nonnull poolp)
-    __attr_leaf__;
-void mem_fifo_pool_stats(mem_pool_t * nonnull mp, ssize_t * nonnull allocated,
-                         ssize_t * nonnull used)
-    __attr_leaf__;
+mem_pool_t *nonnull
+mem_fifo_pool_new(const char *nonnull name, int page_size_hint) __attr_leaf__
+    __attribute__((malloc));
+void mem_fifo_pool_delete(
+    mem_pool_t * nullable * nonnull poolp
+) __attr_leaf__;
+void mem_fifo_pool_stats(
+    mem_pool_t *nonnull mp, ssize_t *nonnull allocated, ssize_t *nonnull used
+) __attr_leaf__;
 
-void mem_fifo_pool_print_stats(mem_pool_t * nonnull mp);
+void mem_fifo_pool_print_stats(mem_pool_t *nonnull mp);
 void mem_fifo_pools_print_stats(void);
 
 /* }}} */
@@ -741,11 +780,11 @@ void mem_fifo_pools_print_stats(void);
  * \param[in] initialsize  First memory block size.
  * \param[in] flags        Additional pool options.
  */
-mem_pool_t * nonnull mem_ring_new_flags(const char * nonnull name,
-                                        int initialsize, unsigned flags);
+mem_pool_t *nonnull
+mem_ring_new_flags(const char *nonnull name, int initialsize, unsigned flags);
 
 /** \see mem_ring_new_flags */
-mem_pool_t * nonnull mem_ring_new(const char * nonnull name, int initialsize);
+mem_pool_t *nonnull mem_ring_new(const char *nonnull name, int initialsize);
 
 /** Delete the given memory ring-pool */
 void mem_ring_delete(mem_pool_t * nullable * nonnull) __attr_leaf__;
@@ -764,7 +803,7 @@ void mem_ring_delete(mem_pool_t * nullable * nonnull) __attr_leaf__;
  * releases, using this function to force it means that you have a clear
  * understanding of what you are doing.
  */
-void mem_ring_reset(mem_pool_t * nonnull) __attr_leaf__;
+void mem_ring_reset(mem_pool_t *nonnull) __attr_leaf__;
 
 /** Create a new frame of memory in the ring.
  *
@@ -774,10 +813,10 @@ void mem_ring_reset(mem_pool_t * nonnull) __attr_leaf__;
  *
  * \return Frame cookie (needed to release the frame later).
  */
-const void * nonnull mem_ring_newframe(mem_pool_t * nonnull) __attr_leaf__;
+const void *nonnull mem_ring_newframe(mem_pool_t *nonnull) __attr_leaf__;
 
 /** Get the active frame cookie. */
-const void * nonnull mem_ring_getframe(mem_pool_t * nonnull) __attr_leaf__;
+const void *nonnull mem_ring_getframe(mem_pool_t *nonnull) __attr_leaf__;
 
 /** Seal the active frame.
  *
@@ -787,22 +826,21 @@ const void * nonnull mem_ring_getframe(mem_pool_t * nonnull) __attr_leaf__;
  *
  * \return Frame cookie (needed to release the frame later).
  */
-const void * nonnull mem_ring_seal(mem_pool_t * nonnull) __attr_leaf__;
+const void *nonnull mem_ring_seal(mem_pool_t *nonnull) __attr_leaf__;
 
 /** Release the frame identified by the given cookie.
  *
  * This function will free an existing frame using the given cookie. Be
  * careful that the cookie will be invalidated after the frame release.
  */
-void mem_ring_release(const void * nonnull cookie) __attr_leaf__;
+void mem_ring_release(const void *nonnull cookie) __attr_leaf__;
 
 /** Seal the ring-pool and return a checkpoint.
  *
  * The returned check point will allow you to restore later the ring-pool at
  * this current state.
  */
-const void * nonnull mem_ring_checkpoint(mem_pool_t * nonnull) __attr_leaf__;
-
+const void *nonnull mem_ring_checkpoint(mem_pool_t *nonnull) __attr_leaf__;
 
 /** Rewind the ring-pool at a given checkpoint.
  *
@@ -815,221 +853,240 @@ const void * nonnull mem_ring_checkpoint(mem_pool_t * nonnull) __attr_leaf__;
  *
  * The checkpoint cannot be reused after this call.
  */
-void mem_ring_rewind(mem_pool_t * nonnull, const void * nonnull ckpoint)
-    __attr_leaf__;
+void mem_ring_rewind(
+    mem_pool_t *nonnull, const void *nonnull ckpoint
+) __attr_leaf__;
 
 /** Dump the ring structure on stdout (debug) */
-void mem_ring_dump(const mem_pool_t * nonnull) __attr_leaf__;
+void mem_ring_dump(const mem_pool_t *nonnull) __attr_leaf__;
 
 /** Get the malloc'd size of the memory pool. */
-size_t mem_ring_memory_footprint(const mem_pool_t * nonnull) __attr_leaf__;
+size_t mem_ring_memory_footprint(const mem_pool_t *nonnull) __attr_leaf__;
 
 /** Just like the t_pool() we have the corresponding r_pool() */
-mem_pool_t * nonnull r_pool(void) __attr_leaf__;
+mem_pool_t *nonnull r_pool(void) __attr_leaf__;
 
 /** Destroy the r_pool() */
 void r_pool_destroy(void) __attr_leaf__;
 
-#define r_newframe()                mem_ring_newframe(r_pool())
-#define r_seal()                    mem_ring_seal(r_pool())
-#define r_getframe()                mem_ring_getframe(r_pool())
-#define r_release(ptr)              mem_ring_release(ptr)
-#define r_checkpoint()              mem_ring_checkpoint(r_pool())
-#define r_rewind(ptr)               mem_ring_rewind(r_pool(), ptr)
-
+#  define r_newframe() mem_ring_newframe(r_pool())
+#  define r_seal() mem_ring_seal(r_pool())
+#  define r_getframe() mem_ring_getframe(r_pool())
+#  define r_release(ptr) mem_ring_release(ptr)
+#  define r_checkpoint() mem_ring_checkpoint(r_pool())
+#  define r_rewind(ptr) mem_ring_rewind(r_pool(), ptr)
 
 /* Aligned pointers allocation helpers */
 
-#define ra_new_raw(type, count, alignment)                                   \
-    mpa_new_raw(r_pool(), type, (count), (alignment))
-#define ra_new(type, count, alignment)                                       \
-    mpa_new(r_pool(), type, (count), (alignment))
-#define ra_new_extra(type, size, alignment)                                  \
-    mpa_new_extra(r_pool(), type, (size), (alignment))
-#define ra_new_extra_raw(type, size, alignment)                              \
-    mpa_new_extra_raw(r_pool(), type, (size), (alignment))
-#define ra_new_extra_field(type, field, size, alignment)                     \
-    mpa_new_extra_field(r_pool(), type, field, (size), (alignment))
-#define ra_new_extra_field_raw(type, field, size, alignment)                 \
-    mpa_new_extra_field_raw(r_pool(), type, field, (size), (alignment))
+#  define ra_new_raw(type, count, alignment)                                 \
+      mpa_new_raw(r_pool(), type, (count), (alignment))
+#  define ra_new(type, count, alignment)                                     \
+      mpa_new(r_pool(), type, (count), (alignment))
+#  define ra_new_extra(type, size, alignment)                                \
+      mpa_new_extra(r_pool(), type, (size), (alignment))
+#  define ra_new_extra_raw(type, size, alignment)                            \
+      mpa_new_extra_raw(r_pool(), type, (size), (alignment))
+#  define ra_new_extra_field(type, field, size, alignment)                   \
+      mpa_new_extra_field(r_pool(), type, field, (size), (alignment))
+#  define ra_new_extra_field_raw(type, field, size, alignment)               \
+      mpa_new_extra_field_raw(r_pool(), type, field, (size), (alignment))
 
-#define ra_realloc_from(pp, old, now, alignment)                             \
-    mpa_realloc_from(r_pool(), (pp), (old), (now), (alignment))
-#define ra_realloc0(pp, old, now, alignment)                                 \
-    mpa_realloc0(r_pool(), (pp), (old), (now), (alignment))
-#define ra_realloc_extra_from(pp, old_extra, new_extra, alignment)           \
-    mpa_realloc_extra_from(r_pool(), (pp), (old_extra), (new_extra),         \
-                           (alignment))
-#define ra_realloc0_extra(pp, old_extra, new_extra, alignment)               \
-    mpa_realloc0_extra(r_pool(), (pp), (old_extra), (new_extra), (alignment))
+#  define ra_realloc_from(pp, old, now, alignment)                           \
+      mpa_realloc_from(r_pool(), (pp), (old), (now), (alignment))
+#  define ra_realloc0(pp, old, now, alignment)                               \
+      mpa_realloc0(r_pool(), (pp), (old), (now), (alignment))
+#  define ra_realloc_extra_from(pp, old_extra, new_extra, alignment)         \
+      mpa_realloc_extra_from(                                                \
+          r_pool(), (pp), (old_extra), (new_extra), (alignment)              \
+      )
+#  define ra_realloc0_extra(pp, old_extra, new_extra, alignment)             \
+      mpa_realloc0_extra(                                                    \
+          r_pool(), (pp), (old_extra), (new_extra), (alignment)              \
+      )
 
-#define ra_realloc_extra_field_from(pp, field, old_count, new_count,         \
-                                    alignment)                               \
-    mpa_realloc_extra_field_from(r_pool(), (pp), field, (old_count),         \
-                                 (new_count), (alignment))
-#define ra_realloc0_extra_field(pp, field, old_count, new_count, alignment)  \
-    mpa_realloc0_extra_field(r_pool(), (pp), field, (old_count),             \
-                             (new_count), (alignment))
+#  define ra_realloc_extra_field_from(                                       \
+      pp, field, old_count, new_count, alignment                             \
+  )                                                                          \
+      mpa_realloc_extra_field_from(                                          \
+          r_pool(), (pp), field, (old_count), (new_count), (alignment)       \
+      )
+#  define ra_realloc0_extra_field(                                           \
+      pp, field, old_count, new_count, alignment                             \
+  )                                                                          \
+      mpa_realloc0_extra_field(                                              \
+          r_pool(), (pp), field, (old_count), (new_count), (alignment)       \
+      )
 
-#define ra_dup(p, count, alignment)                                          \
-    mpa_dup(r_pool(), (p), (count), (alignment))
+#  define ra_dup(p, count, alignment)                                        \
+      mpa_dup(r_pool(), (p), (count), (alignment))
 
 /* Pointer allocations helpers */
 
-#define r_new_raw(type, count)       ra_new_raw(type, (count), alignof(type))
-#define r_new(type, count)           ra_new(type, (count), alignof(type))
-#define r_new_extra(type, size)      ra_new_extra(type, (size), alignof(type))
-#define r_new_extra_raw(type, size)                                          \
-    ra_new_extra_raw(type, (size), alignof(type))
-#define r_new_extra_field(type, field, size)                                 \
-    ra_new_extra_field(type, field, (size), alignof(type))
-#define r_new_extra_field_raw(type, field, size)                             \
-    ra_new_extra_field_raw(type, field, (size), alignof(type))
+#  define r_new_raw(type, count) ra_new_raw(type, (count), alignof(type))
+#  define r_new(type, count) ra_new(type, (count), alignof(type))
+#  define r_new_extra(type, size) ra_new_extra(type, (size), alignof(type))
+#  define r_new_extra_raw(type, size)                                        \
+      ra_new_extra_raw(type, (size), alignof(type))
+#  define r_new_extra_field(type, field, size)                               \
+      ra_new_extra_field(type, field, (size), alignof(type))
+#  define r_new_extra_field_raw(type, field, size)                           \
+      ra_new_extra_field_raw(type, field, (size), alignof(type))
 
-#define r_realloc_from(tp, old, now)                                         \
-    ra_realloc_from(tp, (old), (now), alignof(**(tp)))
-#define r_realloc0(tp, old, now)                                             \
-    ra_realloc0(tp, (old), (now), alignof(**(tp)))
-#define r_realloc_extra_from(tp, old_extra, new_extra)                       \
-    ra_realloc_extra_from((tp), (old_extra), (new_extra), alignof(**(tp)))
-#define r_realloc0_extra(tp, old_extra, new_extra)                           \
-    ra_realloc0_extra(tp, (old_extra), (new_extra), alignof(**(tp)))
+#  define r_realloc_from(tp, old, now)                                       \
+      ra_realloc_from(tp, (old), (now), alignof(**(tp)))
+#  define r_realloc0(tp, old, now)                                           \
+      ra_realloc0(tp, (old), (now), alignof(**(tp)))
+#  define r_realloc_extra_from(tp, old_extra, new_extra)                     \
+      ra_realloc_extra_from((tp), (old_extra), (new_extra), alignof(**(tp)))
+#  define r_realloc0_extra(tp, old_extra, new_extra)                         \
+      ra_realloc0_extra(tp, (old_extra), (new_extra), alignof(**(tp)))
 
-#define r_realloc_extra_field_from(tp, field, old_count, new_count)          \
-    ra_realloc_extra_field_from((tp), field, (old_count), (new_count),       \
-                                alignof(**(tp)))
-#define r_realloc0_extra_field(tp, field, old_count, new_count)              \
-    ra_realloc0_extra_field((tp), field, (old_count), (new_count),           \
-                            alignof(**(tp)))
+#  define r_realloc_extra_field_from(tp, field, old_count, new_count)        \
+      ra_realloc_extra_field_from(                                           \
+          (tp), field, (old_count), (new_count), alignof(**(tp))             \
+      )
+#  define r_realloc0_extra_field(tp, field, old_count, new_count)            \
+      ra_realloc0_extra_field(                                               \
+          (tp), field, (old_count), (new_count), alignof(**(tp))             \
+      )
 
-#define r_dup(p, count)    ra_dup((p), (count), alignof(p))
-#define r_dupz(p, count)   mp_dupz(r_pool(), (p), (count))
-#define r_strdup(p)        mp_strdup(r_pool(), (p))
+#  define r_dup(p, count) ra_dup((p), (count), alignof(p))
+#  define r_dupz(p, count) mp_dupz(r_pool(), (p), (count))
+#  define r_strdup(p) mp_strdup(r_pool(), (p))
 
 /* }}} */
 /* Alloca {{{ */
 
-#define p_alloca_raw(type_t, count)                                          \
-    ((type_t *)alloca(sizeof(type_t) * (count)))
+#  define p_alloca_raw(type_t, count)                                        \
+      ((type_t *)alloca(sizeof(type_t) * (count)))
 
-#define p_alloca(type_t, count)                                              \
-    ({  size_t __count = (count);                                            \
+#  define p_alloca(type_t, count)                                            \
+      ({                                                                     \
+        size_t __count = (count);                                            \
         p_clear(p_alloca_raw(type_t, __count), __count);                     \
-    })
+      })
 
 /* }}} */
 /* }}} */
 /* Structure allocation helpers {{{ */
 
-#define DO_INIT(type, prefix)                                                \
-    __attr_nonnull__((1))                                                    \
-    type * nonnull prefix##_init(type * nonnull var) {                       \
-        return p_clear(var, 1);                                              \
-    }
-#define DO_NEW(type, prefix) \
-    __attribute__((malloc)) type * nonnull prefix##_new(void) {              \
-        return prefix##_init(p_new_raw(type, 1));                            \
-    }
-#define DO_NEW0(type, prefix) \
-    __attribute__((malloc)) type * nonnull prefix##_new(void) {              \
-        return p_new(type, 1);                                               \
-    }
+#  define DO_INIT(type, prefix)                                              \
+      __attr_nonnull__((1)) type *nonnull prefix##_init(type *nonnull var)   \
+      {                                                                      \
+          return p_clear(var, 1);                                            \
+      }
+#  define DO_NEW(type, prefix)                                               \
+      __attribute__((malloc)) type *nonnull prefix##_new(void)               \
+      {                                                                      \
+          return prefix##_init(p_new_raw(type, 1));                          \
+      }
+#  define DO_NEW0(type, prefix)                                              \
+      __attribute__((malloc)) type *nonnull prefix##_new(void)               \
+      {                                                                      \
+          return p_new(type, 1);                                             \
+      }
 
-#define DO_WIPE(type, prefix)                                                \
-    __attr_nonnull__((1)) void prefix##_wipe(type * nonnull var) { }
+#  define DO_WIPE(type, prefix)                                              \
+      __attr_nonnull__((1)) void prefix##_wipe(type *nonnull var)            \
+      {                                                                      \
+      }
 
-#define DO_DELETE(type, prefix) \
-    __attr_nonnull__((1))                                                    \
-    void prefix##_delete(type * nullable * nonnull varp) {                   \
-        type * const var = *varp;                                            \
+#  define DO_DELETE(type, prefix)                                            \
+      __attr_nonnull__((1)) void prefix##_delete(                            \
+          type * nullable * nonnull varp                                     \
+      )                                                                      \
+      {                                                                      \
+          type *const var = *varp;                                           \
                                                                              \
-        if (var) {                                                           \
-            prefix##_wipe(var);                                              \
-            assert (likely(var == *varp) && "pointer corruption detected");  \
-            p_delete(varp);                                                  \
-        }                                                                    \
-    }
+          if (var) {                                                         \
+              prefix##_wipe(var);                                            \
+              assert(likely(var == *varp) && "pointer corruption detected"); \
+              p_delete(varp);                                                \
+          }                                                                  \
+      }
 
+#  define GENERIC_INIT(type, prefix)                                         \
+      static __attr_unused__ inline DO_INIT(type, prefix)
+#  define GENERIC_NEW(type, prefix)                                          \
+      static __attr_unused__ inline DO_NEW(type, prefix)
+#  define GENERIC_NEW_INIT(type, prefix)                                     \
+      GENERIC_INIT(type, prefix)                                             \
+      static __attr_unused__ inline DO_NEW0(type, prefix)
 
-#define GENERIC_INIT(type, prefix)                          \
-    static __attr_unused__ inline DO_INIT(type, prefix)
-#define GENERIC_NEW(type, prefix)                           \
-    static __attr_unused__ inline DO_NEW(type, prefix)
-#define GENERIC_NEW_INIT(type, prefix)                      \
-    GENERIC_INIT(type, prefix)                              \
-    static __attr_unused__ inline DO_NEW0(type, prefix)
+#  define GENERIC_WIPE(type, prefix)                                         \
+      static __attr_unused__ inline DO_WIPE(type, prefix)
+#  define GENERIC_DELETE(type, prefix)                                       \
+      static __attr_unused__ inline DO_DELETE(type, prefix)
+#  define GENERIC_WIPE_DELETE(type, prefix)                                  \
+      GENERIC_WIPE(type, prefix)                                             \
+      GENERIC_DELETE(type, prefix)
 
-#define GENERIC_WIPE(type, prefix)                          \
-    static __attr_unused__ inline DO_WIPE(type, prefix)
-#define GENERIC_DELETE(type, prefix)                        \
-    static __attr_unused__ inline DO_DELETE(type, prefix)
-#define GENERIC_WIPE_DELETE(type, prefix)                   \
-    GENERIC_WIPE(type, prefix)                              \
-    GENERIC_DELETE(type, prefix)
+#  define GENERIC_FUNCTIONS(type, prefix)                                    \
+      GENERIC_NEW_INIT(type, prefix)                                         \
+      GENERIC_WIPE_DELETE(type, prefix)
 
-#define GENERIC_FUNCTIONS(type, prefix) \
-    GENERIC_NEW_INIT(type, prefix)      \
-    GENERIC_WIPE_DELETE(type, prefix)
+#  define DO_MP_NEW(mp, type, prefix)                                        \
+      __attribute__((malloc)) type *nonnull prefix##_new(void)               \
+      {                                                                      \
+          return prefix##_init(mp_new_raw(mp, type, 1));                     \
+      }
+#  define DO_MP_NEW0(mp, type, prefix)                                       \
+      __attribute__((malloc)) type *nonnull prefix##_new(void)               \
+      {                                                                      \
+          return mp_new(mp, type, 1);                                        \
+      }
 
+#  define DO_MP_DELETE(mp, type, prefix)                                     \
+      void prefix##_delete(type * nullable * nonnull var)                    \
+      {                                                                      \
+          if (*(var)) {                                                      \
+              prefix##_wipe(*var);                                           \
+              mp_delete(mp, var);                                            \
+          }                                                                  \
+      }
 
-#define DO_MP_NEW(mp, type, prefix)                                          \
-    __attribute__((malloc)) type * nonnull prefix##_new(void) {              \
-        return prefix##_init(mp_new_raw(mp, type, 1));                       \
-    }
-#define DO_MP_NEW0(mp, type, prefix)                                         \
-    __attribute__((malloc)) type * nonnull prefix##_new(void) {              \
-        return mp_new(mp, type, 1);                                          \
-    }
+#  define GENERIC_MP_NEW(mp, type, prefix)                                   \
+      static __attr_unused__ inline DO_MP_NEW(mp, type, prefix)
+#  define GENERIC_MP_NEW_INIT(mp, type, prefix)                              \
+      GENERIC_INIT(type, prefix)                                             \
+      static __attr_unused__ inline DO_MP_NEW0(mp, type, prefix)
 
-#define DO_MP_DELETE(mp, type, prefix)                                       \
-    void prefix##_delete(type * nullable * nonnull var) {                    \
-        if (*(var)) {                                                        \
-            prefix##_wipe(*var);                                             \
-            mp_delete(mp, var);                                              \
-        }                                                                    \
-    }
+#  define GENERIC_MP_DELETE(mp, type, prefix)                                \
+      static __attr_unused__ inline DO_MP_DELETE(mp, type, prefix)
+#  define GENERIC_MP_WIPE_DELETE(mp, type, prefix)                           \
+      GENERIC_WIPE(type, prefix)                                             \
+      GENERIC_MP_DELETE(mp, type, prefix)
 
-#define GENERIC_MP_NEW(mp, type, prefix)      \
-    static __attr_unused__ inline DO_MP_NEW(mp, type, prefix)
-#define GENERIC_MP_NEW_INIT(mp, type, prefix) \
-    GENERIC_INIT(type, prefix)                \
-    static __attr_unused__ inline DO_MP_NEW0(mp, type, prefix)
-
-#define GENERIC_MP_DELETE(mp, type, prefix)   \
-    static __attr_unused__ inline DO_MP_DELETE(mp, type, prefix)
-#define GENERIC_MP_WIPE_DELETE(mp, type, prefix) \
-    GENERIC_WIPE(type, prefix)                   \
-    GENERIC_MP_DELETE(mp, type, prefix)
-
-#define GENERIC_MP_FUNCTIONS(mp, type, prefix) \
-    GENERIC_MP_NEW_INIT(mp, type, prefix)      \
-    GENERIC_MP_WIPE_DELETE(mp, type, prefix)
+#  define GENERIC_MP_FUNCTIONS(mp, type, prefix)                             \
+      GENERIC_MP_NEW_INIT(mp, type, prefix)                                  \
+      GENERIC_MP_WIPE_DELETE(mp, type, prefix)
 
 /* }}} */
 /* Instrumentation {{{ */
 
 enum mem_tool {
     MEM_TOOL_VALGRIND = 1 << 0,
-    MEM_TOOL_ASAN     = 1 << 1,
+    MEM_TOOL_ASAN = 1 << 1,
 
-    MEM_TOOL_ANY      = 0xffffffff,
+    MEM_TOOL_ANY = 0xffffffff,
 };
 
-#if !defined(NDEBUG) && defined(HAVE_VALGRIND) && HAVE_VALGRIND
-#  if defined(__VALGRIND_MAJOR__) && defined(__VALGRIND_MINOR__)
-#    define __HAS_VALGRIND_VERSION  1
+#  if !defined(NDEBUG) && defined(HAVE_VALGRIND) && HAVE_VALGRIND
+#    if defined(__VALGRIND_MAJOR__) && defined(__VALGRIND_MINOR__)
+#      define __HAS_VALGRIND_VERSION 1
+#    else
+#      define __HAS_VALGRIND_VERSION 0
+#    endif
+#    define __VALGRIND_PREREQ(x, y)                                          \
+        (__HAS_VALGRIND_VERSION &&                                           \
+         (__VALGRIND_MAJOR__ << 16) + __VALGRIND_MINOR__ >=                  \
+             (((x) << 16) + (y)))
 #  else
-#    define __HAS_VALGRIND_VERSION  0
+#    define __VALGRIND_PREREQ(x, y) 0
+#    define RUNNING_ON_VALGRIND false
 #  endif
-#  define __VALGRIND_PREREQ(x, y)  \
-    (__HAS_VALGRIND_VERSION && \
-     (__VALGRIND_MAJOR__ << 16) + __VALGRIND_MINOR__ >= (((x) << 16) + (y)))
-#else
-#  define __VALGRIND_PREREQ(x, y)   0
-#  define RUNNING_ON_VALGRIND       false
-#endif
 
-#ifndef NDEBUG
+#  ifndef NDEBUG
 
 /** Check if some memory tools are running.
  *
@@ -1037,8 +1094,7 @@ enum mem_tool {
  *
  * \return True if any of the listed memory tool is running.
  */
-__attr_leaf__ __attribute__((const))
-bool mem_tool_is_running(unsigned tools);
+__attr_leaf__ __attribute__((const)) bool mem_tool_is_running(unsigned tools);
 
 /** Mark a memory block as addressable, defined or undefined.
  *
@@ -1048,8 +1104,8 @@ bool mem_tool_is_running(unsigned tools);
  *                     undefined.
  *                     This parameter makes sense only with Valgrind.
  */
-__attr_leaf__
-void mem_tool_allow_memory(const void *nonnull mem, size_t len, bool defined);
+__attr_leaf__ void
+mem_tool_allow_memory(const void *nonnull mem, size_t len, bool defined);
 
 /** Mark memory block as defined only for the already addressable parts.
  *
@@ -1061,9 +1117,8 @@ void mem_tool_allow_memory(const void *nonnull mem, size_t len, bool defined);
  * \param[in] mem  Memory block address.
  * \param[in] len  Size of the memory block.
  */
-__attr_leaf__
-void mem_tool_define_memory_if_addressable(const void *nonnull mem,
-                                           size_t len);
+__attr_leaf__ void
+mem_tool_define_memory_if_addressable(const void *nonnull mem, size_t len);
 
 /** Mark a memory block as now unaddressable.
  *
@@ -1073,9 +1128,8 @@ void mem_tool_define_memory_if_addressable(const void *nonnull mem,
  * \param[in] mem  Memory block address.
  * \param[in] len  Size of the memory block.
  */
-__attr_leaf__
-void mem_tool_disallow_memory(const void *nonnull mem, size_t len);
-
+__attr_leaf__ void
+mem_tool_disallow_memory(const void *nonnull mem, size_t len);
 
 /** Mark a memory block as having been allocated by a malloc()-like function.
  *
@@ -1090,9 +1144,9 @@ void mem_tool_disallow_memory(const void *nonnull mem, size_t len);
  *                     undefined.
  *                     This parameter makes sense only with Valgrind.
  */
-__attr_leaf__
-void mem_tool_malloclike(const void *nonnull mem, size_t len, size_t rz,
-                         bool defined);
+__attr_leaf__ void mem_tool_malloclike(
+    const void *nonnull mem, size_t len, size_t rz, bool defined
+);
 
 /** Mark a memory block as having been freed by a free()-like function.
  *
@@ -1104,8 +1158,8 @@ void mem_tool_malloclike(const void *nonnull mem, size_t len, size_t rz,
  * \param[in] rz       The size of the red zones added around the memory block
  *                     (see <valgrind.h> for more details).
  */
-__attr_leaf__
-void mem_tool_freelike(const void *nullable mem, size_t len, size_t rz);
+__attr_leaf__ void
+mem_tool_freelike(const void *nullable mem, size_t len, size_t rz);
 
 /** Indicate the resizing of a memory block previously allocated by a
  * malloc()-like function.
@@ -1143,21 +1197,22 @@ void mem_tool_freelike(const void *nullable mem, size_t len, size_t rz);
  *                     undefined.
  *                     This parameter makes sense only with Valgrind.
  */
-__attr_leaf__
-void mem_tool_resize_block(const void *nullable mem, size_t old_len,
-                           size_t new_len, size_t rz);
+__attr_leaf__ void mem_tool_resize_block(
+    const void *nullable mem, size_t old_len, size_t new_len, size_t rz
+);
 
-#else
+#  else
 
-#define mem_tool_is_running(...)                   (false)
-#define mem_tool_allow_memory(...)                 e_trace_ignore(0, ##__VA_ARGS__)
-#define mem_tool_define_memory_if_addressable(...) e_trace_ignore(0, ##__VA_ARGS__)
-#define mem_tool_disallow_memory(...)              e_trace_ignore(0, ##__VA_ARGS__)
-#define mem_tool_malloclike(...)                   e_trace_ignore(0, ##__VA_ARGS__)
-#define mem_tool_freelike(...)                     e_trace_ignore(0, ##__VA_ARGS__)
-#define mem_tool_resize_block(...)                 e_trace_ignore(0, ##__VA_ARGS__)
+#    define mem_tool_is_running(...) (false)
+#    define mem_tool_allow_memory(...) e_trace_ignore(0, ##__VA_ARGS__)
+#    define mem_tool_define_memory_if_addressable(...)                       \
+        e_trace_ignore(0, ##__VA_ARGS__)
+#    define mem_tool_disallow_memory(...) e_trace_ignore(0, ##__VA_ARGS__)
+#    define mem_tool_malloclike(...) e_trace_ignore(0, ##__VA_ARGS__)
+#    define mem_tool_freelike(...) e_trace_ignore(0, ##__VA_ARGS__)
+#    define mem_tool_resize_block(...) e_trace_ignore(0, ##__VA_ARGS__)
 
-#endif
+#  endif
 
 /* }}} */
 

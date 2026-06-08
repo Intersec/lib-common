@@ -49,12 +49,13 @@ void xmlpp_opentag(xmlpp_t *pp, const char *tag_)
     if (pp->nospace) {
         sb_addf(pp->buf, "<%*pM>", tag.len, tag.s);
     } else {
-        sb_addf(pp->buf, "%-*c<%*pM>", pp->stack.len * 2 + 1, '\n',
-                tag.len, tag.s);
+        sb_addf(
+            pp->buf, "%-*c<%*pM>", pp->stack.len * 2 + 1, '\n', tag.len, tag.s
+        );
     }
     qv_append(&pp->stack, tag);
     pp->can_do_attr = true;
-    pp->was_a_tag   = true;
+    pp->was_a_tag = true;
 }
 
 void xmlpp_closetag(xmlpp_t *pp)
@@ -78,7 +79,7 @@ void xmlpp_closetag(xmlpp_t *pp)
         sb_addf(pp->buf, "</%*pM>", tag.len, tag.s);
     }
     pp->can_do_attr = false;
-    pp->was_a_tag   = true;
+    pp->was_a_tag = true;
     lstr_wipe(&tag);
 }
 
@@ -131,13 +132,13 @@ void xmlpp_put_cdata(xmlpp_t *pp, const char *s, size_t len)
     const char *p;
 
     pp->can_do_attr = false;
-    pp->was_a_tag   = false;
+    pp->was_a_tag = false;
     sb_adds(pp->buf, "<![CDATA[");
     while (unlikely((p = memmem(s, len, "]]>", 3)) != NULL)) {
         sb_add(pp->buf, s, p - s);
         sb_adds(pp->buf, "]]>]]<![CDATA[>");
         len -= (p - s) + 3;
-        s    = p + 3;
+        s = p + 3;
     }
     sb_add(pp->buf, s, len);
     sb_adds(pp->buf, "]]>");
@@ -146,7 +147,7 @@ void xmlpp_put_cdata(xmlpp_t *pp, const char *s, size_t len)
 void xmlpp_put(xmlpp_t *pp, const void *data, int len)
 {
     pp->can_do_attr = false;
-    pp->was_a_tag   = false;
+    pp->was_a_tag = false;
     sb_add_xmlescape(pp->buf, data, len);
 }
 

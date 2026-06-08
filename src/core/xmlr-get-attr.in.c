@@ -16,18 +16,18 @@
 /*                                                                         */
 /***************************************************************************/
 
-__attr_flatten__
-int F(xmlr_getattr)(xml_reader_t xr, xmlAttrPtr attr, ARGS_P)
+__attr_flatten__ int F(xmlr_getattr)(xml_reader_t xr, xmlAttrPtr attr, ARGS_P)
 {
     const char *name = (const char *)attr->name;
-    xmlNodePtr  n    = attr->children;
+    xmlNodePtr n = attr->children;
 
-    assert (xmlr_on_element(xr, false));
+    assert(xmlr_on_element(xr, false));
 
-    if (n == NULL)
+    if (n == NULL) {
         return F(xmlr_attr)(xr, name, NULL, ARGS);
-    if (n->next == NULL
-    &&  (n->type == XML_TEXT_NODE || n->type == XML_CDATA_SECTION_NODE))
+    }
+    if (n->next == NULL &&
+        (n->type == XML_TEXT_NODE || n->type == XML_CDATA_SECTION_NODE))
     {
         return F(xmlr_attr)(xr, name, (const char *)n->content, ARGS);
     } else {

@@ -104,25 +104,30 @@ typedef struct rb_node_t {
     struct rb_node_t *left, *right;
 } rb_node_t;
 
-void rb_add_node(rb_node_t **root, rb_node_t *parent, rb_node_t *node)
-    __attr_leaf__;
+void rb_add_node(
+    rb_node_t **root, rb_node_t *parent, rb_node_t *node
+) __attr_leaf__;
 void rb_del_node(rb_node_t **root, rb_node_t *) __attr_leaf__;
 
 static inline rb_node_t *__rb_first_node(rb_node_t *root)
 {
-    if (!root)
+    if (!root) {
         return NULL;
-    while (root->left)
+    }
+    while (root->left) {
         root = root->left;
+    }
     return root;
 }
 
 static inline rb_node_t *__rb_last_node(rb_node_t *root)
 {
-    if (!root)
+    if (!root) {
         return NULL;
-    while (root->right)
+    }
+    while (root->right) {
         root = root->right;
+    }
     return root;
 }
 
@@ -134,20 +139,22 @@ rb_node_t *__rb_prev(rb_node_t *) __attr_leaf__;
      * for type-safety.                                                      \
      */                                                                      \
     typedef struct rb_t(n) {                                                 \
-       struct rb_node_t *root;                                               \
+        struct rb_node_t *root;                                              \
     } rb_t(n);                                                               \
     typedef entry_t rb_##n##_entry_t;                                        \
     GENERIC_FUNCTIONS(rb_##n##_t, rb_##n)                                    \
                                                                              \
-    __attr_unused__                                                          \
-    static ALWAYS_INLINE entry_t *rb_##n##_entry(rb_node_t *node)            \
+    __attr_unused__ static ALWAYS_INLINE entry_t *rb_##n##_entry(            \
+        rb_node_t *node                                                      \
+    )                                                                        \
     {                                                                        \
         return (node) ? container_of(node, entry_t, link) : NULL;            \
     }
 
 #define __RBTREE_LOOKUP(n, entry_t, key_t, link, get_key, compare)           \
-    __attr_unused__                                                          \
-    static inline entry_t *rb_##n##_find(const rb_t(n) *rb, key_t k)         \
+    __attr_unused__ static inline entry_t *rb_##n##_find(                    \
+        const rb_t(n) *rb, key_t k                                           \
+    )                                                                        \
     {                                                                        \
         rb_node_t *node = rb->root;                                          \
                                                                              \
@@ -157,8 +164,7 @@ rb_node_t *__rb_prev(rb_node_t *) __attr_leaf__;
                                                                              \
             if (cmp < 0) {                                                   \
                 node = node->left;                                           \
-            } else                                                           \
-            if (cmp > 0) {                                                   \
+            } else if (cmp > 0) {                                            \
                 node = node->right;                                          \
             } else {                                                         \
                 return e;                                                    \
@@ -167,8 +173,9 @@ rb_node_t *__rb_prev(rb_node_t *) __attr_leaf__;
         return NULL;                                                         \
     }                                                                        \
                                                                              \
-    __attr_unused__                                                          \
-    static inline entry_t *rb_##n##_find_upper(const rb_t(n) *rb, key_t k)   \
+    __attr_unused__ static inline entry_t *rb_##n##_find_upper(              \
+        const rb_t(n) *rb, key_t k                                           \
+    )                                                                        \
     {                                                                        \
         entry_t *upper = NULL;                                               \
         rb_node_t *node = rb->root;                                          \
@@ -180,8 +187,7 @@ rb_node_t *__rb_prev(rb_node_t *) __attr_leaf__;
             if (cmp < 0) {                                                   \
                 node = node->left;                                           \
                 upper = e;                                                   \
-            } else                                                           \
-            if (cmp > 0) {                                                   \
+            } else if (cmp > 0) {                                            \
                 node = node->right;                                          \
             } else {                                                         \
                 return e;                                                    \
@@ -190,8 +196,9 @@ rb_node_t *__rb_prev(rb_node_t *) __attr_leaf__;
         return upper;                                                        \
     }                                                                        \
                                                                              \
-    __attr_unused__                                                          \
-    static inline entry_t *rb_##n##_find_lower(const rb_t(n) *rb, key_t k)   \
+    __attr_unused__ static inline entry_t *rb_##n##_find_lower(              \
+        const rb_t(n) *rb, key_t k                                           \
+    )                                                                        \
     {                                                                        \
         entry_t *lower = NULL;                                               \
         rb_node_t *node = rb->root;                                          \
@@ -202,9 +209,8 @@ rb_node_t *__rb_prev(rb_node_t *) __attr_leaf__;
                                                                              \
             if (cmp < 0) {                                                   \
                 node = node->left;                                           \
-            } else                                                           \
-            if (cmp > 0) {                                                   \
-                node  = node->right;                                         \
+            } else if (cmp > 0) {                                            \
+                node = node->right;                                          \
                 lower = e;                                                   \
             } else {                                                         \
                 return e;                                                    \
@@ -213,10 +219,9 @@ rb_node_t *__rb_prev(rb_node_t *) __attr_leaf__;
         return lower;                                                        \
     }                                                                        \
                                                                              \
-    __attr_unused__                                                          \
-    static inline rb_node_t **rb_##n##_find_slot(rb_t(n) *rb, key_t k,       \
-                                                 rb_node_t **out_parent,     \
-                                                 bool *collision)            \
+    __attr_unused__ static inline rb_node_t **rb_##n##_find_slot(            \
+        rb_t(n) *rb, key_t k, rb_node_t **out_parent, bool *collision        \
+    )                                                                        \
     {                                                                        \
         rb_node_t **slot = &rb->root;                                        \
         rb_node_t *parent = NULL;                                            \
@@ -228,54 +233,56 @@ rb_node_t *__rb_prev(rb_node_t *) __attr_leaf__;
             parent = *slot;                                                  \
             if (cmp < 0) {                                                   \
                 slot = &(*slot)->left;                                       \
-            } else                                                           \
-            if (cmp > 0) {                                                   \
+            } else if (cmp > 0) {                                            \
                 slot = &(*slot)->right;                                      \
             } else {                                                         \
                 *out_parent = NULL;                                          \
-                *collision  = true;                                          \
+                *collision = true;                                           \
                 return slot;                                                 \
             }                                                                \
         }                                                                    \
         *out_parent = parent;                                                \
-        *collision  = false;                                                 \
+        *collision = false;                                                  \
         return slot;                                                         \
     }
 
 #define __RBTREE_HELPERS(n, entry_t, key_t, link, get_key, compare)          \
-    __attr_unused__                                                          \
-    static ALWAYS_INLINE entry_t *rb_##n##_first(rb_t(n) *rb)                \
+    __attr_unused__ static ALWAYS_INLINE entry_t *rb_##n##_first(            \
+        rb_t(n) *rb                                                          \
+    )                                                                        \
     {                                                                        \
         return rb_##n##_entry(__rb_first_node(rb->root));                    \
     }                                                                        \
                                                                              \
-    __attr_unused__                                                          \
-    static ALWAYS_INLINE entry_t *rb_##n##_last(rb_t(n) *rb)                 \
+    __attr_unused__ static ALWAYS_INLINE entry_t *rb_##n##_last(rb_t(n) *rb) \
     {                                                                        \
         return rb_##n##_entry(__rb_last_node(rb->root));                     \
     }                                                                        \
                                                                              \
-    __attr_unused__                                                          \
-    static ALWAYS_INLINE entry_t *rb_##n##_next(entry_t *entry)              \
+    __attr_unused__ static ALWAYS_INLINE entry_t *rb_##n##_next(             \
+        entry_t *entry                                                       \
+    )                                                                        \
     {                                                                        \
         return rb_##n##_entry(__rb_next(&entry->link));                      \
     }                                                                        \
                                                                              \
-    __attr_unused__                                                          \
-    static ALWAYS_INLINE entry_t *rb_##n##_prev(entry_t *entry)              \
+    __attr_unused__ static ALWAYS_INLINE entry_t *rb_##n##_prev(             \
+        entry_t *entry                                                       \
+    )                                                                        \
     {                                                                        \
         return rb_##n##_entry(__rb_prev(&entry->link));                      \
     }                                                                        \
                                                                              \
-    __attr_unused__                                                          \
-    static inline void rb_##n##_insert_at(rb_t(n) *rb, rb_node_t *parent,    \
-                                          rb_node_t **slot, entry_t *e)      \
+    __attr_unused__ static inline void rb_##n##_insert_at(                   \
+        rb_t(n) *rb, rb_node_t *parent, rb_node_t **slot, entry_t *e         \
+    )                                                                        \
     {                                                                        \
         rb_add_node(&rb->root, parent, *slot = &e->link);                    \
     }                                                                        \
                                                                              \
-    __attr_unused__                                                          \
-    static inline entry_t *rb_##n##_insert(rb_t(n) *rb, entry_t *e)          \
+    __attr_unused__ static inline entry_t *rb_##n##_insert(                  \
+        rb_t(n) *rb, entry_t *e                                              \
+    )                                                                        \
     {                                                                        \
         bool c;                                                              \
         rb_node_t *parent;                                                   \
@@ -288,14 +295,16 @@ rb_node_t *__rb_prev(rb_node_t *) __attr_leaf__;
         return NULL;                                                         \
     }                                                                        \
                                                                              \
-    __attr_unused__                                                          \
-    static inline void rb_##n##_remove(rb_t(n) *rb, entry_t *e)              \
+    __attr_unused__ static inline void rb_##n##_remove(                      \
+        rb_t(n) *rb, entry_t *e                                              \
+    )                                                                        \
     {                                                                        \
         rb_del_node(&rb->root, &e->link);                                    \
     }                                                                        \
                                                                              \
-    __attr_unused__                                                          \
-    static inline entry_t *rb_##n##_remove_key(rb_t(n) *rb, key_t k)         \
+    __attr_unused__ static inline entry_t *rb_##n##_remove_key(              \
+        rb_t(n) *rb, key_t k                                                 \
+    )                                                                        \
     {                                                                        \
         entry_t *e = rb_find(n, rb, k);                                      \
                                                                              \
@@ -310,29 +319,33 @@ rb_node_t *__rb_prev(rb_node_t *) __attr_leaf__;
     __RBTREE_LOOKUP(n, entry_t, key_t, link, get_key, compare)               \
     __RBTREE_HELPERS(n, entry_t, key_t, link, get_key, compare)
 
-#define rb_t(n)                       rb_##n##_t
-#define rb_entry_t(n)                 rb_##n##_entry_t
-#define rb_entry(n, s)                rb_##n##_entry(s)
-#define rb_init(n, rb)                rb_##n##_init(rb)
-#define rb_wipe(n, rb)                rb_##n##_wipe(rb)
-#define rb_first(n, rb)               rb_##n##_first(rb)
-#define rb_last(n, rb)                rb_##n##_last(rb)
-#define rb_next(n, entry)             rb_##n##_next(entry)
-#define rb_prev(n, entry)             rb_##n##_prev(entry)
-#define rb_find(n, rb, v)             rb_##n##_find(rb, v)
-#define rb_find_lower(n, rb, v)       rb_##n##_find_lower(rb, v)
-#define rb_find_upper(n, rb, v)       rb_##n##_find_upper(rb, v)
-#define rb_find_slot(n, rb, k, p, c)  rb_##n##_find_slot(rb, k, p, c)
-#define rb_insert(n, rb, e)           rb_##n##_insert(rb, e)
-#define rb_insert_at(n, rb, p, s, e)  rb_##n##_insert_at(rb, p, s, e)
-#define rb_remove(n, rb, e)           rb_##n##_remove(rb, e)
+#define rb_t(n) rb_##n##_t
+#define rb_entry_t(n) rb_##n##_entry_t
+#define rb_entry(n, s) rb_##n##_entry(s)
+#define rb_init(n, rb) rb_##n##_init(rb)
+#define rb_wipe(n, rb) rb_##n##_wipe(rb)
+#define rb_first(n, rb) rb_##n##_first(rb)
+#define rb_last(n, rb) rb_##n##_last(rb)
+#define rb_next(n, entry) rb_##n##_next(entry)
+#define rb_prev(n, entry) rb_##n##_prev(entry)
+#define rb_find(n, rb, v) rb_##n##_find(rb, v)
+#define rb_find_lower(n, rb, v) rb_##n##_find_lower(rb, v)
+#define rb_find_upper(n, rb, v) rb_##n##_find_upper(rb, v)
+#define rb_find_slot(n, rb, k, p, c) rb_##n##_find_slot(rb, k, p, c)
+#define rb_insert(n, rb, e) rb_##n##_insert(rb, e)
+#define rb_insert_at(n, rb, p, s, e) rb_##n##_insert_at(rb, p, s, e)
+#define rb_remove(n, rb, e) rb_##n##_remove(rb, e)
 
 #define rb_for_each(n, it, rb)                                               \
     for (rb_entry_t(n) *it = rb_first(n, rb); it; it = rb_next(n, it))
 
 #define rb_for_each_safe(n, it, rb)                                          \
     for (rb_entry_t(n) *it = rb_first(n, rb), *__next;                       \
-         it && ({ __next = rb_next(n, it); 1; }); it = __next)
+         it && ({                                                            \
+             __next = rb_next(n, it);                                        \
+             1;                                                              \
+         });                                                                 \
+         it = __next)
 
 #define rb_deep_wipe(n, rb, wipe)                                            \
     rb_for_each_safe(n, __it, rb) {                                          \

@@ -57,75 +57,73 @@
 unsigned long hardclock(void)
 {
     unsigned long tsc;
-    __asm   rdtsc
-    __asm   mov  [tsc], eax
-    return tsc;
+    __asm rdtsc __asm mov[tsc], eax return tsc;
 }
 
 #elif defined(__GNUC__)
-# if defined(__i386__)
+#  if defined(__i386__)
 
 unsigned long hardclock(void)
 {
     unsigned long tsc;
-    asm("rdtsc" : "=a" (tsc));
+    asm("rdtsc" : "=a"(tsc));
     return tsc;
 }
 
-# elif defined(__amd64__) || defined(__x86_64__)
+#  elif defined(__amd64__) || defined(__x86_64__)
 
 unsigned long hardclock(void)
 {
     unsigned long lo, hi;
-    asm("rdtsc" : "=a" (lo), "=d" (hi));
+    asm("rdtsc" : "=a"(lo), "=d"(hi));
     return lo | (hi << 32);
 }
 
-# elif defined(__powerpc__) || defined(__ppc__)
+#  elif defined(__powerpc__) || defined(__ppc__)
 
 unsigned long hardclock(void)
 {
     unsigned long tbl, tbu0, tbu1;
 
     do {
-        asm("mftbu %0" : "=r" (tbu0));
-        asm("mftb  %0" : "=r" (tbl));
-        asm("mftbu %0" : "=r" (tbu1));
+        asm("mftbu %0" : "=r"(tbu0));
+        asm("mftb  %0" : "=r"(tbl));
+        asm("mftbu %0" : "=r"(tbu1));
     } while (tbu0 != tbu1);
 
     return tbl;
 }
 
-# elif defined(__sparc__)
+#  elif defined(__sparc__)
 
 unsigned long hardclock(void)
 {
     unsigned long tick;
     asm(".byte 0x83, 0x41, 0x00, 0x00");
-    asm("mov   %%g1, %0" : "=r" (tick));
+    asm("mov   %%g1, %0" : "=r"(tick));
     return tick;
 }
 
-# elif defined(__alpha__)
+#  elif defined(__alpha__)
 
 unsigned long hardclock(void)
 {
     unsigned long cc;
-    asm("rpcc %0" : "=r" (cc));
+    asm("rpcc %0" : "=r"(cc));
     return cc & 0xFFFFFFFF;
 }
 
-# elif defined(__ia64__)
+#  elif defined(__ia64__)
 
 unsigned long hardclock(void)
 {
     unsigned long itc;
-    asm("mov %0 = ar.itc" : "=r" (itc));
+    asm("mov %0 = ar.itc" : "=r"(itc));
     return itc;
 }
-# else
-#  error unimplemented for your arch
-# endif
+#  else
+#    error unimplemented for your arch
+#  endif
 #endif
 
 /* }}} */
@@ -167,16 +165,19 @@ const char *timeval_format(struct timeval tv, bool as_duration)
         h = sec % 24;
         sec /= 24;
         d = sec;
-        snprintf(buf + pos, sizeof(buf) - pos,
-                 "%d %2d:%02d:%02d.%06d", d, h, m, s, usec);
+        snprintf(
+            buf + pos, sizeof(buf) - pos, "%d %2d:%02d:%02d.%06d", d, h, m, s,
+            usec
+        );
     } else {
         struct tm t;
 
         localtime_r(&tv.tv_sec, &t);
-        snprintf(buf, sizeof(buf),
-                 "%02d/%02d/%04d %2d:%02d:%02d.%06d",
-                 t.tm_mday, t.tm_mon + 1, t.tm_year + 1900,
-                 t.tm_hour, t.tm_min, t.tm_sec, usec);
+        snprintf(
+            buf, sizeof(buf), "%02d/%02d/%04d %2d:%02d:%02d.%06d", t.tm_mday,
+            t.tm_mon + 1, t.tm_year + 1900, t.tm_hour, t.tm_min, t.tm_sec,
+            usec
+        );
     }
     return buf;
 }
@@ -188,14 +189,14 @@ struct timeval timeval_mul(struct timeval tv, int k)
 
     /* Casting to int64_t is necessary because of potential overflow */
     /* Grouping 1000 * 1000 may yield better code */
-    usecs  = (int64_t)tv.tv_sec * (1000 * 1000) + tv.tv_usec;
+    usecs = (int64_t)tv.tv_sec * (1000 * 1000) + tv.tv_usec;
     usecs *= k;
 
-    res.tv_sec  = usecs / (1000 * 1000);
+    res.tv_sec = usecs / (1000 * 1000);
     res.tv_usec = usecs - (int64_t)res.tv_sec * (1000 * 1000);
     if (res.tv_usec < 0) {
         res.tv_usec += 1000 * 1000;
-        res.tv_sec  -= 1;
+        res.tv_sec -= 1;
     }
 
     return res;
@@ -206,14 +207,14 @@ struct timeval timeval_div(struct timeval tv, int k)
     struct timeval res;
     int64_t usecs;
 
-    usecs  = (int64_t)tv.tv_sec * (1000 * 1000) + tv.tv_usec;
+    usecs = (int64_t)tv.tv_sec * (1000 * 1000) + tv.tv_usec;
     usecs /= k;
 
-    res.tv_sec  = usecs / (1000 * 1000);
+    res.tv_sec = usecs / (1000 * 1000);
     res.tv_usec = usecs - (int64_t)res.tv_sec * (1000 * 1000);
     if (res.tv_usec < 0) {
         res.tv_usec += 1000 * 1000;
-        res.tv_sec  -= 1;
+        res.tv_sec -= 1;
     }
 
     return res;
@@ -223,9 +224,10 @@ struct timeval timeval_div(struct timeval tv, int k)
  * now, else test if date is past current time of day.  compute
  * available time left and return it if left is not NULL.
  */
-bool is_expired(const struct timeval *date,
-                const struct timeval *now,
-                struct timeval *left)
+bool is_expired(
+    const struct timeval *date, const struct timeval *now,
+    struct timeval *left
+)
 {
     struct timeval local_now;
 
@@ -272,8 +274,8 @@ time_t localtime_nextminute(time_t date)
 
     RETHROW(localtime_(date, &t));
 
-    t.tm_sec  = 0;
-    t.tm_min  += 1;
+    t.tm_sec = 0;
+    t.tm_min += 1;
 
     return mktime(&t);
 }
@@ -296,8 +298,8 @@ time_t localtime_nexthour(time_t date)
 
     RETHROW(localtime_(date, &t));
 
-    t.tm_sec  = 0;
-    t.tm_min  = 0;
+    t.tm_sec = 0;
+    t.tm_min = 0;
     t.tm_hour += 1;
 
     return mktime(&t);
@@ -361,9 +363,9 @@ time_t localtime_curweek(time_t date, int first_day_of_week)
 
     RETHROW(localtime_(date, &t));
 
-    t.tm_sec   = 0;
-    t.tm_min   = 0;
-    t.tm_hour  = 0;
+    t.tm_sec = 0;
+    t.tm_min = 0;
+    t.tm_hour = 0;
     t.tm_mday -= (7 + t.tm_wday - first_day_of_week) % 7;
     t.tm_isdst = -1;
 
@@ -376,8 +378,8 @@ time_t localtime_nextweek(time_t date, int first_day_of_week)
 
     RETHROW(localtime_(date, &t));
 
-    t.tm_sec  = 0;
-    t.tm_min  = 0;
+    t.tm_sec = 0;
+    t.tm_min = 0;
     t.tm_hour = 0;
     t.tm_mday -= (7 + t.tm_wday - first_day_of_week) % 7;
     t.tm_mday += 7;
@@ -411,7 +413,7 @@ time_t localtime_curyear(time_t date)
     t.tm_min = 0;
     t.tm_hour = 0;
     t.tm_mday = 1;
-    t.tm_mon  = 0;
+    t.tm_mon = 0;
     t.tm_isdst = -1;
 
     return mktime(&t);
@@ -423,8 +425,8 @@ time_t localtime_nextmonth(time_t date)
 
     RETHROW(localtime_(date, &t));
 
-    t.tm_sec  = 0;
-    t.tm_min  = 0;
+    t.tm_sec = 0;
+    t.tm_min = 0;
     t.tm_hour = 0;
     t.tm_mday = 1;
     t.tm_mon += 1;
@@ -433,44 +435,20 @@ time_t localtime_nextmonth(time_t date)
     return mktime(&t);
 }
 
-static const char * const __abbr_months[] = {
-    "jan",
-    "feb",
-    "mar",
-    "apr",
-    "may",
-    "jun",
-    "jul",
-    "aug",
-    "sep",
-    "oct",
-    "nov",
-    "dec",
-    NULL
-};
+static const char *const __abbr_months[] = {"jan", "feb", "mar", "apr", "may",
+                                            "jun", "jul", "aug", "sep", "oct",
+                                            "nov", "dec", NULL};
 
-static int const __valid_mdays[] = {
-    31,
-    28,
-    31,
-    30,
-    31,
-    30, /* June */
-    31,
-    31,
-    30,
-    31, /* October */
-    30,
-    31
-};
+static int const __valid_mdays[] = {31, 28, 31, 30, 31, 30, /* June */
+                                    31, 31, 30, 31,         /* October */
+                                    30, 31};
 
 bool is_mday_valid(int d, int m, int y)
 {
-    assert (0 <= m && m <= 11);
+    assert(0 <= m && m <= 11);
 
-    return d > 0
-        && (d <= __valid_mdays[m]
-         || (m == 1 && d == 29 && year_is_leap_year(y)));
+    return d > 0 && (d <= __valid_mdays[m] ||
+                     (m == 1 && d == 29 && year_is_leap_year(y)));
 }
 
 /* We currently support only this format: DD-MMM-[YY]YY */
@@ -485,17 +463,20 @@ int strtotm(const char *date, struct tm *t)
     char lower_mon[4];
     size_t len = strlen(date);
 
-    if (len < strlen("DD-MMM-YY"))
+    if (len < strlen("DD-MMM-YY")) {
         return -1;
+    }
 
     /* Read day */
     mday = cstrtol(date, &p, 10);
-    if (mday <= 0)
+    if (mday <= 0) {
         return -1;
+    }
 
     /* Read month */
-    if (!p || *p != '-' || p - date != 2)
+    if (!p || *p != '-' || p - date != 2) {
         return -1;
+    }
     p++;
 
     lower_mon[0] = tolower((unsigned char)p[0]);
@@ -504,26 +485,29 @@ int strtotm(const char *date, struct tm *t)
     lower_mon[3] = '\0';
 
     for (mon = 0;; mon++) {
-        if (!__abbr_months[mon])
+        if (!__abbr_months[mon]) {
             return -1;
-        if (!memcmp(lower_mon, __abbr_months[mon], 4))
+        }
+        if (!memcmp(lower_mon, __abbr_months[mon], 4)) {
             break;
+        }
     }
 
     /* Read year */
     p += 3;
-    if (*p++ != '-')
+    if (*p++ != '-') {
         return -1;
+    }
 
     year = RETHROW(atoi(p));
     if (year < 70) {
         year += 2000;
-    } else
-    if (year < 100) {
+    } else if (year < 100) {
         year += 1900;
     }
-    if (year < 1970 || year > 2036)
+    if (year < 1970 || year > 2036) {
         return -1;
+    }
 
     /* Check mday validity */
     if (!is_mday_valid(mday, mon, year)) {
@@ -531,7 +515,7 @@ int strtotm(const char *date, struct tm *t)
     }
 
     t->tm_mday = mday;
-    t->tm_mon  = mon;
+    t->tm_mon = mon;
     t->tm_year = year - 1900;
     /* OG: should also update t->tm_wday and t->tm_yday */
 
@@ -550,8 +534,8 @@ time_t lstrtotime(lstr_t date)
     return mktime(&tm);
 }
 
-struct tm *time_get_localtime(const time_t *p_ts, struct tm *p_tm,
-                              const char *tz)
+struct tm *
+time_get_localtime(const time_t *p_ts, struct tm *p_tm, const char *tz)
 {
     const char *old_tz;
     bool tz_changed = false;
@@ -586,8 +570,8 @@ int time_diff_days(time_t from, time_t to)
     struct tm tm_from;
     struct tm tm_to;
 
-    if (!expect(localtime_(from, &tm_from) >= 0)
-    ||  !expect(localtime_(to, &tm_to) >= 0))
+    if (!expect(localtime_(from, &tm_from) >= 0) ||
+        !expect(localtime_(to, &tm_to) >= 0))
     {
         return -1;
     }
@@ -596,8 +580,9 @@ int time_diff_days(time_t from, time_t to)
 
 CC_WARNING_IGNORE_PUSH
 CC_WARNING_IGNORE_FORMAT_NONLITERAL
-int format_timestamp(const char *fmt, time_t ts, const char *locale,
-                     char out[], int out_size)
+int format_timestamp(
+    const char *fmt, time_t ts, const char *locale, char out[], int out_size
+)
 {
     struct tm ts_tm;
     const char *lc_time = NULL;
@@ -620,7 +605,7 @@ int format_timestamp(const char *fmt, time_t ts, const char *locale,
     len = strftime(out, out_size, fmt, &ts_tm);
     ret = len ?: -1;
 
-  end:
+end:
     if (locale) {
         setlocale(LC_TIME, lc_time);
     }
@@ -645,27 +630,30 @@ const char *proctimer_report(proctimer_t *tp, const char *fmt)
     for (p = fmt, pos = 0; *p && pos < ssizeof(buf) - 1; p++) {
         if (*p == '%') {
             switch (*++p) {
-            case 'r':   /* real */
+            case 'r': /* real */
                 elapsed = tp->elapsed_real;
                 goto format_elapsed;
-            case 'u':   /* user */
+            case 'u': /* user */
                 elapsed = tp->elapsed_user;
                 goto format_elapsed;
-            case 's':   /* sys */
+            case 's': /* sys */
                 elapsed = tp->elapsed_sys;
                 goto format_elapsed;
-            case 'p':   /* process */
+            case 'p': /* process */
                 elapsed = tp->elapsed_proc;
                 goto format_elapsed;
             format_elapsed:
-                snprintf(buf + pos, sizeof(buf) - pos, "%'d.%03d",
-                         elapsed / 1000, elapsed % 1000);
+                snprintf(
+                    buf + pos, sizeof(buf) - pos, "%'d.%03d", elapsed / 1000,
+                    elapsed % 1000
+                );
                 pos += strlen(buf + pos);
                 continue;
 
-            case 'h':   /* hardware */
-                snprintf(buf + pos, sizeof(buf) - pos, "%lu",
-                         tp->elapsed_hard);
+            case 'h': /* hardware */
+                snprintf(
+                    buf + pos, sizeof(buf) - pos, "%lu", tp->elapsed_hard
+                );
                 pos += strlen(buf + pos);
                 continue;
 
@@ -689,7 +677,8 @@ const char *proctimerstat_report(proctimerstat_t *pts, const char *fmt)
     const char *unit;
 
     if (!fmt) {
-        fmt = "%n samples\nreal: %r\nproc: %p\nuser: %u\nsys : %s\nproc cycles: %h";
+        fmt = "%n samples\nreal: %r\nproc: %p\nuser: %u\nsys : %s\nproc "
+              "cycles: %h";
     }
 
     for (p = fmt, pos = 0; *p && pos < ssizeof(buf) - 1; p++) {
@@ -697,31 +686,31 @@ const char *proctimerstat_report(proctimerstat_t *pts, const char *fmt)
 
         if (*p == '%') {
             switch (*++p) {
-            case 'n':   /* nb samples */
+            case 'n': /* nb samples */
                 snprintf(buf + pos, sizeof(buf) - pos, "%'d", pts->nb);
                 pos += strlen(buf + pos);
                 continue;
-            case 'r':   /* real */
+            case 'r': /* real */
                 min = pts->real_min;
                 max = pts->real_max;
                 tot = pts->real_tot;
                 goto format;
-            case 'u':   /* user */
+            case 'u': /* user */
                 min = pts->user_min;
                 max = pts->user_max;
                 tot = pts->user_tot;
                 goto format;
-            case 's':   /* sys */
+            case 's': /* sys */
                 min = pts->sys_min;
                 max = pts->sys_max;
                 tot = pts->sys_tot;
                 goto format;
-            case 'p':   /* process */
+            case 'p': /* process */
                 min = pts->proc_min;
                 max = pts->proc_max;
                 tot = pts->proc_tot;
                 goto format;
-            case 'h':   /* hardware */
+            case 'h': /* hardware */
                 unit = "cycles";
                 min = pts->hard_min;
                 max = pts->hard_max;
@@ -729,14 +718,14 @@ const char *proctimerstat_report(proctimerstat_t *pts, const char *fmt)
                 goto format;
             format:
                 mean = tot / MAX(1, pts->nb);
-                snprintf(buf + pos, sizeof(buf) - pos,
-                         "min=%'ld.%03ld%s "
-                         "max=%'ld.%03ld%s "
-                         "mean=%'ld.%03ld%s",
-                         min / 1000, min % 1000, unit,
-                         max / 1000, max % 1000, unit,
-                         mean / 1000, mean % 1000, unit
-                         );
+                snprintf(
+                    buf + pos, sizeof(buf) - pos,
+                    "min=%'ld.%03ld%s "
+                    "max=%'ld.%03ld%s "
+                    "mean=%'ld.%03ld%s",
+                    min / 1000, min % 1000, unit, max / 1000, max % 1000,
+                    unit, mean / 1000, mean % 1000, unit
+                );
                 pos += strlen(buf + pos);
                 continue;
             case '%':
@@ -801,10 +790,10 @@ lstr_t t_get_time_split_p_lstr_en(uint64_t seconds, int precision)
 
     time_split_t split = split_time_interval(seconds);
 
-    ADD_FIELD(years,   "year");
-    ADD_FIELD(weeks,   "week");
-    ADD_FIELD(days,    "day");
-    ADD_FIELD(hours,   "hour");
+    ADD_FIELD(years, "year");
+    ADD_FIELD(weeks, "week");
+    ADD_FIELD(days, "day");
+    ADD_FIELD(hours, "hour");
     ADD_FIELD(minutes, "minute");
     ADD_FIELD(seconds, "second");
 
@@ -817,10 +806,10 @@ lstr_t t_get_time_split_p_lstr_fr(uint64_t seconds, int precision)
 
     time_split_t split = split_time_interval(seconds);
 
-    ADD_FIELD(years,   "année");
-    ADD_FIELD(weeks,   "semaine");
-    ADD_FIELD(days,    "jour");
-    ADD_FIELD(hours,   "heure");
+    ADD_FIELD(years, "année");
+    ADD_FIELD(weeks, "semaine");
+    ADD_FIELD(days, "jour");
+    ADD_FIELD(hours, "heure");
     ADD_FIELD(minutes, "minute");
     ADD_FIELD(seconds, "seconde");
 
@@ -883,18 +872,19 @@ __attribute__((weak)) uint64_t lp_getcsec(void)
 /* }}} */
 /* {{{ timing_scope */
 
-timing_scope_ctx_t
-timing_scope_start(logger_t *logger, lstr_t file, lstr_t func, int line,
-                   int64_t threshold_ms, int level, const char *fmt, ...)
+timing_scope_ctx_t timing_scope_start(
+    logger_t *logger, lstr_t file, lstr_t func, int line,
+    int64_t threshold_ms, int level, const char *fmt, ...
+)
 {
     va_list va;
     timing_scope_ctx_t res;
 
     p_clear(&res, 1);
-    res.logger     = logger;
-    res.file       = file;
-    res.func       = func;
-    res.line       = line;
+    res.logger = logger;
+    res.file = file;
+    res.func = func;
+    res.line = line;
     res.threshold_ms = threshold_ms;
     res.log_level = level;
 
@@ -926,16 +916,20 @@ void timing_scope_finish(timing_scope_ctx_t *ctx)
 
         tv_diff = timeval_sub(tv_end, ctx->tv_start);
 
-        sb_setf(&log_buf, "%*pM done in %ld.%06ldsec",
-                LSTR_FMT_ARG(ctx->desc), tv_diff.tv_sec, tv_diff.tv_usec);
+        sb_setf(
+            &log_buf, "%*pM done in %ld.%06ldsec", LSTR_FMT_ARG(ctx->desc),
+            tv_diff.tv_sec, tv_diff.tv_usec
+        );
         if (ctx->threshold_ms > 0) {
-            sb_addf(&log_buf, " (threshold = %ld.%06ldsec)",
-                    ctx->threshold_ms / 1000,
-                    (ctx->threshold_ms % 1000) * 1000);
+            sb_addf(
+                &log_buf, " (threshold = %ld.%06ldsec)",
+                ctx->threshold_ms / 1000, (ctx->threshold_ms % 1000) * 1000
+            );
         }
-        __logger_log(ctx->logger, level, LSTR_NULL_V, -1,
-                     ctx->file, ctx->func, ctx->line,
-                     "%*pM", SB_FMT_ARG(&log_buf));
+        __logger_log(
+            ctx->logger, level, LSTR_NULL_V, -1, ctx->file, ctx->func,
+            ctx->line, "%*pM", SB_FMT_ARG(&log_buf)
+        );
     }
 
     lstr_wipe(&ctx->desc);
@@ -957,8 +951,9 @@ const char *t_time_spent_to_str(struct timeval from_tv)
 /* }}} */
 /* {{{ progress_should_refresh() */
 
-bool timeval_has_expired(struct timeval *tv, unsigned timeout_msec,
-                         struct timeval *nullable diff)
+bool timeval_has_expired(
+    struct timeval *tv, unsigned timeout_msec, struct timeval *nullable diff
+)
 {
     struct timeval now;
 

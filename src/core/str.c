@@ -90,15 +90,18 @@ char *strrtrim(char *str)
  */
 int strstart(const char *str, const char *p, const char **pp)
 {
-    if (!str)
+    if (!str) {
         return 0;
+    }
 
     while (*p) {
-        if (*str++ != *p++)
+        if (*str++ != *p++) {
             return 0;
+        }
     }
-    if (pp)
+    if (pp) {
         *pp = str;
+    }
     return 1;
 }
 
@@ -111,18 +114,20 @@ int strstart(const char *str, const char *p, const char **pp)
  */
 int stristart(const char *str, const char *p, const char **pp)
 {
-    if (!str)
+    if (!str) {
         return 0;
+    }
 
     while (*p) {
-        if (tolower((unsigned char)*str++) != tolower((unsigned char)*p++))
+        if (tolower((unsigned char)*str++) != tolower((unsigned char)*p++)) {
             return 0;
+        }
     }
-    if (pp)
+    if (pp) {
         *pp = str;
+    }
     return 1;
 }
-
 
 /** Find the first occurrence of the substring needle in str, case
  *  insensitively.
@@ -136,31 +141,35 @@ const char *stristrn(const char *str, const char *needle, size_t nlen)
     size_t i;
     int c, nc;
 
-    if (!nlen)
+    if (!nlen) {
         return str;
+    }
 
     nc = toupper((unsigned char)*needle);
     for (;; str++) {
         /* find first char of pattern in str */
         c = toupper((unsigned char)*str);
         if (c != nc) {
-            if (c == '\0')
+            if (c == '\0') {
                 return NULL;
+            }
         } else {
             /* compare the rest of needle */
             for (i = 1;; i++) {
-                if (i == nlen)
+                if (i == nlen) {
                     return str;
-                if (c == '\0')
+                }
+                if (c == '\0') {
                     return NULL;
+                }
                 c = toupper((unsigned char)str[i]);
-                if (c != toupper((unsigned char)needle[i]))
+                if (c != toupper((unsigned char)needle[i])) {
                     break;
+                }
             }
         }
     }
 }
-
 
 /* find a word in a list of words separated by sep.
  */
@@ -182,18 +191,20 @@ bool strfind(const char *keytable, const char *str, int sep)
     /* initial and trailing separators are optional */
     /* they do not cause the empty string to match */
     for (p = keytable;;) {
-        if (!memcmp(p, str, len) && (p[len] == sep || p[len] == '\0'))
+        if (!memcmp(p, str, len) && (p[len] == sep || p[len] == '\0')) {
             return true;
+        }
         for (;;) {
             p = strchr(p + 1, c);
-            if (!p)
+            if (!p) {
                 return false;
-            if (p[-1] == sep)
+            }
+            if (p[-1] == sep) {
                 break;
+            }
         }
     }
 }
-
 
 /** Increment last counter in a buffer
  *
@@ -220,20 +231,26 @@ int buffer_increment(char *buf, int len)
     }
     for (pos = len - 1; pos >= 0; pos--) {
         switch (buf[pos]) {
-          case '0': case '1': case '2': case '3': case '4': case '5':
-          case '6': case '7': case '8':
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
             buf[pos]++;
             return 0;
-          case '9':
+        case '9':
             buf[pos] = '0';
             break;
-          default:
+        default:
             return 1;
         }
     }
     return 1;
 }
-
 
 /** Increment last counter in an hexadecimal buffer
  *
@@ -260,21 +277,37 @@ int buffer_increment_hex(char *buf, int len)
     }
     for (pos = len - 1; pos >= 0; pos--) {
         switch (buf[pos]) {
-          case '0': case '1': case '2': case '3': case '4': case '5':
-          case '6': case '7': case '8':
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
             buf[pos]++;
             return 0;
-          case '9':
+        case '9':
             buf[pos] = 'A';
             return 0;
-          case 'a': case 'A': case 'b': case 'B': case 'c': case 'C':
-          case 'd': case 'D': case 'e': case 'E':
+        case 'a':
+        case 'A':
+        case 'b':
+        case 'B':
+        case 'c':
+        case 'C':
+        case 'd':
+        case 'D':
+        case 'e':
+        case 'E':
             buf[pos]++;
             return 0;
-          case 'F': case 'f':
+        case 'F':
+        case 'f':
             buf[pos] = '0';
             break;
-          default:
+        default:
             return 1;
         }
     }
@@ -300,11 +333,13 @@ size_t strrand(char dest[], size_t dest_size, lstr_t alphabet)
     char *last = p + dest_size - 1;
 
     if (!alphabet.s && alphabet.len == 0) {
-        alphabet = LSTR("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop"
-                        "qrstuvwxyz0123456789+/");
+        alphabet = LSTR(
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop"
+            "qrstuvwxyz0123456789+/"
+        );
     }
 
-    assert (alphabet.len > 0);
+    assert(alphabet.len > 0);
     THROW_ERR_IF(alphabet.len <= 0);
 
     for (; p < last; p++) {
@@ -352,8 +387,9 @@ size_t pstrcpymem(char *dest, ssize_t size, const void *src, size_t n)
     size_t clen = n;
 
     if (size > 0) {
-        if (unlikely(clen > (size_t)size - 1))
+        if (unlikely(clen > (size_t)size - 1)) {
             clen = (size_t)size - 1;
+        }
         memcpyz(dest, src, clen); /* assuming no overlap */
     }
     return n;

@@ -19,20 +19,20 @@
 #include <sys/inotify.h>
 
 static struct {
-    qm_t(ev)  watches;     /* el_t's for fs watch events                 */
-    el_t      el;          /* inotify el_t                               */
-    int       fd;          /* fd for inotify                             */
+    qm_t(ev) watches; /* el_t's for fs watch events                 */
+    el_t el;          /* inotify el_t                               */
+    int fd;           /* fd for inotify                             */
 } inotify_g = {
-    .fd      = -1,
+    .fd = -1,
     .watches = QM_INIT(ev, inotify_g.watches),
 };
 
 static void inotify_shutdown(void)
 {
-    assert (qm_len(ev, &inotify_g.watches) == 0);
+    assert(qm_len(ev, &inotify_g.watches) == 0);
 
     if (inotify_g.fd == -1) {
-        assert (inotify_g.el == NULL);
+        assert(inotify_g.el == NULL);
         return;
     }
 
@@ -70,8 +70,8 @@ static int inotify_cb(el_t el, int fd, short flags, data_t data)
 {
     byte buf[sizeof(struct inotify_event) + NAME_MAX + 1];
 
-    assert (el == inotify_g.el);
-    assert (fd == inotify_g.fd);
+    assert(el == inotify_g.el);
+    assert(fd == inotify_g.fd);
 
     if (!(flags & POLLIN)) {
         return 0;
@@ -79,7 +79,7 @@ static int inotify_cb(el_t el, int fd, short flags, data_t data)
 
     for (;;) {
         byte *next = buf;
-        int   ret  = read(fd, buf, sizeof(buf));
+        int ret = read(fd, buf, sizeof(buf));
 
         if (ret < 0 && errno == EAGAIN) {
             return 0;
@@ -88,39 +88,44 @@ static int inotify_cb(el_t el, int fd, short flags, data_t data)
 
         while (ret > 0) {
             struct inotify_event *e = (struct inotify_event *)next;
-            int len = ROUND_UP(sizeof(struct inotify_event) + e->len, sizeof(void *));
+            int len = ROUND_UP(
+                sizeof(struct inotify_event) + e->len, sizeof(void *)
+            );
             int pos;
             el_t wel;
             lstr_t name = LSTR_NULL;
 
             next += len;
-            ret  -= len;
-            assert (ret >= 0);
+            ret -= len;
+            assert(ret >= 0);
 
             /* Process event */
             pos = qm_find(ev, &inotify_g.watches, e->wd);
             if (pos < 0) {
                 if (e->mask & IN_Q_OVERFLOW) {
-                    e_fatal("overflow of the inotify queue. Too many events "
-                            "occured in a short amount of time. You should "
-                            "consider increasing the value of "
-                            "/proc/sys/fs/inotify/max_queued_events");
-                } else
-                if (!(e->mask & IN_IGNORED)) {
-                    e_panic("received inotify event for an unknown watch "
-                            "descriptor %d", e->wd);
+                    e_fatal(
+                        "overflow of the inotify queue. Too many events "
+                        "occured in a short amount of time. You should "
+                        "consider increasing the value of "
+                        "/proc/sys/fs/inotify/max_queued_events"
+                    );
+                } else if (!(e->mask & IN_IGNORED)) {
+                    e_panic(
+                        "received inotify event for an unknown watch "
+                        "descriptor %d",
+                        e->wd
+                    );
                 }
                 continue;
             }
 
             wel = inotify_g.watches.values[pos];
-            assert ((int)wel->fs_watch.ctx.u32 == e->wd);
+            assert((int)wel->fs_watch.ctx.u32 == e->wd);
             if (e->mask & IN_IGNORED) {
                 /* watcher deleted */
                 qm_del_key(ev, &inotify_g.watches, wel->fs_watch.ctx.u32);
                 el_fs_watch_disable(&wel, false);
-            } else
-            if (EV_FLAG_HAS(wel, FSW_ACTIVE)) {
+            } else if (EV_FLAG_HAS(wel, FSW_ACTIVE)) {
                 if (e->len) {
                     /* XXX We cannot use e->len - 1 as the string length
                      *     because e->name can be padded by several null bytes
@@ -141,24 +146,26 @@ static int inotify_cb(el_t el, int fd, short flags, data_t data)
 static void inotify_initialize(void)
 {
     if (unlikely(inotify_g.fd == -1)) {
-        assert (inotify_g.el == NULL);
+        assert(inotify_g.el == NULL);
 
         inotify_g.fd = inotify_init();
-        if (inotify_g.fd < 0)
+        if (inotify_g.fd < 0) {
             e_panic(E_UNIXERR("inotify_init"));
+        }
         fd_set_features(inotify_g.fd, O_NONBLOCK | O_CLOEXEC);
 
-        inotify_g.el = el_fd_register(inotify_g.fd, true, POLLIN, inotify_cb,
-                                      NULL);
+        inotify_g.el =
+            el_fd_register(inotify_g.fd, true, POLLIN, inotify_cb, NULL);
     }
 }
 
-el_t el_fs_watch_register_d(const char *path, uint32_t flags,
-                            el_fs_watch_f *cb, data_t priv)
+el_t el_fs_watch_register_d(
+    const char *path, uint32_t flags, el_fs_watch_f *cb, data_t priv
+)
 {
     uint32_t pos;
     ev_t *ev;
-    int  wd;
+    int wd;
 
     inotify_initialize();
     wd = RETHROW_NP(inotify_add_watch(inotify_g.fd, path, flags));
@@ -191,7 +198,7 @@ int el_fs_watch_change(el_t el, uint32_t flags)
 
     CHECK_EV_TYPE(el, EV_FS_WATCH);
     wd = RETHROW(inotify_add_watch(inotify_g.fd, el->fs_watch.path, flags));
-    assert (wd == (int)el->fs_watch.ctx.u32);
+    assert(wd == (int)el->fs_watch.ctx.u32);
     return 0;
 }
 

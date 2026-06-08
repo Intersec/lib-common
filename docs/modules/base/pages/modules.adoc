@@ -4,7 +4,7 @@
 In the lib-common, Modules can be defined and work in a similar way as kernel
 modules, allowing us to load blocks of functionalities with little effort.
 
-Modules are declared using `MODULE_BEGIN(module_name)`/`MODULE_END()` macros.
+Modules are declared using the `MODULE_DEFINE(module_name)` macro.
 This creates a function with
 https://gcc.gnu.org/onlinedocs/gcc-4.6.4/gcc/Function-Attributes.html[+__attribute__(constructor)+]
 

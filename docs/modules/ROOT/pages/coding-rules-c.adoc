@@ -27,78 +27,20 @@ based on project needs and Intersec consensus.
 Refer to the official Ruff documentation (https://docs.astral.sh/ruff/)
 for the full list of rule codes, descriptions, and configuration options.
 
+== Formatting
+
+Pure formatting rules (indentation, column width, spacing, line wrapping,
+brace placement, pointer alignment, preprocessor indentation, etc.) are
+enforced automatically by clang-format and are therefore not documented here.
+The source of truth for those rules is the `.clang-format` configuration file
+at the root of the repository.
+
+The static checks reject code that is not clang-format clean. As a
+consequence, this document only covers the rules that clang-format cannot
+enforce.
+
 == Basics
 
-* indentation is made of 4 spaces, no tabs, text width is 78 full columns.
-* Never put more than one statement per line, never put more than one semicolon
-  per line (unless it’s in a string ;p)
-
-[source,c]
-----
-do1(); do2(); /* bad */
-
-if (cond) { do_sth(); } /* bad */
-
-printf("a; b; c");      /* good, but better use puts() */
-
-typedef struct foo_t {
-    int a;              /* good */
-    char b, c;          /* good */
-    int d; char e;      /* bad  */
-} foo_t;
-----
-
-* labels (including switch `case` constructs) are not indented.
-  They stay at the same level as the previous block indent.
-
-[source,c]
-----
-int main(void)
-{
-    switch (foo) {
-    case 1:       /* good */
-        break;
-        case 2:   /* bad */
-      case 3:     /* bad */
-        goto done;
-    }
-done:             /* good */
-    (void)0;
-}
-----
-
-* One single space between a control flow keyword (such as `if`, `switch`,
-  `while`, …) and the condition, the bracket is put on the same line (unless it
-  would overflow the columns count).
-
-[source,c]
-----
-switch (foo) { /* good */
-}
-
-switch(foo) { /* bad */
-}
-----
-
-* Spaces around binary operators:
-
-[source,c]
-----
-1 + 3 * (3 << 2); /* good */
-1+2*3;            /* bad  */
-----
-
-* No spaces before a semicolon or before a comma, but one leading space is
-  mandatory.
-
-[source,c]
-----
-fn(1, 2, 3); /* good */
-fn(1,2,3);   /* bad */
-return ;     /* bad */
-----
-
-* Avoid trailing spaces.
 * Never use preincrement when postincrement is equivalent, so that preincrement
   flags probably tricky code.
 
@@ -109,111 +51,6 @@ i++; /* good */
 ----
 
 * Structure your code in order to keep the indentation level as low as possible.
-
-== if else
-
-* When the condition of a control flow statement spans on multiple lines, keep
-  the boolean operator at the end of the line, and align the next statement
-  on the new line with the first statement. Push the bracket on the next line.
-
-[source,c]
-----
-if (test1 && test2 && ... && foo &&
-    bar)
-{
-    /* do stuff */
-}
-if (test1 && test2 &&
-    (test3 || test4 ||
-     test5))
-{
-    /* do stuff */
-}
-----
-
-* `else if` statements are kept on a single line:
-
-[source,c]
-----
-/* Good */
-if (cond1) {
-} else if (cond2) {
-} else {
-}
-
-/* Bad */
-if (cond1) {
-} else
-if (cond2) {
-} else {
-}
-----
-
-* Control flow statements blocks must be enclosed in brackets.
-
-[source,c]
-----
-if (foo) { /* good */
-}
-
-if (foo)   /* bad  */
-{
-}
-
-if (foo)   /* bad */
-    return e_error("bad constraint");
-
-if (foo) { /* good */
-    return e_error("bad constraint");
-}
-
-if (foo)   /* bad  */
-    return a_multiline_function_call("some long reason, %s",
-                                     some_very_long_variable);
-
-if (foo) { /* good  */
-    return a_multiline_function_call("some long reason, %s",
-                                     some_very_long_variable);
-}
-
-if (foo)   /* bad */
-    return 0;
-else
-    return 1;
-
-if (foo) { /* good */
-    return 0;
-} else {
-    return 1;
-}
-
-if (test1 && test2 && ... && foo && /* bad */
-    bar)
-    return 0;
-
-if (test1 && test2 && ... && foo && /* good */
-    bar)
-{
-    return 0;
-}
-
-----
-
-== Ternary operator
-
-When using the ternary operator on a long line, the colon should be aligned
-with the question mark (if possible).
-
-[source,c]
-----
-
-a = pretty_long_condition ? another_quite_long_stuff
-    : something_else;                                 /* bad */
-
-a = pretty_long_condition ? another_quite_long_stuff
-                          : something_else;           /* good */
-
-----
 
 == switch case
 
@@ -230,15 +67,10 @@ case A:
 }
 ----
 
-* In case the case contains some variable declarations:
-** Put the opening brace on a newline after the last case, at one
-   level of indentation greater than the case labels. Put the closing
-   brace on a newline as well, on the same level of indentation as the opening
-   brace.
-** If a `break` is to be put, put it on a newline after the closing brace.
-** `continue` and `return` statements must be kept in the code block since they
-are not linked to the `switch() case:` construct.
-** The code in the block is one-time indented from the `switch` statement
+* When a case contains variable declarations, it must be wrapped in braces to
+  introduce a new scope (clang-format does not add these braces for you).
+  `continue` and `return` statements must be kept inside the code block since
+  they are not linked to the `switch() case:` construct.
 
 [source,c]
 ----
@@ -299,88 +131,8 @@ case B:
   enum (unless you have hundreds of elements to put in the `switch`). It allows
   the compiler to display warnings about missing cases whenever the enumeration
   changed. It applies for IOP unions as well.
-* Block rules apply to `switch/case` macros equivalent such as
-  `IOP_UNION_SWITCH/IOP_UNION_CASE`. They are not actual labels, so both the
-  case and the code inside the case are indented:
-
-[source,c]
-----
-IOP_UNION_SWITCH(val) {
-    IOP_UNION_CASE(iop__type, val, union_name, v) {
-        foo();
-    }
-    IOP_UNION_DEFAULT() {
-        bar();
-    }
-}
-----
-
 
 == Functions
-
-* Opening bracket is on the same line than control flow statements, on the next
-  line for function implementations.
-
-[source,c]
-----
-int main(void) /* good */
-{
-}
-int main(void) { /* bad */
-}
-----
-
-* No spaces between a function call and the parenthesis.
-
-[source,c]
-----
-fn(1, 2, 3);        /* good */
-fn (1, 2, 3);       /* bad  */
-----
-
-* When the argument list of a function call spans on multiple lines, indent at
-  the column of the first argument, unless it’s after the 40th column:
-
-[source,c]
-----
- some_call(struct->bar, 19 * long_variable_name, i++,
-           i_love_long_variables_too_much_for_my_sake);
-----
-
-* When declaring a function prototype, if the declaration isn’t multiline, we
-  usually put the return type on a single line and then the rest of the
-  prototype. Wrap the prototype arguments following the same convention as
-  function calls.
-
-[source,c]
-----
-void something_short(void); /* good */
-
-very_long_type_tag_t *
-something_not_very_short(int, bar_t *, int, void *); /* good */
-----
-
-* Avoid useless wrapping in function prototype and try to keep it on the most
-  limited number of lines
-
-[source,c]
-----
-
-static void
-something_not_very_short(my_not_short_struct_t *a,
-                         my_not_short_struct_t *b); /* bad, could fit on only 2 lines */
-
-static void
-something_not_very_short(my_not_short_struct_t *a, my_not_short_struct_t *b); /* good */
-
-static void something_not_very_short(my_not_short_struct_t *a,
-                                     my_not_short_struct_t *b); /* good */
-
-static void something_not_very_very_very_short(
-    my_not_very_very_very_short_struct_t *a,
-    my_not_very_very_very_short_struct_t *b); /* good */
-
-----
 
 * Avoid useless function declarations. A declaration is needed only
 ** in case of exported function used in another file
@@ -462,60 +214,22 @@ function fails).
 ----
 
 /* GOOD */
-call_with_block(^void (int a, int b) {
+call_with_block(^void(int a, int b) {
 });
 
 /* BAD */
-blk = ^void (int a, int b) {
+blk = ^void(int a, int b) {
 };
 call_with_block(blk);
 
 /* TOLERATED if call_with_block() performs a Block_copy()
  * .. but you should consider refactoring your code */
-blk = ^void (int a, int b) {
+blk = ^void(int a, int b) {
 };
 
 for (int ...) {
     call_with_block(blk);
 }
-
-----
-
-* Inlined blocks should be formatted as follow:
-** keep the opening brace on the same line as the argument list
-** indent the content of the block by one level from the current scope
-** no space after the caret
-** return type get the same formatting as for variable declaration: space after
-type name, star collated with content.
-
-[source,c]
-----
-
-/* GOOD */
-call_with_block(^void (int a, int b) {
-    do_something();
-});
-
-call_with_block(^void *(int a, int b) {
-    return do_something();
-});
-
-
-/* BAD: missing space after type name */
-call_with_block(^void(int a, int b) {
-    do_something();
-});
-
-/* BAD: misplaced opening brace */
-call_with_block(^void (int a, int b)
-{
-    do_something();
-});
-
-/* BAD: wrong indentation */
-call_with_block(^void (int a, int b) {
-                    do_something();
-                });
 
 ----
 
@@ -543,16 +257,6 @@ if (res) {
 
 == Macros / Preprocessor directives
 
-* Use a single space between a macro name and its implementation:
-
-[source,c]
-----
-#define GOOD 1
-#define BAD  2
-#define GOOD_FN(a, b) body
-#define BAD_FN(a, b)  bad_body
-----
-
 * Function-like macro should be used the same way functions are used: the
   semi-colon should be in the invocation, not in the macro:
 
@@ -575,55 +279,6 @@ if (res) {
 #define BAD_MACRO(_a) { char *a = (_a); foo(a); bar(a); }
 
 #define GOOD_MACRO(_a) do { char *a = (_a); foo(a); bar(a); } while (0)
-
-----
-
-* In multi-line macros
-** the `\` should be aligned right on the 78th column
-** the first `\` can be simply put two spaces after the name of the macro, or
-one space after the beginning of the body of the macro, in order to keep 2
-lines macros simple
-** the last line of a macro must not contain a trailing `\`
-** the body of the macro must always have at least one level of indentation
-
-[source,c]
-----
-
-/* GOOD macros */
-#define GOOD_MACRO(a) do {                                                   \
-        do_something();                                                      \
-        do_something_else();                                                 \
-    } while (0)
-
-#define GOOD_MACRO(a) do { \
-        do_something();                                                      \
-        do_something_else();                                                 \
-    } while (0)
-
-#define GOOD_MACRO(a) \
-    do {                                                                     \
-        do_something();                                                      \
-        do_something_else();                                                 \
-    } while (0)
-
-
-/* BAD macro: buggy indentation */
-#define BAD_MACRO(a) do { \
-    do_something();                                                          \
-    do_something_else();                                                     \
-} while (0)
-
-/* BAD macro: non-aligned \ */
-#define BAD_MACRO(a) do { \
-        do_something(); \
-        do_something_else(); \
-    } while (0)
-
-/* BAD macro: trailing \ */
-#define BAD_MACRO(a) do { \
-        do_something();                                                      \
-        do_something_else();                                                 \
-    } while (0)                                                              \
 
 ----
 
@@ -654,30 +309,6 @@ Or:
 
 Purpose: for example, avoid confusing a `#endif` placed in the end of a file
 with a header guard when it is not.
-
-
-* When cascading preprocessor `ifdef`, `else`, `endif` directives and define,
-  use 2 columns per level (including the sharp as a column). The `ifdef` guard
-  of a header file doesn’t count for indent levels.
-
-[source,c]
-----
-#ifndef MY_HEADER_GUARD
-#define MY_HEADER_GUARD
-
-#ifdef __GNUC__
-# define foo(a) __builtin_bar(a)
-# ifdef __GLIBC__
-#   define WE_ARE_USING_A_GLIBC
-# else
-#   error "We need a glibc"
-# endif /* __GLIBC__*/
-#else
-# error "go away, loser"
-#endif /*__GNUC__ */
-
-#endif /* MY_HEADER_GUARD */
-----
 
 * Don't create a macro that don't simplify the code.
 
@@ -800,14 +431,6 @@ is readable:
 }
 
 {
-    int variable;
-
-    variable = long_fonction_with_parameters(parameter1, parameter2,             /* good */
-                                             parameter3);
-
-}
-
-{
     const int const_variable =
         long_function_which_does_not_fit_into_one_line();                        /* allowed */
     int important_variable =
@@ -820,18 +443,6 @@ is readable:
     );
 }
 
-----
-
-* Stick pointer types stars to the variable names:
-
-[source,c]
-----
-const char *var_name; /* good */
-
-int fun(char * foo);  /* bad */
-char* baz;            /* bad */
-
-char *p, *q;          /* good */
 ----
 
 * First specify the storage class when it exists (`static`, `extern`, etc.)
@@ -857,9 +468,6 @@ const static char * const str_array[]; /* bad */
 
 * Use the `_t` suffix for type names, the `_f` suffix for functional types and
   the `_b` suffix for blocks types.
-* When declaring a type, keep the opening bracket on the same line, then put a
-  mandatory line break. For a `typedef`, keep the type name on the same line
-  as the closing bracket.
 * Use a `typedef` for type names. Always use the same name for the `struct`,
   `enum` or `union` tag and the `typedef`.
 * Not using a name for type names and only name the `typedef` is allowed.
@@ -1122,9 +730,9 @@ static int bar_shutdown(void)
     ...
 }
 
-MODULE_BEGIN(bar)
+MODULE_DEFINE(bar) {
     ...
-MODULE_END()
+}
 ----
 
 * If `core-module` is not available on your environment, you must define the

@@ -25,19 +25,19 @@
 #include <netinet/in.h>
 #include <lib-common/sctp.h>
 #ifdef SCTP_ADAPTION_LAYER
-   /* see http://www1.ietf.org/mail-archive/web/tsvwg/current/msg05971.html */
-#  define SCTP_ADAPTATION_LAYER         SCTP_ADAPTION_LAYER
-#  define sctp_adaptation_layer_event   sctp_adaption_layer_event
+/* see http://www1.ietf.org/mail-archive/web/tsvwg/current/msg05971.html */
+#  define SCTP_ADAPTATION_LAYER SCTP_ADAPTION_LAYER
+#  define sctp_adaptation_layer_event sctp_adaption_layer_event
 #endif
 #include <sys/socket.h>
 #include <sys/un.h>
 
 #if __has_feature(nullability)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic error "-Wnullability-completeness"
-#if __has_warning("-Wnullability-completeness-on-arrays")
-#pragma GCC diagnostic ignored "-Wnullability-completeness-on-arrays"
-#endif
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic error "-Wnullability-completeness"
+#  if __has_warning("-Wnullability-completeness-on-arrays")
+#    pragma GCC diagnostic ignored "-Wnullability-completeness-on-arrays"
+#  endif
 #endif
 
 #include "net/addr.h"
@@ -46,7 +46,7 @@
 #include "net/rate.h"
 
 #if __has_feature(nullability)
-#pragma GCC diagnostic pop
+#  pragma GCC diagnostic pop
 #endif
 
 #endif

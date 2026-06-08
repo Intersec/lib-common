@@ -30,31 +30,35 @@
  * the standard one) */
 #define QPS_USE_REDZONES 0
 
-#define qps_io_wrap(what, ...) \
-    ({  typeof(what(__VA_ARGS__)) _res = what(__VA_ARGS__);  \
-        if (unlikely(_res < 0))                              \
-            qps_enospc(NULL, #what);                         \
-        _res; })
+#define qps_io_wrap(what, ...)                                               \
+    ({                                                                       \
+        typeof(what(__VA_ARGS__)) _res = what(__VA_ARGS__);                  \
+        if (unlikely(_res < 0))                                              \
+            qps_enospc(NULL, #what);                                         \
+        _res;                                                                \
+    })
 
-#define x_close(...)      qps_io_wrap(close, __VA_ARGS__)
-#define x_fdatasync(...)  qps_io_wrap(fdatasync, __VA_ARGS__)
-#define x_ftruncate(...)  qps_io_wrap(xftruncate, __VA_ARGS__)
-#define x_linkat(...)     qps_io_wrap(linkat, __VA_ARGS__)
-#define x_msync(...)      qps_io_wrap(msync, __VA_ARGS__)
-#define x_openat(...)     qps_io_wrap(openat, __VA_ARGS__)
-#define x_renameat(...)   qps_io_wrap(renameat, __VA_ARGS__)
-#define x_write(...)      qps_io_wrap(xwrite, __VA_ARGS__)
-#define x_writev(...)     qps_io_wrap(xwritev, __VA_ARGS__)
-#define x_pwrite(...)     qps_io_wrap(xpwrite, __VA_ARGS__)
-#define x_munmap(...)     qps_io_wrap(munmap, __VA_ARGS__)
-#define x_fchmodat(...)   qps_io_wrap(fchmodat, __VA_ARGS__)
-#define x_fchmod(...)     qps_io_wrap(fchmod, __VA_ARGS__)
+#define x_close(...) qps_io_wrap(close, __VA_ARGS__)
+#define x_fdatasync(...) qps_io_wrap(fdatasync, __VA_ARGS__)
+#define x_ftruncate(...) qps_io_wrap(xftruncate, __VA_ARGS__)
+#define x_linkat(...) qps_io_wrap(linkat, __VA_ARGS__)
+#define x_msync(...) qps_io_wrap(msync, __VA_ARGS__)
+#define x_openat(...) qps_io_wrap(openat, __VA_ARGS__)
+#define x_renameat(...) qps_io_wrap(renameat, __VA_ARGS__)
+#define x_write(...) qps_io_wrap(xwrite, __VA_ARGS__)
+#define x_writev(...) qps_io_wrap(xwritev, __VA_ARGS__)
+#define x_pwrite(...) qps_io_wrap(xpwrite, __VA_ARGS__)
+#define x_munmap(...) qps_io_wrap(munmap, __VA_ARGS__)
+#define x_fchmodat(...) qps_io_wrap(fchmodat, __VA_ARGS__)
+#define x_fchmod(...) qps_io_wrap(fchmod, __VA_ARGS__)
 
-#define x_mmap(...) \
-    ({  void *_ptr = mmap(__VA_ARGS__);                      \
-        if (unlikely(_ptr == MAP_FAILED))                    \
-            qps_enospc(NULL, "mmap");                        \
-        _ptr; })
+#define x_mmap(...)                                                          \
+    ({                                                                       \
+        void *_ptr = mmap(__VA_ARGS__);                                      \
+        if (unlikely(_ptr == MAP_FAILED))                                    \
+            qps_enospc(NULL, "mmap");                                        \
+        _ptr;                                                                \
+    })
 
 /** \defgroup qkv__ll__qps  Quick Paged Store.
  * \ingroup qkv__ll
@@ -113,14 +117,14 @@
  * \note Do remember that on NFS directory creation isn't atomic.
  */
 
-#define QPS_PAGE_SHIFT   12UL
-#define QPS_PAGE_SIZE    (1UL << QPS_PAGE_SHIFT)
-#define QPS_PAGE_MASK    (QPS_PAGE_SIZE - 1)
+#define QPS_PAGE_SHIFT 12UL
+#define QPS_PAGE_SIZE (1UL << QPS_PAGE_SHIFT)
+#define QPS_PAGE_MASK (QPS_PAGE_SIZE - 1)
 
-#define QPS_MAP_PAGES    (1UL << 16)
-#define QPS_MAP_SHIFT    (16UL + QPS_PAGE_SHIFT)
-#define QPS_MAP_SIZE     (1UL << QPS_MAP_SHIFT)
-#define QPS_MAP_MASK     (QPS_MAP_SIZE - 1)
+#define QPS_MAP_PAGES (1UL << 16)
+#define QPS_MAP_SHIFT (16UL + QPS_PAGE_SHIFT)
+#define QPS_MAP_SIZE (1UL << QPS_MAP_SHIFT)
+#define QPS_MAP_MASK (QPS_MAP_SIZE - 1)
 
 /** Type of a qps page handle.
  *
@@ -156,7 +160,7 @@ typedef uint32_t qps_pg_t;
 typedef uint32_t qps_handle_t;
 
 /** The NULL qps handle. */
-#define QPS_HANDLE_NULL   0U
+#define QPS_HANDLE_NULL 0U
 
 /** Type of a qps generic relocatable pointer. */
 typedef struct qps_ptr_t {
@@ -168,27 +172,27 @@ typedef struct qps_ptr_t {
     qps_pg_t pgno;
 } qps_ptr_t;
 /** Format to use in printf() when pretty printing a #qps_ptr_t. */
-#define QPS_PTR_FMT     "%d:%04x:%08x"
+#define QPS_PTR_FMT "%d:%04x:%08x"
 /** Format argument to use in printf(), counterpart to #QPS_PTR_FMT. */
-#define QPS_PTR_ARG(p)  QPS_PG_ARG((p).pgno), (p).addr
+#define QPS_PTR_ARG(p) QPS_PG_ARG((p).pgno), (p).addr
 
 /** Type for caching the result of the dereferencement of a handle.
  */
 typedef struct qps_hptr_t {
-    void        *data;
-    uint32_t     gc_gen;
+    void *data;
+    uint32_t gc_gen;
     qps_handle_t handle;
 } qps_hptr_t;
 
 /* qps types, public for inlining reasons {{{ */
 
-typedef struct qps_pghdr_t  qps_pghdr_t;
-typedef struct qps_mhdr_t   qps_mhdr_t;
-typedef union  qps_map_t    qps_map_t;
-typedef struct qps_gcmap_t  qps_gcmap_t;
+typedef struct qps_pghdr_t qps_pghdr_t;
+typedef struct qps_mhdr_t qps_mhdr_t;
+typedef union qps_map_t qps_map_t;
+typedef struct qps_gcmap_t qps_gcmap_t;
 qvector_t(qps_handle, qps_handle_t);
-qvector_t(qps_pg,     qps_pg_t);
-qvector_t(qpsm,       qps_map_t *);
+qvector_t(qps_pg, qps_pg_t);
+qvector_t(qpsm, qps_map_t *);
 
 static inline int qps_gen_cmp(uint32_t gen1, uint32_t gen2)
 {
@@ -201,22 +205,22 @@ static inline int qps_gen_cmp(uint32_t gen1, uint32_t gen2)
  * \param op    the comparison to perform, one of <, <=, ==, >=, >
  * \return      the result of the comparison (bool)
  */
-#define QPS_GEN_CMP(gen1, op, gen2)  (qps_gen_cmp(gen1, gen2) op 0)
+#define QPS_GEN_CMP(gen1, op, gen2) (qps_gen_cmp(gen1, gen2) op 0)
 
 typedef struct qps_map_hdr_t {
-#define QPS_META_SIG     "QPS_meta/v01.00"
-#define QPS_MAP_PG_SIG   "QPS_page/v01.00"
-#define QPS_MAP_MEM_SIG  "QPS_tlsf/v01.00"
-        uint8_t         sig[16];
-        uint32_t        mapno;
-        uint32_t        generation;
-        uint32_t        allocated;
-        uint8_t         __padding[QPS_PAGE_SIZE / 2 - 16 - 3 * 4];
+#define QPS_META_SIG "QPS_meta/v01.00"
+#define QPS_MAP_PG_SIG "QPS_page/v01.00"
+#define QPS_MAP_MEM_SIG "QPS_tlsf/v01.00"
+    uint8_t sig[16];
+    uint32_t mapno;
+    uint32_t generation;
+    uint32_t allocated;
+    uint8_t __padding[QPS_PAGE_SIZE / 2 - 16 - 3 * 4];
 
-        /* Past this point, data on disk may be corrupted */
-        struct qps_t   *qps;
-        uint32_t        remaining;      /* only for memory */
-        uint32_t        disk_usage;     /* only for memory */
+    /* Past this point, data on disk may be corrupted */
+    struct qps_t *qps;
+    uint32_t remaining;  /* only for memory */
+    uint32_t disk_usage; /* only for memory */
 } qps_map_hdr_t;
 
 union qps_map_t {
@@ -226,15 +230,15 @@ union qps_map_t {
 
 struct qps_gcmap_t {
     qps_map_t *map;
-    uint32_t   mark;
-    uint32_t   gen;
-    uint32_t   allocated;
-    uint32_t   disk_usage;
+    uint32_t mark;
+    uint32_t gen;
+    uint32_t allocated;
+    uint32_t disk_usage;
 };
 qvector_t(qps_gcmap, qps_gcmap_t);
 
 #ifdef __has_blocks
-typedef void (BLOCK_CARET qps_notify_b)(uint32_t gen);
+typedef void(BLOCK_CARET qps_notify_b)(uint32_t gen);
 #else
 typedef void *qps_notify_b;
 #endif
@@ -243,58 +247,59 @@ typedef struct qps_t {
     logger_t logger;
     logger_t tracing_logger;
 
-    dir_lock_t   lock;
-    int          dfd;
-    uint16_t     snapshotting;
-    uint32_t     generation;
-    qv_t(qpsm)   maps;
-    qv_t(qpsm)   smaps;
-    qv_t(qpsm)   omaps;
-    qv_t(u32)    no_free;
-    qv_t(u32)    no_blocked;
-    dlist_t      qps_link;
+    dir_lock_t lock;
+    int dfd;
+    uint16_t snapshotting;
+    uint32_t generation;
+    qv_t(qpsm) maps;
+    qv_t(qpsm) smaps;
+    qv_t(qpsm) omaps;
+    qv_t(u32) no_free;
+    qv_t(u32) no_blocked;
+    dlist_t qps_link;
 
-#define QPS_HANDLES_PAGES   (QPS_HANDLES_COUNT * sizeof(qps_ptr_t) / QPS_PAGE_SIZE)
-#define QPS_HANDLES_COUNT   (1U << 16)
-    qps_ptr_t  **handles;
-    uint32_t     handles_max;
-    uint32_t     handles_freelist;
-    uint32_t     handles_gc_gen;
+#define QPS_HANDLES_PAGES                                                    \
+    (QPS_HANDLES_COUNT * sizeof(qps_ptr_t) / QPS_PAGE_SIZE)
+#define QPS_HANDLES_COUNT (1U << 16)
+    qps_ptr_t **handles;
+    uint32_t handles_max;
+    uint32_t handles_freelist;
+    uint32_t handles_gc_gen;
 
     /* Allocator state, private */
     qps_pghdr_t *hdrs;
-    qps_map_t   *gc_map;     /* do not use, filled for the SIGBUS handler */
-    thr_syn_t   *snapshot_syn; /* not owned by the qps_t */
-    el_t         snap_el;
-    el_t         snap_timer_el;
+    qps_map_t *gc_map;       /* do not use, filled for the SIGBUS handler */
+    thr_syn_t *snapshot_syn; /* not owned by the qps_t */
+    el_t snap_el;
+    el_t snap_timer_el;
     qps_notify_b snap_notify;
-    pid_t        snap_pid;
+    pid_t snap_pid;
     struct timeval snap_start;
-    uint32_t     snap_gen;
-    uint32_t     snap_max_duration; /* in seconds, 3600 by default */
+    uint32_t snap_gen;
+    uint32_t snap_max_duration; /* in seconds, 3600 by default */
 
     struct {
-#define QPS_PGL2_SHIFT       5U
-#define QPS_PGL2_LEVELS      bitsizeof(uint32_t)
-#define QPS_PGL1_LEVELS      (16UL - QPS_PGL2_SHIFT + 1)
-        uint32_t    l1_bitmap;
-        uint32_t    l2_bitmap[QPS_PGL1_LEVELS];
-        qps_pg_t    blks[QPS_PGL1_LEVELS][QPS_PGL2_LEVELS];
+#define QPS_PGL2_SHIFT 5U
+#define QPS_PGL2_LEVELS bitsizeof(uint32_t)
+#define QPS_PGL1_LEVELS (16UL - QPS_PGL2_SHIFT + 1)
+        uint32_t l1_bitmap;
+        uint32_t l2_bitmap[QPS_PGL1_LEVELS];
+        qps_pg_t blks[QPS_PGL1_LEVELS][QPS_PGL2_LEVELS];
     } pgs;
 
     struct {
-#define QPS_ML2_OFFSET       3U
-#define QPS_ML2_SHIFT        5U
-#define QPS_ML2_LEVELS       bitsizeof(uint32_t)
-#define QPS_ML1_LEVELS       (QPS_MAP_SHIFT + 1 - QPS_ML2_SHIFT - QPS_ML2_OFFSET)
-        uint32_t    l1_bitmap;
-        uint32_t    l2_bitmap[QPS_ML1_LEVELS];
+#define QPS_ML2_OFFSET 3U
+#define QPS_ML2_SHIFT 5U
+#define QPS_ML2_LEVELS bitsizeof(uint32_t)
+#define QPS_ML1_LEVELS (QPS_MAP_SHIFT + 1 - QPS_ML2_SHIFT - QPS_ML2_OFFSET)
+        uint32_t l1_bitmap;
+        uint32_t l2_bitmap[QPS_ML1_LEVELS];
         qps_mhdr_t *blks[QPS_ML1_LEVELS][QPS_ML2_LEVELS];
     } m;
 } qps_t;
 
-__attribute__((noreturn))
-extern void qps_enospc(qps_t *nullable qps, const char *what);
+__attribute__((noreturn)) extern void
+qps_enospc(qps_t *nullable qps, const char *what);
 
 /* }}} */
 /* qps: file-system/persistent store handling {{{ */
@@ -309,23 +314,28 @@ struct qps_stats {
     int pages_free;
 };
 
-qps_t    *qps_create(const char *path, const char *name, mode_t mode,
-                     const void *data, size_t dlen);
+qps_t *qps_create(
+    const char *path, const char *name, mode_t mode, const void *data,
+    size_t dlen
+);
 
-qps_t    *_qps_open(const char *path, const char *name,
-                    bool load_whole_spool, sb_t *priv);
-#define qps_open(path, name, priv)  _qps_open((path), (name), true, (priv))
+qps_t *_qps_open(
+    const char *path, const char *name, bool load_whole_spool, sb_t *priv
+);
+#define qps_open(path, name, priv) _qps_open((path), (name), true, (priv))
 
-int       __qps_check_consistency(const char *path, const char *name);
-int       __qps_check_maps(qps_t *qps, bool fatal);
-bool      qps_exists(const char *path);
-int       qps_unlink(const char *path);
-void      qps_close(qps_t **qps);
-void      qps_get_usage(const qps_t *qps, struct qps_stats *);
+int __qps_check_consistency(const char *path, const char *name);
+int __qps_check_maps(qps_t *qps, bool fatal);
+bool qps_exists(const char *path);
+int qps_unlink(const char *path);
+void qps_close(qps_t **qps);
+void qps_get_usage(const qps_t *qps, struct qps_stats *);
 
 #ifdef __has_blocks
-uint32_t  qps_snapshot(qps_t *qps, const void *data, size_t dlen,
-                       void (BLOCK_CARET notify)(uint32_t gen));
+uint32_t qps_snapshot(
+    qps_t *qps, const void *data, size_t dlen,
+    void(BLOCK_CARET notify)(uint32_t gen)
+);
 #endif
 
 /** Set a thr syn to use for thr jobs that should synchronize with the
@@ -374,78 +384,72 @@ void qps_snapshot_wait(qps_t *qps);
 /* qps: Allocation routines {{{ */
 
 /** Maximum amount of memory allocated inside the tlsf pool */
-#define QPS_M_ALLOC_MAX   (64U << 10)
+#define QPS_M_ALLOC_MAX (64U << 10)
 /** Largest amount of memory QPS can allocate */
-#define QPS_ALLOC_MAX     (32U << 20)
+#define QPS_ALLOC_MAX (32U << 20)
 /** Smallest amount of memory QPS will alloc */
-#define QPS_ALLOC_MIN     (24)
+#define QPS_ALLOC_MIN (24)
 
 /**
  * XXX map/alloc/remap/realloc do *NOT* zero memory
  *
  * @param [n] number of manipulated page (each of size QPS_PAGE_SIZE)
  */
-qps_pg_t  qps_pg_map(qps_t *qps, size_t n);
-qps_pg_t  qps_pg_remap(qps_t *qps, qps_pg_t blk, size_t size);
-void      qps_pg_unmap(qps_t *qps, qps_pg_t blk);
-size_t    qps_pg_sizeof(qps_t *qps, qps_pg_t blk);
-void      qps_pg_zero(qps_t *qps, qps_pg_t blk, size_t n);
+qps_pg_t qps_pg_map(qps_t *qps, size_t n);
+qps_pg_t qps_pg_remap(qps_t *qps, qps_pg_t blk, size_t size);
+void qps_pg_unmap(qps_t *qps, qps_pg_t blk);
+size_t qps_pg_sizeof(qps_t *qps, qps_pg_t blk);
+void qps_pg_zero(qps_t *qps, qps_pg_t blk, size_t n);
 
-void     *qps_alloc(qps_t *qps, qps_handle_t *id, size_t size);
+void *qps_alloc(qps_t *qps, qps_handle_t *id, size_t size);
 /** Reallocs the memory behind a handle.
  * \warning unlike realloc(), qps_realloc(qps, id, 0) won't free the handle,
  * #qps_free must still be called.
  * \warning unlike realloc(), qps_realloc(qps, QPS_HANDLE_NULL, size) won't
  * do an allocation, use #qps_alloc() to get the handle.
  */
-void     *qps_realloc(qps_t *qps, qps_handle_t id, size_t size);
-void      qps_free(qps_t *qps, qps_handle_t id);
-size_t    qps_sizeof(qps_t *qps, const void *ptr);
-void      qps_zero(qps_t *qps, void *ptr, size_t n);
+void *qps_realloc(qps_t *qps, qps_handle_t id, size_t size);
+void qps_free(qps_t *qps, qps_handle_t id);
+size_t qps_sizeof(qps_t *qps, const void *ptr);
+void qps_zero(qps_t *qps, void *ptr, size_t n);
 
 /* }}} */
 /* qps: conversions between various kind of pointers {{{ */
 
-static ALWAYS_INLINE
-qps_map_t *qps_map_of(const void *ptr)
+static ALWAYS_INLINE qps_map_t *qps_map_of(const void *ptr)
 {
     return cast(qps_map_t *, cast(uintptr_t, ptr) & ~QPS_MAP_MASK);
 }
 
-static ALWAYS_INLINE
-bool qps_map_is_pg(const qps_map_t *map)
+static ALWAYS_INLINE bool qps_map_is_pg(const qps_map_t *map)
 {
     return map->hdr.sig[4] == 'p';
 }
 
-static ALWAYS_INLINE
-bool qps_is_ro(const qps_t *qps, const qps_map_t *map)
+static ALWAYS_INLINE bool qps_is_ro(const qps_t *qps, const qps_map_t *map)
 {
     return !qps_map_is_pg(map) && qps->generation != map->hdr.generation;
 }
 #ifndef __doxygen_mode__
-#define qps_is_ro(qps, map)  unlikely(qps_is_ro(qps, map))
+#  define qps_is_ro(qps, map) unlikely(qps_is_ro(qps, map))
 #endif
 
-static ALWAYS_INLINE
-qps_pg_t qps_pg_of(const void *ptr_)
+static ALWAYS_INLINE qps_pg_t qps_pg_of(const void *ptr_)
 {
-    uintptr_t  ptr = cast(uintptr_t, ptr_);
+    uintptr_t ptr = cast(uintptr_t, ptr_);
     qps_map_t *map = qps_map_of(ptr_);
     return (map->hdr.mapno * QPS_MAP_PAGES) |
            (ptr & QPS_MAP_MASK) >> QPS_PAGE_SHIFT;
 }
 
 /* Check for broken page number. */
-static ALWAYS_INLINE
-bool qps_pg_is_in_range(const qps_t *qps, qps_pg_t pg)
+static ALWAYS_INLINE bool qps_pg_is_in_range(const qps_t *qps, qps_pg_t pg)
 {
     int idx = QPS_PG_MAP_IDX(pg);
     return idx < qps->maps.len;
 }
 
-static ALWAYS_INLINE
-void *qps_pg_deref(const qps_t *qps, qps_pg_t pg)
+static ALWAYS_INLINE void *qps_pg_deref(const qps_t *qps, qps_pg_t pg)
 {
     return pg ? qps->maps.tab[QPS_PG_MAP_IDX(pg)][QPS_PG_IDX(pg)].data : NULL;
 }
@@ -453,82 +457,75 @@ void *qps_pg_deref(const qps_t *qps, qps_pg_t pg)
 #if !defined(__doxygen_mode__)
 void *qps_w_deref_(qps_t *, qps_handle_t, void *);
 #endif
-static ALWAYS_INLINE
-void *qps_w_deref(qps_t *qps, qps_handle_t id, void *ptr)
+static ALWAYS_INLINE void *qps_w_deref(qps_t *qps, qps_handle_t id, void *ptr)
 {
     return qps_is_ro(qps, qps_map_of(ptr)) ? qps_w_deref_(qps, id, ptr) : ptr;
 }
 
-static ALWAYS_INLINE
-qps_ptr_t *qps_handle_slot(qps_t *qps, qps_handle_t id)
+static ALWAYS_INLINE qps_ptr_t *qps_handle_slot(qps_t *qps, qps_handle_t id)
 {
-    assert (id && id < qps->handles_max);
+    assert(id && id < qps->handles_max);
     return &qps->handles[id / QPS_HANDLES_COUNT][id % QPS_HANDLES_COUNT];
 }
 
 void qps_handle_allow_memory(qps_t *qps, qps_handle_t id, qps_ptr_t *ptr);
 
-static ALWAYS_INLINE
-void *qps_handle_deref(qps_t *qps, qps_handle_t id)
+static ALWAYS_INLINE void *qps_handle_deref(qps_t *qps, qps_handle_t id)
 {
     qps_ptr_t *ptr = qps_handle_slot(qps, id);
 
-    assert ((ptr->addr & ~QPS_PAGE_MASK) == 0);
+    assert((ptr->addr & ~QPS_PAGE_MASK) == 0);
 #if QPS_USE_REDZONES
     qps_handle_allow_memory(qps, id, ptr);
 #endif
     return (uint8_t *)qps_pg_deref(qps, ptr->pgno) + ptr->addr;
 }
 
-static ALWAYS_INLINE
-void *qps_handle_w_deref(qps_t *qps, qps_handle_t id)
+static ALWAYS_INLINE void *qps_handle_w_deref(qps_t *qps, qps_handle_t id)
 {
     return qps_w_deref(qps, id, qps_handle_deref(qps, id));
 }
 
-static ALWAYS_INLINE
-void *qps_hptr_init(qps_t *qps, qps_handle_t h, qps_hptr_t *cache)
+static ALWAYS_INLINE void *
+qps_hptr_init(qps_t *qps, qps_handle_t h, qps_hptr_t *cache)
 {
     cache->handle = h;
-    cache->data   = qps_handle_deref(qps, h);
+    cache->data = qps_handle_deref(qps, h);
     cache->gc_gen = qps->handles_gc_gen;
     return cache->data;
 }
 
-static ALWAYS_INLINE
-const void *qps_hptr_deref(qps_t *qps, qps_hptr_t *cache)
+static ALWAYS_INLINE const void *qps_hptr_deref(qps_t *qps, qps_hptr_t *cache)
 {
     if (unlikely(qps->handles_gc_gen != cache->gc_gen)) {
-        cache->data   = qps_handle_deref(qps, cache->handle);
+        cache->data = qps_handle_deref(qps, cache->handle);
         cache->gc_gen = qps->handles_gc_gen;
     }
     return cache->data;
 }
 
-static ALWAYS_INLINE
-void *qps_hptr_w_deref(qps_t *qps, qps_hptr_t *cache)
+static ALWAYS_INLINE void *qps_hptr_w_deref(qps_t *qps, qps_hptr_t *cache)
 {
     qps_hptr_deref(qps, cache);
     return cache->data = qps_w_deref(qps, cache->handle, cache->data);
 }
 
-static ALWAYS_INLINE
-void *qps_hptr_alloc(qps_t *qps, size_t n, qps_hptr_t *cache)
+static ALWAYS_INLINE void *
+qps_hptr_alloc(qps_t *qps, size_t n, qps_hptr_t *cache)
 {
     cache->gc_gen = qps->handles_gc_gen;
     return cache->data = qps_alloc(qps, &cache->handle, n);
 }
 
-static ALWAYS_INLINE
-void *qps_hptr_realloc(qps_t *qps, size_t n, qps_hptr_t *cache)
+static ALWAYS_INLINE void *
+qps_hptr_realloc(qps_t *qps, size_t n, qps_hptr_t *cache)
 {
-    cache->data   = RETHROW_P(qps_realloc(qps, cache->handle, n));
+    cache->data = RETHROW_P(qps_realloc(qps, cache->handle, n));
     cache->gc_gen = qps->handles_gc_gen;
     return cache->data;
 }
 
-static ALWAYS_INLINE
-void qps_hptr_free(qps_t *qps, qps_hptr_t *cache)
+static ALWAYS_INLINE void qps_hptr_free(qps_t *qps, qps_hptr_t *cache)
 {
     qps_free(qps, cache->handle);
     p_clear(cache, 1);
@@ -551,12 +548,11 @@ MODULE_DECLARE(qps);
 
 typedef struct qps_roots_t {
     qv_t(qps_handle) handles;
-    qv_t(qps_pg)     pages;
+    qv_t(qps_pg) pages;
 } qps_roots_t;
 GENERIC_NEW_INIT(qps_roots_t, qps_roots);
 
-static inline
-void qps_roots_wipe(qps_roots_t *roots)
+static inline void qps_roots_wipe(qps_roots_t *roots)
 {
     qv_wipe(&roots->handles);
     qv_wipe(&roots->pages);

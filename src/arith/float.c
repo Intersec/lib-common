@@ -35,7 +35,7 @@ double double_round(double val, uint8_t precision)
 
     val -= val_floor;
     val *= powerof10[precision];
-    val  = round(val);
+    val = round(val);
     val /= powerof10[precision];
 
     return val + val_floor;
@@ -50,7 +50,7 @@ double double_round_significant(double d, uint8_t precision)
     if (!expect(precision < countof(powerof10))) {
         return d;
     }
-    assert (precision != 0);
+    assert(precision != 0);
 
     /* powerof10[X-1] is the smallest number with precision X */
     if (ubase >= powerof10[precision - 1]) {

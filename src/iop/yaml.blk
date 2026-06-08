@@ -38,7 +38,7 @@ static struct iop_yaml_g {
 
 typedef struct yunpack_error_t {
     /* the yaml span where the error happened. */
-    const yaml_span_t * nonnull span;
+    const yaml_span_t *nonnull span;
     /* details of the error */
     sb_t buf;
 } yunpack_error_t;
@@ -62,17 +62,15 @@ typedef enum yunpack_res_t {
     YUNPACK_OK = 0,
 } yunpack_res_t;
 
-static int
-t_yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
-                            const yaml_data_t * nonnull data,
-                            const iop_struct_t * nonnull st,
-                            void * nonnull out);
+static int t_yaml_data_to_typed_struct(
+    yunpack_env_t *nonnull env, const yaml_data_t *nonnull data,
+    const iop_struct_t *nonnull st, void *nonnull out
+);
 
-static yunpack_res_t
-t_yaml_nil_to_iop_field(yunpack_env_t * nonnull env,
-                        const yaml_data_t * nonnull data,
-                        const iop_field_t * nonnull fdesc,
-                        bool in_array, void * nonnull out)
+static yunpack_res_t t_yaml_nil_to_iop_field(
+    yunpack_env_t *nonnull env, const yaml_data_t *nonnull data,
+    const iop_field_t *nonnull fdesc, bool in_array, void *nonnull out
+)
 {
     if (!in_array && fdesc->repeat == IOP_R_REPEATED) {
         iop_array_void_t *arr = out;
@@ -83,37 +81,36 @@ t_yaml_nil_to_iop_field(yunpack_env_t * nonnull env,
     }
 
     switch (fdesc->type) {
-      case IOP_T_STRING:
-      case IOP_T_XML:
-      case IOP_T_DATA:
+    case IOP_T_STRING:
+    case IOP_T_XML:
+    case IOP_T_DATA:
         *(lstr_t *)out = LSTR_NULL_V;
         return YUNPACK_OK;
-      case IOP_T_STRUCT:
-      case IOP_T_UNION:
-        if (t_yaml_data_to_typed_struct(env, data, fdesc->u1.st_desc,
-                                        out) < 0)
+    case IOP_T_STRUCT:
+    case IOP_T_UNION:
+        if (t_yaml_data_to_typed_struct(env, data, fdesc->u1.st_desc, out) <
+            0)
         {
             return YUNPACK_NULL_STRUCT_ERROR;
         }
         return YUNPACK_OK;
-      default:
+    default:
         return YUNPACK_TYPE_MISMATCH;
     }
 }
 
-static yunpack_res_t
-t_yaml_string_to_iop_field(const lstr_t str,
-                           const iop_field_t * nonnull fdesc,
-                           void * nonnull out)
+static yunpack_res_t t_yaml_string_to_iop_field(
+    const lstr_t str, const iop_field_t *nonnull fdesc, void *nonnull out
+)
 {
     switch (fdesc->type) {
-      case IOP_T_STRING:
-      case IOP_T_XML:
-      case IOP_T_DATA:
+    case IOP_T_STRING:
+    case IOP_T_XML:
+    case IOP_T_DATA:
         *(lstr_t *)out = t_lstr_dup(str);
         return YUNPACK_OK;
 
-      case IOP_T_ENUM: {
+    case IOP_T_ENUM: {
         bool found;
         int i;
 
@@ -123,200 +120,198 @@ t_yaml_string_to_iop_field(const lstr_t str,
         }
         *(int32_t *)out = i;
         return 0;
-      }
+    }
 
-      default:
+    default:
         return YUNPACK_TYPE_MISMATCH;
     }
 }
 
 static void
-t_set_string_from_stream(const yaml_data_t * nonnull data,
-                         lstr_t * nonnull out)
+t_set_string_from_stream(const yaml_data_t *nonnull data, lstr_t *nonnull out)
 {
     *out = t_lstr_dup(yaml_span_to_lstr(&data->span));
 }
 
-static yunpack_res_t
-t_yaml_double_to_iop_field(const yaml_data_t * nonnull data,
-                           double d, const iop_field_t * nonnull fdesc,
-                           void * nonnull out)
+static yunpack_res_t t_yaml_double_to_iop_field(
+    const yaml_data_t *nonnull data, double d,
+    const iop_field_t *nonnull fdesc, void *nonnull out
+)
 {
     switch (fdesc->type) {
-      case IOP_T_DOUBLE:
+    case IOP_T_DOUBLE:
         *(double *)out = d;
         return YUNPACK_OK;
-      case IOP_T_STRING:
+    case IOP_T_STRING:
         t_set_string_from_stream(data, out);
         return YUNPACK_OK;
-      default:
+    default:
         return YUNPACK_TYPE_MISMATCH;
     }
 }
 
-static int
-t_yaml_uint_to_iop_field(const yaml_data_t * nonnull data,
-                         uint64_t u, const iop_field_t * nonnull fdesc,
-                         void * nonnull out)
+static int t_yaml_uint_to_iop_field(
+    const yaml_data_t *nonnull data, uint64_t u,
+    const iop_field_t *nonnull fdesc, void *nonnull out
+)
 {
-#define CHECK_MAX(v, max)  THROW_IF(v > max, YUNPACK_OOB)
+#define CHECK_MAX(v, max) THROW_IF(v > max, YUNPACK_OOB)
 
     switch (fdesc->type) {
-      case IOP_T_I8:
+    case IOP_T_I8:
         CHECK_MAX(u, INT8_MAX);
         *(int8_t *)out = u;
         return YUNPACK_OK;
 
-      case IOP_T_U8:
+    case IOP_T_U8:
         CHECK_MAX(u, UINT8_MAX);
         *(uint8_t *)out = u;
         return YUNPACK_OK;
 
-      case IOP_T_I16:
+    case IOP_T_I16:
         CHECK_MAX(u, INT16_MAX);
         *(int16_t *)out = u;
         return YUNPACK_OK;
 
-      case IOP_T_U16:
+    case IOP_T_U16:
         CHECK_MAX(u, UINT16_MAX);
         *(uint16_t *)out = u;
         return YUNPACK_OK;
 
-      case IOP_T_I32:
+    case IOP_T_I32:
         CHECK_MAX(u, INT32_MAX);
         *(int32_t *)out = u;
         return YUNPACK_OK;
 
-      case IOP_T_U32:
+    case IOP_T_U32:
         CHECK_MAX(u, UINT32_MAX);
         *(uint32_t *)out = u;
         return YUNPACK_OK;
 
-      case IOP_T_I64:
+    case IOP_T_I64:
         CHECK_MAX(u, INT64_MAX);
         *(int64_t *)out = u;
         return YUNPACK_OK;
 
-      case IOP_T_U64:
+    case IOP_T_U64:
         *(uint64_t *)out = u;
         return YUNPACK_OK;
 
-      case IOP_T_DOUBLE:
+    case IOP_T_DOUBLE:
         *(double *)out = u;
         return YUNPACK_OK;
 
-      case IOP_T_STRING:
+    case IOP_T_STRING:
         t_set_string_from_stream(data, out);
         return YUNPACK_OK;
 
-      case IOP_T_ENUM:
+    case IOP_T_ENUM:
         CHECK_MAX(u, INT32_MAX);
-        if (TST_BIT(&fdesc->u1.en_desc->flags, IOP_ENUM_STRICT)
-        &&  !iop_enum_exists_desc(fdesc->u1.en_desc, u))
+        if (TST_BIT(&fdesc->u1.en_desc->flags, IOP_ENUM_STRICT) &&
+            !iop_enum_exists_desc(fdesc->u1.en_desc, u))
         {
             return YUNPACK_INVALID_ENUM_VAL;
         }
         *(int32_t *)out = u;
         return YUNPACK_OK;
 
-      default:
+    default:
         return YUNPACK_TYPE_MISMATCH;
     }
 
 #undef CHECK_MAX
 }
 
-static int
-yaml_int_to_iop_field(int64_t i, const iop_field_t * nonnull fdesc,
-                      void * nonnull out)
+static int yaml_int_to_iop_field(
+    int64_t i, const iop_field_t *nonnull fdesc, void *nonnull out
+)
 {
-#define CHECK_RANGE(v, min, max)  THROW_IF(v < min || v > max, YUNPACK_OOB)
+#define CHECK_RANGE(v, min, max) THROW_IF(v<min || v> max, YUNPACK_OOB)
 
     /* The INT type is only used for negative values, so all unsigned types
      * are OOB. */
 
     switch (fdesc->type) {
-      case IOP_T_I8:
+    case IOP_T_I8:
         CHECK_RANGE(i, INT8_MIN, INT8_MAX);
         *(int8_t *)out = i;
         return YUNPACK_OK;
 
-      case IOP_T_U8:
+    case IOP_T_U8:
         return YUNPACK_OOB;
 
-      case IOP_T_I16:
+    case IOP_T_I16:
         CHECK_RANGE(i, INT16_MIN, INT16_MAX);
         *(int16_t *)out = i;
         return YUNPACK_OK;
 
-      case IOP_T_U16:
+    case IOP_T_U16:
         return YUNPACK_OOB;
 
-      case IOP_T_I32:
+    case IOP_T_I32:
         CHECK_RANGE(i, INT32_MIN, INT32_MAX);
         *(int32_t *)out = i;
         return YUNPACK_OK;
 
-      case IOP_T_U32:
+    case IOP_T_U32:
         return YUNPACK_OOB;
 
-      case IOP_T_I64:
+    case IOP_T_I64:
         *(int64_t *)out = i;
         return YUNPACK_OK;
 
-      case IOP_T_U64:
+    case IOP_T_U64:
         return YUNPACK_OOB;
 
-      case IOP_T_DOUBLE:
+    case IOP_T_DOUBLE:
         *(double *)out = i;
         return YUNPACK_OK;
 
-      case IOP_T_ENUM:
+    case IOP_T_ENUM:
         CHECK_RANGE(i, INT32_MIN, INT32_MAX);
-        if (TST_BIT(&fdesc->u1.en_desc->flags, IOP_ENUM_STRICT)
-        &&  !iop_enum_exists_desc(fdesc->u1.en_desc, i))
+        if (TST_BIT(&fdesc->u1.en_desc->flags, IOP_ENUM_STRICT) &&
+            !iop_enum_exists_desc(fdesc->u1.en_desc, i))
         {
             return YUNPACK_INVALID_ENUM_VAL;
         }
         *(int32_t *)out = i;
         return YUNPACK_OK;
 
-      default:
+    default:
         return YUNPACK_TYPE_MISMATCH;
     }
 }
 
 #undef CHECK_RANGE
 
-static int
-t_yaml_bool_to_iop_field(const yaml_data_t * nonnull data,
-                         bool b, const iop_field_t * nonnull fdesc,
-                         void * nonnull out)
+static int t_yaml_bool_to_iop_field(
+    const yaml_data_t *nonnull data, bool b, const iop_field_t *nonnull fdesc,
+    void *nonnull out
+)
 {
     switch (fdesc->type) {
-      case IOP_T_BOOL:
+    case IOP_T_BOOL:
         *(bool *)out = b;
         return YUNPACK_OK;
-      case IOP_T_STRING:
+    case IOP_T_STRING:
         t_set_string_from_stream(data, out);
         return YUNPACK_OK;
-      default:
+    default:
         return YUNPACK_TYPE_MISMATCH;
     }
 }
 
-static yunpack_res_t
-t_yaml_scalar_to_iop_field(yunpack_env_t * nonnull env,
-                           const yaml_data_t * nonnull data,
-                           const iop_field_t * nonnull fdesc,
-                           bool in_array, void * nonnull out)
+static yunpack_res_t t_yaml_scalar_to_iop_field(
+    yunpack_env_t *nonnull env, const yaml_data_t *nonnull data,
+    const iop_field_t *nonnull fdesc, bool in_array, void *nonnull out
+)
 {
     const yaml_scalar_t *scalar = &data->scalar;
 
     /* backward compatibility: unpack a scalar into an array as an array
      * of one element. */
-    if (!in_array && fdesc->repeat == IOP_R_REPEATED
-    &&  scalar->type != YAML_SCALAR_NULL)
+    if (!in_array && fdesc->repeat == IOP_R_REPEATED &&
+        scalar->type != YAML_SCALAR_NULL)
     {
         iop_array_i8_t *arr = out;
 
@@ -325,22 +320,22 @@ t_yaml_scalar_to_iop_field(yunpack_env_t * nonnull env,
     }
 
     switch (scalar->type) {
-      case YAML_SCALAR_NULL:
+    case YAML_SCALAR_NULL:
         return t_yaml_nil_to_iop_field(env, data, fdesc, in_array, out);
-      case YAML_SCALAR_STRING:
-      case YAML_SCALAR_BYTES:
+    case YAML_SCALAR_STRING:
+    case YAML_SCALAR_BYTES:
         return t_yaml_string_to_iop_field(scalar->s, fdesc, out);
-      case YAML_SCALAR_DOUBLE:
+    case YAML_SCALAR_DOUBLE:
         return t_yaml_double_to_iop_field(data, scalar->d, fdesc, out);
-      case YAML_SCALAR_UINT:
+    case YAML_SCALAR_UINT:
         return t_yaml_uint_to_iop_field(data, scalar->u, fdesc, out);
-      case YAML_SCALAR_INT:
+    case YAML_SCALAR_INT:
         return yaml_int_to_iop_field(scalar->i, fdesc, out);
-      case YAML_SCALAR_BOOL:
+    case YAML_SCALAR_BOOL:
         return t_yaml_bool_to_iop_field(data, scalar->b, fdesc, out);
     }
 
-    assert (false);
+    assert(false);
     return YUNPACK_TYPE_MISMATCH;
 }
 
@@ -356,16 +351,16 @@ t_yaml_scalar_to_iop_field(yunpack_env_t * nonnull env,
  * #2: the "- - a" unpacking into an array. arrays of arrays are not handled
  * in IOP, so unpacking an array when already inside an array is rejected.
  * */
-static int
-t_yaml_data_to_iop_field(yunpack_env_t * nonnull env,
-                         const yaml_data_t * nonnull data,
-                         const iop_struct_t * nonnull st_desc,
-                         const iop_field_t * nonnull fdesc,
-                         bool in_array, void * nonnull out);
+static int t_yaml_data_to_iop_field(
+    yunpack_env_t *nonnull env, const yaml_data_t *nonnull data,
+    const iop_struct_t *nonnull st_desc, const iop_field_t *nonnull fdesc,
+    bool in_array, void *nonnull out
+);
 
-static int
-check_constraints(const iop_struct_t * nonnull desc,
-                  const iop_field_t * nonnull fdesc, void * nonnull value)
+static int check_constraints(
+    const iop_struct_t *nonnull desc, const iop_field_t *nonnull fdesc,
+    void *nonnull value
+)
 {
     if (likely(!iop_field_has_constraints(desc, fdesc))) {
         return 0;
@@ -374,25 +369,28 @@ check_constraints(const iop_struct_t * nonnull desc,
     if (fdesc->repeat == IOP_R_REPEATED) {
         iop_array_i8_t *arr = value;
 
-        return iop_field_check_constraints(desc, fdesc, arr->tab, arr->len,
-                                           false);
+        return iop_field_check_constraints(
+            desc, fdesc, arr->tab, arr->len, false
+        );
     } else {
         return iop_field_check_constraints(desc, fdesc, value, 1, false);
     }
 }
 
-static int
-t_yaml_data_to_union(yunpack_env_t * nonnull env,
-                     const yaml_data_t * nonnull data,
-                     const iop_struct_t * nonnull st_desc, void * nonnull out)
+static int t_yaml_data_to_union(
+    yunpack_env_t *nonnull env, const yaml_data_t *nonnull data,
+    const iop_struct_t *nonnull st_desc, void *nonnull out
+)
 {
     const iop_field_t *field_desc = NULL;
     const yaml_key_data_t *kd;
     const yaml_span_t *span = &data->span;
 
     if (data->type != YAML_DATA_OBJ) {
-        sb_setf(&env->err.buf, "cannot unpack %s into a union",
-                yaml_data_get_type(data, false));
+        sb_setf(
+            &env->err.buf, "cannot unpack %s into a union",
+            yaml_data_get_type(data, false)
+        );
         goto error;
     }
 
@@ -411,8 +409,9 @@ t_yaml_data_to_union(yunpack_env_t * nonnull env,
 
     iop_union_set_tag(st_desc, field_desc->tag, out);
     out = (char *)out + field_desc->data_offs;
-    if (t_yaml_data_to_iop_field(env, &kd->data, st_desc, field_desc, false,
-                                 out) < 0)
+    if (t_yaml_data_to_iop_field(
+            env, &kd->data, st_desc, field_desc, false, out
+        ) < 0)
     {
         /* keep the data causing the issue in the err. */
         span = env->err.span;
@@ -420,17 +419,21 @@ t_yaml_data_to_union(yunpack_env_t * nonnull env,
     }
 
     if (check_constraints(st_desc, field_desc, out) < 0) {
-        sb_setf(&env->err.buf, "field `%pL` is invalid: %s", &kd->key,
-                iop_get_err());
+        sb_setf(
+            &env->err.buf, "field `%pL` is invalid: %s", &kd->key,
+            iop_get_err()
+        );
         span = &kd->key_span;
         goto error;
     }
 
     return 0;
 
-  error:
-    sb_prependf(&env->err.buf, "cannot unpack YAML as a `%pL` IOP union: ",
-                &st_desc->fullname);
+error:
+    sb_prependf(
+        &env->err.buf,
+        "cannot unpack YAML as a `%pL` IOP union: ", &st_desc->fullname
+    );
     env->err.span = span;
     return -1;
 }
@@ -439,31 +442,33 @@ t_yaml_data_to_union(yunpack_env_t * nonnull env,
 /* {{{ Yaml obj to iop field */
 
 static int
-check_class(yunpack_env_t * nonnull env,
-            const iop_struct_t * nonnull st)
+check_class(yunpack_env_t *nonnull env, const iop_struct_t *nonnull st)
 {
     if (st->class_attrs->is_abstract) {
-        sb_setf(&env->err.buf, "`%pL` is abstract and cannot be unpacked",
-                &st->fullname);
+        sb_setf(
+            &env->err.buf, "`%pL` is abstract and cannot be unpacked",
+            &st->fullname
+        );
         return -1;
     }
 
-    if (env->flags & IOP_UNPACK_FORBID_PRIVATE
-    &&  st->class_attrs->is_private)
+    if (env->flags & IOP_UNPACK_FORBID_PRIVATE && st->class_attrs->is_private)
     {
         /* TODO: the error should probably be an "unknown type" to not expose
          * the private name. To be done for JSON unpacker too. */
-        sb_setf(&env->err.buf, "`%pL` is private and cannot be unpacked",
-                &st->fullname);
+        sb_setf(
+            &env->err.buf, "`%pL` is private and cannot be unpacked",
+            &st->fullname
+        );
         return -1;
     }
 
     return 0;
 }
 
-static const yaml_key_data_t * nullable
-yaml_data_get_field_value(const yaml_data_t * nonnull data,
-                          const lstr_t field_name)
+static const yaml_key_data_t *nullable yaml_data_get_field_value(
+    const yaml_data_t *nonnull data, const lstr_t field_name
+)
 {
     if (data->type == YAML_DATA_OBJ) {
         /* do a linear search in the obj AST. This isn't necessarily optimal,
@@ -475,23 +480,27 @@ yaml_data_get_field_value(const yaml_data_t * nonnull data,
         }
         return NULL;
     } else {
-        assert (data->type == YAML_DATA_SCALAR
-            &&  data->scalar.type == YAML_SCALAR_NULL);
+        assert(
+            data->type == YAML_DATA_SCALAR &&
+            data->scalar.type == YAML_SCALAR_NULL
+        );
         return NULL;
     }
 }
 
-static int
-t_yaml_skip_iop_field(yunpack_env_t * nonnull env,
-                      const iop_struct_t * nonnull st,
-                      const iop_field_t * nonnull fdesc, void * nonnull out)
+static int t_yaml_skip_iop_field(
+    yunpack_env_t *nonnull env, const iop_struct_t *nonnull st,
+    const iop_field_t *nonnull fdesc, void *nonnull out
+)
 {
     if (iop_skip_absent_field_desc(t_pool(), out, st, fdesc) < 0) {
         const char *iop_err = iop_get_err();
 
         if (iop_err) {
-            sb_setf(&env->err.buf, "field `%pL` is invalid: %s",
-                    &fdesc->name, iop_err);
+            sb_setf(
+                &env->err.buf, "field `%pL` is invalid: %s", &fdesc->name,
+                iop_err
+            );
         } else {
             sb_setf(&env->err.buf, "missing field `%pL`", &fdesc->name);
         }
@@ -500,11 +509,11 @@ t_yaml_skip_iop_field(yunpack_env_t * nonnull env,
     return 0;
 }
 
-static int
-t_yaml_fill_iop_field(yunpack_env_t * nonnull env,
-                      const yaml_key_data_t * nonnull kd,
-                      const iop_struct_t * nonnull st,
-                      const iop_field_t * nonnull fdesc, void * nonnull out)
+static int t_yaml_fill_iop_field(
+    yunpack_env_t *nonnull env, const yaml_key_data_t *nonnull kd,
+    const iop_struct_t *nonnull st, const iop_field_t *nonnull fdesc,
+    void *nonnull out
+)
 {
     if (env->flags & IOP_UNPACK_FORBID_PRIVATE) {
         const iop_field_attrs_t *attrs;
@@ -523,8 +532,10 @@ t_yaml_fill_iop_field(yunpack_env_t * nonnull env,
     }
 
     if (check_constraints(st, fdesc, out) < 0) {
-        sb_setf(&env->err.buf, "field `%pL` is invalid: %s", &fdesc->name,
-                iop_get_err());
+        sb_setf(
+            &env->err.buf, "field `%pL` is invalid: %s", &fdesc->name,
+            iop_get_err()
+        );
         env->err.span = &kd->data.span;
         return -1;
     }
@@ -532,10 +543,10 @@ t_yaml_fill_iop_field(yunpack_env_t * nonnull env,
     return 0;
 }
 
-static void
-yaml_data_find_extra_key(yunpack_env_t * nonnull env,
-                         const yaml_data_t * nonnull data,
-                         const iop_struct_t * nonnull st)
+static void yaml_data_find_extra_key(
+    yunpack_env_t *nonnull env, const yaml_data_t *nonnull data,
+    const iop_struct_t *nonnull st
+)
 {
     tab_for_each_ptr(pair, &data->obj->fields) {
         if (iop_field_find_by_name(st, pair->key, NULL, NULL) < 0) {
@@ -545,34 +556,42 @@ yaml_data_find_extra_key(yunpack_env_t * nonnull env,
         }
     }
 
-    assert (false);
+    assert(false);
 }
 
-static const iop_struct_t * nullable
-get_struct_from_tag(yunpack_env_t * nonnull env,
-                    const iop_struct_t * nonnull st, const lstr_t tag,
-                    sb_t * nonnull err)
+static const iop_struct_t *nullable get_struct_from_tag(
+    yunpack_env_t *nonnull env, const iop_struct_t *nonnull st,
+    const lstr_t tag, sb_t *nonnull err
+)
 {
     if (iop_struct_is_class(st)) {
         const iop_struct_t *real_st;
 
         real_st = iop_get_class_by_fullname(env->iop_env_ctx, st, tag);
         if (!real_st) {
-            sb_setf(err, "unknown type `%pL` provided in tag, "
-                    "or not a child of `%pL`", &tag, &st->fullname);
+            sb_setf(
+                err,
+                "unknown type `%pL` provided in tag, "
+                "or not a child of `%pL`",
+                &tag, &st->fullname
+            );
             return NULL;
         }
         if (!iop_class_is_a(real_st, st)) {
-            sb_setf(err, "provided tag `%pL` is not a child of `%pL`",
-                    &real_st->fullname, &st->fullname);
+            sb_setf(
+                err, "provided tag `%pL` is not a child of `%pL`",
+                &real_st->fullname, &st->fullname
+            );
             return NULL;
         }
 
         return real_st;
     } else {
         if (!lstr_equal(st->fullname, tag)) {
-            sb_setf(err, "wrong type `%pL` provided in tag, expected `%pL`",
-                    &tag, &st->fullname);
+            sb_setf(
+                err, "wrong type `%pL` provided in tag, expected `%pL`", &tag,
+                &st->fullname
+            );
             return NULL;
         }
 
@@ -580,27 +599,28 @@ get_struct_from_tag(yunpack_env_t * nonnull env,
     }
 }
 
-static int
-t_yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
-                            const yaml_data_t * nonnull data,
-                            const iop_struct_t * nonnull st,
-                            void * nonnull out)
+static int t_yaml_data_to_typed_struct(
+    yunpack_env_t *nonnull env, const yaml_data_t *nonnull data,
+    const iop_struct_t *nonnull st, void *nonnull out
+)
 {
     const iop_struct_t *real_st = st;
     int nb_fields_matched;
 
     switch (data->type) {
-      case YAML_DATA_SCALAR:
+    case YAML_DATA_SCALAR:
         if (data->scalar.type == YAML_SCALAR_NULL) {
             break;
         }
         /* FALLTHROUGH */
-      case YAML_DATA_SEQ:
-        sb_setf(&env->err.buf, "cannot unpack %s into a %s",
-                yaml_data_get_type(data, false),
-                real_st->is_union ? "union" : "struct");
+    case YAML_DATA_SEQ:
+        sb_setf(
+            &env->err.buf, "cannot unpack %s into a %s",
+            yaml_data_get_type(data, false),
+            real_st->is_union ? "union" : "struct"
+        );
         goto error;
-      case YAML_DATA_OBJ:
+    case YAML_DATA_OBJ:
         break;
     }
 
@@ -636,8 +656,8 @@ t_yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
 
         val = yaml_data_get_field_value(data, field_desc->name);
         if (val) {
-            if (t_yaml_fill_iop_field(env, val, field_st, field_desc,
-                                      out) < 0)
+            if (t_yaml_fill_iop_field(env, val, field_st, field_desc, out) <
+                0)
             {
                 goto error;
             }
@@ -649,47 +669,54 @@ t_yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
         }
     }
 
-    if (data->type == YAML_DATA_OBJ
-    &&  unlikely(nb_fields_matched != data->obj->fields.len
-              && !(env->flags & IOP_UNPACK_IGNORE_UNKNOWN)))
+    if (data->type == YAML_DATA_OBJ &&
+        unlikely(
+            nb_fields_matched != data->obj->fields.len &&
+            !(env->flags & IOP_UNPACK_IGNORE_UNKNOWN)
+        ))
     {
         /* There are fields in the YAML object that have not been matched.
          * The handling of this error is kept in a cold path, as it is
          * supposed to be rare. */
-        assert (nb_fields_matched < data->obj->fields.len);
+        assert(nb_fields_matched < data->obj->fields.len);
         yaml_data_find_extra_key(env, data, real_st);
         goto error;
     }
 
     return 0;
 
-  error:
-    sb_prependf(&env->err.buf, "cannot unpack YAML as a `%pL` IOP %s: ",
-                &real_st->fullname, real_st->is_union ? "union" : "struct");
+error:
+    sb_prependf(
+        &env->err.buf,
+        "cannot unpack YAML as a `%pL` IOP %s: ", &real_st->fullname,
+        real_st->is_union ? "union" : "struct"
+    );
     if (!env->err.span) {
         env->err.span = &data->span;
     }
     return -1;
 }
 
-static void yaml_set_type_mismatch_err(yunpack_env_t * nonnull env,
-                                       const yaml_data_t * nonnull data,
-                                       const iop_field_t * nonnull fdesc)
+static void yaml_set_type_mismatch_err(
+    yunpack_env_t *nonnull env, const yaml_data_t *nonnull data,
+    const iop_field_t *nonnull fdesc
+)
 {
-    sb_setf(&env->err.buf, "cannot set %s in a field of type %s",
-            yaml_data_get_type(data, false),
-            iop_type_get_string_desc(fdesc->type));
+    sb_setf(
+        &env->err.buf, "cannot set %s in a field of type %s",
+        yaml_data_get_type(data, false), iop_type_get_string_desc(fdesc->type)
+    );
     env->err.span = &data->span;
 }
 
 /* }}} */
 /* {{{ Yaml seq to iop field */
 
-static int
-t_yaml_seq_to_iop_field(yunpack_env_t * nonnull env,
-                        const yaml_data_t * nonnull data,
-                        const iop_struct_t * nonnull st_desc,
-                        const iop_field_t * nonnull fdesc, void * nonnull out)
+static int t_yaml_seq_to_iop_field(
+    yunpack_env_t *nonnull env, const yaml_data_t *nonnull data,
+    const iop_struct_t *nonnull st_desc, const iop_field_t *nonnull fdesc,
+    void *nonnull out
+)
 {
     iop_array_i8_t *arr = out;
     int size = 0;
@@ -701,18 +728,20 @@ t_yaml_seq_to_iop_field(yunpack_env_t * nonnull env,
     }
 
     p_clear(arr, 1);
-    assert (data->type == YAML_DATA_SEQ);
+    assert(data->type == YAML_DATA_SEQ);
     tab_for_each_ptr(elem, &data->seq->datas) {
         void *elem_out;
 
         if (arr->len >= size) {
             size = p_alloc_nr(size);
-            ta_realloc_from(&arr->tab, arr->len * fdesc->size,
-                            size * fdesc->size, 8);
+            ta_realloc_from(
+                &arr->tab, arr->len * fdesc->size, size * fdesc->size, 8
+            );
         }
         elem_out = (void *)(arr->tab + arr->len * fdesc->size);
-        RETHROW(t_yaml_data_to_iop_field(env, elem, st_desc, fdesc, true,
-                                         elem_out));
+        RETHROW(t_yaml_data_to_iop_field(
+            env, elem, st_desc, fdesc, true, elem_out
+        ));
         arr->len++;
     }
 
@@ -722,75 +751,82 @@ t_yaml_seq_to_iop_field(yunpack_env_t * nonnull env,
 /* }}} */
 /* {{{ Yaml data to iop field */
 
-static int
-t_yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
-                         const iop_struct_t * nonnull st_desc,
-                         const iop_field_t * nonnull fdesc,
-                         bool in_array, void * nonnull out)
+static int t_yaml_data_to_iop_field(
+    yunpack_env_t *env, const yaml_data_t *nonnull data,
+    const iop_struct_t *nonnull st_desc, const iop_field_t *nonnull fdesc,
+    bool in_array, void *nonnull out
+)
 {
     bool struct_or_union;
 
-    struct_or_union = fdesc->type == IOP_T_STRUCT
-                   || fdesc->type == IOP_T_UNION;
+    struct_or_union =
+        fdesc->type == IOP_T_STRUCT || fdesc->type == IOP_T_UNION;
     if (struct_or_union && iop_field_is_reference(fdesc)) {
         out = iop_field_ptr_alloc(t_pool(), fdesc, out);
-    } else
-    if (fdesc->repeat == IOP_R_OPTIONAL && !iop_field_is_class(fdesc)) {
+    } else if (fdesc->repeat == IOP_R_OPTIONAL && !iop_field_is_class(fdesc))
+    {
         out = iop_field_set_present(t_pool(), fdesc, out);
     }
 
     if (fdesc->type == IOP_T_VOID) {
-        logger_trace(&_G.logger, 2,
-                     "discarded %s from "YAML_POS_FMT" up to "YAML_POS_FMT
-                     " as field %pL of struct %pL is void",
-                     yaml_data_get_type(data, false),
-                     YAML_POS_ARG(data->span.start),
-                     YAML_POS_ARG(data->span.end), &fdesc->name,
-                     &st_desc->fullname);
+        logger_trace(
+            &_G.logger, 2,
+            "discarded %s from " YAML_POS_FMT " up to " YAML_POS_FMT
+            " as field %pL of struct %pL is void",
+            yaml_data_get_type(data, false), YAML_POS_ARG(data->span.start),
+            YAML_POS_ARG(data->span.end), &fdesc->name, &st_desc->fullname
+        );
         return 0;
     }
 
     if (!struct_or_union && data->tag.s) {
-        sb_setf(&env->err.buf, "specifying a tag on %s is not allowed",
-                yaml_data_get_type(data, true));
+        sb_setf(
+            &env->err.buf, "specifying a tag on %s is not allowed",
+            yaml_data_get_type(data, true)
+        );
         env->err.span = data->tag_span;
         goto err;
     }
 
     switch (data->type) {
-      case YAML_DATA_SCALAR:
+    case YAML_DATA_SCALAR:
         switch (t_yaml_scalar_to_iop_field(env, data, fdesc, in_array, out)) {
-          case YUNPACK_OK:
+        case YUNPACK_OK:
             break;
-          case YUNPACK_INVALID_B64_VAL:
+        case YUNPACK_INVALID_B64_VAL:
             sb_setf(&env->err.buf, "the value must be encoded in base64");
             env->err.span = &data->span;
             goto err;
-          case YUNPACK_INVALID_ENUM_VAL:
-            sb_setf(&env->err.buf,
-                    "the value is not valid for the enum `%pL`",
-                    &fdesc->u1.en_desc->name);
+        case YUNPACK_INVALID_ENUM_VAL:
+            sb_setf(
+                &env->err.buf, "the value is not valid for the enum `%pL`",
+                &fdesc->u1.en_desc->name
+            );
             env->err.span = &data->span;
             goto err;
-          case YUNPACK_TYPE_MISMATCH:
+        case YUNPACK_TYPE_MISMATCH:
             yaml_set_type_mismatch_err(env, data, fdesc);
             goto err;
-          case YUNPACK_OOB:
-            sb_setf(&env->err.buf,
-                    "the value is out of range for the field of type %s",
-                    iop_type_get_string_desc(fdesc->type));
+        case YUNPACK_OOB:
+            sb_setf(
+                &env->err.buf,
+                "the value is out of range for the field of type %s",
+                iop_type_get_string_desc(fdesc->type)
+            );
             env->err.span = &data->span;
             goto err;
-          case YUNPACK_NULL_STRUCT_ERROR:
-            sb_setf(&env->err.buf,
-                    "cannot unpack a null value into a struct with mandatory "
-                    "fields");
+        case YUNPACK_NULL_STRUCT_ERROR:
+            sb_setf(
+                &env->err.buf,
+                "cannot unpack a null value into a struct with mandatory "
+                "fields"
+            );
             env->err.span = &data->span;
             goto err;
         }
         break;
 
-      case YAML_DATA_OBJ:
+    case YAML_DATA_OBJ:
         if (struct_or_union) {
             if (!in_array && fdesc->repeat == IOP_R_REPEATED) {
                 /* backward compatibility: unpack an object into an array
@@ -800,8 +836,9 @@ t_yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
                 out = ta_new_raw(byte, fdesc->size, 8);
                 *arr = IOP_TYPED_ARRAY(i8, out, 1);
             }
-            if (t_yaml_data_to_typed_struct(env, data, fdesc->u1.st_desc,
-                                            out) < 0)
+            if (t_yaml_data_to_typed_struct(
+                    env, data, fdesc->u1.st_desc, out
+                ) < 0)
             {
                 goto err;
             }
@@ -811,11 +848,13 @@ t_yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
         }
         break;
 
-      case YAML_DATA_SEQ:
+    case YAML_DATA_SEQ:
         if (in_array) {
-            sb_setf(&env->err.buf,
-                    "cannot unpack an array as an element of an array, "
-                    "did you insert one too many - ?");
+            sb_setf(
+                &env->err.buf,
+                "cannot unpack an array as an element of an array, "
+                "did you insert one too many - ?"
+            );
             env->err.span = &data->span;
             /* XXX: do not goto err, the "cannot set field" will be set
              * in the previous t_yaml_seq_to_iop_field.
@@ -827,21 +866,21 @@ t_yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
         }
         break;
 
-      default:
-        assert (false);
+    default:
+        assert(false);
         return -1;
     }
 
-    logger_trace(&_G.logger, 2,
-                 "unpack %s from "YAML_POS_FMT" up to "YAML_POS_FMT
-                 " into field %pL of struct %pL",
-                 yaml_data_get_type(data, false),
-                 YAML_POS_ARG(data->span.start),
-                 YAML_POS_ARG(data->span.end), &fdesc->name,
-                 &st_desc->fullname);
+    logger_trace(
+        &_G.logger, 2,
+        "unpack %s from " YAML_POS_FMT " up to " YAML_POS_FMT
+        " into field %pL of struct %pL",
+        yaml_data_get_type(data, false), YAML_POS_ARG(data->span.start),
+        YAML_POS_ARG(data->span.end), &fdesc->name, &st_desc->fullname
+    );
     return 0;
 
-  err:
+err:
     if (!in_array) {
         sb_prependf(&env->err.buf, "cannot set field `%pL`: ", &fdesc->name);
     }
@@ -850,8 +889,8 @@ t_yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
 
 /* }}} */
 
-static void * nonnull t_alloc_st_out(const iop_struct_t * nonnull st,
-                                     void * nullable * nonnull out)
+static void *nonnull
+t_alloc_st_out(const iop_struct_t *nonnull st, void *nullable *nonnull out)
 {
     if (iop_struct_is_class(st)) {
         /* "out" will be (re)allocated after, when the real packed class type
@@ -863,11 +902,11 @@ static void * nonnull t_alloc_st_out(const iop_struct_t * nonnull st,
     }
 }
 
-int t_iop_yunpack_yaml_data(const iop_env_ctx_t * nonnull iop_env_ctx,
-                            const yaml_data_t * nonnull data,
-                            const iop_struct_t * nonnull st,
-                            void * nonnull out, unsigned flags,
-                            sb_t * nonnull out_err)
+int t_iop_yunpack_yaml_data(
+    const iop_env_ctx_t *nonnull iop_env_ctx, const yaml_data_t *nonnull data,
+    const iop_struct_t *nonnull st, void *nonnull out, unsigned flags,
+    sb_t *nonnull out_err
+)
 {
     t_SB_1k(err);
     yunpack_env_t unpack_env;
@@ -877,8 +916,9 @@ int t_iop_yunpack_yaml_data(const iop_env_ctx_t * nonnull iop_env_ctx,
     unpack_env.err.buf = err;
     unpack_env.flags = flags;
     if (t_yaml_data_to_typed_struct(&unpack_env, data, st, out) < 0) {
-        yaml_parse_pretty_print_err(unpack_env.err.span,
-                                    LSTR_SB_V(&unpack_env.err.buf), out_err);
+        yaml_parse_pretty_print_err(
+            unpack_env.err.span, LSTR_SB_V(&unpack_env.err.buf), out_err
+        );
         return -1;
     }
 
@@ -899,23 +939,23 @@ int t_iop_yunpack_yaml_data(const iop_env_ctx_t * nonnull iop_env_ctx,
     return 0;
 }
 
-int t_iop_yunpack_ptr_yaml_data(const iop_env_ctx_t * nonnull iop_env_ctx,
-                                const yaml_data_t * nonnull data,
-                                const iop_struct_t * nonnull st,
-                                void * nullable * nonnull out, unsigned flags,
-                                sb_t * nonnull out_err)
+int t_iop_yunpack_ptr_yaml_data(
+    const iop_env_ctx_t *nonnull iop_env_ctx, const yaml_data_t *nonnull data,
+    const iop_struct_t *nonnull st, void *nullable *nonnull out,
+    unsigned flags, sb_t *nonnull out_err
+)
 {
-    return t_iop_yunpack_yaml_data(iop_env_ctx, data, st,
-                                   t_alloc_st_out(st, out), flags, out_err);
+    return t_iop_yunpack_yaml_data(
+        iop_env_ctx, data, st, t_alloc_st_out(st, out), flags, out_err
+    );
 }
 
-static int
-t_iop_yunpack(const iop_env_ctx_t * nonnull iop_env_ctx,
-              yaml_parse_t * nonnull env,
-              const iop_struct_t * nonnull st,
-              void * nonnull out, unsigned flags,
-              yaml__document_presentation__t * nonnull * nullable pres,
-              sb_t * nonnull out_err)
+static int t_iop_yunpack(
+    const iop_env_ctx_t *nonnull iop_env_ctx, yaml_parse_t *nonnull env,
+    const iop_struct_t *nonnull st, void *nonnull out, unsigned flags,
+    yaml__document_presentation__t * nonnull * nullable pres,
+    sb_t *nonnull out_err
+)
 {
     yaml_data_t data;
 
@@ -927,15 +967,17 @@ t_iop_yunpack(const iop_env_ctx_t * nonnull iop_env_ctx,
         *pres = t_iop_dup(yaml__document_presentation, &doc_pres);
     }
 
-    return t_iop_yunpack_yaml_data(iop_env_ctx, &data, st, out, flags,
-                                   out_err);
+    return t_iop_yunpack_yaml_data(
+        iop_env_ctx, &data, st, out, flags, out_err
+    );
 }
 
 int t_iop_yunpack_ps(
-    const iop_env_ctx_t * nonnull iop_env_ctx, pstream_t * nonnull ps,
-    const iop_struct_t * nonnull st, void * nonnull out, unsigned flags,
+    const iop_env_ctx_t *nonnull iop_env_ctx, pstream_t *nonnull ps,
+    const iop_struct_t *nonnull st, void *nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
-    sb_t * nonnull out_err)
+    sb_t *nonnull out_err
+)
 {
     yaml_parse_t *env;
     int res;
@@ -955,22 +997,23 @@ int t_iop_yunpack_ps(
 }
 
 int t_iop_yunpack_ptr_ps(
-    const iop_env_ctx_t * nonnull iop_env_ctx, pstream_t * nonnull ps,
-    const iop_struct_t * nonnull st,
-    void * nullable * nonnull out, unsigned flags,
-    yaml__document_presentation__t * nonnull * nullable pres,
-    sb_t * nonnull out_err)
+    const iop_env_ctx_t *nonnull iop_env_ctx, pstream_t *nonnull ps,
+    const iop_struct_t *nonnull st, void *nullable *nonnull out,
+    unsigned flags, yaml__document_presentation__t * nonnull * nullable pres,
+    sb_t *nonnull out_err
+)
 {
-    return t_iop_yunpack_ps(iop_env_ctx, ps, st, t_alloc_st_out(st, out),
-                            flags, pres, out_err);
+    return t_iop_yunpack_ps(
+        iop_env_ctx, ps, st, t_alloc_st_out(st, out), flags, pres, out_err
+    );
 }
 
 int t_iop_yunpack_file(
-    const iop_env_ctx_t * nonnull iop_env_ctx, const char * nonnull filename,
-    const iop_struct_t * nonnull st,
-    void * nonnull out, unsigned flags,
+    const iop_env_ctx_t *nonnull iop_env_ctx, const char *nonnull filename,
+    const iop_struct_t *nonnull st, void *nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
-    sb_t * nonnull out_err)
+    sb_t *nonnull out_err
+)
 {
     yaml_parse_t *env;
     int res;
@@ -994,98 +1037,100 @@ int t_iop_yunpack_file(
  *
  * See t_iop_junpack_ptr_ps.
  */
-__must_check__
-int t_iop_yunpack_ptr_file(
-    const iop_env_ctx_t * nonnull iop_env_ctx, const char * nonnull filename,
-    const iop_struct_t * nonnull st,
-    void * nullable * nonnull out, unsigned flags,
-    yaml__document_presentation__t * nonnull * nullable pres,
-    sb_t * nonnull out_err
+__must_check__ int t_iop_yunpack_ptr_file(
+    const iop_env_ctx_t *nonnull iop_env_ctx, const char *nonnull filename,
+    const iop_struct_t *nonnull st, void *nullable *nonnull out,
+    unsigned flags, yaml__document_presentation__t * nonnull * nullable pres,
+    sb_t *nonnull out_err
 )
 {
-    return t_iop_yunpack_file(iop_env_ctx, filename, st,
-                              t_alloc_st_out(st, out), flags, pres, out_err);
+    return t_iop_yunpack_file(
+        iop_env_ctx, filename, st, t_alloc_st_out(st, out), flags, pres,
+        out_err
+    );
 }
 
 /* }}} */
 /* {{{ ypack */
 
-static void
-t_iop_struct_to_yaml_data(const iop_struct_t * nonnull desc,
-                          const void * nonnull value, int flags,
-                          yaml_data_t * nonnull data, bool top_level);
+static void t_iop_struct_to_yaml_data(
+    const iop_struct_t *nonnull desc, const void *nonnull value, int flags,
+    yaml_data_t *nonnull data, bool top_level
+);
 
-static void
-t_iop_field_to_yaml_data(const iop_field_t * nonnull fdesc,
-                         const void * nonnull ptr, int j, int flags,
-                         yaml_data_t * nonnull data)
+static void t_iop_field_to_yaml_data(
+    const iop_field_t *nonnull fdesc, const void *nonnull ptr, int j,
+    int flags, yaml_data_t *nonnull data
+)
 {
     p_clear(data, 1);
 
     switch (fdesc->type) {
-#define CASE(n) \
-      case IOP_T_I##n:                                                       \
+#define CASE(n)                                                              \
+    case IOP_T_I##n:                                                         \
         yaml_data_set_int(data, IOP_FIELD(int##n##_t, ptr, j));              \
         break;                                                               \
-      case IOP_T_U##n:                                                       \
+    case IOP_T_U##n:                                                         \
         yaml_data_set_uint(data, IOP_FIELD(uint##n##_t, ptr, j));            \
         break;
-      CASE(8); CASE(16); CASE(32); CASE(64);
+        CASE(8);
+        CASE(16);
+        CASE(32);
+        CASE(64);
 #undef CASE
 
-      case IOP_T_ENUM: {
+    case IOP_T_ENUM: {
         const void *v;
 
-        v = iop_enum_to_str_desc(fdesc->u1.en_desc,
-                                 IOP_FIELD(int, ptr, j)).s;
+        v = iop_enum_to_str_desc(fdesc->u1.en_desc, IOP_FIELD(int, ptr, j)).s;
         if (likely(v)) {
             yaml_data_set_string(data, LSTR(v));
         } else {
             yaml_data_set_int(data, IOP_FIELD(int, ptr, j));
         }
-      } break;
+    } break;
 
-      case IOP_T_BOOL:
+    case IOP_T_BOOL:
         yaml_data_set_bool(data, IOP_FIELD(bool, ptr, j));
         break;
 
-      case IOP_T_DOUBLE:
+    case IOP_T_DOUBLE:
         yaml_data_set_double(data, IOP_FIELD(double, ptr, j));
         break;
 
-      case IOP_T_UNION:
-      case IOP_T_STRUCT: {
+    case IOP_T_UNION:
+    case IOP_T_STRUCT: {
         const void *v = iop_json_get_struct_field_value(fdesc, ptr, j);
 
         t_iop_struct_to_yaml_data(fdesc->u1.st_desc, v, flags, data, false);
-      } break;
+    } break;
 
-      case IOP_T_STRING:
-      case IOP_T_XML: {
+    case IOP_T_STRING:
+    case IOP_T_XML: {
         lstr_t sv = IOP_FIELD(const lstr_t, ptr, j);
 
         yaml_data_set_string(data, sv);
-      } break;
+    } break;
 
-      case IOP_T_DATA: {
+    case IOP_T_DATA: {
         lstr_t sv = IOP_FIELD(const lstr_t, ptr, j);
 
         yaml_data_set_bytes(data, sv);
-      } break;
+    } break;
 
-      case IOP_T_VOID:
+    case IOP_T_VOID:
         yaml_data_set_null(data);
         break;
 
-      default:
+    default:
         abort();
     }
 }
 
-static void
-t_append_iop_struct_to_fields(const iop_struct_t * nonnull desc,
-                              const void * nonnull value, int flags,
-                              yaml_data_t *data)
+static void t_append_iop_struct_to_fields(
+    const iop_struct_t *nonnull desc, const void *nonnull value, int flags,
+    yaml_data_t *data
+)
 {
     const iop_field_t *fstart;
     const iop_field_t *fend;
@@ -1105,8 +1150,9 @@ t_append_iop_struct_to_fields(const iop_struct_t * nonnull desc,
         yaml_data_t field_data;
         int n;
 
-        ptr = iop_json_get_n_and_ptr(desc, flags, fdesc, value, &n,
-                                     &is_skipped);
+        ptr = iop_json_get_n_and_ptr(
+            desc, flags, fdesc, value, &n, &is_skipped
+        );
         if (is_skipped) {
             continue;
         }
@@ -1128,10 +1174,10 @@ t_append_iop_struct_to_fields(const iop_struct_t * nonnull desc,
     }
 }
 
-static void
-t_iop_struct_to_yaml_data(const iop_struct_t * nonnull desc,
-                          const void * nonnull value, int flags,
-                          yaml_data_t * nonnull data, bool top_level)
+static void t_iop_struct_to_yaml_data(
+    const iop_struct_t *nonnull desc, const void *nonnull value, int flags,
+    yaml_data_t *nonnull data, bool top_level
+)
 {
     if (iop_struct_is_class(desc)) {
         qv_t(iop_struct) parents;
@@ -1139,19 +1185,20 @@ t_iop_struct_to_yaml_data(const iop_struct_t * nonnull desc,
         int nb_fields = 0;
         lstr_t tag = LSTR_NULL_V;
 
-        e_assert(panic, !real_desc->class_attrs->is_abstract,
-                 "packing of abstract class '%*pM' is forbidden",
-                 LSTR_FMT_ARG(real_desc->fullname));
+        e_assert(
+            panic, !real_desc->class_attrs->is_abstract,
+            "packing of abstract class '%*pM' is forbidden",
+            LSTR_FMT_ARG(real_desc->fullname)
+        );
 
         /* If this assert fails, you are exporting private classes through
          * a public interface... this is BAD!
          */
-        assert (!real_desc->class_attrs->is_private);
+        assert(!real_desc->class_attrs->is_private);
 
         /* Write type of class */
-        if (desc != real_desc
-        ||  !(flags & IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES)
-        ||  top_level)
+        if (desc != real_desc ||
+            !(flags & IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES) || top_level)
         {
             tag = lstr_dupc(real_desc->fullname);
         }
@@ -1168,9 +1215,10 @@ t_iop_struct_to_yaml_data(const iop_struct_t * nonnull desc,
 
         /* Write fields of different levels */
         t_yaml_data_new_obj(data, nb_fields);
-        for (int pos = parents.len; pos-- > 0; ) {
-            t_append_iop_struct_to_fields(parents.tab[pos], value, flags,
-                                          data);
+        for (int pos = parents.len; pos-- > 0;) {
+            t_append_iop_struct_to_fields(
+                parents.tab[pos], value, flags, data
+            );
         }
         qv_wipe(&parents);
 
@@ -1182,16 +1230,15 @@ t_iop_struct_to_yaml_data(const iop_struct_t * nonnull desc,
 }
 
 #define DEFAULT_PACK_FLAGS                                                   \
-        IOP_JPACK_SKIP_DEFAULT                                               \
-      | IOP_JPACK_SKIP_EMPTY_ARRAYS                                          \
-      | IOP_JPACK_SKIP_EMPTY_STRUCTS                                         \
-      | IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES
+    IOP_JPACK_SKIP_DEFAULT                                                   \
+    | IOP_JPACK_SKIP_EMPTY_ARRAYS | IOP_JPACK_SKIP_EMPTY_STRUCTS |           \
+        IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES
 
 void t_iop_sb_ypack_with_flags(
-    sb_t * nonnull sb, const iop_struct_t * nonnull st,
-    const void * nonnull value,
-    const yaml__document_presentation__t * nullable pres,
-    unsigned flags)
+    sb_t *nonnull sb, const iop_struct_t *nonnull st,
+    const void *nonnull value,
+    const yaml__document_presentation__t *nullable pres, unsigned flags
+)
 {
     yaml_data_t data;
     yaml_pack_env_t *env;
@@ -1204,21 +1251,24 @@ void t_iop_sb_ypack_with_flags(
         t_yaml_pack_env_set_presentation(env, pres);
     }
     ret = t_yaml_pack_sb(env, &data, sb, NULL);
-    assert (ret >= 0);
+    assert(ret >= 0);
 }
 
-void t_iop_sb_ypack(sb_t * nonnull sb, const iop_struct_t * nonnull st,
-                    const void * nonnull value,
-                    const yaml__document_presentation__t * nullable pres)
+void t_iop_sb_ypack(
+    sb_t *nonnull sb, const iop_struct_t *nonnull st,
+    const void *nonnull value,
+    const yaml__document_presentation__t *nullable pres
+)
 {
     t_iop_sb_ypack_with_flags(sb, st, value, pres, DEFAULT_PACK_FLAGS);
 }
 
 int iop_ypack_file_with_flags(
-    const char *filename, mode_t file_mode,
-    const iop_struct_t *st, const void * nonnull value,
-    const yaml__document_presentation__t * nullable presentation,
-    unsigned flags, sb_t * nonnull err)
+    const char *filename, mode_t file_mode, const iop_struct_t *st,
+    const void *nonnull value,
+    const yaml__document_presentation__t *nullable presentation,
+    unsigned flags, sb_t *nonnull err
+)
 {
     t_scope;
     yaml_pack_env_t *env;
@@ -1235,19 +1285,22 @@ int iop_ypack_file_with_flags(
     return t_yaml_pack_file(env, filename, &data, err);
 }
 
-int (iop_ypack_file)(
-    const char *filename, mode_t file_mode,
-    const iop_struct_t *st, const void * nonnull value,
-    const yaml__document_presentation__t * nullable presentation,
-    sb_t * nonnull err)
+int(iop_ypack_file)(
+    const char *filename, mode_t file_mode, const iop_struct_t *st,
+    const void *nonnull value,
+    const yaml__document_presentation__t *nullable presentation,
+    sb_t *nonnull err
+)
 {
-    return iop_ypack_file_with_flags(filename, file_mode, st, value,
-                                     presentation, DEFAULT_PACK_FLAGS, err);
+    return iop_ypack_file_with_flags(
+        filename, file_mode, st, value, presentation, DEFAULT_PACK_FLAGS, err
+    );
 }
 
-void
-t_iop_to_yaml_data(const iop_struct_t * nonnull desc,
-                   const void * nonnull value, yaml_data_t * nonnull data)
+void t_iop_to_yaml_data(
+    const iop_struct_t *nonnull desc, const void *nonnull value,
+    yaml_data_t *nonnull data
+)
 {
     t_iop_struct_to_yaml_data(desc, value, DEFAULT_PACK_FLAGS, data, true);
 }
@@ -1269,13 +1322,13 @@ qvector_t(pres_mapping, yaml__presentation_node_mapping__t);
  *
  * If prefix is set, it must be removed from the iop_path.
  */
-static lstr_t t_iop_path_to_yaml_path(const lstr_t iop_path,
-                                      const lstr_t prefix)
+static lstr_t
+t_iop_path_to_yaml_path(const lstr_t iop_path, const lstr_t prefix)
 {
     if (prefix.s) {
         pstream_t ps = ps_initlstr(&iop_path);
 
-        assert (lstr_startswith(iop_path, prefix));
+        assert(lstr_startswith(iop_path, prefix));
         ps_skiplstr(&ps, prefix);
 
         return t_lstr_fmt("%*pM!", PS_FMT_ARG(&ps));
@@ -1294,16 +1347,17 @@ static lstr_t t_json_file_to_yaml_file(const lstr_t json_file)
     return t_lstr_fmt("%*pM.yml", PS_FMT_ARG(&ps));
 }
 
-static bool
-included_iop_field_is_raw(const iop_env_ctx_t * nonnull iop_env_ctx,
-                          const iop_struct_t * nonnull st,
-                          const void * nullable value, lstr_t iop_path)
+static bool included_iop_field_is_raw(
+    const iop_env_ctx_t *nonnull iop_env_ctx, const iop_struct_t *nonnull st,
+    const void *nullable value, lstr_t iop_path
+)
 {
     iop_full_type_t type;
     bool is_array;
 
-    if (iop_obj_get_field_type(iop_env_ctx, st, value, iop_path, &type,
-                               &is_array, NULL) < 0)
+    if (iop_obj_get_field_type(
+            iop_env_ctx, st, value, iop_path, &type, &is_array, NULL
+        ) < 0)
     {
         return false;
     }
@@ -1312,11 +1366,11 @@ included_iop_field_is_raw(const iop_env_ctx_t * nonnull iop_env_ctx,
     }
 
     switch (type.type) {
-      case IOP_T_STRING:
-      case IOP_T_DATA:
-      case IOP_T_XML:
+    case IOP_T_STRING:
+    case IOP_T_DATA:
+    case IOP_T_XML:
         return true;
-      default:
+    default:
         return false;
     }
 }
@@ -1336,15 +1390,13 @@ static lstr_t t_get_relative_path(const lstr_t from, const lstr_t to)
  * included from the base subfile, so they must be added to the document
  * presentation of the base subfile.
  */
-static void
-t_gen_mapping_from_common_inc(
-    const iop_env_ctx_t * nonnull iop_env_ctx,
-    const iop_json_subfile__t * nonnull base,
-    const iop_json_subfile__t * nullable parent,
-    const qv_t(iop_json_subfile) * nonnull subfiles,
-    int * nonnull index, const iop_struct_t *nullable st,
-    const void * nullable value,
-    yaml__presentation_node_mapping__t * nonnull out
+static void t_gen_mapping_from_common_inc(
+    const iop_env_ctx_t *nonnull iop_env_ctx,
+    const iop_json_subfile__t *nonnull base,
+    const iop_json_subfile__t *nullable parent,
+    const qv_t(iop_json_subfile) *nonnull subfiles, int *nonnull index,
+    const iop_struct_t *nullable st, const void *nullable value,
+    yaml__presentation_node_mapping__t *nonnull out
 )
 {
     qv_t(pres_mapping) mappings;
@@ -1354,8 +1406,8 @@ t_gen_mapping_from_common_inc(
     while (*index < subfiles->len) {
         const iop_json_subfile__t *subfile = &subfiles->tab[*index];
 
-        if (lstr_startswith(subfile->iop_path, base->iop_path)
-        &&  subfile->iop_path.len > base->iop_path.len)
+        if (lstr_startswith(subfile->iop_path, base->iop_path) &&
+            subfile->iop_path.len > base->iop_path.len)
         {
             int c = subfile->iop_path.s[base->iop_path.len];
 
@@ -1364,9 +1416,10 @@ t_gen_mapping_from_common_inc(
             }
             *index += 1;
 
-            t_gen_mapping_from_common_inc(iop_env_ctx, subfile, base,
-                                          subfiles, index, st, value,
-                                          qv_growlen(&mappings, 1));
+            t_gen_mapping_from_common_inc(
+                iop_env_ctx, subfile, base, subfiles, index, st, value,
+                qv_growlen(&mappings, 1)
+            );
         } else {
             break;
         }
@@ -1379,13 +1432,13 @@ t_gen_mapping_from_common_inc(
     }
 
     iop_init(yaml__presentation_node_mapping, out);
-    out->path = t_iop_path_to_yaml_path(base->iop_path,
-                                        parent ? parent->iop_path
-                                               : LSTR_NULL_V);
+    out->path = t_iop_path_to_yaml_path(
+        base->iop_path, parent ? parent->iop_path : LSTR_NULL_V
+    );
     out->node.included = t_iop_new(yaml__presentation_include);
     if (mappings.len > 0) {
-        out->node.included->document_presentation.mappings
-            = IOP_TYPED_ARRAY_TAB(yaml__presentation_node_mapping, &mappings);
+        out->node.included->document_presentation.mappings =
+            IOP_TYPED_ARRAY_TAB(yaml__presentation_node_mapping, &mappings);
     }
 
     if (st &&
@@ -1401,12 +1454,10 @@ t_gen_mapping_from_common_inc(
     }
 }
 
-yaml__document_presentation__t * nonnull
-t_build_yaml_pres_from_json_subfiles(
-    const iop_env_ctx_t * nonnull iop_env_ctx,
-    const iop_json_subfile__array_t * nonnull subfiles,
-    const iop_struct_t * nullable st,
-    const void *nullable value
+yaml__document_presentation__t *nonnull t_build_yaml_pres_from_json_subfiles(
+    const iop_env_ctx_t *nonnull iop_env_ctx,
+    const iop_json_subfile__array_t *nonnull subfiles,
+    const iop_struct_t *nullable st, const void *nullable value
 )
 {
     yaml__document_presentation__t *pres;
@@ -1443,24 +1494,26 @@ t_build_yaml_pres_from_json_subfiles(
      * nest them in YAML */
     t_qv_init(&includes, subfiles->len);
     qv_extend_tab(&includes, subfiles);
-    qv_sort(iop_json_subfile)(&includes,
-                              ^int (const iop_json_subfile__t *v1,
-                                    const iop_json_subfile__t *v2) {
-        return lstr_cmp(v1->iop_path, v2->iop_path);
-    });
+    qv_sort(iop_json_subfile)(
+        &includes,
+        ^int(const iop_json_subfile__t *v1, const iop_json_subfile__t *v2) {
+            return lstr_cmp(v1->iop_path, v2->iop_path);
+        }
+    );
 
     while (index < includes.len) {
         const iop_json_subfile__t *subfile = &includes.tab[index];
 
         index += 1;
-        t_gen_mapping_from_common_inc(iop_env_ctx, subfile, NULL, &includes,
-                                      &index, st, value,
-                                      qv_growlen(&mappings, 1));
+        t_gen_mapping_from_common_inc(
+            iop_env_ctx, subfile, NULL, &includes, &index, st, value,
+            qv_growlen(&mappings, 1)
+        );
     }
 
     pres = t_iop_new(yaml__document_presentation);
-    pres->mappings = IOP_TYPED_ARRAY_TAB(yaml__presentation_node_mapping,
-                                         &mappings);
+    pres->mappings =
+        IOP_TYPED_ARRAY_TAB(yaml__presentation_node_mapping, &mappings);
 
     return pres;
 }
@@ -1469,8 +1522,7 @@ t_build_yaml_pres_from_json_subfiles(
 /* {{{ t_yaml_pres_get_flat_subfiles */
 
 static void t_add_mapping_flat_subfiles(
-    const yaml__presentation_node_mapping__t *mapping,
-    lstr_t prefix,
+    const yaml__presentation_node_mapping__t *mapping, lstr_t prefix,
     qv_t(lstr) *subfiles
 )
 {
@@ -1492,18 +1544,20 @@ static void t_add_mapping_flat_subfiles(
         path_dirname(subfile_dir, sizeof(subfile_dir), subfile);
         subfile_dir_lstr = LSTR(subfile_dir);
 
-        tab_for_each_ptr(sub_mapping,
-                         &included->document_presentation.mappings)
+        tab_for_each_ptr(
+            sub_mapping, &included->document_presentation.mappings
+        )
         {
-            t_add_mapping_flat_subfiles(sub_mapping, subfile_dir_lstr,
-                                        subfiles);
+            t_add_mapping_flat_subfiles(
+                sub_mapping, subfile_dir_lstr, subfiles
+            );
         }
     }
-
 }
 
-void t_yaml_pres_get_flat_subfiles(const yaml__document_presentation__t *pres,
-                                   qv_t(lstr) *subfiles)
+void t_yaml_pres_get_flat_subfiles(
+    const yaml__document_presentation__t *pres, qv_t(lstr) *subfiles
+)
 {
     tab_for_each_ptr(mapping, &pres->mappings) {
         t_add_mapping_flat_subfiles(mapping, LSTR_EMPTY_V, subfiles);
@@ -1524,8 +1578,8 @@ static int iop_yaml_shutdown(void)
     return 0;
 }
 
-MODULE_BEGIN(iop_yaml)
+MODULE_DEFINE(iop_yaml) {
     /* There is an implicit dependency on "log" */
-MODULE_END()
+}
 
 /* }}} */

@@ -44,82 +44,84 @@
  *
  * All these features have a cost, and the qpage allocator is likely to be
  * slower than qtlsf, but OTOH you allocate QPAGE_SIZE bytes at a time,
- * which will likely not done a lot of times per second ;) I don't expect it to
- * be a lot more than twice as slow as qtlsf, which makes it in the 100ns
+ * which will likely not done a lot of times per second ;) I don't expect it
+ * to be a lot more than twice as slow as qtlsf, which makes it in the 100ns
  * range per allocation (for raw pages).
  */
 
 #define QPAGE_DEBUG 0
 #if QPAGE_DEBUG
-# if __GNUC_PREREQ(4, 4)
-#  pragma GCC optimize ("-fno-inline", "-fno-inline-functions")
-# endif
+#  if __GNUC_PREREQ(4, 4)
+#    pragma GCC optimize("-fno-inline", "-fno-inline-functions")
+#  endif
 #else
-# undef  assert
-# define assert(...)  do { } while (0)
+#  undef assert
+#  define assert(...)                                                        \
+      do {                                                                   \
+      } while (0)
 #endif
 
-#define CLASSES_SHIFT  (4U)
-#define CLASS_SMALL    (1U << (CLASSES_SHIFT + 1))
-#define CLASSES        (1 << (QPAGE_COUNT_BITS - CLASSES_SHIFT + 1))
+#define CLASSES_SHIFT (4U)
+#define CLASS_SMALL (1U << (CLASSES_SHIFT + 1))
+#define CLASSES (1 << (QPAGE_COUNT_BITS - CLASSES_SHIFT + 1))
 
-#define QDB_MADVISE_THRESHOLD  (1 << (20 - QPAGE_SHIFT))
-#define QPAGE_ALLOC_MIN        (16 << (20 - QPAGE_SHIFT))
+#define QDB_MADVISE_THRESHOLD (1 << (20 - QPAGE_SHIFT))
+#define QPAGE_ALLOC_MIN (16 << (20 - QPAGE_SHIFT))
 
 typedef struct qpage_t {
     uint8_t data[QPAGE_SIZE];
 } qpage_t;
 
 typedef struct page_desc_t {
-    bool     dirty : 1;    /* only makes sense if the block is free */
+    bool dirty : 1; /* only makes sense if the block is free */
     uint32_t flags : 31;
     uint32_t blkno;
 
     struct page_desc_t **free_prev_next;
     union {
-        struct page_desc_t  *free_next;
-        uint32_t             blk_prev;
+        struct page_desc_t *free_next;
+        uint32_t blk_prev;
     };
 } page_desc_t;
 
 qvector_t(pgd, page_desc_t *);
 
 typedef struct page_run_t {
-    qpage_t     *mem_pages;
-    uint32_t     npages;
-    uint32_t     segment;
-    page_desc_t  pages[];
+    qpage_t *mem_pages;
+    uint32_t npages;
+    uint32_t segment;
+    page_desc_t pages[];
 } page_run_t;
 
 static struct {
-#define BITS_LEN  BITS_TO_ARRAY_LEN(size_t, CLASSES)
-    size_t       *bits; /* array of BITS_LEN elements. */
+#define BITS_LEN BITS_TO_ARRAY_LEN(size_t, CLASSES)
+    size_t *bits;       /* array of BITS_LEN elements. */
     page_desc_t **blks; /* array of CLASSES elements. */
-    qv_t(pgd)     segs;
-    spinlock_t    lock;
+    qv_t(pgd) segs;
+    spinlock_t lock;
 } qpages_g;
-#define _G  qpages_g
+#define _G qpages_g
 
-#define BLK_STATE       0x70000000
-#define BLK_PGINRUN     0x40000000 /* only makes sense if the block is used */
+#define BLK_STATE 0x70000000
+#define BLK_PGINRUN 0x40000000 /* only makes sense if the block is used */
 
-#define BLK_FREE        0x20000000
-#define BLK_USED        0x00000000
+#define BLK_FREE 0x20000000
+#define BLK_USED 0x00000000
 
-#define BLK_PREV_FREE   0x10000000
-#define BLK_PREV_USED   0x00000000
-
+#define BLK_PREV_FREE 0x10000000
+#define BLK_PREV_USED 0x00000000
 
 static ALWAYS_INLINE uint32_t mapping_class_upper(uint32_t npages)
 {
     uint32_t level, mask;
 
-    if (npages <= CLASS_SMALL)
+    if (npages <= CLASS_SMALL) {
         return npages - 1;
+    }
 
-    mask    = (1U << (bsr32(npages) - CLASSES_SHIFT)) - 1;
+    mask = (1U << (bsr32(npages) - CLASSES_SHIFT)) - 1;
     npages += mask;
-    level   = bsr32(npages) - CLASSES_SHIFT;
+    level = bsr32(npages) - CLASSES_SHIFT;
     return (npages >> level) + (level << CLASSES_SHIFT) - 1;
 }
 
@@ -127,8 +129,9 @@ static ALWAYS_INLINE uint32_t mapping_class(uint32_t npages)
 {
     uint32_t level;
 
-    if (npages <= CLASS_SMALL)
+    if (npages <= CLASS_SMALL) {
         return npages - 1;
+    }
 
     level = bsr32(npages) - CLASSES_SHIFT;
     return (npages >> level) + (level << CLASSES_SHIFT) - 1;
@@ -136,8 +139,8 @@ static ALWAYS_INLINE uint32_t mapping_class(uint32_t npages)
 
 static ALWAYS_INLINE page_desc_t *find_suitable_block(uint32_t *class)
 {
-    unsigned vec  = *class / bitsizeof(size_t);
-    size_t   mask = BITMASK_GE(size_t, *class);
+    unsigned vec = *class / bitsizeof(size_t);
+    size_t mask = BITMASK_GE(size_t, *class);
 
     do {
         size_t tmp = _G.bits[vec] & mask;
@@ -150,7 +153,6 @@ static ALWAYS_INLINE page_desc_t *find_suitable_block(uint32_t *class)
 
     return NULL;
 }
-
 
 static ALWAYS_INLINE uint32_t blk_no(page_desc_t *desc)
 {
@@ -174,7 +176,7 @@ static ALWAYS_INLINE page_desc_t *blk_next(page_desc_t *desc, uint32_t size)
 
 static ALWAYS_INLINE page_desc_t *blk_get_prev(page_desc_t *blk)
 {
-    assert ((blk->flags & BLK_PREV_FREE) != 0);
+    assert((blk->flags & BLK_PREV_FREE) != 0);
     return blk - blk->blk_prev;
 }
 
@@ -187,31 +189,36 @@ static void qpages_check(page_run_t *run)
     for (j = 0; j < run->npages + 1; j++) {
         uint32_t flags = run->pages[j].flags;
 
-        if ((flags & BLK_FREE) && (flags & BLK_PREV_FREE))
+        if ((flags & BLK_FREE) && (flags & BLK_PREV_FREE)) {
             e_panic("wrong flags for %p:%d", run, j);
+        }
     }
 
-    for (j = 0; j < run->npages; ) {
-        page_desc_t *blk  = run->pages + j;
-        uint32_t     bsz  = blk_size(blk);
+    for (j = 0; j < run->npages;) {
+        page_desc_t *blk = run->pages + j;
+        uint32_t bsz = blk_size(blk);
         page_desc_t *next = blk_next(blk, bsz);
 
         if (blk->flags & BLK_FREE) {
             if (next->flags & BLK_FREE) {
-                e_panic("two consecutive free blocks: %d, %d",
-                        j, blk_no(next));
+                e_panic(
+                    "two consecutive free blocks: %d, %d", j, blk_no(next)
+                );
             }
             if (!(next->flags & BLK_PREV_FREE)) {
-                e_panic("missed that previous block is free [%d from %d]",
-                        j, blk_no(next));
+                e_panic(
+                    "missed that previous block is free [%d from %d]", j,
+                    blk_no(next)
+                );
             }
             if (blk_get_prev(next) != blk) {
                 e_panic("previous free blk offset is wrong");
             }
         } else {
             if (next->flags & BLK_PREV_FREE) {
-                e_panic("next block believe we're free %d, %d",
-                        j, blk_no(next));
+                e_panic(
+                    "next block believe we're free %d, %d", j, blk_no(next)
+                );
             }
         }
         j += bsz;
@@ -219,7 +226,9 @@ static void qpages_check(page_run_t *run)
     spin_unlock(&_G.lock);
 }
 #else
-#  define qpages_check(run)  do { } while (0)
+#  define qpages_check(run)                                                  \
+      do {                                                                   \
+      } while (0)
 #endif
 
 static inline void blk_insert(page_desc_t *blk, size_t npages)
@@ -234,21 +243,20 @@ static inline void blk_insert(page_desc_t *blk, size_t npages)
     }
     *(blk->free_prev_next = &_G.blks[class]) = blk;
 
-    blk[npages].flags    |= BLK_PREV_FREE;
-    blk[npages].blk_prev  = npages;
+    blk[npages].flags |= BLK_PREV_FREE;
+    blk[npages].blk_prev = npages;
 }
 
 static inline uint32_t blk_remove(page_desc_t *blk)
 {
     uint32_t npages = blk_size(blk);
-    uint32_t class  = mapping_class(npages);
+    uint32_t class = mapping_class(npages);
 
-    assert (blk->flags & BLK_FREE);
+    assert(blk->flags & BLK_FREE);
     *blk->free_prev_next = blk->free_next;
     if (blk->free_next) {
         blk->free_next->free_prev_next = blk->free_prev_next;
-    } else
-    if (blk->free_prev_next == &_G.blks[class]) {
+    } else if (blk->free_prev_next == &_G.blks[class]) {
         RST_BIT(_G.bits, class);
     }
     return npages;
@@ -256,14 +264,16 @@ static inline uint32_t blk_remove(page_desc_t *blk)
 
 static inline void blk_set_clean(page_desc_t *blk, uint32_t npages)
 {
-    while (npages-- > 0)
+    while (npages-- > 0) {
         (blk++)->dirty = false;
+    }
 }
 
 static inline void blk_set_dirty(page_desc_t *blk, uint32_t npages)
 {
-    while (npages-- > 0)
+    while (npages-- > 0) {
         (blk++)->dirty = true;
+    }
 }
 
 static inline void
@@ -296,7 +306,7 @@ static inline uint32_t blk_cut(page_desc_t *blk)
 
     tmp = blk - offs;
     tsz = blk_size(tmp);
-    assert (tsz >= offs);
+    assert(tsz >= offs);
     tmp->flags = (tmp->flags & BLK_STATE) | offs;
 
     blk_setup_backptrs(blk, BLK_PREV_USED, bsz = tsz - offs);
@@ -314,15 +324,19 @@ static NEVER_INLINE int create_arena(size_t npages)
     if (npages < QPAGE_ALLOC_MIN) {
         npages = QPAGE_ALLOC_MIN;
     } else {
-        if (npages & (npages - 1))
+        if (npages & (npages - 1)) {
             npages = 1U << (bsr32(npages) + 1);
+        }
     }
     size = npages * QPAGE_SIZE;
-    if (QPAGE_SIZE > pgsize)
+    if (QPAGE_SIZE > pgsize) {
         size += QPAGE_SIZE;
-    pgs  = mmap(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
-    if (pgs == MAP_FAILED)
+    }
+    pgs =
+        mmap(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+    if (pgs == MAP_FAILED) {
         return -1;
+    }
     mem_tool_disallow_memory(pgs, size);
 
     run = calloc(1, sizeof(page_run_t) + (npages + 1) * sizeof(page_desc_t));
@@ -346,8 +360,8 @@ static NEVER_INLINE int create_arena(size_t npages)
         }
     }
     run->mem_pages = pgs;
-    run->npages    = npages;
-    run->segment   = _G.segs.len;
+    run->npages = npages;
+    run->segment = _G.segs.len;
     qv_append(&_G.segs, run->pages);
     for (uint32_t i = 0; i <= npages; i++) {
         run->pages[i].blkno = i;
@@ -380,7 +394,7 @@ free_n(page_run_t *run, page_desc_t *blk, size_t npages, uint32_t seg)
         bsz = blk_size(blk);
     }
 
-    assert (bsz >= npages);
+    assert(bsz >= npages);
     if (bsz > npages) {
         blk_cut(blk + npages);
         bsz = npages;
@@ -391,7 +405,7 @@ free_n(page_run_t *run, page_desc_t *blk, size_t npages, uint32_t seg)
         }
     }
     if (blk->flags & BLK_PREV_FREE) {
-        blk  = blk_get_prev(blk);
+        blk = blk_get_prev(blk);
         bsz += blk_remove(blk);
     }
     blk_insert(blk, bsz);
@@ -400,8 +414,10 @@ free_n(page_run_t *run, page_desc_t *blk, size_t npages, uint32_t seg)
 #ifdef __linux__
         madvise(run->mem_pages, bsz * QPAGE_SIZE, MADV_DONTNEED);
 #else
-        mmap(run->mem_pages, bsz * QPAGE_SIZE, PROT_READ | PROT_WRITE,
-             MAP_PRIVATE | MAP_ANON | MAP_FIXED, -1, 0);
+        mmap(
+            run->mem_pages, bsz * QPAGE_SIZE, PROT_READ | PROT_WRITE,
+            MAP_PRIVATE | MAP_ANON | MAP_FIXED, -1, 0
+        );
 #endif
         blk_set_clean(run->pages, bsz);
         mem_tool_disallow_memory(run->mem_pages, bsz * QPAGE_SIZE);
@@ -442,31 +458,41 @@ free_n(page_run_t *run, page_desc_t *blk, size_t npages, uint32_t seg)
             const size_t chunk_sz = chunk_end - chunk_begin;
 
 #ifdef __linux__
-            madvise(run->mem_pages + chunk_begin, chunk_sz * QPAGE_SIZE,
-                    MADV_DONTNEED);
+            madvise(
+                run->mem_pages + chunk_begin, chunk_sz * QPAGE_SIZE,
+                MADV_DONTNEED
+            );
 #else
-            mmap(run->mem_pages + chunk_begin, chunk_sz * QPAGE_SIZE,
-                 PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON | MAP_FIXED,
-                 -1, 0);
+            mmap(
+                run->mem_pages + chunk_begin, chunk_sz * QPAGE_SIZE,
+                PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON | MAP_FIXED,
+                -1, 0
+            );
 #endif
             blk_set_clean(run->pages + chunk_begin, chunk_sz);
-            mem_tool_disallow_memory(run->mem_pages + chunk_begin,
-                                     chunk_sz * QPAGE_SIZE);
+            mem_tool_disallow_memory(
+                run->mem_pages + chunk_begin, chunk_sz * QPAGE_SIZE
+            );
             if (blkno < chunk_begin) {
                 blk_set_dirty(run->pages + blkno, (chunk_begin - blkno));
-                mem_tool_disallow_memory(run->mem_pages + blkno,
-                                         (chunk_begin - blkno) * QPAGE_SIZE);
+                mem_tool_disallow_memory(
+                    run->mem_pages + blkno, (chunk_begin - blkno) * QPAGE_SIZE
+                );
             }
             if (blkno + npages > chunk_end) {
-                blk_set_dirty(run->pages + chunk_end,
-                              (blkno + npages - chunk_end));
-                mem_tool_disallow_memory(run->mem_pages + chunk_end,
-                    (blkno + npages - chunk_end) * QPAGE_SIZE);
+                blk_set_dirty(
+                    run->pages + chunk_end, (blkno + npages - chunk_end)
+                );
+                mem_tool_disallow_memory(
+                    run->mem_pages + chunk_end,
+                    (blkno + npages - chunk_end) * QPAGE_SIZE
+                );
             }
         } else {
             blk_set_dirty(run->pages + blkno, npages);
-            mem_tool_disallow_memory(run->mem_pages + blkno,
-                                     npages * QPAGE_SIZE);
+            mem_tool_disallow_memory(
+                run->mem_pages + blkno, npages * QPAGE_SIZE
+            );
         }
     }
 
@@ -474,27 +500,29 @@ free_n(page_run_t *run, page_desc_t *blk, size_t npages, uint32_t seg)
     qpages_check(run);
 }
 
-static page_desc_t *
-qpage_alloc_align_impl(size_t npages, size_t shift, bool zero, page_run_t **runp)
+static page_desc_t *qpage_alloc_align_impl(
+    size_t npages, size_t shift, bool zero, page_run_t **runp
+)
 {
     page_desc_t *blk, *next, *split;
     uint32_t class, blkno, size, offs;
     uint32_t smask = (1U << shift) - 1;
     page_run_t *run;
 
-    if (unlikely(npages == 0 || npages + smask > QPAGE_COUNT_MAX))
+    if (unlikely(npages == 0 || npages + smask > QPAGE_COUNT_MAX)) {
         return NULL;
+    }
 
     spin_lock(&_G.lock);
     class = mapping_class_upper(npages + smask);
-    blk   = find_suitable_block(&class);
+    blk = find_suitable_block(&class);
     if (unlikely(!blk)) {
         if (create_arena(npages + smask) < 0) {
             spin_unlock(&_G.lock);
             return NULL;
         }
         class = mapping_class_upper(npages + smask);
-        blk   = find_suitable_block(&class);
+        blk = find_suitable_block(&class);
     }
 
     if ((_G.blks[class] = blk->free_next)) {
@@ -503,18 +531,18 @@ qpage_alloc_align_impl(size_t npages, size_t shift, bool zero, page_run_t **runp
         RST_BIT(_G.bits, class);
     }
 
-    size  = blk_size(blk);
-    next  = blk_next(blk, size);
+    size = blk_size(blk);
+    next = blk_next(blk, size);
     blkno = blk_no(blk);
-    run   = run_of(blk, blkno);
-    offs  = (((uintptr_t)run->mem_pages >> QPAGE_SHIFT) + blkno) & smask;
+    run = run_of(blk, blkno);
+    offs = (((uintptr_t)run->mem_pages >> QPAGE_SHIFT) + blkno) & smask;
 
     if (offs) {
-        offs   = smask + 1 - offs;
+        offs = smask + 1 - offs;
         blk_insert(blk, offs);
-        blk   += offs;
+        blk += offs;
         blkno += offs;
-        size  -= offs;
+        size -= offs;
         blk_setup_backptrs(blk, BLK_PREV_FREE, npages);
     } else {
         blk_setup_backptrs(blk, BLK_PREV_USED, npages);
@@ -523,12 +551,13 @@ qpage_alloc_align_impl(size_t npages, size_t shift, bool zero, page_run_t **runp
         split = blk_next(blk, npages);
         blk_insert(split, size - npages);
     } else {
-        assert (size == npages);
+        assert(size == npages);
         next->flags &= ~BLK_PREV_FREE;
     }
 
-    mem_tool_allow_memory(run->mem_pages + blk_no(blk), npages * QPAGE_SIZE,
-                          zero);
+    mem_tool_allow_memory(
+        run->mem_pages + blk_no(blk), npages * QPAGE_SIZE, zero
+    );
     if (zero) {
         blk_cleanse(run, blkno, npages);
     }
@@ -540,23 +569,25 @@ qpage_alloc_align_impl(size_t npages, size_t shift, bool zero, page_run_t **runp
 
 void *qpage_allocraw_align(size_t npages, size_t shift, uint32_t *seg)
 {
-    page_run_t  *run;
+    page_run_t *run;
     page_desc_t *blk;
 
     blk = RETHROW_P(qpage_alloc_align_impl(npages, shift, false, &run));
-    if (seg)
+    if (seg) {
         *seg = run->segment;
+    }
     return run->mem_pages + blk_no(blk);
 }
 
 void *qpage_alloc_align(size_t npages, size_t shift, uint32_t *seg)
 {
-    page_run_t  *run;
+    page_run_t *run;
     page_desc_t *blk;
 
     blk = RETHROW_P(qpage_alloc_align_impl(npages, shift, true, &run));
-    if (seg)
+    if (seg) {
         *seg = run->segment;
+    }
     return run->mem_pages + blk_no(blk);
 }
 
@@ -565,7 +596,7 @@ static inline int32_t qpage_find_seg(qpage_t *qp)
     spin_lock(&_G.lock);
     for (int i = 0; i < _G.segs.len; i++) {
         page_desc_t *blk = _G.segs.tab[i];
-        page_run_t  *run = run_of(blk, blk_no(blk));
+        page_run_t *run = run_of(blk, blk_no(blk));
 
         if ((size_t)(qp - run->mem_pages) < run->npages) {
             spin_unlock(&_G.lock);
@@ -575,9 +606,10 @@ static inline int32_t qpage_find_seg(qpage_t *qp)
     e_panic("invalid pointer or segment");
 }
 
-static void *remap(void *ptr, size_t old_n, uint32_t old_seg,
-                   uint32_t new_n, uint32_t *new_seg,
-                   bool may_move, bool zero)
+static void *remap(
+    void *ptr, size_t old_n, uint32_t old_seg, uint32_t new_n,
+    uint32_t *new_seg, bool may_move, bool zero
+)
 {
     qpage_t *qp = ptr;
     page_desc_t *blk, *tmp, *next;
@@ -587,19 +619,21 @@ static void *remap(void *ptr, size_t old_n, uint32_t old_seg,
     if (unlikely(old_seg > (uint32_t)_G.segs.len)) {
         old_seg = qpage_find_seg(qp);
     }
-    tmp   = _G.segs.tab[old_seg];
-    run   = run_of(tmp, blk_no(tmp));
-    blk   = run->pages + (qp - run->mem_pages);
-    assert (blk + old_n <= run->pages + run->npages);
-    assert (!(blk->flags & BLK_FREE));
-    bsz   = blk_size(blk);
-    assert (old_n <= bsz);
+    tmp = _G.segs.tab[old_seg];
+    run = run_of(tmp, blk_no(tmp));
+    blk = run->pages + (qp - run->mem_pages);
+    assert(blk + old_n <= run->pages + run->npages);
+    assert(!(blk->flags & BLK_FREE));
+    bsz = blk_size(blk);
+    assert(old_n <= bsz);
 
     if (new_n <= bsz) {
-        if (new_n < bsz)
+        if (new_n < bsz) {
             free_n(run, blk + new_n, bsz - new_n, old_seg);
-        if (new_seg)
+        }
+        if (new_seg) {
             *new_seg = old_seg;
+        }
         return ptr;
     }
 
@@ -621,25 +655,27 @@ static void *remap(void *ptr, size_t old_n, uint32_t old_seg,
             p_clear(qp + old_n, bsz - old_n);
             blk_cleanse(run, blk_no(blk) + bsz, new_n - bsz);
         }
-        if (new_seg)
+        if (new_seg) {
             *new_seg = old_seg;
+        }
         qpages_check(run);
         return ptr;
     }
     spin_unlock(&_G.lock);
 
     if (may_move) {
-        page_run_t  *new_run;
+        page_run_t *new_run;
         page_desc_t *new_blk;
-        uint32_t     blkno;
-        qpage_t     *res;
+        uint32_t blkno;
+        qpage_t *res;
 
         new_blk = qpage_alloc_align_impl(new_n, 0, false, &new_run);
-        if (!new_blk)
+        if (!new_blk) {
             return NULL;
+        }
 
         blkno = blk_no(new_blk);
-        res   = new_run->mem_pages + blkno;
+        res = new_run->mem_pages + blkno;
         memcpy(res, ptr, old_n * QPAGE_SIZE);
         free_n(run, blk, bsz, old_seg);
 
@@ -647,22 +683,27 @@ static void *remap(void *ptr, size_t old_n, uint32_t old_seg,
             p_clear(res + old_n, bsz - old_n);
             blk_cleanse(new_run, blkno + bsz, new_n - bsz);
         }
-        if (new_seg)
+        if (new_seg) {
             *new_seg = new_run->segment;
+        }
         return res;
     }
 
     return NULL;
 }
 
-void *qpage_remap_raw(void *ptr, size_t old_n, uint32_t old_seg,
-                      uint32_t new_n, uint32_t *new_seg, bool may_move)
+void *qpage_remap_raw(
+    void *ptr, size_t old_n, uint32_t old_seg, uint32_t new_n,
+    uint32_t *new_seg, bool may_move
+)
 {
     return remap(ptr, old_n, old_seg, new_n, new_seg, may_move, false);
 }
 
-void *qpage_remap(void *ptr, size_t old_n, uint32_t old_seg,
-                  uint32_t new_n, uint32_t *new_seg, bool may_move)
+void *qpage_remap(
+    void *ptr, size_t old_n, uint32_t old_seg, uint32_t new_n,
+    uint32_t *new_seg, bool may_move
+)
 {
     return remap(ptr, old_n, old_seg, new_n, new_seg, may_move, true);
 }
@@ -673,17 +714,18 @@ void qpage_free_n(void *ptr, size_t npages, uint32_t seg)
     page_desc_t *blk, *tmp;
     page_run_t *run;
 
-    if (!ptr)
+    if (!ptr) {
         return;
+    }
 
     if (unlikely(seg > (uint32_t)_G.segs.len)) {
         seg = qpage_find_seg(qp);
     }
-    tmp   = _G.segs.tab[seg];
-    run   = run_of(tmp, blk_no(tmp));
-    blk   = run->pages + (qp - run->mem_pages);
-    assert (blk + npages <= run->pages + run->npages);
-    assert (!(blk->flags & BLK_FREE));
+    tmp = _G.segs.tab[seg];
+    run = run_of(tmp, blk_no(tmp));
+    blk = run->pages + (qp - run->mem_pages);
+    assert(blk + npages <= run->pages + run->npages);
+    assert(!(blk->flags & BLK_FREE));
     free_n(run, blk, npages, seg);
 }
 
@@ -691,8 +733,9 @@ void *qpage_dup_n(const void *ptr, size_t n, uint32_t *seg)
 {
     qpage_t *res = qpage_allocraw_n(n, seg);
 
-    if (likely(res))
+    if (likely(res)) {
         memcpy(res, ptr, n * QPAGE_SIZE);
+    }
     return res;
 }
 
@@ -715,5 +758,5 @@ static int qpage_shutdown(void)
     return 0;
 }
 
-MODULE_BEGIN(qpage)
-MODULE_END()
+MODULE_DEFINE(qpage) {
+}

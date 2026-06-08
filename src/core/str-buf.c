@@ -87,8 +87,10 @@ int __sb_rewind_adds(sb_t *sb, const sb_t *orig)
         int save_errno = errno;
 
         if (orig->skip) {
-            sb_init_full(sb, orig->data - orig->skip, orig->len,
-                         orig->size + orig->skip, orig->mp);
+            sb_init_full(
+                sb, orig->data - orig->skip, orig->len,
+                orig->size + orig->skip, orig->mp
+            );
             memcpy(sb->data, tmp.data, orig->len);
         } else {
             *sb = *orig;
@@ -111,7 +113,7 @@ static void sb_destroy_skip(sb_t *sb)
     memmove(sb->data - sb->skip, sb->data, sb->len + 1);
     sb->data -= sb->skip;
     sb->size += sb->skip;
-    sb->skip  = 0;
+    sb->skip = 0;
 }
 
 void __sb_optimize(sb_t *sb, size_t len)
@@ -147,8 +149,8 @@ void __sb_grow(sb_t *sb, int extra)
     /* most of our pool have expensive reallocs wrt a typical memcpy,
      * and optimize the last realloc so we don't want to alloc and free
      */
-    if (newlen < sb->skip + sb->size
-    &&  (sb->skip > sb->size / 4 || !(mp->mem_pool & MEM_EFFICIENT_REALLOC)))
+    if (newlen < sb->skip + sb->size &&
+        (sb->skip > sb->size / 4 || !(mp->mem_pool & MEM_EFFICIENT_REALLOC)))
     {
         sb_destroy_skip(sb);
         return;
@@ -164,39 +166,41 @@ void __sb_grow(sb_t *sb, int extra)
         sb->data = mp_new_raw(sb->mp, char, newsz);
         sb->data[0] = '\0';
     } else {
-        sb->data = mp_irealloc_fallback(&sb->mp, sb->data, sb->len + 1, newsz,
-                                        1, MEM_RAW);
+        sb->data = mp_irealloc_fallback(
+            &sb->mp, sb->data, sb->len + 1, newsz, 1, MEM_RAW
+        );
     }
     sb->size = newsz;
 }
 
 char *__sb_splice(sb_t *sb, int pos, int rm_len, int insert_len)
 {
-    assert (pos >= 0 && rm_len >= 0 && insert_len >= 0);
-    assert (pos <= sb->len && pos + rm_len <= sb->len);
+    assert(pos >= 0 && rm_len >= 0 && insert_len >= 0);
+    assert(pos <= sb->len && pos + rm_len <= sb->len);
 
     if (rm_len >= insert_len) {
         /* More data to suppress than to insert, move the tail of the buffer
          * to the left. */
-        p_move2(sb->data, pos + insert_len, pos + rm_len,
-                sb->len - pos - rm_len);
+        p_move2(
+            sb->data, pos + insert_len, pos + rm_len, sb->len - pos - rm_len
+        );
         __sb_fixlen(sb, sb->len + insert_len - rm_len);
-    } else
-    if (rm_len + sb->skip >= insert_len) {
+    } else if (rm_len + sb->skip >= insert_len) {
         /* The skip area is at least as large as the data to insert
          * (substracted from the data to remove), move the head of the buffer
          * to the left, in the skip area. */
         sb->skip -= insert_len - rm_len;
         sb->data -= insert_len - rm_len;
         sb->size += insert_len - rm_len;
-        sb->len  += insert_len - rm_len;
+        sb->len += insert_len - rm_len;
         p_move2(sb->data, 0, insert_len - rm_len, pos);
     } else {
         /* Default case: move the tail of the buffer to the right to leave
          * some room for the data to insert. */
         sb_grow(sb, insert_len - rm_len);
-        p_move2(sb->data, pos + insert_len, pos + rm_len,
-                sb->len - pos - rm_len);
+        p_move2(
+            sb->data, pos + insert_len, pos + rm_len, sb->len - pos - rm_len
+        );
         __sb_fixlen(sb, sb->len + insert_len - rm_len);
     }
     sb_optimize(sb, 0);
@@ -212,7 +216,6 @@ int sb_search(const sb_t *sb, int pos, const void *what, int wlen)
     const char *p = memmem(sb->data + pos, sb->len - pos, what, wlen);
     return p ? p - sb->data : -1;
 }
-
 
 /**************************************************************************/
 /* printf function                                                        */
@@ -321,8 +324,10 @@ void sb_add_int_fmt(sb_t *sb, int64_t val, int thousand_sep)
     sb_add_uint_fmt(sb, val, thousand_sep);
 }
 
-void sb_add_double_fmt(sb_t *sb, double val, uint8_t nb_max_decimals,
-                       int dec_sep, int thousand_sep)
+void sb_add_double_fmt(
+    sb_t *sb, double val, uint8_t nb_max_decimals, int dec_sep,
+    int thousand_sep
+)
 {
     char buf[BUFSIZ];
     pstream_t ps, integer_part = ps_init(NULL, 0);
@@ -332,8 +337,9 @@ void sb_add_double_fmt(sb_t *sb, double val, uint8_t nb_max_decimals,
         return;
     }
 
-    ps = ps_init(buf, snprintf(buf, sizeof(buf), "%.*f",
-                               MAX(1, nb_max_decimals), val));
+    ps = ps_init(
+        buf, snprintf(buf, sizeof(buf), "%.*f", MAX(1, nb_max_decimals), val)
+    );
 
     /* Sign */
     if (ps_skipc(&ps, '-') == 0) {
@@ -348,7 +354,8 @@ void sb_add_double_fmt(sb_t *sb, double val, uint8_t nb_max_decimals,
     if (nb_max_decimals > 0) {
         pstream_t decimal_part = ps;
 
-        while (ps_shrinkc(&decimal_part, '0') == 0);
+        while (ps_shrinkc(&decimal_part, '0') == 0)
+            ;
 
         if (ps_len(&decimal_part)) {
             sb_addc(sb, dec_sep);
@@ -398,10 +405,10 @@ void _sb_add_duration_ms(sb_t *sb, uint64_t ms, bool print_ms)
     uint8_t nb_prints = 0;
     static const uint32_t units[] = {
         24 * 60 * 60 * 1000, /* day */
-             60 * 60 * 1000, /* hour */
-                  60 * 1000, /* minute */
-                       1000, /* second */
-                          1, /* millisecond */
+        60 * 60 * 1000,      /* hour */
+        60 * 1000,           /* minute */
+        1000,                /* second */
+        1,                   /* millisecond */
     };
 
     if (!ms) {
@@ -432,10 +439,10 @@ void _sb_add_duration_ms(sb_t *sb, uint64_t ms, bool print_ms)
         }                                                                    \
     } while (0)
 
-    SB_ADD_DUR(     "d", 0);
-    SB_ADD_DUR(     "h", 1);
-    SB_ADD_DUR(     "m", 2);
-    SB_ADD_DUR(     "s", 3);
+    SB_ADD_DUR("d", 0);
+    SB_ADD_DUR("h", 1);
+    SB_ADD_DUR("m", 2);
+    SB_ADD_DUR("s", 3);
     if (print_ms) {
         SB_ADD_DUR("ms", 4);
     }
@@ -447,7 +454,7 @@ void sb_add_pkcs7_8_bytes_padding(sb_t *sb)
 {
     int nb_additional_bytes = 8 - (sb->len % 8);
 
-    assert (1 <= nb_additional_bytes && nb_additional_bytes <= 8);
+    assert(1 <= nb_additional_bytes && nb_additional_bytes <= 8);
     sb_addnc(sb, nb_additional_bytes, nb_additional_bytes);
 }
 
@@ -465,8 +472,9 @@ int sb_getline(sb_t *sb, FILE *f)
         char *buf = sb_grow(sb, BUFSIZ);
 
         if (!fgets(buf, sb_avail(sb) + 1, f)) {
-            if (ferror(f))
+            if (ferror(f)) {
                 return __sb_rewind_adds(sb, &orig);
+            }
             break;
         }
 
@@ -479,8 +487,8 @@ int sb_getline(sb_t *sb, FILE *f)
         start = end;
     } while (sb->data[sb->len - 1] != '\n');
 
-    if (likely(sb->len - orig.len > 0)
-    &&  unlikely(sb->data[sb->len - 1] != '\n'))
+    if (likely(sb->len - orig.len > 0) &&
+        unlikely(sb->data[sb->len - 1] != '\n'))
     {
         sb_addc(sb, '\n');
     }
@@ -494,15 +502,17 @@ int sb_getline(sb_t *sb, FILE *f)
 int sb_fread(sb_t *sb, int size, int nmemb, FILE *f)
 {
     sb_t orig = *sb;
-    int   res = size * nmemb;
+    int res = size * nmemb;
     char *buf = sb_grow(sb, size * nmemb);
 
-    if (unlikely(((long long)size * (long long)nmemb) != res))
+    if (unlikely(((long long)size * (long long)nmemb) != res)) {
         e_panic("trying to allocate insane amount of memory");
+    }
 
     res = fread(buf, size, nmemb, f);
-    if (res < 0)
+    if (res < 0) {
         return __sb_rewind_adds(sb, &orig);
+    }
 
     __sb_fixlen(sb, sb->len + res * size);
     return res;
@@ -572,27 +582,31 @@ int sb_read(sb_t *sb, int fd, int hint)
 {
     sb_t orig = *sb;
     char *buf;
-    int   res;
+    int res;
 
     buf = sb_grow(sb, hint <= 0 ? BUFSIZ : hint);
     res = read(fd, buf, sb_avail(sb));
-    if (res < 0)
+    if (res < 0) {
         return __sb_rewind_adds(sb, &orig);
+    }
     __sb_fixlen(sb, sb->len + res);
     return res;
 }
 
-int sb_recvfrom(sb_t *sb, int fd, int hint, int flags,
-                struct sockaddr *addr, socklen_t *alen)
+int sb_recvfrom(
+    sb_t *sb, int fd, int hint, int flags, struct sockaddr *addr,
+    socklen_t *alen
+)
 {
     sb_t orig = *sb;
     char *buf;
-    int   res;
+    int res;
 
     buf = sb_grow(sb, hint <= 0 ? BUFSIZ : hint);
     res = recvfrom(fd, buf, sb_avail(sb), flags, addr, alen);
-    if (res < 0)
+    if (res < 0) {
         return __sb_rewind_adds(sb, &orig);
+    }
     __sb_fixlen(sb, sb->len + res);
     return res;
 }

@@ -30,7 +30,8 @@ static logger_t logger_g = LOGGER_INIT(NULL, "file-log", LOG_INHERITS);
 
 /* {{{ log_file_t functions */
 
-log_file_t *log_file_init(log_file_t *log_file, const char *nametpl, int flags)
+log_file_t *
+log_file_init(log_file_t *log_file, const char *nametpl, int flags)
 {
     const char *ext = path_ext(nametpl);
     int len = strlen(nametpl);
@@ -75,8 +76,8 @@ REFCNT_DELETE(log_file_t, log_file);
 
 typedef struct bgcompr_ctx_t {
     log_file_t *log_file;
-    lstr_t      path;
-    time_t      ts;
+    lstr_t path;
+    time_t ts;
 } bgcompr_ctx_t;
 
 GENERIC_NEW_INIT(bgcompr_ctx_t, bgcompr_ctx);
@@ -104,25 +105,28 @@ static const char *t_build_real_path(log_file_t *log_file, time_t date)
     } else {
         localtime_r(&date, &tm);
     }
-    return t_fmt("%s_" LOG_FILE_DATE_FMT ".%s",
-                 log_file->prefix, LOG_FILE_DATE_FMT_ARG(tm), log_file->ext);
+    return t_fmt(
+        "%s_" LOG_FILE_DATE_FMT ".%s", log_file->prefix,
+        LOG_FILE_DATE_FMT_ARG(tm), log_file->ext
+    );
 }
 
-#define GZIP_ERROR  "background compression of log file `%*pM` failed: "
+#define GZIP_ERROR "background compression of log file `%*pM` failed: "
 
-static void
-log_file_bgcompress_check(el_t ev, pid_t pid, int st, data_t priv)
+static void log_file_bgcompress_check(el_t ev, pid_t pid, int st, data_t priv)
 {
     bgcompr_ctx_t *ctx = priv.ptr;
 
     if (!WIFEXITED(st)) {
-        logger_error(&logger_g, GZIP_ERROR "gzip killed with signal %d (%s)",
-                     LSTR_FMT_ARG(ctx->path), WTERMSIG(st),
-                     strsignal(WTERMSIG(st)));
-    } else
-    if (WEXITSTATUS(st) != 0) {
-        logger_error(&logger_g, GZIP_ERROR "gzip exited with status %d",
-                     LSTR_FMT_ARG(ctx->path), WEXITSTATUS(st));
+        logger_error(
+            &logger_g, GZIP_ERROR "gzip killed with signal %d (%s)",
+            LSTR_FMT_ARG(ctx->path), WTERMSIG(st), strsignal(WTERMSIG(st))
+        );
+    } else if (WEXITSTATUS(st) != 0) {
+        logger_error(
+            &logger_g, GZIP_ERROR "gzip exited with status %d",
+            LSTR_FMT_ARG(ctx->path), WEXITSTATUS(st)
+        );
     }
 
     /* Unlocking the file once the compression done. */
@@ -133,8 +137,8 @@ log_file_bgcompress_check(el_t ev, pid_t pid, int st, data_t priv)
 static void log_file_bgcompress(log_file_t *log_file, const char *path)
 {
     bgcompr_ctx_t *ctx;
-    pid_t          pid;
-    time_t         ts;
+    pid_t pid;
+    time_t ts;
 
     if (log_file_get_file_stamp(log_file, path, &ts) < 0) {
         return;
@@ -172,8 +176,8 @@ static int qsort_strcmp(const void *sp1, const void *sp2)
     return strcmp(*(const char **)sp1, *(const char **)sp2);
 }
 
-static void log_file_call_cb(log_file_t *l, enum log_file_event evt,
-                             const char *fname)
+static void
+log_file_call_cb(log_file_t *l, enum log_file_event evt, const char *fname)
 {
     if (l->on_event) {
         t_scope;
@@ -186,8 +190,8 @@ static void log_file_call_cb(log_file_t *l, enum log_file_event evt,
     }
 }
 
-static void log_delete_file(log_file_t *log_file, const char *path,
-                            off_t size)
+static void
+log_delete_file(log_file_t *log_file, const char *path, off_t size)
 {
     time_t ts;
 
@@ -201,7 +205,7 @@ static void log_delete_file(log_file_t *log_file, const char *path,
     if (unlink(path) < 0) {
         logger_error(&logger_g, "cannot delete log file `%s`: %m", path);
     } else {
-        assert (log_file->total_size >= (uint64_t)size);
+        assert(log_file->total_size >= (uint64_t)size);
         log_file->total_size -= size;
         log_file_call_cb(log_file, LOG_FILE_DELETE, path);
     }
@@ -214,10 +218,12 @@ static void log_check_invariants(log_file_t *log_file)
     char buf[PATH_MAX];
     struct stat *sts;
     char **fv;
-    int  fc;
+    int fc;
 
-    snprintf(buf, sizeof(buf), "%s_????????_??????.%s{,.gz}",
-             log_file->prefix, log_file->ext);
+    snprintf(
+        buf, sizeof(buf), "%s_????????_??????.%s{,.gz}", log_file->prefix,
+        log_file->ext
+    );
     if (glob(buf, GLOB_BRACE, NULL, &globbuf)) {
         globfree(&globbuf);
         return;
@@ -243,8 +249,8 @@ static void log_check_invariants(log_file_t *log_file)
     if (log_file->max_file_age) {
         /* The age limit is calculated from maxFileAge, and with a margin
          * corresponding to maxTime. */
-        time_t age_limit = lp_getsec() - log_file->max_file_age -
-                           log_file->rotate_delay;
+        time_t age_limit =
+            lp_getsec() - log_file->max_file_age - log_file->rotate_delay;
 
         /* Keep at least one file. */
         for (; fc > 1; fc--, fv++, sts++) {
@@ -283,9 +289,9 @@ static void log_check_invariants(log_file_t *log_file)
     if (log_file->max_total_size) {
         int64_t totalsize = (int64_t)log_file->max_total_size << 20;
 
-        for (int i = fc; i-- > 0; ) {
-            if ((log_file->flags & LOG_FILE_COMPRESS)
-            &&  !strequal(path_extnul(fv[i]), ".gz"))
+        for (int i = fc; i-- > 0;) {
+            if ((log_file->flags & LOG_FILE_COMPRESS) &&
+                !strequal(path_extnul(fv[i]), ".gz"))
             {
                 /* XXX: uncompressed files must be compressed so skip it
                  * while accounting totalsize */
@@ -296,8 +302,8 @@ static void log_check_invariants(log_file_t *log_file)
                 for (int j = 0; j <= i; j++) {
                     log_delete_file(log_file, fv[j], sts[j].st_size);
                 }
-                fv  += i + 1;
-                fc  -= i + 1;
+                fv += i + 1;
+                fc -= i + 1;
                 /* the assignment to sts is unused, but kept to keep the
                  * invariant between fv, sts and fc */
                 sts += i + 1;
@@ -329,22 +335,24 @@ static void log_file_open_new(log_file_t *log_file, time_t date)
     log_file->open_date = date;
 
     if (log_file->is_file_bin) {
-        log_file->_bin_internal = file_bin_create(LSTR(real_path),
-                                                  1 << 20, false);
+        log_file->_bin_internal =
+            file_bin_create(LSTR(real_path), 1 << 20, false);
         if (log_file->_internal) {
             log_file->total_size += log_file->_bin_internal->cur;
         } else {
-            logger_error(&logger_g, "could not open log file `%s`: %m",
-                         real_path);
+            logger_error(
+                &logger_g, "could not open log file `%s`: %m", real_path
+            );
         }
     } else {
-        log_file->_internal = file_open(real_path, FILE_WRONLY | FILE_CREATE,
-                                        log_file->mode);
-        if (!log_file->_internal
-        ||  file_seek(log_file->_internal, 0, SEEK_END) == (off_t)-1)
+        log_file->_internal =
+            file_open(real_path, FILE_WRONLY | FILE_CREATE, log_file->mode);
+        if (!log_file->_internal ||
+            file_seek(log_file->_internal, 0, SEEK_END) == (off_t)-1)
         {
-            logger_error(&logger_g, "could not open log file `%s`: %m",
-                         real_path);
+            logger_error(
+                &logger_g, "could not open log file `%s`: %m", real_path
+            );
         }
     }
 
@@ -355,13 +363,16 @@ static void log_file_open_new(log_file_t *log_file, time_t date)
     if (!(log_file->flags & LOG_FILE_NOSYMLINK)) {
         char sym_path[PATH_MAX];
 
-        snprintf(sym_path, sizeof(sym_path), "%s%s.%s", log_file->prefix,
-                 log_file->flags & LOG_FILE_USE_LAST ? "_last" : "",
-                 log_file->ext);
+        snprintf(
+            sym_path, sizeof(sym_path), "%s%s.%s", log_file->prefix,
+            log_file->flags & LOG_FILE_USE_LAST ? "_last" : "", log_file->ext
+        );
         unlink(sym_path);
         if (symlink(real_path, sym_path)) {
-            logger_error(&logger_g, "could not symlink `%s` to `%s`: %m",
-                         real_path, sym_path);
+            logger_error(
+                &logger_g, "could not symlink `%s` to `%s`: %m", real_path,
+                sym_path
+            );
         }
     }
     log_check_invariants(log_file);
@@ -372,21 +383,23 @@ static void log_file_find_last_date(log_file_t *log_file)
     char buf[PATH_MAX];
     glob_t globbuf;
 
-    snprintf(buf, sizeof(buf), "%s_????????_??????.%s",
-             log_file->prefix, log_file->ext);
+    snprintf(
+        buf, sizeof(buf), "%s_????????_??????.%s", log_file->prefix,
+        log_file->ext
+    );
     if (!glob(buf, 0, NULL, &globbuf) && globbuf.gl_pathc) {
-        log_file_get_file_stamp(log_file,
-                                globbuf.gl_pathv[globbuf.gl_pathc - 1],
-                                &log_file->open_date);
+        log_file_get_file_stamp(
+            log_file, globbuf.gl_pathv[globbuf.gl_pathc - 1],
+            &log_file->open_date
+        );
     }
     globfree(&globbuf);
 }
 
-log_file_t *
-log_file_create_from_iop(const char *nametpl,
-                         const core__log_file_configuration__t *conf,
-                         bool use_file_bin, int flags,
-                         log_file_cb_f *on_event, void *priv)
+log_file_t *log_file_create_from_iop(
+    const char *nametpl, const core__log_file_configuration__t *conf,
+    bool use_file_bin, int flags, log_file_cb_f *on_event, void *priv
+)
 {
     log_file_t *log_file;
 
@@ -411,9 +424,10 @@ log_file_create_from_iop(const char *nametpl,
         return NULL;
     }
 
-    logger_trace(&logger_g, 1, "opening %s, flags %x, json %*pS",
-                 nametpl, flags,
-                 IOP_ST_FMT_ARG(core__log_file_configuration, conf));
+    logger_trace(
+        &logger_g, 1, "opening %s, flags %x, json %*pS", nametpl, flags,
+        IOP_ST_FMT_ARG(core__log_file_configuration, conf)
+    );
 
     return log_file;
 }
@@ -479,8 +493,9 @@ void log_file_set_max_file_age(log_file_t *file, int max_file_age)
     file->max_file_age = MAX(0, max_file_age);
 }
 
-void log_file_set_file_cb(log_file_t *file, log_file_cb_f *on_event,
-                          void *priv)
+void log_file_set_file_cb(
+    log_file_t *file, log_file_cb_f *on_event, void *priv
+)
 {
     file->on_event = on_event;
     file->priv_cb = priv;
@@ -530,7 +545,7 @@ static int log_check_rotate(log_file_t *lf)
         }
 
         if (size >= lf->max_size) {
-             return log_file_rotate_(lf, time(NULL));
+            return log_file_rotate_(lf, time(NULL));
         }
     }
 
@@ -555,7 +570,7 @@ int log_fprintf(log_file_t *log_file, const char *format, ...)
     int res;
     va_list ap;
 
-    assert (!log_file->is_file_bin);
+    assert(!log_file->is_file_bin);
 
     RETHROW(log_check_rotate(log_file));
 
@@ -591,7 +606,7 @@ int log_fwritev(log_file_t *log_file, struct iovec *iov, size_t iovlen)
 {
     ssize_t size;
 
-    assert (!log_file->is_file_bin);
+    assert(!log_file->is_file_bin);
 
     RETHROW(log_check_rotate(log_file));
 
@@ -659,13 +674,13 @@ int log_fwrite_transaction(log_file_t *file, int (^log_b)(void))
     return 0;
 }
 
-int log_file_get_file_stamp(const log_file_t *file, const char *path,
-                            time_t *out)
+int log_file_get_file_stamp(
+    const log_file_t *file, const char *path, time_t *out
+)
 {
     struct tm tm;
     const byte *d;
     int prefix_len = strlen(file->prefix);
-
 
     if (strlen(path) < prefix_len + strlen("YYYYMMDD_hhmmss")) {
         goto error;
@@ -675,14 +690,14 @@ int log_file_get_file_stamp(const log_file_t *file, const char *path,
     p_clear(&tm, 1);
     tm.tm_isdst = -1; /* We don't know current dst */
     tm.tm_year = memtoip(d, 4, &d) - 1900;
-    tm.tm_mon  = memtoip(d, 2, &d) - 1;
+    tm.tm_mon = memtoip(d, 2, &d) - 1;
     tm.tm_mday = memtoip(d, 2, &d);
     if (*d++ != '_') {
         goto error;
     }
     tm.tm_hour = memtoip(d, 2, &d);
-    tm.tm_min  = memtoip(d, 2, &d);
-    tm.tm_sec  = memtoip(d, 2, &d);
+    tm.tm_min = memtoip(d, 2, &d);
+    tm.tm_sec = memtoip(d, 2, &d);
     if (file->flags & LOG_FILE_UTCSTAMP) {
         *out = timegm(&tm);
     } else {
@@ -691,10 +706,10 @@ int log_file_get_file_stamp(const log_file_t *file, const char *path,
 
     return 0;
 
-  error:
+error:
     logger_error(&logger_g, "failed to get the timestamp of file `%s`", path);
     *out = 0;
-    assert (false);
+    assert(false);
 
     return -1;
 }

@@ -19,7 +19,7 @@
 #if !defined(IS_LIB_COMMON_CORE_H) || defined(IS_LIB_COMMON_CORE_MODULE_H)
 #  error "you must include core.h instead"
 #else
-#define IS_LIB_COMMON_CORE_MODULE_H
+#  define IS_LIB_COMMON_CORE_MODULE_H
 
 /* {{{ Types */
 
@@ -27,7 +27,7 @@
  */
 typedef struct module_t module_t;
 typedef module_t *module_ptr_t;
-typedef module_t * nullable *module_ptr_ptr_t;
+typedef module_t * nullable * module_ptr_ptr_t;
 
 /** Describe the evaluation order of the method.
  */
@@ -69,8 +69,8 @@ typedef struct module_method_t {
  * \param[in] Type prototype of the method. One of \ref module_method_type_t.
  * \param[in] name name of the method.
  */
-#define MODULE_METHOD_DECLARE(Type, Order, name)  \
-    extern const module_method_t name##_method
+#  define MODULE_METHOD_DECLARE(Type, Order, name)                           \
+      extern const module_method_t name##_method
 
 /** Define a new method.
  *
@@ -81,11 +81,11 @@ typedef struct module_method_t {
  * \param[in] Type prototype of the method.
  * \param[in] name name of the method.
  */
-#define MODULE_METHOD(Type, Order, name)  \
-    const module_method_t name##_method = {                                  \
-        .type  = METHOD_##Type,                                              \
-        .order = MODULE_##Order,                                             \
-    }
+#  define MODULE_METHOD(Type, Order, name)                                   \
+      const module_method_t name##_method = {                                \
+          .type = METHOD_##Type,                                             \
+          .order = MODULE_##Order,                                           \
+      }
 
 /** Run a void method.
  *
@@ -95,10 +95,11 @@ typedef struct module_method_t {
  *
  * \see module_run_method
  */
-#define MODULE_METHOD_RUN_VOID(method)  do {                                 \
-        assert (method##_method.type == METHOD_VOID);                        \
-        module_run_method(&method##_method, (data_t)NULL);                   \
-    } while (0)
+#  define MODULE_METHOD_RUN_VOID(method)                                     \
+      do {                                                                   \
+          assert(method##_method.type == METHOD_VOID);                       \
+          module_run_method(&method##_method, (data_t)NULL);                 \
+      } while (0)
 
 /** Run a pointer method.
  *
@@ -109,10 +110,11 @@ typedef struct module_method_t {
  *
  * \see module_run_method
  */
-#define MODULE_METHOD_RUN_PTR(method, arg)  do {                             \
-        assert (method##_method.type == METHOD_PTR);                         \
-        module_run_method(&method##_method, (data_t){ .ptr = arg });         \
-    } while (0)
+#  define MODULE_METHOD_RUN_PTR(method, arg)                                 \
+      do {                                                                   \
+          assert(method##_method.type == METHOD_PTR);                        \
+          module_run_method(&method##_method, (data_t){.ptr = arg});         \
+      } while (0)
 
 /** Run an integer method.
  *
@@ -123,10 +125,11 @@ typedef struct module_method_t {
  *
  * \see module_run_method
  */
-#define MODULE_METHOD_RUN_INT(method, arg)  do {                             \
-        assert (method##_method.type == METHOD_INT);                         \
-        module_run_method(&method##_method, (data_t){ .u32 = arg });         \
-    } while (0)
+#  define MODULE_METHOD_RUN_INT(method, arg)                                 \
+      do {                                                                   \
+          assert(method##_method.type == METHOD_INT);                        \
+          module_run_method(&method##_method, (data_t){.u32 = arg});         \
+      } while (0)
 
 /** Run a method.
  *
@@ -137,10 +140,11 @@ typedef struct module_method_t {
  *
  * \see module_run_method
  */
-#define MODULE_METHOD_RUN(method, data)  do {                                \
-        assert (method##_method.type == METHOD_GENERIC);                     \
-        module_run_method(&method##_method, data);                           \
-    } while (0)
+#  define MODULE_METHOD_RUN(method, data)                                    \
+      do {                                                                   \
+          assert(method##_method.type == METHOD_GENERIC);                    \
+          module_run_method(&method##_method, data);                         \
+      } while (0)
 
 /** Run a method.
  *
@@ -152,43 +156,42 @@ typedef struct module_method_t {
  * \param[in] method The method to call.
  * \param[in] arg Argument passed to the methods.
  */
-__attr_nonnull__((1))
-void module_run_method(const module_method_t * nonnull method, data_t arg);
+__attr_nonnull__((1)) void module_run_method(
+    const module_method_t *nonnull method, data_t arg
+);
 
 /* }}} */
 /* {{{ Module creation */
 
 /** Pointer to the module of the given name.
  */
-#define MODULE(name)  name##_get_module()
+#  define MODULE(name) name##_get_module()
 
 /** Declare a module.
  *
  * This macro declares a module variable.
  */
-#define MODULE_DECLARE(name)                                                 \
-    module_t * nonnull name##_get_module(void)
+#  define MODULE_DECLARE(name) module_t *nonnull name##_get_module(void)
 
 /** Add declarations of a module.
  *
- * Do not use this, use \ref MODULE_BEGIN.
+ * Do not use this, use \ref MODULE_DEFINE.
  */
-#define _MODULE_ADD_DECLS(name)                                              \
-    module_t *name##_get_module(void)                                        \
-    {                                                                        \
-        __attr_section("intersec", "module")                                 \
-        static module_t *mod;                                                \
+#  define _MODULE_ADD_DECLS(name)                                            \
+      module_t *name##_get_module(void)                                      \
+      {                                                                      \
+          __attr_section("intersec", "module") static module_t *mod;         \
                                                                              \
-        if (!mod) {                                                          \
-            mod = module_register(LSTR(#name));                              \
-        }                                                                    \
-        return mod;                                                          \
-    }
+          if (!mod) {                                                        \
+              mod = module_register(LSTR(#name));                            \
+          }                                                                  \
+          return mod;                                                        \
+      }
 
-/** Begin the definition of a module.
+/** Define a module.
  *
- * This begin a section of code that can contain the description of a module.
- * The section can currently contain the following descriptions:
+ * The body is the mandatory body of a function that describes the module; it
+ * can currently contain the following descriptions:
  * - \ref MODULE_DEPENDS_ON to add a dependency.
  * - \ref MODULE_IMPLEMENTS to add a method.
  *
@@ -197,54 +200,55 @@ void module_run_method(const module_method_t * nonnull method, data_t arg);
  * between compilation units. Using \ref MODULE_DEPENDS_ON should be the
  * prefered solution to add a new dependence.
  *
- * The section must be closed by calling \ref MODULE_END().
- */
-#define MODULE_BEGIN(name)                                                   \
-    _MODULE_ADD_DECLS(name);                                                 \
-                                                                             \
-    static __attribute__((constructor))                                      \
-    void __##name##_module_register(void) {                                  \
-        __attr_unused__                                                      \
-        module_t *__mod = module_implement(MODULE(name),                     \
-                                           &name##_initialize,               \
-                                           &name##_shutdown,                 \
-                                           MODULE(log));                     \
-
-/** Macro to end the definition of a module.
+ * The module must be written as:
  *
- * \see MODULE_BEGIN
+ *     MODULE_DEFINE(name) {
+ *         MODULE_DEPENDS_ON(...);
+ *         MODULE_IMPLEMENTS_VOID(...);
+ *     }
  */
-#define MODULE_END()  }
+#  define MODULE_DEFINE(name)                                                \
+      _MODULE_ADD_DECLS(name);                                               \
+      static void __##name##_module_describe(module_t *__mod);               \
+      static __attribute__((constructor)) void __##name##_module_register(   \
+          void                                                               \
+      )                                                                      \
+      {                                                                      \
+          module_t *__mod = module_implement(                                \
+              MODULE(name), &name##_initialize, &name##_shutdown,            \
+              MODULE(log)                                                    \
+          );                                                                 \
+          __##name##_module_describe(__mod);                                 \
+      }                                                                      \
+      static void __##name##_module_describe(__attr_unused__ module_t *__mod)
 
 /** Add a dependence on another module.
  *
- * This macro can only be used in a MODULE_BEGIN/MODULE_END block of code. It
+ * This macro can only be used in a MODULE_DEFINE block of code. It
  * declares a dependence from the current module on \p dep.
  */
-#define MODULE_DEPENDS_ON(dep)  \
-    module_add_dep(__mod, MODULE(dep))
+#  define MODULE_DEPENDS_ON(dep) module_add_dep(__mod, MODULE(dep))
 
 /** Add a dependence to another module.
  *
  * As \ref MODULE_DEPENDS_ON this macro can only be used in a
- * MODULE_BEGIN/MODULE_END block.
+ * MODULE_DEFINE block.
  * It declares a dependence from the current module to \p need.
  */
-#define MODULE_NEEDED_BY(need)  \
-    module_add_dep(MODULE(need), __mod)
+#  define MODULE_NEEDED_BY(need) module_add_dep(MODULE(need), __mod)
 
 /* {{{ Method */
 
 /** Declare the implementation of the method \p hook.
  *
- * This macro can only be used in a MODULE_BEGIN/MODULE_END block of code. It
+ * This macro can only be used in a MODULE_DEFINE block of code. It
  * declares that the current module implements the method \p hook with the
  * implementation being \p cb.
  *
  * This macro can only be used if the method has a void prototype.
  */
-#define MODULE_IMPLEMENTS_VOID(hook, cb)                                     \
-    module_implement_method_void_no_custom_data(__mod, &hook##_method, (cb))
+#  define MODULE_IMPLEMENTS_VOID(hook, cb)                                   \
+      module_implement_method_void_no_custom_data(__mod, &hook##_method, (cb))
 
 /** Declare the implementation of the method \p hook.
  *
@@ -252,11 +256,13 @@ void module_run_method(const module_method_t * nonnull method, data_t arg);
  *
  * This macro can only be used if the method takes a pointer as argument.
  */
-#define MODULE_IMPLEMENTS_PTR(Type, hook, cb)  do {                          \
-        void (*__hook_cb)(Type *ptr) = (cb);                                 \
-        module_implement_method_ptr_no_custom_data(                          \
-            __mod, &hook##_method, (void (*)(void *))__hook_cb);             \
-    } while (0)
+#  define MODULE_IMPLEMENTS_PTR(Type, hook, cb)                              \
+      do {                                                                   \
+          void (*__hook_cb)(Type * ptr) = (cb);                              \
+          module_implement_method_ptr_no_custom_data(                        \
+              __mod, &hook##_method, (void (*)(void *))__hook_cb             \
+          );                                                                 \
+      } while (0)
 
 /** Declare the implementation of the method \p hook.
  *
@@ -264,8 +270,8 @@ void module_run_method(const module_method_t * nonnull method, data_t arg);
  *
  * This macro can only be used if the method takes an integer as argument.
  */
-#define MODULE_IMPLEMENTS_INT(hook, cb)                                      \
-    module_implement_method_int_no_custom_data(__mod, &hook##_method, (cb))
+#  define MODULE_IMPLEMENTS_INT(hook, cb)                                    \
+      module_implement_method_int_no_custom_data(__mod, &hook##_method, (cb))
 
 /** Declare the implementation of the method \p hook.
  *
@@ -273,15 +279,16 @@ void module_run_method(const module_method_t * nonnull method, data_t arg);
  *
  * This macro can only be used if the method takes a \ref data_t as argument.
  */
-#define MODULE_IMPLEMENTS_GENERIC(hook, cb)                                  \
-    module_implement_method_generic_no_custom_data(__mod, &hook##_method,    \
-                                                   (cb))
+#  define MODULE_IMPLEMENTS_GENERIC(hook, cb)                                \
+      module_implement_method_generic_no_custom_data(                        \
+          __mod, &hook##_method, (cb)                                        \
+      )
 
 /* }}} */
 /* {{{ Low-level API */
 
 /** Register a new module. */
-__attr_leaf__ module_t * nonnull module_register(lstr_t name);
+__attr_leaf__ module_t *nonnull module_register(lstr_t name);
 
 /** Implement a module.
  *
@@ -292,118 +299,110 @@ __attr_leaf__ module_t * nonnull module_register(lstr_t name);
  *
  *  \return the newly registered module in case of success.
  */
-__attr_leaf__
-module_t * nullable
-module_implement(module_t * nonnull module,
-                 int (*nonnull constructor)(void * nullable),
-                 int (*nonnull destructor)(void),
-                 module_t *nullable dependency);
+__attr_leaf__ module_t *nullable module_implement(
+    module_t *nonnull module, int (*nonnull constructor)(void *nullable),
+    int (*nonnull destructor)(void), module_t *nullable dependency
+);
 
-void module_add_dep(module_t * nonnull module, module_t * nonnull dep);
+void module_add_dep(module_t *nonnull module, module_t *nonnull dep);
 
 /** Sentinel value to indicate that the module implement method does not
  * take a custom data as argument.
  */
 extern const bool module_method_no_custom_data_g;
 
-void module_implement_method(module_t * nonnull mod,
-                             const module_method_t * nonnull method,
-                             const void * nonnull cb,
-                             void * nullable custom_data);
+void module_implement_method(
+    module_t *nonnull mod, const module_method_t *nonnull method,
+    const void *nonnull cb, void *nullable custom_data
+);
 
-static inline
-void module_implement_method_void(module_t * nonnull mod,
-                                  const module_method_t * nonnull method,
-                                  void (* nonnull cb)(void * nullable),
-                                  void * nullable custom_data)
+static inline void module_implement_method_void(
+    module_t *nonnull mod, const module_method_t *nonnull method,
+    void (*nonnull cb)(void *nullable), void *nullable custom_data
+)
 {
     assert(method->type == METHOD_VOID);
     module_implement_method(mod, method, (const void *)cb, custom_data);
 }
 
-static inline
-void module_implement_method_void_no_custom_data(
-    module_t * nonnull mod,
-    const module_method_t * nonnull method,
-    void (* nonnull cb)(void))
+static inline void module_implement_method_void_no_custom_data(
+    module_t *nonnull mod, const module_method_t *nonnull method,
+    void (*nonnull cb)(void)
+)
 {
     const void *void_cb = (const void *)cb;
 
     module_implement_method_void(
-        mod, method, (void (*)(void * nullable))void_cb,
-        (void *)&module_method_no_custom_data_g);
+        mod, method, (void (*)(void *nullable))void_cb,
+        (void *)&module_method_no_custom_data_g
+    );
 }
 
-static inline
-void module_implement_method_int(
-    module_t * nonnull mod,
-    const module_method_t * nonnull method,
-    void (* nonnull cb)(int, void * nullable),
-    void * nullable custom_data)
+static inline void module_implement_method_int(
+    module_t *nonnull mod, const module_method_t *nonnull method,
+    void (*nonnull cb)(int, void *nullable), void *nullable custom_data
+)
 {
     assert(method->type == METHOD_INT);
     module_implement_method(mod, method, (const void *)cb, custom_data);
 }
 
-static inline
-void module_implement_method_int_no_custom_data(
-    module_t * nonnull mod,
-    const module_method_t * nonnull method,
-    void (* nonnull cb)(int))
+static inline void module_implement_method_int_no_custom_data(
+    module_t *nonnull mod, const module_method_t *nonnull method,
+    void (*nonnull cb)(int)
+)
 {
     const void *void_cb = (const void *)cb;
 
     module_implement_method_int(
-        mod, method, (void (*)(int, void * nullable))void_cb,
-        (void *)&module_method_no_custom_data_g);
+        mod, method, (void (*)(int, void *nullable))void_cb,
+        (void *)&module_method_no_custom_data_g
+    );
 }
 
-static inline
-void module_implement_method_generic(
-    module_t * nonnull mod,
-    const module_method_t * nonnull method,
-    void (* nonnull cb)(data_t, void * nullable),
-    void * nullable custom_data)
+static inline void module_implement_method_generic(
+    module_t *nonnull mod, const module_method_t *nonnull method,
+    void (*nonnull cb)(data_t, void *nullable), void *nullable custom_data
+)
 {
     assert(method->type == METHOD_GENERIC);
     module_implement_method(mod, method, (const void *)cb, custom_data);
 }
 
-static inline
-void module_implement_method_generic_no_custom_data(
-    module_t * nonnull mod,
-    const module_method_t * nonnull method,
-    void (* nonnull cb)(data_t))
+static inline void module_implement_method_generic_no_custom_data(
+    module_t *nonnull mod, const module_method_t *nonnull method,
+    void (*nonnull cb)(data_t)
+)
 {
     const void *void_cb = (const void *)cb;
 
     module_implement_method_generic(
-        mod, method, (void (*)(data_t, void * nullable))void_cb,
-        (void *)&module_method_no_custom_data_g);
+        mod, method, (void (*)(data_t, void *nullable))void_cb,
+        (void *)&module_method_no_custom_data_g
+    );
 }
 
-static inline
-void module_implement_method_ptr(
-    module_t * nonnull mod,
-    const module_method_t * nonnull method,
-    void (* nonnull cb)(void * nullable, void * nullable),
-    void * nullable custom_data)
+static inline void module_implement_method_ptr(
+    module_t *nonnull mod, const module_method_t *nonnull method,
+    void (*nonnull cb)(void *nullable, void *nullable),
+    void *nullable custom_data
+)
 {
     assert(method->type == METHOD_PTR);
     module_implement_method(mod, method, (const void *)cb, custom_data);
 }
 
-static inline
-void module_implement_method_ptr_no_custom_data(
-    module_t * nonnull mod,
-    const module_method_t * nonnull method,
-    void (* nonnull cb)(void * nullable))
+static inline void module_implement_method_ptr_no_custom_data(
+    module_t *nonnull mod, const module_method_t *nonnull method,
+    void (*nonnull cb)(void *nullable)
+)
 {
     const void *void_cb = (const void *)cb;
 
     module_implement_method_ptr(
-        mod, method, (void (*)(void * nullable, void * nullable))void_cb,
-        (void *)&module_method_no_custom_data_g);
+        mod, method, (void (*)(void *nullable, void *nullable))void_cb,
+        (void *)&module_method_no_custom_data_g
+    );
 }
 
 /* }}} */
@@ -425,8 +424,8 @@ void module_implement_method_ptr_no_custom_data(
  *       ...
  *     }
  */
-#define MODULE_PROVIDE(name, argument)                                       \
-    module_provide(MODULE(name), argument)
+#  define MODULE_PROVIDE(name, argument)                                     \
+      module_provide(MODULE(name), argument)
 
 /** Require the loading of a module.
  *
@@ -453,7 +452,7 @@ void module_implement_method_ptr_no_custom_data(
  *       + If module3 fail to initialize
  *             - module_require will throw a logger_fatal
  */
-#define MODULE_REQUIRE(name)  module_require(MODULE(name))
+#  define MODULE_REQUIRE(name) module_require(MODULE(name))
 
 /** Ask the release of a module.
  *
@@ -467,16 +466,16 @@ void module_implement_method_ptr_no_custom_data(
  *       REQUIRE
  *     + For returns value see module_release and module_shutdown
  */
-#define MODULE_RELEASE(name)  module_release(MODULE(name))
+#  define MODULE_RELEASE(name) module_release(MODULE(name))
 
-#define MODULE_IS_LOADED(name)  module_is_loaded(MODULE(name))
-#define MODULE_IS_INITIALIZING(name)  module_is_initializing(MODULE(name))
-#define MODULE_IS_SHUTTING_DOWN(name)  module_is_shutting_down(MODULE(name))
+#  define MODULE_IS_LOADED(name) module_is_loaded(MODULE(name))
+#  define MODULE_IS_INITIALIZING(name) module_is_initializing(MODULE(name))
+#  define MODULE_IS_SHUTTING_DOWN(name) module_is_shutting_down(MODULE(name))
 
 /** Retreives the name of a module.
  */
-__attr_nonnull__((1))
-const char * nonnull module_get_name(const module_t * nonnull mod);
+__attr_nonnull__((1)) const
+    char *nonnull module_get_name(const module_t *nonnull mod);
 
 /* {{{ Low-level API */
 
@@ -490,34 +489,32 @@ const char * nonnull module_get_name(const module_t * nonnull mod);
  *
  *  \param[in] mod          pointer to the module to initialize
  */
-__attr_nonnull__((1))
-void module_require(module_t * nonnull mod);
+__attr_nonnull__((1)) void module_require(module_t *nonnull mod);
 
-__attr_nonnull__((1))
-void module_release(module_t * nonnull mod);
+__attr_nonnull__((1)) void module_release(module_t *nonnull mod);
 
-__attr_nonnull__((1))
-void module_provide(module_t * nonnull mod,
-                    void * nullable argument);
+__attr_nonnull__((1)) void module_provide(
+    module_t *nonnull mod, void *nullable argument
+);
 
 /** Get the argument of a module.
  *
  * Only for advanced uses.
  */
-__attr_nonnull__((1))
-void * nullable module_get_arg(module_t * nonnull mod);
+__attr_nonnull__((1)) void *nullable module_get_arg(module_t *nonnull mod);
 
 /** true if module is loaded. (AUTO_REQ || MANU_REQ) */
-__attr_nonnull__((1))
-bool module_is_loaded(const module_t * nonnull mod);
+__attr_nonnull__((1)) bool module_is_loaded(const module_t *nonnull mod);
 
 /** true if module is currently loading. */
-__attr_nonnull__((1))
-bool module_is_initializing(const module_t * nonnull mod);
+__attr_nonnull__((1)) bool module_is_initializing(
+    const module_t *nonnull mod
+);
 
 /** true if module is currently shutting down. */
-__attr_nonnull__((1))
-bool module_is_shutting_down(const module_t * nonnull mod);
+__attr_nonnull__((1)) bool module_is_shutting_down(
+    const module_t *nonnull mod
+);
 
 /** Fetch the module hierarchy.
  *
@@ -534,8 +531,9 @@ bool module_is_shutting_down(const module_t * nonnull mod);
  *                          dest  represents the name of the one of the
  *                          dependencies of nodes.
  */
-void module_debug_dump_hierarchy(sb_t * nonnull modules,
-                                 sb_t * nonnull dependencies);
+void module_debug_dump_hierarchy(
+    sb_t *nonnull modules, sb_t *nonnull dependencies
+);
 
 /** Destroy all modules.
  *
@@ -618,9 +616,9 @@ void module_register_at_fork(void);
  *
  * \return -1 in case of collision.
  */
-__must_check__
-int module_check_no_dependencies(module_t * nonnull tab[], int len,
-                                 lstr_t * nonnull collision);
+__must_check__ int module_check_no_dependencies(
+    module_t *nonnull tab[], int len, lstr_t *nonnull collision
+);
 
 /* }}} */
 
@@ -631,7 +629,7 @@ int module_check_no_dependencies(module_t * nonnull tab[], int len,
 
 /** Log module.
  *
- * All modules declared with \p MODULE_BEGIN automatically depend on it.
+ * All modules declared with \p MODULE_DEFINE automatically depend on it.
  */
 MODULE_DECLARE(log);
 

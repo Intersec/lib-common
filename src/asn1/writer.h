@@ -19,10 +19,10 @@
 #if !defined(IS_LIB_COMMON_ASN1_H) || defined(IS_LIB_COMMON_ASN1_WRITER_H)
 #  error "you must include asn1.h instead"
 #else
-#define IS_LIB_COMMON_ASN1_WRITER_H
+#  define IS_LIB_COMMON_ASN1_WRITER_H
 
-#include <lib-common/container-qvector.h>
-#include "helpers.in.c"
+#  include <lib-common/container-qvector.h>
+#  include "helpers.in.c"
 
 /* ASN1 writing API
  * Need an example ? Please read tst-asn1-writer.[hc] .
@@ -32,30 +32,37 @@ struct asn1_desc_t;
 
 typedef struct asn1_ext_t {
     /* Packing */
-    const void                *data;      /* Data.      */
-    const struct asn1_desc_t  *desc;      /* Meta-data. */
+    const void *data;               /* Data.      */
+    const struct asn1_desc_t *desc; /* Meta-data. */
 
     /* Unpacking */
-    bool                       has_value;  /* For OPTIONAL ext fields only */
-    pstream_t                  value;      /* ASN.1 frame */
+    bool has_value;  /* For OPTIONAL ext fields only */
+    pstream_t value; /* ASN.1 frame */
 } asn1_ext_t;
 
 /* Optional scalar types. */
 /* XXX Deprecated. Please use opt_XXX_t types and OPT_XXX macros */
-#define ASN1_OPT_OF(...)  OPT_OF(__VA_ARGS__)
+#  define ASN1_OPT_OF(...) OPT_OF(__VA_ARGS__)
 typedef opt_bool_t asn1_opt_bool_t;
-typedef opt_i8_t   asn1_opt_int8_t;
-typedef opt_u8_t   asn1_opt_uint8_t;
-typedef opt_i16_t  asn1_opt_int16_t;
-typedef opt_u16_t  asn1_opt_uint16_t;
-typedef opt_i32_t  asn1_opt_int32_t;
-typedef opt_u32_t  asn1_opt_uint32_t;
-typedef opt_i64_t  asn1_opt_int64_t;
-typedef opt_u64_t  asn1_opt_uint64_t;
-#define ASN1_OPT_SET(pfx, val)  \
-    (asn1_opt_##pfx##_t){ .v = (val), .has_field = true }
-#define ASN1_OPT_TYPE(pfx)      asn1_opt_##pfx##_t
-#define ASN1_OPT_CLEAR(pfx)     (ASN1_OPT_TYPE(pfx)){ .has_field = false }
+typedef opt_i8_t asn1_opt_int8_t;
+typedef opt_u8_t asn1_opt_uint8_t;
+typedef opt_i16_t asn1_opt_int16_t;
+typedef opt_u16_t asn1_opt_uint16_t;
+typedef opt_i32_t asn1_opt_int32_t;
+typedef opt_u32_t asn1_opt_uint32_t;
+typedef opt_i64_t asn1_opt_int64_t;
+typedef opt_u64_t asn1_opt_uint64_t;
+#  define ASN1_OPT_SET(pfx, val)                                             \
+      (asn1_opt_##pfx##_t)                                                   \
+      {                                                                      \
+          .v = (val), .has_field = true                                      \
+      }
+#  define ASN1_OPT_TYPE(pfx) asn1_opt_##pfx##_t
+#  define ASN1_OPT_CLEAR(pfx)                                                \
+      (ASN1_OPT_TYPE(pfx))                                                   \
+      {                                                                      \
+          .has_field = false                                                 \
+      }
 
 typedef struct {
     const uint8_t *data;
@@ -103,11 +110,15 @@ static ALWAYS_INLINE size_t asn1_bit_string_size(const asn1_bit_string_t *bs)
 asn1_bit_string_t
 t_asn1_bstring_from_bf64(uint64_t bit_field, int min_bit_len);
 
-#define ASN1_VECTOR_OF(ctype_t)       struct { ctype_t *data; int len; }
+#  define ASN1_VECTOR_OF(ctype_t)                                            \
+      struct {                                                               \
+          ctype_t *data;                                                     \
+          int len;                                                           \
+      }
 
-#define ASN1_VECTOR_TYPE(sfx)         asn1_##sfx##_vector_t
-#define ASN1_DEF_VECTOR(sfx, type_t) \
-    typedef ASN1_VECTOR_OF(type_t) ASN1_VECTOR_TYPE(sfx)
+#  define ASN1_VECTOR_TYPE(sfx) asn1_##sfx##_vector_t
+#  define ASN1_DEF_VECTOR(sfx, type_t)                                       \
+      typedef ASN1_VECTOR_OF(type_t) ASN1_VECTOR_TYPE(sfx)
 typedef ASN1_VECTOR_OF(bool) asn1_bool_vector_t;
 ASN1_DEF_VECTOR(int8, const int8_t);
 ASN1_DEF_VECTOR(uint8, const uint8_t);
@@ -121,48 +132,55 @@ ASN1_DEF_VECTOR(lstr, const lstr_t);
 ASN1_DEF_VECTOR(bit_string, const asn1_bit_string_t);
 ASN1_DEF_VECTOR(ext, const asn1_ext_t);
 ASN1_DEF_VECTOR(void, void);
-#define ASN1_VECTOR(ctype_t, dt, ln)  (ctype_t){ .data = dt, .len = ln }
-#define ASN1_SVECTOR(ctype_t, dt) \
-    ASN1_VECTOR(ctype_t, dt, sizeof(dt) / sizeof(ctype_t))
+#  define ASN1_VECTOR(ctype_t, dt, ln)                                       \
+      (ctype_t)                                                              \
+      {                                                                      \
+          .data = dt, .len = ln                                              \
+      }
+#  define ASN1_SVECTOR(ctype_t, dt)                                          \
+      ASN1_VECTOR(ctype_t, dt, sizeof(dt) / sizeof(ctype_t))
 
-#define ASN1_BIT_STRING(dt, bln) \
-    (asn1_bit_string_t){ .data = dt, .bit_len = bln }
-#define ASN1_BIT_STRING_NULL        ASN1_BIT_STRING(NULL, 0)
+#  define ASN1_BIT_STRING(dt, bln)                                           \
+      (asn1_bit_string_t)                                                    \
+      {                                                                      \
+          .data = dt, .bit_len = bln                                         \
+      }
+#  define ASN1_BIT_STRING_NULL ASN1_BIT_STRING(NULL, 0)
 
-#define ASN1_ARRAY_OF(ctype_t)        ASN1_VECTOR_OF(ctype_t *)
-#define ASN1_ARRAY_TYPE(sfx)          asn1_##sfx##_array_t
-#define ASN1_DEF_ARRAY(sfx, type_t) \
-    typedef ASN1_ARRAY_OF(type_t) ASN1_ARRAY_TYPE(sfx)
+#  define ASN1_ARRAY_OF(ctype_t) ASN1_VECTOR_OF(ctype_t *)
+#  define ASN1_ARRAY_TYPE(sfx) asn1_##sfx##_array_t
+#  define ASN1_DEF_ARRAY(sfx, type_t)                                        \
+      typedef ASN1_ARRAY_OF(type_t) ASN1_ARRAY_TYPE(sfx)
 ASN1_DEF_ARRAY(void, void);
 
-#define ASN1_EXT(pfx, ptr) \
-    ({                                                                           \
-        __attr_unused__                                                          \
-        const pfx##_t *_tmp = ptr;                                               \
-        (asn1_ext_t){                                                            \
-            .data = ptr,                                                         \
-            .desc = ASN1_GET_DESC(pfx)                                           \
-        };                                                                       \
-    })
+#  define ASN1_EXT(pfx, ptr)                                                 \
+      ({                                                                     \
+        __attr_unused__ const pfx##_t *_tmp = ptr;                           \
+        (asn1_ext_t){.data = ptr, .desc = ASN1_GET_DESC(pfx)};               \
+      })
 
-#define ASN1_EXT_CLEAR()  (asn1_ext_t){ .data = NULL }
+#  define ASN1_EXT_CLEAR()                                                   \
+      (asn1_ext_t)                                                           \
+      {                                                                      \
+          .data = NULL                                                       \
+      }
 
-#define ASN1_EXPLICIT(fld, val) \
-{                                             \
-    .fld = val,                               \
-}
+#  define ASN1_EXPLICIT(fld, val)                                            \
+      {                                                                      \
+          .fld = val,                                                        \
+      }
 
-#define ASN1_CHOICE(typ_fld, type, ...) \
-{                                             \
-    .typ_fld = type,                          \
-    {                                         \
-        __VA_ARGS__                           \
-    }                                         \
-}
+#  define ASN1_CHOICE(typ_fld, type, ...)                                    \
+      {                                                                      \
+          .typ_fld = type,                                                   \
+          {                                                                  \
+              __VA_ARGS__                                                    \
+          }                                                                  \
+      }
 
 /** \enum enum obj_type
-  * \brief Built-in types.
-  */
+ * \brief Built-in types.
+ */
 enum obj_type {
     /* Scalar types */
     ASN1_OBJ_TYPE(bool),
@@ -198,7 +216,7 @@ enum obj_type {
 };
 
 /** \enum asn1_object_mode
-  */
+ */
 enum obj_mode {
     ASN1_OBJ_MODE(MANDATORY),
     ASN1_OBJ_MODE(SEQ_OF),
@@ -209,7 +227,7 @@ enum obj_mode {
  *  \brief Size calculation function type.
  *  \return Size if OK, negative error code if something is wrong.
  */
-typedef int32_t (asn1_pack_size_f)(const void *data);
+typedef int32_t(asn1_pack_size_f)(const void *data);
 
 /** \typedef asn1_pack_t
  *  \brief Serialization function type.
@@ -223,15 +241,14 @@ typedef uint8_t *(asn1_pack_f)(uint8_t *dst, const void *data);
  *  \note Take a properly delimited input stream to unserialize
  *        ASN.1 frame.
  */
-typedef int (asn1_unpack_f)(pstream_t *value, mem_pool_t *mem_pool,
-                            void *out);
+typedef int(asn1_unpack_f)(pstream_t *value, mem_pool_t *mem_pool, void *out);
 
 /** \brief User side structure for opaque (user defined) mode callbacks.
  */
 typedef struct asn1_void_t {
     asn1_pack_size_f *pack_size;
-    asn1_pack_f      *pack;
-    asn1_unpack_f    *unpack;
+    asn1_pack_f *pack;
+    asn1_unpack_f *unpack;
 } asn1_void_t;
 
 /****************************/
@@ -239,8 +256,8 @@ typedef struct asn1_void_t {
 /****************************/
 
 /** \enum asn1_cstd_type
-  * \brief Constructed field type enumeration.
-  */
+ * \brief Constructed field type enumeration.
+ */
 enum asn1_cstd_type {
     ASN1_CSTD_TYPE_SEQUENCE,
     ASN1_CSTD_TYPE_CHOICE,
@@ -258,23 +275,23 @@ typedef union asn1_int_t {
  *     more than 64 bits integers
  */
 typedef struct asn1_int_info_t {
-    asn1_int_t    min;
-    asn1_int_t    max;
+    asn1_int_t min;
+    asn1_int_t max;
 
     /* Pre-processed information */
-    uint16_t      max_blen;      /* XXX needed only if fully constrained */
-    uint8_t       max_olen_blen; /* XXX needed only for max_blen > 16    */
-    uint64_t      d_max;         /* XXX needed only if fully constrained */
+    uint16_t max_blen;     /* XXX needed only if fully constrained */
+    uint8_t max_olen_blen; /* XXX needed only for max_blen > 16    */
+    uint64_t d_max;        /* XXX needed only if fully constrained */
 
     /* Extensions */
-    asn1_int_t    ext_min;
-    asn1_int_t    ext_max;
+    asn1_int_t ext_min;
+    asn1_int_t ext_max;
 
-    bool          has_min : 1;
-    bool          has_max : 1;
-    bool          extended : 1;
-    bool          has_ext_min : 1;
-    bool          has_ext_max : 1;
+    bool has_min : 1;
+    bool has_max : 1;
+    bool extended : 1;
+    bool has_ext_min : 1;
+    bool has_ext_max : 1;
 } asn1_int_info_t;
 
 static inline void asn1_int_info_set_min(asn1_int_info_t *info, int64_t min)
@@ -291,18 +308,19 @@ static inline void asn1_int_info_set_max(asn1_int_info_t *info, int64_t max)
 
 static inline void asn1_int_info_update(asn1_int_info_t *info, bool is_signed)
 {
-    if (!info)
+    if (!info) {
         return;
+    }
 
     if (!info->has_min || !info->has_max) {
         return;
     }
 
     if (is_signed) {
-        assert (info->min.i <= info->max.i);
+        assert(info->min.i <= info->max.i);
         info->d_max = info->max.i - info->min.i;
     } else {
-        assert (info->min.u <= info->max.u);
+        assert(info->min.u <= info->max.u);
         info->d_max = info->max.u - info->min.u;
     }
 
@@ -313,38 +331,34 @@ static inline void asn1_int_info_update(asn1_int_info_t *info, bool is_signed)
     }
 }
 
-
 GENERIC_INIT(asn1_int_info_t, asn1_int_info);
 
 static inline bool asn1_field_type_is_signed_int(enum obj_type type)
 {
-    return type == ASN1_OBJ_TYPE(int8_t) ||
-           type == ASN1_OBJ_TYPE(int16_t) ||
-           type == ASN1_OBJ_TYPE(int32_t) ||
-           type == ASN1_OBJ_TYPE(int64_t);
+    return type == ASN1_OBJ_TYPE(int8_t) || type == ASN1_OBJ_TYPE(int16_t) ||
+           type == ASN1_OBJ_TYPE(int32_t) || type == ASN1_OBJ_TYPE(int64_t);
 }
 
 static inline bool asn1_field_type_is_uint(enum obj_type type)
 {
     return type == ASN1_OBJ_TYPE(uint8_t) ||
            type == ASN1_OBJ_TYPE(uint16_t) ||
-           type == ASN1_OBJ_TYPE(uint32_t) ||
-           type == ASN1_OBJ_TYPE(uint64_t);
+           type == ASN1_OBJ_TYPE(uint32_t) || type == ASN1_OBJ_TYPE(uint64_t);
 }
 
 typedef struct asn1_cnt_info_t {
-    size_t        min;
-    size_t        max; /* XXX SIZE_MAX if infinity */
+    size_t min;
+    size_t max; /* XXX SIZE_MAX if infinity */
 
-    bool          extended;
-    size_t        ext_min;
-    size_t        ext_max; /* XXX SIZE_MAX if infinity */
+    bool extended;
+    size_t ext_min;
+    size_t ext_max; /* XXX SIZE_MAX if infinity */
 } asn1_cnt_info_t;
 
 static inline asn1_cnt_info_t *asn1_cnt_info_init(asn1_cnt_info_t *info)
 {
     p_clear(info, 1);
-    info->max     = SIZE_MAX;
+    info->max = SIZE_MAX;
     info->ext_max = SIZE_MAX;
 
     return info;
@@ -353,8 +367,8 @@ static inline asn1_cnt_info_t *asn1_cnt_info_init(asn1_cnt_info_t *info)
 typedef struct asn1_enum_info_t {
     /* XXX Enumeration values in canonical order (for both root values and
      * extended values). */
-    qv_t(i32)     values;
-    qv_t(i32)     ext_values;
+    qv_t(i32) values;
+    qv_t(i32) ext_values;
 
     /* Value to set when decoding an unknown extended value. */
     opt_i32_t ext_defval;
@@ -387,39 +401,39 @@ void asn1_enum_info_reg_ext_defval(asn1_enum_info_t *info, int32_t defval);
 /* }}} */
 
 /** \brief Define specification of an asn1 field.
-  * \note This structure is designed to be used only
-  *       with dedicated functions and macros.
-  */
+ * \note This structure is designed to be used only
+ *       with dedicated functions and macros.
+ */
 typedef struct {
-    const char     *name;      /**< API field type. */
-    const char     *oc_t_name; /**< C field type. */
+    const char *name;      /**< API field type. */
+    const char *oc_t_name; /**< C field type. */
 
-    uint32_t        tag;       /* TODO use uint8_t */
-    uint8_t         tag_len;   /* TODO remove      */
-    enum obj_mode   mode      : 7;
-    bool            pointed   : 1;
+    uint32_t tag;    /* TODO use uint8_t */
+    uint8_t tag_len; /* TODO remove      */
+    enum obj_mode mode : 7;
+    bool pointed : 1;
 
-    uint16_t        offset;
-    enum obj_type   type;
-    uint16_t        size;       /**< Message content structure size. */
+    uint16_t offset;
+    enum obj_type type;
+    uint16_t size; /**< Message content structure size. */
 
     union {
-        const struct asn1_desc_t   *comp;
-        asn1_void_t                 opaque;
+        const struct asn1_desc_t *comp;
+        asn1_void_t opaque;
     } u;
 
-    asn1_int_info_t             int_info;
-    asn1_cnt_info_t             str_info;
-    const asn1_enum_info_t     *enum_info;
+    asn1_int_info_t int_info;
+    asn1_cnt_info_t str_info;
+    const asn1_enum_info_t *enum_info;
 
     /* XXX SEQUENCE OF only */
-    asn1_cnt_info_t       seq_of_info;
+    asn1_cnt_info_t seq_of_info;
 
     /* Only for open type fields */
     /* XXX eg. type is <...>.&<...> */
-    bool                        is_open_type : 1;
-    bool                        is_extension : 1;
-    size_t                      open_type_buf_len;
+    bool is_open_type : 1;
+    bool is_extension : 1;
+    size_t open_type_buf_len;
 } asn1_field_t;
 
 static inline void asn1_field_init_info(asn1_field_t *field)
@@ -432,22 +446,22 @@ static inline void asn1_field_init_info(asn1_field_t *field)
 qvector_t(asn1_field, asn1_field_t);
 
 /** \brief Message descriptor.
-  */
+ */
 typedef struct asn1_desc_t {
-    qv_t(asn1_field)      fields;
-    size_t                size;
-    enum asn1_cstd_type   type;
+    qv_t(asn1_field) fields;
+    size_t size;
+    enum asn1_cstd_type type;
 
     /* XXX CHOICE only */
-    asn1_int_info_t       choice_info;
+    asn1_int_info_t choice_info;
 
     /* PER information */
-    qv_t(u16)             opt_fields;
-    uint16_t              ext_pos;
-    bool                  is_extended : 1;
+    qv_t(u16) opt_fields;
+    uint16_t ext_pos;
+    bool is_extended : 1;
 
     /* TODO add SEQUENCE OF into constructed type enum */
-    bool                  is_seq_of : 1;
+    bool is_seq_of : 1;
 } asn1_desc_t;
 
 static inline asn1_desc_t *asn1_desc_init(asn1_desc_t *desc)
@@ -469,7 +483,7 @@ GENERIC_DELETE(asn1_desc_t, asn1_desc);
 
 typedef struct asn1_choice_desc_t {
     asn1_desc_t desc;
-    uint8_t     choice_table[256];
+    uint8_t choice_table[256];
 } asn1_choice_desc_t;
 
 GENERIC_NEW_INIT(asn1_choice_desc_t, asn1_choice_desc);
@@ -490,16 +504,20 @@ struct asn1_descs_t {
 };
 extern __thread struct asn1_descs_t asn1_descs_g;
 
-int asn1_pack_size_(const void *st, const asn1_desc_t *desc,
-                    qv_t(i32) *stack);
-uint8_t *asn1_pack_(uint8_t *dst, const void *st, const asn1_desc_t *desc,
-                    qv_t(i32) *stack);
+int asn1_pack_size_(
+    const void *st, const asn1_desc_t *desc, qv_t(i32) *stack
+);
+uint8_t *asn1_pack_(
+    uint8_t *dst, const void *st, const asn1_desc_t *desc, qv_t(i32) *stack
+);
 
-int asn1_unpack_(pstream_t *ps, const asn1_desc_t *desc,
-                 mem_pool_t *mem_pool, void *st, bool copy);
+int asn1_unpack_(
+    pstream_t *ps, const asn1_desc_t *desc, mem_pool_t *mem_pool, void *st,
+    bool copy
+);
 
-static inline int t_asn1_unpack(pstream_t *ps, const asn1_desc_t *desc,
-                                void **out)
+static inline int
+t_asn1_unpack(pstream_t *ps, const asn1_desc_t *desc, void **out)
 {
     void *v;
 

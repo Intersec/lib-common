@@ -24,21 +24,34 @@ const char *t_pretty_token(iopc_tok_type_t token)
         return t_fmt("`%c`", token);
     }
     switch (token) {
-      case ITOK_EOF:           return "end of file";
-      case ITOK_IDENT:         return "identifier";
-      case ITOK_LSHIFT:        return "`<<`";
-      case ITOK_RSHIFT:        return "`>>`";
-      case ITOK_EXP:           return "`**`";
-      case ITOK_INTEGER:       return "integer";
-      case ITOK_DOUBLE:        return "double";
-      case ITOK_BOOL:          return "boolean";
-      case ITOK_STRING:        return "string";
-      case ITOK_COMMENT:       return "comment";
-      case ITOK_DOX_COMMENT:   return "doxygen comment";
-      case ITOK_ATTR:          return "attribute";
-      case ITOK_GEN_ATTR_NAME:
+    case ITOK_EOF:
+        return "end of file";
+    case ITOK_IDENT:
+        return "identifier";
+    case ITOK_LSHIFT:
+        return "`<<`";
+    case ITOK_RSHIFT:
+        return "`>>`";
+    case ITOK_EXP:
+        return "`**`";
+    case ITOK_INTEGER:
+        return "integer";
+    case ITOK_DOUBLE:
+        return "double";
+    case ITOK_BOOL:
+        return "boolean";
+    case ITOK_STRING:
+        return "string";
+    case ITOK_COMMENT:
+        return "comment";
+    case ITOK_DOX_COMMENT:
+        return "doxygen comment";
+    case ITOK_ATTR:
+        return "attribute";
+    case ITOK_GEN_ATTR_NAME:
         return "generic attribute name (namespaces:id)";
-      default:                 return "unknown token";
+    default:
+        return "unknown token";
     }
 }
 
@@ -53,8 +66,7 @@ iopc_path_t *iopc_path_parse(lstr_t name, sb_t *err)
         if (ps_get_ps_chr_and_skip(&ps, '.', &bit) < 0) {
             bit = ps;
             __ps_skip_upto(&ps, ps.s_end);
-        } else
-        if (ps_done(&ps)) {
+        } else if (ps_done(&ps)) {
             sb_sets(err, "trailing dot in package name");
             goto error;
         }
@@ -68,7 +80,7 @@ iopc_path_t *iopc_path_parse(lstr_t name, sb_t *err)
 
     return path;
 
-  error:
+error:
     iopc_path_delete(&path);
     return NULL;
 }
@@ -84,8 +96,9 @@ void iopc_path_join(const iopc_path_t *path, const char *sep, sb_t *buf)
     }
 }
 
-static char *iopc_path_join_cached(iopc_path_t *path, const char *sep,
-                                   const char *sfx, char **cache)
+static char *iopc_path_join_cached(
+    iopc_path_t *path, const char *sep, const char *sfx, char **cache
+)
 {
     if (!*cache) {
         SB_1k(buf);

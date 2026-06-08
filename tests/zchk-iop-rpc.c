@@ -31,13 +31,13 @@ typedef struct ctx_t {
 } ctx_t;
 
 static struct {
-    iop_env_t          *iop_env;
-    ichannel_t         *ic_aux;
-    ichannel_t         *ic_spawned;
-    int                 mode;
-    ic_status__t        status;
-    core__log_level__t  level;
-    ctx_t               ctx;
+    iop_env_t *iop_env;
+    ichannel_t *ic_aux;
+    ichannel_t *ic_spawned;
+    int mode;
+    ic_status__t status;
+    core__log_level__t level;
+    ctx_t ctx;
     int echo_rpc_answered;
     bool reply_callback_called;
     bool reply_callback_called_synchronously;
@@ -46,7 +46,7 @@ static struct {
     bool reply_status_is_abort;
     uint32_t last_user_version;
 } z_iop_rpc_g;
-#define _G  z_iop_rpc_g
+#define _G z_iop_rpc_g
 
 static void g_result_init(void)
 {
@@ -61,16 +61,16 @@ static void IOP_RPC_IMPL(core__core, log, set_root_level)
         ic_throw(ic, slot, core__core, log, set_root_level);
         return;
     }
-    ic_reply(NULL, slot, core__core, log, set_root_level,
-             .level = arg->level);
+    ic_reply(
+        NULL, slot, core__core, log, set_root_level, .level = arg->level
+    );
     arg->level++;
 }
 
 static void IOP_RPC_IMPL(core__core, log, reset_logger_level)
 {
     _G.sub_query_called = true;
-    ic_reply(NULL, slot, core__core, log, reset_logger_level,
-             .level = 0);
+    ic_reply(NULL, slot, core__core, log, reset_logger_level, .level = 0);
 }
 
 static void IOP_RPC_CB(core__core, log, reset_logger_level)
@@ -80,29 +80,31 @@ static void IOP_RPC_CB(core__core, log, reset_logger_level)
 static void IOP_RPC_IMPL(core__core, log, reset_root_level)
 {
     _G.sub_query_called = false;
-    ic_query2(ic, ic_msg_new(0), core__core, log, reset_logger_level,
-              .full_name = LSTR(""));
+    ic_query2(
+        ic, ic_msg_new(0), core__core, log, reset_logger_level,
+        .full_name = LSTR("")
+    );
 
     _G.reply_callback_called = false;
-    ic_reply(NULL, slot, core__core, log, reset_root_level,
-             .level = 0);
+    ic_reply(NULL, slot, core__core, log, reset_root_level, .level = 0);
 
     _G.reply_callback_called_synchronously = _G.reply_callback_called;
     _G.sub_query_called_synchronously = _G.sub_query_called;
 }
 
-#define RPC_CB()                                 \
-    do {                                         \
-        _G.status = status;                      \
-        _G.level = res ? res->level : INT32_MIN; \
-        _G.ctx = *acast(ctx_t, msg->priv);       \
+#define RPC_CB()                                                             \
+    do {                                                                     \
+        _G.status = status;                                                  \
+        _G.level = res ? res->level : INT32_MIN;                             \
+        _G.ctx = *acast(ctx_t, msg->priv);                                   \
     } while (0)
 
 static void IOP_RPC_CB(core__core, log, set_root_level)
 {
     if (_G.mode) {
-        __ic_forward_reply_to(ic, get_unaligned_cpu64(msg->priv),
-                              status, res, exn);
+        __ic_forward_reply_to(
+            ic, get_unaligned_cpu64(msg->priv), status, res, exn
+        );
     } else {
         RPC_CB();
     }
@@ -116,16 +118,18 @@ static void IOP_RPC_CB(core__core, log, reset_root_level)
     _G.level = res ? res->level : INT32_MIN;
 }
 
-
 static void IOP_RPC_IMPL(core__core, log, set_logger_level)
 {
-    IOP_RPC_T(core__core, log, set_root_level, args) v = {
+    IOP_RPC_T(core__core, log, set_root_level, args)
+    v = {
         .level = arg->level,
     };
 
     if (_G.mode) {
-        ic_query2_p(_G.ic_aux, ic_msg(uint64_t, slot),
-                    core__core, log, set_root_level, &v);
+        ic_query2_p(
+            _G.ic_aux, ic_msg(uint64_t, slot), core__core, log,
+            set_root_level, &v
+        );
     } else {
         ic_query_proxy(_G.ic_aux, slot, core__core, log, set_root_level, &v);
     }
@@ -140,7 +144,10 @@ static void IOP_RPC_CB(core__core, log, set_logger_level)
     do {                                                                     \
         ic_msg_t *ic_msg = ic_msg(ctx_t, .u = (_u));                         \
         int level = (_level);                                                \
-        IOP_RPC_T(core__core, log, _rpc, args) arg = { .level = level, };    \
+        IOP_RPC_T(core__core, log, _rpc, args)                               \
+        arg = {                                                              \
+            .level = level,                                                  \
+        };                                                                   \
                                                                              \
         g_result_init();                                                     \
         ic_msg->force_pack = (_force_pack);                                  \
@@ -159,16 +166,23 @@ static void IOP_RPC_CB(core__core, log, set_logger_level)
                                                                              \
         /* call with no error */                                             \
         RPC_CALL(__ic, _rpc, __force_pack, __force_dup, 1, 0xabcdef);        \
-        Z_ASSERT_EQ(_G.status, (ic_status__t)IC_MSG_OK,                      \
-                    "rpc returned bad status"_suffix);                       \
-        Z_ASSERT_EQ(_G.level, 1, "rpc returned bad result"_suffix);          \
-        Z_ASSERT_EQ(_G.ctx.u, 0xabcdefU, "rpc returned bad msg priv"_suffix);\
+        Z_ASSERT_EQ(                                                         \
+            _G.status, (ic_status__t)IC_MSG_OK,                              \
+            "rpc returned bad status" _suffix                                \
+        );                                                                   \
+        Z_ASSERT_EQ(_G.level, 1, "rpc returned bad result" _suffix);         \
+        Z_ASSERT_EQ(                                                         \
+            _G.ctx.u, 0xabcdefU, "rpc returned bad msg priv" _suffix         \
+        );                                                                   \
                                                                              \
         /* call with throw */                                                \
-        RPC_CALL(__ic, _rpc, __force_pack, __force_dup,                      \
-                 LOG_LEVEL_min - 1, 0);                                      \
-        Z_ASSERT_EQ(_G.status, (ic_status__t)IC_MSG_EXN,                     \
-                    "rpc returned bad status"_suffix);                       \
+        RPC_CALL(                                                            \
+            __ic, _rpc, __force_pack, __force_dup, LOG_LEVEL_min - 1, 0      \
+        );                                                                   \
+        Z_ASSERT_EQ(                                                         \
+            _G.status, (ic_status__t)IC_MSG_EXN,                             \
+            "rpc returned bad status" _suffix                                \
+        );                                                                   \
     } while (0)
 
 /* {{{ Reset logger level RPC */
@@ -182,7 +196,7 @@ static void IOP_RPC_CB(tstiop_rpc__rpc, test, echo)
 {
     echo_ctx_t *ctx = *acast(echo_ctx_t *, msg->priv);
 
-    assert (res != NULL);
+    assert(res != NULL);
     ctx->has_answer = true;
     ctx->received = res->i;
 }
@@ -244,9 +258,9 @@ z_start_server_ic(sockunion_t *su, int *port, el_t *server_ev)
 static inline void z_init_client_ic(ichannel_t *ic_client)
 {
     ic_init(ic_client);
-    ic_client->iop_env     = _G.iop_env;
-    ic_client->on_event    = &dummy_on_event;
-    ic_client->impl        = &ic_no_impl;
+    ic_client->iop_env = _G.iop_env;
+    ic_client->on_event = &dummy_on_event;
+    ic_client->impl = &ic_no_impl;
     ic_client->auto_reconn = false;
 }
 
@@ -281,9 +295,10 @@ z_connect_ics_and_wait(ichannel_t *ic_client, const sockunion_t *su)
     Z_HELPER_END;
 }
 
-static int
-z_connect_ics_from_addr_and_wait(el_t server_ev, ichannel_t *ic_client,
-                                 lstr_t remote_addr, bool restrict_fds)
+static int z_connect_ics_from_addr_and_wait(
+    el_t server_ev, ichannel_t *ic_client, lstr_t remote_addr,
+    bool restrict_fds
+)
 {
     z_init_client_ic(ic_client);
     ic_client->remote_addr = lstr_dup(remote_addr);
@@ -355,8 +370,10 @@ Z_GROUP_EXPORT(iop_rpc)
 
                 /* check behavior when ic->impl is null */
                 RPC_CALL(&ic, set_root_level, force_pack, force_dup, 0, 0);
-                Z_ASSERT_EQ(_G.status, (ic_status__t)IC_MSG_UNIMPLEMENTED,
-                            "rpc returned bad status");
+                Z_ASSERT_EQ(
+                    _G.status, (ic_status__t)IC_MSG_UNIMPLEMENTED,
+                    "rpc returned bad status"
+                );
 
                 ic_register(&impl, core__core, log, set_root_level);
                 ic_register(&impl, core__core, log, set_logger_level);
@@ -366,22 +383,29 @@ Z_GROUP_EXPORT(iop_rpc)
 
                 TEST_RPC_CALL(&ic, set_root_level, force_pack, force_dup, "");
 
-                ic_register_proxy(&impl_aux, core__core, log, set_root_level,
-                                  &ic);
-                TEST_RPC_CALL(_G.ic_aux, set_root_level, force_pack,
-                              force_dup, " for register proxy");
+                ic_register_proxy(
+                    &impl_aux, core__core, log, set_root_level, &ic
+                );
+                TEST_RPC_CALL(
+                    _G.ic_aux, set_root_level, force_pack, force_dup,
+                    " for register proxy"
+                );
                 ic_unregister(&impl_aux, core__core, log, set_root_level);
 
                 /* ic:set_logger_level --query_proxy--> ic_aux:set_root_level
                  */
                 ic_register(&impl_aux, core__core, log, set_root_level);
-                TEST_RPC_CALL(&ic, set_logger_level, force_pack, force_dup,
-                              " for query_proxy");
+                TEST_RPC_CALL(
+                    &ic, set_logger_level, force_pack, force_dup,
+                    " for query_proxy"
+                );
 
                 /* ic:set_logger_level --query--> ic_aux:set_root_level */
                 _G.mode = 1;
-                TEST_RPC_CALL(&ic, set_logger_level, force_pack, force_dup,
-                              " for forward reply");
+                TEST_RPC_CALL(
+                    &ic, set_logger_level, force_pack, force_dup,
+                    " for forward reply"
+                );
                 _G.mode = 0;
 
                 ic_unregister(&impl, core__core, log, set_root_level);
@@ -396,7 +420,8 @@ Z_GROUP_EXPORT(iop_rpc)
         ic_disconnect(_G.ic_aux);
         ic_wipe(&ic);
         ic_delete(&_G.ic_aux);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(ic_spawn_with_socketpair) {
         /* A process, in order to share an IC with one of its children, may
@@ -464,7 +489,8 @@ Z_GROUP_EXPORT(iop_rpc)
             qm_wipe(ic_cbs, &impl);
             ic_delete(&ic1);
         }
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(ic_local_async) {
         ichannel_t ic;
@@ -506,7 +532,8 @@ Z_GROUP_EXPORT(iop_rpc)
          * wiped.
          */
         el_loop_timeout(0);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(ic_hook_ctx) {
         /* Test that allocated hook contexts are properly wiped when ichannel
@@ -520,7 +547,8 @@ Z_GROUP_EXPORT(iop_rpc)
         ctx = ic_hook_ctx_new(2, 0);
 
         Z_ASSERT_P(ctx);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(ic_user_version, "iop-rpc: user version tests") {
         el_t server_ev;
@@ -529,7 +557,7 @@ Z_GROUP_EXPORT(iop_rpc)
         sockunion_t su = {
             .sin = {
                 .sin_family = AF_INET,
-                .sin_addr = { .s_addr = htonl(INADDR_LOOPBACK) },
+                .sin_addr = {.s_addr = htonl(INADDR_LOOPBACK)},
             }
         };
 
@@ -538,10 +566,12 @@ Z_GROUP_EXPORT(iop_rpc)
         /* Test to establish a connection between 2 ICs with compatible
          * versions. */
         _G.last_user_version = 0;
-        iop_env_set_ic_user_version(_G.iop_env, (ic_user_version_t) {
-            .current_version = 0xdeadbeef,
-            .check_cb = &check_user_version_true,
-        });
+        iop_env_set_ic_user_version(
+            _G.iop_env, (ic_user_version_t){
+                            .current_version = 0xdeadbeef,
+                            .check_cb = &check_user_version_true,
+                        }
+        );
 
         Z_HELPER_RUN(z_connect_ics_and_wait(&ic_client, &su));
 
@@ -557,10 +587,12 @@ Z_GROUP_EXPORT(iop_rpc)
         /* Now test to establish a connection between 2 ICs with incompatible
          * versions. */
         _G.last_user_version = 0;
-        iop_env_set_ic_user_version(_G.iop_env, (ic_user_version_t) {
-            .current_version = 0xdeadbeef,
-            .check_cb = &check_user_version_false,
-        });
+        iop_env_set_ic_user_version(
+            _G.iop_env, (ic_user_version_t){
+                            .current_version = 0xdeadbeef,
+                            .check_cb = &check_user_version_false,
+                        }
+        );
 
         Z_HELPER_RUN(z_connect_ics_and_wait(&ic_client, &su));
 
@@ -572,7 +604,8 @@ Z_GROUP_EXPORT(iop_rpc)
         ic_wipe(&ic_client);
         ic_delete(&_G.ic_spawned);
         el_unregister(&server_ev);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(ic_async_addr_resolution, "iop-rpc: async addr and connect") {
         t_scope;
@@ -585,7 +618,7 @@ Z_GROUP_EXPORT(iop_rpc)
         sockunion_t su = {
             .sin = {
                 .sin_family = AF_INET,
-                .sin_addr = { .s_addr = htonl(INADDR_LOOPBACK) },
+                .sin_addr = {.s_addr = htonl(INADDR_LOOPBACK)},
             }
         };
 
@@ -594,10 +627,12 @@ Z_GROUP_EXPORT(iop_rpc)
         /* 1. Test to establish a connection between 2 ICs with compatible
          * versions. */
         _G.last_user_version = 0;
-        iop_env_set_ic_user_version(_G.iop_env, (ic_user_version_t) {
-            .current_version = 0x01020304U,
-            .check_cb = &check_user_version_true,
-        });
+        iop_env_set_ic_user_version(
+            _G.iop_env, (ic_user_version_t){
+                            .current_version = 0x01020304U,
+                            .check_cb = &check_user_version_true,
+                        }
+        );
 
         Z_HELPER_RUN(z_start_server_ic(&su, &port, &server_ev));
 
@@ -605,8 +640,9 @@ Z_GROUP_EXPORT(iop_rpc)
          */
         sb_setf(&remote_addr, "%pL:%d", &host, port);
 
-        Z_HELPER_RUN(z_connect_ics_from_addr_and_wait(server_ev,
-            &ic_client, LSTR_SB_V(&remote_addr), true));
+        Z_HELPER_RUN(z_connect_ics_from_addr_and_wait(
+            server_ev, &ic_client, LSTR_SB_V(&remote_addr), true
+        ));
 
         /* Test to establish a connection using the asynchronous address
          * resolution on "localhost" before connecting to the "remote". */
@@ -637,7 +673,8 @@ Z_GROUP_EXPORT(iop_rpc)
         el_unregister(&server_ev);
 
         MODULE_RELEASE(thr);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(ic_invalid_addr_resolution, "iop-rpc: invalid DNS resolution") {
         ichannel_t ic_client;
@@ -680,7 +717,8 @@ Z_GROUP_EXPORT(iop_rpc)
         /* Cleanup */
         ic_wipe(&ic_client);
         MODULE_RELEASE(thr);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(ic_server_rpc_use_after_free) { /* {{{ */
         /* The IC server keeps raw iop_rpc_t descriptors in its `impl`
@@ -700,8 +738,9 @@ Z_GROUP_EXPORT(iop_rpc)
         SB_1k(err);
         iop_env_t *iop_env = iop_env_new();
         iop_dso_t *dso;
-        lstr_t path = t_lstr_fmt("%*pM/iop/zchk-tstiop-plugin" SO_FILEEXT,
-                                 LSTR_FMT_ARG(z_cmddir_g));
+        lstr_t path = t_lstr_fmt(
+            "%*pM/iop/zchk-tstiop-plugin" SO_FILEEXT, LSTR_FMT_ARG(z_cmddir_g)
+        );
         const iop_mod_t *mod;
         const iop_iface_alias_t *alias;
         const iop_rpc_t *fun;
@@ -712,8 +751,9 @@ Z_GROUP_EXPORT(iop_rpc)
         int pos;
 
         dso = iop_dso_open(iop_env, path.s, &err);
-        Z_ASSERT_P(dso, "cannot load plugin `%s`: %*pM", path.s,
-                   SB_FMT_ARG(&err));
+        Z_ASSERT_P(
+            dso, "cannot load plugin `%s`: %*pM", path.s, SB_FMT_ARG(&err)
+        );
 
         {
             iop_env_ctx_scope(iop_env, iop_env_ctx);
@@ -746,20 +786,24 @@ Z_GROUP_EXPORT(iop_rpc)
 
             pos = qm_find_safe(ic_cbs, ic.impl, cmd);
             Z_ASSERT_N(pos);
-            Z_ASSERT_LSTREQUAL(ic.impl->values[pos].rpc->name, LSTR("f"),
-                               "e->rpc must stay valid while the dispatch "
-                               "pins a ctx snapshot referencing its DSO");
+            Z_ASSERT_LSTREQUAL(
+                ic.impl->values[pos].rpc->name, LSTR("f"),
+                "e->rpc must stay valid while the dispatch "
+                "pins a ctx snapshot referencing its DSO"
+            );
             iop_env_ctx_release(guard);
         }
 
         ic_wipe(&ic);
         qm_wipe(ic_cbs, &impl);
         iop_env_delete(&iop_env);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
 
     MODULE_RELEASE(ic);
     iop_env_delete(&_G.iop_env);
-} Z_GROUP_END;
+}
+Z_GROUP_END;
 
 /* }}} */

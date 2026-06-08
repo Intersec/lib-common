@@ -19,8 +19,8 @@
 #include <lib-common/iop.h>
 
 iop_struct_t const iop__void__s = {
-    .fullname   = LSTR_IMMED("Void"),
+    .fullname = LSTR_IMMED("Void"),
     .fields_len = 0,
-    .size       = 0,
+    .size = 0,
 };
-iop_struct_t const * const iop__void__sp = &iop__void__s;
+iop_struct_t const *const iop__void__sp = &iop__void__s;

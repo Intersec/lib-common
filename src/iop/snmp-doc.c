@@ -23,10 +23,10 @@
 #include <lib-common/parseopt.h>
 
 static struct {
-    logger_t   logger;
-    bool       help;
+    logger_t logger;
+    bool help;
 } doc_g = {
-#define _G  doc_g
+#define _G doc_g
     .logger = LOGGER_INIT_INHERITS(NULL, "snmp-doc"),
 };
 
@@ -53,8 +53,11 @@ static lstr_t t_get_short_name(const lstr_t fullname)
     pstream_t obj_name = ps_initlstr(&name);
 
     if (ps_skip_afterlastchr(&obj_name, '.') < 0) {
-        logger_panic(&_G.logger, "fullname `%*pM` should be at least "
-                     "composed by `pkg.name`", LSTR_FMT_ARG(fullname));
+        logger_panic(
+            &_G.logger,
+            "fullname `%*pM` should be at least composed by `pkg.name`",
+            LSTR_FMT_ARG(fullname)
+        );
     }
     return LSTR_PS_V(&obj_name);
 }
@@ -63,7 +66,7 @@ static lstr_t t_get_name_full_up(const lstr_t fullname)
 {
     lstr_t out = t_lstr_dup(fullname);
 
-    for (int i = 0; i < out.len ; i++) {
+    for (int i = 0; i < out.len; i++) {
         out.v[i] = toupper((unsigned char)out.v[i]);
     }
     return out;
@@ -74,13 +77,12 @@ static lstr_t t_field_get_help(const iop_field_attrs_t *attrs)
     const iop_field_attr_t *attr = attrs->attrs;
 
     for (int i = 0; i < attrs->attrs_len; i++) {
-        if (attr[i].type == IOP_FIELD_ATTR_HELP
-        ||  attr[i].type == IOP_FIELD_ATTR_HELP_V2)
+        if (attr[i].type == IOP_FIELD_ATTR_HELP ||
+            attr[i].type == IOP_FIELD_ATTR_HELP_V2)
         {
             const iop_help_t *help = attr[i].args->v.p;
 
-            return t_lstr_cat3(help->brief, help->details,
-                               help->warning);
+            return t_lstr_cat3(help->brief, help->details, help->warning);
         }
     }
     return LSTR_EMPTY_V;
@@ -91,13 +93,12 @@ static lstr_t t_rpc_get_help(const iop_rpc_attrs_t *attrs)
     const iop_rpc_attr_t *attr = attrs->attrs;
 
     for (int i = 0; i < attrs->attrs_len; i++) {
-        if (attr[i].type == IOP_RPC_ATTR_HELP
-        ||  attr[i].type == IOP_RPC_ATTR_HELP_V2)
+        if (attr[i].type == IOP_RPC_ATTR_HELP ||
+            attr[i].type == IOP_RPC_ATTR_HELP_V2)
         {
             const iop_help_t *help = attr[i].args->v.p;
 
-            return t_lstr_cat3(help->brief, help->details,
-                               help->warning);
+            return t_lstr_cat3(help->brief, help->details, help->warning);
         }
     }
     return LSTR_EMPTY_V;
@@ -108,13 +109,12 @@ static lstr_t t_struct_get_help(const iop_struct_attrs_t *attrs)
     const iop_struct_attr_t *attr = attrs->attrs;
 
     for (int i = 0; i < attrs->attrs_len; i++) {
-        if (attr[i].type == IOP_STRUCT_ATTR_HELP
-        ||  attr[i].type == IOP_STRUCT_ATTR_HELP_V2)
+        if (attr[i].type == IOP_STRUCT_ATTR_HELP ||
+            attr[i].type == IOP_STRUCT_ATTR_HELP_V2)
         {
             const iop_help_t *help = attr[i].args->v.p;
 
-            return t_lstr_cat3(help->brief, help->details,
-                               help->warning);
+            return t_lstr_cat3(help->brief, help->details, help->warning);
         }
     }
     return LSTR_EMPTY_V;
@@ -139,9 +139,8 @@ static lstr_t t_field_get_help_without_dot(const iop_field_attrs_t *attrs)
     return help;
 }
 
-
-static const iop_field_t *iop_get_field_match_oid(const iop_struct_t *st,
-                                                  uint8_t tag)
+static const iop_field_t *
+iop_get_field_match_oid(const iop_struct_t *st, uint8_t tag)
 {
     for (int i = 0; i < st->fields_len; i++) {
         const iop_field_t *field = &st->fields[i];
@@ -153,14 +152,13 @@ static const iop_field_t *iop_get_field_match_oid(const iop_struct_t *st,
     logger_panic(&_G.logger, "no field matches wanted OID %u", tag);
 }
 
-
-static lstr_t t_struct_build_oid(qv_t(u16) oids,
-                                 const iop_struct_t *snmp_obj)
+static lstr_t t_struct_build_oid(qv_t(u16) oids, const iop_struct_t *snmp_obj)
 {
     t_SB(sb, 128);
 
-    assert (iop_struct_is_snmp_obj(snmp_obj) ||
-            iop_struct_is_snmp_tbl(snmp_obj));
+    assert(
+        iop_struct_is_snmp_obj(snmp_obj) || iop_struct_is_snmp_tbl(snmp_obj)
+    );
 
     do {
         qv_append(&oids, snmp_obj->snmp_attrs->oid);
@@ -172,8 +170,8 @@ static lstr_t t_struct_build_oid(qv_t(u16) oids,
     return LSTR_SB_V(&sb);
 }
 
-static lstr_t t_notif_build_oid(const iop_struct_t *notif,
-                                const iop_iface_t *parent)
+static lstr_t
+t_notif_build_oid(const iop_struct_t *notif, const iop_iface_t *parent)
 {
     qv_t(u16) oids;
 
@@ -184,8 +182,8 @@ static lstr_t t_notif_build_oid(const iop_struct_t *notif,
     return t_struct_build_oid(oids, parent->snmp_iface_attrs->parent);
 }
 
-static lstr_t t_field_build_oid(const iop_field_t *field,
-                                const iop_struct_t *parent)
+static lstr_t
+t_field_build_oid(const iop_field_t *field, const iop_struct_t *parent)
 {
     qv_t(u16) oids;
 
@@ -195,14 +193,14 @@ static lstr_t t_field_build_oid(const iop_field_t *field,
     return t_struct_build_oid(oids, parent);
 }
 
-static const
-iop_snmp_attrs_t *doc_field_get_snmp_attr(const iop_field_attrs_t attrs)
+static const iop_snmp_attrs_t *
+doc_field_get_snmp_attr(const iop_field_attrs_t attrs)
 {
     for (int i = 0; i < attrs.attrs_len; i++) {
         if (attrs.attrs[i].type == IOP_FIELD_SNMP_INFO) {
             iop_field_attr_arg_t const *arg = attrs.attrs[i].args;
 
-            return (iop_snmp_attrs_t*)arg->v.p;
+            return (iop_snmp_attrs_t *)arg->v.p;
         }
     }
     logger_panic(&_G.logger, "all snmpObj fields should have snmp attribute");
@@ -213,37 +211,43 @@ iop_snmp_attrs_t *doc_field_get_snmp_attr(const iop_field_attrs_t attrs)
 
 static void doc_put_alarms_header(sb_t *buf, lstr_t name_full_up)
 {
-    sb_addf(buf,
-            "=== +ALM-%*pM+: Alarms generated by the %*pM ===\n\n"
-            "[cols=\"1,4<asciidoc\",options=\"header\"]\n"
-            "|===\n"
-            "|Features No    | Description, Rationale and Notes\n",
-            LSTR_FMT_ARG(name_full_up), LSTR_FMT_ARG(name_full_up));
+    sb_addf(
+        buf,
+        "=== +ALM-%*pM+: Alarms generated by the %*pM ===\n\n"
+        "[cols=\"1,4<asciidoc\",options=\"header\"]\n"
+        "|===\n"
+        "|Features No    | Description, Rationale and Notes\n",
+        LSTR_FMT_ARG(name_full_up), LSTR_FMT_ARG(name_full_up)
+    );
 }
 
-static void doc_put_arg_field(sb_t *buf, const iop_field_t *field,
-                          const iop_struct_t *parent, uint16_t oid)
+static void doc_put_arg_field(
+    sb_t *buf, const iop_field_t *field, const iop_struct_t *parent,
+    uint16_t oid
+)
 {
     t_scope;
     lstr_t oid_str = t_field_build_oid(field, parent);
     lstr_t help;
 
     help = t_field_get_help_without_dot(
-               iop_get_field_attr_match_oid(parent, oid));
+        iop_get_field_attr_match_oid(parent, oid)
+    );
 
-    sb_addf(buf,
-            "- <<%*pM, %*pM>> (%*pM): %*pM",
-            LSTR_FMT_ARG(field->name), LSTR_FMT_ARG(field->name),
-            LSTR_FMT_ARG(oid_str), LSTR_FMT_ARG(help));
+    sb_addf(
+        buf, "- <<%*pM, %*pM>> (%*pM): %*pM", LSTR_FMT_ARG(field->name),
+        LSTR_FMT_ARG(field->name), LSTR_FMT_ARG(oid_str), LSTR_FMT_ARG(help)
+    );
 }
 
-static lstr_t doc_rpc_get_severity(const iop_iface_t *iface,
-                                   const iop_rpc_t *rpc)
+static lstr_t
+doc_rpc_get_severity(const iop_iface_t *iface, const iop_rpc_t *rpc)
 {
     iop_value_t val;
 
-    if (iop_rpc_get_gen_attr(iface, rpc, LSTR("snmp:severity"), IOP_T_STRING,
-                             NULL, &val) >= 0)
+    if (iop_rpc_get_gen_attr(
+            iface, rpc, LSTR("snmp:severity"), IOP_T_STRING, NULL, &val
+        ) >= 0)
     {
         return val.s;
     } else {
@@ -251,9 +255,10 @@ static lstr_t doc_rpc_get_severity(const iop_iface_t *iface,
     }
 }
 
-static void doc_put_rpc(sb_t *buf, int tag, lstr_t iface_name,
-                        const iop_rpc_t *rpc,
-                        const iop_iface_t *parent)
+static void doc_put_rpc(
+    sb_t *buf, int tag, lstr_t iface_name, const iop_rpc_t *rpc,
+    const iop_iface_t *parent
+)
 {
     t_scope;
     const iop_struct_t *st = rpc->args;
@@ -263,16 +268,17 @@ static void doc_put_rpc(sb_t *buf, int tag, lstr_t iface_name,
     lstr_t help = t_rpc_get_help(&parent->rpc_attrs[tag]);
     lstr_t severity = doc_rpc_get_severity(parent, rpc);
 
-    sb_addf(buf,
-            "| ALM-%*pM-%u |\n"
-            "*%*pM* (%*pM) +\n"
-            "\n%*pM +\n"
-            "\n*Severity:* %*pM.\n"
-            "\n*Parameters*\n\n",
-            LSTR_FMT_ARG(iface_name), st->snmp_attrs->oid,
-            LSTR_FMT_ARG(camelcase), LSTR_FMT_ARG(oid_str),
-            LSTR_FMT_ARG(help),
-            LSTR_FMT_ARG(severity));
+    sb_addf(
+        buf,
+        "| ALM-%*pM-%u |\n"
+        "*%*pM* (%*pM) +\n"
+        "\n%*pM +\n"
+        "\n*Severity:* %*pM.\n"
+        "\n*Parameters*\n\n",
+        LSTR_FMT_ARG(iface_name), st->snmp_attrs->oid,
+        LSTR_FMT_ARG(camelcase), LSTR_FMT_ARG(oid_str), LSTR_FMT_ARG(help),
+        LSTR_FMT_ARG(severity)
+    );
 
     if (st->fields_len == 0) {
         sb_adds(buf, "*No parameter*\n");
@@ -289,9 +295,10 @@ static void doc_put_rpc(sb_t *buf, int tag, lstr_t iface_name,
         }
 
         if (!(attr = iop_get_snmp_attrs(&st->fields_attrs[i]))) {
-            logger_panic(&_G.logger,
-                         "no snmp attribute found for field `%*pM`",
-                         LSTR_FMT_ARG(st->fields[i].name));
+            logger_panic(
+                &_G.logger, "no snmp attribute found for field `%*pM`",
+                LSTR_FMT_ARG(st->fields[i].name)
+            );
         }
         field_origin = iop_get_field_match_oid(attr->parent, attr->oid);
         doc_put_arg_field(buf, field_origin, attr->parent, attr->oid);
@@ -332,13 +339,14 @@ static void doc_put_alarms(sb_t *buf, const iop_pkg_t *pkg)
 
 static void doc_put_field_header(sb_t *buf)
 {
-    sb_adds(buf,
-            "[cols=\"<20s,20d,10d,40a\",options=\"header\"]\n"
-            "|===\n"
-            "|Object\n"
-            "|OID\n"
-            "|Type\n"
-            "|Description\n\n");
+    sb_adds(
+        buf, "[cols=\"<20s,20d,10d,40a\",options=\"header\"]\n"
+             "|===\n"
+             "|Object\n"
+             "|OID\n"
+             "|Type\n"
+             "|Description\n\n"
+    );
 }
 
 static void doc_put_tbl(sb_t *buf, const iop_struct_t *st)
@@ -352,14 +360,15 @@ static void doc_put_tbl(sb_t *buf, const iop_struct_t *st)
     t_qv_init(&oids, 16);
     oid = t_struct_build_oid(oids, st);
 
-    sb_addf(buf,
-            "|[[%*pM]]%*pM\n"
-            "|32436%*pM\n"
-            "|table\n"
-            "|%*pM\n\n",
-            LSTR_FMT_ARG(shortname), LSTR_FMT_ARG(shortname),
-            LSTR_FMT_ARG(oid),
-            LSTR_FMT_ARG(help));
+    sb_addf(
+        buf,
+        "|[[%*pM]]%*pM\n"
+        "|32436%*pM\n"
+        "|table\n"
+        "|%*pM\n\n",
+        LSTR_FMT_ARG(shortname), LSTR_FMT_ARG(shortname), LSTR_FMT_ARG(oid),
+        LSTR_FMT_ARG(help)
+    );
 }
 
 static void doc_put_field(sb_t *buf, int pos, const iop_struct_t *st)
@@ -372,25 +381,29 @@ static void doc_put_field(sb_t *buf, int pos, const iop_struct_t *st)
     lstr_t help;
 
     help = t_field_get_help_without_dot(
-               iop_get_field_attr_match_oid(st, snmp_attrs->oid));
+        iop_get_field_attr_match_oid(st, snmp_attrs->oid)
+    );
 
-    sb_addf(buf,
-            "|[[%*pM]]%*pM\n"
-            "|32436%*pM\n"
-            "|%s\n"
-            "|%*pM.\n\n",
-            LSTR_FMT_ARG(field->name), LSTR_FMT_ARG(field->name),
-            LSTR_FMT_ARG(oid),
-            iop_type_get_string_desc(field->type),
-            LSTR_FMT_ARG(help));
+    sb_addf(
+        buf,
+        "|[[%*pM]]%*pM\n"
+        "|32436%*pM\n"
+        "|%s\n"
+        "|%*pM.\n\n",
+        LSTR_FMT_ARG(field->name), LSTR_FMT_ARG(field->name),
+        LSTR_FMT_ARG(oid), iop_type_get_string_desc(field->type),
+        LSTR_FMT_ARG(help)
+    );
 
     if (field->type == IOP_T_ENUM) {
         const iop_enum_t *en = field->u1.en_desc;
 
         sb_adds(buf, "Possible values:\n\n");
         for (int i = 0; i < en->enum_len; i++) {
-            sb_addf(buf, "- %*pM (%d)\n",
-                    LSTR_FMT_ARG(en->names[i]), en->values[i]);
+            sb_addf(
+                buf, "- %*pM (%d)\n", LSTR_FMT_ARG(en->names[i]),
+                en->values[i]
+            );
         }
         sb_adds(buf, "\n\n");
     }
@@ -445,25 +458,28 @@ static popt_t popt_g[] = {
     OPT_END(),
 };
 
-static void doc_parseopt(int argc, char **argv, lstr_t *output_notif,
-                         lstr_t *output_object)
+static void doc_parseopt(
+    int argc, char **argv, lstr_t *output_notif, lstr_t *output_object
+)
 {
     const char *arg0 = NEXTARG(argc, argv);
 
     argc = parseopt(argc, argv, popt_g, 0);
     if (argc != 2 || _G.help) {
-        makeusage(_G.help ? EX_OK : EX_USAGE, arg0,
-                  "<output-notifications-file> <output-objects-file>",
-                  NULL, popt_g);
+        makeusage(
+            _G.help ? EX_OK : EX_USAGE, arg0,
+            "<output-notifications-file> <output-objects-file>", NULL, popt_g
+        );
     }
-    *output_notif  = LSTR(NEXTARG(argc, argv));
+    *output_notif = LSTR(NEXTARG(argc, argv));
     *output_object = LSTR(NEXTARG(argc, argv));
 }
 
 /* }}} */
 
-void iop_write_snmp_doc(sb_t *notif_sb, sb_t *object_sb,
-                        const qv_t(pkg) *pkgs)
+void iop_write_snmp_doc(
+    sb_t *notif_sb, sb_t *object_sb, const qv_t(pkg) *pkgs
+)
 {
     tab_for_each_entry(pkg, pkgs) {
         doc_put_alarms(notif_sb, pkg);
@@ -482,15 +498,18 @@ int iop_snmp_doc(int argc, char **argv, const qv_t(pkg) *pkgs)
     iop_write_snmp_doc(&notif_sb, &object_sb, pkgs);
 
     if (sb_write_file(&notif_sb, path_notif.s) < 0) {
-        logger_error(&_G.logger,
-                     "couldn't write SNMP notification doc file `%*pM`: %m",
-                     LSTR_FMT_ARG(path_notif));
+        logger_error(
+            &_G.logger,
+            "couldn't write SNMP notification doc file `%*pM`: %m",
+            LSTR_FMT_ARG(path_notif)
+        );
         return -1;
     }
     if (sb_write_file(&object_sb, path_object.s) < 0) {
-        logger_error(&_G.logger,
-                     "couldn't write SNMP object doc file `%*pM`: %m",
-                     LSTR_FMT_ARG(path_object));
+        logger_error(
+            &_G.logger, "couldn't write SNMP object doc file `%*pM`: %m",
+            LSTR_FMT_ARG(path_object)
+        );
         return -1;
     }
 

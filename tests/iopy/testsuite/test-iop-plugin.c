@@ -27,5 +27,7 @@
 
 IOP_EXPORT_PACKAGES_COMMON(0, NULL);
 
-IOP_EXPORT_PACKAGES(&test__pkg, &test__submodule__pkg, &tst1__pkg, &ic__pkg,
-                    &core__pkg, &testvoid__pkg);
+IOP_EXPORT_PACKAGES(
+    &test__pkg, &test__submodule__pkg, &tst1__pkg, &ic__pkg, &core__pkg,
+    &testvoid__pkg
+);

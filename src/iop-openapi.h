@@ -39,14 +39,14 @@ typedef struct iop_openapi_t iop_openapi_t;
  *                         route `/<route>/<iface_alias>/<rpc_name>`.
  * \return An IOP OpenAPI application.
  */
-iop_openapi_t * nonnull
-t_new_iop_openapi(const iop_env_ctx_t * nonnull iop_env_ctx,
-                  const lstr_t title, const lstr_t version,
-                  const iop_mod_t * nullable mod, const lstr_t route);
+iop_openapi_t *nonnull t_new_iop_openapi(
+    const iop_env_ctx_t *nonnull iop_env_ctx, const lstr_t title,
+    const lstr_t version, const iop_mod_t *nullable mod, const lstr_t route
+);
 
-void
-t_iop_openapi_set_description(iop_openapi_t * nonnull oa,
-                              const lstr_t description);
+void t_iop_openapi_set_description(
+    iop_openapi_t *nonnull oa, const lstr_t description
+);
 
 typedef enum openapi_security_type_t {
     OPENAPI_SECURITY_BASIC_HTTP,
@@ -61,13 +61,13 @@ typedef enum openapi_security_type_t {
  * the exposed URL will be:
  *  http://my.server.com:1337/route
  */
-void t_iop_openapi_set_server(iop_openapi_t * nonnull oa,
-                              const lstr_t server_url,
-                              const lstr_t description);
-void
-t_iop_openapi_set_security(iop_openapi_t * nonnull oa,
-                           const lstr_t name,
-                           openapi_security_type_t type);
+void t_iop_openapi_set_server(
+    iop_openapi_t *nonnull oa, const lstr_t server_url,
+    const lstr_t description
+);
+void t_iop_openapi_set_security(
+    iop_openapi_t *nonnull oa, const lstr_t name, openapi_security_type_t type
+);
 
 /** Whitelist an RPC in the IOP OpenaAPI application.
  *
@@ -78,20 +78,24 @@ t_iop_openapi_set_security(iop_openapi_t * nonnull oa,
  * \warning If this function is never called (so the whitelist is empty), all
  * RPCs will be exposed.
  */
-void t_iop_openapi_whitelist_rpc(iop_openapi_t * nonnull openapi,
-                                 const lstr_t fullname);
+void t_iop_openapi_whitelist_rpc(
+    iop_openapi_t *nonnull openapi, const lstr_t fullname
+);
 
 /** Add an IOP struct in the OpenAPI application.
  *
  * Its schema will be described in the app, as well as the schema of all
  * related IOP objects.
  */
-void t_iop_openapi_add_struct(iop_openapi_t * nonnull openapi,
-                              const iop_struct_t * nonnull st);
+void t_iop_openapi_add_struct(
+    iop_openapi_t *nonnull openapi, const iop_struct_t *nonnull st
+);
 
 /** Generate a YAML AST for the OpenAPI application. */
-int t_iop_openapi_to_yaml(iop_openapi_t * nonnull openapi,
-                          yaml_data_t * nonnull data, sb_t * nonnull err);
+int t_iop_openapi_to_yaml(
+    iop_openapi_t *nonnull openapi, yaml_data_t *nonnull data,
+    sb_t *nonnull err
+);
 
 MODULE_DECLARE(iop_openapi);
 

@@ -19,11 +19,12 @@
 #if !defined(IS_LIB_COMMON_THR_H) || defined(IS_LIB_COMMON_THR_MPSC_H)
 #  error "you must include thr.h instead"
 #else
-#define IS_LIB_COMMON_THR_MPSC_H
+#  define IS_LIB_COMMON_THR_MPSC_H
 
-#if !defined(__x86_64__) && !defined(__i386__)
-#  error "this file assumes a strict memory model and is probably buggy on !x86"
-#endif
+#  if !defined(__x86_64__) && !defined(__i386__)
+#    error                                                                   \
+        "this file assumes a strict memory model and is probably buggy on !x86"
+#  endif
 
 /*
  * This file provides an implementation of lock-free intrusive MPSC queue.
@@ -35,7 +36,7 @@
  * any time.
  */
 
-typedef struct mpsc_node_t  mpsc_node_t;
+typedef struct mpsc_node_t mpsc_node_t;
 typedef struct mpsc_queue_t mpsc_queue_t;
 typedef _Atomic(mpsc_node_t *) atomic_mpsc_node_t;
 
@@ -48,13 +49,13 @@ struct mpsc_node_t {
 /** \brief head of an mpsc queue.
  */
 struct mpsc_queue_t {
-    mpsc_node_t  head;
+    mpsc_node_t head;
     atomic_mpsc_node_t tail;
 };
 
 /** \brief static initializer for mpsc_queues.
  */
-#define MPSC_QUEUE_INIT(name)   { .tail = &(name).head }
+#  define MPSC_QUEUE_INIT(name) {.tail = &(name).head}
 
 /** \brief initializes an mpsc_queue.
  */
@@ -113,7 +114,7 @@ static inline bool mpsc_queue_push(mpsc_queue_t *q, mpsc_node_t *n)
  */
 typedef struct mpsc_it_t {
     mpsc_queue_t *q;
-    mpsc_node_t  *h;
+    mpsc_node_t *h;
 } mpsc_it_t;
 
 /** \brief initiates the iterator to start a drain.
@@ -155,7 +156,7 @@ static inline void mpsc_queue_drain_start(mpsc_it_t *it, mpsc_queue_t *q)
     it->h = atomic_load_explicit(&q->head.next, memory_order_acquire);
     atomic_store_explicit(&q->head.next, NULL, memory_order_relaxed);
     /* breaks if someone called mpsc_queue_drain_start with the queue empty */
-    assert (it->h);
+    assert(it->h);
 }
 
 /** \brief fast path of the drain.
@@ -172,10 +173,9 @@ static inline void mpsc_queue_drain_start(mpsc_it_t *it, mpsc_queue_t *q)
  *   up to the caller to do it.
  *   This node should NOT be freed, as mpsc_queue_drain_end will need it.
  */
-static inline
-mpsc_node_t *mpsc_queue_drain_fast(mpsc_it_t *it,
-                                   void (*doit)(mpsc_node_t *, data_t data),
-                                   data_t data)
+static inline mpsc_node_t *mpsc_queue_drain_fast(
+    mpsc_it_t *it, void (*doit)(mpsc_node_t *, data_t data), data_t data
+)
 {
     mpsc_node_t *h = it->h;
     mpsc_node_t *n;
@@ -193,20 +193,22 @@ mpsc_node_t *mpsc_queue_drain_fast(mpsc_it_t *it,
  * Do not use directly unless you want to override relax and know what you are
  * doing.
  */
-static inline
-bool __mpsc_queue_drain_end(mpsc_it_t *it, void (*freenode)(mpsc_node_t *),
-                            void (*relax)(void))
+static inline bool __mpsc_queue_drain_end(
+    mpsc_it_t *it, void (*freenode)(mpsc_node_t *), void (*relax)(void)
+)
 {
     mpsc_queue_t *q = it->q;
     mpsc_node_t *h = it->h;
     mpsc_node_t *hq = h;
 
-    if (h == atomic_load_explicit(&q->tail, memory_order_acquire)
-    &&  atomic_compare_exchange_strong(&q->tail, &hq, &q->head))
+    if (h == atomic_load_explicit(&q->tail, memory_order_acquire) &&
+        atomic_compare_exchange_strong(&q->tail, &hq, &q->head))
     {
         it->h = NULL;
     } else {
-        while (!(it->h = atomic_load_explicit(&h->next, memory_order_acquire))) {
+        while (
+            !(it->h = atomic_load_explicit(&h->next, memory_order_acquire)))
+        {
             if (relax) {
                 (*relax)();
             } else {
@@ -233,14 +235,13 @@ bool __mpsc_queue_drain_end(mpsc_it_t *it, void (*freenode)(mpsc_node_t *),
  *   true if the queue is really empty, in which case the drain is done, false
  *   else in which case the caller has to restart the drain.
  */
-#define mpsc_queue_drain_end(it, freenode) \
-    __mpsc_queue_drain_end(it, freenode, NULL)
-
+#  define mpsc_queue_drain_end(it, freenode)                                 \
+      __mpsc_queue_drain_end(it, freenode, NULL)
 
 /** \internal
  */
-static inline __attr_cold__
-bool mpsc_queue_pop_slow(mpsc_queue_t *q, mpsc_node_t *head, bool block)
+static inline __attr_cold__ bool
+mpsc_queue_pop_slow(mpsc_queue_t *q, mpsc_node_t *head, bool block)
 {
     mpsc_node_t *tail = atomic_load_explicit(&q->tail, memory_order_relaxed);
     mpsc_node_t *next;
@@ -258,7 +259,10 @@ bool mpsc_queue_pop_slow(mpsc_queue_t *q, mpsc_node_t *head, bool block)
         if (!block) {
             return false;
         }
-        while ((next = atomic_load_explicit(&head->next, memory_order_relaxed)) == NULL) {
+        while ((next = atomic_load_explicit(
+                    &head->next, memory_order_relaxed
+                )) == NULL)
+        {
             cpu_relax();
         }
     }
@@ -282,13 +286,18 @@ bool mpsc_queue_pop_slow(mpsc_queue_t *q, mpsc_node_t *head, bool block)
  */
 static inline mpsc_node_t *mpsc_queue_pop(mpsc_queue_t *q, bool block)
 {
-    mpsc_node_t *head = atomic_load_explicit(&q->head.next, memory_order_relaxed);
+    mpsc_node_t *head =
+        atomic_load_explicit(&q->head.next, memory_order_relaxed);
     mpsc_node_t *next;
 
-    if (head == NULL)
+    if (head == NULL) {
         return NULL;
+    }
 
-    if (likely(next = atomic_load_explicit(&head->next, memory_order_relaxed))) {
+    if (likely(
+            next = atomic_load_explicit(&head->next, memory_order_relaxed)
+        ))
+    {
         atomic_store_explicit(&q->head.next, next, memory_order_relaxed);
         return head;
     }

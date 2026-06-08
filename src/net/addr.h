@@ -19,32 +19,32 @@
 #if !defined(IS_LIB_COMMON_NET_H) || defined(IS_LIB_COMMON_NET_ADDR_H)
 #  error "you must include net.h instead"
 #else
-#define IS_LIB_COMMON_NET_ADDR_H
+#  define IS_LIB_COMMON_NET_ADDR_H
 
-#include <lib-common/el.h>
+#  include <lib-common/el.h>
 
 typedef struct addr_filter_t {
     union {
-      struct {
-        in_addr_t addr; /* 0 = 'any' */
-        in_addr_t mask;
-      } v4;
-      struct {
-        struct in6_addr addr;
-        struct in6_addr mask;
-      } v6;
+        struct {
+            in_addr_t addr; /* 0 = 'any' */
+            in_addr_t mask;
+        } v4;
+        struct {
+            struct in6_addr addr;
+            struct in6_addr mask;
+        } v6;
     } u;
-    uint16_t  port; /* 0 = 'any' */
+    uint16_t port; /* 0 = 'any' */
     sa_family_t family;
 } addr_filter_t;
 
 typedef union sockunion_t {
     struct sockaddr_storage ss;
-    struct sockaddr_in      sin;
-    struct sockaddr_in6     sin6;
-    struct sockaddr_un      sunix;
-    struct sockaddr         sa;
-    sa_family_t             family;
+    struct sockaddr_in sin;
+    struct sockaddr_in6 sin6;
+    struct sockaddr_un sunix;
+    struct sockaddr sa;
+    sa_family_t family;
 } sockunion_t;
 
 /** Structure containing the result of DNS resolution. */
@@ -63,30 +63,38 @@ typedef struct dns_resolv_res_t {
 typedef struct dns_resolv_ctx_t dns_resolv_ctx_t;
 
 /** Callback triggered when asynchronous DNS resolution has been performed. */
-typedef void (on_dns_result_f)(const dns_resolv_res_t * nonnull res,
-                               data_t priv);
-#ifdef __has_blocks
-typedef void (BLOCK_CARET on_dns_result_b)(
-    const dns_resolv_res_t * nonnull res);
-#endif
+typedef void(on_dns_result_f)(
+    const dns_resolv_res_t *nonnull res, data_t priv
+);
+#  ifdef __has_blocks
+typedef void(BLOCK_CARET on_dns_result_b)(const dns_resolv_res_t *nonnull
+                                              res);
+#  endif
 
-bool sockunion_equal(const sockunion_t * nonnull,
-                     const sockunion_t * nonnull);
+bool sockunion_equal(const sockunion_t *nonnull, const sockunion_t *nonnull);
 
-static inline int sockunion_getport(const sockunion_t * nonnull su)
+static inline int sockunion_getport(const sockunion_t *nonnull su)
 {
     switch (su->family) {
-      case AF_INET:  return ntohs(su->sin.sin_port);
-      case AF_INET6: return ntohs(su->sin6.sin6_port);
-      default:       return 0;
+    case AF_INET:
+        return ntohs(su->sin.sin_port);
+    case AF_INET6:
+        return ntohs(su->sin6.sin6_port);
+    default:
+        return 0;
     }
 }
-static inline void sockunion_setport(sockunion_t * nonnull su, int port)
+static inline void sockunion_setport(sockunion_t *nonnull su, int port)
 {
     switch (su->family) {
-      case AF_INET:  su->sin.sin_port   = htons(port); break;
-      case AF_INET6: su->sin6.sin6_port = htons(port); break;
-      default:       e_panic("should not happen");
+    case AF_INET:
+        su->sin.sin_port = htons(port);
+        break;
+    case AF_INET6:
+        su->sin6.sin6_port = htons(port);
+        break;
+    default:
+        e_panic("should not happen");
     }
 }
 
@@ -100,8 +108,9 @@ static inline void sockunion_setport(sockunion_t * nonnull su, int port)
  * \return length of string written in "buf"
  * \retval -1 on error
  */
-int sockunion_gethost(const sockunion_t * nonnull su, char * nonnull buf,
-                      int size);
+int sockunion_gethost(
+    const sockunion_t *nonnull su, char *nonnull buf, int size
+);
 
 /** Convert IPv4 and IPv6 addresses into a string.
  *
@@ -113,69 +122,75 @@ int sockunion_gethost(const sockunion_t * nonnull su, char * nonnull buf,
  * \return network address as a lstr_t
  * \return LSTR_NULL_V on error
  */
-lstr_t t_sockunion_gethost_lstr(const sockunion_t * nonnull su);
+lstr_t t_sockunion_gethost_lstr(const sockunion_t *nonnull su);
 
-static inline socklen_t sockunion_len(const sockunion_t * nonnull su)
+static inline socklen_t sockunion_len(const sockunion_t *nonnull su)
 {
     switch (su->family) {
-      case AF_INET:
+    case AF_INET:
         return sizeof(struct sockaddr_in);
-      case AF_INET6:
+    case AF_INET6:
         return sizeof(struct sockaddr_in6);
-      case AF_UNIX:
+    case AF_UNIX:
         /* XXX: the +1 isn't a bug, it's really what we mean
          *      it's to support linux abstract sockets
          */
-        return offsetof(struct sockaddr_un, sun_path)
-            + 1 + strlen(su->sunix.sun_path + 1);
-      default:
+        return offsetof(struct sockaddr_un, sun_path) + 1 +
+               strlen(su->sunix.sun_path + 1);
+    default:
         return (socklen_t)-1;
     }
 }
 
-static inline socklen_t sockunion_size(const sockunion_t * nonnull su)
+static inline socklen_t sockunion_size(const sockunion_t *nonnull su)
 {
     switch (su->family) {
-      case AF_INET:
+    case AF_INET:
         return sizeof(struct sockaddr_in);
-      case AF_INET6:
+    case AF_INET6:
         return sizeof(struct sockaddr_in6);
-      case AF_UNIX:
+    case AF_UNIX:
         return sizeof(struct sockaddr_un);
-      default:
+    default:
         return (socklen_t)-1;
     }
 }
 
-__attribute__((pure))
-uint32_t sockunion_hash(const sockunion_t * nonnull su);
+__attribute__((pure)) uint32_t sockunion_hash(const sockunion_t *nonnull su);
 
 /* This helper allows to iterate on an array of sockunion_t where each 'su'
  * can have different lengths (e.g. by mixing IPv4 and IPv6).
  */
-#define sockunion_for_each(su, sus, len)                                     \
-    for (typeof(sus) su = (sus), __su_start = su, __su_broken = su + (len);  \
-         __su_broken-- != __su_start;                                        \
-         su = (typeof(sus))((byte *)su + sockunion_len(su)))
+#  define sockunion_for_each(su, sus, len)                                   \
+      for (typeof(sus) su = (sus), __su_start = su,                          \
+                       __su_broken = su + (len);                             \
+           __su_broken-- != __su_start;                                      \
+           su = (typeof(sus))((byte *)su + sockunion_len(su)))
 
 /* -1 as defport means port is mandatory */
-int addr_parse_minport(pstream_t ps, pstream_t * nonnull host,
-                       in_port_t * nonnull port, int minport, int defport);
-static inline int addr_parse(pstream_t ps, pstream_t * nonnull host,
-                             in_port_t * nonnull port, int defport)
+int addr_parse_minport(
+    pstream_t ps, pstream_t *nonnull host, in_port_t *nonnull port,
+    int minport, int defport
+);
+static inline int addr_parse(
+    pstream_t ps, pstream_t *nonnull host, in_port_t *nonnull port,
+    int defport
+)
 {
     return addr_parse_minport(ps, host, port, 1, defport);
 }
-int addr_info(sockunion_t * nonnull, sa_family_t, pstream_t host, in_port_t);
-__must_check__ dns_resolv_ctx_t * nonnull
-addr_info_async(sa_family_t af, lstr_t host, in_port_t port,
-                on_dns_result_f * nonnull on_result_cb, data_t priv);
+int addr_info(sockunion_t *nonnull, sa_family_t, pstream_t host, in_port_t);
+__must_check__ dns_resolv_ctx_t *nonnull addr_info_async(
+    sa_family_t af, lstr_t host, in_port_t port,
+    on_dns_result_f *nonnull on_result_cb, data_t priv
+);
 
-#ifdef __has_blocks
-__must_check__ dns_resolv_ctx_t * nonnull
-addr_info_async_b(sa_family_t af, lstr_t host, in_port_t port,
-                  on_dns_result_b nonnull on_result_blk);
-#endif
+#  ifdef __has_blocks
+__must_check__ dns_resolv_ctx_t *nonnull addr_info_async_b(
+    sa_family_t af, lstr_t host, in_port_t port,
+    on_dns_result_b nonnull on_result_blk
+);
+#  endif
 
 /** Convert a TCP/IPv4, TCP/IPv6 or UNIX address into a string.
  *
@@ -195,25 +210,26 @@ addr_info_async_b(sa_family_t af, lstr_t host, in_port_t port,
  *
  * \return string allocated in t_stack
  */
-const char * nonnull t_addr_fmt(const sockunion_t * nonnull su,
-                                int * nullable slen);
-static inline lstr_t t_addr_fmt_lstr(const sockunion_t * nonnull su)
+const char *nonnull
+t_addr_fmt(const sockunion_t *nonnull su, int *nullable slen);
+static inline lstr_t t_addr_fmt_lstr(const sockunion_t *nonnull su)
 {
     int len;
     const char *s = t_addr_fmt(su, &len);
     return lstr_init_(s, len, MEM_STACK);
 }
 
-static inline int
-addr_parse_str(const char * nonnull s, pstream_t * nonnull host,
-               in_port_t * nonnull port, int defport)
+static inline int addr_parse_str(
+    const char *nonnull s, pstream_t *nonnull host, in_port_t *nonnull port,
+    int defport
+)
 {
     return addr_parse(ps_initstr(s), host, port, defport);
 }
 
-static inline int
-addr_info_str(sockunion_t * nonnull su, const char * nonnull host, int port,
-              int af)
+static inline int addr_info_str(
+    sockunion_t *nonnull su, const char *nonnull host, int port, int af
+)
 {
     return addr_info(su, af, ps_initstr(host), port);
 }
@@ -228,10 +244,11 @@ addr_info_str(sockunion_t * nonnull su, const char * nonnull host, int port,
  * \param[out] filter resulting filter.
  * \return -1 in case of error, 0 otherwise.
  */
-int addr_filter_build(lstr_t subnet, addr_filter_t * nonnull filter);
+int addr_filter_build(lstr_t subnet, addr_filter_t *nonnull filter);
 
-int addr_filter_matches(const addr_filter_t * nonnull filter,
-                        const sockunion_t * nonnull peer);
+int addr_filter_matches(
+    const addr_filter_t *nonnull filter, const sockunion_t *nonnull peer
+);
 
 /** Resolve an address.
  *
@@ -249,16 +266,16 @@ int addr_filter_matches(const addr_filter_t * nonnull filter,
  *
  * \return  0 if success, -1 if error
  */
-int addr_resolve2(const char * nonnull what, const lstr_t s,
-                  int minport, int defport,
-                  sockunion_t * nonnull out_su,
-                  pstream_t * nullable out_host,
-                  in_port_t * nullable out_port,
-                  sb_t * nullable err);
+int addr_resolve2(
+    const char *nonnull what, const lstr_t s, int minport, int defport,
+    sockunion_t *nonnull out_su, pstream_t *nullable out_host,
+    in_port_t *nullable out_port, sb_t *nullable err
+);
 
-static inline int
-addr_resolve_with_err(const char * nonnull what, const lstr_t s,
-                      sockunion_t * nonnull out, sb_t * nullable err)
+static inline int addr_resolve_with_err(
+    const char *nonnull what, const lstr_t s, sockunion_t *nonnull out,
+    sb_t *nullable err
+)
 {
     return addr_resolve2(what, s, 1, -1, out, NULL, NULL, err);
 }
@@ -276,12 +293,12 @@ addr_resolve_with_err(const char * nonnull what, const lstr_t s,
  * \return  the context for the resolution of the address on success, NULL
  *          otherwise
  */
-__must_check__ dns_resolv_ctx_t * nullable
-addr_resolve_async(const char * nullable what, const lstr_t s, int minport,
-                   int defport, on_dns_result_f * nonnull on_result_cb,
-                   sb_t * nullable err, data_t priv);
+__must_check__ dns_resolv_ctx_t *nullable addr_resolve_async(
+    const char *nullable what, const lstr_t s, int minport, int defport,
+    on_dns_result_f *nonnull on_result_cb, sb_t *nullable err, data_t priv
+);
 
-#ifdef __has_blocks
+#  ifdef __has_blocks
 
 /** Asynchronous resolution of an address with port generation (block way).
  *
@@ -296,21 +313,22 @@ addr_resolve_async(const char * nullable what, const lstr_t s, int minport,
  * \return  the context for the resolution of the address on success, NULL
  *          otherwise
  */
-__must_check__ dns_resolv_ctx_t * nullable
-addr_resolve_async_b(const char * nullable what, const lstr_t s, int minport,
-                     int defport, on_dns_result_b nonnull on_result_blk,
-                     sb_t * nullable err);
+__must_check__ dns_resolv_ctx_t *nullable addr_resolve_async_b(
+    const char *nullable what, const lstr_t s, int minport, int defport,
+    on_dns_result_b nonnull on_result_blk, sb_t *nullable err
+);
 
-#endif
+#  endif
 
 /** Getter on event loop handler currently used for the DNS resolution. */
-el_t nullable addr_get_dns_elh(dns_resolv_ctx_t * nonnull dns_ctx);
+el_t nullable addr_get_dns_elh(dns_resolv_ctx_t *nonnull dns_ctx);
 
 /** Cancel a pending asynchronous DNS resolution. */
 void addr_cancel_async_dns(dns_resolv_ctx_t * nullable * nonnull ctx);
 
-static inline int addr_resolve(const char * nonnull what, const lstr_t s,
-                               sockunion_t * nonnull out)
+static inline int addr_resolve(
+    const char *nonnull what, const lstr_t s, sockunion_t *nonnull out
+)
 {
     SB_1k(err);
 
@@ -330,9 +348,10 @@ static inline int addr_resolve(const char * nonnull what, const lstr_t s,
  * This function behaves like \fn addr_resolve() but sets the minport to 0 to
  * not force a non null port.
  */
-static inline int
-addr_source_resolve(const char * nonnull what, const lstr_t s,
-                    sockunion_t * nonnull out, sb_t * nullable err)
+static inline int addr_source_resolve(
+    const char *nonnull what, const lstr_t s, sockunion_t *nonnull out,
+    sb_t *nullable err
+)
 {
     pstream_t host;
     in_port_t port;
@@ -343,9 +362,9 @@ addr_source_resolve(const char * nonnull what, const lstr_t s,
     return 0;
 }
 
-#define HTTP_URL_CREDS_SIZE  128
-#define HTTP_URL_HOST_SIZE   128
-#define HTTP_URL_PATH_SIZE   512
+#  define HTTP_URL_CREDS_SIZE 128
+#  define HTTP_URL_HOST_SIZE 128
+#  define HTTP_URL_PATH_SIZE 512
 
 typedef struct http_url_t {
     char user[HTTP_URL_CREDS_SIZE];
@@ -366,7 +385,8 @@ typedef struct http_url_t {
  *
  * \return  0 if success, -1 if error
  */
-int parse_http_url(const char *nonnull url_path, bool allow_https,
-                   http_url_t *nonnull url);
+int parse_http_url(
+    const char *nonnull url_path, bool allow_https, http_url_t *nonnull url
+);
 
 #endif

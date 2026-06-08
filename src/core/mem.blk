@@ -21,14 +21,14 @@
 #  include <memcheck.h>
 #else
 #  define VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(...) ((void)0)
-#  define VALGRIND_CREATE_MEMPOOL(...)           ((void)0)
-#  define VALGRIND_DESTROY_MEMPOOL(...)          ((void)0)
-#  define VALGRIND_MAKE_MEM_DEFINED(...)         ((void)0)
-#  define VALGRIND_MAKE_MEM_NOACCESS(...)        ((void)0)
-#  define VALGRIND_MAKE_MEM_UNDEFINED(...)       ((void)0)
-#  define VALGRIND_MALLOCLIKE_BLOCK(...)         ((void)0)
-#  define VALGRIND_FREELIKE_BLOCK(...)           ((void)0)
-#  define VALGRIND_RESIZEINPLACE_BLOCK(...)      ((void)0)
+#  define VALGRIND_CREATE_MEMPOOL(...) ((void)0)
+#  define VALGRIND_DESTROY_MEMPOOL(...) ((void)0)
+#  define VALGRIND_MAKE_MEM_DEFINED(...) ((void)0)
+#  define VALGRIND_MAKE_MEM_NOACCESS(...) ((void)0)
+#  define VALGRIND_MAKE_MEM_UNDEFINED(...) ((void)0)
+#  define VALGRIND_MALLOCLIKE_BLOCK(...) ((void)0)
+#  define VALGRIND_FREELIKE_BLOCK(...) ((void)0)
+#  define VALGRIND_RESIZEINPLACE_BLOCK(...) ((void)0)
 #endif
 
 #include <malloc.h>
@@ -49,13 +49,13 @@ static struct {
     size_t malloc_trim_pad;
     el_t malloc_trim_cron;
 } core_mem_libc_g = {
-#define libc_g  core_mem_libc_g
+#define libc_g core_mem_libc_g
     .logger = LOGGER_INIT_INHERITS(NULL, "core-mem-libc"),
     .malloc_trim_pad = (10 << 20),
 };
 
-static void *libc_malloc(mem_pool_t *m, size_t size, size_t alignment,
-                         mem_flags_t flags)
+static void *
+libc_malloc(mem_pool_t *m, size_t size, size_t alignment, mem_flags_t flags)
 {
     void *res;
 
@@ -92,8 +92,10 @@ static void *libc_malloc(mem_pool_t *m, size_t size, size_t alignment,
     return res;
 }
 
-static void *libc_realloc(mem_pool_t *m, void *mem, size_t oldsize,
-                          size_t size, size_t alignment, mem_flags_t flags)
+static void *libc_realloc(
+    mem_pool_t *m, void *mem, size_t oldsize, size_t size, size_t alignment,
+    mem_flags_t flags
+)
 {
     byte *res = NULL;
 
@@ -129,8 +131,9 @@ static void *libc_realloc(mem_pool_t *m, void *mem, size_t oldsize,
         res = cpy;
     }
 
-    if (!(flags & MEM_RAW) && oldsize < size)
+    if (!(flags & MEM_RAW) && oldsize < size) {
         memset(res + oldsize, 0, size - oldsize);
+    }
     return res;
 }
 
@@ -142,17 +145,16 @@ static void libc_free(mem_pool_t *m, void *p)
 }
 
 mem_pool_t mem_pool_libc = {
-    .malloc   = &libc_malloc,
-    .realloc  = &libc_realloc,
-    .free     = &libc_free,
+    .malloc = &libc_malloc,
+    .realloc = &libc_realloc,
+    .free = &libc_free,
     .mem_pool = MEM_LIBC | MEM_EFFICIENT_REALLOC,
     .min_alignment = sizeof(void *),
     .name = "mem-libc",
-    .pool_link = { NULL, NULL },
+    .pool_link = {NULL, NULL},
 };
 
-__attr_noreturn__
-void __imalloc_too_large(void)
+__attr_noreturn__ void __imalloc_too_large(void)
 {
     logger_panic(&libc_g.logger, "you cannot allocate that much memory");
 }
@@ -165,7 +167,7 @@ void __mem_alignment_unset(void)
 static void core_mem_libc_print_state(void)
 {
 #ifdef __GLIBC__
-# if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 10)
+#  if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 10)
     FILE *fstream;
     char *malloc_info_res = NULL;
     size_t malloc_info_res_size;
@@ -184,10 +186,12 @@ static void core_mem_libc_print_state(void)
     }
 
     fclose(fstream);
-    logger_notice(&libc_g.logger, "malloc status:\n%*pM",
-                  (int)malloc_info_res_size, malloc_info_res);
+    logger_notice(
+        &libc_g.logger, "malloc status:\n%*pM", (int)malloc_info_res_size,
+        malloc_info_res
+    );
     free(malloc_info_res);
-# endif
+#  endif
 #endif
 }
 
@@ -230,12 +234,13 @@ void core_mem_set_malloc_trim_period(int64_t period)
      * Randomly pick the first call to avoid that every daemon of a product
      * call it at the same time, causing a potential slowdown. */
     el_unregister(&libc_g.malloc_trim_cron);
-    libc_g.malloc_trim_cron = el_timer_register(next, period, EL_TIMER_LOWRES,
-                                                &malloc_trim_cron, NULL);
+    libc_g.malloc_trim_cron = el_timer_register(
+        next, period, EL_TIMER_LOWRES, &malloc_trim_cron, NULL
+    );
     el_unref(libc_g.malloc_trim_cron);
 }
 
-#define MALLOC_TRIM_PERIOD  (10 * 60 * 1000) /* 10 minutes. */
+#define MALLOC_TRIM_PERIOD (10 * 60 * 1000) /* 10 minutes. */
 
 static int core_mem_libc_initialize(void *arg)
 {
@@ -250,18 +255,19 @@ static int core_mem_libc_shutdown(void)
     return 0;
 }
 
-static MODULE_BEGIN(core_mem_libc)
+static MODULE_DEFINE(core_mem_libc)
+{
     MODULE_DEPENDS_ON(el);
     MODULE_IMPLEMENTS_VOID(print_state, &core_mem_libc_print_state);
-MODULE_END()
+}
 
 /* }}} */
 /* Libc cacheline aligned allocator {{{ */
 
 mem_pool_t mem_pool_cl_aligned = {
-    .malloc   = &libc_malloc,
-    .realloc  = &libc_realloc,
-    .free     = &libc_free,
+    .malloc = &libc_malloc,
+    .realloc = &libc_realloc,
+    .free = &libc_free,
     .mem_pool = MEM_OTHER | MEM_EFFICIENT_REALLOC,
     .min_alignment = CACHE_LINE_SIZE
 };
@@ -269,14 +275,17 @@ mem_pool_t mem_pool_cl_aligned = {
 /* }}} */
 /* Static allocator {{{ */
 
-static void *static_malloc(mem_pool_t *m, size_t size, size_t alignement,
-                           mem_flags_t flags)
+static void *static_malloc(
+    mem_pool_t *m, size_t size, size_t alignement, mem_flags_t flags
+)
 {
     e_panic("allocation not possible on the static pool");
 }
 
-static void *static_realloc(mem_pool_t *m, void *mem, size_t oldsize,
-                            size_t size, size_t alignment, mem_flags_t flags)
+static void *static_realloc(
+    mem_pool_t *m, void *mem, size_t oldsize, size_t size, size_t alignment,
+    mem_flags_t flags
+)
 {
     e_panic("reallocation is not possible on the static pool");
 }
@@ -286,9 +295,9 @@ static void static_free(mem_pool_t *m, void *p)
 }
 
 mem_pool_t mem_pool_static = {
-    .malloc  = &static_malloc,
+    .malloc = &static_malloc,
     .realloc = &static_realloc,
-    .free    = &static_free,
+    .free = &static_free,
     .mem_pool = MEM_STATIC | MEM_BY_FRAME,
     .min_alignment = 1,
     .realloc_fallback = &mem_pool_libc
@@ -300,13 +309,15 @@ mem_pool_t mem_pool_static = {
 void icheck_alloc(size_t size)
 {
     if (size > MEM_ALLOC_MAX) {
-        e_panic("you cannot allocate that amount of memory: %zu (max %llu)",
-                size, MEM_ALLOC_MAX);
+        e_panic(
+            "you cannot allocate that amount of memory: %zu (max %llu)", size,
+            MEM_ALLOC_MAX
+        );
     }
 }
 
-void *__mp_imalloc(mem_pool_t *mp, size_t size, size_t alignment,
-                   mem_flags_t flags)
+void *
+__mp_imalloc(mem_pool_t *mp, size_t size, size_t alignment, mem_flags_t flags)
 {
     void *res;
 
@@ -323,8 +334,10 @@ void *__mp_imalloc(mem_pool_t *mp, size_t size, size_t alignment,
     return res;
 }
 
-void *__mp_irealloc(mem_pool_t *mp, void *mem, size_t oldsize, size_t size,
-                    size_t alignment, mem_flags_t flags)
+void *__mp_irealloc(
+    mem_pool_t *mp, void *mem, size_t oldsize, size_t size, size_t alignment,
+    mem_flags_t flags
+)
 {
     void *res;
 
@@ -337,8 +350,10 @@ void *__mp_irealloc(mem_pool_t *mp, void *mem, size_t oldsize, size_t size,
 
     alignment = mem_bit_align(mp, alignment);
     if (!(flags & MEM_UNALIGN_OK)) {
-        assert ((uintptr_t)mem == mem_align_ptr((uintptr_t)mem, alignment)
-            &&  "reallocation must have the same alignment as allocation");
+        assert(
+            (uintptr_t)mem == mem_align_ptr((uintptr_t)mem, alignment) &&
+            "reallocation must have the same alignment as allocation"
+        );
     }
 
     res = (*mp->realloc)(mp, mem, oldsize, size, alignment, flags);
@@ -356,20 +371,21 @@ void mp_ifree(mem_pool_t *mp, void *mem)
     (*mp->free)(mp, mem);
 }
 
-void *__mp_irealloc_fallback(mem_pool_t **pmp, void *mem, size_t oldsize,
-                             size_t size, size_t alignment,
-                             mem_flags_t flags)
+void *__mp_irealloc_fallback(
+    mem_pool_t **pmp, void *mem, size_t oldsize, size_t size,
+    size_t alignment, mem_flags_t flags
+)
 {
     mem_pool_t *mp = *pmp;
 
-    assert (oldsize != MEM_UNKNOWN);
+    assert(oldsize != MEM_UNKNOWN);
     icheck_alloc(size);
     mp = mp ?: &mem_pool_libc;
 
     if (mp->realloc_fallback && size > oldsize) {
         void *out;
 
-        mp  = mp->realloc_fallback;
+        mp = mp->realloc_fallback;
         out = mp_imalloc(mp, size, alignment, flags);
         if (oldsize != MEM_UNKNOWN) {
             memcpy(out, mem, oldsize);
@@ -385,16 +401,16 @@ void *__mp_irealloc_fallback(mem_pool_t **pmp, void *mem, size_t oldsize,
 mem_pool_t *ipool(mem_flags_t flags)
 {
     switch (flags & MEM_POOL_MASK) {
-      case MEM_LIBC:
+    case MEM_LIBC:
         return &mem_pool_libc;
 
-      case MEM_STACK:
+    case MEM_STACK:
         return t_pool();
 
-      case MEM_STATIC:
+    case MEM_STATIC:
         return &mem_pool_static;
 
-      default:
+    default:
         e_panic("pool memory cannot be used with imalloc familly");
     }
 }
@@ -403,7 +419,7 @@ mem_pool_t *ipool(mem_flags_t flags)
 
 char *mp_vfmt(mem_pool_t *mp, int *lenp, const char *fmt, va_list va)
 {
-#define MP_FMT_LEN   1024
+#define MP_FMT_LEN 1024
     char *res;
     int len;
     va_list cpy;
@@ -445,28 +461,28 @@ bool mem_tool_is_running(unsigned tools)
     if (tools & MEM_TOOL_VALGRIND && RUNNING_ON_VALGRIND) {
         return true;
     }
-#ifdef __has_asan
+#  ifdef __has_asan
     if (tools & MEM_TOOL_ASAN) {
         return true;
     }
-#endif
+#  endif
     return false;
 }
 
 CC_WARNING_IGNORE_PUSH
 
-#if !__VALGRIND_PREREQ(3, 7)
+#  if !__VALGRIND_PREREQ(3, 7)
 CC_WARNING_IGNORE_UNUSED_BUT_SET_VARIABLE
-# define IGNORE_RET(expr)  ({ (expr); })
-#else
-# define IGNORE_RET(expr)  expr
-#endif
+#    define IGNORE_RET(expr) ({ (expr); })
+#  else
+#    define IGNORE_RET(expr) expr
+#  endif
 
-#ifndef VALGRIND_RESIZEINPLACE_BLOCK
-#  define VALGRIND_RESIZEINPLACE_BLOCK(...) ((void)0)
-#endif
+#  ifndef VALGRIND_RESIZEINPLACE_BLOCK
+#    define VALGRIND_RESIZEINPLACE_BLOCK(...) ((void)0)
+#  endif
 
-#ifdef __has_asan
+#  ifdef __has_asan
 
 // Marks memory region [addr, addr+size) as unaddressable.
 // This memory must be previously allocated by the user program. Accessing
@@ -486,10 +502,10 @@ void __asan_poison_memory_region(void const volatile *addr, size_t size);
 // (un)poison memory in the same memory region simultaneously.
 void __asan_unpoison_memory_region(void const volatile *addr, size_t size);
 
-#else
-# define __asan_poison_memory_region(...)
-# define __asan_unpoison_memory_region(...)
-#endif
+#  else
+#    define __asan_poison_memory_region(...)
+#    define __asan_unpoison_memory_region(...)
+#  endif
 
 void mem_tool_allow_memory(const void *mem, size_t len, bool defined)
 {
@@ -553,8 +569,9 @@ void mem_tool_freelike(const void *mem, size_t len, size_t rz)
     VALGRIND_FREELIKE_BLOCK(mem, rz);
 }
 
-void mem_tool_resize_block(const void *mem, size_t old_len, size_t new_len,
-                           size_t rz)
+void mem_tool_resize_block(
+    const void *mem, size_t old_len, size_t new_len, size_t rz
+)
 {
     if (!mem) {
         assert(false && "instrumentation error");
@@ -567,14 +584,16 @@ void mem_tool_resize_block(const void *mem, size_t old_len, size_t new_len,
     }
 
     if (new_len > old_len) {
-        __asan_unpoison_memory_region((const byte *)mem + old_len,
-                                      new_len - old_len);
+        __asan_unpoison_memory_region(
+            (const byte *)mem + old_len, new_len - old_len
+        );
         if (rz) {
             __asan_poison_memory_region((const byte *)mem + new_len, rz);
         }
     } else {
-        __asan_poison_memory_region((const byte *)mem + new_len,
-                                    old_len - new_len);
+        __asan_poison_memory_region(
+            (const byte *)mem + new_len, old_len - new_len
+        );
     }
 }
 
@@ -591,16 +610,18 @@ extern const char libcommon_id[];
 core_version_t core_versions_g[8];
 int core_versions_nb_g;
 
-void core_push_version(bool is_main_version, const char *name,
-                       const char *version, const char *git_revision)
+void core_push_version(
+    bool is_main_version, const char *name, const char *version,
+    const char *git_revision
+)
 {
     int ind = core_versions_nb_g++;
 
-    assert (ind < countof(core_versions_g));
+    assert(ind < countof(core_versions_g));
     core_versions_g[ind].is_main_version = is_main_version;
-    core_versions_g[ind].name            = name;
-    core_versions_g[ind].version         = version;
-    core_versions_g[ind].git_revision    = git_revision;
+    core_versions_g[ind].name = name;
+    core_versions_g[ind].version = version;
+    core_versions_g[ind].git_revision = git_revision;
 }
 
 dep_revision_t core_deps_revision_g[8];
@@ -610,18 +631,18 @@ void core_push_dep_revision(const char *dep_name, const char *dep_revision)
 {
     int dep_pos = core_deps_revision_nb_g;
 
-    assert (dep_pos < countof(core_deps_revision_g));
-    core_deps_revision_g[dep_pos].dep_name     = dep_name;
+    assert(dep_pos < countof(core_deps_revision_g));
+    core_deps_revision_g[dep_pos].dep_name = dep_name;
     core_deps_revision_g[dep_pos].dep_revision = dep_revision;
     core_deps_revision_nb_g++;
 }
 
 extern const char libcommon_git_revision[];
-__attribute__((constructor))
-static void core_versions_initialize(void)
+__attribute__((constructor)) static void core_versions_initialize(void)
 {
-    core_push_version(false, "lib-common", LIB_COMMON_VERSION,
-                      libcommon_git_revision);
+    core_push_version(
+        false, "lib-common", LIB_COMMON_VERSION, libcommon_git_revision
+    );
 
     /* check sanity of PAGE_SIZE */
     if (sysconf(_SC_PAGESIZE) != PAGE_SIZE) {
@@ -659,8 +680,9 @@ bool mem_pool_is_enabled(void)
 /* }}} */
 /* {{{ sb_add_still_alive_mem_pools() */
 
-void mem_pool_list_clean(dlist_t *list, const char *pool_type,
-                         spinlock_t *lock, logger_t *logger)
+void mem_pool_list_clean(
+    dlist_t *list, const char *pool_type, spinlock_t *lock, logger_t *logger
+)
 {
     SB_1k(buf);
     static int print_limit = 5;
@@ -691,8 +713,10 @@ void mem_pool_list_clean(dlist_t *list, const char *pool_type,
         if (nb_still_alive > print_limit) {
             sb_adds(&buf, ", ...");
         }
-        sb_prependf(&buf, "%'d %s pool(s) still alive at shutdown: ",
-                    nb_still_alive, pool_type);
+        sb_prependf(
+            &buf, "%'d %s pool(s) still alive at shutdown: ", nb_still_alive,
+            pool_type
+        );
         logger_warning(logger, "%*pM", SB_FMT_ARG(&buf));
     }
 }
@@ -710,11 +734,11 @@ static int core_mem_shutdown(void)
     return 0;
 }
 
-MODULE_BEGIN(core_mem)
+MODULE_DEFINE(core_mem) {
     MODULE_DEPENDS_ON(core_mem_libc);
     MODULE_DEPENDS_ON(core_mem_fifo);
     MODULE_DEPENDS_ON(core_mem_ring);
     MODULE_DEPENDS_ON(core_mem_stack);
-MODULE_END()
+}
 
 /* }}} */

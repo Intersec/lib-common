@@ -49,18 +49,29 @@ static popt_t popts[] = {
     OPT_FLAG('s', "stack", &settings.test_stack, "test stack allocator"),
     OPT_FLAG('f', "fifo", &settings.test_fifo, "test fifo allocator"),
     OPT_FLAG('c', "comp", &settings.compare, "also run the test with malloc"),
-    OPT_FLAG('w', "worst-case", &settings.worst_case,
-             "worst case test (fifo)"),
-    OPT_INT('n', "allocs", &settings.num_allocs,
-            "number of allocations made (default: 1 << 25)"),
-    OPT_INT('m', "max", &settings.max_allocated, "max number of"
-            " simultaneously allocated blocks (fifo only, default 10000)"),
-    OPT_INT('z', "size", &settings.max_alloc_size,
-            "max size of an allocation"),
-    OPT_INT('d', "depth", &settings.max_depth, "max stack height (stack only"
-            ", default 1500)"),
-    OPT_INT('r', "tries", &settings.num_tries, "number of retries (stack only"
-            ", default 100"),
+    OPT_FLAG(
+        'w', "worst-case", &settings.worst_case, "worst case test (fifo)"
+    ),
+    OPT_INT(
+        'n', "allocs", &settings.num_allocs,
+        "number of allocations made (default: 1 << 25)"
+    ),
+    OPT_INT(
+        'm', "max", &settings.max_allocated,
+        "max number of simultaneously allocated blocks (fifo only, "
+        "default 10000)"
+    ),
+    OPT_INT(
+        'z', "size", &settings.max_alloc_size, "max size of an allocation"
+    ),
+    OPT_INT(
+        'd', "depth", &settings.max_depth,
+        "max stack height (stack only, default 1500)"
+    ),
+    OPT_INT(
+        'r', "tries", &settings.num_tries,
+        "number of retries (stack only, default 100"
+    ),
     OPT_END(),
 };
 
@@ -83,8 +94,7 @@ static int benchmark_fifo_pool(mem_pool_t *mp)
 
     /* Real fifo behavior, one at a time */
     for (int i = 0; i < settings.num_allocs / 3; i++) {
-        byte *a = mp_new(mp, byte,
-                         rand() % settings.max_alloc_size);
+        byte *a = mp_new(mp, byte, rand() % settings.max_alloc_size);
 
         mp_ifree(mp, a);
     }
@@ -99,8 +109,7 @@ static int benchmark_fifo_pool(mem_pool_t *mp)
         if (table[chosen]) {
             mp_ifree(mp, table[chosen]);
         }
-        table[chosen] = mp_new(mp, byte,
-                               rand() % settings.max_alloc_size);
+        table[chosen] = mp_new(mp, byte, rand() % settings.max_alloc_size);
     }
 #ifdef MEM_BENCH
     mem_fifo_pools_print_stats();
@@ -113,8 +122,7 @@ static int benchmark_fifo_pool(mem_pool_t *mp)
         if (table[chosen]) {
             mp_ifree(mp, table[chosen]);
         }
-        table[chosen] = mp_new(mp, byte,
-                               rand() % settings.max_alloc_size);
+        table[chosen] = mp_new(mp, byte, rand() % settings.max_alloc_size);
     }
 #ifdef MEM_BENCH
     mem_fifo_pools_print_stats();
@@ -170,7 +178,7 @@ static int benchmark_fifo_worst_case_pool(mem_pool_t *mp)
  */
 static int benchmark_fifo_worst_case(void)
 {
-    mem_pool_t * mp = mem_fifo_pool_new(32 * 4096);
+    mem_pool_t *mp = mem_fifo_pool_new(32 * 4096);
     void *a = NULL;
     void *b = NULL;
 
@@ -220,7 +228,8 @@ static int recursive_memory_user(int depth)
 {
     t_scope;
     int size = rand() % MAX(2 * settings.num_allocs /
-                        (settings.num_tries * settings.max_depth), 1);
+                                (settings.num_tries * settings.max_depth),
+                            1);
     byte **mem = t_new_raw(byte *, size);
 
     for (int i = 0; i < size; i++) {
@@ -251,20 +260,21 @@ static int benchmark_stack(void)
 static int recursive_memory_user_malloc(int depth)
 {
     int size = rand() % MAX(2 * settings.num_allocs /
-                        (settings.num_tries * settings.max_depth), 1);
+                                (settings.num_tries * settings.max_depth),
+                            1);
     byte **mem = p_new_raw(byte *, size * 2);
 
-    for (int i = 0; i < size; i ++) {
+    for (int i = 0; i < size; i++) {
         mem[i] = p_new_raw(byte, rand() % settings.max_alloc_size);
     }
 
     if (likely(depth > 0)) {
         recursive_memory_user(depth - 1);
     }
-    for (int i = size; i < 2 * size; i ++) {
+    for (int i = size; i < 2 * size; i++) {
         mem[i] = p_new_raw(byte, rand() % settings.max_alloc_size);
     }
-    for (int i = 0; i < size; i ++) {
+    for (int i = 0; i < size; i++) {
         p_delete(&mem[i]);
     }
     p_delete(&mem);
@@ -273,7 +283,7 @@ static int recursive_memory_user_malloc(int depth)
 
 static int benchmark_stack_malloc(void)
 {
-    for (int i = 0; i < settings.num_tries; i ++) {
+    for (int i = 0; i < settings.num_tries; i++) {
         int depth = rand() % settings.max_depth;
 
         recursive_memory_user_malloc(depth);
@@ -290,7 +300,7 @@ static void random_recursive_func(int depth)
 {
     t_scope;
     int size = rand() % (2 * settings.num_allocs /
-                        (settings.num_tries * settings.max_depth));
+                         (settings.num_tries * settings.max_depth));
     byte **mem = t_new_raw(byte *, size);
     int threshold = 4100;
 
@@ -298,7 +308,7 @@ static void random_recursive_func(int depth)
         mem[i] = t_new_raw(byte, rand() % settings.max_alloc_size);
     }
 
-  retry:
+retry:
     if (depth >= settings.max_depth || rand() % 10000 < threshold) {
         return;
     } else {
@@ -319,15 +329,18 @@ static int benchmark_stack_random(void)
 
 /** Times the execution of a function
  */
-static void benchmark_func(int func(void), const char* message) {
+static void benchmark_func(int func(void), const char *message)
+{
     proctimer_t pt;
     int elapsed;
 
     proctimer_start(&pt);
     func();
     elapsed = proctimer_stop(&pt);
-    printf("%s done. Elapsed time: %d.%06d s\n", message, elapsed / 1000000,
-           elapsed % 1000000);
+    printf(
+        "%s done. Elapsed time: %d.%06d s\n", message, elapsed / 1000000,
+        elapsed % 1000000
+    );
 }
 
 int main(int argc, char **argv)
@@ -337,8 +350,8 @@ int main(int argc, char **argv)
     srand(time(NULL));
 
     argc = parseopt(argc, argv, popts, 0);
-    if (argc != 0 || settings.help
-    || (!settings.test_stack && !settings.test_fifo))
+    if (argc != 0 || settings.help ||
+        (!settings.test_stack && !settings.test_fifo))
     {
         makeusage(0, arg0, "", NULL, popts);
     }
@@ -346,23 +359,26 @@ int main(int argc, char **argv)
     if (settings.test_stack) {
         printf("Starting stack allocator test...\n");
         if (settings.worst_case) {
-            benchmark_func(benchmark_stack_random,
-                           "Worst-case stack allocator test.");
+            benchmark_func(
+                benchmark_stack_random, "Worst-case stack allocator test."
+            );
         } else {
             benchmark_func(benchmark_stack, "Stack allocator test");
             if (settings.compare) {
                 benchmark_func(benchmark_stack_malloc, "With malloc:");
             }
         }
-
     }
     if (settings.test_fifo) {
         printf("Starting fifo allocator test...\n");
         if (settings.worst_case) {
-            benchmark_func(benchmark_fifo_worst_case,
-                           "Worst-case fifo allocator test.");
+            benchmark_func(
+                benchmark_fifo_worst_case, "Worst-case fifo allocator test."
+            );
             if (settings.compare) {
-                benchmark_func(benchmark_fifo_worst_case_malloc, "With malloc:");
+                benchmark_func(
+                    benchmark_fifo_worst_case_malloc, "With malloc:"
+                );
             }
         } else {
             benchmark_func(benchmark_fifo, "Fifo allocator test");
@@ -374,4 +390,3 @@ int main(int argc, char **argv)
 
     return 0;
 }
-

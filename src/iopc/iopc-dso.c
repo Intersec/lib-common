@@ -26,7 +26,7 @@
 #include "iopc.fc.c"
 
 typeof(iopc_g) iopc_g = {
-    .logger       = LOGGER_INIT_INHERITS(NULL, "iopc"),
+    .logger = LOGGER_INIT_INHERITS(NULL, "iopc"),
     .class_id_min = 0,
     .class_id_max = 0xFFFF,
 };
@@ -34,11 +34,11 @@ typeof(iopc_g) iopc_g = {
 static struct {
     logger_t logger;
 } iopc_so_g = {
-#define _G  iopc_so_g
+#define _G iopc_so_g
     .logger = LOGGER_INIT_INHERITS(&iopc_g.logger, "dso"),
 };
 
-static int do_call(char * const argv[], sb_t *err)
+static int do_call(char *const argv[], sb_t *err)
 {
     pid_t pid;
 
@@ -70,8 +70,10 @@ static int do_call(char * const argv[], sb_t *err)
             return 0;
         }
         if (WIFSIGNALED(status)) {
-            sb_setf(err, "%s killed with signal %s", argv[0],
-                    strsignal(WTERMSIG(status)));
+            sb_setf(
+                err, "%s killed with signal %s", argv[0],
+                strsignal(WTERMSIG(status))
+            );
             return -1;
         }
     }
@@ -98,7 +100,7 @@ static int do_compile(const qv_t(str) *in, const char *out, sb_t *err)
     qv_append(&args, "-Wno-unused-parameter");
 
 #ifdef NDEBUG
-    qv_append(&args, "-s");                       /* strip DSO        */
+    qv_append(&args, "-s"); /* strip DSO        */
     qv_append(&args, "-O3");
 #else
     qv_append(&args, "-O0");
@@ -114,20 +116,20 @@ static int do_compile(const qv_t(str) *in, const char *out, sb_t *err)
     qv_append(&args, "-fno-strict-aliasing");
 
     qv_append(&args, "-o");
-    qv_append(&args, out);                        /* DSO output       */
+    qv_append(&args, out); /* DSO output       */
     tab_for_each_entry(s, in) {
         qv_append(&args, s);
     }
     qv_append(&args, NULL);
 
-    return do_call((char * const *)args.tab, err);
+    return do_call((char *const *)args.tab, err);
 }
 
-static int
-iopc_build(const char *pfxdir, bool display_pfx, const qm_t(iopc_env) *env,
-           const char *iopfile, const char *iopdata, const char *outdir,
-           bool is_main_pkg, lstr_t * nullable pkgname,
-           lstr_t * nullable pkgpath)
+static int iopc_build(
+    const char *pfxdir, bool display_pfx, const qm_t(iopc_env) *env,
+    const char *iopfile, const char *iopdata, const char *outdir,
+    bool is_main_pkg, lstr_t *nullable pkgname, lstr_t *nullable pkgpath
+)
 {
     t_scope;
     SB_1k(sb);
@@ -139,7 +141,7 @@ iopc_build(const char *pfxdir, bool display_pfx, const qm_t(iopc_env) *env,
     farch = t_farch_get_data(iopc_farch, "../../src/iop/internals.h");
     sb_add_lstr(&sb, farch);
 
-    iopc_g.prefix_dir     = pfxdir;
+    iopc_g.prefix_dir = pfxdir;
     iopc_g.display_prefix = display_pfx;
 
     iopc_do_c_g.resolve_includes = false;
@@ -181,7 +183,7 @@ iopc_build(const char *pfxdir, bool display_pfx, const qm_t(iopc_env) *env,
     iopc_parser_typer_shutdown();
     return 0;
 
-  error:
+error:
     iopc_parser_typer_shutdown();
     return -1;
 }
@@ -192,9 +194,10 @@ void iopc_dso_set_class_id_range(uint16_t class_id_min, uint16_t class_id_max)
     iopc_g.class_id_max = class_id_max;
 }
 
-int iopc_dso_build(const char *pfxdir, bool display_pfx,
-                   const char *iopfile, const qm_t(iopc_env) *env,
-                   const char *outdir, sb_t *err)
+int iopc_dso_build(
+    const char *pfxdir, bool display_pfx, const char *iopfile,
+    const qm_t(iopc_env) *env, const char *outdir, sb_t *err
+)
 {
     SB_1k(sb);
     SB_1k(local_err);
@@ -212,23 +215,24 @@ int iopc_dso_build(const char *pfxdir, bool display_pfx,
 
     path_extend(tmppath, outdir, "%s.%d.XXXXXX", filepart, getpid());
     if (!mkdtemp(tmppath)) {
-        sb_setf(err, "failed to create temporary directory %s: %m",
-                tmppath);
+        sb_setf(err, "failed to create temporary directory %s: %m", tmppath);
         return -1;
     }
 
     /* We'll get the error produced by iopc_build by using the log buffers. */
     log_start_buffering_filter(false, LOG_ERR);
 
-    if (iopc_build(pfxdir, display_pfx, env, iopfile, NULL, tmppath, true,
-                   &pkgname, &pkgpath) < 0)
+    if (iopc_build(
+            pfxdir, display_pfx, env, iopfile, NULL, tmppath, true, &pkgname,
+            &pkgpath
+        ) < 0)
     {
         goto iopc_build_error;
     }
 
     /* move json to outdir */
     path_extend(json_path, outdir, "%*pM.json", LSTR_FMT_ARG(pkgpath));
-    path_extend(path, tmppath, "%*pM.json",  LSTR_FMT_ARG(pkgpath));
+    path_extend(path, tmppath, "%*pM.json", LSTR_FMT_ARG(pkgpath));
     if (rename(path, json_path) < 0) {
         sb_setf(err, "failed to create json file `%s`: %m", json_path);
         return -1;
@@ -236,7 +240,7 @@ int iopc_dso_build(const char *pfxdir, bool display_pfx,
 
     qv_append(&sources, asprintf("-I%s", tmppath));
 
-    path_extend(path, tmppath, "%*pM.c",  LSTR_FMT_ARG(pkgpath));
+    path_extend(path, tmppath, "%*pM.c", LSTR_FMT_ARG(pkgpath));
     qv_append(&sources, p_strdup(path));
 
     sb_addf(&sb, "#include \"%*pM.h\"\n", LSTR_FMT_ARG(pkgpath));
@@ -252,8 +256,10 @@ int iopc_dso_build(const char *pfxdir, bool display_pfx,
         const char *depfile = env->keys[pos];
         const char *depdata = env->values[pos];
 
-        if (iopc_build(pfxdir, display_pfx, env, depfile, depdata, tmppath,
-                       false, NULL, NULL) < 0)
+        if (iopc_build(
+                pfxdir, display_pfx, env, depfile, depdata, tmppath, false,
+                NULL, NULL
+            ) < 0)
         {
             goto iopc_build_error;
         }
@@ -261,22 +267,25 @@ int iopc_dso_build(const char *pfxdir, bool display_pfx,
     log_stop_buffering();
 
     if (do_compile(&sources, so_path, &local_err) < 0) {
-        sb_setf(err, "failed to build `%s`: %*pM",
-                so_path, SB_FMT_ARG(&local_err));
+        sb_setf(
+            err, "failed to build `%s`: %*pM", so_path, SB_FMT_ARG(&local_err)
+        );
         ret = -1;
         goto end;
     }
-    logger_trace(&_G.logger, 1, "iop plugin %s successfully built from %s",
-                 so_path, iopfile);
+    logger_trace(
+        &_G.logger, 1, "iop plugin %s successfully built from %s", so_path,
+        iopfile
+    );
 
-  end:
+end:
     qv_deep_wipe(&sources, p_delete);
     lstr_wipe(&pkgname);
     lstr_wipe(&pkgpath);
     rmdir_r(tmppath, false);
     return ret;
 
-  iopc_build_error:
+iopc_build_error:
     log_buffer = log_stop_buffering();
     if (expect(log_buffer->len)) {
         sb_reset(err);
@@ -284,7 +293,9 @@ int iopc_dso_build(const char *pfxdir, bool display_pfx,
             if (!err->len) {
                 sb_add_lstr(err, log_buffer->tab[pos].msg);
             } else {
-                sb_addf(err, ": %*pM", LSTR_FMT_ARG(log_buffer->tab[pos].msg));
+                sb_addf(
+                    err, ": %*pM", LSTR_FMT_ARG(log_buffer->tab[pos].msg)
+                );
             }
         }
     } else {
@@ -306,8 +317,8 @@ static int iopc_dso_shutdown(void)
     return 0;
 }
 
-MODULE_BEGIN(iopc_dso)
+MODULE_DEFINE(iopc_dso) {
     MODULE_DEPENDS_ON(iopc);
-MODULE_END()
+}
 
 /* }}} */

@@ -172,76 +172,76 @@ int hpack_decode_int(pstream_t *in, uint8_t prefix_bits, uint32_t *val)
  * last char, len). */
 
 /* pseudo-header entries (keys) */
-#define STBL_TK_pAUTHORITY          ":authority", ':', 'y', 1
-#define STBL_TK_pMETHOD             ":method", ':', 'd', 2
-#define STBL_TK_pPATH               ":path", ':', 'h', 4
-#define STBL_TK_pSCHEME             ":scheme", ':', 'e', 6
-#define STBL_TK_pSTATUS             ":status", ':', 's', 8
+#define STBL_TK_pAUTHORITY ":authority", ':', 'y', 1
+#define STBL_TK_pMETHOD ":method", ':', 'd', 2
+#define STBL_TK_pPATH ":path", ':', 'h', 4
+#define STBL_TK_pSCHEME ":scheme", ':', 'e', 6
+#define STBL_TK_pSTATUS ":status", ':', 's', 8
 /* regular header entries (keys) */
-#define STBL_TK_ACCEPT_CHARSET      "accept-charset", 'a', 't', 15
-#define STBL_TK_ACCEPT_ENCODING     "accept-encoding", 'a', 'g', 16
-#define STBL_TK_ACCEPT_LANGUAGE     "accept-language", 'a', 'e', 17
-#define STBL_TK_ACCEPT_RANGES       "accept-ranges", 'a', 's', 18
-#define STBL_TK_ACCEPT              "accept", 'a', 't', 19
+#define STBL_TK_ACCEPT_CHARSET "accept-charset", 'a', 't', 15
+#define STBL_TK_ACCEPT_ENCODING "accept-encoding", 'a', 'g', 16
+#define STBL_TK_ACCEPT_LANGUAGE "accept-language", 'a', 'e', 17
+#define STBL_TK_ACCEPT_RANGES "accept-ranges", 'a', 's', 18
+#define STBL_TK_ACCEPT "accept", 'a', 't', 19
 #define STBL_TK_ACCESS_CONTROL_ALLOW_ORIGIN                                  \
-                                    "access-control-allow-origin", 'a','n', 20
-#define STBL_TK_AGE                 "age", 'a', 'e', 21
-#define STBL_TK_ALLOW               "allow", 'a', 'w', 22
-#define STBL_TK_AUTHORIZATION       "authorization", 'a', 'n', 23
-#define STBL_TK_CACHE_CONTROL       "cache-control", 'c', 'l', 24
+    "access-control-allow-origin", 'a', 'n', 20
+#define STBL_TK_AGE "age", 'a', 'e', 21
+#define STBL_TK_ALLOW "allow", 'a', 'w', 22
+#define STBL_TK_AUTHORIZATION "authorization", 'a', 'n', 23
+#define STBL_TK_CACHE_CONTROL "cache-control", 'c', 'l', 24
 #define STBL_TK_CONTENT_DISPOSITION "content-disposition", 'c', 'n', 25
-#define STBL_TK_CONTENT_ENCODING    "content-encoding", 'c', 'g', 26
-#define STBL_TK_CONTENT_LANGUAGE    "content-language", 'c', 'e', 27
-#define STBL_TK_CONTENT_LENGTH      "content-length", 'c', 'h', 28
-#define STBL_TK_CONTENT_LOCATION    "content-location", 'c', 'n', 29
-#define STBL_TK_CONTENT_RANGE       "content-range", 'c', 'e', 30
-#define STBL_TK_CONTENT_TYPE        "content-type", 'c', 'e', 31
-#define STBL_TK_COOKIE              "cookie", 'c', 'e', 32
-#define STBL_TK_DATE                "date", 'd', 'e', 33
-#define STBL_TK_ETAG                "etag", 'e', 'g', 34
-#define STBL_TK_EXPECT              "expect", 'e', 't', 35
-#define STBL_TK_EXPIRES             "expires", 'e', 's', 36
-#define STBL_TK_FROM                "from", 'f', 'm', 37
-#define STBL_TK_HOST                "host", 'h', 't', 38
-#define STBL_TK_IF_MATCH            "if-match", 'i', 'h', 39
-#define STBL_TK_IF_MODIFIED_SINCE   "if-modified-since", 'i', 'e', 40
-#define STBL_TK_IF_NONE_MATCH       "if-none-match", 'i', 'h', 41
-#define STBL_TK_IF_RANGE            "if-range", 'i', 'e', 42
+#define STBL_TK_CONTENT_ENCODING "content-encoding", 'c', 'g', 26
+#define STBL_TK_CONTENT_LANGUAGE "content-language", 'c', 'e', 27
+#define STBL_TK_CONTENT_LENGTH "content-length", 'c', 'h', 28
+#define STBL_TK_CONTENT_LOCATION "content-location", 'c', 'n', 29
+#define STBL_TK_CONTENT_RANGE "content-range", 'c', 'e', 30
+#define STBL_TK_CONTENT_TYPE "content-type", 'c', 'e', 31
+#define STBL_TK_COOKIE "cookie", 'c', 'e', 32
+#define STBL_TK_DATE "date", 'd', 'e', 33
+#define STBL_TK_ETAG "etag", 'e', 'g', 34
+#define STBL_TK_EXPECT "expect", 'e', 't', 35
+#define STBL_TK_EXPIRES "expires", 'e', 's', 36
+#define STBL_TK_FROM "from", 'f', 'm', 37
+#define STBL_TK_HOST "host", 'h', 't', 38
+#define STBL_TK_IF_MATCH "if-match", 'i', 'h', 39
+#define STBL_TK_IF_MODIFIED_SINCE "if-modified-since", 'i', 'e', 40
+#define STBL_TK_IF_NONE_MATCH "if-none-match", 'i', 'h', 41
+#define STBL_TK_IF_RANGE "if-range", 'i', 'e', 42
 #define STBL_TK_IF_UNMODIFIED_SINCE "if-unmodified-since", 'i', 'e', 43
-#define STBL_TK_LAST_MODIFIED       "last-modified", 'l', 'd', 44
-#define STBL_TK_LINK                "link", 'l', 'k', 45
-#define STBL_TK_LOCATION            "location", 'l', 'n', 46
-#define STBL_TK_MAX_FORWARDS        "max-forwards", 'm', 's', 47
-#define STBL_TK_PROXY_AUTHENTICATE  "proxy-authenticate", 'p', 'e', 48
+#define STBL_TK_LAST_MODIFIED "last-modified", 'l', 'd', 44
+#define STBL_TK_LINK "link", 'l', 'k', 45
+#define STBL_TK_LOCATION "location", 'l', 'n', 46
+#define STBL_TK_MAX_FORWARDS "max-forwards", 'm', 's', 47
+#define STBL_TK_PROXY_AUTHENTICATE "proxy-authenticate", 'p', 'e', 48
 #define STBL_TK_PROXY_AUTHORIZATION "proxy-authorization", 'p', 'n', 49
-#define STBL_TK_RANGE               "range", 'r', 'e', 50
-#define STBL_TK_REFERER             "referer", 'r', 'r', 51
-#define STBL_TK_REFRESH             "refresh", 'r', 'h', 52
-#define STBL_TK_RETRY_AFTER         "retry-after", 'r', 'r', 53
-#define STBL_TK_SERVER              "server", 's', 'r', 54
-#define STBL_TK_SET_COOKIE          "set-cookie", 's', 'e', 55
+#define STBL_TK_RANGE "range", 'r', 'e', 50
+#define STBL_TK_REFERER "referer", 'r', 'r', 51
+#define STBL_TK_REFRESH "refresh", 'r', 'h', 52
+#define STBL_TK_RETRY_AFTER "retry-after", 'r', 'r', 53
+#define STBL_TK_SERVER "server", 's', 'r', 54
+#define STBL_TK_SET_COOKIE "set-cookie", 's', 'e', 55
 #define STBL_TK_STRICT_TRANSPORT_SECURITY                                    \
-                                    "strict-transport-security", 's', 'y', 56
-#define STBL_TK_TRANSFER_ENCODING   "transfer-encoding", 't', 'g', 57
-#define STBL_TK_USER_AGENT          "user-agent", 'u', 't', 58
-#define STBL_TK_VARY                "vary", 'v', 'y', 59
-#define STBL_TK_VIA                 "via", 'v', 'a', 60
-#define STBL_TK_WWW_AUTHENTICATE    "www-authenticate", 'w', 'e', 61
+    "strict-transport-security", 's', 'y', 56
+#define STBL_TK_TRANSFER_ENCODING "transfer-encoding", 't', 'g', 57
+#define STBL_TK_USER_AGENT "user-agent", 'u', 't', 58
+#define STBL_TK_VARY "vary", 'v', 'y', 59
+#define STBL_TK_VIA "via", 'v', 'a', 60
+#define STBL_TK_WWW_AUTHENTICATE "www-authenticate", 'w', 'e', 61
 /* header values  */
-#define STBL_TK_GET                 "GET", 'G', 'T', 2
-#define STBL_TK_POST                "POST", 'P', 'T', 3
-#define STBL_TK_slash               "/", '/', '/', 4
-#define STBL_TK_sINDEXdHTML         "/index.html", '/', 'l', 5
-#define STBL_TK_HTTP                "http", 'h', 'p', 6
-#define STBL_TK_HTTPS               "https", 'h', 's', 7
-#define STBL_TK_200                 "200", '2', '0', 8
-#define STBL_TK_204                 "204", '2', '4', 9
-#define STBL_TK_206                 "206", '2', '6', 10
-#define STBL_TK_304                 "304", '3', '4', 11
-#define STBL_TK_400                 "400", '4', '0', 12
-#define STBL_TK_404                 "404", '4', '4', 13
-#define STBL_TK_500                 "500", '5', '0', 14
-#define STBL_TK_GZIP_DEFLATE        "gzip, deflate", 'g', 'e', 16
+#define STBL_TK_GET "GET", 'G', 'T', 2
+#define STBL_TK_POST "POST", 'P', 'T', 3
+#define STBL_TK_slash "/", '/', '/', 4
+#define STBL_TK_sINDEXdHTML "/index.html", '/', 'l', 5
+#define STBL_TK_HTTP "http", 'h', 'p', 6
+#define STBL_TK_HTTPS "https", 'h', 's', 7
+#define STBL_TK_200 "200", '2', '0', 8
+#define STBL_TK_204 "204", '2', '4', 9
+#define STBL_TK_206 "206", '2', '6', 10
+#define STBL_TK_304 "304", '3', '4', 11
+#define STBL_TK_400 "400", '4', '0', 12
+#define STBL_TK_404 "404", '4', '4', 13
+#define STBL_TK_500 "500", '5', '0', 14
+#define STBL_TK_GZIP_DEFLATE "gzip, deflate", 'g', 'e', 16
 
 #define EXPAND(...) __VA_ARGS__
 #define DEFER(id) id EXPAND()
@@ -274,8 +274,8 @@ int hpack_decode_int(pstream_t *in, uint8_t prefix_bits, uint32_t *val)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic error "-Woverride-init"
 
-#define STBL_ITEM_EMPTY_VAL(k) { LSTR_IMMED(TK_STR(k)), LSTR_EMPTY }
-#define STBL_ITEM(k, v) { LSTR_IMMED(TK_STR(k)), LSTR_IMMED(TK_STR(v)) }
+#define STBL_ITEM_EMPTY_VAL(k) {LSTR_IMMED(TK_STR(k)), LSTR_EMPTY}
+#define STBL_ITEM(k, v) {LSTR_IMMED(TK_STR(k)), LSTR_IMMED(TK_STR(v))}
 
 static const struct {
     lstr_t key;
@@ -354,8 +354,9 @@ static const struct {
 #define KEY_HASH_SLOTS 253
 #define KEY_HASH_EXP(b, e, len) ((b) + 16u * (e) + 38u * (len) + (b == 'd'))
 #define KEY_HASH(k)                                                          \
-    KEY_HASH_EXP((unsigned)TK_BEG(k), (unsigned)TK_END(k),                   \
-                 (unsigned)TK_LEN(k))
+    KEY_HASH_EXP(                                                            \
+        (unsigned)TK_BEG(k), (unsigned)TK_END(k), (unsigned)TK_LEN(k)        \
+    )
 #define KEY_HASH_ITEM(k) [KEY_HASH(k) % KEY_HASH_SLOTS] = TK_IDX(k)
 
 static uint8_t hpack_stbl_key_hash_g[KEY_HASH_SLOTS] = {
@@ -418,8 +419,8 @@ static int hpack_stbl_find_hdr_by_key(const lstr_t *key)
     unsigned len = key->len;
 
     if (len >= TK_MIN_KEY_LEN && len <= TK_MAX_KEY_LEN) {
-        unsigned b = tolower((unsigned char) key->s[0]);
-        unsigned e = tolower((unsigned char) key->s[len - 1]);
+        unsigned b = tolower((unsigned char)key->s[0]);
+        unsigned e = tolower((unsigned char)key->s[len - 1]);
         unsigned slot = KEY_HASH_EXP(b, e, len) % KEY_HASH_SLOTS;
         unsigned idx = hpack_stbl_key_hash_g[slot];
 
@@ -436,8 +437,9 @@ static int hpack_stbl_find_hdr_by_key(const lstr_t *key)
 #define VAL_HASH_SLOTS 31
 #define VAL_HASH_EXP(b, e, len) ((b) + 4u * (e) + (len))
 #define VAL_HASH(k)                                                          \
-    VAL_HASH_EXP((unsigned)TK_BEG(k), (unsigned)TK_END(k),                   \
-                 (unsigned)TK_LEN(k))
+    VAL_HASH_EXP(                                                            \
+        (unsigned)TK_BEG(k), (unsigned)TK_END(k), (unsigned)TK_LEN(k)        \
+    )
 #define VAL_HASH_ITEM(k) [VAL_HASH(k) % VAL_HASH_SLOTS] = TK_IDX(k)
 
 static const uint8_t hpack_stbl_val_hash_g[VAL_HASH_SLOTS] = {
@@ -506,8 +508,9 @@ static void hpack_enc_dtbl_ent_wipe(hpack_enc_dtbl_entry_t *e)
 {
 }
 
-RING_FUNCTIONS(hpack_enc_dtbl_entry_t, hpack_enc_dtbl,
-               hpack_enc_dtbl_ent_wipe)
+RING_FUNCTIONS(
+    hpack_enc_dtbl_entry_t, hpack_enc_dtbl, hpack_enc_dtbl_ent_wipe
+)
 
 hpack_enc_dtbl_t *hpack_enc_dtbl_init(hpack_enc_dtbl_t *dtbl)
 {
@@ -540,8 +543,9 @@ static void hpack_enc_dtbl_evict_last_entry(hpack_enc_dtbl_t *dtbl)
     }
     if (e.mre_val) {
         assert(e.key_id && e.val_id);
-        qm_del_key(hpack_insertion_idx, &dtbl->ins_idx,
-                   e.key_id | e.val_id << 16);
+        qm_del_key(
+            hpack_insertion_idx, &dtbl->ins_idx, e.key_id | e.val_id << 16
+        );
     }
 }
 
@@ -562,9 +566,10 @@ hpack_enc_dtbl_get_ent_at_ins(hpack_enc_dtbl_t *dtbl, uint32_t ins_idx)
     return hpack_enc_dtbl_ring_get_ptr(&dtbl->entries, idx);
 }
 
-void
-hpack_enc_dtbl_add_hdr(hpack_enc_dtbl_t *dtbl, lstr_t key, lstr_t val,
-                       uint16_t key_id, uint16_t val_id)
+void hpack_enc_dtbl_add_hdr(
+    hpack_enc_dtbl_t *dtbl, lstr_t key, lstr_t val, uint16_t key_id,
+    uint16_t val_id
+)
 {
     uint32_t pos;
     uint32_t ins_idx;
@@ -600,8 +605,9 @@ hpack_enc_dtbl_add_hdr(hpack_enc_dtbl_t *dtbl, lstr_t key, lstr_t val,
     if (!val_id) {
         return;
     }
-    pos = qm_reserve(hpack_insertion_idx, &dtbl->ins_idx,
-                     key_id | val_id << 16u, 0);
+    pos = qm_reserve(
+        hpack_insertion_idx, &dtbl->ins_idx, key_id | val_id << 16u, 0
+    );
     if (pos & QHASH_COLLISION) {
         pos &= ~QHASH_COLLISION;
         ins_idx = dtbl->ins_idx.values[pos];
@@ -610,8 +616,9 @@ hpack_enc_dtbl_add_hdr(hpack_enc_dtbl_t *dtbl, lstr_t key, lstr_t val,
     dtbl->ins_idx.values[pos] = dtbl->ins_cnt;
 }
 
-int hpack_enc_dtbl_find_hdr(hpack_enc_dtbl_t *dtbl, uint16_t key_id,
-                            uint16_t val_id)
+int hpack_enc_dtbl_find_hdr(
+    hpack_enc_dtbl_t *dtbl, uint16_t key_id, uint16_t val_id
+)
 {
     int pos;
     int idx;
@@ -643,8 +650,9 @@ static void hpack_dec_dtbl_ent_wipe(hpack_dec_dtbl_entry_t *e)
     lstr_wipe(&e->val);
 }
 
-RING_FUNCTIONS(hpack_dec_dtbl_entry_t, hpack_dec_dtbl,
-               hpack_dec_dtbl_ent_wipe)
+RING_FUNCTIONS(
+    hpack_dec_dtbl_entry_t, hpack_dec_dtbl, hpack_dec_dtbl_ent_wipe
+)
 
 hpack_dec_dtbl_t *hpack_dec_dtbl_init(hpack_dec_dtbl_t *dtbl)
 {
@@ -718,14 +726,15 @@ hpack_write_int(uint32_t n, uint8_t prefix_bits, uint8_t mask, byte *out)
 {
     int len;
 
-    len = hpack_encode_int( n, prefix_bits, out);
+    len = hpack_encode_int(n, prefix_bits, out);
     *out = mask | *out;
     return len;
 }
 
-int hpack_encoder_write_dts_update(hpack_enc_dtbl_t *nonnull dtbl,
-                                   uint32_t new_sz,
-                                   byte out[HPACK_BUFLEN_INT])
+int hpack_encoder_write_dts_update(
+    hpack_enc_dtbl_t *nonnull dtbl, uint32_t new_sz,
+    byte out[HPACK_BUFLEN_INT]
+)
 {
     int len;
 
@@ -752,9 +761,10 @@ static int hpack_write_str(lstr_t s, int zlen, byte *out_)
     return out - out_;
 }
 
-int hpack_encoder_write_hdr(hpack_enc_dtbl_t *nonnull dtbl, lstr_t key,
-                            lstr_t val, uint16_t key_id, uint16_t val_id,
-                            unsigned flags, byte *out_)
+int hpack_encoder_write_hdr(
+    hpack_enc_dtbl_t *nonnull dtbl, lstr_t key, lstr_t val, uint16_t key_id,
+    uint16_t val_id, unsigned flags, byte *out_
+)
 {
     t_scope;
     byte *out = out_;
@@ -813,8 +823,7 @@ encode:
      * forbidden by flags. */
     add_dtbl =
         (flags & HPACK_FLG_ADD_DTBL) ||
-        (key_id &&
-         !(flags & (HPACK_FLG_NVRADD_DTBL | HPACK_FLG_NOADD_DTBL)));
+        (key_id && !(flags & (HPACK_FLG_NVRADD_DTBL | HPACK_FLG_NOADD_DTBL)));
     if (!add_dtbl) {
         /* Literal Header Field Never Indexed or Without Indexing */
         prefix_bits = 4;
@@ -894,17 +903,20 @@ int hpack_decoder_read_dts_update_(hpack_dec_dtbl_t *dtbl, pstream_t *in)
         return LOGE("unable to decode the size of a dts update");
     }
     if (new_sz > dtbl->tbl_size_max) {
-        return LOGE("won't resize dtbl to %u beyond the max %u", new_sz,
-                    dtbl->tbl_size_max);
+        return LOGE(
+            "won't resize dtbl to %u beyond the max %u", new_sz,
+            dtbl->tbl_size_max
+        );
     }
     dtbl->tbl_size_limit = new_sz;
     hpack_dec_dtbl_resize(dtbl);
     return 1;
 }
 
-hpack_parser_status_t
-hpack_decoder_extract_hdr(hpack_dec_dtbl_t *dtbl, pstream_t *in,
-                          hpack_xhdr_t *xhdr, int *nonnull entry_len)
+hpack_parser_status_t hpack_decoder_extract_hdr(
+    hpack_dec_dtbl_t *dtbl, pstream_t *in, hpack_xhdr_t *xhdr,
+    int *nonnull entry_len
+)
 {
     uint32_t idx;
     bool new_val;
@@ -1010,8 +1022,9 @@ hpack_decoder_extract_hdr(hpack_dec_dtbl_t *dtbl, pstream_t *in,
     return HPACK_PARSER_STATUS_OK;
 }
 
-int hpack_decoder_write_hdr(hpack_dec_dtbl_t *dtbl, hpack_xhdr_t *xhdr,
-                            byte *out_, int *keylen)
+int hpack_decoder_write_hdr(
+    hpack_dec_dtbl_t *dtbl, hpack_xhdr_t *xhdr, byte *out_, int *keylen
+)
 {
     byte *out = out_;
     hpack_dec_dtbl_entry_t *ent = NULL;

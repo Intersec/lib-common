@@ -27,13 +27,19 @@ typedef xmlTextReaderPtr xml_reader_t;
 extern __thread xml_reader_t xmlr_g;
 
 enum xmlr_error {
-    XMLR_OK      = 0,
-    XMLR_ERROR   = -1,
+    XMLR_OK = 0,
+    XMLR_ERROR = -1,
     XMLR_NOCHILD = -2,
 };
 
-#define XMLR_CHECK(expr, on_err) \
-    ({ int __xres = (expr); if (unlikely(__xres < 0)) { on_err; } __xres; })
+#define XMLR_CHECK(expr, on_err)                                             \
+    ({                                                                       \
+        int __xres = (expr);                                                 \
+        if (unlikely(__xres < 0)) {                                          \
+            on_err;                                                          \
+        }                                                                    \
+        __xres;                                                              \
+    })
 
 /* \brief Initiates the parser with the content in the buffer.
  *
@@ -51,11 +57,10 @@ static inline void xmlr_delete(xml_reader_t *xrp)
     }
 }
 
-__attr_cold__
-int  xmlr_fail(xml_reader_t xr, const char *fmt, ...) __attr_printf__(2, 3);
+__attr_cold__ int
+xmlr_fail(xml_reader_t xr, const char *fmt, ...) __attr_printf__(2, 3);
 void xmlr_clear_err(void);
-__attr_cold__
-const char *xmlr_get_err(void);
+__attr_cold__ const char *xmlr_get_err(void);
 
 /* \brief Goes to the next node element (closing or opening)
  */
@@ -98,9 +103,9 @@ static inline int xmlr_node_is(xml_reader_t xr, const char *s, size_t len)
 {
     lstr_t name = LSTR_NULL_V;
 
-    return !RETHROW(xmlr_node_is_closing(xr))
-        && RETHROW(xmlr_node_get_local_name(xr, &name)) >= 0
-        && lstr_equal(name, LSTR_INIT_V(s, len));
+    return !RETHROW(xmlr_node_is_closing(xr)) &&
+           RETHROW(xmlr_node_get_local_name(xr, &name)) >= 0 &&
+           lstr_equal(name, LSTR_INIT_V(s, len));
 }
 static inline int xmlr_node_is_s(xml_reader_t xr, const char *s)
 {
@@ -109,8 +114,9 @@ static inline int xmlr_node_is_s(xml_reader_t xr, const char *s)
 
 static inline int xmlr_node_want(xml_reader_t xr, const char *s, size_t len)
 {
-    if (!xmlr_node_is(xr, s, len))
+    if (!xmlr_node_is(xr, s, len)) {
         return xmlr_fail(xr, "missing <%s> tag", s);
+    }
     return 0;
 }
 static inline int xmlr_node_want_s(xml_reader_t xr, const char *s)
@@ -118,9 +124,9 @@ static inline int xmlr_node_want_s(xml_reader_t xr, const char *s)
     return xmlr_node_want(xr, s, strlen(s));
 }
 
-#define XMLR_ENTER_MISSING_OK    (1U << 0)
-#define XMLR_ENTER_EMPTY_OK      (2U << 0)
-#define XMLR_ENTER_ALL_OK        (0xffffffff)
+#define XMLR_ENTER_MISSING_OK (1U << 0)
+#define XMLR_ENTER_EMPTY_OK (2U << 0)
+#define XMLR_ENTER_ALL_OK (0xffffffff)
 int xmlr_node_enter(xml_reader_t xr, const char *s, size_t len, int flags);
 static inline int xmlr_node_enter_s(xml_reader_t xr, const char *s, int flags)
 {
@@ -141,15 +147,17 @@ int xmlr_node_close(xml_reader_t xr);
 
 static inline int xmlr_node_close_n(xml_reader_t xr, size_t n)
 {
-    while (n-- > 0)
+    while (n-- > 0) {
         RETHROW(xmlr_node_close(xr));
+    }
     return 0;
 }
 
 static inline int xmlr_node_skip_s(xml_reader_t xr, const char *s, int flags)
 {
-    if (RETHROW(xmlr_node_enter_s(xr, s, flags)))
+    if (RETHROW(xmlr_node_enter_s(xr, s, flags))) {
         return xmlr_next_uncle(xr);
+    }
     return 0;
 }
 
@@ -159,7 +167,6 @@ static inline int xmlr_node_skip_until_s(xml_reader_t xr, const char *s)
     return xmlr_node_skip_until(xr, s, strlen(s));
 }
 
-
 /* \brief Get the current node value, and go to the next node.
  *
  * This function fails if the node has childen.
@@ -168,8 +175,9 @@ int xmlr_get_cstr_start(xml_reader_t xr, bool emptyok, lstr_t *out);
 int xmlr_get_cstr_done(xml_reader_t xr);
 
 int xmlr_get_strdup(xml_reader_t xr, bool emptyok, lstr_t *out);
-int mp_xmlr_get_strdup(mem_pool_t *mp, xml_reader_t xr,
-                       bool emptyok, lstr_t *out);
+int mp_xmlr_get_strdup(
+    mem_pool_t *mp, xml_reader_t xr, bool emptyok, lstr_t *out
+);
 int t_xmlr_get_str(xml_reader_t xr, bool emptyok, lstr_t *out);
 
 /** Get an integer value between minv and maxv.
@@ -177,8 +185,9 @@ int t_xmlr_get_str(xml_reader_t xr, bool emptyok, lstr_t *out);
  * This function get the current node value and go to the next node. It
  * accepts values depending on the base parameter (see man strtol).
  */
-int xmlr_get_int_range_base(xml_reader_t xr, int minv, int maxv, int base,
-                            int *ip);
+int xmlr_get_int_range_base(
+    xml_reader_t xr, int minv, int maxv, int base, int *ip
+);
 
 /** Get a signed integer value.
  *
@@ -210,8 +219,7 @@ xmlr_get_int_range(xml_reader_t xr, int minv, int maxv, int *ip)
  * This function get the current node value and go to the next node. It
  * accepts decimal values only.
  */
-static inline int
-xmlr_get_i64(xml_reader_t xr, int64_t *i64p)
+static inline int xmlr_get_i64(xml_reader_t xr, int64_t *i64p)
 {
     return xmlr_get_i64_base(xr, 10, i64p);
 }
@@ -221,8 +229,7 @@ xmlr_get_i64(xml_reader_t xr, int64_t *i64p)
  * This function get the current node value and go to the next node. It
  * accepts decimal values only.
  */
-static inline int
-xmlr_get_u64(xml_reader_t xr, uint64_t *u64p)
+static inline int xmlr_get_u64(xml_reader_t xr, uint64_t *u64p)
 {
     return xmlr_get_u64_base(xr, 10, u64p);
 }
@@ -246,9 +253,9 @@ int mp_xmlr_get_inner_xml(mem_pool_t *mp, xml_reader_t xr, lstr_t *out);
 
 /* attributes stuff */
 
-#define xmlr_for_each_attr(attr, xr) \
-    for (xmlAttrPtr attr = xmlTextReaderCurrentNode(xr)->properties; \
-         attr; attr = attr->next)
+#define xmlr_for_each_attr(attr, xr)                                         \
+    for (xmlAttrPtr attr = xmlTextReaderCurrentNode(xr)->properties; attr;   \
+         attr = attr->next)
 
 xmlAttrPtr
 xmlr_find_attr(xml_reader_t xr, const char *name, size_t len, bool needed);
@@ -260,40 +267,44 @@ xmlr_find_attr_s(xml_reader_t xr, const char *name, bool needed)
 
 /* \brief Get the current node attribute value.
  */
-int t_xmlr_getattr_str(xml_reader_t xr, xmlAttrPtr attr,
-                       bool nullok, lstr_t *out);
+int t_xmlr_getattr_str(
+    xml_reader_t xr, xmlAttrPtr attr, bool nullok, lstr_t *out
+);
 
 /** Get the current node attribute integer value between minv and maxv.
  *
  * This function accepts decimal values depending on the base parameter (see
  * man strtol).
  */
-int xmlr_getattr_int_range_base(xml_reader_t xr, xmlAttrPtr attr,
-                                int minv, int maxv, int base, int *ip);
+int xmlr_getattr_int_range_base(
+    xml_reader_t xr, xmlAttrPtr attr, int minv, int maxv, int base, int *ip
+);
 
 /** Get the current node attribute signed integer value.
  *
  * This function accepts decimal values depending on the base parameter (see
  * man strtol).
  */
-int xmlr_getattr_i64_base(xml_reader_t xr, xmlAttrPtr attr, int base,
-                          int64_t *i64p);
+int xmlr_getattr_i64_base(
+    xml_reader_t xr, xmlAttrPtr attr, int base, int64_t *i64p
+);
 
 /** Get the current node attribute unsigned integer value.
  *
  * This function accepts decimal values depending on the base parameter (see
  * man strtol).
  */
-int xmlr_getattr_u64_base(xml_reader_t xr, xmlAttrPtr attr, int base,
-                          uint64_t *u64p);
+int xmlr_getattr_u64_base(
+    xml_reader_t xr, xmlAttrPtr attr, int base, uint64_t *u64p
+);
 
 /** Get the current node attribute integer value between minv and maxv.
  *
  * This function accepts decimal values only.
  */
-static inline int
-xmlr_getattr_int_range(xml_reader_t xr, xmlAttrPtr attr, int minv, int maxv,
-                       int *ip)
+static inline int xmlr_getattr_int_range(
+    xml_reader_t xr, xmlAttrPtr attr, int minv, int maxv, int *ip
+)
 {
     return xmlr_getattr_int_range_base(xr, attr, minv, maxv, 10, ip);
 }
@@ -323,7 +334,6 @@ xmlr_getattr_u64(xml_reader_t xr, xmlAttrPtr attr, uint64_t *u64p)
  * This function accepts the following values: 0, 1, true, false.
  */
 int xmlr_getattr_bool(xml_reader_t xr, xmlAttrPtr attr, bool *bp);
-
 
 /** Get the current node attribute double value. */
 int xmlr_getattr_dbl(xml_reader_t xr, xmlAttrPtr attr, double *dp);

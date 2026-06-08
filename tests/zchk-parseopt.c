@@ -27,13 +27,13 @@ static struct {
     char e;
     uint64_t f;
 } zchk_parseopt_g;
-#define _G  zchk_parseopt_g
+#define _G zchk_parseopt_g
 
 static popt_t popts_g[] = {
     OPT_GROUP("Options:"),
     OPT_FLAG('a', "opta", &_G.a, "Opt a"),
-    OPT_STR( 'b', "optb", &_G.b, "Opt b"),
-    OPT_INT( 'c', "optc", &_G.c, "Opt c"),
+    OPT_STR('b', "optb", &_G.b, "Opt b"),
+    OPT_INT('c', "optc", &_G.c, "Opt c"),
     OPT_UINT('d', "optd", &_G.d, "Opt d"),
     OPT_CHAR('e', "opte", &_G.e, "Opt e"),
     OPT_UINT('f', "optf", &_G.f, "Opt f"),
@@ -70,14 +70,10 @@ Z_GROUP_EXPORT(parseopt)
 {
     Z_TEST(basic) {
         const char *argv[] = {
-            "-a",
-            "--optb", "plop",
-            "-c", "-12",
-            "--optd=8777",
-            "-e", "c",
-            "--optf=4848447481871454",
-            "plic",
-            "ploc",
+            "-a",   "--optb", "plop",
+            "-c",   "-12",    "--optd=8777",
+            "-e",   "c",      "--optf=4848447481871454",
+            "plic", "ploc",
         };
         int argc = countof(argv);
 
@@ -94,7 +90,8 @@ Z_GROUP_EXPORT(parseopt)
         Z_ASSERT_EQ(_G.d, 8777u);
         Z_ASSERT_EQ(_G.e, 'c');
         Z_ASSERT_EQ(_G.f, 4848447481871454ull);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(optional) {
         const char *argv[] = {
@@ -113,7 +110,8 @@ Z_GROUP_EXPORT(parseopt)
         Z_ASSERT_EQ(_G.c, 0);
         Z_ASSERT_EQ(_G.d, 0u);
         Z_ASSERT_EQ(_G.e, 0);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(invalid_flag) {
         const char *argv[] = {
@@ -123,7 +121,8 @@ Z_GROUP_EXPORT(parseopt)
 
         p_clear(&_G, 1);
         Z_ASSERT_NEG(parseopt(argc, (char **)argv, popts_g, 0));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(invalid_str) {
         const char *argv[] = {
@@ -133,7 +132,8 @@ Z_GROUP_EXPORT(parseopt)
 
         p_clear(&_G, 1);
         Z_ASSERT_NEG(parseopt(argc, (char **)argv, popts_g, 0));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(invalid_int) {
         const char *argv[] = {
@@ -143,7 +143,8 @@ Z_GROUP_EXPORT(parseopt)
 
         p_clear(&_G, 1);
         Z_ASSERT_NEG(parseopt(argc, (char **)argv, popts_g, 0));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(invalid_uint) {
         const char *argv[] = {
@@ -153,7 +154,8 @@ Z_GROUP_EXPORT(parseopt)
 
         p_clear(&_G, 1);
         Z_ASSERT_NEG(parseopt(argc, (char **)argv, popts_g, 0));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(invalid_char) {
         const char *argv[] = {
@@ -163,7 +165,8 @@ Z_GROUP_EXPORT(parseopt)
 
         p_clear(&_G, 1);
         Z_ASSERT_NEG(parseopt(argc, (char **)argv, popts_g, 0));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(unknown) {
         const char *argv[] = {
@@ -173,18 +176,13 @@ Z_GROUP_EXPORT(parseopt)
 
         p_clear(&_G, 1);
         Z_ASSERT_NEG(parseopt(argc, (char **)argv, popts_g, 0));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(stop_at_nonarg) {
         const char *argv[] = {
-            "-a",
-            "--optb", "plop",
-            "stop",
-            "-c", "-12",
-            "--optd=8777",
-            "-e", "c",
-            "plic",
-            "ploc",
+            "-a",          "--optb", "plop", "stop", "-c",   "-12",
+            "--optd=8777", "-e",     "c",    "plic", "ploc",
         };
         int argc = countof(argv);
 
@@ -206,23 +204,20 @@ Z_GROUP_EXPORT(parseopt)
         Z_ASSERT_EQ(_G.c, 0);
         Z_ASSERT_EQ(_G.d, 0u);
         Z_ASSERT_EQ(_G.e, 0);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(ignore_unknown_opts) {
         const char *argv[] = {
-            "-a", "--myarg", "-tata",
-            "--optb", "plop",
-            "-c", "-12",
-            "--optd=8777", "toto",
-            "-e", "c",
-            "plic",
-            "ploc",
+            "-a", "--myarg", "-tata",       "--optb", "plop",
+            "-c", "-12",     "--optd=8777", "toto",   "-e",
+            "c",  "plic",    "ploc",
         };
         int argc = countof(argv);
 
         p_clear(&_G, 1);
-        argc = parseopt(argc, (char **)argv, popts_g,
-                        POPT_IGNORE_UNKNOWN_OPTS);
+        argc =
+            parseopt(argc, (char **)argv, popts_g, POPT_IGNORE_UNKNOWN_OPTS);
         Z_ASSERT_EQ(argc, 5);
 
         Z_ASSERT_STREQUAL(argv[0], "--myarg");
@@ -236,42 +231,42 @@ Z_GROUP_EXPORT(parseopt)
         Z_ASSERT_EQ(_G.c, -12);
         Z_ASSERT_EQ(_G.d, 8777u);
         Z_ASSERT_EQ(_G.e, 'c');
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(opt_vec_extend) {
         t_scope;
         qv_t(popt) opts;
 
         t_qv_init(&opts, 0);
-        OPT_VEC_EXTEND_VA(&opts,
-            OPT_GROUP("Options:"),
+        OPT_VEC_EXTEND_VA(
+            &opts, OPT_GROUP("Options:"),
             OPT_FLAG('a', "opta", &_G.a, "Opt a"),
-            OPT_STR( 'b', "optb", &_G.b, "Opt b"),
-            OPT_END(),
+            OPT_STR('b', "optb", &_G.b, "Opt b"), OPT_END(),
         );
-        OPT_VEC_EXTEND_VA(&opts,
-            OPT_INT( 'c', "optc", &_G.c, "Opt c"),
-            OPT_UINT('d', "optd", &_G.d, "Opt d"),
-            OPT_END(),
+        OPT_VEC_EXTEND_VA(
+            &opts, OPT_INT('c', "optc", &_G.c, "Opt c"),
+            OPT_UINT('d', "optd", &_G.d, "Opt d"), OPT_END(),
         );
-        OPT_VEC_EXTEND_VA(&opts,
-            OPT_CHAR('e', "opte", &_G.e, "Opt e"),
-        );
-        OPT_VEC_EXTEND_VA(&opts,
-            OPT_UINT('f', "optf", &_G.f, "Opt f"),
-            OPT_END(),
+        OPT_VEC_EXTEND_VA(&opts, OPT_CHAR('e', "opte", &_G.e, "Opt e"), );
+        OPT_VEC_EXTEND_VA(
+            &opts, OPT_UINT('f', "optf", &_G.f, "Opt f"), OPT_END(),
         );
 
         Z_ASSERT_EQ(opts.len, z_popts_len(popts_g));
 
         tab_enumerate_ptr(i, opt, &opts) {
-            Z_HELPER_RUN(z_popt_check_equals(opt, &popts_g[i]),
-                         "option [%d] differs", i);
+            Z_HELPER_RUN(
+                z_popt_check_equals(opt, &popts_g[i]), "option [%d] differs",
+                i
+            );
         }
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
-    Z_TEST(unset_args_copy_init,
-           "test unset args '--no-' and copy init feature")
+    Z_TEST(
+        unset_args_copy_init, "test unset args '--no-' and copy init feature"
+    )
     {
         /* XXX: This test acks as non-regression test for
          * 99334d2841229 and 4c4670dbece02.
@@ -282,16 +277,19 @@ Z_GROUP_EXPORT(parseopt)
             "-a",
             "--no-opta",
 
-            "--optb", "plop",
+            "--optb",
+            "plop",
             "--no-optb",
 
-            "-c", "-12",
+            "-c",
+            "-12",
             "--no-optc",
 
             "--optd=8777",
             "--no-optd",
 
-            "-e", "c",
+            "-e",
+            "c",
             "--no-opte",
 
             "--optf=4848447481871454",
@@ -315,6 +313,7 @@ Z_GROUP_EXPORT(parseopt)
         Z_ASSERT_EQ(_G.d, 457u);
         Z_ASSERT_EQ(_G.e, 'e');
         Z_ASSERT_EQ(_G.f, 0x1234567890ABCDEFull);
-    } Z_TEST_END;
-
-} Z_GROUP_END
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END

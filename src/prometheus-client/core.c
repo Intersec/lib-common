@@ -22,7 +22,6 @@ logger_t prom_logger_g = LOGGER_INIT_INHERITS(NULL, "prometheus");
 
 dlist_t prom_collector_g;
 
-
 static int prometheus_client_initialize(void *arg)
 {
     dlist_init(&prom_collector_g);
@@ -31,8 +30,9 @@ static int prometheus_client_initialize(void *arg)
 
 static int prometheus_client_shutdown(void)
 {
-    dlist_for_each_entry(prom_metric_t, metric, &prom_collector_g,
-                         siblings_list)
+    dlist_for_each_entry(
+        prom_metric_t, metric, &prom_collector_g, siblings_list
+    )
     {
         obj_delete(&metric);
     }
@@ -40,6 +40,6 @@ static int prometheus_client_shutdown(void)
     return 0;
 }
 
-MODULE_BEGIN(prometheus_client)
+MODULE_DEFINE(prometheus_client) {
     MODULE_DEPENDS_ON(prometheus_client_http);
-MODULE_END()
+}

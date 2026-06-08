@@ -26,8 +26,8 @@
  *      use atomic double type. */
 #if defined(__clang__) || __GNUC_PREREQ(4, 9)
 
-#include <lib-common/datetime.h>
-#include <lib-common/thr.h>
+#  include <lib-common/datetime.h>
+#  include <lib-common/thr.h>
 
 /* {{{ Bench threaded operations on simple double type (not thread safe) */
 
@@ -58,8 +58,10 @@ static void bench_double(int nb_jobs, int nb_loop_per_job)
 
     lp_gettv(&tv_end);
     tv_diff = timeval_sub(tv_end, tv_start);
-    e_info("operations done on double type in %ld.%06ldsec (val = %f)",
-           tv_diff.tv_sec, tv_diff.tv_usec, val);
+    e_info(
+        "operations done on double type in %ld.%06ldsec (val = %f)",
+        tv_diff.tv_sec, tv_diff.tv_usec, val
+    );
 }
 
 /* }}} */
@@ -94,9 +96,10 @@ static void bench_atomic_u64(int nb_job, int nb_loop_per_job)
 
     lp_gettv(&tv_end);
     tv_diff = timeval_sub(tv_end, tv_start);
-    e_info("operations done on atomic uint64 type in %ld.%06ldsec "
-           "(val = %jd)",
-           tv_diff.tv_sec, tv_diff.tv_usec, atomic_load(val));
+    e_info(
+        "operations done on atomic uint64 type in %ld.%06ldsec (val = %jd)",
+        tv_diff.tv_sec, tv_diff.tv_usec, atomic_load(val)
+    );
 }
 
 /* }}} */
@@ -144,8 +147,10 @@ static void bench_atomic_double(int nb_job, int nb_loop_per_job)
 
     lp_gettv(&tv_end);
     tv_diff = timeval_sub(tv_end, tv_start);
-    e_info("operations done on atomic double type in %ld.%06ldsec (val = %f)",
-           tv_diff.tv_sec, tv_diff.tv_usec, atomic_load(val));
+    e_info(
+        "operations done on atomic double type in %ld.%06ldsec (val = %f)",
+        tv_diff.tv_sec, tv_diff.tv_usec, atomic_load(val)
+    );
 }
 
 /* }}} */
@@ -188,8 +193,10 @@ static void bench_spinlock_double(int nb_job, int nb_loop_per_job)
 
     lp_gettv(&tv_end);
     tv_diff = timeval_sub(tv_end, tv_start);
-    e_info("operations done on spinlock double type in %ld.%06ldsec "
-           "(val = %f)", tv_diff.tv_sec, tv_diff.tv_usec, val);
+    e_info(
+        "operations done on spinlock double type in %ld.%06ldsec (val = %f)",
+        tv_diff.tv_sec, tv_diff.tv_usec, val
+    );
 }
 
 /* }}} */
@@ -222,13 +229,15 @@ int main(int argc, char **argv)
 
 #else
 
-#include <sysexits.h>
-#include <lib-common/log.h>
+#  include <sysexits.h>
+#  include <lib-common/log.h>
 
 int main(int argc, char **argv)
 {
-    e_error("your compiler does not natively support atomics (required for "
-            "using atomic double type)");
+    e_error(
+        "your compiler does not natively support atomics (required for "
+        "using atomic double type)"
+    );
     return EX_UNAVAILABLE;
 }
 

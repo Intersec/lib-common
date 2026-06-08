@@ -28,8 +28,9 @@
  *  * \xXX for hexa
  *  * \uXXYY for unicode
  */
-int
-parse_backslash(pstream_t * nonnull ps, sb_t * nonnull buf,
-                int * nonnull line, int * nonnull col);
+int parse_backslash(
+    pstream_t *nonnull ps, sb_t *nonnull buf, int *nonnull line,
+    int *nonnull col
+);
 
 #endif /* IS_LIB_COMMON_PARSING_HELPERS_H */

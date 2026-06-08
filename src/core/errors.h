@@ -19,41 +19,41 @@
 #if !defined(IS_LIB_COMMON_CORE_H) || defined(IS_LIB_COMMON_CORE_ERRORS_H)
 #  error "you must include core.h instead"
 #else
-#define IS_LIB_COMMON_CORE_ERRORS_H
+#  define IS_LIB_COMMON_CORE_ERRORS_H
 
-#include <syslog.h>
+#  include <syslog.h>
 
-typedef void (e_handler_f)(int, const char * nonnull, va_list)
-    __attr_printf__(2, 0);
-typedef int (error_f)(const char * nonnull, ...)
-    __attr_printf__(1, 2);
+typedef void(e_handler_f)(int, const char *nonnull, va_list) __attr_printf__(
+    2, 0
+);
+typedef int(error_f)(const char *nonnull, ...) __attr_printf__(1, 2);
 
-#define E_PREFIX(fmt) \
-    ("%s:%d:%s: " fmt), __FILE__, __LINE__, __func__
+#  define E_PREFIX(fmt) ("%s:%d:%s: " fmt), __FILE__, __LINE__, __func__
 
-#define E_UNIXERR(funcname)  funcname ": %m"
+#  define E_UNIXERR(funcname) funcname ": %m"
 
 /* These functions are meant to correspond to the syslog levels.  */
-int e_fatal(const char * nonnull, ...)
-    __attr_leaf__ __attr_noreturn__ __attr_cold__ __attr_printf__(1, 2);
-int e_panic(const char * nonnull, ...)
-    __attr_leaf__ __attr_noreturn__ __attr_cold__ __attr_printf__(1, 2);
-int e_error(const char * nonnull, ...)
-    __attr_leaf__ __attr_cold__ __attr_printf__(1, 2);
-int e_warning(const char * nonnull, ...)
-    __attr_leaf__ __attr_cold__ __attr_printf__(1, 2);
-int e_notice(const char * nonnull, ...)
-    __attr_leaf__ __attr_printf__(1, 2);
-int e_info(const char * nonnull, ...)
-    __attr_leaf__ __attr_printf__(1, 2);
-int e_debug(const char * nonnull, ...)
-    __attr_leaf__ __attr_printf__(1, 2);
+int e_fatal(
+    const char *nonnull, ...
+) __attr_leaf__ __attr_noreturn__ __attr_cold__ __attr_printf__(1, 2);
+int e_panic(
+    const char *nonnull, ...
+) __attr_leaf__ __attr_noreturn__ __attr_cold__ __attr_printf__(1, 2);
+int e_error(
+    const char *nonnull, ...
+) __attr_leaf__ __attr_cold__ __attr_printf__(1, 2);
+int e_warning(
+    const char *nonnull, ...
+) __attr_leaf__ __attr_cold__ __attr_printf__(1, 2);
+int e_notice(const char *nonnull, ...) __attr_leaf__ __attr_printf__(1, 2);
+int e_info(const char *nonnull, ...) __attr_leaf__ __attr_printf__(1, 2);
+int e_debug(const char *nonnull, ...) __attr_leaf__ __attr_printf__(1, 2);
 
-int e_log(int priority, const char * nonnull fmt, ...)
-    __attr_leaf__ __attribute__((format(printf, 2, 3)));
+int e_log(int priority, const char *nonnull fmt, ...) __attr_leaf__
+    __attribute__((format(printf, 2, 3)));
 
 void e_init_stderr(void) __attr_leaf__;
-void e_set_handler(e_handler_f * nonnull handler) __attr_leaf__;
+void e_set_handler(e_handler_f *nonnull handler) __attr_leaf__;
 
 /** This macro provides assertions that remain activated in production builds.
  *
@@ -62,145 +62,175 @@ void e_set_handler(e_handler_f * nonnull handler) __attr_leaf__;
  * \param[in] Cond  The condition to verify
  * \param[in] fmt   The message to log if the condition is not verified.
  */
-#define __e_assert(level, Cond, StrCond, fmt, ...)  do {                     \
-        if (unlikely(!(Cond))) {                                             \
-            e_##level(E_PREFIX("assertion failed: \"%s\": "fmt), StrCond,    \
-                      ##__VA_ARGS__);                                        \
-        }                                                                    \
-    } while (0)
+#  define __e_assert(level, Cond, StrCond, fmt, ...)                         \
+      do {                                                                   \
+          if (unlikely(!(Cond))) {                                           \
+              e_##level(                                                     \
+                  E_PREFIX("assertion failed: \"%s\": " fmt), StrCond,       \
+                  ##__VA_ARGS__                                              \
+              );                                                             \
+          }                                                                  \
+      } while (0)
 
-#define e_assert(level, Cond, fmt, ...)  \
-    __e_assert(level, (Cond), #Cond, fmt, ##__VA_ARGS__)
+#  define e_assert(level, Cond, fmt, ...)                                    \
+      __e_assert(level, (Cond), #Cond, fmt, ##__VA_ARGS__)
 
-#define e_assert_n(level, Expr, fmt, ...)  \
-    e_assert(level, (Expr) >= 0, fmt, ##__VA_ARGS__)
+#  define e_assert_n(level, Expr, fmt, ...)                                  \
+      e_assert(level, (Expr) >= 0, fmt, ##__VA_ARGS__)
 
-#define e_assert_neg(level, Expr, fmt, ...)  \
-    e_assert(level, (Expr) < 0, fmt, ##__VA_ARGS__)
+#  define e_assert_neg(level, Expr, fmt, ...)                                \
+      e_assert(level, (Expr) < 0, fmt, ##__VA_ARGS__)
 
-#define e_assert_p(level, Expr, fmt, ...)  \
-    e_assert(level, (Expr) != NULL, fmt, ##__VA_ARGS__)
+#  define e_assert_p(level, Expr, fmt, ...)                                  \
+      e_assert(level, (Expr) != NULL, fmt, ##__VA_ARGS__)
 
-#define e_assert_null(level, Expr, fmt, ...)  \
-    e_assert(level, (Expr) == NULL, fmt, ##__VA_ARGS__)
+#  define e_assert_null(level, Expr, fmt, ...)                               \
+      e_assert(level, (Expr) == NULL, fmt, ##__VA_ARGS__)
 
 /**************************************************************************/
 /* Debug part                                                             */
 /**************************************************************************/
 
-#ifdef NDEBUG
+#  ifdef NDEBUG
 
-static ALWAYS_INLINE void e_ignore(int level, ...) { }
-#define e_trace_ignore(level, ...) if (false) e_ignore(level, ##__VA_ARGS__)
+static ALWAYS_INLINE void e_ignore(int level, ...)
+{
+}
+#    define e_trace_ignore(level, ...)                                       \
+        if (false)                                                           \
+        e_ignore(level, ##__VA_ARGS__)
 
-static ALWAYS_INLINE void assert_ignore(bool cond) { }
-#undef  assert
-#define assert(cond)  ({ if (false) assert_ignore((bool)(cond)); (void)0; })
+static ALWAYS_INLINE void assert_ignore(bool cond)
+{
+}
+#    undef assert
+#    define assert(cond)                                                     \
+        ({                                                                   \
+        if (false)                                                           \
+            assert_ignore((bool)(cond));                                     \
+        (void)0;                                                             \
+        })
 
-#  define e_trace(level, ...)              e_trace_ignore(level, ##__VA_ARGS__)
-#  define e_trace_hex(level, ...)          e_trace_ignore(level, ##__VA_ARGS__)
-#  define e_trace_start(level, ...)        e_trace_ignore(level, ##__VA_ARGS__)
-#  define e_trace_cont(level, ...)         e_trace_ignore(level, ##__VA_ARGS__)
-#  define e_trace_end(level, ...)          e_trace_ignore(level, ##__VA_ARGS__)
+#    define e_trace(level, ...) e_trace_ignore(level, ##__VA_ARGS__)
+#    define e_trace_hex(level, ...) e_trace_ignore(level, ##__VA_ARGS__)
+#    define e_trace_start(level, ...) e_trace_ignore(level, ##__VA_ARGS__)
+#    define e_trace_cont(level, ...) e_trace_ignore(level, ##__VA_ARGS__)
+#    define e_trace_end(level, ...) e_trace_ignore(level, ##__VA_ARGS__)
 
-#  define e_named_trace(level, ...)        e_trace_ignore(level, ##__VA_ARGS__)
-#  define e_named_trace_hex(level, ...)    e_trace_ignore(level, ##__VA_ARGS__)
-#  define e_named_trace_start(level, ...)  e_trace_ignore(level, ##__VA_ARGS__)
-#  define e_named_trace_cont(level, ...)   e_trace_ignore(level, ##__VA_ARGS__)
-#  define e_named_trace_end(level, ...)    e_trace_ignore(level, ##__VA_ARGS__)
+#    define e_named_trace(level, ...) e_trace_ignore(level, ##__VA_ARGS__)
+#    define e_named_trace_hex(level, ...) e_trace_ignore(level, ##__VA_ARGS__)
+#    define e_named_trace_start(level, ...)                                  \
+        e_trace_ignore(level, ##__VA_ARGS__)
+#    define e_named_trace_cont(level, ...)                                   \
+        e_trace_ignore(level, ##__VA_ARGS__)
+#    define e_named_trace_end(level, ...) e_trace_ignore(level, ##__VA_ARGS__)
 
-#  define e_set_verbosity(...)      (void)0
-#  define e_incr_verbosity(...)     (void)0
-#  define e_is_traced(...)          false
-#  define e_name_is_traced(...)     false
+#    define e_set_verbosity(...) (void)0
+#    define e_incr_verbosity(...) (void)0
+#    define e_is_traced(...) false
+#    define e_name_is_traced(...) false
 
-#else
+#  else
 
 void e_set_verbosity(int max_debug_level) __attr_leaf__;
 void e_incr_verbosity(void) __attr_leaf__;
 
-int  e_is_traced_(int level, lstr_t fname, lstr_t func, lstr_t name)
-    __attr_leaf__;
+int e_is_traced_(
+    int level, lstr_t fname, lstr_t func, lstr_t name
+) __attr_leaf__;
 
-#define e_name_is_traced(lvl, name) \
-    ({                                                                       \
-       int8_t e_res;                                                         \
+#    define e_name_is_traced(lvl, name)                                      \
+        ({                                                                   \
+        int8_t e_res;                                                        \
                                                                              \
-       if (__builtin_constant_p(lvl) && __builtin_constant_p(name)) {        \
-           static int8_t e_traced;                                           \
+        if (__builtin_constant_p(lvl) && __builtin_constant_p(name)) {       \
+            static int8_t e_traced;                                          \
                                                                              \
-           if (unlikely(e_traced == 0)) {                                    \
-               e_traced = e_is_traced_(lvl, LSTR(__FILE__), LSTR(__func__),  \
-                                       LSTR_OPT(name));                      \
-           }                                                                 \
-           e_res = e_traced;                                                 \
-       } else {                                                              \
-           e_res = e_is_traced_(lvl, LSTR(__FILE__), LSTR(__func__),         \
-                                LSTR_OPT(name));                             \
-       }                                                                     \
-       e_res > 0;                                                            \
-    })
-#define e_is_traced(lvl)  e_name_is_traced(lvl, NULL)
-
-void e_trace_put_(int lvl, lstr_t fname, int lno, lstr_t func, lstr_t name,
-                  const char * nonnull fmt, ...)
-                  __attr_leaf__ __attr_printf__(6, 7) __attr_cold__;
-
-#define e_named_trace_start(lvl, name, fmt, ...) \
-    do {                                                                     \
-        if (e_name_is_traced(lvl, name))                                     \
-            e_trace_put_(lvl, LSTR(__FILE__), __LINE__, LSTR(__func__),      \
-                         LSTR_OPT(name), fmt, ##__VA_ARGS__);                \
-    } while (0)
-#define e_named_trace_cont(lvl, name, fmt, ...) \
-    e_named_trace_start(lvl, name, fmt, ##__VA_ARGS__)
-#define e_named_trace_end(lvl, name, fmt, ...) \
-    e_named_trace_start(lvl, name, fmt "\n", ##__VA_ARGS__)
-#define e_named_trace(lvl, name, fmt, ...) \
-    e_named_trace_start(lvl, name, fmt "\n", ##__VA_ARGS__)
-#define e_named_trace_hex(lvl, name, str, buf, len)                          \
-    do {                                                                     \
-        if (e_name_is_traced(lvl, name)) {                                   \
-            e_trace_put_(lvl, LSTR(__FILE__), __LINE__, LSTR(__func__),      \
-                         LSTR_OPT(name), "--%s (%d)--\n", str, len);         \
-            ifputs_hex(stderr, buf, len);                                    \
+            if (unlikely(e_traced == 0)) {                                   \
+                e_traced = e_is_traced_(                                     \
+                    lvl, LSTR(__FILE__), LSTR(__func__), LSTR_OPT(name)      \
+                );                                                           \
+            }                                                                \
+            e_res = e_traced;                                                \
+        } else {                                                             \
+            e_res = e_is_traced_(                                            \
+                lvl, LSTR(__FILE__), LSTR(__func__), LSTR_OPT(name)          \
+            );                                                               \
         }                                                                    \
-    } while (0)
+        e_res > 0;                                                           \
+        })
+#    define e_is_traced(lvl) e_name_is_traced(lvl, NULL)
 
-#define e_trace_start(lvl, fmt, ...)  e_named_trace_start(lvl, NULL, fmt, ##__VA_ARGS__)
-#define e_trace_cont(lvl, fmt, ...)   e_named_trace_cont(lvl, NULL, fmt, ##__VA_ARGS__)
-#define e_trace_end(lvl, fmt, ...)    e_named_trace_end(lvl, NULL, fmt, ##__VA_ARGS__)
-#define e_trace(lvl, fmt, ...)        e_named_trace(lvl, NULL, fmt, ##__VA_ARGS__)
-#define e_trace_hex(lvl, str, buf, len) \
-    e_named_trace_hex(lvl, NULL, str, buf, len)
+void e_trace_put_(
+    int lvl, lstr_t fname, int lno, lstr_t func, lstr_t name,
+    const char *nonnull fmt, ...
+) __attr_leaf__ __attr_printf__(6, 7) __attr_cold__;
 
-#endif
+#    define e_named_trace_start(lvl, name, fmt, ...)                         \
+        do {                                                                 \
+            if (e_name_is_traced(lvl, name))                                 \
+                e_trace_put_(                                                \
+                    lvl, LSTR(__FILE__), __LINE__, LSTR(__func__),           \
+                    LSTR_OPT(name), fmt, ##__VA_ARGS__                       \
+                );                                                           \
+        } while (0)
+#    define e_named_trace_cont(lvl, name, fmt, ...)                          \
+        e_named_trace_start(lvl, name, fmt, ##__VA_ARGS__)
+#    define e_named_trace_end(lvl, name, fmt, ...)                           \
+        e_named_trace_start(lvl, name, fmt "\n", ##__VA_ARGS__)
+#    define e_named_trace(lvl, name, fmt, ...)                               \
+        e_named_trace_start(lvl, name, fmt "\n", ##__VA_ARGS__)
+#    define e_named_trace_hex(lvl, name, str, buf, len)                      \
+        do {                                                                 \
+            if (e_name_is_traced(lvl, name)) {                               \
+                e_trace_put_(                                                \
+                    lvl, LSTR(__FILE__), __LINE__, LSTR(__func__),           \
+                    LSTR_OPT(name), "--%s (%d)--\n", str, len                \
+                );                                                           \
+                ifputs_hex(stderr, buf, len);                                \
+            }                                                                \
+        } while (0)
 
-void ps_dump_backtrace(int signum, const char * nonnull prog, int fd,
-                       bool full);
+#    define e_trace_start(lvl, fmt, ...)                                     \
+        e_named_trace_start(lvl, NULL, fmt, ##__VA_ARGS__)
+#    define e_trace_cont(lvl, fmt, ...)                                      \
+        e_named_trace_cont(lvl, NULL, fmt, ##__VA_ARGS__)
+#    define e_trace_end(lvl, fmt, ...)                                       \
+        e_named_trace_end(lvl, NULL, fmt, ##__VA_ARGS__)
+#    define e_trace(lvl, fmt, ...)                                           \
+        e_named_trace(lvl, NULL, fmt, ##__VA_ARGS__)
+#    define e_trace_hex(lvl, str, buf, len)                                  \
+        e_named_trace_hex(lvl, NULL, str, buf, len)
+
+#  endif
+
+void ps_dump_backtrace(
+    int signum, const char *nonnull prog, int fd, bool full
+);
 void ps_write_backtrace(int signum, bool allow_fork);
 
-static ALWAYS_INLINE __must_check__
-bool e_expect(bool cond, bool expected, const char * nonnull expr,
-              const char * nonnull file, int line, const char * nonnull func)
+static ALWAYS_INLINE __must_check__ bool e_expect(
+    bool cond, bool expected, const char *nonnull expr,
+    const char *nonnull file, int line, const char *nonnull func
+)
 {
     if (unlikely(cond != expected)) {
-#ifdef NDEBUG
+#  ifdef NDEBUG
         ps_write_backtrace(-1, false);
         e_error("assertion (%s) failure: %s:%d:%s", expr, file, line, func);
-#else
+#  else
         __assert_fail(expr, file, line, func);
-#endif
+#  endif
     }
     return cond;
 }
 
-#undef  expect
-#define expect(cond)  \
-    e_expect((cond), true, TOSTR(cond), __FILE__, __LINE__, __func__)
+#  undef expect
+#  define expect(cond)                                                       \
+      e_expect((cond), true, TOSTR(cond), __FILE__, __LINE__, __func__)
 
-#define unexpected(cond) \
-    e_expect((cond), false, TOSTR(!(cond)), __FILE__, __LINE__, __func__)
+#  define unexpected(cond)                                                   \
+      e_expect((cond), false, TOSTR(!(cond)), __FILE__, __LINE__, __func__)
 
 /* {{{ debug_stack_* */
 
@@ -219,7 +249,7 @@ bool e_expect(bool cond, bool expected, const char * nonnull expr,
  * \warning Do not use malloc or functions that could use malloc in the
  *          callback. It could result in deadlocks.
  */
-typedef void (debug_stack_cb_f)(int fd, data_t data);
+typedef void(debug_stack_cb_f)(int fd, data_t data);
 
 /** Register some data in the debug stack.
  *
@@ -229,15 +259,18 @@ typedef void (debug_stack_cb_f)(int fd, data_t data);
  * \param[in] _cb  Function that writes the data into .debug file in case of
  *                 crash. See \p debug_stack_cb_f.
  */
-#define debug_stack_scope(_data, _cb)                                        \
-    data_t PFX_LINE(debug_stack_)                                            \
-    __attribute__((unused, cleanup(debug_stack_pop))) =                      \
-    debug_stack_push(LSTR(__func__), LSTR(__FILE__), __LINE__, (_data),      \
-                     (_cb))
+#  define debug_stack_scope(_data, _cb)                                      \
+      data_t PFX_LINE(debug_stack_)                                          \
+          __attribute__((unused, cleanup(debug_stack_pop))) =                \
+              debug_stack_push(                                              \
+                  LSTR(__func__), LSTR(__FILE__), __LINE__, (_data), (_cb)   \
+              )
 
 /* Private functions. */
-data_t debug_stack_push(lstr_t func, lstr_t file, int line,
-                        data_t data, debug_stack_cb_f *nonnull cb);
+data_t debug_stack_push(
+    lstr_t func, lstr_t file, int line, data_t data,
+    debug_stack_cb_f *nonnull cb
+);
 void debug_stack_pop(data_t *nonnull priv);
 
 /** Append user debug info into .debug file. */

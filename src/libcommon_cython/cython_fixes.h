@@ -34,8 +34,8 @@
 #endif /* __attr_unused__ */
 
 /* Disable clang comma warnings for Clang >= 3.9 */
-#if defined(__clang__)                                                       \
- && (__clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 9))
+#if defined(__clang__) &&                                                    \
+    (__clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 9))
 #  pragma GCC diagnostic ignored "-Wcomma"
 #endif /* Clang >= 3.9 */
 
@@ -48,13 +48,13 @@
 /* Redefine PyMODINIT_FUNC to properly export init function on Python < 3.9 */
 #if PY_VERSION_HEX < 0x03090000
 
-# ifndef EXPORT
-#   ifdef __GNUC__
-#     define EXPORT extern __attribute__((visibility("default")))
-#   else /* __GNUC__ */
-#     define EXPORT extern
-#   endif /* __GNUC__ */
-# endif /* EXPORT */
+#  ifndef EXPORT
+#    ifdef __GNUC__
+#      define EXPORT extern __attribute__((visibility("default")))
+#    else /* __GNUC__ */
+#      define EXPORT extern
+#    endif /* __GNUC__ */
+#  endif   /* EXPORT */
 
 #  ifndef PyMODINIT_FUNC
 #    error "PyMODINIT_FUNC should be defined"

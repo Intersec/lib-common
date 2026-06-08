@@ -36,8 +36,9 @@ static struct {
     .logger = LOGGER_INIT_INHERITS(NULL, "core-obj"),
 };
 
-void (object_panic)(lstr_t file, lstr_t func, int line,
-                    const char *nonnull fmt, ...)
+void(object_panic)(
+    lstr_t file, lstr_t func, int line, const char *nonnull fmt, ...
+)
 {
     va_list va;
 
@@ -76,7 +77,7 @@ static void obj_tagged_ref_list_wipe(obj_tagged_ref_list_t *list)
 
 GENERIC_DELETE(obj_tagged_ref_list_t, obj_tagged_ref_list);
 
-void (obj_print_references)(const object_t *nonnull obj)
+void(obj_print_references)(const object_t *nonnull obj)
 {
     int64_t tagged_refcnt = 0;
     logger_notice_scope(&_G.logger);
@@ -86,25 +87,33 @@ void (obj_print_references)(const object_t *nonnull obj)
             tagged_refcnt += ref->refcnt;
         }
     }
-    logger_cont("object @%p, refcnt=%'zd, %'jd tagged reference(s)",
-                obj, obj->refcnt, tagged_refcnt);
+    logger_cont(
+        "object @%p, refcnt=%'zd, %'jd tagged reference(s)", obj, obj->refcnt,
+        tagged_refcnt
+    );
     if (obj->obj_tagged_refs_) {
         t_scope;
         SB_1k(table_buf);
         qv_t(table_hdr) hdr;
         qv_t(table_data) data;
-        table_hdr_t hdr_data[] = { {
-            /* For indentation. */
-            .title = LSTR_IMMED("  "),
-        }, {
-            .title = LSTR_IMMED("TAG"),
-        }, {
-            .title = LSTR_IMMED("FUNCTION"),
-        }, {
-            .title = LSTR_IMMED("FILE:LINE"),
-        }, {
-            .title = LSTR_IMMED("REFCNT"),
-        } };
+        table_hdr_t hdr_data[] = {
+            {
+                /* For indentation. */
+                .title = LSTR_IMMED("  "),
+            },
+            {
+                .title = LSTR_IMMED("TAG"),
+            },
+            {
+                .title = LSTR_IMMED("FUNCTION"),
+            },
+            {
+                .title = LSTR_IMMED("FILE:LINE"),
+            },
+            {
+                .title = LSTR_IMMED("REFCNT"),
+            }
+        };
 
         logger_cont(":\n");
 
@@ -159,10 +168,10 @@ obj_find_scope_ref(object_t *obj, const char *file, int line)
     return NULL;
 }
 
-static obj_tagged_ref_t *
-obj_add_tagged_ref(object_t *obj, const char *nullable tag,
-                   const char *nonnull func,
-                   const char *nonnull file, int line)
+static obj_tagged_ref_t *obj_add_tagged_ref(
+    object_t *obj, const char *nullable tag, const char *nonnull func,
+    const char *nonnull file, int line
+)
 {
     obj_tagged_ref_t *ref;
 
@@ -179,10 +188,10 @@ obj_add_tagged_ref(object_t *obj, const char *nullable tag,
     return ref;
 }
 
-object_t *nonnull
-(obj_tagged_retain)(object_t *nonnull obj, const char *nonnull tag,
-                    const char *nonnull func,
-                    const char *nonnull file, int line)
+object_t *nonnull(obj_tagged_retain)(
+    object_t *nonnull obj, const char *nonnull tag, const char *nonnull func,
+    const char *nonnull file, int line
+)
 {
     obj_tagged_ref_t *ref;
 
@@ -190,11 +199,13 @@ object_t *nonnull
     if (ref) {
         if (!strequal(ref->file, file) || ref->line != line) {
             obj_print_references(obj);
-            logger_panic(&_G.logger, "reference tagging collision : "
-                         "the tag `%s` is used for two different retains, "
-                         "in %s (%s:%d) and in %s (%s:%d)", tag,
-                         ref->func, ref->file, ref->line,
-                         func, file, line);
+            logger_panic(
+                &_G.logger,
+                "reference tagging collision : "
+                "the tag `%s` is used for two different retains, "
+                "in %s (%s:%d) and in %s (%s:%d)",
+                tag, ref->func, ref->file, ref->line, func, file, line
+            );
         }
     } else {
         ref = obj_add_tagged_ref(obj, tag, func, file, line);
@@ -204,8 +215,7 @@ object_t *nonnull
     return obj_vcall(obj, retain);
 }
 
-static void
-obj_release_vcall(object_t *nonnull *nonnull obj_p)
+static void obj_release_vcall(object_t * nonnull * nonnull obj_p)
 {
     bool destroyed;
 
@@ -215,8 +225,9 @@ obj_release_vcall(object_t *nonnull *nonnull obj_p)
     }
 }
 
-void (obj_tagged_release)(object_t *nonnull *nonnull obj_p,
-                          const char *nonnull tag)
+void(obj_tagged_release)(
+    object_t * nonnull * nonnull obj_p, const char *nonnull tag
+)
 {
     obj_tagged_ref_t *reference;
     object_t *obj = *obj_p;
@@ -224,25 +235,31 @@ void (obj_tagged_release)(object_t *nonnull *nonnull obj_p,
     reference = obj_find_tagged_ref(obj, tag);
     if (unlikely(!reference)) {
         obj_print_references(obj);
-        logger_panic(&_G.logger,
-                     "broken tagged release: cannot find reference for tag "
-                     "`%s`", tag);
+        logger_panic(
+            &_G.logger,
+            "broken tagged release: cannot find reference for tag "
+            "`%s`",
+            tag
+        );
     }
     if (unlikely(!reference->refcnt)) {
         obj_print_references(obj);
-        logger_panic(&_G.logger,
-                     "broken tagged release: the last reference for tag `%s` "
-                     "has already been released", tag);
+        logger_panic(
+            &_G.logger,
+            "broken tagged release: the last reference for tag `%s` "
+            "has already been released",
+            tag
+        );
     }
     reference->refcnt--;
 
     obj_release_vcall(obj_p);
 }
 
-object_t *nonnull
-(obj_retain_scope)(object_t *nonnull obj,
-                   const char *nonnull func,
-                   const char *nonnull file, int line)
+object_t *nonnull(obj_retain_scope)(
+    object_t *nonnull obj, const char *nonnull func, const char *nonnull file,
+    int line
+)
 {
     obj_tagged_ref_t *ref;
 
@@ -255,8 +272,9 @@ object_t *nonnull
     return obj_vcall(obj, retain);
 }
 
-void (obj_release_scope)(object_t *nonnull *nonnull obj_p,
-                         const char *nonnull file, int line)
+void(obj_release_scope)(
+    object_t * nonnull * nonnull obj_p, const char *nonnull file, int line
+)
 {
     object_t *obj = *obj_p;
     obj_tagged_ref_t *reference;
@@ -277,10 +295,12 @@ static void obj_check_tagged_refs_before_wipe(const object_t *obj)
             continue;
         }
         obj_print_references(obj);
-        logger_panic(&_G.logger,
-                     "a reference created in %s (%s:%d) with tag "
-                     "`%s` wasn't released with obj_tagged_release()",
-                     ref->func, ref->file, ref->line, ref->tag);
+        logger_panic(
+            &_G.logger,
+            "a reference created in %s (%s:%d) with tag "
+            "`%s` wasn't released with obj_tagged_release()",
+            ref->func, ref->file, ref->line, ref->tag
+        );
     }
 }
 
@@ -292,8 +312,9 @@ bool cls_inherits(const void *_cls, const void *vptr)
 {
     const object_class_t *cls = _cls;
     while (cls) {
-        if (cls == vptr)
+        if (cls == vptr) {
             return true;
+        }
         cls = cls->super;
     }
     return false;
@@ -303,14 +324,16 @@ static void obj_init_real_aux(object_t *o, const object_class_t *cls)
 {
     object_t *(*init)(object_t *) = cls->init;
 
-    if (!init)
+    if (!init) {
         return;
+    }
 
     while (cls->super && init == cls->super->init) {
         cls = cls->super;
     }
-    if (cls->super)
+    if (cls->super) {
         obj_init_real_aux(o, cls->super);
+    }
     (*init)(o);
 }
 
@@ -319,9 +342,9 @@ void *obj_init_real(const void *_cls, void *_o, mem_pool_t *mp)
     const object_class_t *cls = _cls;
     object_t *o = _o;
 
-    o->mp     = mp;
+    o->mp = mp;
     o->refcnt = 1;
-    o->v.ptr  = cls;
+    o->v.ptr = cls;
     obj_init_real_aux(o, cls);
     return o;
 }
@@ -334,14 +357,15 @@ void obj_wipe_real(object_t *o)
     /* a crash here means obj_wipe was called on a reachable object.
      * It's likely the caller should have used obj_release() instead.
      */
-    assert (o->refcnt == 1);
+    assert(o->refcnt == 1);
 
     while ((wipe = cls->wipe)) {
         (*wipe)(o);
         do {
             cls = cls->super;
-            if (!cls)
+            if (!cls) {
                 return;
+            }
         } while (wipe == cls->wipe);
     }
     o->refcnt = 0;
@@ -356,18 +380,19 @@ void obj_wipe_real(object_t *o)
 
 static object_t *obj_retain_(object_t *obj)
 {
-    assert (obj->mp != &mem_pool_static);
+    assert(obj->mp != &mem_pool_static);
 
     if (likely(obj->refcnt > 0)) {
-        if (likely(++obj->refcnt > 0))
+        if (likely(++obj->refcnt > 0)) {
             return obj;
+        }
         logger_panic(&_G.logger, "too many refcounts");
     }
 
     switch (obj->refcnt) {
-      case 0:
+    case 0:
         logger_panic(&_G.logger, "probably acting on a deleted object");
-      default:
+    default:
         /* WTF?! probably a memory corruption */
         logger_panic(&_G.logger, "should not happen");
     }
@@ -375,7 +400,7 @@ static object_t *obj_retain_(object_t *obj)
 
 static void obj_release_(object_t *obj, bool *nullable destroyed)
 {
-    assert (obj->mp != &mem_pool_static);
+    assert(obj->mp != &mem_pool_static);
 
     if (obj->refcnt > 1) {
         --obj->refcnt;
@@ -384,9 +409,9 @@ static void obj_release_(object_t *obj, bool *nullable destroyed)
         mp_delete(obj->mp, &obj);
     } else {
         switch (obj->refcnt) {
-          case 0:
+        case 0:
             logger_panic(&_G.logger, "object refcounting issue");
-          default:
+        default:
             /* Probably a memory corruption we should have hit 0 first. */
             logger_panic(&_G.logger, "should not happen");
         }
@@ -403,8 +428,8 @@ const object_class_t *object_class(void)
         .type_size = sizeof(object_t),
         .type_name = "object",
 
-        .retain    = obj_retain_,
-        .release   = obj_release_,
+        .retain = obj_retain_,
+        .release = obj_release_,
     };
     return &klass;
 }

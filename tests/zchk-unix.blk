@@ -29,17 +29,18 @@
 /* {{{ file */
 
 typedef struct test_struct_t {
-    int32_t  a;
+    int32_t a;
     uint16_t c;
-    int64_t  b;
+    int64_t b;
 } test_struct_t;
 
 typedef struct large_test_struct_t {
     int values[1000 / sizeof(int)];
 } large_test_struct_t;
 
-static int z_check_file_bin_records(file_bin_t *file, lstr_t path,
-                                    int read_nb, int exp_nb)
+static int z_check_file_bin_records(
+    file_bin_t *file, lstr_t path, int read_nb, int exp_nb
+)
 {
     t_scope;
     bool do_close = false;
@@ -151,12 +152,13 @@ Z_GROUP_EXPORT(file)
 
         IGNORE(file_close(&f));
         unlink(path);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(file_bin) {
         t_scope;
-        lstr_t file_path = t_lstr_cat(LSTR(z_tmpdir_g.s),
-                                      LSTR("file_bin.test"));
+        lstr_t file_path =
+            t_lstr_cat(LSTR(z_tmpdir_g.s), LSTR("file_bin.test"));
         file_bin_t *file = file_bin_create(file_path, 30, true);
         /* test_struct_t size is 16 */
         test_struct_t test;
@@ -205,54 +207,52 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT_ZERO(nbr_record);
 
         Z_ASSERT_ZERO(file_bin_close(&file));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(file_bin_reverse) {
         t_scope;
-        lstr_t path = t_lstr_cat(LSTR(z_tmpdir_g.s),
-                                 LSTR("file_bin.test"));
+        lstr_t path = t_lstr_cat(LSTR(z_tmpdir_g.s), LSTR("file_bin.test"));
         file_bin_t *file;
         file_bin_t *read_file;
 
-#define WRITE_RECORDS(_file)  \
-        do {                                                                 \
-            for (int i = 0; i < 100; i++) {                                  \
-                test_struct_t test = {                                       \
-                    .a = i + 1,                                              \
-                    .b = i + 2,                                              \
-                    .c = i + 3,                                              \
-                };                                                           \
+#define WRITE_RECORDS(_file)                                                 \
+    do {                                                                     \
+        for (int i = 0; i < 100; i++) {                                      \
+            test_struct_t test = {                                           \
+                .a = i + 1,                                                  \
+                .b = i + 2,                                                  \
+                .c = i + 3,                                                  \
+            };                                                               \
                                                                              \
-                Z_ASSERT_ZERO(file_bin_put_record(file, &test,               \
-                                                  sizeof(test)));            \
-            }                                                                \
-            Z_ASSERT_ZERO(file_bin_flush(file));                             \
-        } while (0)
+            Z_ASSERT_ZERO(file_bin_put_record(file, &test, sizeof(test)));   \
+        }                                                                    \
+        Z_ASSERT_ZERO(file_bin_flush(file));                                 \
+    } while (0)
 
         /* Create a file with small slots. */
         Z_ASSERT_P((file = file_bin_create(path, 30, true)));
         Z_ASSERT_P((read_file = file_bin_open(path)));
 
         /* Read the empty file. */
-        Z_HELPER_RUN(z_check_file_bin_records(NULL,      path, 1024, 0));
+        Z_HELPER_RUN(z_check_file_bin_records(NULL, path, 1024, 0));
         Z_HELPER_RUN(z_check_file_bin_records(read_file, path, 1024, 0));
 
         /* Write records. */
         WRITE_RECORDS(file);
 
         /* Read them. */
-        Z_HELPER_RUN(z_check_file_bin_records(NULL,      path, 1024, 100));
+        Z_HELPER_RUN(z_check_file_bin_records(NULL, path, 1024, 100));
         Z_HELPER_RUN(z_check_file_bin_records(read_file, path, 1024, 100));
 
         /* Read the last i records, for i from 0 to 100. */
         for (int i = 0; i <= 100; i++) {
-            Z_HELPER_RUN(z_check_file_bin_records(NULL,      path, i, i));
+            Z_HELPER_RUN(z_check_file_bin_records(NULL, path, i, i));
             Z_HELPER_RUN(z_check_file_bin_records(read_file, path, i, i));
         }
 
         Z_ASSERT_ZERO(file_bin_close(&file));
         Z_ASSERT_ZERO(file_bin_close(&read_file));
-
 
         /* Same with larger slots */
         Z_ASSERT_P((file = file_bin_create(path, 500, true)));
@@ -260,11 +260,11 @@ Z_GROUP_EXPORT(file)
 
         WRITE_RECORDS(file);
 
-        Z_HELPER_RUN(z_check_file_bin_records(NULL,      path, 1024, 100));
+        Z_HELPER_RUN(z_check_file_bin_records(NULL, path, 1024, 100));
         Z_HELPER_RUN(z_check_file_bin_records(read_file, path, 1024, 100));
 
         for (int i = 0; i <= 100; i++) {
-            Z_HELPER_RUN(z_check_file_bin_records(NULL,      path, i, i));
+            Z_HELPER_RUN(z_check_file_bin_records(NULL, path, i, i));
             Z_HELPER_RUN(z_check_file_bin_records(read_file, path, i, i));
         }
 
@@ -272,12 +272,13 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT_ZERO(file_bin_close(&read_file));
 
 #undef WRITE_RECORDS
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(file_bin_large) {
         t_scope;
-        lstr_t file_path = t_lstr_cat(LSTR(z_tmpdir_g.s),
-                                      LSTR("file_bin.test"));
+        lstr_t file_path =
+            t_lstr_cat(LSTR(z_tmpdir_g.s), LSTR("file_bin.test"));
         file_bin_t *file = file_bin_create(file_path, 50, true);
         int nbr_record = 0;
 
@@ -297,12 +298,13 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT_EQ(nbr_record, 1000);
 
         Z_ASSERT_ZERO(file_bin_close(&file));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(file_bin_truncated) {
         t_scope;
-        lstr_t file_path = t_lstr_cat(LSTR(z_tmpdir_g.s),
-                                      LSTR("file_bin.test"));
+        lstr_t file_path =
+            t_lstr_cat(LSTR(z_tmpdir_g.s), LSTR("file_bin.test"));
         file_bin_t *file = file_bin_create(file_path, 50, true);
         int nbr_record = 0;
         off_t pos;
@@ -327,12 +329,13 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT_EQ(nbr_record, 2);
 
         Z_ASSERT_N(file_bin_close(&file));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(file_bin_corrupted_rec_len) {
         t_scope;
-        lstr_t file_path = t_lstr_cat(LSTR(z_tmpdir_g.s),
-                                      LSTR("file_bin.test"));
+        lstr_t file_path =
+            t_lstr_cat(LSTR(z_tmpdir_g.s), LSTR("file_bin.test"));
         lstr_t record;
         file_bin_t *file = file_bin_create(file_path, 50, true);
         le32_t corrupted_len = cpu_to_le32(10000);
@@ -347,8 +350,9 @@ Z_GROUP_EXPORT(file)
 
         /* Corrupt the len of the 3rd record */
         Z_ASSERT_N(fseek(file->f, pos, SEEK_SET));
-        Z_ASSERT_EQ(fwrite(&corrupted_len, 1, sizeof(le32_t), file->f),
-                    sizeof(le32_t));
+        Z_ASSERT_EQ(
+            fwrite(&corrupted_len, 1, sizeof(le32_t), file->f), sizeof(le32_t)
+        );
         Z_ASSERT_N(file_bin_close(&file));
 
         /* Read the records. */
@@ -367,12 +371,13 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT_NULL(record.s);
 
         Z_ASSERT_N(file_bin_close(&file));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(file_bin_v0) {
         t_scope;
-        lstr_t file_path = t_lstr_cat(LSTR(z_tmpdir_g.s),
-                                      LSTR("file_bin.test"));
+        lstr_t file_path =
+            t_lstr_cat(LSTR(z_tmpdir_g.s), LSTR("file_bin.test"));
         file_bin_t *file = file_bin_create(file_path, 1 << 20, true);
         int nbr_record = 0;
 
@@ -396,12 +401,13 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT_EQ(nbr_record, 10010);
 
         Z_ASSERT_ZERO(file_bin_close(&file));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(file_bin_end) {
         t_scope;
-        lstr_t file_path = t_lstr_cat(LSTR(z_tmpdir_g.s),
-                                      LSTR("file_bin.test"));
+        lstr_t file_path =
+            t_lstr_cat(LSTR(z_tmpdir_g.s), LSTR("file_bin.test"));
         file_bin_t *file = file_bin_create(file_path, 32, true);
         /* test_struct_t size is 16 */
         test_struct_t test;
@@ -455,7 +461,8 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT_ZERO(file->cur % file->slot_size);
 
         Z_ASSERT_ZERO(file_bin_close(&file));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(mkdir_p) {
         t_scope;
@@ -479,7 +486,8 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT_EQ(0, mkdir_p(reldir.s, 0755));
         Z_ASSERT_N(stat(reldir.s, &st));
         Z_ASSERT(S_ISDIR(st.st_mode));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(filecopy) {
         t_scope;
@@ -489,7 +497,7 @@ Z_GROUP_EXPORT(file)
         lstr_t out_map;
         sb_t str;
 
-        file_in  = t_fmt("%*pM/in",  LSTR_FMT_ARG(z_tmpdir_g));
+        file_in = t_fmt("%*pM/in", LSTR_FMT_ARG(z_tmpdir_g));
         file_out = t_fmt("%*pM/out", LSTR_FMT_ARG(z_tmpdir_g));
 
         /* Generate a string of 'size' bytes. */
@@ -503,12 +511,14 @@ Z_GROUP_EXPORT(file)
 
         /* Copy this file, and check the two files have the same content. */
         Z_ASSERT_N(filecopy(file_in, file_out));
-        Z_ASSERT_N(lstr_init_from_file(&out_map, file_out,
-                                       PROT_READ, MAP_SHARED));
+        Z_ASSERT_N(
+            lstr_init_from_file(&out_map, file_out, PROT_READ, MAP_SHARED)
+        );
         Z_ASSERT_LSTREQUAL(out_map, LSTR_SB_V(&str));
 
         lstr_wipe(&out_map);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(xappend_to_file) {
         t_scope;
@@ -518,7 +528,7 @@ Z_GROUP_EXPORT(file)
         SB_1k(res);
         SB_1k(fcontent);
 
-        appending_file = t_fmt("%*pM/appending",  LSTR_FMT_ARG(z_tmpdir_g));
+        appending_file = t_fmt("%*pM/appending", LSTR_FMT_ARG(z_tmpdir_g));
 
         Z_ASSERT_N(xappend_to_file(appending_file, str1, strlen(str1)));
         Z_ASSERT_N(xappend_to_file(appending_file, str2, strlen(str2)));
@@ -527,7 +537,8 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT_N(sb_read_file(&fcontent, appending_file));
 
         Z_ASSERT_STREQUAL(fcontent.data, res.data);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(which) {
         char path[PATH_MAX];
@@ -536,8 +547,10 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT(lstr_endswith(LSTR(path), LSTR("/ls")));
 
         Z_ASSERT_NEG(which("undefined_command", path));
-    } Z_TEST_END;
-} Z_GROUP_END
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END
 
 /* }}} */
 /* {{{ Unix */
@@ -545,8 +558,8 @@ Z_GROUP_EXPORT(file)
 static int z_list_dir_tests(void)
 {
     t_scope;
-    const char *new_dir = t_fmt("%*pM/list_dir_test",
-                                LSTR_FMT_ARG(z_tmpdir_g));
+    const char *new_dir =
+        t_fmt("%*pM/list_dir_test", LSTR_FMT_ARG(z_tmpdir_g));
     __block int nb_bfile = 0;
     int nb_file;
 
@@ -559,19 +572,24 @@ static int z_list_dir_tests(void)
      */
     Z_ASSERT_EQ(1, mkdir_p(new_dir, 0755));
     Z_ASSERT_EQ(1, mkdir_p(t_fmt("%s/dir2", new_dir), 0755));
-    Z_ASSERT_GE(xwrite_file(t_fmt("%s/dir2/test", new_dir),
-                            "toto2", strlen("toto")), 0);
-    Z_ASSERT_GE(xwrite_file(t_fmt("%s/test", new_dir),
-                            "toto", strlen("toto")), 0);
+    Z_ASSERT_GE(
+        xwrite_file(t_fmt("%s/dir2/test", new_dir), "toto2", strlen("toto")),
+        0
+    );
+    Z_ASSERT_GE(
+        xwrite_file(t_fmt("%s/test", new_dir), "toto", strlen("toto")), 0
+    );
 
     /* Basic recursive test. */
-    list_dir(new_dir, LIST_DIR_RECUR,
-             ^(const char *path, const linux_dirent_t *de) {
-        if (D_TYPE(de) == DT_REG) {
-            nb_bfile++;
+    list_dir(
+        new_dir, LIST_DIR_RECUR,
+        ^(const char *path, const linux_dirent_t *de) {
+            if (D_TYPE(de) == DT_REG) {
+                nb_bfile++;
+            }
+            return 0;
         }
-        return 0;
-    });
+    );
     nb_file = nb_bfile;
     Z_ASSERT_EQ(2, nb_file);
 
@@ -592,8 +610,9 @@ static int z_list_dir_tests(void)
      *  |- test
      *  +- test2 -> test
      */
-    Z_ASSERT_N(symlink(t_fmt("%s/test", new_dir),
-                       t_fmt("%s/test2", new_dir)));
+    Z_ASSERT_N(
+        symlink(t_fmt("%s/test", new_dir), t_fmt("%s/test2", new_dir))
+    );
 
     /* Non-recursive test; do not follow symlink */
     nb_bfile = 0;
@@ -609,14 +628,16 @@ static int z_list_dir_tests(void)
     /* Non-recursive test; follow symlink;
      * "test" should not be treated twice. */
     nb_bfile = 0;
-    list_dir(new_dir, LIST_DIR_FOLLOW_SYMLINK,
-             ^(const char *path, const linux_dirent_t *de) {
-        assert (D_TYPE(de) != DT_LNK);
-        if (D_TYPE(de) == DT_REG) {
-            nb_bfile++;
+    list_dir(
+        new_dir, LIST_DIR_FOLLOW_SYMLINK,
+        ^(const char *path, const linux_dirent_t *de) {
+            assert(D_TYPE(de) != DT_LNK);
+            if (D_TYPE(de) == DT_REG) {
+                nb_bfile++;
+            }
+            return 0;
         }
-        return 0;
-    });
+    );
     nb_file = nb_bfile;
     Z_ASSERT_EQ(1, nb_file);
 
@@ -627,32 +648,37 @@ static int z_list_dir_tests(void)
      *  +- test2 -> dir2/test
      */
     Z_ASSERT_N(unlink(t_fmt("%s/test2", new_dir)));
-    Z_ASSERT_N(symlink(t_fmt("%s/dir2/test", new_dir),
-                       t_fmt("%s/test2", new_dir)));
+    Z_ASSERT_N(
+        symlink(t_fmt("%s/dir2/test", new_dir), t_fmt("%s/test2", new_dir))
+    );
 
     /* Recursive test; do not follow symlink */
     nb_bfile = 0;
-    list_dir(new_dir, LIST_DIR_RECUR,
-             ^(const char *path, const linux_dirent_t *de) {
-        if (D_TYPE(de) == DT_REG || D_TYPE(de) == DT_LNK) {
-            nb_bfile++;
+    list_dir(
+        new_dir, LIST_DIR_RECUR,
+        ^(const char *path, const linux_dirent_t *de) {
+            if (D_TYPE(de) == DT_REG || D_TYPE(de) == DT_LNK) {
+                nb_bfile++;
+            }
+            return 0;
         }
-        return 0;
-    });
+    );
     nb_file = nb_bfile;
     Z_ASSERT_EQ(3, nb_file);
 
     /* Recursive test; follow symlink;
      * "dir2/test" should not be treated twice. */
     nb_bfile = 0;
-    list_dir(new_dir, LIST_DIR_RECUR | LIST_DIR_FOLLOW_SYMLINK,
-             ^(const char *path, const linux_dirent_t *de) {
-        assert (D_TYPE(de) != DT_LNK);
-        if (D_TYPE(de) == DT_REG) {
-            nb_bfile++;
+    list_dir(
+        new_dir, LIST_DIR_RECUR | LIST_DIR_FOLLOW_SYMLINK,
+        ^(const char *path, const linux_dirent_t *de) {
+            assert(D_TYPE(de) != DT_LNK);
+            if (D_TYPE(de) == DT_REG) {
+                nb_bfile++;
+            }
+            return 0;
         }
-        return 0;
-    });
+    );
     nb_file = nb_bfile;
     Z_ASSERT_EQ(2, nb_file);
 
@@ -667,21 +693,24 @@ static int z_list_dir_tests(void)
 
     /* Recursive test; follow symlink; recursion should be detected. */
     nb_bfile = 0;
-    list_dir(new_dir, LIST_DIR_RECUR | LIST_DIR_FOLLOW_SYMLINK,
-             ^(const char *path, const linux_dirent_t *de) {
-        assert (D_TYPE(de) != DT_LNK);
-        if (D_TYPE(de) == DT_REG) {
-            nb_bfile++;
+    list_dir(
+        new_dir, LIST_DIR_RECUR | LIST_DIR_FOLLOW_SYMLINK,
+        ^(const char *path, const linux_dirent_t *de) {
+            assert(D_TYPE(de) != DT_LNK);
+            if (D_TYPE(de) == DT_REG) {
+                nb_bfile++;
+            }
+            return 0;
         }
-        return 0;
-    });
+    );
     nb_file = nb_bfile;
     Z_ASSERT_EQ(2, nb_file);
 
     Z_HELPER_END;
 }
 
-Z_GROUP_EXPORT(Unix) {
+Z_GROUP_EXPORT(Unix)
+{
     Z_TEST(lockdir) {
         dir_lock_t dlock1 = DIR_LOCK_INIT;
         int fd;
@@ -730,15 +759,19 @@ Z_GROUP_EXPORT(Unix) {
 
         waitpid(pid, &res, 0);
         Z_ASSERT_EQ(res, 0);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     Z_TEST(list_dir) {
         Z_HELPER_RUN(z_list_dir_tests());
-    } Z_TEST_END;
-} Z_GROUP_END;
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END;
 
 #if defined(__linux__)
 
-Z_GROUP_EXPORT(cgroups) {
+Z_GROUP_EXPORT(cgroups)
+{
 
     Z_TEST(cpu_set_parsing) {
         Z_ASSERT_EQ(cgroups_parse_cpuset(LSTR("")), 0);
@@ -748,24 +781,26 @@ Z_GROUP_EXPORT(cgroups) {
         Z_ASSERT_EQ(cgroups_parse_cpuset(LSTR("0,3,4-6\n")), 5);
         Z_ASSERT_EQ(cgroups_parse_cpuset(LSTR("0,3,4-6,9\n")), 6);
         Z_ASSERT_EQ(cgroups_parse_cpuset(LSTR("0,3,4-6,9,11-15\n")), 11);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(cpu_quota_parsing) {
         int64_t quota;
         int64_t period;
 
         Z_ASSERT_EQ(cgroups_parse_quota(LSTR(""), &quota, &period), 0);
-        Z_ASSERT_EQ(cgroups_parse_quota(LSTR("max 100000\n"), &quota,
-                                        &period),
-                    0);
-        Z_ASSERT_EQ(cgroups_parse_quota(LSTR("9999 100000\n"), &quota,
-                                        &period),
-                    1);
+        Z_ASSERT_EQ(
+            cgroups_parse_quota(LSTR("max 100000\n"), &quota, &period), 0
+        );
+        Z_ASSERT_EQ(
+            cgroups_parse_quota(LSTR("9999 100000\n"), &quota, &period), 1
+        );
         Z_ASSERT_EQ(quota, 9999);
         Z_ASSERT_EQ(period, 100000);
-    } Z_TEST_END;
-
-} Z_GROUP_END;
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END;
 
 #endif /* __linux__ */
 

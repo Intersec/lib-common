@@ -20,9 +20,9 @@
 #include <lib-common/zchk-helpers.h>
 #include <lib-common/z.h>
 
-
-void z_load_keys(lstr_t libcommon_path, sb_t *priv, sb_t *priv_encrypted,
-                 sb_t *pub)
+void z_load_keys(
+    lstr_t libcommon_path, sb_t *priv, sb_t *priv_encrypted, sb_t *pub
+)
 {
     /* To generate such test data, you can:
      * $ openssl genpkey -algorithm RSA -out priv.pem -pkeyopt
@@ -33,40 +33,55 @@ void z_load_keys(lstr_t libcommon_path, sb_t *priv, sb_t *priv_encrypted,
      */
     t_scope;
 
-    if (sb_read_file(priv, t_fmt("%*pM/tests/test-data/keys/priv.pem",
-                                  LSTR_FMT_ARG(libcommon_path))) < 0)
+    if (sb_read_file(
+            priv, t_fmt(
+                      "%*pM/tests/test-data/keys/priv.pem",
+                      LSTR_FMT_ARG(libcommon_path)
+                  )
+        ) < 0)
     {
         e_fatal("cannot read private key");
     }
-    if (sb_read_file(priv_encrypted,
-                     t_fmt("%*pM/tests/test-data/keys/priv.encrypted.pem",
-                           LSTR_FMT_ARG(libcommon_path))) < 0)
+    if (sb_read_file(
+            priv_encrypted,
+            t_fmt(
+                "%*pM/tests/test-data/keys/priv.encrypted.pem",
+                LSTR_FMT_ARG(libcommon_path)
+            )
+        ) < 0)
     {
         e_fatal("cannot read encrypted private key");
     }
-    if (sb_read_file(pub, t_fmt("%*pM/tests/test-data/keys/pub.pem",
-                                 LSTR_FMT_ARG(libcommon_path))) < 0)
+    if (sb_read_file(
+            pub, t_fmt(
+                     "%*pM/tests/test-data/keys/pub.pem",
+                     LSTR_FMT_ARG(libcommon_path)
+                 )
+        ) < 0)
     {
         e_fatal("cannot read public key");
     }
 }
 
-int z_run_command(const char * nonnull file,
-                  const char * nullable argv[],
-                  const char * nullable envp[],
-                  int timeout, int expected_status,
-                  sb_t *output)
+int z_run_command(
+    const char *nonnull file, const char *nullable argv[],
+    const char *nullable envp[], int timeout, int expected_status,
+    sb_t *output
+)
 {
     __block _Bool finished = false;
     __block int block_status = 0;
     int status;
 
-    el_spawn_child_capture(file, argv, envp, timeout, NULL,
-                           ^void (el_t ev, pid_t pid, int st, lstr_t out) {
-        block_status = st;
-        sb_add_lstr(output, out);
-        finished = true;
-    }, NULL);
+    el_spawn_child_capture(
+        file, argv, envp, timeout, NULL,
+        ^void(el_t ev, pid_t pid, int st, lstr_t out) {
+            block_status = st;
+            sb_add_lstr(output, out);
+            finished = true;
+        },
+        NULL
+    );
 
     do {
         el_loop_timeout(100);

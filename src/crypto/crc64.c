@@ -37,8 +37,8 @@
 #include "crc.h"
 #include "crc64-table.in.c"
 
-static ALWAYS_INLINE
-uint64_t naive_icrc64(uint64_t crc, const uint8_t *buf, ssize_t len)
+static ALWAYS_INLINE uint64_t
+naive_icrc64(uint64_t crc, const uint8_t *buf, ssize_t len)
 {
     if (len) {
         do {
@@ -68,21 +68,18 @@ static uint64_t fast_icrc64(uint64_t crc, const uint8_t *buf, size_t size)
 #endif
         buf += 4;
 
-        crc = crc64table[3][A(tmp)]
-            ^ crc64table[2][B(tmp)]
-            ^ S32(crc)
-            ^ crc64table[1][C(tmp)]
-            ^ crc64table[0][D(tmp)];
+        crc = crc64table[3][A(tmp)] ^ crc64table[2][B(tmp)] ^ S32(crc) ^
+              crc64table[1][C(tmp)] ^ crc64table[0][D(tmp)];
     } while (--words);
 
     return naive_icrc64(crc, buf, size & (size_t)3);
 }
 
-__attr_flatten__
-uint64_t icrc64(uint64_t crc, const void *data, ssize_t len)
+__attr_flatten__ uint64_t icrc64(uint64_t crc, const void *data, ssize_t len)
 {
     crc = ~le_to_cpu64(crc);
-    if (len < 64)
+    if (len < 64) {
         return ~le_to_cpu64(naive_icrc64(crc, data, len));
+    }
     return ~le_to_cpu64(fast_icrc64(crc, data, len));
 }

@@ -24,8 +24,9 @@ static void net_rctl_cron_cb(el_t ev, data_t priv)
     net_rctl_t *rctl = priv.ptr;
     int slot;
 
-    if ((slot = ++rctl->slot) == countof(rctl->rates))
+    if ((slot = ++rctl->slot) == countof(rctl->rates)) {
         slot = rctl->slot = 0;
+    }
     rctl->remains = MIN(rctl->remains + rctl->rates[slot], rctl->slice_max);
     if (rctl->remains) {
         if (rctl->is_blk) {
@@ -38,8 +39,9 @@ static void net_rctl_cron_cb(el_t ev, data_t priv)
     }
 }
 
-void net_rctl_init_slots(int rate, int slots_nr,
-                         unsigned slots[static slots_nr])
+void net_rctl_init_slots(
+    int rate, int slots_nr, unsigned slots[static slots_nr]
+)
 {
     unsigned sum = 0;
 
@@ -52,7 +54,7 @@ void net_rctl_init_slots(int rate, int slots_nr,
 static void net_rctl_init_(net_rctl_t *rctl, int rate)
 {
     p_clear(rctl, 1);
-    rctl->rate      = rate;
+    rctl->rate = rate;
     rctl->slice_max = DIV_ROUND_UP(rctl->rate * 3, countof(rctl->rates));
 
     net_rctl_init_slots(rate, countof(rctl->rates), rctl->rates);
@@ -90,4 +92,3 @@ void net_rctl_wipe(net_rctl_t *rctl)
         rctl->is_blk = false;
     }
 }
-

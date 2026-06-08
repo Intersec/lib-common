@@ -32,35 +32,36 @@ static struct {
     dlist_t qps_head;
     spinlock_t lock;
 
-    bool    in_snapshot_fork;
+    bool in_snapshot_fork;
 
-    void  (*sighandler)(int, siginfo_t *, void *);
+    void (*sighandler)(int, siginfo_t *, void *);
     struct sigaction prev_sigsegv;
     struct sigaction prev_sigbus;
 
     logger_t logger;
 } qps_store_g = {
-#define _G  qps_store_g
+#define _G qps_store_g
     .qps_head = DLIST_INIT(_G.qps_head),
-    .logger   = LOGGER_INIT_INHERITS(NULL, "qps"),
+    .logger = LOGGER_INIT_INHERITS(NULL, "qps"),
 };
 
 #if 0
-#  define TRACE_ALLOC(...)  e_named_trace(4, "qps/"__VA_ARGS__)
+#  define TRACE_ALLOC(...) e_named_trace(4, "qps/"__VA_ARGS__)
 #else
-#  define TRACE_ALLOC(...)  ((void)0)
+#  define TRACE_ALLOC(...) ((void)0)
 #endif
 
-//#define QPS_CHECK_INVARIANTS
+// #define QPS_CHECK_INVARIANTS
 #ifdef QPS_CHECK_INVARIANTS
-# define QPS_CHECK(expr)         assert(expr)
-# define qps_m_check_maps(qps)   __qps_check_maps(qps, true)
+#  define QPS_CHECK(expr) assert(expr)
+#  define qps_m_check_maps(qps) __qps_check_maps(qps, true)
 #else
-# define QPS_CHECK(expr)         ((void)0)
-# define qps_m_check_maps(qps)   ((void)0)
+#  define QPS_CHECK(expr) ((void)0)
+#  define qps_m_check_maps(qps) ((void)0)
 #endif
 
-#define CHECK(qps, Expr)  do {                                               \
+#define CHECK(qps, Expr)                                                     \
+    do {                                                                     \
         if (unlikely(!(Expr))) {                                             \
             if (fatal) {                                                     \
                 logger_panic(&qps->logger, #Expr);                           \
@@ -70,12 +71,14 @@ static struct {
     } while (0)
 
 #if !defined(NDEBUG) && !defined(__has_asan)
-# define VG_DO(what, map, pg, n) \
-    ({  qps_pg_t _pg = (pg); size_t _n = (n);                                \
+#  define VG_DO(what, map, pg, n)                                            \
+      ({                                                                     \
+        qps_pg_t _pg = (pg);                                                 \
+        size_t _n = (n);                                                     \
                                                                              \
         if (_n) {                                                            \
             uint8_t *_start = map[QPS_PG_IDX(_pg)].data;                     \
-            uint8_t *_end   = _start + _n * QPS_PAGE_SIZE;                   \
+            uint8_t *_end = _start + _n * QPS_PAGE_SIZE;                     \
                                                                              \
             assert(map);                                                     \
             assert(_start);                                                  \
@@ -85,24 +88,24 @@ static struct {
                 mem_tool_allow_memory(_start, _end - _start, what);          \
             }                                                                \
         }                                                                    \
-    })
-#define VG_DO_PG(what, qps, pg, n) \
-    ({  qps_pg_t __pg = (pg);                                                \
+      })
+#  define VG_DO_PG(what, qps, pg, n)                                         \
+      ({                                                                     \
+        qps_pg_t __pg = (pg);                                                \
         VG_DO(what, qps->maps.tab[QPS_PG_MAP_IDX(__pg)], __pg, n);           \
-    })
+      })
 #else
-# define VG_DO(...)     ((void)0)
-# define VG_DO_PG(...)  ((void)0)
+#  define VG_DO(...) ((void)0)
+#  define VG_DO_PG(...) ((void)0)
 #endif
 
-#define PG_HIDE(qps, pg, n)    VG_DO_PG(-1, qps, pg, n)
-#define PG_UNDEF(qps, pg, n)   VG_DO_PG(0, qps, pg, n)
-#define PG_DEF(qps, pg, n)     VG_DO_PG(1, qps, pg, n)
+#define PG_HIDE(qps, pg, n) VG_DO_PG(-1, qps, pg, n)
+#define PG_UNDEF(qps, pg, n) VG_DO_PG(0, qps, pg, n)
+#define PG_DEF(qps, pg, n) VG_DO_PG(1, qps, pg, n)
 
-#define MAP_HIDE(map, pg, n)    VG_DO(-1, map, pg, n)
-#define MAP_UNDEF(map, pg, n)   VG_DO(0, map, pg, n)
-#define MAP_DEF(map, pg, n)     VG_DO(1, map, pg, n)
-
+#define MAP_HIDE(map, pg, n) VG_DO(-1, map, pg, n)
+#define MAP_UNDEF(map, pg, n) VG_DO(0, map, pg, n)
+#define MAP_DEF(map, pg, n) VG_DO(1, map, pg, n)
 
 /**
  * \{ \addtogroup qps
@@ -114,7 +117,8 @@ static struct {
  *
  * This file is made of the following items:
  * - 16 octets (qps_meta#sig) of signature (set to #QPS_META_SIG)
- * - 4 octets (qps_meta#generation) for the generation (in the host endianness)
+ * - 4 octets (qps_meta#generation) for the generation (in the host
+ * endianness)
  * - 4 octets (qps_meta#osize) for the original size of the compressed data
  * - 4 octets (qps_meta#csize) for the compressed data size
  * - 4 octets (qps_meta#psize) for the private data size
@@ -157,10 +161,10 @@ static struct {
 /*
  * used in both pg and memory hdrs
  */
-#define QPS_BLK_FREE       2
-#define QPS_BLK_USED       0
-#define QPS_BLK_PREV_FREE  1
-#define QPS_BLK_PREV_USED  0
+#define QPS_BLK_FREE 2
+#define QPS_BLK_USED 0
+#define QPS_BLK_PREV_FREE 1
+#define QPS_BLK_PREV_USED 0
 
 struct qps_pghdr_t {
     uint16_t flags;
@@ -177,7 +181,7 @@ struct qps_pghdr_t {
     };
 };
 
-#define QPS_MBLK_HDRSZ    offsetof(qps_mhdr_t, data)
+#define QPS_MBLK_HDRSZ offsetof(qps_mhdr_t, data)
 struct qps_mhdr_t {
 #if QPS_USE_REDZONES
     uint64_t rz_after_block;
@@ -192,9 +196,9 @@ struct qps_mhdr_t {
     union {
         struct {
             qps_mhdr_t **prev_next;
-            qps_mhdr_t  *next;
+            qps_mhdr_t *next;
         } free;
-        void   *padding[3];
+        void *padding[3];
         uint8_t data[0];
     };
 };
@@ -224,22 +228,23 @@ static ALWAYS_INLINE qps_ptr_t qps_encode(const void *ptr)
 
 static ALWAYS_INLINE size_t qps_pg_l12_size_(uint32_t l1, uint32_t l2)
 {
-    if (l1 == 0)
+    if (l1 == 0) {
         return l2;
+    }
     return (QPS_PGL2_LEVELS + l2) << (l1 - 1);
 }
 
-static __attr_unused__ ALWAYS_INLINE
-size_t qps_pg_l12_minsize(uint32_t l1, uint32_t l2)
+static __attr_unused__ ALWAYS_INLINE size_t
+qps_pg_l12_minsize(uint32_t l1, uint32_t l2)
 {
-    assert (l2 < QPS_PGL2_LEVELS);
+    assert(l2 < QPS_PGL2_LEVELS);
     return qps_pg_l12_size_(l1, l2);
 }
 
-static __attr_unused__ ALWAYS_INLINE
-size_t qps_pg_l12_maxsize(uint32_t l1, uint32_t l2)
+static __attr_unused__ ALWAYS_INLINE size_t
+qps_pg_l12_maxsize(uint32_t l1, uint32_t l2)
 {
-    assert (l2 < QPS_PGL2_LEVELS);
+    assert(l2 < QPS_PGL2_LEVELS);
     return qps_pg_l12_size_(l1, l2 + 1);
 }
 
@@ -252,7 +257,7 @@ static void qps_pg_alloc_search(uint32_t n0, uint32_t *l1, uint32_t *l2)
         *l1 = 0;
         *l2 = n;
     } else {
-        n  += BITMASK_LT(uint32_t, bsr32(n) - QPS_PGL2_SHIFT);
+        n += BITMASK_LT(uint32_t, bsr32(n) - QPS_PGL2_SHIFT);
         *l1 = bsr32(n) - QPS_PGL2_SHIFT + 1;
         *l2 = (n >> (*l1 - 1)) - QPS_PGL2_LEVELS;
     }
@@ -271,7 +276,7 @@ static void qps_pg_insert_search(uint32_t n, uint32_t *l1, uint32_t *l2)
         *l2 = (n >> (*l1 - 1)) - QPS_PGL2_LEVELS;
     }
     QPS_CHECK(n >= qps_pg_l12_minsize(*l1, *l2));
-    QPS_CHECK(n <  qps_pg_l12_maxsize(*l1, *l2));
+    QPS_CHECK(n < qps_pg_l12_maxsize(*l1, *l2));
 }
 
 static qps_pg_t
@@ -301,7 +306,7 @@ static void qps_pg_blk_insert(qps_t *qps, qps_pg_t blk, size_t n)
 
     qps_pg_insert_search(n, &l1, &l2);
     hdr->flags = QPS_BLK_PREV_USED | QPS_BLK_FREE;
-    hdr->size  = n;
+    hdr->size = n;
     if ((hdr->free.next = qps->pgs.blks[l1][l2])) {
         qps->hdrs[hdr->free.next].free.prev = blk;
     } else {
@@ -311,7 +316,7 @@ static void qps_pg_blk_insert(qps_t *qps, qps_pg_t blk, size_t n)
     qps->pgs.blks[l1][l2] = blk;
     hdr->free.prev = 0;
 
-    hdr[n].flags   |= QPS_BLK_PREV_FREE;
+    hdr[n].flags |= QPS_BLK_PREV_FREE;
     hdr[n].blk_prev = blk;
 }
 
@@ -328,11 +333,11 @@ static size_t qps_pg_blk_remove(qps_t *qps, qps_pg_t blk)
     }
     if (hdr->free.next) {
         qps->hdrs[hdr->free.next].free.prev = hdr->free.prev;
-    } else
-    if (hdr->free.prev == 0) {
+    } else if (hdr->free.prev == 0) {
         RST_BIT(qps->pgs.l2_bitmap + l1, l2);
-        if (!qps->pgs.l2_bitmap[l1])
+        if (!qps->pgs.l2_bitmap[l1]) {
             RST_BIT(&qps->pgs.l1_bitmap, l1);
+        }
     }
 
     return hdr->size;
@@ -345,7 +350,7 @@ static int qps_pg_check_hdrs_aux(qps_t *qps, qps_pg_t blk, bool fatal)
     CHECK(qps, !(hdrs[0].flags & QPS_BLK_FREE));
     CHECK(qps, hdrs[0].size == 1);
 
-    for (uint32_t pg = 1; pg < QPS_MAP_PAGES; ) {
+    for (uint32_t pg = 1; pg < QPS_MAP_PAGES;) {
         uint32_t sz = hdrs[pg].size;
 
         CHECK(qps, sz >= 1 && pg + sz <= QPS_MAP_PAGES);
@@ -369,8 +374,9 @@ static void qps_pg_check_hdrs(qps_t *qps)
     for (int i = 0; i < qps->maps.len; i++) {
         qps_map_t *map = qps->maps.tab[i];
 
-        if (map && qps_map_is_pg(map))
+        if (map && qps_map_is_pg(map)) {
             qps_pg_check_hdrs_aux(qps, i << 16, true);
+        }
     }
 #endif
 }
@@ -394,22 +400,23 @@ static void qps_pg_check_hdrs(qps_t *qps)
 
 static ALWAYS_INLINE size_t qps_m_l12_size_(uint32_t l1, uint32_t l2)
 {
-    if (l1 == 0)
+    if (l1 == 0) {
         return l2 << QPS_ML2_OFFSET;
+    }
     return (QPS_ML2_LEVELS + l2) << (l1 - 1 + QPS_ML2_OFFSET);
 }
 
-static __attr_unused__ ALWAYS_INLINE
-size_t qps_m_l12_minsize(uint32_t l1, uint32_t l2)
+static __attr_unused__ ALWAYS_INLINE size_t
+qps_m_l12_minsize(uint32_t l1, uint32_t l2)
 {
-    assert (l2 < QPS_ML2_LEVELS);
+    assert(l2 < QPS_ML2_LEVELS);
     return qps_m_l12_size_(l1, l2);
 }
 
-static __attr_unused__ ALWAYS_INLINE
-size_t qps_m_l12_maxsize(uint32_t l1, uint32_t l2)
+static __attr_unused__ ALWAYS_INLINE size_t
+qps_m_l12_maxsize(uint32_t l1, uint32_t l2)
 {
-    assert (l2 < QPS_ML2_LEVELS);
+    assert(l2 < QPS_ML2_LEVELS);
     return qps_m_l12_size_(l1, l2 + 1);
 }
 
@@ -427,8 +434,8 @@ static size_t qps_m_alloc_search(size_t sz, uint32_t *l1, uint32_t *l2)
 
         size += t;
         bits = bsr32(size) + 1;
-        *l1  = bits - offs;
-        *l2  = (size >> (bits - QPS_ML2_SHIFT - 1)) - QPS_ML2_LEVELS;
+        *l1 = bits - offs;
+        *l2 = (size >> (bits - QPS_ML2_SHIFT - 1)) - QPS_ML2_LEVELS;
         size &= ~t;
     }
     QPS_CHECK(sz <= size);
@@ -446,8 +453,8 @@ static void qps_m_insert_search(size_t size, uint32_t *l1, uint32_t *l2)
     } else {
         size_t bits = bsr32(size) + 1;
 
-        *l1  = bits - offs;
-        *l2  = (size >> (bits - QPS_ML2_SHIFT - 1)) - QPS_ML2_LEVELS;
+        *l1 = bits - offs;
+        *l2 = (size >> (bits - QPS_ML2_SHIFT - 1)) - QPS_ML2_LEVELS;
     }
     QPS_CHECK(size >= qps_m_l12_minsize(*l1, *l2));
     QPS_CHECK(size < qps_m_l12_maxsize(*l1, *l2));
@@ -529,11 +536,11 @@ static size_t qps_m_blk_remove(qps_t *qps, qps_mhdr_t *blk)
     *blk->free.prev_next = blk->free.next;
     if (blk->free.next) {
         blk->free.next->free.prev_next = blk->free.prev_next;
-    } else
-    if (blk->free.prev_next == &qps->m.blks[l1][l2]) {
+    } else if (blk->free.prev_next == &qps->m.blks[l1][l2]) {
         RST_BIT(qps->m.l2_bitmap + l1, l2);
-        if (!qps->m.l2_bitmap[l1])
+        if (!qps->m.l2_bitmap[l1]) {
             RST_BIT(&qps->m.l1_bitmap, l1);
+        }
     }
 
 #if QPS_USE_REDZONES
@@ -561,23 +568,24 @@ static void qps_m_register_map(qps_t *qps, qps_map_t *map)
 static void qps_m_malloclike_map(qps_t *qps, qps_map_t *map)
 {
 #if QPS_USE_REDZONES
-    void       *map_end = &map[QPS_MAP_PAGES];
-    qps_mhdr_t *blk     = (qps_mhdr_t *)&map[1];
+    void *map_end = &map[QPS_MAP_PAGES];
+    qps_mhdr_t *blk = (qps_mhdr_t *)&map[1];
     qps_mhdr_t *blk_end = container_of(map_end, qps_mhdr_t, data);
 
     blk = qps_m_blk_next(blk, QPS_MBLK_HDRSZ);
     if (qps_is_ro(qps, map)) {
         while (blk < blk_end) {
-            size_t      bsz = qps_m_blk_size(blk);
+            size_t bsz = qps_m_blk_size(blk);
             qps_mhdr_t *nxt = qps_m_blk_next(blk, bsz);
-            qps_ptr_t  *hptr, bptr;
-            void       *ptr;
+            qps_ptr_t *hptr, bptr;
+            void *ptr;
 
             if (bsz && !(blk->flags & QPS_BLK_FREE)) {
                 hptr = qps_handle_slot(qps, blk->handle);
                 bptr = qps_encode(blk->data);
                 if (hptr->pgno == bptr.pgno && hptr->addr == bptr.addr) {
-                    ptr = (uint8_t *)qps_pg_deref(qps, hptr->pgno) + hptr->addr;
+                    ptr =
+                        (uint8_t *)qps_pg_deref(qps, hptr->pgno) + hptr->addr;
                     mem_tool_malloclike(ptr, blk->rz_alloc_size, 8, false);
                     mem_tool_allow_memory(ptr, blk->rz_alloc_size, true);
                 }
@@ -586,14 +594,15 @@ static void qps_m_malloclike_map(qps_t *qps, qps_map_t *map)
         }
     } else {
         while (blk < blk_end) {
-            size_t      bsz = qps_m_blk_size(blk);
+            size_t bsz = qps_m_blk_size(blk);
             qps_mhdr_t *nxt = qps_m_blk_next(blk, bsz);
 
             if (bsz && !(blk->flags & QPS_BLK_FREE)) {
-                assert (blk->rz_alloc_size <= bsz);
+                assert(blk->rz_alloc_size <= bsz);
                 mem_tool_malloclike(blk->data, blk->rz_alloc_size, 8, false);
-                logger_info(&qps->logger, "malloclike(h:%d, sz:%zd)",
-                            blk->handle, bsz);
+                logger_info(
+                    &qps->logger, "malloclike(h:%d, sz:%zd)", blk->handle, bsz
+                );
                 mem_tool_allow_memory(blk->data, blk->rz_alloc_size, true);
             }
             blk = nxt;
@@ -621,16 +630,17 @@ static int qps_m_check_map(qps_t *qps, qps_map_t *map, bool fatal)
     blk = (qps_mhdr_t *)&map[1];
     blk_end = container_of(map_end, qps_mhdr_t, data);
 
-    CHECK(qps,
-          blk->flags == (QPS_MBLK_HDRSZ | QPS_BLK_PREV_USED | QPS_BLK_USED));
+    CHECK(
+        qps, blk->flags == (QPS_MBLK_HDRSZ | QPS_BLK_PREV_USED | QPS_BLK_USED)
+    );
     CHECK(qps, (blk_end->flags | QPS_BLK_PREV_FREE) == QPS_BLK_PREV_FREE);
 
     blk = qps_m_blk_next(blk, QPS_MBLK_HDRSZ);
     if (ro_tlsf_map) {
         while (blk < blk_end) {
-            size_t      bsz = qps_m_blk_size(blk);
+            size_t bsz = qps_m_blk_size(blk);
             qps_mhdr_t *nxt = qps_m_blk_next(blk, bsz);
-            qps_ptr_t  *hptr, bptr;
+            qps_ptr_t *hptr, bptr;
 
             CHECK(qps, qps_m_blk_next(blk, bsz) <= blk_end);
             if (blk->flags & QPS_BLK_FREE) {
@@ -641,26 +651,30 @@ static int qps_m_check_map(qps_t *qps, qps_map_t *map, bool fatal)
                 CHECK(qps, blk->handle);
                 hptr = qps_handle_slot(qps, blk->handle);
                 bptr = qps_encode(blk->data);
-                if (hptr->pgno == bptr.pgno && hptr->addr == bptr.addr)
+                if (hptr->pgno == bptr.pgno && hptr->addr == bptr.addr) {
                     allocated += QPS_MBLK_HDRSZ + bsz;
+                }
             }
             blk = nxt;
         }
         if (map->hdr.remaining != allocated) {
             if (fatal) {
-                logger_panic(&qps->logger, "RO map [%x] remaining disparity: "
-                             "delta is %zd", map->hdr.mapno,
-                             map->hdr.remaining - allocated);
+                logger_panic(
+                    &qps->logger,
+                    "RO map [%x] remaining disparity: delta is %zd",
+                    map->hdr.mapno, map->hdr.remaining - allocated
+                );
             } else {
-                return logger_error(&qps->logger, "RO map [%x] remaining "
-                                    "disparity: delta is %zd",
-                                    map->hdr.mapno,
-                                    map->hdr.remaining - allocated);
+                return logger_error(
+                    &qps->logger,
+                    "RO map [%x] remaining disparity: delta is %zd",
+                    map->hdr.mapno, map->hdr.remaining - allocated
+                );
             }
         }
     } else {
         while (blk < blk_end) {
-            size_t      bsz = qps_m_blk_size(blk);
+            size_t bsz = qps_m_blk_size(blk);
             qps_mhdr_t *nxt = qps_m_blk_next(blk, bsz);
 
             CHECK(qps, qps_m_blk_next(blk, bsz) <= blk_end);
@@ -676,13 +690,17 @@ static int qps_m_check_map(qps_t *qps, qps_map_t *map, bool fatal)
         }
         if (map->hdr.allocated != allocated) {
             if (fatal) {
-                logger_panic(&qps->logger, "RW map [%x] allocated disparity: "
-                             "delta is %zd", map->hdr.mapno,
-                             map->hdr.allocated - allocated);
+                logger_panic(
+                    &qps->logger,
+                    "RW map [%x] allocated disparity: delta is %zd",
+                    map->hdr.mapno, map->hdr.allocated - allocated
+                );
             } else {
-                return logger_error(&qps->logger, "RW map [%x] allocated "
-                                    "disparity: delta is %zd", map->hdr.mapno,
-                                    map->hdr.allocated - allocated);
+                return logger_error(
+                    &qps->logger,
+                    "RW map [%x] allocated disparity: delta is %zd",
+                    map->hdr.mapno, map->hdr.allocated - allocated
+                );
             }
         }
     }
@@ -694,8 +712,9 @@ int __qps_check_maps(qps_t *qps, bool fatal)
     for (int i = 0; i < qps->maps.len; i++) {
         qps_map_t *map = qps->maps.tab[i];
 
-        if (!map || map->hdr.generation == 0)
+        if (!map || map->hdr.generation == 0) {
             continue;
+        }
         if (qps_map_is_pg(map)) {
             RETHROW(qps_pg_check_hdrs_aux(qps, i << 16, fatal));
         } else {
@@ -704,7 +723,6 @@ int __qps_check_maps(qps_t *qps, bool fatal)
     }
     return 0;
 }
-
 
 /* }}} */
 /** @} */
@@ -715,14 +733,16 @@ static int qps_open_temp(qps_t *qps, const char *path)
 {
     logger_trace(&qps->logger, 1, "unlinkat(%s)", path);
     if (unlinkat(qps->dfd, path, 0) < 0) {
-        if (errno != ENOENT)
+        if (errno != ENOENT) {
             qps_enospc(qps, "unlinkat");
+        }
     }
     logger_trace(&qps->logger, 1, "openat(%s)", path);
     return x_openat(qps->dfd, path, O_RDWR | O_CREAT | O_EXCL, 0444);
 }
 
-static int qps_smaps_find(qv_t(qpsm) const *tab, const void *addr, bool wantit)
+static int
+qps_smaps_find(qv_t(qpsm) const *tab, const void *addr, bool wantit)
 {
     const qps_map_t *map = qps_map_of(addr);
     size_t l = 0, r = tab->len;
@@ -730,16 +750,18 @@ static int qps_smaps_find(qv_t(qpsm) const *tab, const void *addr, bool wantit)
     while (l < r) {
         size_t i = (l + r) / 2;
 
-        if (tab->tab[i] == map)
+        if (tab->tab[i] == map) {
             return i;
+        }
         if (tab->tab[i] < map) {
             l = i + 1;
         } else {
             r = i;
         }
     }
-    if (wantit)
+    if (wantit) {
         return -1;
+    }
     return l;
 }
 
@@ -766,13 +788,15 @@ qps_map_recycle(qps_t *qps, qps_map_t *map, uint16_t no, bool quarantine)
     } else {
         pos = bisect32(no, qps->no_free.tab, qps->no_free.len, NULL);
 
-        assert (pos == qps->no_free.len || qps->no_free.tab[pos] != no);
+        assert(pos == qps->no_free.len || qps->no_free.tab[pos] != no);
         qv_insert(&qps->no_free, pos, no);
     }
 
     /* keep the address around */
-    x_mmap(map, QPS_MAP_SIZE, PROT_NONE,
-           MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+    x_mmap(
+        map, QPS_MAP_SIZE, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+        -1, 0
+    );
 }
 
 static void qps_unquarantine_nos(qps_t *qps)
@@ -783,10 +807,10 @@ static void qps_unquarantine_nos(qps_t *qps)
     dsort32(qps->no_free.tab, qps->no_free.len);
 
     for (int i = 0; i < qps->no_blocked.len; i++) {
-         /* remove the potential file on disk */
-         snprintf(buf, sizeof(buf), "%08x.qps", qps->no_blocked.tab[i]);
-         logger_trace(&qps->logger, 1, "unlinkat(%s)", buf);
-         unlinkat(qps->dfd, buf, 0);
+        /* remove the potential file on disk */
+        snprintf(buf, sizeof(buf), "%08x.qps", qps->no_blocked.tab[i]);
+        logger_trace(&qps->logger, 1, "unlinkat(%s)", buf);
+        unlinkat(qps->dfd, buf, 0);
     }
     qv_clear(&qps->no_blocked);
 }
@@ -810,16 +834,15 @@ static void *qps_map_fd(qps_t *qps, int fd, void *at)
 
     if (fd < 0) {
         flags = MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS;
-        prot  = PROT_READ | PROT_WRITE;
+        prot = PROT_READ | PROT_WRITE;
     } else {
-        flags = MAP_SHARED  | MAP_FIXED;
-        prot  = PROT_READ;
+        flags = MAP_SHARED | MAP_FIXED;
+        prot = PROT_READ;
     }
 
     if (at) {
         where = at;
-    } else
-    if (qps->omaps.len) {
+    } else if (qps->omaps.len) {
         where = *tab_last(&qps->omaps);
         qv_shrink(&qps->omaps, 1);
     } else {
@@ -827,13 +850,15 @@ static void *qps_map_fd(qps_t *qps, int fd, void *at)
 
         map = x_mmap(NULL, 2 * sz, prot, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
         fix = (uint8_t *)ROUND_UP((uintptr_t)map, sz);
-        if (fix != map)
+        if (fix != map) {
             x_munmap(map, fix - map);
-        if (fix + sz != map + 2 * sz)
+        }
+        if (fix + sz != map + 2 * sz) {
             x_munmap(fix + sz, map + sz - fix);
+        }
         where = fix;
     }
-    assert (((uintptr_t)where & QPS_MAP_MASK) == 0);
+    assert(((uintptr_t)where & QPS_MAP_MASK) == 0);
 
     x_mmap(where, sz, prot, flags, fd, 0);
     madvise(where, QPS_MAP_SIZE, MADV_RANDOM);
@@ -858,7 +883,7 @@ static void qps_alloc_hdrs(qps_t *qps, int olen, int no)
         p_realloc0(&qps->hdrs, o + 1, n + 1);
         for (size_t i = o; i <= n; i += QPS_MAP_PAGES) {
             qps->hdrs[i].flags |= QPS_BLK_USED;
-            qps->hdrs[i].size   = 1;
+            qps->hdrs[i].size = 1;
         }
     } else {
         p_clear(qps->hdrs + QPS_MAP_PAGES * no + 1, QPS_MAP_PAGES - 1);
@@ -866,15 +891,19 @@ static void qps_alloc_hdrs(qps_t *qps, int olen, int no)
 }
 
 /** Call mprotect() on a given map. */
-static void qps_map_protect(const qps_t *nullable qps, qps_map_t *map,
-                            int prot)
+static void
+qps_map_protect(const qps_t *nullable qps, qps_map_t *map, int prot)
 {
     if (prot & PROT_WRITE) {
-        logger_trace(qps ? &qps->logger : &_G.logger, 1, "unprotect %p:%d",
-                     map->hdr.qps, map->hdr.mapno);
+        logger_trace(
+            qps ? &qps->logger : &_G.logger, 1, "unprotect %p:%d",
+            map->hdr.qps, map->hdr.mapno
+        );
     } else {
-        logger_trace(qps ? &qps->logger : &_G.logger, 1, "protect %p:%d",
-                     map->hdr.qps, map->hdr.mapno);
+        logger_trace(
+            qps ? &qps->logger : &_G.logger, 1, "protect %p:%d", map->hdr.qps,
+            map->hdr.mapno
+        );
     }
     mprotect(map + 1, QPS_MAP_SIZE - QPS_PAGE_SIZE, prot);
 }
@@ -897,15 +926,15 @@ static qps_map_t *qps_map_create_raw(qps_t *qps, uint32_t no, const char *sig)
     qps_map_t *map;
 
     map = qps_map_fd(qps, -1, NULL);
-    map->hdr.mapno      = no;
-    map->hdr.qps        = qps;
+    map->hdr.mapno = no;
+    map->hdr.qps = qps;
     map->hdr.generation = qps->generation;
     memcpy(map->hdr.sig, sig, sizeof(map->hdr.sig));
     return map;
 }
-#define qps_map_m_create_raw(qps, no)  \
+#define qps_map_m_create_raw(qps, no)                                        \
     qps_map_create_raw((qps), (no), QPS_MAP_MEM_SIG)
-#define qps_map_pg_create_raw(qps, no)  \
+#define qps_map_pg_create_raw(qps, no)                                       \
     qps_map_create_raw((qps), (no), QPS_MAP_PG_SIG)
 
 static void qps_map_bless(qps_t *qps, qps_map_t *map)
@@ -953,16 +982,18 @@ static void qps_map_create(qps_t *qps, bool for_pg)
     } else {
         qps_m_register_map(qps, map);
     }
-    logger_trace(&qps->logger, 1, "qps_map_create(%p) = %d[%s]",
-                 qps, no, for_pg ? "pg" : "mem");
+    logger_trace(
+        &qps->logger, 1, "qps_map_create(%p) = %d[%s]", qps, no,
+        for_pg ? "pg" : "mem"
+    );
 }
 
 static bool qps_map_pg_is_all_free(const qps_t *qps, const qps_map_t *map)
 {
     qps_pghdr_t *hdrs = qps->hdrs + map->hdr.mapno * QPS_MAP_PAGES;
 
-    return (hdrs[1].flags & QPS_BLK_FREE)
-        && hdrs[1].size == QPS_MAP_PAGES - 1;
+    return (hdrs[1].flags & QPS_BLK_FREE) &&
+           hdrs[1].size == QPS_MAP_PAGES - 1;
 }
 
 static void qps_map_pg_snapshot(qps_t *qps, qps_map_t *map, uint32_t gen)
@@ -970,9 +1001,9 @@ static void qps_map_pg_snapshot(qps_t *qps, qps_map_t *map, uint32_t gen)
     qps_pghdr_t *hdrs = qps->hdrs + map->hdr.mapno * QPS_MAP_PAGES;
     char buf[32], dst[32];
     gzFile out;
-    int  fd;
+    int fd;
 
-    assert (qps_map_is_pg(map));
+    assert(qps_map_is_pg(map));
     snprintf(dst, sizeof(dst), "%08x.%08x.qpz", map->hdr.mapno, gen);
     snprintf(buf, sizeof(buf), "%08x.%08x.qpt", map->hdr.mapno, gen);
     fd = qps_open_temp(qps, buf);
@@ -994,7 +1025,7 @@ static void qps_map_pg_snapshot(qps_t *qps, qps_map_t *map, uint32_t gen)
             hdrs[pg].handle,
         };
 
-        assert (tmp[0] >= 1 && pg + tmp[0] <= QPS_MAP_PAGES);
+        assert(tmp[0] >= 1 && pg + tmp[0] <= QPS_MAP_PAGES);
         if (hdrs[pg].flags & QPS_BLK_FREE) {
             tmp[0] |= 1 << 16;
             if (gzwrite(out, tmp, sizeof(tmp)) != sizeof(tmp)) {
@@ -1027,10 +1058,10 @@ static void qps_map_pg_snapshot(qps_t *qps, qps_map_t *map, uint32_t gen)
 static void qps_map_m_snapshot(qps_t *qps, qps_map_t *map, uint32_t gen)
 {
     char buf[32], dst[32];
-    int  fd;
-    void       *map_end = &map[QPS_MAP_PAGES];
-    qps_mhdr_t *prev    = (qps_mhdr_t *)&map[0];
-    qps_mhdr_t *blk     = (qps_mhdr_t *)&map[1];
+    int fd;
+    void *map_end = &map[QPS_MAP_PAGES];
+    qps_mhdr_t *prev = (qps_mhdr_t *)&map[0];
+    qps_mhdr_t *blk = (qps_mhdr_t *)&map[1];
     qps_mhdr_t *blk_end = container_of(map_end, qps_mhdr_t, data);
 
     snprintf(buf, sizeof(buf), "%08x.qpt", map->hdr.mapno);
@@ -1039,18 +1070,20 @@ static void qps_map_m_snapshot(qps_t *qps, qps_map_t *map, uint32_t gen)
     x_ftruncate(fd, QPS_MAP_SIZE);
 
     while (blk <= blk_end) {
-        size_t bsz       = qps_m_blk_size(blk);
+        size_t bsz = qps_m_blk_size(blk);
         qps_mhdr_t *next = qps_m_blk_next(blk, bsz);
 
         if (blk->flags & QPS_BLK_FREE) {
             bsz = 0;
         }
 
-        if (next > blk_end
-        ||  (byte *)next - (byte *)blk - QPS_MBLK_HDRSZ - bsz >= 4096)
+        if (next > blk_end ||
+            (byte *)next - (byte *)blk - QPS_MBLK_HDRSZ - bsz >= 4096)
         {
-            x_pwrite(fd, prev, (byte *)blk - (byte *)prev + QPS_MBLK_HDRSZ + bsz,
-                     (byte *)prev - (byte *)map);
+            x_pwrite(
+                fd, prev, (byte *)blk - (byte *)prev + QPS_MBLK_HDRSZ + bsz,
+                (byte *)prev - (byte *)map
+            );
             prev = next;
         }
 
@@ -1069,7 +1102,7 @@ static qps_map_t *qps_pg_map_open(qps_t *qps, uint32_t no, uint32_t gen)
     qps_map_t *map;
     gzFile zin;
     uint32_t pg;
-    int  fd;
+    int fd;
 
     snprintf(buf, sizeof(buf), "%08x.%08x.qpz", no, gen);
     map = qps_map_pg_create_raw(qps, no);
@@ -1088,8 +1121,9 @@ static qps_map_t *qps_pg_map_open(qps_t *qps, uint32_t no, uint32_t gen)
 #if ZLIB_VERNUM >= 0x1240
     gzbuffer(zin, 1 << 20);
 #endif
-    if (gzread(zin, &map->hdr, sizeof(qps_map_t)) != sizeof(qps_map_t))
+    if (gzread(zin, &map->hdr, sizeof(qps_map_t)) != sizeof(qps_map_t)) {
         goto zerror;
+    }
 
     map->hdr.generation = gen;
     pg = 1;
@@ -1102,8 +1136,9 @@ static qps_map_t *qps_pg_map_open(qps_t *qps, uint32_t no, uint32_t gen)
         uint32_t tmp[2];
         uint16_t sz;
 
-        if (gzread(zin, tmp, sizeof(tmp)) != sizeof(tmp))
+        if (gzread(zin, tmp, sizeof(tmp)) != sizeof(tmp)) {
             goto zerror;
+        }
 
         sz = tmp[0];
         if (sz == 0 || pg + sz > QPS_MAP_PAGES) {
@@ -1118,12 +1153,13 @@ static qps_map_t *qps_pg_map_open(qps_t *qps, uint32_t no, uint32_t gen)
         } else {
             int rsz = sz * QPS_PAGE_SIZE;
 
-            hdrs[pg].size   = sz;
+            hdrs[pg].size = sz;
             hdrs[pg].handle = tmp[1];
             hdrs[pg].flags |= QPS_BLK_USED;
             MAP_DEF(map, blk, sz);
-            if (gzread(zin, map + pg, rsz) != rsz)
+            if (gzread(zin, map + pg, rsz) != rsz) {
                 goto zerror;
+            }
         }
         pg += sz;
     }
@@ -1131,10 +1167,12 @@ static qps_map_t *qps_pg_map_open(qps_t *qps, uint32_t no, uint32_t gen)
     gzclose(zin);
     return map;
 
-  zerror:
+zerror:
     if (zin) {
-        logger_error(&qps->logger, "[%s] unable to gzread(): %s", buf,
-                     gzerror(zin, NULL));
+        logger_error(
+            &qps->logger, "[%s] unable to gzread(): %s", buf,
+            gzerror(zin, NULL)
+        );
         gzclose(zin);
     }
     qps_map_recycle(qps, map, no, false);
@@ -1146,8 +1184,8 @@ static qps_map_t *qps_m_map_open(qps_t *qps, uint32_t no)
     int fd;
     char buf[32];
     qps_map_t *map = NULL;
-    qps_map_t  hdr;
-    struct stat st = { .st_size = 0 };
+    qps_map_t hdr;
+    struct stat st = {.st_size = 0};
 
     snprintf(buf, sizeof(buf), "%08x.qps", no);
     logger_trace(&qps->logger, 1, "openat(%s)", buf);
@@ -1180,16 +1218,18 @@ static qps_map_t *qps_m_map_open(qps_t *qps, uint32_t no)
     hdr.hdr = map->hdr;
     hdr.hdr.qps = qps;
     hdr.hdr.disk_usage = st.st_blocks * 512;
-    x_mmap(map, sizeof(hdr), PROT_READ | PROT_WRITE,
-           MAP_SHARED | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+    x_mmap(
+        map, sizeof(hdr), PROT_READ | PROT_WRITE,
+        MAP_SHARED | MAP_ANONYMOUS | MAP_FIXED, -1, 0
+    );
     map->hdr = hdr.hdr;
     return map;
 
-  err_unmap:
+err_unmap:
     qps_map_recycle(qps, map, no, true);
     return NULL;
 
-  err_close:
+err_close:
     p_close(&fd);
     return NULL;
 }
@@ -1197,17 +1237,21 @@ static qps_map_t *qps_m_map_open(qps_t *qps, uint32_t no)
 void qps_enospc(qps_t *nullable qps, const char *what)
 {
     if (_G.in_snapshot_fork) {
-        logger_fatal(qps ? &qps->logger : &_G.logger,
-                     "snapshotter-child: unexpected I/O error (%s:%m)",
-                     what);
+        logger_fatal(
+            qps ? &qps->logger : &_G.logger,
+            "snapshotter-child: unexpected I/O error (%s:%m)", what
+        );
     }
 
     if (strequal(what, "mmap")) {
-        logger_fatal(qps ? &qps->logger : &_G.logger,
-                     "unexpected error (%s: %m)", what);
+        logger_fatal(
+            qps ? &qps->logger : &_G.logger, "unexpected error (%s: %m)", what
+        );
     } else {
-        logger_fatal(qps ? &qps->logger : &_G.logger,
-                     "unexpected I/O error (%s: %m)", what);
+        logger_fatal(
+            qps ? &qps->logger : &_G.logger, "unexpected I/O error (%s: %m)",
+            what
+        );
     }
 }
 
@@ -1218,17 +1262,19 @@ static void qps_on_segfault(int signum, siginfo_t *si, void *uc)
     };
     int save_errno;
 
-    if (signum == SIGBUS && si->si_code != BUS_ADRERR)
+    if (signum == SIGBUS && si->si_code != BUS_ADRERR) {
         goto not_for_us;
-    if (signum == SIGSEGV && si->si_code != SEGV_ACCERR)
+    }
+    if (signum == SIGSEGV && si->si_code != SEGV_ACCERR) {
         goto not_for_us;
+    }
 
     save_errno = errno;
     spin_lock(&_G.lock);
     dlist_for_each(it, &_G.qps_head) {
-        qps_t     *qps = dlist_entry(it, qps_t, qps_link);
+        qps_t *qps = dlist_entry(it, qps_t, qps_link);
         qps_map_t *map = qps_map_of(si->si_addr);
-        int        pos = qps_smaps_find(&qps->smaps, si->si_addr, true);
+        int pos = qps_smaps_find(&qps->smaps, si->si_addr, true);
 
 #ifdef OS_LINUX
         if (signum == SIGBUS && (pos >= 0 || map == qps->gc_map)) {
@@ -1238,13 +1284,18 @@ static void qps_on_segfault(int signum, siginfo_t *si, void *uc)
 
         if (pos >= 0) {
             if (!qps_map_is_pg(map)) {
-                logger_error(&qps->logger, "trying to write into RO map "
-                             "%p:"QPS_PG_FMT, qps, QPS_PG_ARG(map->hdr.mapno));
+                logger_error(
+                    &qps->logger,
+                    "trying to write into RO map %p:" QPS_PG_FMT, qps,
+                    QPS_PG_ARG(map->hdr.mapno)
+                );
                 break;
             }
 
-            logger_trace(&qps->logger, 1, "page fault: mark %p:%d dirty",
-                         qps, map->hdr.mapno);
+            logger_trace(
+                &qps->logger, 1, "page fault: mark %p:%d dirty", qps,
+                map->hdr.mapno
+            );
             qps_map_protect(NULL, map, PROT_READ | PROT_WRITE);
             map->hdr.generation = qps->generation;
             errno = save_errno;
@@ -1255,7 +1306,7 @@ static void qps_on_segfault(int signum, siginfo_t *si, void *uc)
 
     spin_unlock(&_G.lock);
     errno = save_errno;
-  not_for_us:
+not_for_us:
     if (_G.sighandler) {
         (*_G.sighandler)(signum, si, uc);
     } else {
@@ -1279,7 +1330,7 @@ static void qps_on_segfault(int signum, siginfo_t *si, void *uc)
 static void qps_dir_cleanup(qps_t *qps, uint32_t gen)
 {
     struct dirent *de;
-    DIR           *dir = NULL;
+    DIR *dir = NULL;
 
     dir = fdopendir(dup(qps->dfd));
     if (!dir) {
@@ -1289,7 +1340,7 @@ static void qps_dir_cleanup(qps_t *qps, uint32_t gen)
 
     rewinddir(dir);
     while ((de = readdir(dir))) {
-        const char *s   = de->d_name;
+        const char *s = de->d_name;
         const char *ext = path_extnul(s);
 
         if (strequal(ext, ".qpt")) {
@@ -1299,16 +1350,17 @@ static void qps_dir_cleanup(qps_t *qps, uint32_t gen)
         }
 
         if (strequal(ext, ".qps")) {
-            if (strequal(s, "meta.qps"))
+            if (strequal(s, "meta.qps")) {
                 continue;
+            }
             if (strlen(s) != 8 + 4) {
                 logger_trace(&qps->logger, 1, "unlinkat(%s)", s);
                 unlinkat(qps->dfd, s, 0);
             } else {
                 uint32_t no = strtol(s, NULL, 16);
 
-                if (no >= (uint32_t)qps->maps.len
-                ||  qps->maps.tab[no] == NULL)
+                if (no >= (uint32_t)qps->maps.len ||
+                    qps->maps.tab[no] == NULL)
                 {
                     logger_trace(&qps->logger, 1, "unlinkat(%s)", s);
                     unlinkat(qps->dfd, s, 0);
@@ -1318,9 +1370,8 @@ static void qps_dir_cleanup(qps_t *qps, uint32_t gen)
         }
 
         if (strequal(ext, ".qpz")) {
-            if (strlen(s) == 8 + 1 + 8 + 4
-            &&  s[8] == '.'
-            &&  (uint32_t)strtoul(s + 9, NULL, 16) == gen)
+            if (strlen(s) == 8 + 1 + 8 + 4 && s[8] == '.' &&
+                (uint32_t)strtoul(s + 9, NULL, 16) == gen)
             {
                 continue;
             }
@@ -1333,31 +1384,33 @@ static void qps_dir_cleanup(qps_t *qps, uint32_t gen)
 
 /** A conveniency structure to describe a \p meta.qps header */
 struct qps_meta {
-    uint8_t  sig[16];    /**< Holds the \p maps.qps signature */
+    uint8_t sig[16];     /**< Holds the \p maps.qps signature */
     uint32_t generation; /**< Holds the \p maps.qps generation */
     uint32_t osize;      /**< original size of the compressed data */
     uint32_t csize;      /**< size of the following compressed data */
     uint32_t psize;      /**< size of the private data */
     uint32_t pcsize;     /**< size of the compressed private data */
-    uint8_t  data[];     /**< beginning of the compressed data */
+    uint8_t data[];      /**< beginning of the compressed data */
 };
 
 /** means that the map is a paged allocator map */
-#define QPS_META_MAP_PAGED   (1U << 16)
+#define QPS_META_MAP_PAGED (1U << 16)
 /** means that the map is a tlsf allocator map */
-#define QPS_META_MAP_TLSF    (2U << 16)
+#define QPS_META_MAP_TLSF (2U << 16)
 
 /** Write the \p meta.qpt file for a QPS.
  *
  * This function is on the safe side and performs calls to fdatasync(). Be
  * careful to use an efficient file-system for QPS !
  */
-static void x_write_meta(qps_t *qps, uint32_t generation, const qv_t(u32) t,
-                         const void *priv, size_t plen)
+static void x_write_meta(
+    qps_t *qps, uint32_t generation, const qv_t(u32) t, const void *priv,
+    size_t plen
+)
 {
     t_scope;
     size_t csz;
-    struct qps_meta m = { .generation = generation };
+    struct qps_meta m = {.generation = generation};
     int fd;
     sha1_ctx ctx;
     void *o, *p, *buf;
@@ -1367,15 +1420,15 @@ static void x_write_meta(qps_t *qps, uint32_t generation, const qv_t(u32) t,
 
     memcpy(m.sig, QPS_META_SIG, sizeof(QPS_META_SIG));
 
-    m.osize      = t.len * sizeof(uint32_t);
-    csz          = lzo_cbuf_size(m.osize);
-    o            = t_new_raw(char, csz);
-    m.csize      = qlzo1x_compress(o, csz, ps_init(t.tab, m.osize), buf);
+    m.osize = t.len * sizeof(uint32_t);
+    csz = lzo_cbuf_size(m.osize);
+    o = t_new_raw(char, csz);
+    m.csize = qlzo1x_compress(o, csz, ps_init(t.tab, m.osize), buf);
 
-    m.psize      = plen;
-    csz          = lzo_cbuf_size(m.psize);
-    p            = t_new_extra(char, csz);
-    m.pcsize     = qlzo1x_compress(p, csz, ps_init(priv, m.psize), buf);
+    m.psize = plen;
+    csz = lzo_cbuf_size(m.psize);
+    p = t_new_extra(char, csz);
+    m.pcsize = qlzo1x_compress(p, csz, ps_init(priv, m.psize), buf);
 
     sha1_starts(&ctx);
     sha1_update(&ctx, &m, sizeof(m));
@@ -1392,8 +1445,8 @@ static void x_write_meta(qps_t *qps, uint32_t generation, const qv_t(u32) t,
 }
 
 /* XXX: In case of success don't forget to unmap */
-static
-int qps_map_meta(const qps_t *qps, struct qps_meta **_meta, size_t *size)
+static int
+qps_map_meta(const qps_t *qps, struct qps_meta **_meta, size_t *size)
 {
     const ssize_t min_sz = sizeof(struct qps_meta) + 20;
     int fd;
@@ -1411,8 +1464,9 @@ int qps_map_meta(const qps_t *qps, struct qps_meta **_meta, size_t *size)
         goto err_close;
     }
     if (st.st_size < min_sz) {
-        logger_error(&qps->logger, "[meta] invalid file size: %zd",
-                     st.st_size);
+        logger_error(
+            &qps->logger, "[meta] invalid file size: %zd", st.st_size
+        );
         goto err_close;
     }
     meta = x_mmap(NULL, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
@@ -1426,7 +1480,8 @@ int qps_map_meta(const qps_t *qps, struct qps_meta **_meta, size_t *size)
             goto err_unmap;
         }
         sha1(meta, st.st_size - sizeof(shabuf), shabuf);
-        if (memcmp(meta->data + st.st_size - min_sz, shabuf, sizeof(shabuf))) {
+        if (memcmp(meta->data + st.st_size - min_sz, shabuf, sizeof(shabuf)))
+        {
             logger_error(&qps->logger, "[meta] wrong sha1 signature");
             goto err_unmap;
         }
@@ -1444,27 +1499,26 @@ int qps_map_meta(const qps_t *qps, struct qps_meta **_meta, size_t *size)
     *size = st.st_size;
     return 0;
 
-  err_close:
+err_close:
     p_close(&fd);
     return -1;
 
-  err_unmap:
+err_unmap:
     x_munmap(meta, st.st_size);
     return -1;
 }
 
 /* XXX: out MUST be allocated before calling. */
-static
-int qps_unlzo_data(qps_t *qps, const void *data, size_t datasz,
-                   size_t outsz, void *out)
+static int qps_unlzo_data(
+    qps_t *qps, const void *data, size_t datasz, size_t outsz, void *out
+)
 {
-    ssize_t   res;
+    ssize_t res;
 
-    res  = qlzo1x_decompress(out, outsz, ps_init(data, datasz));
+    res = qlzo1x_decompress(out, outsz, ps_init(data, datasz));
     if (res < 0) {
         return logger_error(&qps->logger, "unable to unLZO: %zd", -res);
-    } else
-    if ((size_t)res != outsz) {
+    } else if ((size_t)res != outsz) {
         return logger_error(&qps->logger, "unexpected unLZO size: %zd", res);
     }
     return 0;
@@ -1476,8 +1530,8 @@ int qps_unlzo_data(qps_t *qps, const void *data, size_t datasz,
  * Note that it will qps_map_unlink() an map that looks empty. Be careful,
  * this can be a destructive operation
  */
-static int qps_load_meta(qps_t *qps, bool ro, bool load_whole_spool,
-                         sb_t *out)
+static int
+qps_load_meta(qps_t *qps, bool ro, bool load_whole_spool, sb_t *out)
 {
     t_scope;
     struct qps_meta *meta;
@@ -1490,8 +1544,9 @@ static int qps_load_meta(qps_t *qps, bool ro, bool load_whole_spool,
     RETHROW(qps_map_meta(qps, &meta, &meta_size));
 
     if (unlikely(meta->generation % 2 == 0)) {
-        logger_trace(&qps->logger, 0,
-                     "should not happen: backward compat for old bug");
+        logger_trace(
+            &qps->logger, 0, "should not happen: backward compat for old bug"
+        );
         qps->generation = meta->generation + 3;
     } else {
         qps->generation = meta->generation + 2;
@@ -1500,8 +1555,9 @@ static int qps_load_meta(qps_t *qps, bool ro, bool load_whole_spool,
     if (out) {
         void *buf = sb_growlen(out, meta->psize);
 
-        if (qps_unlzo_data(qps, meta->data + meta->csize, meta->pcsize,
-                           meta->psize, buf) < 0)
+        if (qps_unlzo_data(
+                qps, meta->data + meta->csize, meta->pcsize, meta->psize, buf
+            ) < 0)
         {
             goto err_unmap;
         }
@@ -1511,7 +1567,7 @@ static int qps_load_meta(qps_t *qps, bool ro, bool load_whole_spool,
         goto ok_unmap;
     }
 
-    u32  = t_new_raw(uint32_t, meta->osize / 4);
+    u32 = t_new_raw(uint32_t, meta->osize / 4);
     uend = u32 + meta->osize / 4;
     if (qps_unlzo_data(qps, meta->data, meta->csize, meta->osize, u32) < 0) {
         goto err_unmap;
@@ -1519,7 +1575,7 @@ static int qps_load_meta(qps_t *qps, bool ro, bool load_whole_spool,
 
     h_len = DIV_ROUND_UP(u32[0], QPS_HANDLES_COUNT);
     p_realloc(&qps->handles, h_len);
-    qps->handles_max      = u32[0];
+    qps->handles_max = u32[0];
     qps->handles_freelist = u32[1];
     h_u32 = u32 + 2;
     u32 = h_u32 + h_len;
@@ -1537,39 +1593,44 @@ static int qps_load_meta(qps_t *qps, bool ro, bool load_whole_spool,
             logger_error(&qps->logger, "[meta] inconsistent meta.qps [2]");
             goto err_unmap;
         }
-        for (uint32_t i = qps->maps.len; i < no; i++)
+        for (uint32_t i = qps->maps.len; i < no; i++) {
             qv_append(&qps->no_free, i);
+        }
 
         qps_alloc_hdrs(qps, qps->maps.len, no);
         if (u32[0] & QPS_META_MAP_TLSF) {
             map = qps_m_map_open(qps, no);
             if (!map) {
-                logger_error(&qps->logger,
-                             "[meta] inconsistent meta.qps [3]");
+                logger_error(
+                    &qps->logger, "[meta] inconsistent meta.qps [3]"
+                );
                 goto err_unmap;
             }
             if (QPS_GEN_CMP(map->hdr.generation, >, meta->generation)) {
-                logger_error(&qps->logger,
-                             "[meta] inconsistent meta.qps [4]");
+                logger_error(
+                    &qps->logger, "[meta] inconsistent meta.qps [4]"
+                );
                 goto err_unmap;
             }
             if (u32[1] > map->hdr.allocated) {
-                logger_error(&qps->logger,
-                             "[meta] inconsistent meta.qps [5]");
+                logger_error(
+                    &qps->logger, "[meta] inconsistent meta.qps [5]"
+                );
                 goto err_unmap;
             }
             map->hdr.remaining = u32[1];
-            if (u32[1] == 0)
+            if (u32[1] == 0) {
                 qps_map_recycle(qps, map, no, true);
-        } else
-        if (!(u32[0] & QPS_META_MAP_PAGED)) {
+            }
+        } else if (!(u32[0] & QPS_META_MAP_PAGED)) {
             logger_error(&qps->logger, "[meta] inconsistent meta.qps [6]");
             goto err_unmap;
         } else {
             map = qps_pg_map_open(qps, no, meta->generation);
             if (!map) {
-                logger_error(&qps->logger,
-                             "[meta] inconsistent meta.qps [7]");
+                logger_error(
+                    &qps->logger, "[meta] inconsistent meta.qps [7]"
+                );
                 goto err_unmap;
             }
         }
@@ -1581,36 +1642,38 @@ static int qps_load_meta(qps_t *qps, bool ro, bool load_whole_spool,
         qps->handles[i] = qps_pg_deref(qps, h_u32[i]);
     }
 
-  ok_unmap:
+ok_unmap:
     x_munmap(meta, meta_size);
 
 #ifdef NDEBUG
     if (ro) {
 #endif
-    tab_enumerate(pos, m, &qps->maps) {
-        int ret;
+        tab_enumerate(pos, m, &qps->maps) {
+            int ret;
 
-        if (!m) {
-            continue;
-        } else
-        if (qps_map_is_pg(m)) {
-            ret = qps_pg_check_hdrs_aux(qps, m->hdr.mapno << 16, false);
-        } else {
-            ret = qps_m_check_map(qps, m, false);
-            qps_m_malloclike_map(qps, map);
+            if (!m) {
+                continue;
+            } else if (qps_map_is_pg(m)) {
+                ret = qps_pg_check_hdrs_aux(qps, m->hdr.mapno << 16, false);
+            } else {
+                ret = qps_m_check_map(qps, m, false);
+                qps_m_malloclike_map(qps, map);
+            }
+            if (ret < 0) {
+                ret_val = -1;
+                logger_error(
+                    &qps->logger,
+                    "[meta] inconsistent meta.qps [8]: map %08x is invalid",
+                    pos
+                );
+            }
         }
-        if (ret < 0) {
-            ret_val = -1;
-            logger_error(&qps->logger, "[meta] inconsistent meta.qps [8]:"
-                         " map %08x is invalid", pos);
-        }
-    }
 #ifdef NDEBUG
     }
 #endif
     return ret_val;
 
-  err_unmap:
+err_unmap:
     x_munmap(meta, meta_size);
     return -1;
 }
@@ -1622,8 +1685,10 @@ static qps_t *qps_new(int dfd, const char *name)
 
     MODULE_REQUIRE(qps);
     logger_init(&qps->logger, &_G.logger, LSTR(name), LOG_INHERITS, 0);
-    logger_init(&qps->tracing_logger, &qps->logger, LSTR("tracing"),
-                LOG_INHERITS, LOG_SILENT);
+    logger_init(
+        &qps->tracing_logger, &qps->logger, LSTR("tracing"), LOG_INHERITS,
+        LOG_SILENT
+    );
     qps->dfd = dfd;
     qps->lock = DIR_LOCK_INIT_V;
     qps->generation = 1;
@@ -1637,7 +1702,6 @@ static qps_t *qps_new(int dfd, const char *name)
     return qps;
 }
 
-
 /* }}} */
 /** @} */
 /** @{ \name Internal: GC Helpers */
@@ -1645,7 +1709,7 @@ static qps_t *qps_new(int dfd, const char *name)
 
 static void qps_free_ro(qps_t *qps, qps_map_t *map, size_t bsz)
 {
-    assert (map->hdr.remaining >= bsz + QPS_MBLK_HDRSZ);
+    assert(map->hdr.remaining >= bsz + QPS_MBLK_HDRSZ);
     map->hdr.remaining -= bsz + QPS_MBLK_HDRSZ;
     if (map->hdr.remaining == 0) {
         logger_trace(&qps->logger, 1, "map %x empty", map->hdr.mapno);
@@ -1656,33 +1720,37 @@ static void qps_free_ro(qps_t *qps, qps_map_t *map, size_t bsz)
 static int
 qps_gc_compact(qps_t *qps, uint32_t no, qps_map_t *map, qv_t(qps_gcmap) maps)
 {
-    void       *map_end = &map[QPS_MAP_PAGES];
+    void *map_end = &map[QPS_MAP_PAGES];
     qps_mhdr_t *dst_end = container_of(map_end, qps_mhdr_t, data);
-    qps_mhdr_t *dst     = (qps_mhdr_t *)&map[1];
+    qps_mhdr_t *dst = (qps_mhdr_t *)&map[1];
 
-    assert (!qps->snapshotting);
+    assert(!qps->snapshotting);
     dst->flags = QPS_MBLK_HDRSZ | QPS_BLK_PREV_USED | QPS_BLK_USED;
     dst = qps_m_blk_next(dst, QPS_MBLK_HDRSZ);
     dst_end->flags = 0 | QPS_BLK_USED;
 
     for (int i = 0; i < maps.len; i++) {
-        qps_map_t  *src_map = maps.tab[i].map;
-        qps_mhdr_t *src     = (qps_mhdr_t *)&src_map[1];
-        void       *smapend = &src_map[QPS_MAP_PAGES];
+        qps_map_t *src_map = maps.tab[i].map;
+        qps_mhdr_t *src = (qps_mhdr_t *)&src_map[1];
+        void *smapend = &src_map[QPS_MAP_PAGES];
         qps_mhdr_t *src_end = container_of(smapend, qps_mhdr_t, data);
         qps_mhdr_t *next;
 
-        for (src = qps_m_blk_next(src, QPS_MBLK_HDRSZ); src < src_end; src = next) {
-            uint32_t   size = qps_m_blk_size(src);
+        for (src = qps_m_blk_next(src, QPS_MBLK_HDRSZ); src < src_end;
+             src = next)
+        {
+            uint32_t size = qps_m_blk_size(src);
             qps_ptr_t *hptr, bptr;
 
             next = qps_m_blk_next(src, size);
-            if (src->flags & QPS_BLK_FREE)
+            if (src->flags & QPS_BLK_FREE) {
                 continue;
+            }
             hptr = qps_handle_slot(qps, src->handle);
             bptr = qps_encode(src->data);
-            if (hptr->pgno != bptr.pgno || hptr->addr != bptr.addr)
+            if (hptr->pgno != bptr.pgno || hptr->addr != bptr.addr) {
                 continue;
+            }
             if (qps_m_blk_next(dst, size) + sizeof(qps_mhdr_t) > dst_end) {
                 /*
                  * Destination page cannot hold this pointer.
@@ -1694,25 +1762,25 @@ qps_gc_compact(qps_t *qps, uint32_t no, qps_map_t *map, qv_t(qps_gcmap) maps)
                  */
                 goto end;
             }
-            *hptr       = qps_encode(dst->data);
-            dst->flags  = size | QPS_BLK_USED | QPS_BLK_PREV_USED;
+            *hptr = qps_encode(dst->data);
+            dst->flags = size | QPS_BLK_USED | QPS_BLK_PREV_USED;
             dst->handle = src->handle;
-            dst         = mempcpy(dst->data, src->data, size);
+            dst = mempcpy(dst->data, src->data, size);
             map->hdr.allocated += size + QPS_MBLK_HDRSZ;
             qps_free_ro(qps, src_map, size);
         }
 
-        assert (src_map->hdr.remaining == 0);
+        assert(src_map->hdr.remaining == 0);
     }
 
-  end:
+end:
     qps->handles_gc_gen += 2;
     qps_map_bless(qps, map);
     qps_m_blk_insert(qps, dst, (uint8_t *)dst_end - dst->data);
 
     logger_trace(&qps->tracing_logger, 1, "gc compaction done");
     qv_wipe(&maps);
-    assert (!qps->snapshotting);
+    assert(!qps->snapshotting);
     return 0;
 }
 
@@ -1721,37 +1789,43 @@ static void qps_gc(qps_t *qps)
     uint64_t allocated = 0, disk_usage = 0;
     qv_t(qps_gcmap) maps;
 
-    assert (!qps->snapshotting);
+    assert(!qps->snapshotting);
 
     logger_trace(&qps->tracing_logger, 1, "start gc");
     qps_m_check_maps(qps);
 
     qv_init(&maps);
     tab_for_each_entry(map, &qps->maps) {
-        qps_gcmap_t m = { .map = map };
+        qps_gcmap_t m = {.map = map};
 
-        if (!map || map->hdr.generation == 0 || qps_map_is_pg(map))
+        if (!map || map->hdr.generation == 0 || qps_map_is_pg(map)) {
             continue;
+        }
         /* ignore files that are too recent (less than a generation old) */
-        if (qps->generation - map->hdr.generation <= 2)
+        if (qps->generation - map->hdr.generation <= 2) {
             continue;
-        if (map->hdr.remaining == 0)
+        }
+        if (map->hdr.remaining == 0) {
             continue;
+        }
 
         /* ignore files whose footprint on disk has less than 10% waste *and*
          * are bigger than 128M. Those are efficient enough.
          */
         atomic_thread_fence(memory_order_acquire);
-        m.gen        = map->hdr.generation;
-        m.allocated  = map->hdr.remaining;
+        m.gen = map->hdr.generation;
+        m.allocated = map->hdr.remaining;
         m.disk_usage = map->hdr.disk_usage;
         if (m.disk_usage == 0) /* XXX: only happens with eatmydata */
+        {
             continue;
-        m.mark       = 10UL * m.allocated / m.disk_usage;
-        if (m.mark > 9 && m.allocated > QPS_MAP_SIZE / 2)
+        }
+        m.mark = 10UL * m.allocated / m.disk_usage;
+        if (m.mark > 9 && m.allocated > QPS_MAP_SIZE / 2) {
             continue;
-        allocated   += m.allocated;
-        disk_usage  += m.disk_usage;
+        }
+        allocated += m.allocated;
+        disk_usage += m.disk_usage;
         qv_append(&maps, m);
     }
 
@@ -1760,14 +1834,18 @@ static void qps_gc(qps_t *qps)
         goto end_no_trace;
     }
 
-    if (maps.len < 4 && allocated < QPS_MAP_SIZE / 2 && disk_usage < QPS_MAP_SIZE) {
+    if (maps.len < 4 && allocated < QPS_MAP_SIZE / 2 &&
+        disk_usage < QPS_MAP_SIZE)
+    {
         logger_trace(&qps->tracing_logger, 1, "nothing worthy to gc");
         goto end_no_trace;
     }
 
-    qv_sort(qps_gcmap)(&maps, ^int (qps_gcmap_t const *m1, qps_gcmap_t const *m2) {
-        return CMP(m1->mark, m2->mark) ?: qps_gen_cmp(m1->gen, m2->gen);
-    });
+    qv_sort(qps_gcmap)(
+        &maps, ^int(qps_gcmap_t const *m1, qps_gcmap_t const *m2) {
+            return CMP(m1->mark, m2->mark) ?: qps_gen_cmp(m1->gen, m2->gen);
+        }
+    );
 
     {
         qps_map_t *map;
@@ -1786,9 +1864,9 @@ static void qps_gc(qps_t *qps)
         return;
     }
 
-  end:
+end:
     logger_trace(&qps->tracing_logger, 1, "cancelled gc");
-  end_no_trace:
+end_no_trace:
     qv_wipe(&maps);
     qps_m_check_maps(qps);
 }
@@ -1814,28 +1892,32 @@ static ALWAYS_INLINE void qps_zero_helper(uint8_t *p, uint8_t *end)
     mem_tool_define_memory_if_addressable(p, end - p);
     if (end - p >= 64) {
         while ((uintptr_t)q & 7) {
-            if (*q++)
+            if (*q++) {
                 goto memset;
+            }
         }
         while (q + 8 * sizeof(size_t) < end) {
             size_t *t = (size_t *)q;
-            if (t[0] | t[1] | t[2] | t[3] | t[4] | t[5] | t[6] | t[7])
+            if (t[0] | t[1] | t[2] | t[3] | t[4] | t[5] | t[6] | t[7]) {
                 goto memset;
+            }
             q += 8 * sizeof(size_t);
         }
         while (q + sizeof(size_t) < end) {
-            if (*(size_t *)q)
+            if (*(size_t *)q) {
                 goto memset;
+            }
             q += sizeof(size_t);
         }
     }
     while (q < end) {
-        if (*q++)
+        if (*q++) {
             goto memset;
+        }
     }
     return;
 
-  memset:
+memset:
     memset(p, 0, end - p);
 }
 
@@ -1858,10 +1940,12 @@ size_t qps_pg_sizeof(qps_t *qps, qps_pg_t blk)
 
 size_t qps_sizeof(qps_t *qps, const void *ptr)
 {
-    if (ptr == NULL)
+    if (ptr == NULL) {
         return 0;
-    if (qps_map_is_pg(qps_map_of(ptr)))
+    }
+    if (qps_map_is_pg(qps_map_of(ptr))) {
         return qps->hdrs[qps_pg_of(ptr)].size * QPS_PAGE_SIZE;
+    }
     return qps_m_blk_size(container_of((void *)ptr, qps_mhdr_t, data));
 }
 
@@ -1870,10 +1954,10 @@ void qps_handle_allow_memory(qps_t *qps, qps_handle_t id, qps_ptr_t *ptr)
 {
 #if QPS_USE_REDZONES
     void *res = (uint8_t *)qps_pg_deref(qps, ptr->pgno) + ptr->addr;
-    qps_mhdr_t *blk  = container_of(res, qps_mhdr_t, data);
+    qps_mhdr_t *blk = container_of(res, qps_mhdr_t, data);
 
-    assert (blk->handle == id);
-    assert (blk->rz_alloc_size);
+    assert(blk->handle == id);
+    assert(blk->rz_alloc_size);
 
     mem_tool_allow_memory(res, blk->rz_alloc_size, true);
 #endif
@@ -1915,16 +1999,19 @@ qps_pg_update_generation_on_meta_changes(const qps_t *qps, qps_pg_t pg)
 static void qps_pg_unmap_int(qps_t *qps, qps_pg_t blk)
 {
     qps_pghdr_t *hdr = qps->hdrs + blk;
-    size_t       bsz = hdr->size;
+    size_t bsz = hdr->size;
     qps_pghdr_t *tmp = hdr + bsz;
 
     assert(blk < qps->maps.len * QPS_MAP_PAGES);
     assert(blk == 0 || QPS_PG_IDX(blk));
 
     if (unlikely(hdr->flags & QPS_BLK_FREE)) {
-        logger_panic(&qps->logger, "trying to free a block which is already "
-                     "freed in QPS. Stop now to prevent QPS corruption in"
-                     "allocator");
+        logger_panic(
+            &qps->logger,
+            "trying to free a block which is already "
+            "freed in QPS. Stop now to prevent QPS corruption in"
+            "allocator"
+        );
     }
 
     qps_pg_check_hdrs(qps);
@@ -1934,7 +2021,7 @@ static void qps_pg_unmap_int(qps_t *qps, qps_pg_t blk)
         bsz += qps_pg_blk_remove(qps, blk + bsz);
     }
     if (hdr->flags & QPS_BLK_PREV_FREE) {
-        blk  = hdr->blk_prev;
+        blk = hdr->blk_prev;
         bsz += qps_pg_blk_remove(qps, blk);
     }
     qps_pg_blk_insert(qps, blk, bsz);
@@ -1949,13 +2036,16 @@ static qps_pg_t qps_pg_map_int(qps_t *qps, uint32_t id, size_t n)
     qps_pg_t blk;
     qps_pghdr_t *hdr;
 
-    if (unlikely(n == 0))
+    if (unlikely(n == 0)) {
         return QPS_PG_NULL;
-    if (unlikely(n >= QPS_MAP_PAGES))
+    }
+    if (unlikely(n >= QPS_MAP_PAGES)) {
         return QPS_PG_NULL;
+    }
 
-    if (unlikely(n * QPS_PAGE_SIZE > QPS_ALLOC_MAX))
+    if (unlikely(n * QPS_PAGE_SIZE > QPS_ALLOC_MAX)) {
         return QPS_PG_NULL;
+    }
 
     qps_pg_check_hdrs(qps);
     qps_pg_alloc_search(n, &l1, &l2);
@@ -1971,8 +2061,9 @@ static qps_pg_t qps_pg_map_int(qps_t *qps, uint32_t id, size_t n)
         qps->hdrs[hdr->free.next].free.prev = 0;
     } else {
         RST_BIT(qps->pgs.l2_bitmap + l1, l2);
-        if (!qps->pgs.l2_bitmap[l1])
+        if (!qps->pgs.l2_bitmap[l1]) {
             RST_BIT(&qps->pgs.l1_bitmap, l1);
+        }
     }
 
     if (n < hdr->size) {
@@ -1985,16 +2076,18 @@ static qps_pg_t qps_pg_map_int(qps_t *qps, uint32_t id, size_t n)
     } else {
         qps_pghdr_t *next = qps->hdrs + blk + n;
 
-        assert (hdr->size == n);
-        assert ((blk + n) % QPS_MAP_PAGES == 0 || next->flags & QPS_BLK_PREV_FREE);
+        assert(hdr->size == n);
+        assert(
+            (blk + n) % QPS_MAP_PAGES == 0 || next->flags & QPS_BLK_PREV_FREE
+        );
         next->flags &= ~QPS_BLK_PREV_FREE;
     }
 
-    hdr->flags  = QPS_BLK_USED | QPS_BLK_PREV_USED;
+    hdr->flags = QPS_BLK_USED | QPS_BLK_PREV_USED;
     hdr->handle = id;
     qps_pg_maphdr(qps, blk)->allocated += n * QPS_PAGE_SIZE;
     if (unlikely(id)) {
-        *qps_handle_slot(qps, id) = (qps_ptr_t){ .pgno = blk };
+        *qps_handle_slot(qps, id) = (qps_ptr_t){.pgno = blk};
     }
     qps_pg_update_generation_on_meta_changes(qps, blk);
     qps_pg_check_hdrs(qps);
@@ -2010,25 +2103,27 @@ static qps_pg_t qps_pg_remap_int(qps_t *qps, qps_pg_t blk, size_t nsz)
     assert((int)QPS_PG_MAP_IDX(blk) < qps->maps.len);
     assert(blk == 0 || QPS_PG_IDX(blk));
 
-    if (unlikely(nsz * QPS_PAGE_SIZE > QPS_ALLOC_MAX))
+    if (unlikely(nsz * QPS_PAGE_SIZE > QPS_ALLOC_MAX)) {
         return QPS_PG_NULL;
+    }
 
     qps_pg_check_hdrs(qps);
     hdr = qps->hdrs + blk;
     bsz = hdr->size;
     nxt = hdr + bsz;
-    assert (bsz);
-    if (nsz == bsz)
+    assert(bsz);
+    if (nsz == bsz) {
         return blk;
+    }
     if (nsz < bsz) {
         size_t tsz = bsz - nsz;
 
-        if (nxt->flags & QPS_BLK_FREE)
+        if (nxt->flags & QPS_BLK_FREE) {
             tsz += qps_pg_blk_remove(qps, blk + bsz);
+        }
         qps_pg_blk_insert(qps, blk + nsz, tsz);
         PG_HIDE(qps, blk + nsz, tsz);
-    } else
-    if ((nxt->flags & QPS_BLK_FREE) && bsz + nxt->size >= nsz) {
+    } else if ((nxt->flags & QPS_BLK_FREE) && bsz + nxt->size >= nsz) {
         size_t tsz = bsz + qps_pg_blk_remove(qps, blk + bsz);
 
         if (tsz > nsz) {
@@ -2040,10 +2135,13 @@ static qps_pg_t qps_pg_remap_int(qps_t *qps, qps_pg_t blk, size_t nsz)
     } else {
         qps_pg_t res = qps_pg_map_int(qps, hdr->handle, nsz);
 
-        if (unlikely(res == 0))
+        if (unlikely(res == 0)) {
             return QPS_PG_NULL;
-        memcpy(qps_pg_deref(qps, res), qps_pg_deref(qps, blk),
-               QPS_PAGE_SIZE * bsz);
+        }
+        memcpy(
+            qps_pg_deref(qps, res), qps_pg_deref(qps, blk),
+            QPS_PAGE_SIZE * bsz
+        );
         qps_pg_unmap_int(qps, blk);
         return res;
     }
@@ -2061,8 +2159,9 @@ qps_pg_t qps_pg_map(qps_t *qps, size_t n)
 
     TRACE_ALLOC("page", "pg_map  (%p, %zd) = ...", qps, n);
     res = qps_pg_map_int(qps, QPS_HANDLE_NULL, n);
-    TRACE_ALLOC("page", "pg_map  (%p, %zd) = "QPS_PG_FMT,
-                qps, n, QPS_PG_ARG(res));
+    TRACE_ALLOC(
+        "page", "pg_map  (%p, %zd) = " QPS_PG_FMT, qps, n, QPS_PG_ARG(res)
+    );
     return res;
 }
 
@@ -2070,27 +2169,31 @@ qps_pg_t qps_pg_remap(qps_t *qps, qps_pg_t blk, size_t nsz)
 {
     qps_pg_t res;
 
-    TRACE_ALLOC("page", "pg_remap(%p, "QPS_PG_FMT", %zd) = ...",
-                qps, QPS_PG_ARG(blk), nsz);
+    TRACE_ALLOC(
+        "page", "pg_remap(%p, " QPS_PG_FMT ", %zd) = ...", qps,
+        QPS_PG_ARG(blk), nsz
+    );
     if (blk == 0) {
         res = qps_pg_map_int(qps, QPS_HANDLE_NULL, nsz);
-    } else
-    if (nsz == 0) {
+    } else if (nsz == 0) {
         qps_pg_unmap_int(qps, blk);
         res = QPS_PG_NULL;
     } else {
         res = qps_pg_remap_int(qps, blk, nsz);
     }
-    TRACE_ALLOC("page", "pg_remap(%p, "QPS_PG_FMT", %zd) = "QPS_PG_FMT,
-                qps, QPS_PG_ARG(blk), nsz, QPS_PG_ARG(res));
+    TRACE_ALLOC(
+        "page", "pg_remap(%p, " QPS_PG_FMT ", %zd) = " QPS_PG_FMT, qps,
+        QPS_PG_ARG(blk), nsz, QPS_PG_ARG(res)
+    );
     return res;
 }
 
 void qps_pg_unmap(qps_t *qps, qps_pg_t blk)
 {
-    TRACE_ALLOC("page", "pg_unmap(%p, "QPS_PG_FMT")", qps, QPS_PG_ARG(blk));
-    if (likely(blk))
+    TRACE_ALLOC("page", "pg_unmap(%p, " QPS_PG_FMT ")", qps, QPS_PG_ARG(blk));
+    if (likely(blk)) {
         qps_pg_unmap_int(qps, blk);
+    }
 }
 
 /* }}} */
@@ -2098,7 +2201,7 @@ void qps_pg_unmap(qps_t *qps, qps_pg_t blk)
 
 static void qps_free_int(qps_t *qps, void *ptr)
 {
-    qps_map_t  *map = qps_map_of(ptr);
+    qps_map_t *map = qps_map_of(ptr);
     qps_mhdr_t *blk;
     size_t bsz;
 
@@ -2124,7 +2227,7 @@ static void qps_free_int(qps_t *qps, void *ptr)
             bsz += qps_m_blk_remove(qps, tmp) + QPS_MBLK_HDRSZ;
         }
         if (blk->flags & QPS_BLK_PREV_FREE) {
-            blk  = qps_m_blk_get_prev(blk);
+            blk = qps_m_blk_get_prev(blk);
             bsz += qps_m_blk_remove(qps, blk) + QPS_MBLK_HDRSZ;
         }
         qps_m_blk_insert(qps, blk, bsz);
@@ -2140,7 +2243,7 @@ static void *qps_alloc_int(qps_t *qps, uint32_t id, size_t asked)
     size_t tmp, size = asked;
     qps_ptr_t res;
 
-    assert (id);
+    assert(id);
     if (unlikely(size >= QPS_M_ALLOC_MAX)) {
         qps_pg_t pg =
             qps_pg_map_int(qps, id, DIV_ROUND_UP(size, QPS_PAGE_SIZE));
@@ -2153,11 +2256,11 @@ static void *qps_alloc_int(qps_t *qps, uint32_t id, size_t asked)
         size = ROUND_UP(size, 1 << QPS_ML2_OFFSET);
     }
     size = qps_m_alloc_search(size, &l1, &l2);
-    blk  = qps_m_find_blk(qps, size, &l1, &l2);
+    blk = qps_m_find_blk(qps, size, &l1, &l2);
     if (unlikely(!blk)) {
         qps_map_create(qps, false);
         blk = qps_m_find_blk(qps, size, &l1, &l2);
-        assert (blk);
+        assert(blk);
     }
 
     /* remove the block from the free-list and update bitfields */
@@ -2165,27 +2268,28 @@ static void *qps_alloc_int(qps_t *qps, uint32_t id, size_t asked)
         blk->free.next->free.prev_next = &qps->m.blks[l1][l2];
     } else {
         RST_BIT(qps->m.l2_bitmap + l1, l2);
-        if (!qps->m.l2_bitmap[l1])
+        if (!qps->m.l2_bitmap[l1]) {
             RST_BIT(&qps->m.l1_bitmap, l1);
+        }
     }
 
-    tmp  = qps_m_blk_size(blk);
+    tmp = qps_m_blk_size(blk);
     next = qps_m_blk_next(blk, tmp);
     tmp -= size;
     if (tmp >= sizeof(qps_mhdr_t)) {
         split = qps_m_blk_next(blk, size);
         qps_m_blk_insert(qps, split, tmp - QPS_MBLK_HDRSZ);
-        assert (qps_m_blk_get_prev(next) == split);
+        assert(qps_m_blk_get_prev(next) == split);
         qps_m_blk_set_prev_free(next, split);
 #if QPS_USE_REDZONES
         split->rz_alloc_size = 0;
 #endif
-        assert (!(blk->flags & QPS_BLK_PREV_FREE));
+        assert(!(blk->flags & QPS_BLK_PREV_FREE));
         blk->flags = size;
     } else {
         next->flags &= ~QPS_BLK_PREV_FREE;
-        blk->flags  &= ~QPS_BLK_FREE;
-        size        += tmp;
+        blk->flags &= ~QPS_BLK_FREE;
+        size += tmp;
     }
 
     blk->handle = id;
@@ -2206,8 +2310,8 @@ static void *qps_realloc_int(qps_t *qps, uint32_t id, void *ptr, size_t asked)
     qps_map_t *map = qps_map_of(ptr);
     size_t nsz = asked;
 
-    assert (id);
-    assert (ptr);
+    assert(id);
+    assert(ptr);
     if (nsz < QPS_ALLOC_MIN) {
         nsz = QPS_ALLOC_MIN;
     } else {
@@ -2222,23 +2326,24 @@ static void *qps_realloc_int(qps_t *qps, uint32_t id, void *ptr, size_t asked)
             return qps_pg_deref(qps, qps_pg_remap_int(qps, pg, nsz));
         }
     } else {
-        qps_mhdr_t *blk  = container_of(ptr, qps_mhdr_t, data);
-        size_t      osz  = qps_m_blk_size(blk);
+        qps_mhdr_t *blk = container_of(ptr, qps_mhdr_t, data);
+        size_t osz = qps_m_blk_size(blk);
         qps_mhdr_t *next = qps_m_blk_next(blk, osz);
         size_t tsz;
 
-        assert (blk->handle == id && osz);
-        if (qps_is_ro(qps, map))
+        assert(blk->handle == id && osz);
+        if (qps_is_ro(qps, map)) {
             goto alloc_copy_and_free;
+        }
 
         if (nsz <= osz) {
             if (next->flags & QPS_BLK_FREE) {
-                tsz  = qps_m_blk_remove(qps, next);
+                tsz = qps_m_blk_remove(qps, next);
                 tsz += osz + QPS_MBLK_HDRSZ;
                 goto split;
             }
             if (osz >= sizeof(qps_mhdr_t) + nsz) {
-                tsz  = osz;
+                tsz = osz;
                 goto split;
             }
 #if QPS_USE_REDZONES
@@ -2249,16 +2354,16 @@ static void *qps_realloc_int(qps_t *qps, uint32_t id, void *ptr, size_t asked)
 #endif
             return blk->data;
         }
-        if ((next->flags & QPS_BLK_FREE) && nsz <= osz + qps_m_blk_size(next)
-        &&   nsz < QPS_M_ALLOC_MAX)
+        if ((next->flags & QPS_BLK_FREE) &&
+            nsz <= osz + qps_m_blk_size(next) && nsz < QPS_M_ALLOC_MAX)
         {
-            tsz  = qps_m_blk_remove(qps, next);
+            tsz = qps_m_blk_remove(qps, next);
             tsz += osz + QPS_MBLK_HDRSZ;
 
             if (tsz >= sizeof(qps_mhdr_t) + nsz) {
                 qps_mhdr_t *split;
 
-              split:
+            split:
                 split = qps_m_blk_next(blk, nsz);
                 qps_m_blk_insert(qps, split, tsz - QPS_MBLK_HDRSZ - nsz);
             } else {
@@ -2281,49 +2386,49 @@ static void *qps_realloc_int(qps_t *qps, uint32_t id, void *ptr, size_t asked)
         return blk->data;
     }
 
-  alloc_copy_and_free:
-    {
-        void *dst = qps_alloc_int(qps, id, nsz);
+alloc_copy_and_free: {
+    void *dst = qps_alloc_int(qps, id, nsz);
 
-        if (likely(dst)) {
-            size_t sz = qps_sizeof(qps, ptr);
+    if (likely(dst)) {
+        size_t sz = qps_sizeof(qps, ptr);
 
 #if QPS_USE_REDZONES
-            if (!qps_map_is_pg(map)) {
-                /* The 'asked' value of the previous alloc of ptr is lost
-                 * during alloc. Only rounded upper value have been used to
-                 * do the alloc, and should be sz if all went well. As we will
-                 * copy the entire data[] array, we might possibly read data
-                 * after 'asked' bytes, whihc is tagged as unaddressable.
-                 * Copying this extra data is fine, and we should not report
-                 * any memory error here. To avoid this cas, we have stored
-                 * this 'asked' value in the rz_alloc_size field (only in this
-                 * mode of course). Then, we can mark the trailing data
-                 * ]asked, sz] as defined, just for the memcpy call */
-                qps_mhdr_t *blko = container_of(ptr, qps_mhdr_t, data);
-                qps_mhdr_t *blkn = container_of(dst, qps_mhdr_t, data);
+        if (!qps_map_is_pg(map)) {
+            /* The 'asked' value of the previous alloc of ptr is lost
+             * during alloc. Only rounded upper value have been used to
+             * do the alloc, and should be sz if all went well. As we will
+             * copy the entire data[] array, we might possibly read data
+             * after 'asked' bytes, whihc is tagged as unaddressable.
+             * Copying this extra data is fine, and we should not report
+             * any memory error here. To avoid this cas, we have stored
+             * this 'asked' value in the rz_alloc_size field (only in this
+             * mode of course). Then, we can mark the trailing data
+             * ]asked, sz] as defined, just for the memcpy call */
+            qps_mhdr_t *blko = container_of(ptr, qps_mhdr_t, data);
+            qps_mhdr_t *blkn = container_of(dst, qps_mhdr_t, data);
 
-                assert (blko->rz_alloc_size <= sz);
-                assert (blkn->rz_alloc_size == nsz);
-                if (asked != nsz) {
-                    /* reajust this size as we know original asked value */
-                    mem_tool_freelike(blkn->data, nsz, 8);
-                    mem_tool_malloclike(blkn->data, asked, 8, false);
-                    mem_tool_allow_memory(blkn->data, asked, true);
-                    blkn->rz_alloc_size = asked;
-                }
-                memcpy(dst, ptr, MIN(asked, blko->rz_alloc_size));
-                qps_free_int(qps, ptr);
-                return dst;
+            assert(blko->rz_alloc_size <= sz);
+            assert(blkn->rz_alloc_size == nsz);
+            if (asked != nsz) {
+                /* reajust this size as we know original asked value */
+                mem_tool_freelike(blkn->data, nsz, 8);
+                mem_tool_malloclike(blkn->data, asked, 8, false);
+                mem_tool_allow_memory(blkn->data, asked, true);
+                blkn->rz_alloc_size = asked;
             }
-#endif
-            if (sz > nsz)
-                sz = nsz;
-            memcpy(dst, ptr, sz);
+            memcpy(dst, ptr, MIN(asked, blko->rz_alloc_size));
             qps_free_int(qps, ptr);
+            return dst;
         }
-        return dst;
+#endif
+        if (sz > nsz) {
+            sz = nsz;
+        }
+        memcpy(dst, ptr, sz);
+        qps_free_int(qps, ptr);
     }
+    return dst;
+}
 }
 
 static uint32_t qps_handle_new(qps_t *qps)
@@ -2342,8 +2447,9 @@ static uint32_t qps_handle_new(qps_t *qps)
         pg = qps_pg_map(qps, QPS_HANDLES_PAGES);
         qps_pg_zero(qps, pg, QPS_HANDLES_PAGES);
         qps->handles[len] = qps_pg_deref(qps, pg);
-        if (qps->handles_max == 0)
+        if (qps->handles_max == 0) {
             qps->handles_max++;
+        }
     }
     id = qps->handles_max++;
     return id;
@@ -2353,7 +2459,7 @@ static void qps_handle_free(qps_t *qps, uint32_t id)
 {
     qps_ptr_t *ptr = qps_handle_slot(qps, id);
 
-    *ptr = (qps_ptr_t){ .addr = qps->handles_freelist };
+    *ptr = (qps_ptr_t){.addr = qps->handles_freelist};
     qps->handles_freelist = id;
 }
 
@@ -2371,9 +2477,11 @@ void *qps_alloc(qps_t *qps, uint32_t *id, size_t size)
     }
 
     if (likely(res)) {
-        TRACE_ALLOC("frag", "alloc  (%p, %d, %zd) = "QPS_PTR_FMT" (%zd)",
-                    qps, h, size, QPS_PTR_ARG(qps_encode(res)),
-                    qps_sizeof(qps, qps_handle_deref(qps, *id)));
+        TRACE_ALLOC(
+            "frag", "alloc  (%p, %d, %zd) = " QPS_PTR_FMT " (%zd)", qps, h,
+            size, QPS_PTR_ARG(qps_encode(res)),
+            qps_sizeof(qps, qps_handle_deref(qps, *id))
+        );
     } else {
         TRACE_ALLOC("frag", "alloc  (%p, ??, %zd) failed", qps, size);
     }
@@ -2390,9 +2498,11 @@ void *qps_realloc(qps_t *qps, uint32_t id, size_t nsz)
     res = qps_realloc_int(qps, id, qps_handle_deref(qps, id), nsz);
 
     if (likely(res)) {
-        TRACE_ALLOC("frag", "realloc(%p, %d, %zd) = "QPS_PTR_FMT" (%zd)",
-                    qps, id, nsz, QPS_PTR_ARG(qps_encode(res)),
-                    qps_sizeof(qps, qps_handle_deref(qps, id)));
+        TRACE_ALLOC(
+            "frag", "realloc(%p, %d, %zd) = " QPS_PTR_FMT " (%zd)", qps, id,
+            nsz, QPS_PTR_ARG(qps_encode(res)),
+            qps_sizeof(qps, qps_handle_deref(qps, id))
+        );
     } else {
         TRACE_ALLOC("frag", "realloc(%p, %d, %zd) failed", qps, id, nsz);
     }
@@ -2414,22 +2524,25 @@ void qps_free(qps_t *qps, uint32_t id)
 
 void *qps_w_deref_(qps_t *qps, uint32_t h, void *pptr)
 {
-    void     *rptr = NULL;
+    void *rptr = NULL;
     qps_mhdr_t *blk = container_of(pptr, qps_mhdr_t, data);
-    size_t    sz   = qps_m_blk_size(blk);
+    size_t sz = qps_m_blk_size(blk);
 
     qps_m_check_maps(qps);
-    TRACE_ALLOC("frag", "w_deref(%p, %d, "QPS_PTR_FMT") = ...",
-                qps, h, QPS_PTR_ARG(qps_encode(pptr)));
+    TRACE_ALLOC(
+        "frag", "w_deref(%p, %d, " QPS_PTR_FMT ") = ...", qps, h,
+        QPS_PTR_ARG(qps_encode(pptr))
+    );
     rptr = qps_alloc_int(qps, h, sz);
 #if QPS_USE_REDZONES
     sz = MIN(sz, blk->rz_alloc_size);
 #endif
     memcpy(rptr, pptr, sz);
     qps_free_ro(qps, qps_map_of(pptr), sz);
-    TRACE_ALLOC("frag", "w_deref(%p, %d, "QPS_PTR_FMT") = "QPS_PTR_FMT,
-                qps, h, QPS_PTR_ARG(qps_encode(pptr)),
-                QPS_PTR_ARG(qps_encode(rptr)));
+    TRACE_ALLOC(
+        "frag", "w_deref(%p, %d, " QPS_PTR_FMT ") = " QPS_PTR_FMT, qps, h,
+        QPS_PTR_ARG(qps_encode(pptr)), QPS_PTR_ARG(qps_encode(rptr))
+    );
     qps_m_check_maps(qps);
     return rptr;
 }
@@ -2488,27 +2601,30 @@ static int qps_lock_snapshot(qps_t *qps, dir_lock_t *dlock)
  */
 /* TODO: create a new public function to get the private metadata without
  * opening the spool. */
-qps_t *_qps_open(const char *path, const char *name, bool load_whole_spool,
-                 sb_t *priv)
+qps_t *_qps_open(
+    const char *path, const char *name, bool load_whole_spool, sb_t *priv
+)
 {
-    dir_lock_t  snapshot_lock;
+    dir_lock_t snapshot_lock;
     struct stat st;
-    qps_t      *qps;
-    int         fd;
+    qps_t *qps;
+    int fd;
 
     STATIC_ASSERT(sizeof(qps_map_t) == QPS_PAGE_SIZE);
     STATIC_ASSERT(offsetof(qps_map_t, hdr.qps) == QPS_PAGE_SIZE / 2);
     STATIC_ASSERT(QPS_ALLOC_MIN >= fieldsizeof(qps_mhdr_t, padding));
 
-    fd  = RETHROW_NP(open(path, O_RDONLY));
+    fd = RETHROW_NP(open(path, O_RDONLY));
     qps = qps_new(fd, name);
 
     if (qps_lock(qps) < 0) {
         goto out_close;
     }
     if (qps_lock_snapshot(qps, &snapshot_lock) < 0) {
-        logger_error(&qps->logger, "cannot take snapshotter lock: "
-                     "background snapshot in progress?");
+        logger_error(
+            &qps->logger,
+            "cannot take snapshotter lock: background snapshot in progress?"
+        );
         goto out_close;
     }
     unlockdir(&snapshot_lock);
@@ -2532,7 +2648,7 @@ qps_t *_qps_open(const char *path, const char *name, bool load_whole_spool,
     }
     return qps;
 
-  out_close:
+out_close:
     qps_close(&qps);
     return NULL;
 }
@@ -2540,10 +2656,10 @@ qps_t *_qps_open(const char *path, const char *name, bool load_whole_spool,
 int __qps_check_consistency(const char *path, const char *name)
 {
     struct stat st;
-    qps_t      *qps;
-    int         fd, res = 0;
+    qps_t *qps;
+    int fd, res = 0;
 
-    fd  = RETHROW(open(path, O_RDONLY));
+    fd = RETHROW(open(path, O_RDONLY));
     qps = qps_new(fd, name);
 
     if (fstatat(fd, "meta.qps", &st, 0) < 0) {
@@ -2561,7 +2677,7 @@ int __qps_check_consistency(const char *path, const char *name)
     }
     logger_trace(&qps->logger, 1, "__qps_check_consistency() = %p", qps);
 
-  out_close:
+out_close:
     qps_close(&qps);
     return res;
 }
@@ -2593,7 +2709,7 @@ int qps_unlink(const char *path)
     int res = 0, fd;
     DIR *dir;
 
-    fd  = RETHROW(open(path, O_RDONLY));
+    fd = RETHROW(open(path, O_RDONLY));
     dir = fdopendir(fd);
     if (!dir) {
         logger_error(&_G.logger, "unable to fdopendir `%s`: %m", path);
@@ -2606,7 +2722,8 @@ int qps_unlink(const char *path)
         const char *s = de->d_name;
         const char *e = path_extnul(s);
 
-        if (strequal(".qps", e) || strequal(".qpz", e) || strequal(".qpt", e)) {
+        if (strequal(".qps", e) || strequal(".qpz", e) || strequal(".qpt", e))
+        {
             logger_trace(&_G.logger, 1, "unlinkat(%s)", s);
             if (unlinkat(fd, s, 0)) {
                 res = logger_error(&_G.logger, "unable to unlink %s", s);
@@ -2634,15 +2751,17 @@ int qps_unlink(const char *path)
  *   - NULL if it failed, errno may be consulted to know why to some extent
  *   - a pointer to the created qps object.
  */
-qps_t *qps_create(const char *path, const char *name, mode_t mode,
-                  const void *data, size_t dlen)
+qps_t *qps_create(
+    const char *path, const char *name, mode_t mode, const void *data,
+    size_t dlen
+)
 {
     qps_t *qps;
     int fd;
     qv_t(u32) t;
 
     RETHROW_NP(mkdir_p(path, mode));
-    fd  = RETHROW_NP(open(path, O_RDONLY));
+    fd = RETHROW_NP(open(path, O_RDONLY));
     qps = qps_new(fd, name);
     if (qps_lock(qps) < 0) {
         qps_close(&qps);
@@ -2676,8 +2795,9 @@ static void qps_snapshot_bg_done(el_t el, pid_t pid, int status, data_t data)
             t_scope;
 
             el_unregister(&qps->snap_timer_el);
-            logger_trace(&qps->tracing_logger, 1, "snapshot commited and "
-                         "notified");
+            logger_trace(
+                &qps->tracing_logger, 1, "snapshot commited and notified"
+            );
 
             qps_dir_cleanup(qps, qps->snap_gen);
             qps_unquarantine_nos(qps);
@@ -2685,24 +2805,27 @@ static void qps_snapshot_bg_done(el_t el, pid_t pid, int status, data_t data)
             for (int i = 0; i < qps->maps.len; i++) {
                 qps_map_t *map = qps->maps.tab[i];
 
-                if (!map)
+                if (!map) {
                     continue;
+                }
 
-                if (QPS_GEN_CMP(map->hdr.generation, >, qps->snap_gen))
+                if (QPS_GEN_CMP(map->hdr.generation, >, qps->snap_gen)) {
                     continue;
+                }
                 if (qps_map_is_pg(map)) {
                     map->hdr.generation = qps->snap_gen;
                     continue;
                 }
                 if (map->hdr.remaining == 0) {
                     qps_map_recycle(qps, map, i, true);
-                } else
-                if (map->hdr.generation == qps->snap_gen) {
-                    uint32_t   remaining = map->hdr.remaining;
+                } else if (map->hdr.generation == qps->snap_gen) {
+                    uint32_t remaining = map->hdr.remaining;
                     qps_map_t *m = qps_m_map_open(qps, map->hdr.mapno);
 
                     if (map != m) {
-                        logger_panic(&qps->logger, "snapshot is inconsistent");
+                        logger_panic(
+                            &qps->logger, "snapshot is inconsistent"
+                        );
                     }
                     /* Some entries may have been deallocated since the
                      * beginning of the snapshot, so keep the remaining count
@@ -2712,17 +2835,20 @@ static void qps_snapshot_bg_done(el_t el, pid_t pid, int status, data_t data)
             }
 
             qps->snapshotting = false;
-            logger_debug(&qps->logger, "snapshot done in %s",
-                         t_time_spent_to_str(qps->snap_start));
+            logger_debug(
+                &qps->logger, "snapshot done in %s",
+                t_time_spent_to_str(qps->snap_start)
+            );
             qps->snap_notify(qps->snap_gen);
             Block_release_p(&qps->snap_notify);
         });
     });
 }
 
-static pid_t
-qps_snapshot_bg(qps_t *qps, const void *data, size_t dlen,
-                qv_t(u32) t, uint32_t generation)
+static pid_t qps_snapshot_bg(
+    qps_t *qps, const void *data, size_t dlen, qv_t(u32) t,
+    uint32_t generation
+)
 {
     dir_lock_t dlock;
     pid_t pid;
@@ -2731,8 +2857,9 @@ qps_snapshot_bg(qps_t *qps, const void *data, size_t dlen,
     lp_gettv(&begin);
     pid = ifork();
     if (pid < 0) {
-        logger_panic(&qps->logger, "unable to fork snapshotter in the "
-                     "background, %m");
+        logger_panic(
+            &qps->logger, "unable to fork snapshotter in the background, %m"
+        );
     }
     if (pid > 0) {
         return pid;
@@ -2770,18 +2897,23 @@ qps_snapshot_bg(qps_t *qps, const void *data, size_t dlen,
             /* map didn't change, hardlink the previous snapshot */
             char dst[32], src[32];
 
-            snprintf(src, sizeof(src), "%08x.%08x.qpz",
-                     map->hdr.mapno, map->hdr.generation);
-            snprintf(dst, sizeof(dst), "%08x.%08x.qpz",
-                     map->hdr.mapno, generation);
+            snprintf(
+                src, sizeof(src), "%08x.%08x.qpz", map->hdr.mapno,
+                map->hdr.generation
+            );
+            snprintf(
+                dst, sizeof(dst), "%08x.%08x.qpz", map->hdr.mapno, generation
+            );
             x_linkat(qps->dfd, src, qps->dfd, dst, 0);
         }
         munmap(map, QPS_MAP_SIZE);
 
-      next:
+    next:
         lp_gettv(&end);
-        logger_debug(&qps->tracing_logger, "snapshotting %d/%d (%jdms)",
-                     i + 1, qps->maps.len, timeval_diffmsec(&end, &start));
+        logger_debug(
+            &qps->tracing_logger, "snapshotting %d/%d (%jdms)", i + 1,
+            qps->maps.len, timeval_diffmsec(&end, &start)
+        );
     }
     x_write_meta(qps, generation, t, data, dlen);
 
@@ -2789,10 +2921,12 @@ qps_snapshot_bg(qps_t *qps, const void *data, size_t dlen,
     x_renameat(qps->dfd, "meta.qpt", qps->dfd, "meta.qps");
     x_fdatasync(qps->dfd); // commit rename
     lp_gettv(&step_end);
-    logger_debug(&qps->tracing_logger, "snapshotted %d maps in %jd msec "
-                 "(fork: %jd msec)", qps->maps.len,
-                 timeval_diffmsec(&step_end, &begin),
-                 timeval_diffmsec(&step_fork, &begin));
+    logger_debug(
+        &qps->tracing_logger,
+        "snapshotted %d maps in %jd msec (fork: %jd msec)", qps->maps.len,
+        timeval_diffmsec(&step_end, &begin),
+        timeval_diffmsec(&step_fork, &begin)
+    );
     unlockdir(&dlock);
     _exit(0);
 }
@@ -2833,21 +2967,22 @@ qps_snapshot_bg(qps_t *qps, const void *data, size_t dlen,
  * \return
  *   the new generation of the qps object.
  */
-uint32_t qps_snapshot(qps_t *qps, const void *data, size_t dlen,
-                      void (^notify)(uint32_t))
+uint32_t qps_snapshot(
+    qps_t *qps, const void *data, size_t dlen, void (^notify)(uint32_t)
+)
 {
     t_scope;
     struct timeval step_madvise, step_end;
-    uint32_t  rec_pos;
+    uint32_t rec_pos;
     qv_t(u32) t;
-    uint32_t  wait_for;
+    uint32_t wait_for;
 
-    assert (qps->snapshotting == false);
+    assert(qps->snapshotting == false);
 
     qps->snap_gen = qps->generation;
     lp_gettv(&qps->snap_start);
     qps->snapshotting = true;
-    qps->generation  += 2;
+    qps->generation += 2;
     qps->snap_notify = Block_copy(notify);
 
     logger_debug(&qps->logger, "starting snapshot...");
@@ -2855,8 +2990,8 @@ uint32_t qps_snapshot(qps_t *qps, const void *data, size_t dlen,
     p_clear(&qps->m, 1);
 
     {
-        uint32_t  h_max = qps->handles_max;
-        uint32_t  h_len = DIV_ROUND_UP(h_max, QPS_HANDLES_COUNT);
+        uint32_t h_max = qps->handles_max;
+        uint32_t h_len = DIV_ROUND_UP(h_max, QPS_HANDLES_COUNT);
         uint32_t *hdata = qv_growlen(&t, 2 + h_len);
 
         hdata[0] = h_max;
@@ -2877,12 +3012,12 @@ uint32_t qps_snapshot(qps_t *qps, const void *data, size_t dlen,
             continue;
         }
 
-        assert (QPS_GEN_CMP(qps->snap_gen, >=, map->hdr.generation));
+        assert(QPS_GEN_CMP(qps->snap_gen, >=, map->hdr.generation));
         qps_map_protect(qps, map, PROT_READ);
 
         if (!qps_map_is_pg(map)) {
             if (map->hdr.generation == qps->snap_gen) {
-                map->hdr.remaining  = map->hdr.allocated;
+                map->hdr.remaining = map->hdr.allocated;
                 map->hdr.disk_usage = 0;
             }
 
@@ -2905,7 +3040,7 @@ uint32_t qps_snapshot(qps_t *qps, const void *data, size_t dlen,
         for (size_t pg = 1; pg < QPS_MAP_PAGES; pg += hdrs[pg].size) {
             uint16_t sz = hdrs[pg].size;
 
-            assert (sz >= 1 && pg + sz <= QPS_MAP_PAGES);
+            assert(sz >= 1 && pg + sz <= QPS_MAP_PAGES);
             if (hdrs[pg].flags & QPS_BLK_FREE) {
                 madvise(&map[pg], sz * QPS_PAGE_SIZE, MADV_DONTNEED);
             }
@@ -2915,7 +3050,8 @@ uint32_t qps_snapshot(qps_t *qps, const void *data, size_t dlen,
 
     lp_gettv(&step_madvise);
     qps->snap_pid = qps_snapshot_bg(qps, data, dlen, t, qps->snap_gen);
-    qps->snap_el = el_child_register(qps->snap_pid, &qps_snapshot_bg_done, qps);
+    qps->snap_el =
+        el_child_register(qps->snap_pid, &qps_snapshot_bg_done, qps);
     el_unref(qps->snap_el);
 
     /* If the disk write speed is lower than 16 MB/s, there is an issue.
@@ -2926,18 +3062,26 @@ uint32_t qps_snapshot(qps_t *qps, const void *data, size_t dlen,
      */
     wait_for = qps->snap_max_duration ?: 3600;
     wait_for = MAX(wait_for, (uint32_t)qps->maps.len * 16);
-    qps->snap_timer_el = el_timer_register_blk(wait_for * 1000, 0, 0,
-                                               ^(el_t ev){
-        logger_fatal(&qps->logger, "qps: snapshot (generation %x) stuck for "
-                     "more than %d sec", qps->snap_gen, wait_for);
-    }, NULL);
+    qps->snap_timer_el = el_timer_register_blk(
+        wait_for * 1000, 0, 0,
+        ^(el_t ev) {
+            logger_fatal(
+                &qps->logger,
+                "qps: snapshot (generation %x) stuck for more than %d sec",
+                qps->snap_gen, wait_for
+            );
+        },
+        NULL
+    );
     el_unref(qps->snap_timer_el);
 
     lp_gettv(&step_end);
-    logger_trace(&qps->logger, 1, "snapshot: mmaps setup in %jd msec, "
-                 "scheduled in %jd msec",
-                 timeval_diffmsec(&step_madvise, &qps->snap_start),
-                 timeval_diffmsec(&step_end, &qps->snap_start));
+    logger_trace(
+        &qps->logger, 1,
+        "snapshot: mmaps setup in %jd msec, scheduled in %jd msec",
+        timeval_diffmsec(&step_madvise, &qps->snap_start),
+        timeval_diffmsec(&step_end, &qps->snap_start)
+    );
     return qps->generation;
 }
 
@@ -2962,15 +3106,14 @@ void qps_snapshot_wait(qps_t *qps)
 
                     if (ret == qps->snap_pid) {
                         break;
-                    } else
-                    if (errno == ECHILD) {
+                    } else if (errno == ECHILD) {
                         /* XXX The child probably get collected by the
-                         * el_child_register call that performs a waitpid(), but
-                         * we may not have returned to the event loop since then,
-                         * so the el didn't get fired. As a consequence, we get
-                         * the status cached by the el_t.
+                         * el_child_register call that performs a waitpid(),
+                         * but we may not have returned to the event loop
+                         * since then, so the el didn't get fired. As a
+                         * consequence, we get the status cached by the el_t.
                          */
-                        assert (first);
+                        assert(first);
                         status = el_child_get_status(qps->snap_el);
                         break;
                     }
@@ -2978,10 +3121,12 @@ void qps_snapshot_wait(qps_t *qps)
                 }
                 thr_queue_b(thr_queue_main_g, ^{
                     el_unregister(&qps->snap_el);
-                    qps_snapshot_bg_done(NULL, qps->snap_pid, status,
-                                         (data_t){ .ptr = qps });
-                    MODULE_METHOD_RUN_INT(at_fork_on_child_terminated,
-                                          qps->snap_pid);
+                    qps_snapshot_bg_done(
+                        NULL, qps->snap_pid, status, (data_t){.ptr = qps}
+                    );
+                    MODULE_METHOD_RUN_INT(
+                        at_fork_on_child_terminated, qps->snap_pid
+                    );
                 });
             });
         }
@@ -3022,8 +3167,8 @@ int qps_backup(qps_t *qps, int dfd_dst, bool link_as_copy)
             goto error;
         }
         if (st.st_size == 0) {
-            int fd = openat(dfd_dst, "meta.qps",
-                            O_CREAT | O_EXCL | O_RDWR, 0444);
+            int fd =
+                openat(dfd_dst, "meta.qps", O_CREAT | O_EXCL | O_RDWR, 0444);
             if (fd < 0) {
                 ret = logger_error(&qps->logger, "unable to touch meta.qps");
                 goto error;
@@ -3038,10 +3183,11 @@ int qps_backup(qps_t *qps, int dfd_dst, bool link_as_copy)
         goto end;
     }
 
-    u32  = t_new_raw(uint32_t, meta->osize / 4);
+    u32 = t_new_raw(uint32_t, meta->osize / 4);
     uend = u32 + meta->osize / 4;
-    if ((ret = qps_unlzo_data(qps, meta->data, meta->csize, meta->osize,
-                              u32)) < 0)
+    if ((ret =
+             qps_unlzo_data(qps, meta->data, meta->csize, meta->osize, u32)) <
+        0)
     {
         goto err_unmap;
     }
@@ -3051,26 +3197,35 @@ int qps_backup(qps_t *qps, int dfd_dst, bool link_as_copy)
     u32 = h_u32 + h_len;
 
     if (u32 + 1 + u32[0] * 2 != uend) {
-        ret = logger_error(&qps->logger,
-                           "[backup] inconsistent meta.qps [1]");
+        ret =
+            logger_error(&qps->logger, "[backup] inconsistent meta.qps [1]");
         goto err_unmap;
     }
     u32++;
 
-#define COPY_FILE(name)  do {                                               \
-        if (link_as_copy) {                                                 \
-            if (linkat(qps->dfd, name, dfd_dst, name, 0) < 0) {             \
-                ret = logger_error(&qps->logger, "[backup] cannot link "    \
-                                   "%s %m", name);                          \
-                goto err_unmap;                                             \
-            }                                                               \
-        } else {                                                            \
-            if (filecopyat(qps->dfd, name, dfd_dst, name) < 0) {            \
-                ret = logger_error(&qps->logger, "[backup] cannot copy "    \
-                                   "%s %m", name);                          \
-                goto err_unmap;                                             \
-            }                                                               \
-        }                                                                   \
+#define COPY_FILE(name)                                                      \
+    do {                                                                     \
+        if (link_as_copy) {                                                  \
+            if (linkat(qps->dfd, name, dfd_dst, name, 0) < 0) {              \
+                ret = logger_error(                                          \
+                    &qps->logger,                                            \
+                    "[backup] cannot link "                                  \
+                    "%s %m",                                                 \
+                    name                                                     \
+                );                                                           \
+                goto err_unmap;                                              \
+            }                                                                \
+        } else {                                                             \
+            if (filecopyat(qps->dfd, name, dfd_dst, name) < 0) {             \
+                ret = logger_error(                                          \
+                    &qps->logger,                                            \
+                    "[backup] cannot copy "                                  \
+                    "%s %m",                                                 \
+                    name                                                     \
+                );                                                           \
+                goto err_unmap;                                              \
+            }                                                                \
+        }                                                                    \
     } while (0)
 
     for (; u32 < uend; u32 += 2) {
@@ -3079,10 +3234,10 @@ int qps_backup(qps_t *qps, int dfd_dst, bool link_as_copy)
 
         if (u32[0] & QPS_META_MAP_TLSF) {
             snprintf(buf, sizeof(buf), "%08x.qps", no);
-        } else
-        if (!(u32[0] & QPS_META_MAP_PAGED)) {
-            ret = logger_error(&qps->logger, "[backup] inconsistent "
-                               "meta.qps [6]");
+        } else if (!(u32[0] & QPS_META_MAP_PAGED)) {
+            ret = logger_error(
+                &qps->logger, "[backup] inconsistent meta.qps [6]"
+            );
             goto err_unmap;
         } else {
             snprintf(buf, sizeof(buf), "%08x.%08x.qpz", no, meta->generation);
@@ -3090,15 +3245,15 @@ int qps_backup(qps_t *qps, int dfd_dst, bool link_as_copy)
         COPY_FILE(buf);
     }
 
-  end:
+end:
     /* Step 2: Write meta.qps */
     COPY_FILE("meta.qps");
 #undef COPY_FILE
 
-  err_unmap:
+err_unmap:
     x_munmap(meta, meta_size);
 
-  error:
+error:
     return ret;
 }
 
@@ -3164,10 +3319,11 @@ void qps_close(qps_t **qpsp)
 
 static void qps_roots_sort(qps_roots_t *roots)
 {
-    qv_sort(qps_handle)(&roots->handles, ^(const qps_handle_t *a,
-                                           const qps_handle_t *b) {
-        return (int)(*a - *b);
-    });
+    qv_sort(qps_handle)(
+        &roots->handles, ^(const qps_handle_t *a, const qps_handle_t *b) {
+            return (int)(*a - *b);
+        }
+    );
 
     qv_sort(qps_pg)(&roots->pages, ^(const qps_pg_t *a, const qps_pg_t *b) {
         return (int)(*a - *b);
@@ -3184,11 +3340,11 @@ static void qps_get_roots(qps_t *qps, qps_roots_t *roots)
         }
 
         for (uint32_t pg = 1; pg < QPS_MAP_PAGES;) {
-            qps_pg_t     blk = QPS_PG(p, pg);
+            qps_pg_t blk = QPS_PG(p, pg);
             qps_pghdr_t *hdr = &qps->hdrs[blk];
-            uint32_t     sz  = hdr->size;
+            uint32_t sz = hdr->size;
 
-            assert (sz >= 1 && pg + sz <= QPS_MAP_PAGES);
+            assert(sz >= 1 && pg + sz <= QPS_MAP_PAGES);
 
             if (!(hdr->flags & QPS_BLK_FREE) && !hdr->handle) {
                 bool is_handle_page = false;
@@ -3222,11 +3378,14 @@ static int qps_report_herr(qps_t *qps, qps_handle_t h, bool leak)
 {
     if (leak) {
         qps_ptr_t *ptr = qps_handle_slot(qps, h);
-        void      *p   = qps_handle_deref(qps, h);
-        size_t     sz  = qps_sizeof(qps, p);
+        void *p = qps_handle_deref(qps, h);
+        size_t sz = qps_sizeof(qps, p);
 
-        logger_error(&qps->logger, "leak: handle %d [p:%p, ptr:"QPS_PTR_FMT", "
-                     "sz:%zd/%zx]", h, p, QPS_PTR_ARG(*ptr), sz, sz);
+        logger_error(
+            &qps->logger,
+            "leak: handle %d [p:%p, ptr:" QPS_PTR_FMT ", sz:%zd/%zx]", h, p,
+            QPS_PTR_ARG(*ptr), sz, sz
+        );
     } else {
         logger_error(&qps->logger, "invalid: freed handle %d referenced", h);
     }
@@ -3236,14 +3395,19 @@ static int qps_report_herr(qps_t *qps, qps_handle_t h, bool leak)
 static int qps_report_pgerr(qps_t *qps, qps_pg_t pg, bool leak)
 {
     if (leak) {
-        void    *p = qps_pg_deref(qps, pg);
+        void *p = qps_pg_deref(qps, pg);
         uint32_t n = qps->hdrs[pg].size;
 
-        logger_error(&qps->logger, "leak: page(s) "QPS_PG_FMT".."QPS_PG_FMT" "
-                     "[p:%p, n:%d]", QPS_PG_ARG(pg), QPS_PG_ARG(pg + n), p, n);
+        logger_error(
+            &qps->logger,
+            "leak: page(s) " QPS_PG_FMT ".." QPS_PG_FMT " [p:%p, n:%d]",
+            QPS_PG_ARG(pg), QPS_PG_ARG(pg + n), p, n
+        );
     } else {
-        logger_error(&qps->logger, "invalid: freed map "QPS_PG_FMT" referenced",
-                     QPS_PG_ARG(pg));
+        logger_error(
+            &qps->logger, "invalid: freed map " QPS_PG_FMT " referenced",
+            QPS_PG_ARG(pg)
+        );
     }
     return 1;
 }
@@ -3293,12 +3457,16 @@ int qps_check_leaks(qps_t *qps, qps_roots_t *roots)
 
     qps_roots_wipe(&actual_roots);
     if (leakh > 0) {
-        logger_error(&qps->logger, "leak: %d handles among %d", leakh,
-                     actual_roots.handles.len);
+        logger_error(
+            &qps->logger, "leak: %d handles among %d", leakh,
+            actual_roots.handles.len
+        );
     }
     if (leakp > 0) {
-        logger_error(&qps->logger, "leak: %d pages among %d", leakp,
-                     actual_roots.pages.len);
+        logger_error(
+            &qps->logger, "leak: %d pages among %d", leakp,
+            actual_roots.pages.len
+        );
     }
 
     THROW_ERR_IF(leakh);
@@ -3313,8 +3481,9 @@ void qps_get_usage(const qps_t *qps, struct qps_stats *st)
     for (int i = 0; i < qps->maps.len; i++) {
         qps_map_t *map = qps->maps.tab[i];
 
-        if (!map)
+        if (!map) {
             continue;
+        }
         st->n_maps++;
         if (qps_map_is_pg(map)) {
             qps_pghdr_t *hdrs = qps->hdrs + (i << 16);
@@ -3328,8 +3497,7 @@ void qps_get_usage(const qps_t *qps, struct qps_stats *st)
                     st->n_pages_free += hdrs[pg].size;
                 }
             }
-        } else
-        if (qps_is_ro(qps, map)) {
+        } else if (qps_is_ro(qps, map)) {
             st->ro_allocs += map->hdr.remaining;
         } else {
             st->rw_allocs += map->hdr.allocated;
@@ -3343,7 +3511,7 @@ static int qps_initialize(void *arg)
 {
     struct sigaction act = {
         .sa_sigaction = qps_on_segfault,
-        .sa_flags     = SA_SIGINFO,
+        .sa_flags = SA_SIGINFO,
     };
 
     sigfillset(&act.sa_mask);
@@ -3365,15 +3533,15 @@ static int qps_shutdown(void)
     return 0;
 }
 
-MODULE_BEGIN(qps)
+MODULE_DEFINE(qps) {
     MODULE_DEPENDS_ON(thr);
-MODULE_END()
+}
 
 #if defined(__has_asan) && !__CLANG_PREREQ(5, 0)
 const char *__asan_default_options(void);
 
-__attribute__((visibility("default")))
-const char *__asan_default_options(void)
+__attribute__((visibility("default"))) const char *
+__asan_default_options(void)
 {
     return "allow_user_segv_handler=1";
 }
@@ -3397,7 +3565,8 @@ Z_GROUP_EXPORT(qps)
 
     MODULE_REQUIRE(qps);
 
-#define Z_CHECK_ALLOC(handle, size)  ({                                      \
+#define Z_CHECK_ALLOC(handle, size)                                          \
+    ({                                                                       \
         char *__data = qps_alloc(qps, &handle, size);                        \
                                                                              \
         Z_ASSERT_P(__data);                                                  \
@@ -3406,26 +3575,29 @@ Z_GROUP_EXPORT(qps)
         __data;                                                              \
     })
 
-#define Z_CHECK_ALLOC_AND_FILL(handle, size)  do {                           \
+#define Z_CHECK_ALLOC_AND_FILL(handle, size)                                 \
+    do {                                                                     \
         char *__data2 = Z_CHECK_ALLOC(handle, size);                         \
-        int __remain =  qps_sizeof(qps, __data2);                            \
+        int __remain = qps_sizeof(qps, __data2);                             \
                                                                              \
         while (__remain > 0) {                                               \
             int __to_write = MIN(__remain, countof(S) - 1);                  \
             memcpy(__data2, S, __to_write);                                  \
             __remain -= __to_write;                                          \
-            __data2   += __to_write;                                         \
+            __data2 += __to_write;                                           \
         }                                                                    \
     } while (0)
 
-#define Z_CHECK_HANDLE(handle, len)  ({                                      \
+#define Z_CHECK_HANDLE(handle, len)                                          \
+    ({                                                                       \
         char *__data = qps_handle_deref(qps, handle);                        \
                                                                              \
         Z_ASSERT_GE(qps_sizeof(qps, __data), (size_t)len);                   \
         __data;                                                              \
     })
 
-#define Z_CHECK_HANDLE_FILLED(handle, len)  do {                             \
+#define Z_CHECK_HANDLE_FILLED(handle, len)                                   \
+    do {                                                                     \
         const char *__data2 = Z_CHECK_HANDLE(handle, len);                   \
         size_t __remain = (len);                                             \
                                                                              \
@@ -3433,11 +3605,12 @@ Z_GROUP_EXPORT(qps)
             int __to_read = MIN(__remain, countof(S) - 1);                   \
             Z_ASSERT_EQUAL(S, __to_read, __data2, __to_read);                \
             __remain -= __to_read;                                           \
-            __data2  += __to_read;                                           \
+            __data2 += __to_read;                                            \
         }                                                                    \
     } while (0)
 
-#define Z_CHECK_REOPEN(_name, Cleanup)  do {                                 \
+#define Z_CHECK_REOPEN(_name, Cleanup)                                       \
+    do {                                                                     \
         __qps_close(&qps, Cleanup);                                          \
         qps = qps_open(z_tmpdir_g.s, _name, NULL);                           \
         Z_ASSERT_P(qps);                                                     \
@@ -3457,7 +3630,8 @@ Z_GROUP_EXPORT(qps)
 
         Z_CHECK_REOPEN("nr_20110105", true);
         qps_close(&qps);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(nr_20110107_1) {
         qps_handle_t handle1, handle2;
@@ -3475,7 +3649,8 @@ Z_GROUP_EXPORT(qps)
         Z_CHECK_REOPEN("nr_20110107_1", true);
         Z_CHECK_ALLOC_AND_FILL(handle1, 24);
         qps_close(&qps);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(nr_20110107_2) {
         qps_handle_t handle1, handle2;
@@ -3494,7 +3669,8 @@ Z_GROUP_EXPORT(qps)
         Z_CHECK_REOPEN("nr_20110107_2", true);
         Z_CHECK_HANDLE_FILLED(handle1, 24);
         qps_close(&qps);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(nr_20110107_3) {
         qps_handle_t handle1, handle2;
@@ -3514,7 +3690,8 @@ Z_GROUP_EXPORT(qps)
         Z_CHECK_REOPEN("nr_20110107_3", true);
         Z_CHECK_HANDLE_FILLED(handle1, 24);
         qps_close(&qps);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(nr_20110203) {
         qps_handle_t handle1, handle2;
@@ -3544,7 +3721,8 @@ Z_GROUP_EXPORT(qps)
         Z_CHECK_HANDLE_FILLED(handle1, 120);
         Z_CHECK_HANDLE_FILLED(handle2, 42);
         qps_close(&qps);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(nr_20110302) {
         qps_handle_t handle1, handle2;
@@ -3558,7 +3736,8 @@ Z_GROUP_EXPORT(qps)
 
         Z_CHECK_REOPEN("nr_20110302", true);
         qps_close(&qps);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(nr_20120824_1, "map emptied concurrently to snapshot") {
         qps_handle_t handle1;
@@ -3573,7 +3752,8 @@ Z_GROUP_EXPORT(qps)
         Z_CHECK_REOPEN("nr_20120824_1", true);
         Z_CHECK_HANDLE_FILLED(handle1, 36);
         qps_close(&qps);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(nr_20120824_2, "map emptied concurrently to snapshot") {
         qps_handle_t handle1;
@@ -3588,7 +3768,8 @@ Z_GROUP_EXPORT(qps)
         Z_CHECK_REOPEN("nr_20120824_2", true);
         Z_CHECK_HANDLE_FILLED(handle1, 36);
         qps_close(&qps);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(nr_20120827_1, "map emptied then reused after snapshot") {
         qps_handle_t handle1;
@@ -3604,7 +3785,8 @@ Z_GROUP_EXPORT(qps)
         Z_CHECK_REOPEN("nr_20120827_1", true);
         Z_CHECK_HANDLE_FILLED(handle1, 36);
         qps_close(&qps);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(nr_20120827_2, "map emptied then reused after snapshot") {
         qps_handle_t handle1;
@@ -3620,7 +3802,8 @@ Z_GROUP_EXPORT(qps)
         Z_CHECK_REOPEN("nr_20120827_2", false);
         Z_CHECK_HANDLE_FILLED(handle1, 36);
         qps_close(&qps);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     MODULE_RELEASE(qps);
 }
 Z_GROUP_END;

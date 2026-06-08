@@ -16,79 +16,76 @@
 /*                                                                         */
 /***************************************************************************/
 
-#define CONCAT(Token, Size)    Token ## Size
-#define FUNCNAME               CONCAT
+#define CONCAT(Token, Size) Token##Size
+#define FUNCNAME CONCAT
 
-#define _Compact(Size)      CONCAT(compact, Size)
-#define Compact             _Compact(SIZE)
+#define _Compact(Size) CONCAT(compact, Size)
+#define Compact _Compact(SIZE)
 
-#define _Flat(Size)         CONCAT(u, Size)
-#define Flat                _Flat(SIZE)
+#define _Flat(Size) CONCAT(u, Size)
+#define Flat _Flat(SIZE)
 
-#define _get(Size)          FUNCNAME(qhat_get_path, Size)
-#define get                 _get(SIZE)
+#define _get(Size) FUNCNAME(qhat_get_path, Size)
+#define get _get(SIZE)
 
-#define _set(Size)          FUNCNAME(qhat_set_path, Size)
-#define set                 _set(SIZE)
+#define _set(Size) FUNCNAME(qhat_set_path, Size)
+#define set _set(SIZE)
 
-#define _set0(Size)         FUNCNAME(qhat_set0_path, Size)
-#define set0                _set0(SIZE)
+#define _set0(Size) FUNCNAME(qhat_set0_path, Size)
+#define set0 _set0(SIZE)
 
-#define _remove(Size)       FUNCNAME(qhat_remove_path, Size)
-#define remove              _remove(SIZE)
+#define _remove(Size) FUNCNAME(qhat_remove_path, Size)
+#define remove _remove(SIZE)
 
-#define _val_is_zero(Size)  FUNCNAME(qhat_val_is_zero, Size)
-#define val_is_zero         _val_is_zero(SIZE)
+#define _val_is_zero(Size) FUNCNAME(qhat_val_is_zero, Size)
+#define val_is_zero _val_is_zero(SIZE)
 
-#define _get_null(Size)     FUNCNAME(qhat_get_path_null, Size)
-#define get_null            _get_null(SIZE)
+#define _get_null(Size) FUNCNAME(qhat_get_path_null, Size)
+#define get_null _get_null(SIZE)
 
-#define _set_null(Size)     FUNCNAME(qhat_set_path_null, Size)
-#define set_null            _set_null(SIZE)
+#define _set_null(Size) FUNCNAME(qhat_set_path_null, Size)
+#define set_null _set_null(SIZE)
 
-#define _set0_null(Size)    FUNCNAME(qhat_set0_path_null, Size)
-#define set0_null           _set0_null(SIZE)
+#define _set0_null(Size) FUNCNAME(qhat_set0_path_null, Size)
+#define set0_null _set0_null(SIZE)
 
-#define _remove_null(Size)  FUNCNAME(qhat_remove_path_null, Size)
-#define remove_null         _remove_null(SIZE)
+#define _remove_null(Size) FUNCNAME(qhat_remove_path_null, Size)
+#define remove_null _remove_null(SIZE)
 
-#define _lookup(Size)       FUNCNAME(qhat_lookup, Size)
-#define lookup              _lookup(SIZE)
+#define _lookup(Size) FUNCNAME(qhat_lookup, Size)
+#define lookup _lookup(SIZE)
 
-#define _update_path(Size)  FUNCNAME(qhat_update_path, Size)
-#define update_path         _update_path(SIZE)
+#define _update_path(Size) FUNCNAME(qhat_update_path, Size)
+#define update_path _update_path(SIZE)
 
-#define _init(Size)         FUNCNAME(qhat_props_from_len, Size)
-#define init                _init(SIZE)
+#define _init(Size) FUNCNAME(qhat_props_from_len, Size)
+#define init _init(SIZE)
 
 #define _flatten_leaf(Size) FUNCNAME(qhat_flatten_leaf, Size)
-#define flatten_leaf        _flatten_leaf(SIZE)
+#define flatten_leaf _flatten_leaf(SIZE)
 
-#define _unflatten_leaf(Size)  FUNCNAME(qhat_unflatten_leaf, Size)
-#define unflatten_leaf         _unflatten_leaf(SIZE)
+#define _unflatten_leaf(Size) FUNCNAME(qhat_unflatten_leaf, Size)
+#define unflatten_leaf _unflatten_leaf(SIZE)
 
-#define __type(Size)        qhat_##Size##_t
-#define _type(Size)         __type(Size)
-#define type_t              _type(SIZE)
+#define __type(Size) qhat_##Size##_t
+#define _type(Size) __type(Size)
+#define type_t _type(SIZE)
 
-#define __compact(Size)     qhat_compact##Size##_t
-#define _compact(Size)      __compact(Size)
-#define compact_t           _compact(SIZE)
+#define __compact(Size) qhat_compact##Size##_t
+#define _compact(Size) __compact(Size)
+#define compact_t _compact(SIZE)
 
+#define VALUE_LEN (SIZE / 8)
+#define VALUE_LEN_LOG (bsr32(VALUE_LEN))
+#define LEAVES_PER_FLAT ((PAGES_PER_FLAT * QPS_PAGE_SIZE) / sizeof(type_t))
+#define LEAF_INDEX_BITS (bsr32(LEAVES_PER_FLAT))
+#define LEAF_INDEX_MASK BITMASK_LT(uint32_t, LEAF_INDEX_BITS)
+#define LEAVES_PER_COMPACT fieldsizeof(compact_t, values) / sizeof(type_t)
+#define SPLIT_COMPACT_THRESHOLD (3 * LEAVES_PER_COMPACT / 4)
+#define ROOT_NODE_COUNT (1U << ((32 - LEAF_INDEX_BITS) % QHAT_SHIFT))
+#define PAGES_PER_COMPACT (sizeof(compact_t) / QPS_PAGE_SIZE)
 
-#define VALUE_LEN                (SIZE / 8)
-#define VALUE_LEN_LOG            (bsr32(VALUE_LEN))
-#define LEAVES_PER_FLAT          ((PAGES_PER_FLAT * QPS_PAGE_SIZE) / sizeof(type_t))
-#define LEAF_INDEX_BITS          (bsr32(LEAVES_PER_FLAT))
-#define LEAF_INDEX_MASK          BITMASK_LT(uint32_t, LEAF_INDEX_BITS)
-#define LEAVES_PER_COMPACT       fieldsizeof(compact_t, values) / sizeof(type_t)
-#define SPLIT_COMPACT_THRESHOLD  (3 * LEAVES_PER_COMPACT / 4)
-#define ROOT_NODE_COUNT          (1U << ((32 - LEAF_INDEX_BITS) % QHAT_SHIFT))
-#define PAGES_PER_COMPACT        (sizeof(compact_t) / QPS_PAGE_SIZE)
-
-
-static NEVER_INLINE
-void flatten_leaf(qhat_path_t *path)
+static NEVER_INLINE void flatten_leaf(qhat_path_t *path)
 {
     qhat_node_t new_node = qhat_alloc_leaf(path->hat, false);
     qhat_node_t old_node = PATH_NODE(path);
@@ -96,22 +93,22 @@ void flatten_leaf(qhat_path_t *path)
     qhat_node_memory_t new_memory;
     uint32_t prefix = 0, previous = 0;
 
-    assert (old_node.leaf);
-    assert (path->depth == QHAT_DEPTH_MAX - 1);
-    assert (qhat_node_is_pure(path));
+    assert(old_node.leaf);
+    assert(path->depth == QHAT_DEPTH_MAX - 1);
+    assert(qhat_node_is_pure(path));
 
     PATH_NODE(path) = new_node;
     qhat_update_parent_pure(path, new_node);
     new_memory = qhat_node_w_deref(path);
 
-    assert (memory.Compact->count <= LEAVES_PER_FLAT);
+    assert(memory.Compact->count <= LEAVES_PER_FLAT);
     for (uint32_t i = 0; i < memory.Compact->count; i++) {
         uint32_t key = memory.Compact->keys[i] & LEAF_INDEX_MASK;
         if (i == 0) {
             prefix = memory.Compact->keys[i] - key;
         } else {
-            assert (memory.Compact->keys[i] - key == prefix);
-            assert (previous < key);
+            assert(memory.Compact->keys[i] - key == prefix);
+            assert(previous < key);
         }
         previous = key;
 
@@ -120,12 +117,15 @@ void flatten_leaf(qhat_path_t *path)
 
     MOVED_TO_NEW_FLAT(path, memory.compact->count);
     qhat_unmap_node(path->hat, old_node);
-    e_named_trace(3, "trie/node/flatten", "flattened node %u in %u",
-                  old_node.page, new_node.page);
+    e_named_trace(
+        3, "trie/node/flatten", "flattened node %u in %u", old_node.page,
+        new_node.page
+    );
     PATH_STRUCTURE_CHANGED("trie/node/flatten", path);
 }
 
-#define next_1(Word)  ({                                                     \
+#define next_1(Word)                                                         \
+    ({                                                                       \
         int __bit = bsf64(Word);                                             \
                                                                              \
         Word >>= __bit;                                                      \
@@ -133,8 +133,11 @@ void flatten_leaf(qhat_path_t *path)
     })
 
 #define foreach_1(pos, word)                                                 \
-    for (uint64_t __word = (word), pos = __word ? next_1(__word) : 0; __word;\
-         pos += ({ RST_BIT(&__word, 0); next_1(__word); }))
+    for (uint64_t __word = (word), pos = __word ? next_1(__word) : 0;        \
+         __word; pos += ({                                                   \
+                     RST_BIT(&__word, 0);                                    \
+                     next_1(__word);                                         \
+                 }))
 
 static ALWAYS_INLINE bool val_is_zero(const type_t *val)
 {
@@ -145,21 +148,20 @@ static ALWAYS_INLINE bool val_is_zero(const type_t *val)
 #endif
 }
 
-static NEVER_INLINE
-void unflatten_leaf(qhat_path_t *path)
+static NEVER_INLINE void unflatten_leaf(qhat_path_t *path)
 {
     qhat_node_t new_node = qhat_alloc_leaf(path->hat, true);
     qhat_node_t old_node = PATH_NODE(path);
     qhat_node_const_memory_t memory = qhat_node_deref(path);
     qhat_node_memory_t new_memory;
-    uint32_t prefix = qhat_depth_prefix(path->hat, path->key,
-                                        QHAT_DEPTH_MAX - 1);
+    uint32_t prefix =
+        qhat_depth_prefix(path->hat, path->key, QHAT_DEPTH_MAX - 1);
     uint32_t pos = 0;
 
-    assert (old_node.leaf);
-    assert (path->depth == QHAT_DEPTH_MAX - 1);
-    assert (qhat_node_is_pure(path));
-    assert (!qhat_leaf_is_full(path));
+    assert(old_node.leaf);
+    assert(path->depth == QHAT_DEPTH_MAX - 1);
+    assert(qhat_node_is_pure(path));
+    assert(!qhat_leaf_is_full(path));
 
     PATH_NODE(path) = new_node;
     qhat_update_parent_pure(path, new_node);
@@ -167,31 +169,33 @@ void unflatten_leaf(qhat_path_t *path)
 
     for (uint32_t i = 0; i < LEAVES_PER_FLAT; i++) {
         if (!val_is_zero(&memory.Flat[i])) {
-            assert (pos < LEAVES_PER_COMPACT);
-            new_memory.Compact->keys[pos]   = prefix + i;
+            assert(pos < LEAVES_PER_COMPACT);
+            new_memory.Compact->keys[pos] = prefix + i;
             new_memory.Compact->values[pos] = memory.Flat[i];
             pos++;
         }
     }
-    assert (pos <= LEAVES_PER_COMPACT);
+    assert(pos <= LEAVES_PER_COMPACT);
     new_memory.Compact->count = pos;
-    new_memory.Compact->parent_left  = PATH_IN_PARENT_IDX(path);
+    new_memory.Compact->parent_left = PATH_IN_PARENT_IDX(path);
     new_memory.Compact->parent_right = new_memory.Compact->parent_left + 1;
 
     MOVED_TO_COMPACT(path, new_memory.compact->count);
     qhat_unmap_node(path->hat, old_node);
-    e_named_trace(3, "trie/node/unflatten", "unflattend node %u in %u",
-                  old_node.page, new_node.page);
+    e_named_trace(
+        3, "trie/node/unflatten", "unflattend node %u in %u", old_node.page,
+        new_node.page
+    );
     PATH_STRUCTURE_CHANGED("trie/node/unflatten", path);
 }
 
 static void lookup(qhat_path_t *path)
 {
-    qhat_node_t (*nodes)[QHAT_DEPTH_MAX] = &path->path;
-    qhat_t      *hat   = path->hat;
-    qps_t       *qps   = hat->qps;
-    uint32_t     key   = path->key;
-    uint32_t     shift = 2 * QHAT_SHIFT + LEAF_INDEX_BITS;
+    qhat_node_t(*nodes)[QHAT_DEPTH_MAX] = &path->path;
+    qhat_t *hat = path->hat;
+    qps_t *qps = hat->qps;
+    uint32_t key = path->key;
+    uint32_t shift = 2 * QHAT_SHIFT + LEAF_INDEX_BITS;
 
     path->gen = hat->gen;
     (*nodes)[0] = hat->root->nodes[shift == 32 ? 0 : key >> shift];
@@ -201,14 +205,16 @@ static void lookup(qhat_path_t *path)
     }
 
     shift -= QHAT_SHIFT;
-    (*nodes)[1] = qhat_node_deref_(qps, (*nodes)[0]).nodes[(key >> shift) & QHAT_MASK];
+    (*nodes)[1] =
+        qhat_node_deref_(qps, (*nodes)[0]).nodes[(key >> shift) & QHAT_MASK];
     if ((*nodes)[1].value == 0 || (*nodes)[1].leaf) {
         path->depth = 1;
         return;
     }
 
     shift -= QHAT_SHIFT;
-    (*nodes)[2] = qhat_node_deref_(qps, (*nodes)[1]).nodes[(key >> shift) & QHAT_MASK];
+    (*nodes)[2] =
+        qhat_node_deref_(qps, (*nodes)[1]).nodes[(key >> shift) & QHAT_MASK];
     path->depth = 2;
 }
 
@@ -238,8 +244,9 @@ static const type_t *get(qhat_path_t *path)
 
     if (PATH_NODE(path).compact) {
         uint32_t pos = qhat_compact_lookup(memory.compact, 0, path->key);
-        if (pos >= memory.compact->count
-        || memory.compact->keys[pos] != path->key) {
+        if (pos >= memory.compact->count ||
+            memory.compact->keys[pos] != path->key)
+        {
             return NULL;
         }
         return &memory.Compact->values[pos];
@@ -267,22 +274,27 @@ static type_t *set(qhat_path_t *path)
 
     for (;;) {
         if (PATH_NODE(path).value == 0) {
-            e_named_trace(2, "trie/insert",
-                          "no node found for key %u, allocating", path->key);
+            e_named_trace(
+                2, "trie/insert", "no node found for key %u, allocating",
+                path->key
+            );
             qhat_create_leaf(path);
             PATH_STRUCTURE_CHANGED("trie/insert", path);
             break;
-        } else
-        if (qhat_leaf_is_full(path)) {
-            if (path->depth == QHAT_DEPTH_MAX - 1 && qhat_node_is_pure(path)) {
-                e_named_trace(2, "trie/insert",
-                              "pure bucket full for key %u, flatten %u",
-                              path->key, PATH_NODE(path).page);
+        } else if (qhat_leaf_is_full(path)) {
+            if (path->depth == QHAT_DEPTH_MAX - 1 && qhat_node_is_pure(path))
+            {
+                e_named_trace(
+                    2, "trie/insert",
+                    "pure bucket full for key %u, flatten %u", path->key,
+                    PATH_NODE(path).page
+                );
                 flatten_leaf(path);
             } else {
-                e_named_trace(2, "trie/insert",
-                              "bucket full for key %u, splitting %u",
-                              path->key, PATH_NODE(path).page);
+                e_named_trace(
+                    2, "trie/insert", "bucket full for key %u, splitting %u",
+                    path->key, PATH_NODE(path).page
+                );
                 qhat_split_leaf(path);
             }
         } else {
@@ -296,18 +308,21 @@ static type_t *set(qhat_path_t *path)
 
     if (PATH_NODE(path).compact) {
         uint32_t slot = qhat_compact_lookup(memory.compact, 0, path->key);
-        assert (likely(slot <= memory.Compact->count));
+        assert(likely(slot <= memory.Compact->count));
 
         if (slot == memory.Compact->count ||
             memory.Compact->keys[slot] != path->key)
         {
             if (slot != memory.Compact->count) {
-                p_move(&memory.Compact->values[slot + 1],
-                       &memory.Compact->values[slot],
-                       memory.Compact->count - slot);
-                p_move(&memory.Compact->keys[slot + 1],
-                       &memory.Compact->keys[slot],
-                       memory.Compact->count - slot);
+                p_move(
+                    &memory.Compact->values[slot + 1],
+                    &memory.Compact->values[slot],
+                    memory.Compact->count - slot
+                );
+                p_move(
+                    &memory.Compact->keys[slot + 1],
+                    &memory.Compact->keys[slot], memory.Compact->count - slot
+                );
             }
             memory.Compact->keys[slot] = path->key;
             p_clear(&memory.Compact->values[slot], 1);
@@ -368,17 +383,20 @@ static bool remove(qhat_path_t *path, type_t *ptr)
             *ptr = memory.Compact->values[slot];
         }
         if (slot != memory.Compact->count) {
-            p_move(&memory.Compact->values[slot],
-                   &memory.Compact->values[slot + 1],
-                   memory.Compact->count - slot);
-            p_move(&memory.Compact->keys[slot],
-                   &memory.Compact->keys[slot + 1],
-                   memory.Compact->count - slot);
+            p_move(
+                &memory.Compact->values[slot],
+                &memory.Compact->values[slot + 1],
+                memory.Compact->count - slot
+            );
+            p_move(
+                &memory.Compact->keys[slot], &memory.Compact->keys[slot + 1],
+                memory.Compact->count - slot
+            );
         }
         PATH_STRUCTURE_CHANGED("trie/compact/remove", path);
     } else {
         uint32_t pos = path->key & LEAF_INDEX_MASK;
-        type_t  *val = &memory.Flat[pos];
+        type_t *val = &memory.Flat[pos];
 
         if (val_is_zero(val)) {
             goto no_value;
@@ -437,23 +455,23 @@ static void init(qhat_desc_t *desc, qhat_desc_t *desc_null)
     STATIC_ASSERT(LEAVES_PER_FLAT < UINT16_MAX);
     STATIC_ASSERT(LEAVES_PER_COMPACT < UINT16_MAX);
 
-    desc->value_len               = VALUE_LEN;
-    desc->value_len_log           = VALUE_LEN_LOG;
-    desc->leaves_per_compact      = LEAVES_PER_COMPACT;
-    desc->pages_per_compact       = PAGES_PER_COMPACT;
+    desc->value_len = VALUE_LEN;
+    desc->value_len_log = VALUE_LEN_LOG;
+    desc->leaves_per_compact = LEAVES_PER_COMPACT;
+    desc->pages_per_compact = PAGES_PER_COMPACT;
     desc->split_compact_threshold = SPLIT_COMPACT_THRESHOLD;
-    desc->leaves_per_flat         = LEAVES_PER_FLAT;
-    desc->pages_per_flat          = PAGES_PER_FLAT;
-    desc->leaf_index_bits         = LEAF_INDEX_BITS;
-    desc->leaf_index_mask         = LEAF_INDEX_MASK;
-    desc->root_node_count         = ROOT_NODE_COUNT;
+    desc->leaves_per_flat = LEAVES_PER_FLAT;
+    desc->pages_per_flat = PAGES_PER_FLAT;
+    desc->leaf_index_bits = LEAF_INDEX_BITS;
+    desc->leaf_index_mask = LEAF_INDEX_MASK;
+    desc->root_node_count = ROOT_NODE_COUNT;
 
-    desc->getf    = (qhat_getter_f)&get;
-    desc->setf    = (qhat_setter_f)&set;
-    desc->set0f   = (qhat_setter0_f)&set0;
+    desc->getf = (qhat_getter_f)&get;
+    desc->setf = (qhat_setter_f)&set;
+    desc->set0f = (qhat_setter0_f)&set0;
     desc->removef = (qhat_remover_f)&remove;
 
-    desc->flattenf   = flatten_leaf;
+    desc->flattenf = flatten_leaf;
     desc->unflattenf = unflatten_leaf;
 
     *desc_null = *desc;

@@ -27,114 +27,125 @@
 /* {{{ lexing json */
 
 enum {
-    IOP_JSON_EOF     = 0,
+    IOP_JSON_EOF = 0,
     /* plus { } [ ] : , */
-    IOP_JSON_IDENT   = 128,
+    IOP_JSON_IDENT = 128,
     IOP_JSON_INTEGER,
     IOP_JSON_DOUBLE,
     IOP_JSON_STRING,
 };
 
 /* Lexing helpers macros */
-#define PS              ll->ps
-#define PS_SKIP(ps, col, l)  \
-    ({ int tmp = l; col += tmp; __ps_skip((ps), tmp); })
-#define SKIP(l)  PS_SKIP(PS, ll->ctx->col, l)
+#define PS ll->ps
+#define PS_SKIP(ps, col, l)                                                  \
+    ({                                                                       \
+        int tmp = l;                                                         \
+        col += tmp;                                                          \
+        __ps_skip((ps), tmp);                                                \
+    })
+#define SKIP(l) PS_SKIP(PS, ll->ctx->col, l)
 
-#define EATC()          (ll->ctx->col++, __ps_getc(PS))
-#define READC()         (*PS->b)
+#define EATC() (ll->ctx->col++, __ps_getc(PS))
+#define READC() (*PS->b)
 
-#define PS_READAT(ps, off)  (ps)->b[off]
-#define READAT(off)     PS_READAT(PS, off)
+#define PS_READAT(ps, off) (ps)->b[off]
+#define READAT(off) PS_READAT(PS, off)
 
-#define PS_HAS(ps, l)   ps_has(ps, l)
-#define HAS(l)          PS_HAS(PS, l)
-#define _NEWLINE(line, col)  ((line)++, col = 1)
+#define PS_HAS(ps, l) ps_has(ps, l)
+#define HAS(l) PS_HAS(PS, l)
+#define _NEWLINE(line, col) ((line)++, col = 1)
 #define NEWLINE() _NEWLINE(ll->ctx->line, ll->ctx->col)
 
 /* Context control */
-#define STORECTX()      (ll->s_ps = *PS, ll->s_line = ll->ctx->line,        \
-                         ll->s_col = ll->ctx->col)
-#define RESTORECTX()    (ll->ctx->line = ll->s_line,                        \
-                         ll->ctx->col = ll->s_col,                          \
-                         *PS = ll->s_ps)
+#define STORECTX()                                                           \
+    (ll->s_ps = *PS, ll->s_line = ll->ctx->line, ll->s_col = ll->ctx->col)
+#define RESTORECTX()                                                         \
+    (ll->ctx->line = ll->s_line, ll->ctx->col = ll->s_col, *PS = ll->s_ps)
 
 /* Errors throwing */
-#define JERROR_MAXLEN   20
-#define JERROR(_err)    (ll->err = (_err))
-#define JERROR_WARG(_err, _len) \
-    ({ jerror_strncpy(ll, PS->s, _len);                                     \
-       JERROR(_err);                                                        \
+#define JERROR_MAXLEN 20
+#define JERROR(_err) (ll->err = (_err))
+#define JERROR_WARG(_err, _len)                                              \
+    ({                                                                       \
+        jerror_strncpy(ll, PS->s, _len);                                     \
+        JERROR(_err);                                                        \
     })
-#define JERROR_VARIOUS(fmt, ...)  \
-    ({  ll->err_str = mp_fmt(ll->mp, NULL, fmt, ##__VA_ARGS__);             \
-        JERROR(IOP_JERR_VARIOUS);                                           \
+#define JERROR_VARIOUS(fmt, ...)                                             \
+    ({                                                                       \
+        ll->err_str = mp_fmt(ll->mp, NULL, fmt, ##__VA_ARGS__);              \
+        JERROR(IOP_JERR_VARIOUS);                                            \
     })
 
 /* Errors throwing with context restoring */
-#define RJERROR(_err)   (ll->ctx->line = ll->s_line,                        \
-                         ll->ctx->col = ll->s_col,                          \
-                         *PS = ll->s_ps, ll->err = (_err))
-#define RJERROR_WARG(_err) \
-    ({ __ps_clip_at(&ll->s_ps, PS->p);                                      \
-       jerror_strncpy(ll, ll->s_ps.s, ps_len(&ll->s_ps));                   \
-       RJERROR(_err);                                                       \
+#define RJERROR(_err)                                                        \
+    (ll->ctx->line = ll->s_line, ll->ctx->col = ll->s_col, *PS = ll->s_ps,   \
+     ll->err = (_err))
+#define RJERROR_WARG(_err)                                                   \
+    ({                                                                       \
+        __ps_clip_at(&ll->s_ps, PS->p);                                      \
+        jerror_strncpy(ll, ll->s_ps.s, ps_len(&ll->s_ps));                   \
+        RJERROR(_err);                                                       \
     })
 
 /* Errors throwing with custom, constants args */
-#define RJERROR_EXP(_exp) \
+#define RJERROR_EXP(_exp)                                                    \
     rjerror_exp(ll, IOP_JERR_EXP_VAL, (_exp), strlen(_exp))
-#define RJERROR_EXP_FMT(_exp, ...) \
-    ({  char _buf[BUFSIZ];                                                  \
-        int  _len = snprintf(_buf, BUFSIZ, (_exp), __VA_ARGS__);            \
-        rjerror_exp(ll, IOP_JERR_EXP_VAL, _buf, _len);                      \
+#define RJERROR_EXP_FMT(_exp, ...)                                           \
+    ({                                                                       \
+        char _buf[BUFSIZ];                                                   \
+        int _len = snprintf(_buf, BUFSIZ, (_exp), __VA_ARGS__);              \
+        rjerror_exp(ll, IOP_JERR_EXP_VAL, _buf, _len);                       \
     })
-#define RJERROR_EXP_TYPE(_type) \
+#define RJERROR_EXP_TYPE(_type)                                              \
     rjerror_exp(ll, IOP_JERR_EXP_VAL, iop_type_to_error_str(_type), -1)
-#define RJERROR_SARG(_err, _str) \
-    ({ const char *tmp = _str;                                              \
-       ll->err_str = mp_strdup(ll->mp, tmp);                                \
-       RJERROR(_err);                                                       \
+#define RJERROR_SARG(_err, _str)                                             \
+    ({                                                                       \
+        const char *tmp = _str;                                              \
+        ll->err_str = mp_strdup(ll->mp, tmp);                                \
+        RJERROR(_err);                                                       \
     })
-#define RJERROR_SFIELD(_err, _s, _f) \
-    ({ const iop_struct_t *_desc  = _s;                                     \
-       const iop_field_t  *_fdesc = _f;                                     \
-       ll->err_str = mp_new_raw(ll->mp, char,                               \
-                                _desc->fullname.len + _fdesc->name.len + 2);\
-       sprintf(ll->err_str, "%s:%s", _desc->fullname.s, _fdesc->name.s);    \
-       RJERROR(_err);                                                       \
+#define RJERROR_SFIELD(_err, _s, _f)                                         \
+    ({                                                                       \
+        const iop_struct_t *_desc = _s;                                      \
+        const iop_field_t *_fdesc = _f;                                      \
+        ll->err_str = mp_new_raw(                                            \
+            ll->mp, char, _desc->fullname.len + _fdesc->name.len + 2         \
+        );                                                                   \
+        sprintf(ll->err_str, "%s:%s", _desc->fullname.s, _fdesc->name.s);    \
+        RJERROR(_err);                                                       \
     })
 
 /* Constants checking */
-#define IS_TRUE() \
-    (  (ll->ctx->b.len == 4 && !memcmp(ll->ctx->b.data, "true", 4))         \
-    || (ll->ctx->b.len == 3 && !memcmp(ll->ctx->b.data, "yes", 3)))
-#define IS_FALSE() \
-    (  (ll->ctx->b.len == 5 && !memcmp(ll->ctx->b.data, "false", 5))        \
-    || (ll->ctx->b.len == 2 && !memcmp(ll->ctx->b.data, "no", 2)))
-#define IS_NULL() \
-    (  (ll->ctx->b.len == 4 && !memcmp(ll->ctx->b.data, "null", 4))         \
-    || (ll->ctx->b.len == 3 && !memcmp(ll->ctx->b.data, "nil", 3)))
+#define IS_TRUE()                                                            \
+    ((ll->ctx->b.len == 4 && !memcmp(ll->ctx->b.data, "true", 4)) ||         \
+     (ll->ctx->b.len == 3 && !memcmp(ll->ctx->b.data, "yes", 3)))
+#define IS_FALSE()                                                           \
+    ((ll->ctx->b.len == 5 && !memcmp(ll->ctx->b.data, "false", 5)) ||        \
+     (ll->ctx->b.len == 2 && !memcmp(ll->ctx->b.data, "no", 2)))
+#define IS_NULL()                                                            \
+    ((ll->ctx->b.len == 4 && !memcmp(ll->ctx->b.data, "null", 4)) ||         \
+     (ll->ctx->b.len == 3 && !memcmp(ll->ctx->b.data, "nil", 3)))
 
-#define DO_IN_CTX(_ctx_tk, expr) \
-    ({ typeof(expr) res;                                                    \
-       iop_json_lex_ctx_t *stored_ctx = ll->ctx;                            \
-                                                                            \
-       ll->ctx = &ll->_ctx_tk##_ctx;                                        \
-       res = (expr);                                                        \
-       ll->ctx = stored_ctx;                                                \
-       res;                                                                 \
+#define DO_IN_CTX(_ctx_tk, expr)                                             \
+    ({                                                                       \
+        typeof(expr) res;                                                    \
+        iop_json_lex_ctx_t *stored_ctx = ll->ctx;                            \
+                                                                             \
+        ll->ctx = &ll->_ctx_tk##_ctx;                                        \
+        res = (expr);                                                        \
+        ll->ctx = stored_ctx;                                                \
+        res;                                                                 \
     })
-
 
 static int
 werror_sb(void *sb, int len, const char *fmt, ...) __attr_printf__(3, 4);
 static int
 werror_buf(void *buf, int len, const char *fmt, ...) __attr_printf__(3, 4);
-static int
-iop_jlex_werror(iop_json_lex_t *ll, void *buf, int len,
-                int (*writecb)(void *buf, int len, const char *fmt, ...)
-                __attr_printf__(3, 4));
+static int iop_jlex_werror(
+    iop_json_lex_t *ll, void *buf, int len,
+    int (*writecb)(void *buf, int len, const char *fmt, ...)
+        __attr_printf__(3, 4)
+);
 
 static int werror_sb(void *sb, int len, const char *fmt, ...)
 {
@@ -157,66 +168,74 @@ static int werror_buf(void *buf, int len, const char *fmt, ...)
     return n;
 }
 
-static int
-iop_jlex_werror(iop_json_lex_t *ll, void *buf, int len,
-                int (*writecb)(void *buf, int len, const char *fmt, ...))
+static int iop_jlex_werror(
+    iop_json_lex_t *ll, void *buf, int len,
+    int (*writecb)(void *buf, int len, const char *fmt, ...)
+)
 {
-#define ESTR(fmt, ...) \
-    (*writecb)(buf, len, "%d:%d: "fmt, ll->ctx->line, ll->ctx->col, ##__VA_ARGS__)
+#define ESTR(fmt, ...)                                                       \
+    (*writecb)(                                                              \
+        buf, len, "%d:%d: " fmt, ll->ctx->line, ll->ctx->col, ##__VA_ARGS__  \
+    )
 
     switch (ll->err) {
-      case IOP_JERR_EOF:
+    case IOP_JERR_EOF:
         return ESTR("end of file");
-      case IOP_JERR_UNCLOSED_COMMENT:
+    case IOP_JERR_UNCLOSED_COMMENT:
         return ESTR("unclosed comment");
-      case IOP_JERR_UNCLOSED_STRING:
+    case IOP_JERR_UNCLOSED_STRING:
         return ESTR("unclosed string");
 
-      case IOP_JERR_TOO_BIG_INT:
+    case IOP_JERR_TOO_BIG_INT:
         return ESTR("`%s' is too large an integer", ll->err_str);
-      case IOP_JERR_PARSE_NUM:
+    case IOP_JERR_PARSE_NUM:
         return ESTR("cannot parse number `%s'", ll->err_str);
-      case IOP_JERR_BAD_INT_EXT:
+    case IOP_JERR_BAD_INT_EXT:
         return ESTR("bad integer extension `%s'", ll->err_str);
-      case IOP_JERR_OUT_OF_RANGE:
+    case IOP_JERR_OUT_OF_RANGE:
         return ESTR("number `%s' is out of range", ll->err_str);
 
-      case IOP_JERR_EXP_SMTH:
+    case IOP_JERR_EXP_SMTH:
         return ESTR("something was expected after `%s'", ll->err_str);
-      case IOP_JERR_EXP_VAL:
-      case IOP_JERR_VARIOUS:
+    case IOP_JERR_EXP_VAL:
+    case IOP_JERR_VARIOUS:
         return ESTR("%s", ll->err_str);
-      case IOP_JERR_BAD_TOKEN:
+    case IOP_JERR_BAD_TOKEN:
         return ESTR("unexpected token `%s'", ll->err_str);
-      case IOP_JERR_INVALID_FILE:
+    case IOP_JERR_INVALID_FILE:
         return ESTR("invalid file");
 
-      case IOP_JERR_BAD_IDENT:
+    case IOP_JERR_BAD_IDENT:
         return ESTR("invalid identifier `%s'", ll->err_str);
-      case IOP_JERR_BAD_VALUE:
-        return ESTR("invalid IOP value `%s' (neither a number nor a string)",
-                    ll->err_str);
-      case IOP_JERR_ENUM_VALUE:
+    case IOP_JERR_BAD_VALUE:
+        return ESTR(
+            "invalid IOP value `%s' (neither a number nor a string)",
+            ll->err_str
+        );
+    case IOP_JERR_ENUM_VALUE:
         return ESTR("unknown enum value `%s'", ll->err_str);
 
-      case IOP_JERR_DUPLICATED_MEMBER:
+    case IOP_JERR_DUPLICATED_MEMBER:
         return ESTR("member `%s' already seen", ll->err_str);
-      case IOP_JERR_MISSING_MEMBER:
+    case IOP_JERR_MISSING_MEMBER:
         return ESTR("member `%s' is missing", ll->err_str);
-      case IOP_JERR_UNION_ARR:
-        return ESTR("syntax `member.ufield' for union cannot be used with"
-                    " a repeated field");
-      case IOP_JERR_UNION_RESERVED:
+    case IOP_JERR_UNION_ARR:
+        return ESTR(
+            "syntax `member.ufield' for union cannot be used with"
+            " a repeated field"
+        );
+    case IOP_JERR_UNION_RESERVED:
         return ESTR("the syntax `member.field' is reserved for unions");
-      case IOP_JERR_NOTHING_TO_READ:
+    case IOP_JERR_NOTHING_TO_READ:
         return ESTR("there is nothing to read");
 
-      case IOP_JERR_CONSTRAINT:
-        return ESTR("invalid field (ending at `%s'): %s", ll->err_str,
-                    iop_get_err());
+    case IOP_JERR_CONSTRAINT:
+        return ESTR(
+            "invalid field (ending at `%s'): %s", ll->err_str, iop_get_err()
+        );
 
-      case IOP_JERR_UNKNOWN:
-      default:
+    case IOP_JERR_UNKNOWN:
+    default:
         return ESTR("unknown error");
     }
 #undef ESTR
@@ -251,15 +270,17 @@ rjerror_exp(iop_json_lex_t *ll, int err, const char *expected, int len)
 
     if (pslen > JERROR_MAXLEN) {
         /* len = MAXLEN + sizeof("...") + sizeof("\"") */
-        pslen    = JERROR_MAXLEN;
-        buflen   = 3;
-        if (ll->s_ps.s[0] == '"')
+        pslen = JERROR_MAXLEN;
+        buflen = 3;
+        if (ll->s_ps.s[0] == '"') {
             buflen++;
+        }
         overflow = true;
     }
 
-    if (len < 0)
+    if (len < 0) {
         len = strlen(expected);
+    }
 
     buflen += pslen + len + 17 + 1;
     dst = ll->err_str = mp_new_raw(ll->mp, char, buflen);
@@ -270,8 +291,7 @@ rjerror_exp(iop_json_lex_t *ll, int err, const char *expected, int len)
     pos += pstrcpymem(dst + pos, buflen - pos, ll->s_ps.s, pslen);
     if (overflow && ll->s_ps.s[0] == '"') {
         pos += pstrcpy(dst + pos, buflen - pos, "...\"");
-    } else
-    if (overflow) {
+    } else if (overflow) {
         pos += pstrcpy(dst + pos, buflen - pos, "...");
     }
     pos += pstrcpy(dst + pos, buflen - pos, "'");
@@ -301,31 +321,34 @@ static void jerror_strncpy(iop_json_lex_t *ll, const char *str, int len)
     }
 }
 
-static const char *
-iop_type_to_error_str(iop_type_t type)
+static const char *iop_type_to_error_str(iop_type_t type)
 {
     switch (type) {
-      case IOP_T_I8:  case IOP_T_U8:
-      case IOP_T_I16: case IOP_T_U16:
-      case IOP_T_I32: case IOP_T_U32:
-      case IOP_T_I64: case IOP_T_U64:
+    case IOP_T_I8:
+    case IOP_T_U8:
+    case IOP_T_I16:
+    case IOP_T_U16:
+    case IOP_T_I32:
+    case IOP_T_U32:
+    case IOP_T_I64:
+    case IOP_T_U64:
         return "an integer value";
-      case IOP_T_ENUM:
+    case IOP_T_ENUM:
         return "an enum value";
-      case IOP_T_BOOL:
+    case IOP_T_BOOL:
         return "a boolean value";
-      case IOP_T_DOUBLE:
+    case IOP_T_DOUBLE:
         return "a decimal value";
-      case IOP_T_DATA:
+    case IOP_T_DATA:
         return "a bytes value";
-      case IOP_T_STRING:
-      case IOP_T_XML:
+    case IOP_T_STRING:
+    case IOP_T_XML:
         return "a string value";
-      case IOP_T_UNION:
+    case IOP_T_UNION:
         return "a union";
-      case IOP_T_STRUCT:
+    case IOP_T_STRUCT:
         return "a structure";
-      case IOP_T_VOID:
+    case IOP_T_VOID:
         return "a void field";
     }
     return NULL;
@@ -337,8 +360,7 @@ static int iop_json_skip_comment(iop_json_lex_t *ll)
         if (EATC() == '*' && READC() == '/') {
             SKIP(1);
             return 0;
-        } else
-        if (READC() == '\n') {
+        } else if (READC() == '\n') {
             SKIP(1);
             NEWLINE();
         }
@@ -351,16 +373,24 @@ static int iop_json_lex_token(iop_json_lex_t *ll)
 {
     const char *start = PS->s;
 
-    while (!ps_done(PS) && (isalnum(READC()) || READC() == '_'))
+    while (!ps_done(PS) && (isalnum(READC()) || READC() == '_')) {
         SKIP(1);
+    }
 
     if (HAS(1)) {
         /* Check for the authorised tokens after an identifier */
         switch (READC()) {
-          case ':': case '=': case ',': case ';': case '.':
-          case '[': case ']': case '{': case '}':
+        case ':':
+        case '=':
+        case ',':
+        case ';':
+        case '.':
+        case '[':
+        case ']':
+        case '{':
+        case '}':
             break;
-          default:
+        default:
             if (!isspace(READC())) {
                 SKIP(1);
                 return RJERROR_WARG(IOP_JERR_BAD_IDENT);
@@ -386,10 +416,13 @@ static int iop_json_lex_number(iop_json_lex_t *ll)
      * will stop reading). it does not matter if we go too far (e.g. with
      * '2+3+4' it will read the whole expression and not just '2' */
     for (pos = 0; pos < ps_len(PS); pos++) {
-        if (isalnum(READAT(pos)))
+        if (isalnum(READAT(pos))) {
             continue;
+        }
         switch (READAT(pos)) {
-          case '.': case '+': case '-':
+        case '.':
+        case '+':
+        case '-':
             continue;
         }
         break;
@@ -428,38 +461,45 @@ static int iop_json_lex_number(iop_json_lex_t *ll)
     }
 
     switch (is_d_err << 1 | (i_res < 0)) {
-      case 0:
+    case 0:
         /* FALLTHROUGH */
 
-      case 1:
+    case 1:
         if (unlikely(d_count > pos)) {
-            e_trace(0, "strtod read further than us: %*pM vs %*pM",
-                    d_count, PS->s, pos, PS->s);
+            e_trace(
+                0, "strtod read further than us: %*pM vs %*pM", d_count,
+                PS->s, pos, PS->s
+            );
         }
         ll->ctx->u.d = d;
         SKIP(d_count);
         return IOP_JSON_DOUBLE;
 
-      case 2:
+    case 2:
         if (unlikely(i_count > pos)) {
-            e_trace(0, "strtoxll_ext read further than us: %*pM vs %*pM",
-                    i_count , PS->s, pos, PS->s);
+            e_trace(
+                0, "strtoxll_ext read further than us: %*pM vs %*pM", i_count,
+                PS->s, pos, PS->s
+            );
         }
         ll->ctx->u.i = i;
         SKIP(i_count);
         return IOP_JSON_INTEGER;
 
-      default:
-        if (errno == ERANGE)
+    default:
+        if (errno == ERANGE) {
             return JERROR_WARG(IOP_JERR_TOO_BIG_INT, pos);
-        if (errno == EDOM)
+        }
+        if (errno == EDOM) {
             return JERROR_WARG(IOP_JERR_BAD_INT_EXT, pos);
+        }
     }
     return JERROR_WARG(IOP_JERR_PARSE_NUM, pos);
 }
 
-static int iop_json_lex_enum(iop_json_lex_t *ll, int terminator,
-                             const iop_field_t *fdesc)
+static int iop_json_lex_enum(
+    iop_json_lex_t *ll, int terminator, const iop_field_t *fdesc
+)
 {
     bool found;
     const char *end;
@@ -467,8 +507,9 @@ static int iop_json_lex_enum(iop_json_lex_t *ll, int terminator,
     lstr_t s;
 
     end = (const char *)memchr(PS->p, terminator, ps_len(PS));
-    if (!end)
+    if (!end) {
         return JERROR(IOP_JERR_UNCLOSED_STRING);
+    }
     len = end - PS->s;
     s = LSTR_INIT_V(PS->s, len);
 
@@ -495,33 +536,49 @@ static int iop_json_lex_expr(iop_json_lex_t *ll, const iop_field_t *fdesc)
     uint64_t num = 0;
     int type = IOP_JSON_INTEGER;
 
-    if (READC() == '+')
+    if (READC() == '+') {
         SKIP(1);
+    }
 
-    for(;;) {
+    for (;;) {
         int c;
 
         while (!ps_done(PS) && isspace(READC())) {
-            if (EATC() == '\n')
+            if (EATC() == '\n') {
                 NEWLINE();
+            }
         }
         switch (c = READC()) {
 
-          case '<': case '>':
+        case '<':
+        case '>':
             SKIP(1);
             if (HAS(1) && READC() == c) {
-                switch(c) {
-                  case '<': c = CF_OP_LSHIFT; break;
-                  case '>': c = CF_OP_RSHIFT; break;
-                  default : break;
+                switch (c) {
+                case '<':
+                    c = CF_OP_LSHIFT;
+                    break;
+                case '>':
+                    c = CF_OP_RSHIFT;
+                    break;
+                default:
+                    break;
                 }
             } else {
                 return RJERROR_EXP("a bitwise shift operator");
             }
             /* FALLTHROUGH */
-          case '-': case '+': case '/': case '~':
-          case '&': case '|': case '%': case '^':
-          case '(': case ')': case '*':
+        case '-':
+        case '+':
+        case '/':
+        case '~':
+        case '&':
+        case '|':
+        case '%':
+        case '^':
+        case '(':
+        case ')':
+        case '*':
             if (c == '*' && HAS(2) && READAT(1) == '*') {
                 SKIP(1);
                 c = CF_OP_EXP;
@@ -530,13 +587,15 @@ static int iop_json_lex_expr(iop_json_lex_t *ll, const iop_field_t *fdesc)
                 goto feed_number;
             }
             e_trace(1, "feed operator %c", c);
-            if (iop_cfolder_feed_operator(ll->cfolder, c) < 0)
+            if (iop_cfolder_feed_operator(ll->cfolder, c) < 0) {
                 return RJERROR_WARG(IOP_JERR_PARSE_NUM);
+            }
             SKIP(1);
             break;
 
-          case '.': case '0' ... '9':
-          feed_number:
+        case '.':
+        case '0' ... '9':
+        feed_number:
             type = RETHROW(iop_json_lex_number(ll));
             if (type == IOP_JSON_DOUBLE) {
                 if (!iop_cfolder_empty(ll->cfolder)) {
@@ -546,37 +605,41 @@ static int iop_json_lex_expr(iop_json_lex_t *ll, const iop_field_t *fdesc)
                 e_trace(1, "single double value %f", ll->ctx->u.d);
                 return IOP_JSON_DOUBLE;
             }
-            assert (type == IOP_JSON_INTEGER);
+            assert(type == IOP_JSON_INTEGER);
             e_trace(1, "feed number %jd", ll->ctx->u.i);
-            if (iop_cfolder_feed_number(ll->cfolder, ll->ctx->u.i,
-                                        ll->ctx->is_signed) < 0)
+            if (iop_cfolder_feed_number(
+                    ll->cfolder, ll->ctx->u.i, ll->ctx->is_signed
+                ) < 0)
             {
                 return RJERROR_WARG(IOP_JERR_PARSE_NUM);
             }
             break;
 
-          case '\'': case '"':
+        case '\'':
+        case '"':
             if (!fdesc || fdesc->type != IOP_T_ENUM) {
                 return RJERROR_EXP("an integer");
             }
             RETHROW(iop_json_lex_enum(ll, EATC(), fdesc));
             e_trace(1, "feed number %jd", ll->ctx->u.i);
-            if (iop_cfolder_feed_number(ll->cfolder, ll->ctx->u.i,
-                                        (ll->ctx->u.i < 0)) < 0)
+            if (iop_cfolder_feed_number(
+                    ll->cfolder, ll->ctx->u.i, (ll->ctx->u.i < 0)
+                ) < 0)
             {
                 return RJERROR_WARG(IOP_JERR_PARSE_NUM);
             }
             break;
 
-          default:
+        default:
             goto result;
         }
     }
 
-  result:
+result:
     /* Let's try to get a result */
-    if (iop_cfolder_get_result(ll->cfolder, &num, NULL) < 0)
+    if (iop_cfolder_get_result(ll->cfolder, &num, NULL) < 0) {
         return RJERROR_WARG(IOP_JERR_PARSE_NUM);
+    }
 
     ll->ctx->u.i = num;
     e_trace(1, "-> result %jd", ll->ctx->u.i);
@@ -595,102 +658,95 @@ static int iop_json_lex_char(iop_json_lex_t *ll, int terminator)
         SKIP(2);
         return IOP_JSON_INTEGER;
     } else
-    /* escape sequence */
-    if (READAT(0) == '\\') {
+        /* escape sequence */
+        if (READAT(0) == '\\') {
 #define OCTAL -1
 #define UNICODE -2
 #define HEXADECIMAL -3
-        static int escaped[256] = {
-            ['a'] = '\a',
-            ['b'] = '\b',
-            ['e'] = '\e',
-            ['t'] = '\t',
-            ['n'] = '\n',
-            ['v'] = '\v',
-            ['f'] = '\f',
-            ['r'] = '\r',
-            ['\\'] = '\\',
-            ['"'] = '\"',
-            ['\''] = '\'',
-            ['0'] = OCTAL,
-            ['1'] = OCTAL,
-            ['2'] = OCTAL,
-            ['u'] = UNICODE,
-            ['x'] = HEXADECIMAL,
-        };
-        int c = escaped[READAT(1)];
+            static int escaped[256] = {
+                ['a'] = '\a',        ['b'] = '\b',  ['e'] = '\e',
+                ['t'] = '\t',        ['n'] = '\n',  ['v'] = '\v',
+                ['f'] = '\f',        ['r'] = '\r',  ['\\'] = '\\',
+                ['"'] = '\"',        ['\''] = '\'', ['0'] = OCTAL,
+                ['1'] = OCTAL,       ['2'] = OCTAL, ['u'] = UNICODE,
+                ['x'] = HEXADECIMAL,
+            };
+            int c = escaped[READAT(1)];
 
-        if (!HAS(2))
-            return RJERROR_WARG(IOP_JERR_EXP_SMTH);
-        switch (c) {
-            int a, b;
-          case OCTAL:
-            if (HAS(4)
-            &&  READAT(2) >= '0' && READAT(2) <= '7'
-            &&  READAT(3) >= '0' && READAT(3) <= '7')
-            {
-                ll->ctx->u.i = ((READAT(1) - '0') << 6) |
-                    ((READAT(2) - '0') << 3) | (READAT(3) - '0');
-                SKIP(2);
-            } else
-            /* null */
-            if (READAT(1) == '0') {
-                ll->ctx->u.i = '\0';
+            if (!HAS(2)) {
+                return RJERROR_WARG(IOP_JERR_EXP_SMTH);
             }
-            break;
-          case HEXADECIMAL:
-            if (HAS(4) && (a = PS_CHECK(hexdecode(PS->s + 2))) >= 0) {
-                ll->ctx->u.i = a;
-                SKIP(2);
-            }
-            break;
-          case UNICODE:
-            if (HAS(6)
-            &&  (a = PS_CHECK(hexdecode(PS->s + 2))) >= 0
-            &&  (b = PS_CHECK(hexdecode(PS->s + 4))) >= 0)
-            {
-                int codepoint = (a << 8) | b;
-
-                /* Handle surrogate pairs for characters beyond BMP */
-                if (codepoint >= 0xD800 && codepoint <= 0xDBFF
-                &&  HAS(12) && PS->s[6] == '\\' && PS->s[7] == 'u')
+            switch (c) {
+                int a, b;
+            case OCTAL:
+                if (HAS(4) && READAT(2) >= '0' && READAT(2) <= '7' &&
+                    READAT(3) >= '0' && READAT(3) <= '7')
                 {
-                    int low_a = PS_CHECK(hexdecode(PS->s + 8));
-                    int low_b = PS_CHECK(hexdecode(PS->s + 10));
-                    int low_surrogate = (low_a << 8) | low_b;
-
-                    if (low_surrogate >= 0xDC00 &&  low_surrogate <= 0xDFFF)
-                    {
-                        /* Valid surrogate pair - compute actual codepoint */
-                        codepoint = 0x10000
-                                  + ((codepoint - 0xD800) << 10)
-                                  + (low_surrogate - 0xDC00);
-                        SKIP(6); /* Skip the extra \uXXXX */
+                    ll->ctx->u.i = ((READAT(1) - '0') << 6) |
+                                   ((READAT(2) - '0') << 3) |
+                                   (READAT(3) - '0');
+                    SKIP(2);
+                } else
+                    /* null */
+                    if (READAT(1) == '0') {
+                        ll->ctx->u.i = '\0';
                     }
+                break;
+            case HEXADECIMAL:
+                if (HAS(4) && (a = PS_CHECK(hexdecode(PS->s + 2))) >= 0) {
+                    ll->ctx->u.i = a;
+                    SKIP(2);
                 }
-                ll->ctx->u.i = codepoint;
-                SKIP(4);
+                break;
+            case UNICODE:
+                if (HAS(6) && (a = PS_CHECK(hexdecode(PS->s + 2))) >= 0 &&
+                    (b = PS_CHECK(hexdecode(PS->s + 4))) >= 0)
+                {
+                    int codepoint = (a << 8) | b;
+
+                    /* Handle surrogate pairs for characters beyond BMP */
+                    if (codepoint >= 0xD800 && codepoint <= 0xDBFF &&
+                        HAS(12) && PS->s[6] == '\\' && PS->s[7] == 'u')
+                    {
+                        int low_a = PS_CHECK(hexdecode(PS->s + 8));
+                        int low_b = PS_CHECK(hexdecode(PS->s + 10));
+                        int low_surrogate = (low_a << 8) | low_b;
+
+                        if (low_surrogate >= 0xDC00 &&
+                            low_surrogate <= 0xDFFF)
+                        {
+                            /* Valid surrogate pair - compute actual codepoint
+                             */
+                            codepoint = 0x10000 +
+                                        ((codepoint - 0xD800) << 10) +
+                                        (low_surrogate - 0xDC00);
+                            SKIP(6); /* Skip the extra \uXXXX */
+                        }
+                    }
+                    ll->ctx->u.i = codepoint;
+                    SKIP(4);
+                }
+                break;
+            case 0:
+                return RJERROR_WARG(IOP_JERR_EXP_SMTH);
+            default:
+                ll->ctx->u.i = c;
+                break;
             }
-            break;
-          case 0:
-            return RJERROR_WARG(IOP_JERR_EXP_SMTH);
-          default:
-            ll->ctx->u.i = c;
-            break;
-        }
-        SKIP(2);
-        if (READC() != terminator) {
+            SKIP(2);
+            if (READC() != terminator) {
+                return RJERROR_WARG(IOP_JERR_EXP_SMTH);
+            }
+            SKIP(1);
+            return IOP_JSON_INTEGER;
+        } else {
             return RJERROR_WARG(IOP_JERR_EXP_SMTH);
         }
-        SKIP(1);
-        return IOP_JSON_INTEGER;
-    } else {
-        return RJERROR_WARG(IOP_JERR_EXP_SMTH);
-    }
 }
 
-static int iop_json_parse_str(pstream_t *ps, sb_t *buf, int *line, int *col,
-                              int terminator)
+static int iop_json_parse_str(
+    pstream_t *ps, sb_t *buf, int *line, int *col, int terminator
+)
 {
     sb_reset(buf);
 
@@ -698,13 +754,11 @@ static int iop_json_parse_str(pstream_t *ps, sb_t *buf, int *line, int *col,
         for (unsigned i = 0; i < ps_len(ps); i++) {
             if (ps->b[i] == '\n') {
                 return IOP_JERR_UNCLOSED_STRING;
-            } else
-            if (ps->b[i] == '\\') {
+            } else if (ps->b[i] == '\\') {
                 sb_add(buf, ps->p, i);
                 PS_SKIP(ps, *col, i);
                 goto parse_bslash;
-            } else
-            if (ps->b[i] == terminator) {
+            } else if (ps->b[i] == terminator) {
                 sb_add(buf, ps->p, i);
                 PS_SKIP(ps, *col, i + 1);
                 return IOP_JSON_STRING;
@@ -712,7 +766,7 @@ static int iop_json_parse_str(pstream_t *ps, sb_t *buf, int *line, int *col,
         }
         return IOP_JERR_UNCLOSED_STRING;
 
-      parse_bslash:
+    parse_bslash:
         if (parse_backslash(ps, buf, line, col) < 0) {
             return IOP_JERR_EXP_SMTH;
         }
@@ -723,12 +777,12 @@ static int iop_json_lex_str(iop_json_lex_t *ll, int terminator)
 {
     int res;
 
-    res = iop_json_parse_str(PS, &ll->ctx->b, &ll->ctx->line, &ll->ctx->col,
-                             terminator);
+    res = iop_json_parse_str(
+        PS, &ll->ctx->b, &ll->ctx->line, &ll->ctx->col, terminator
+    );
     if (res == IOP_JERR_EXP_SMTH) {
         return RJERROR_WARG(IOP_JERR_EXP_SMTH);
-    } else
-    if (res < 0) {
+    } else if (res < 0) {
         return JERROR(res);
     }
 
@@ -743,83 +797,99 @@ static int iop_json_lex(iop_json_lex_t *ll, const iop_field_t *fdesc)
 
         /* copy the peeked context */
         sb_setsb(&ll->cur_ctx.b, &ll->peeked_ctx.b);
-        ll->cur_ctx.line      = ll->peeked_ctx.line;
-        ll->cur_ctx.col       = ll->peeked_ctx.col;
-        ll->cur_ctx.u         = ll->peeked_ctx.u;
+        ll->cur_ctx.line = ll->peeked_ctx.line;
+        ll->cur_ctx.col = ll->peeked_ctx.col;
+        ll->cur_ctx.u = ll->peeked_ctx.u;
         ll->cur_ctx.is_signed = ll->peeked_ctx.is_signed;
 
         return res;
     }
 
-  trackback:
+trackback:
     while (!ps_done(PS) && isspace(READC())) {
-        if (EATC() == '\n')
+        if (EATC() == '\n') {
             NEWLINE();
+        }
     }
 
-    if (ps_done(PS))
+    if (ps_done(PS)) {
         return 0;
+    }
 
     STORECTX();
     switch (READC()) {
         int c;
-      case '=': SKIP(1); return ':';
-      case ';': SKIP(1); return ',';
-      case ':': case ',':
-      case '{': case '}':
-      case '[': case ']':
-      case '@':
-                return EATC();
+    case '=':
+        SKIP(1);
+        return ':';
+    case ';':
+        SKIP(1);
+        return ',';
+    case ':':
+    case ',':
+    case '{':
+    case '}':
+    case '[':
+    case ']':
+    case '@':
+        return EATC();
 
-      case 'c': /* string character prefix */
-                c = READAT(1);
-                if (c == '\'' || c == '"') {
-                    SKIP(2);
-                    return iop_json_lex_char(ll, c);
-                }
-                /* FALLTHROUGH */
-      case 'a' ... 'b': case 'd' ... 'z': case 'A' ... 'Z':
-                return iop_json_lex_token(ll);
+    case 'c': /* string character prefix */
+        c = READAT(1);
+        if (c == '\'' || c == '"') {
+            SKIP(2);
+            return iop_json_lex_char(ll, c);
+        }
+        /* FALLTHROUGH */
+    case 'a' ... 'b':
+    case 'd' ... 'z':
+    case 'A' ... 'Z':
+        return iop_json_lex_token(ll);
 
-      case '.':
-                if (!(HAS(2) && READAT(1) >= '0' && READAT(1) <= '9'))
-                    return EATC();
-                /* FALLTHROUGH */
-      case '-': case '+': case '~':
-      case '0' ... '9':
-      case '(': case ')':
-                return iop_json_lex_expr(ll, fdesc);
+    case '.':
+        if (!(HAS(2) && READAT(1) >= '0' && READAT(1) <= '9')) {
+            return EATC();
+        }
+        /* FALLTHROUGH */
+    case '-':
+    case '+':
+    case '~':
+    case '0' ... '9':
+    case '(':
+    case ')':
+        return iop_json_lex_expr(ll, fdesc);
 
-      case '\'': case '"':
-                if (fdesc && fdesc->type == IOP_T_ENUM) {
-                    return iop_json_lex_expr(ll, fdesc);
-                }
-                return iop_json_lex_str(ll, EATC());
+    case '\'':
+    case '"':
+        if (fdesc && fdesc->type == IOP_T_ENUM) {
+            return iop_json_lex_expr(ll, fdesc);
+        }
+        return iop_json_lex_str(ll, EATC());
 
-      case '/':
-                if (!HAS(2))
-                    return JERROR_WARG(IOP_JERR_EXP_SMTH, 1);
-                SKIP(1);
-                c = EATC();
+    case '/':
+        if (!HAS(2)) {
+            return JERROR_WARG(IOP_JERR_EXP_SMTH, 1);
+        }
+        SKIP(1);
+        c = EATC();
 
-                if (c == '*') {
-                    PS_CHECK(iop_json_skip_comment(ll));
-                    goto trackback;
-                } else
-                if (c != '/') {
-                    return RJERROR_EXP("/");
-                }
-                /* FALLTHROUGH */
-      case '#':
-                if (ps_skip_afterchr(PS, '\n') < 0) {
-                    ll->ctx->col += ps_len(PS);
-                    ps_skip(PS, ps_len(PS));
-                    return 0;
-                }
-                NEWLINE();
-                goto trackback;
-      default:
-                return JERROR_WARG(IOP_JERR_BAD_TOKEN, 1);
+        if (c == '*') {
+            PS_CHECK(iop_json_skip_comment(ll));
+            goto trackback;
+        } else if (c != '/') {
+            return RJERROR_EXP("/");
+        }
+        /* FALLTHROUGH */
+    case '#':
+        if (ps_skip_afterchr(PS, '\n') < 0) {
+            ll->ctx->col += ps_len(PS);
+            ps_skip(PS, ps_len(PS));
+            return 0;
+        }
+        NEWLINE();
+        goto trackback;
+    default:
+        return JERROR_WARG(IOP_JERR_BAD_TOKEN, 1);
     }
 }
 
@@ -828,22 +898,21 @@ static int iop_json_lex_peek(iop_json_lex_t *ll, const iop_field_t *fdesc)
     if (ll->peek < 0) {
         /* Change of parser context */
         ll->peeked_ctx.line = ll->cur_ctx.line;
-        ll->peeked_ctx.col  = ll->cur_ctx.col;
-        ll->ctx  = &ll->peeked_ctx;
+        ll->peeked_ctx.col = ll->cur_ctx.col;
+        ll->ctx = &ll->peeked_ctx;
 
         /* Peek the next token */
         ll->peek = iop_json_lex(ll, fdesc);
 
         /* Restore parser context */
-        ll->ctx  = &ll->cur_ctx;
+        ll->ctx = &ll->cur_ctx;
     }
     return ll->peek;
 }
 
-
-iop_json_lex_t *iop_jlex_init(mem_pool_t *mp,
-                              const iop_env_ctx_t *iop_env_ctx,
-                              iop_json_lex_t *ll)
+iop_json_lex_t *iop_jlex_init(
+    mem_pool_t *mp, const iop_env_ctx_t *iop_env_ctx, iop_json_lex_t *ll
+)
 {
     p_clear(ll, 1);
     ll->mp = mp;
@@ -866,12 +935,12 @@ void iop_jlex_wipe(iop_json_lex_t *ll)
 
 static void iop_jlex_reset(iop_json_lex_t *ll)
 {
-    ll->peek    = -1;
-    ll->s_line  = ll->ctx->line;
-    ll->s_col   = ll->ctx->col;
-    ll->err     = 0;
+    ll->peek = -1;
+    ll->s_line = ll->ctx->line;
+    ll->s_col = ll->ctx->col;
+    ll->err = 0;
     ll->err_str = NULL;
-    ll->s_ps    = *ll->ps;
+    ll->s_ps = *ll->ps;
 
     sb_reset(&ll->cur_ctx.b);
     sb_reset(&ll->peeked_ctx.b);
@@ -881,7 +950,7 @@ void iop_jlex_attach(iop_json_lex_t *ll, pstream_t *ps)
 {
     ll->ps = ps;
     ll->ctx->line = 1;
-    ll->ctx->col  = 1;
+    ll->ctx->col = 1;
 }
 
 /*-}}}-*/
@@ -902,8 +971,8 @@ typedef struct iop_json_field_path_t {
 
 qvector_t(iop_json_field_path, iop_json_field_path_t);
 
-static void add_field_path_field(lstr_t field,
-                                 qv_t(iop_json_field_path) *field_paths)
+static void
+add_field_path_field(lstr_t field, qv_t(iop_json_field_path) *field_paths)
 {
     iop_json_field_path_t val;
 
@@ -913,8 +982,8 @@ static void add_field_path_field(lstr_t field,
     qv_append(field_paths, val);
 }
 
-static void add_field_path_index(int index,
-                                 qv_t(iop_json_field_path) *field_paths)
+static void
+add_field_path_index(int index, qv_t(iop_json_field_path) *field_paths)
 {
     iop_json_field_path_t val;
 
@@ -924,8 +993,7 @@ static void add_field_path_index(int index,
     qv_append(field_paths, val);
 }
 
-static lstr_t
-t_get_current_field_path(qv_t(iop_json_field_path) *field_paths)
+static lstr_t t_get_current_field_path(qv_t(iop_json_field_path) *field_paths)
 {
     t_SB_1k(buf);
     bool is_first_field = true;
@@ -993,31 +1061,32 @@ thr_hooks(NULL, thr_globals_wipe);
 
 static int unpack_arr(iop_json_lex_t *, const iop_field_t *, void *);
 static int unpack_union(iop_json_lex_t *, const iop_struct_t *, void *, bool);
-static int unpack_struct(iop_json_lex_t *, const iop_struct_t *, void *,
-                         bool);
-static int t_unpack_val_file_inclusion(iop_json_lex_t *, const iop_field_t *,
-                                       void *);
+static int
+unpack_struct(iop_json_lex_t *, const iop_struct_t *, void *, bool);
+static int
+t_unpack_val_file_inclusion(iop_json_lex_t *, const iop_field_t *, void *);
 
 static int skip_val(iop_json_lex_t *ll, bool in_arr)
 {
     switch (PS_CHECK(iop_json_lex(ll, NULL))) {
-      case IOP_JSON_IDENT:
-        if (IS_TRUE() || IS_FALSE() || IS_NULL())
+    case IOP_JSON_IDENT:
+        if (IS_TRUE() || IS_FALSE() || IS_NULL()) {
             return 0;
+        }
         return RJERROR_WARG(IOP_JERR_BAD_VALUE);
 
-      case IOP_JSON_STRING:
-      case IOP_JSON_DOUBLE:
-      case IOP_JSON_INTEGER:
+    case IOP_JSON_STRING:
+    case IOP_JSON_DOUBLE:
+    case IOP_JSON_INTEGER:
         return 0;
 
-      case '[':
+    case '[':
         return in_arr ? -1 : unpack_arr(ll, NULL, NULL);
 
-      case '{':
+    case '{':
         return unpack_struct(ll, NULL, NULL, false);
 
-      case '@':
+    case '@':
         if (ps_startswithlstr(PS, LSTR("include("))) {
             /* XXX: t_unpack_val_file_inclusion fails (and thus does not
              * perform any t_allocation if filenames_g is not set, ie. outside
@@ -1028,19 +1097,20 @@ static int skip_val(iop_json_lex_t *ll, bool in_arr)
             return unpack_struct(ll, NULL, NULL, true);
         }
 
-      case '.':
+    case '.':
         return unpack_union(ll, NULL, NULL, true);
 
-      case IOP_JSON_EOF:
+    case IOP_JSON_EOF:
         return RJERROR_WARG(IOP_JERR_EXP_SMTH);
 
-      default:
+    default:
         return RJERROR_WARG(IOP_JERR_BAD_TOKEN);
     }
 }
 
-static int t_unpack_val_file_inclusion(iop_json_lex_t *ll,
-                                       const iop_field_t *fdesc, void *value)
+static int t_unpack_val_file_inclusion(
+    iop_json_lex_t *ll, const iop_field_t *fdesc, void *value
+)
 {
     char prefix[PATH_MAX];
     char path[PATH_MAX];
@@ -1048,18 +1118,21 @@ static int t_unpack_val_file_inclusion(iop_json_lex_t *ll,
     lstr_t path_lstr;
 
     if (!filenames_g.len) {
-        return JERROR_VARIOUS("file inclusion only supported when parsing a "
-                              "file");
+        return JERROR_VARIOUS(
+            "file inclusion only supported when parsing a "
+            "file"
+        );
     }
 
     SKIP(strlen("include("));
 
     switch (READC()) {
-      case '\'': case '"':
+    case '\'':
+    case '"':
         STORECTX();
         RETHROW(iop_json_lex_str(ll, EATC()));
         break;
-      default:
+    default:
         return JERROR_WARG(IOP_JERR_BAD_TOKEN, 1);
     }
 
@@ -1080,8 +1153,9 @@ static int t_unpack_val_file_inclusion(iop_json_lex_t *ll,
 
     path_dirname(prefix, sizeof(prefix), tab_last(&filenames_g)->s);
     if (path_extend(path, prefix, "%*pM", SB_FMT_ARG(&ll->ctx->b)) < 0) {
-        return JERROR_VARIOUS("cannot get fullpath of `%*pM`",
-                              SB_FMT_ARG(&ll->ctx->b));
+        return JERROR_VARIOUS(
+            "cannot get fullpath of `%*pM`", SB_FMT_ARG(&ll->ctx->b)
+        );
     }
 
     path_lstr = LSTR(path);
@@ -1103,13 +1177,16 @@ static int t_unpack_val_file_inclusion(iop_json_lex_t *ll,
             basedir = LSTR_EMPTY_V;
         }
 
-        snprintf(relative_path, PATH_MAX, "%*pM%*pM",
-                 LSTR_FMT_ARG(basedir), SB_FMT_ARG(&ll->ctx->b));
+        snprintf(
+            relative_path, PATH_MAX, "%*pM%*pM", LSTR_FMT_ARG(basedir),
+            SB_FMT_ARG(&ll->ctx->b)
+        );
         len = path_simplify2(relative_path, false);
 
         if (len < 0) {
-            return JERROR_VARIOUS("cannot get relative path of `%*pM`",
-                                  SB_FMT_ARG(&ll->ctx->b));
+            return JERROR_VARIOUS(
+                "cannot get relative path of `%*pM`", SB_FMT_ARG(&ll->ctx->b)
+            );
         }
 
         p_clear(&subfile, 1);
@@ -1119,7 +1196,9 @@ static int t_unpack_val_file_inclusion(iop_json_lex_t *ll,
     }
 
     switch (fdesc->type) {
-      case IOP_T_STRING: case IOP_T_DATA: case IOP_T_XML: {
+    case IOP_T_STRING:
+    case IOP_T_DATA:
+    case IOP_T_XML: {
         sb_t content;
 
         mp_sb_init(ll->mp, &content, 1024);
@@ -1129,9 +1208,10 @@ static int t_unpack_val_file_inclusion(iop_json_lex_t *ll,
         }
 
         *(lstr_t *)value = LSTR_SB_V(&content);
-      } break;
+    } break;
 
-      case IOP_T_UNION: case IOP_T_STRUCT: {
+    case IOP_T_UNION:
+    case IOP_T_STRUCT: {
         SB_1k(err);
         char relative_dir[PATH_MAX];
         int res;
@@ -1146,12 +1226,15 @@ static int t_unpack_val_file_inclusion(iop_json_lex_t *ll,
 
         if (iop_field_is_class(fdesc)) {
             *(void **)value = NULL;
-            res = t_iop_junpack_ptr_file(ll->iop_env_ctx, path,
-                                         fdesc->u1.st_desc, value, ll->flags,
-                                         NULL, &err);
+            res = t_iop_junpack_ptr_file(
+                ll->iop_env_ctx, path, fdesc->u1.st_desc, value, ll->flags,
+                NULL, &err
+            );
         } else {
-            res = t_iop_junpack_file(ll->iop_env_ctx, path, fdesc->u1.st_desc,
-                                     value, ll->flags, NULL, &err);
+            res = t_iop_junpack_file(
+                ll->iop_env_ctx, path, fdesc->u1.st_desc, value, ll->flags,
+                NULL, &err
+            );
         }
 
         if (subfiles_g) {
@@ -1160,27 +1243,35 @@ static int t_unpack_val_file_inclusion(iop_json_lex_t *ll,
 
         if (res < 0) {
             RESTORECTX();
-            return JERROR_VARIOUS("cannot unpack file `%s`: %*pM",
-                                  path, SB_FMT_ARG(&err));
+            return JERROR_VARIOUS(
+                "cannot unpack file `%s`: %*pM", path, SB_FMT_ARG(&err)
+            );
         }
-      } break;
+    } break;
 
-      default:
+    default:
         RESTORECTX();
-        return JERROR_VARIOUS("file inclusion not supported for %s fields",
-                              iop_type_get_string_desc(fdesc->type));
+        return JERROR_VARIOUS(
+            "file inclusion not supported for %s fields",
+            iop_type_get_string_desc(fdesc->type)
+        );
     }
 
     IGNORE(EATC());
     return 0;
 }
 
-static int unpack_val(iop_json_lex_t *ll, const iop_field_t *fdesc,
-                      void *value, bool in_arr)
+static int unpack_val(
+    iop_json_lex_t *ll, const iop_field_t *fdesc, void *value, bool in_arr
+)
 {
     if (fdesc->type == IOP_T_VOID) {
-        e_named_trace(3, "iop/json/unpacker", "dropped value into void field "
-                      "`%*pM`", LSTR_FMT_ARG(fdesc->name));
+        e_named_trace(
+            3, "iop/json/unpacker",
+            "dropped value into void field "
+            "`%*pM`",
+            LSTR_FMT_ARG(fdesc->name)
+        );
         return skip_val(ll, in_arr);
     }
 
@@ -1207,77 +1298,82 @@ static int unpack_val(iop_json_lex_t *ll, const iop_field_t *fdesc,
     }
 
     switch (PS_CHECK(iop_json_lex(ll, fdesc))) {
-      case IOP_JSON_IDENT:
+    case IOP_JSON_IDENT:
         if (IS_TRUE()) {
             ll->ctx->u.i = 1;
             goto integer;
-        } else
-        if (IS_FALSE()) {
+        } else if (IS_FALSE()) {
             ll->ctx->u.i = 0;
             goto integer;
-        } else
-        if (IS_NULL()) {
+        } else if (IS_NULL()) {
             switch (fdesc->type) {
-              case IOP_T_STRING:
-              case IOP_T_XML:
-              case IOP_T_DATA:
+            case IOP_T_STRING:
+            case IOP_T_XML:
+            case IOP_T_DATA:
                 *(lstr_t *)value = LSTR_NULL_V;
                 return 0;
-              default:
+            default:
                 return RJERROR_EXP_TYPE(fdesc->type);
             }
         }
         return RJERROR_WARG(IOP_JERR_BAD_VALUE);
 
-      case IOP_JSON_STRING:
+    case IOP_JSON_STRING:
         switch (fdesc->type) {
             const char *q;
 
-          case IOP_T_I8:  case IOP_T_U8:
-          case IOP_T_I16: case IOP_T_U16:
-          case IOP_T_I32: case IOP_T_U32:
-          case IOP_T_I64: case IOP_T_U64:
-          case IOP_T_BOOL:
+        case IOP_T_I8:
+        case IOP_T_U8:
+        case IOP_T_I16:
+        case IOP_T_U16:
+        case IOP_T_I32:
+        case IOP_T_U32:
+        case IOP_T_I64:
+        case IOP_T_U64:
+        case IOP_T_BOOL:
             if (IS_TRUE()) {
                 ll->ctx->u.i = 1;
                 goto integer;
-            } else
-            if (IS_FALSE()) {
+            } else if (IS_FALSE()) {
                 ll->ctx->u.i = 0;
                 goto integer;
             }
             errno = 0;
             switch (fdesc->type) {
-              case IOP_T_U8:
-              case IOP_T_U16:
-              case IOP_T_U32:
-              case IOP_T_U64:
+            case IOP_T_U8:
+            case IOP_T_U16:
+            case IOP_T_U32:
+            case IOP_T_U64:
                 ll->ctx->u.i = strtoull(ll->ctx->b.data, &q, 0);
                 break;
 
-              default:
+            default:
                 ll->ctx->u.i = strtoll(ll->ctx->b.data, &q, 0);
                 break;
             }
             if (errno || q != (const char *)ll->ctx->b.data + ll->ctx->b.len)
+            {
                 return RJERROR_WARG(IOP_JERR_PARSE_NUM);
+            }
             goto integer;
 
-          case IOP_T_DOUBLE:
+        case IOP_T_DOUBLE:
             errno = 0;
-            ll->ctx->u.d = strtod_allow_subnormal(ll->ctx->b.data,
-                                                  (char **)&q);
+            ll->ctx->u.d =
+                strtod_allow_subnormal(ll->ctx->b.data, (char **)&q);
             if (errno || q != (const char *)ll->ctx->b.data + ll->ctx->b.len)
+            {
                 return RJERROR_WARG(IOP_JERR_PARSE_NUM);
+            }
             goto do_double;
 
-          case IOP_T_DATA:
+        case IOP_T_DATA:
             if (ll->ctx->b.len == 0) {
                 *(lstr_t *)value = mp_lstr_dup(ll->mp, LSTR_EMPTY_V);
             } else {
-                sb_t  sb;
-                int   blen = DIV_ROUND_UP(ll->ctx->b.len * 3, 4);
-                char *buf  = mp_new_raw(ll->mp, char, blen + 1);
+                sb_t sb;
+                int blen = DIV_ROUND_UP(ll->ctx->b.len * 3, 4);
+                char *buf = mp_new_raw(ll->mp, char, blen + 1);
 
                 sb_init_full(&sb, buf, 0, blen + 1, &mem_pool_static);
                 if (sb_add_unb64(&sb, ll->ctx->b.data, ll->ctx->b.len)) {
@@ -1288,97 +1384,97 @@ static int unpack_val(iop_json_lex_t *ll, const iop_field_t *fdesc,
             }
             return 0;
 
-          case IOP_T_STRING:
-          case IOP_T_XML:
-            *(lstr_t *)value = mp_lstr_dups(ll->mp, ll->ctx->b.data,
-                                            ll->ctx->b.len);
+        case IOP_T_STRING:
+        case IOP_T_XML:
+            *(lstr_t *)value =
+                mp_lstr_dups(ll->mp, ll->ctx->b.data, ll->ctx->b.len);
             return 0;
 
-          default:
+        default:
             return RJERROR_EXP_TYPE(fdesc->type);
         }
 
-      case IOP_JSON_DOUBLE:
-do_double:
+    case IOP_JSON_DOUBLE:
+    do_double:
         switch (fdesc->type) {
-          case IOP_T_DOUBLE:
+        case IOP_T_DOUBLE:
             *(double *)value = ll->ctx->u.d;
             return 0;
-          default:
+        default:
             return RJERROR_EXP_TYPE(fdesc->type);
         }
 
-      case IOP_JSON_INTEGER:
-        integer:
+    case IOP_JSON_INTEGER:
+    integer:
         switch (fdesc->type) {
-#define CHECK_RANGE(_min, _max)  \
-            do {                                                             \
-                if (ll->ctx->u.i < _min || ll->ctx->u.i > _max) {            \
-                    return RJERROR_WARG(IOP_JERR_OUT_OF_RANGE);              \
-                }                                                            \
-            } while (0)
+#define CHECK_RANGE(_min, _max)                                              \
+    do {                                                                     \
+        if (ll->ctx->u.i < _min || ll->ctx->u.i > _max) {                    \
+            return RJERROR_WARG(IOP_JERR_OUT_OF_RANGE);                      \
+        }                                                                    \
+    } while (0)
 
-          case IOP_T_DOUBLE:
+        case IOP_T_DOUBLE:
             *(double *)value = ll->ctx->u.i;
             return 0;
-          case IOP_T_I8:
+        case IOP_T_I8:
             CHECK_RANGE(INT8_MIN, INT8_MAX);
             *(int8_t *)value = ll->ctx->u.i;
             break;
-          case IOP_T_U8:
+        case IOP_T_U8:
             CHECK_RANGE(0, UINT8_MAX);
             *(uint8_t *)value = ll->ctx->u.i;
             break;
-          case IOP_T_I16:
+        case IOP_T_I16:
             CHECK_RANGE(INT16_MIN, INT16_MAX);
             *(int16_t *)value = ll->ctx->u.i;
             break;
-          case IOP_T_U16:
+        case IOP_T_U16:
             CHECK_RANGE(0, UINT16_MAX);
             *(uint16_t *)value = ll->ctx->u.i;
             break;
-          case IOP_T_ENUM:
-          case IOP_T_I32:
+        case IOP_T_ENUM:
+        case IOP_T_I32:
             CHECK_RANGE(INT32_MIN, INT32_MAX);
             *(int32_t *)value = ll->ctx->u.i;
             break;
-          case IOP_T_U32:
+        case IOP_T_U32:
             CHECK_RANGE(0, UINT32_MAX);
             *(uint32_t *)value = ll->ctx->u.i;
             break;
-          case IOP_T_I64: case IOP_T_U64:
+        case IOP_T_I64:
+        case IOP_T_U64:
             *(uint64_t *)value = ll->ctx->u.i;
             break;
-          case IOP_T_BOOL:
+        case IOP_T_BOOL:
             CHECK_RANGE(0, 1);
-            *(bool *)value     = ll->ctx->u.i;
+            *(bool *)value = ll->ctx->u.i;
             return 0;
 #undef CHECK_RANGE
-          default:
+        default:
             return RJERROR_EXP_TYPE(fdesc->type);
         }
         return 0;
 
-      case '{':
+    case '{':
         if (fdesc->type == IOP_T_STRUCT) {
             if (iop_field_is_class(fdesc)) {
                 *(void **)value = NULL;
             }
             return unpack_struct(ll, fdesc->u1.st_desc, value, false);
-        } else
-        if (fdesc->type == IOP_T_UNION) {
+        } else if (fdesc->type == IOP_T_UNION) {
             return unpack_union(ll, fdesc->u1.st_desc, value, false);
         }
         return RJERROR_EXP_TYPE(fdesc->type);
 
-      case '.':
+    case '.':
         /* Extended syntax of union */
         if (fdesc->type != IOP_T_UNION) {
             return RJERROR(IOP_JERR_UNION_RESERVED);
         }
         return unpack_union(ll, fdesc->u1.st_desc, value, true);
 
-      case '@':
+    case '@':
         if (ps_startswithlstr(PS, LSTR("include("))) {
             /* File inclusion */
             /* XXX: t_unpack_val_file_inclusion fails (and thus does not
@@ -1397,10 +1493,10 @@ do_double:
             return unpack_struct(ll, fdesc->u1.st_desc, value, true);
         }
 
-      case IOP_JSON_EOF:
+    case IOP_JSON_EOF:
         return RJERROR_WARG(IOP_JERR_EXP_SMTH);
 
-      default:
+    default:
         return RJERROR_EXP_TYPE(fdesc->type);
     }
 }
@@ -1413,8 +1509,8 @@ do_double:
  * \param[out] value  memory to write to. Can be set to NULL iff fdesc is
  * NULL, in order to skip the array content.
  */
-static int unpack_arr(iop_json_lex_t *ll, const iop_field_t *fdesc,
-                      void *value)
+static int
+unpack_arr(iop_json_lex_t *ll, const iop_field_t *fdesc, void *value)
 {
     iop_array_void_t *arr = value;
     int size = 0;
@@ -1423,7 +1519,7 @@ static int unpack_arr(iop_json_lex_t *ll, const iop_field_t *fdesc,
     if (arr) {
         p_clear(arr, 1);
     } else {
-        assert (!fdesc);
+        assert(!fdesc);
     }
 
     for (;;) {
@@ -1434,9 +1530,10 @@ static int unpack_arr(iop_json_lex_t *ll, const iop_field_t *fdesc,
         if (fdesc) {
             if (arr->len >= size) {
                 size = p_alloc_nr(size);
-                arr->tab = mp_irealloc(ll->mp, arr->tab,
-                                       arr->len * fdesc->size,
-                                       size * fdesc->size, 8, 0);
+                arr->tab = mp_irealloc(
+                    ll->mp, arr->tab, arr->len * fdesc->size,
+                    size * fdesc->size, 8, 0
+                );
             }
             ptr = (void *)((byte *)arr->tab + arr->len * fdesc->size);
             iop_junpack_add_field_path_index(arr->len);
@@ -1446,10 +1543,13 @@ static int unpack_arr(iop_json_lex_t *ll, const iop_field_t *fdesc,
         } else {
             PS_CHECK(skip_val(ll, true));
         }
-        switch(PS_CHECK(iop_json_lex(ll, NULL))) {
-          case ',': break;
-          case ']': return 0;
-          default:  return RJERROR_EXP("`,', `;' or `]'");
+        switch (PS_CHECK(iop_json_lex(ll, NULL))) {
+        case ',':
+            break;
+        case ']':
+            return 0;
+        default:
+            return RJERROR_EXP("`,', `;' or `]'");
         }
     }
 }
@@ -1473,14 +1573,15 @@ static int unpack_arr(iop_json_lex_t *ll, const iop_field_t *fdesc,
  * syntax a union can be handled like two overlapping structures.
  * skip_val calls this function when the extended syntax is detected.
  */
-static int unpack_union(iop_json_lex_t *ll, const iop_struct_t *desc,
-                        void* value, bool ext_syntax)
+static int unpack_union(
+    iop_json_lex_t *ll, const iop_struct_t *desc, void *value, bool ext_syntax
+)
 {
     const iop_field_t *fdesc = NULL;
 
     switch (PS_CHECK(iop_json_lex(ll, NULL))) {
-      case IOP_JSON_IDENT:
-      case IOP_JSON_STRING:
+    case IOP_JSON_IDENT:
+    case IOP_JSON_STRING:
         if (desc) {
             SB_1k(camelcase_name);
             lstr_t name = LSTR_SB_V(&ll->ctx->b);
@@ -1495,12 +1596,12 @@ static int unpack_union(iop_json_lex_t *ll, const iop_struct_t *desc,
             }
         }
         break;
-      default:
+    default:
         return RJERROR_EXP("a valid member name");
     }
 
     switch (PS_CHECK(iop_json_lex(ll, NULL))) {
-      case ':':
+    case ':':
         if (fdesc) {
             /* Write the selected field */
             iop_union_set_tag(desc, fdesc->tag, value);
@@ -1511,8 +1612,8 @@ static int unpack_union(iop_json_lex_t *ll, const iop_struct_t *desc,
             iop_junpack_remove_last_field_path();
 
             if (unlikely(iop_field_has_constraints(desc, fdesc))) {
-                int ret = iop_field_check_constraints(desc, fdesc, value, 1,
-                                                      false);
+                int ret =
+                    iop_field_check_constraints(desc, fdesc, value, 1, false);
                 if (ret < 0) {
                     return RJERROR_WARG(IOP_JERR_CONSTRAINT);
                 }
@@ -1524,10 +1625,11 @@ static int unpack_union(iop_json_lex_t *ll, const iop_struct_t *desc,
         break;
 
         /* Extended syntax of union */
-      case '.':
+    case '.':
         if (fdesc) {
-            if (fdesc->type != IOP_T_UNION)
+            if (fdesc->type != IOP_T_UNION) {
                 return RJERROR(IOP_JERR_UNION_RESERVED);
+            }
 
             /* Write the selected field */
             iop_union_set_tag(desc, fdesc->tag, value);
@@ -1545,19 +1647,21 @@ static int unpack_union(iop_json_lex_t *ll, const iop_struct_t *desc,
         }
         break;
 
-      default:
+    default:
         return RJERROR_EXP("`:' or `='");
     }
 
     /* With the json compliant syntax we must check for a `}' */
-    if (!ext_syntax && PS_CHECK(iop_json_lex(ll, NULL)) != '}')
+    if (!ext_syntax && PS_CHECK(iop_json_lex(ll, NULL)) != '}') {
         return RJERROR_EXP("`}'");
+    }
     return 0;
 }
 
-static int
-unpack_struct_prepare_class(iop_json_lex_t *ll, const iop_struct_t *desc,
-                            const iop_struct_t **real_desc, void **value)
+static int unpack_struct_prepare_class(
+    iop_json_lex_t *ll, const iop_struct_t *desc,
+    const iop_struct_t **real_desc, void **value
+)
 {
     const iop_struct_t *desc_it = desc;
     int nb_fields = desc->fields_len;
@@ -1582,15 +1686,20 @@ unpack_struct_prepare_class(iop_json_lex_t *ll, const iop_struct_t *desc,
     }
 
     /* Get the iop_struct_t of the instanciated class from its fullname */
-    *real_desc = iop_get_class_by_fullname(ll->iop_env_ctx, desc_it,
-                                           LSTR_SB_V(&ll->ctx->b));
+    *real_desc = iop_get_class_by_fullname(
+        ll->iop_env_ctx, desc_it, LSTR_SB_V(&ll->ctx->b)
+    );
     if (!*real_desc) {
-        e_trace(0, "cannot find child class `%*pM' in the children of "
-                "`%*pM'; missing IOP_REGISTER_PACKAGES in the binary "
-                "or IOP_EXPORT_PACKAGES in the DSO?",
-                SB_FMT_ARG(&ll->ctx->b), LSTR_FMT_ARG(desc->fullname));
-        return RJERROR_EXP_FMT("a child of `%*pM'",
-                               LSTR_FMT_ARG(desc->fullname));
+        e_trace(
+            0,
+            "cannot find child class `%*pM' in the children of "
+            "`%*pM'; missing IOP_REGISTER_PACKAGES in the binary "
+            "or IOP_EXPORT_PACKAGES in the DSO?",
+            SB_FMT_ARG(&ll->ctx->b), LSTR_FMT_ARG(desc->fullname)
+        );
+        return RJERROR_EXP_FMT(
+            "a child of `%*pM'", LSTR_FMT_ARG(desc->fullname)
+        );
     }
 
     /* We are trying to unpack a class of type "desc", and the packed
@@ -1600,18 +1709,19 @@ unpack_struct_prepare_class(iop_json_lex_t *ll, const iop_struct_t *desc,
      * one to the wanted one (excluded). The total sum is the number of fields
      * of the instantiated type.
      */
-  check:
+check:
     if ((*real_desc)->class_attrs->is_abstract) {
         return RJERROR_EXP("a non-abstract class");
     }
 
-    if (ll->flags & IOP_UNPACK_FORBID_PRIVATE
-    &&  (*real_desc)->class_attrs->is_private)
+    if (ll->flags & IOP_UNPACK_FORBID_PRIVATE &&
+        (*real_desc)->class_attrs->is_private)
     {
         /* TODO: the error should probably be an "unknown type" to not expose
          * the private name. To be done for YAML unpacker too. */
-        return RJERROR_EXP_FMT("a non-private child of `%*pM`",
-                               LSTR_FMT_ARG(desc->fullname));
+        return RJERROR_EXP_FMT(
+            "a non-private child of `%*pM`", LSTR_FMT_ARG(desc->fullname)
+        );
     }
 
     desc_it = *real_desc;
@@ -1620,8 +1730,9 @@ unpack_struct_prepare_class(iop_json_lex_t *ll, const iop_struct_t *desc,
         desc_it = desc_it->class_attrs->parent;
     }
     if (!desc_it) {
-        return RJERROR_EXP_FMT("a child of `%*pM'",
-                               LSTR_FMT_ARG(desc->fullname));
+        return RJERROR_EXP_FMT(
+            "a child of `%*pM'", LSTR_FMT_ARG(desc->fullname)
+        );
     }
 
     /* Allocate output value */
@@ -1635,8 +1746,9 @@ unpack_struct_prepare_class(iop_json_lex_t *ll, const iop_struct_t *desc,
 
 static ALWAYS_INLINE void seen_free(uint32_t **ptr)
 {
-    if (unlikely(*ptr != NULL))
+    if (unlikely(*ptr != NULL)) {
         free(*ptr);
+    }
 }
 
 /** Unpack a json struct into a C struct.
@@ -1653,22 +1765,23 @@ static ALWAYS_INLINE void seen_free(uint32_t **ptr)
  *          ...
  *      }
  */
-static int unpack_struct(iop_json_lex_t *ll, const iop_struct_t *desc,
-                         void *value, bool prefixed)
+static int unpack_struct(
+    iop_json_lex_t *ll, const iop_struct_t *desc, void *value, bool prefixed
+)
 {
     const iop_field_t *fdesc;
-    uint32_t  seen_buf[BITS_TO_ARRAY_LEN(uint32_t, 256)];
+    uint32_t seen_buf[BITS_TO_ARRAY_LEN(uint32_t, 256)];
     scoped(uint32_t *, seen_alloc, seen_free) = NULL;
-    uint32_t *seen       = seen_buf;
+    uint32_t *seen = seen_buf;
     const iop_struct_t *real_desc = desc;
     bool is_class = false;
     SB_1k(camelcase_name);
 
     pstream_t ctx_ps;
-    int       ctx_line = 0, ctx_col = 0;
-    bool      ctx_prefixed = prefixed;
+    int ctx_line = 0, ctx_col = 0;
+    bool ctx_prefixed = prefixed;
 
-#define INIT_SEEN(_len)  \
+#define INIT_SEEN(_len)                                                      \
     do {                                                                     \
         size_t _count = BITS_TO_ARRAY_LEN(uint32_t, _len);                   \
                                                                              \
@@ -1689,7 +1802,7 @@ static int unpack_struct(iop_json_lex_t *ll, const iop_struct_t *desc,
             real_desc = NULL;
             ctx_ps = *PS;
             ctx_line = ll->ctx->line;
-            ctx_col  = ll->ctx->col;
+            ctx_col = ll->ctx->col;
         } else {
             /* We are unpacking a struct or a union, so we already know the
              * list of expected fields. */
@@ -1699,7 +1812,7 @@ static int unpack_struct(iop_json_lex_t *ll, const iop_struct_t *desc,
 
     for (;;) {
         bool found_class_field = false;
-        bool skip_field        = false;
+        bool skip_field = false;
 
         fdesc = NULL;
 
@@ -1709,8 +1822,8 @@ static int unpack_struct(iop_json_lex_t *ll, const iop_struct_t *desc,
         }
 
         switch (PS_CHECK(iop_json_lex(ll, NULL))) {
-          case IOP_JSON_IDENT:
-          case IOP_JSON_STRING:
+        case IOP_JSON_IDENT:
+        case IOP_JSON_STRING:
             if (!desc) {
                 /* skip the field (fdesc will be null in next step) */
                 break;
@@ -1735,18 +1848,20 @@ static int unpack_struct(iop_json_lex_t *ll, const iop_struct_t *desc,
                         name = LSTR_SB_V(&camelcase_name);
                     }
                 }
-                ifield = iop_field_find_by_name(real_desc, name, &desc,
-                                                &fdesc);
+                ifield =
+                    iop_field_find_by_name(real_desc, name, &desc, &fdesc);
                 if (fdesc) {
                     if (TST_BIT(seen, ifield)) {
-                        return RJERROR_SARG(IOP_JERR_DUPLICATED_MEMBER,
-                                            fdesc->name.s);
+                        return RJERROR_SARG(
+                            IOP_JERR_DUPLICATED_MEMBER, fdesc->name.s
+                        );
                     }
                     SET_BIT(seen, ifield);
                 } else {
                     if (!(ll->flags & IOP_UNPACK_IGNORE_UNKNOWN)) {
-                        return RJERROR_EXP_FMT("field of struct %s",
-                                               real_desc->fullname.s);
+                        return RJERROR_EXP_FMT(
+                            "field of struct %s", real_desc->fullname.s
+                        );
                     }
                 }
             } else {
@@ -1760,7 +1875,7 @@ static int unpack_struct(iop_json_lex_t *ll, const iop_struct_t *desc,
             }
             break;
 
-          default:
+        default:
             return RJERROR_EXP("a valid member name");
         }
 
@@ -1773,28 +1888,28 @@ static int unpack_struct(iop_json_lex_t *ll, const iop_struct_t *desc,
 
         /* XXX `.' must be kept (using lex_peek) for the unpack_val
          * function */
-        if (!prefixed && PS_CHECK(iop_json_lex_peek(ll, NULL)) != '.'
-        &&  PS_CHECK(iop_json_lex(ll, NULL)) != ':')
+        if (!prefixed && PS_CHECK(iop_json_lex_peek(ll, NULL)) != '.' &&
+            PS_CHECK(iop_json_lex(ll, NULL)) != ':')
         {
             return RJERROR_EXP("`:' or `='");
         }
         if (found_class_field) {
             int count;
 
-          prepare_class:
-            count = unpack_struct_prepare_class(ll, desc, &real_desc,
-                                                (void **)value);
+        prepare_class:
+            count = unpack_struct_prepare_class(
+                ll, desc, &real_desc, (void **)value
+            );
             PS_CHECK(count);
             INIT_SEEN((size_t)count);
             value = *(void **)value;
             /* The real class is now known; re-loop on the fields */
             *PS = ctx_ps;
             ll->ctx->line = ctx_line;
-            ll->ctx->col  = ctx_col;
+            ll->ctx->col = ctx_col;
             prefixed = ctx_prefixed;
             continue;
-        } else
-        if (fdesc && !skip_field) {
+        } else if (fdesc && !skip_field) {
             void *ptr = (char *)value + fdesc->data_offs;
 
             if (fdesc->repeat == IOP_R_OPTIONAL) {
@@ -1804,8 +1919,8 @@ static int unpack_struct(iop_json_lex_t *ll, const iop_struct_t *desc,
                     /* In case of optional field, the member value could be
                      * null, which is equivalent to an absent member, except
                      * for a void type, where the "set" value is null */
-                    if (DO_IN_CTX(peeked, IS_NULL())
-                    &&  fdesc->type != IOP_T_VOID)
+                    if (DO_IN_CTX(peeked, IS_NULL()) &&
+                        fdesc->type != IOP_T_VOID)
                     {
                         iop_field_set_absent(fdesc, ptr);
                         /* consume the “null” token */
@@ -1818,8 +1933,8 @@ static int unpack_struct(iop_json_lex_t *ll, const iop_struct_t *desc,
                 }
             }
 
-            if (prefixed && (((1 << fdesc->type) & IOP_STRUCTS_OK)
-                             || fdesc->repeat == IOP_R_REPEATED))
+            if (prefixed && (((1 << fdesc->type) & IOP_STRUCTS_OK) ||
+                             fdesc->repeat == IOP_R_REPEATED))
             {
                 return RJERROR_EXP("a member with a scalar type");
             }
@@ -1833,11 +1948,13 @@ static int unpack_struct(iop_json_lex_t *ll, const iop_struct_t *desc,
                 if (fdesc->repeat == IOP_R_REPEATED) {
                     iop_array_void_t *arr = ptr;
 
-                    ret = iop_field_check_constraints(desc, fdesc, arr->tab,
-                                                      arr->len, false);
+                    ret = iop_field_check_constraints(
+                        desc, fdesc, arr->tab, arr->len, false
+                    );
                 } else {
-                    ret = iop_field_check_constraints(desc, fdesc, ptr, 1,
-                                                      false);
+                    ret = iop_field_check_constraints(
+                        desc, fdesc, ptr, 1, false
+                    );
                 }
                 if (ret < 0) {
                     return RJERROR_WARG(IOP_JERR_CONSTRAINT);
@@ -1847,26 +1964,27 @@ static int unpack_struct(iop_json_lex_t *ll, const iop_struct_t *desc,
             PS_CHECK(skip_val(ll, false));
         }
 
-      nextfield:
+    nextfield:
         if (prefixed) {
             /* Special handling of prefixed value */
-            if (PS_CHECK(iop_json_lex(ll, NULL)) != '{')
+            if (PS_CHECK(iop_json_lex(ll, NULL)) != '{') {
                 return RJERROR_EXP("`{'");
+            }
 
             prefixed = false;
             continue;
         }
 
         switch (PS_CHECK(iop_json_lex(ll, NULL))) {
-          case ',':
+        case ',':
             break;
-          case '}':
+        case '}':
             goto endcheck;
-          default:
+        default:
             return RJERROR_EXP("`,', `;' or `}'");
         }
     }
-  endcheck:
+endcheck:
     if (!desc) {
         return 0;
     }
@@ -1891,11 +2009,12 @@ static int unpack_struct(iop_json_lex_t *ll, const iop_struct_t *desc,
             if (TST_BIT(seen, i)) {
                 continue;
             }
-            if (iop_skip_absent_field_desc(ll->mp, value, real_desc, fdesc)
-                < 0)
+            if (iop_skip_absent_field_desc(ll->mp, value, real_desc, fdesc) <
+                0)
             {
-                return RJERROR_SFIELD(IOP_JERR_MISSING_MEMBER, real_desc,
-                                      fdesc);
+                return RJERROR_SFIELD(
+                    IOP_JERR_MISSING_MEMBER, real_desc, fdesc
+                );
             }
         }
         if (!is_class) {
@@ -1916,20 +2035,22 @@ static int unpack_struct(iop_json_lex_t *ll, const iop_struct_t *desc,
  * It will be (re)allocated when the size of the real class to unpack will be
  * known.
  */
-int iop_junpack(iop_json_lex_t *ll, const iop_struct_t *desc, void *value,
-                bool single_value)
+int iop_junpack(
+    iop_json_lex_t *ll, const iop_struct_t *desc, void *value,
+    bool single_value
+)
 {
     const char *src = PS->s;
     iop_jlex_reset(ll);
     switch (PS_CHECK(iop_json_lex(ll, NULL))) {
-      case '{':
+    case '{':
         if (desc->is_union) {
             PS_CHECK(unpack_union(ll, desc, value, false));
         } else {
             PS_CHECK(unpack_struct(ll, desc, value, false));
         }
         goto endcheck;
-      case '@':
+    case '@':
         if (desc->is_union) {
             return RJERROR_EXP("`{'");
         } else {
@@ -1940,11 +2061,11 @@ int iop_junpack(iop_json_lex_t *ll, const iop_struct_t *desc, void *value,
         /* Skip trailing characters (insignificant characters) */
         for (;;) {
             switch (PS_CHECK(iop_json_lex(ll, NULL))) {
-              case ',':
+            case ',':
                 continue;
-              case IOP_JSON_EOF:
+            case IOP_JSON_EOF:
                 break;
-              default:
+            default:
                 /* The parser isn't allowed to consume this character, then
                  * we restore the parser context to its previous position */
                 RESTORECTX();
@@ -1953,25 +2074,28 @@ int iop_junpack(iop_json_lex_t *ll, const iop_struct_t *desc, void *value,
         }
 
         if (single_value) {
-            if (iop_json_lex(ll, NULL) == IOP_JSON_EOF)
+            if (iop_json_lex(ll, NULL) == IOP_JSON_EOF) {
                 return 0;
+            }
             return RJERROR_EXP("nothing at this point but");
         } else {
             return PS->s - src;
         }
         return 0;
 
-      case IOP_JSON_EOF:
-        if (!single_value)
+    case IOP_JSON_EOF:
+        if (!single_value) {
             return 0;
+        }
         return JERROR(IOP_JERR_NOTHING_TO_READ);
-      default:
+    default:
         return RJERROR_EXP("`{'");
     }
 }
 
-int iop_junpack_ptr(iop_json_lex_t *ll, const iop_struct_t *st, void **out,
-                    bool single_value)
+int iop_junpack_ptr(
+    iop_json_lex_t *ll, const iop_struct_t *st, void **out, bool single_value
+)
 {
     if (iop_struct_is_class(st)) {
         /* "out" will be (re)allocated after, when the real packed class type
@@ -1984,91 +2108,102 @@ int iop_junpack_ptr(iop_json_lex_t *ll, const iop_struct_t *st, void **out,
 }
 
 #define CREATE_JUNPACK_PS(_fun, _data_type, _fun_to_call)                    \
-static int _fun(const iop_env_ctx_t *iop_env_ctx, pstream_t *ps,             \
-                const iop_struct_t *desc, const char *filename, _data_type v,\
-                int flags, qv_t(iop_json_subfile) *subfiles, sb_t *errb)     \
-{                                                                            \
-    char path[PATH_MAX];                                                     \
-    iop_json_lex_t  jll;                                                     \
-    int res;                                                                 \
+    static int _fun(                                                         \
+        const iop_env_ctx_t *iop_env_ctx, pstream_t *ps,                     \
+        const iop_struct_t *desc, const char *filename, _data_type v,        \
+        int flags, qv_t(iop_json_subfile) *subfiles, sb_t *errb              \
+    )                                                                        \
+    {                                                                        \
+        char path[PATH_MAX];                                                 \
+        iop_json_lex_t jll;                                                  \
+        int res;                                                             \
                                                                              \
-    iop_jlex_init(t_pool(), iop_env_ctx, &jll);                              \
-    iop_jlex_attach(&jll, ps);                                               \
-    jll.flags = flags;                                                       \
+        iop_jlex_init(t_pool(), iop_env_ctx, &jll);                          \
+        iop_jlex_attach(&jll, ps);                                           \
+        jll.flags = flags;                                                   \
                                                                              \
-    if (filename) {                                                          \
-        path_expand(path, sizeof(path), filename);                           \
-        qv_append(&filenames_g, LSTR(path));                                 \
-    }                                                                        \
-    if (subfiles) {                                                          \
-        assert (filename);                                                   \
-        subfiles_g = subfiles;                                               \
-    }                                                                        \
-                                                                             \
-    if ((res = _fun_to_call(&jll, desc, v, true)) < 0) {                     \
-        if (errb) {                                                          \
-            iop_jlex_write_error(&jll, errb);                                \
+        if (filename) {                                                      \
+            path_expand(path, sizeof(path), filename);                       \
+            qv_append(&filenames_g, LSTR(path));                             \
         }                                                                    \
-    }                                                                        \
+        if (subfiles) {                                                      \
+            assert(filename);                                                \
+            subfiles_g = subfiles;                                           \
+        }                                                                    \
                                                                              \
-    if (filename) {                                                          \
-        qv_remove_last(&filenames_g);                                        \
-    }                                                                        \
-    if (subfiles) {                                                          \
-        subfiles_g = NULL;                                                   \
-        qv_clear(&field_paths_g);                                            \
-    }                                                                        \
-    iop_jlex_wipe(&jll);                                                     \
+        if ((res = _fun_to_call(&jll, desc, v, true)) < 0) {                 \
+            if (errb) {                                                      \
+                iop_jlex_write_error(&jll, errb);                            \
+            }                                                                \
+        }                                                                    \
                                                                              \
-    return res;                                                              \
-}
+        if (filename) {                                                      \
+            qv_remove_last(&filenames_g);                                    \
+        }                                                                    \
+        if (subfiles) {                                                      \
+            subfiles_g = NULL;                                               \
+            qv_clear(&field_paths_g);                                        \
+        }                                                                    \
+        iop_jlex_wipe(&jll);                                                 \
+                                                                             \
+        return res;                                                          \
+    }
 
-CREATE_JUNPACK_PS(__t_iop_junpack_ps,     void *,  iop_junpack)
+CREATE_JUNPACK_PS(__t_iop_junpack_ps, void *, iop_junpack)
 CREATE_JUNPACK_PS(__t_iop_junpack_ptr_ps, void **, iop_junpack_ptr)
 #undef CREATE_JUNPACK_PS
 
-int t_iop_junpack_ps(const iop_env_ctx_t *iop_env_ctx, pstream_t *ps,
-                     const iop_struct_t *st, void *out, int flags, sb_t *errb)
+int t_iop_junpack_ps(
+    const iop_env_ctx_t *iop_env_ctx, pstream_t *ps, const iop_struct_t *st,
+    void *out, int flags, sb_t *errb
+)
 {
-    return __t_iop_junpack_ps(iop_env_ctx, ps, st, NULL, out, flags, NULL,
-                              errb);
+    return __t_iop_junpack_ps(
+        iop_env_ctx, ps, st, NULL, out, flags, NULL, errb
+    );
 }
 
-int t_iop_junpack_ptr_ps(const iop_env_ctx_t *iop_env_ctx, pstream_t *ps,
-                         const iop_struct_t *st, void **out, int flags,
-                         sb_t *errb)
+int t_iop_junpack_ptr_ps(
+    const iop_env_ctx_t *iop_env_ctx, pstream_t *ps, const iop_struct_t *st,
+    void **out, int flags, sb_t *errb
+)
 {
-    return __t_iop_junpack_ptr_ps(iop_env_ctx, ps, st, NULL, out, flags,
-                                  NULL, errb);
+    return __t_iop_junpack_ptr_ps(
+        iop_env_ctx, ps, st, NULL, out, flags, NULL, errb
+    );
 }
 
 #define CREATE_JUNPACK_FILE(_fun, _data_type, _fun_to_call)                  \
-int _fun(const iop_env_ctx_t *iop_env_ctx, const char *filename,             \
-         const iop_struct_t *st, _data_type out, int flags,                  \
-         qv_t(iop_json_subfile) *subfiles, sb_t *errb)                       \
-{                                                                            \
-    int res;                                                                 \
-    pstream_t ps;                                                            \
-    lstr_t file = LSTR_NULL_V;                                               \
+    int _fun(                                                                \
+        const iop_env_ctx_t *iop_env_ctx, const char *filename,              \
+        const iop_struct_t *st, _data_type out, int flags,                   \
+        qv_t(iop_json_subfile) *subfiles, sb_t *errb                         \
+    )                                                                        \
+    {                                                                        \
+        int res;                                                             \
+        pstream_t ps;                                                        \
+        lstr_t file = LSTR_NULL_V;                                           \
                                                                              \
-    if (lstr_init_from_file(&file, filename, PROT_READ, MAP_SHARED) < 0) {   \
-        if (errb) {                                                          \
-            sb_addf(errb, "cannot read file %s: %m", filename);              \
+        if (lstr_init_from_file(&file, filename, PROT_READ, MAP_SHARED) <    \
+            0) {                                                             \
+            if (errb) {                                                      \
+                sb_addf(errb, "cannot read file %s: %m", filename);          \
+            }                                                                \
+            res = IOP_JERR_INVALID_FILE;                                     \
+            goto end;                                                        \
         }                                                                    \
-        res = IOP_JERR_INVALID_FILE;                                         \
-        goto end;                                                            \
-    }                                                                        \
                                                                              \
-    ps = ps_initlstr(&file);                                                 \
-    res = _fun_to_call(iop_env_ctx, &ps, st, filename, out, flags, subfiles, \
-                       errb);                                                \
+        ps = ps_initlstr(&file);                                             \
+        res = _fun_to_call(                                                  \
+            iop_env_ctx, &ps, st, filename, out, flags, subfiles, errb       \
+        );                                                                   \
                                                                              \
- end:                                                                        \
-    lstr_wipe(&file);                                                        \
-    return res;                                                              \
-}
+    end:                                                                     \
+        lstr_wipe(&file);                                                    \
+        return res;                                                          \
+    }
 
-CREATE_JUNPACK_FILE(t_iop_junpack_file,     void *,  __t_iop_junpack_ps)
+CREATE_JUNPACK_FILE(t_iop_junpack_file, void *, __t_iop_junpack_ps)
 CREATE_JUNPACK_FILE(t_iop_junpack_ptr_file, void **, __t_iop_junpack_ptr_ps)
 #undef CREATE_JUNPACK_FILE
 
@@ -2085,16 +2220,18 @@ typedef struct iop_jpack_subfile_value_t {
 
 qm_kvec_t(iop_jpack_paths, lstr_t, lstr_t, qhash_lstr_hash, qhash_lstr_equal);
 qm_khptr_ckey_t(iop_jpack_subfile_paths, void, qm_t(iop_jpack_paths));
-qm_kvec_t(iop_jpack_subfile_value, lstr_t, iop_jpack_subfile_value_t,
-          qhash_lstr_hash, qhash_lstr_equal);
+qm_kvec_t(
+    iop_jpack_subfile_value, lstr_t, iop_jpack_subfile_value_t,
+    qhash_lstr_hash, qhash_lstr_equal
+);
 
 typedef struct jpack_file_ctx_t {
     sb_t *err;
 
-    file_t         *file;
-    char            file_dir[PATH_MAX];
+    file_t *file;
+    char file_dir[PATH_MAX];
     enum file_flags file_flags;
-    mode_t          file_mode;
+    mode_t file_mode;
 
     bool has_sub_files;
     const char *recursive_file_path;
@@ -2110,8 +2247,9 @@ typedef struct jpack_file_ctx_t {
     qm_t(iop_jpack_subfile_paths) subfiles_paths;
 } jpack_file_ctx_t;
 
-const void *iop_json_get_struct_field_value(const iop_field_t *fdesc,
-                                            const void *ptr, int index)
+const void *iop_json_get_struct_field_value(
+    const iop_field_t *fdesc, const void *ptr, int index
+)
 {
     const void *v = &IOP_FIELD(const char, ptr, index * fdesc->size);
 
@@ -2124,8 +2262,8 @@ const void *iop_json_get_struct_field_value(const iop_field_t *fdesc,
     return v;
 }
 
-static bool struct_is_empty(const iop_struct_t *desc, const void *value,
-                            unsigned flags)
+static bool
+struct_is_empty(const iop_struct_t *desc, const void *value, unsigned flags)
 {
     const iop_field_t *fdesc = desc->fields;
     const iop_field_t *fend = desc->fields + desc->fields_len;
@@ -2143,8 +2281,9 @@ static bool struct_is_empty(const iop_struct_t *desc, const void *value,
     return true;
 }
 
-static bool class_struct_is_empty(const iop_struct_t *desc, const void *value,
-                                  unsigned flags)
+static bool class_struct_is_empty(
+    const iop_struct_t *desc, const void *value, unsigned flags
+)
 {
     const iop_struct_t *real_desc;
 
@@ -2166,10 +2305,10 @@ static bool class_struct_is_empty(const iop_struct_t *desc, const void *value,
     return true;
 }
 
-const void *
-iop_json_get_n_and_ptr(const iop_struct_t *desc, unsigned flags,
-                       const iop_field_t *fdesc, const void *value, int *n,
-                       bool *is_skipped)
+const void *iop_json_get_n_and_ptr(
+    const iop_struct_t *desc, unsigned flags, const iop_field_t *fdesc,
+    const void *value, int *n, bool *is_skipped
+)
 {
     bool repeated = fdesc->repeat == IOP_R_REPEATED;
     const void *ptr;
@@ -2187,47 +2326,47 @@ iop_json_get_n_and_ptr(const iop_struct_t *desc, unsigned flags,
     ptr = (char *)value + fdesc->data_offs;
 
     switch (fdesc->repeat) {
-      case IOP_R_OPTIONAL:
+    case IOP_R_OPTIONAL:
         *n = iop_opt_field_isset(fdesc->type, ptr);
         if (*n && ((1 << fdesc->type) & IOP_STRUCTS_OK)) {
             ptr = *(void **)ptr;
         }
         break;
-      case IOP_R_REQUIRED:
-      case IOP_R_DEFVAL:
+    case IOP_R_REQUIRED:
+    case IOP_R_DEFVAL:
         *n = 1;
         if (iop_field_is_reference(fdesc)) {
             ptr = *(void **)ptr;
         }
         break;
-      case IOP_R_REPEATED:
-        *n  = ((lstr_t *)ptr)->len;
+    case IOP_R_REPEATED:
+        *n = ((lstr_t *)ptr)->len;
         ptr = ((lstr_t *)ptr)->data;
         break;
-      default:
+    default:
         abort();
     }
 
     if (!*n && !repeated) {
         goto skip;
     }
-    if ((flags & IOP_JPACK_SKIP_DEFAULT) && fdesc->repeat == IOP_R_DEFVAL
-    &&  iop_field_is_defval(fdesc, ptr, true))
+    if ((flags & IOP_JPACK_SKIP_DEFAULT) && fdesc->repeat == IOP_R_DEFVAL &&
+        iop_field_is_defval(fdesc, ptr, true))
     {
         goto skip;
     }
     if ((flags & IOP_JPACK_SKIP_EMPTY_ARRAYS) && !*n && repeated) {
         goto skip;
     }
-    if (!desc->is_union && fdesc->type == IOP_T_VOID
-    &&  fdesc->repeat == IOP_R_REQUIRED)
+    if (!desc->is_union && fdesc->type == IOP_T_VOID &&
+        fdesc->repeat == IOP_R_REQUIRED)
     {
         goto skip;
     }
 
-    if ((flags & IOP_JPACK_SKIP_EMPTY_STRUCTS)
-    &&  fdesc->type == IOP_T_STRUCT && fdesc->repeat == IOP_R_REQUIRED
-    &&  !desc->is_union)
+    if ((flags & IOP_JPACK_SKIP_EMPTY_STRUCTS) &&
+        fdesc->type == IOP_T_STRUCT && fdesc->repeat == IOP_R_REQUIRED &&
+        !desc->is_union)
     {
         const void *v = iop_json_get_struct_field_value(fdesc, ptr, 0);
 
@@ -2236,13 +2375,13 @@ iop_json_get_n_and_ptr(const iop_struct_t *desc, unsigned flags,
 
     return ptr;
 
-  skip:
+skip:
     *is_skipped = true;
     return NULL;
 }
 
-static int do_write(iop_jpack_writecb_f *writecb, void *priv,
-                    const void *_buf, int len)
+static int
+do_write(iop_jpack_writecb_f *writecb, void *priv, const void *_buf, int len)
 {
     const uint8_t *buf = _buf;
     int pos = 0;
@@ -2251,8 +2390,9 @@ static int do_write(iop_jpack_writecb_f *writecb, void *priv,
         int res = (*writecb)(priv, buf + pos, len - pos);
 
         if (res < 0) {
-            if (ERR_RW_RETRIABLE(errno))
+            if (ERR_RW_RETRIABLE(errno)) {
                 continue;
+            }
             return -1;
         }
         pos += res;
@@ -2281,64 +2421,66 @@ static int do_indent(iop_jpack_writecb_f *writecb, void *priv, int lvl)
     return total;
 }
 
-#define WRITE(b, l)    \
-    do {                                                                   \
-        int __res = do_write(writecb, priv, b, l);                         \
-        if (__res < 0)                                                     \
-            return -1;                                                     \
-        res += __res;                                                      \
+#define WRITE(b, l)                                                          \
+    do {                                                                     \
+        int __res = do_write(writecb, priv, b, l);                           \
+        if (__res < 0)                                                       \
+            return -1;                                                       \
+        res += __res;                                                        \
     } while (0)
-#define PUTS(s)  WRITE(s, strlen(s))
-#define PUTLSTR(s)  WRITE(s.data, s.len)
-#define IPUTS(s_with_indent, s_no_indent) \
-    do {                                                                   \
-        if (with_indent) {                                                 \
-            PUTS(s_with_indent);                                           \
-        } else {                                                           \
-            PUTS(s_no_indent);                                             \
-        }                                                                  \
+#define PUTS(s) WRITE(s, strlen(s))
+#define PUTLSTR(s) WRITE(s.data, s.len)
+#define IPUTS(s_with_indent, s_no_indent)                                    \
+    do {                                                                     \
+        if (with_indent) {                                                   \
+            PUTS(s_with_indent);                                             \
+        } else {                                                             \
+            PUTS(s_no_indent);                                               \
+        }                                                                    \
     } while (0)
 
-#define INDENT() \
-    do {                                                                   \
-        if (with_indent) {                                                 \
-            int __res = do_indent(writecb, priv, lvl);                     \
-            \
-            if (__res < 0)                                                 \
-                return -1;                                                 \
-            res += __res;                                                  \
-        }                                                                  \
+#define INDENT()                                                             \
+    do {                                                                     \
+        if (with_indent) {                                                   \
+            int __res = do_indent(writecb, priv, lvl);                       \
+                                                                             \
+            if (__res < 0)                                                   \
+                return -1;                                                   \
+            res += __res;                                                    \
+        }                                                                    \
     } while (0)
-#define PUTU(u)                                                            \
-    do {                                                                   \
-        uint64_t __u = (u);                                                \
-                                                                           \
-        if (!(flags & IOP_JPACK_UNSAFE_INTEGERS) && __u >= 1ull << 53) {   \
-            WRITE(ibuf, sprintf(ibuf, "\"%ju\"", __u));                    \
-        } else {                                                           \
-            WRITE(ibuf, sprintf(ibuf, "%ju", __u));                        \
-        }                                                                  \
+#define PUTU(u)                                                              \
+    do {                                                                     \
+        uint64_t __u = (u);                                                  \
+                                                                             \
+        if (!(flags & IOP_JPACK_UNSAFE_INTEGERS) && __u >= 1ull << 53) {     \
+            WRITE(ibuf, sprintf(ibuf, "\"%ju\"", __u));                      \
+        } else {                                                             \
+            WRITE(ibuf, sprintf(ibuf, "%ju", __u));                          \
+        }                                                                    \
     } while (0)
-#define PUTD(i)                                                            \
-    do {                                                                   \
-        int64_t __i = (i);                                                 \
-                                                                           \
-        if (!(flags & IOP_JPACK_UNSAFE_INTEGERS)                           \
-        &&  (__i >= 1ll << 53 || __i <= -(1ll << 53)))                     \
-        {                                                                  \
-            WRITE(ibuf, sprintf(ibuf, "\"%jd\"", __i));                    \
-        } else {                                                           \
-            WRITE(ibuf, sprintf(ibuf, "%jd", __i));                        \
-        }                                                                  \
+#define PUTD(i)                                                              \
+    do {                                                                     \
+        int64_t __i = (i);                                                   \
+                                                                             \
+        if (!(flags & IOP_JPACK_UNSAFE_INTEGERS) &&                          \
+            (__i >= 1ll << 53 || __i <= -(1ll << 53)))                       \
+        {                                                                    \
+            WRITE(ibuf, sprintf(ibuf, "\"%jd\"", __i));                      \
+        } else {                                                             \
+            WRITE(ibuf, sprintf(ibuf, "%jd", __i));                          \
+        }                                                                    \
     } while (0)
 
 /* ints:   sign, 20 digits, and NUL -> 22
  * double: sign, digit, dot, 17 digits, e, sign, up to 3 digits NUL -> 25
  */
-#define IBUF_LEN  25
+#define IBUF_LEN 25
 
-static int write_string(lstr_t val, iop_type_t type, unsigned flags,
-                        iop_jpack_writecb_f *writecb, void *priv)
+static int write_string(
+    lstr_t val, iop_type_t type, unsigned flags, iop_jpack_writecb_f *writecb,
+    void *priv
+)
 {
     SB_8k(sb);
     int res = 0;
@@ -2350,11 +2492,11 @@ static int write_string(lstr_t val, iop_type_t type, unsigned flags,
             sb_reset(&sb);
             sb_add_lstr_b64(&sb, val, -1);
 
-#define HALF_MAX_DISPLAY  11
-#define REPL_FMT  (" …(skip %d bytes)… ")
+#define HALF_MAX_DISPLAY 11
+#define REPL_FMT (" …(skip %d bytes)… ")
 
-            if (unlikely(flags & IOP_JPACK_SHORTEN_DATA)
-            &&  (size_t)sb.len > 2 * HALF_MAX_DISPLAY + strlen(REPL_FMT))
+            if (unlikely(flags & IOP_JPACK_SHORTEN_DATA) &&
+                (size_t)sb.len > 2 * HALF_MAX_DISPLAY + strlen(REPL_FMT))
             {
                 t_scope;
                 int nb_skip = sb.len - 2 * HALF_MAX_DISPLAY;
@@ -2371,10 +2513,16 @@ static int write_string(lstr_t val, iop_type_t type, unsigned flags,
         while (!ps_done(&ps)) {
             char ibuf[IBUF_LEN];
             /* r:32-127 -s:'\\"' */
-            static ctype_desc_t const json_safe_chars = { {
-                0x00000000, 0xfffffffb, 0xefffffff, 0xffffffff,
-                    0x00000000, 0x00000000, 0x00000000, 0x00000000,
-            } };
+            static ctype_desc_t const json_safe_chars = {{
+                0x00000000,
+                0xfffffffb,
+                0xefffffff,
+                0xffffffff,
+                0x00000000,
+                0x00000000,
+                0x00000000,
+                0x00000000,
+            }};
 
             const uint8_t *p = ps.b;
             size_t nbchars;
@@ -2400,8 +2548,12 @@ static int write_string(lstr_t val, iop_type_t type, unsigned flags,
                 int low_surrogate = 0xDC00 + (adj & 0x3FF);
 
                 /* Write surrogate pair */
-                WRITE(ibuf, sprintf(ibuf, "\\u%04x\\u%04x",
-                      high_surrogate, low_surrogate));
+                WRITE(
+                    ibuf,
+                    sprintf(
+                        ibuf, "\\u%04x\\u%04x", high_surrogate, low_surrogate
+                    )
+                );
             } else {
                 /* Write single Unicode escape */
                 WRITE(ibuf, sprintf(ibuf, "\\u%04x", c));
@@ -2413,15 +2565,16 @@ static int write_string(lstr_t val, iop_type_t type, unsigned flags,
     return res;
 }
 
-static lstr_t get_subfile_file_path(const void *value,
-                                    jpack_file_ctx_t *file_ctx)
+static lstr_t
+get_subfile_file_path(const void *value, jpack_file_ctx_t *file_ctx)
 {
     lstr_t file_path = LSTR_NULL;
     int pos;
 
-    if (file_ctx && file_ctx->has_sub_files
-    && (pos = qm_find(iop_jpack_subfile_paths, &file_ctx->subfiles_paths,
-                      value)) >= 0)
+    if (file_ctx && file_ctx->has_sub_files &&
+        (pos = qm_find(
+             iop_jpack_subfile_paths, &file_ctx->subfiles_paths, value
+         )) >= 0)
     {
         t_scope;
         qm_t(iop_jpack_paths) *paths = &file_ctx->subfiles_paths.values[pos];
@@ -2433,35 +2586,37 @@ static lstr_t get_subfile_file_path(const void *value,
     return file_path;
 }
 
-static void build_subfile_value(const iop_field_t *fdesc, const void *ptr,
-                                iop_jpack_subfile_value_t *value)
+static void build_subfile_value(
+    const iop_field_t *fdesc, const void *ptr,
+    iop_jpack_subfile_value_t *value
+)
 {
     p_clear(value, 1);
 
     value->full_type.type = fdesc->type;
     switch (fdesc->type) {
-      case IOP_T_I8:
-      case IOP_T_I16:
-      case IOP_T_I32:
-      case IOP_T_I64:
-      case IOP_T_U8:
-      case IOP_T_U16:
-      case IOP_T_U32:
-      case IOP_T_U64:
-      case IOP_T_BOOL:
-      case IOP_T_DOUBLE:
-      case IOP_T_XML:
-      case IOP_T_STRING:
-      case IOP_T_DATA:
-      case IOP_T_VOID:
+    case IOP_T_I8:
+    case IOP_T_I16:
+    case IOP_T_I32:
+    case IOP_T_I64:
+    case IOP_T_U8:
+    case IOP_T_U16:
+    case IOP_T_U32:
+    case IOP_T_U64:
+    case IOP_T_BOOL:
+    case IOP_T_DOUBLE:
+    case IOP_T_XML:
+    case IOP_T_STRING:
+    case IOP_T_DATA:
+    case IOP_T_VOID:
         break;
 
-      case IOP_T_ENUM:
+    case IOP_T_ENUM:
         value->full_type.en = fdesc->u1.en_desc;
         break;
 
-      case IOP_T_STRUCT:
-      case IOP_T_UNION:
+    case IOP_T_STRUCT:
+    case IOP_T_UNION:
         value->full_type.st = fdesc->u1.st_desc;
         break;
     }
@@ -2469,56 +2624,66 @@ static void build_subfile_value(const iop_field_t *fdesc, const void *ptr,
     value->ptr = ptr;
 }
 
-static int check_subfile_value(const iop_field_t *fdesc, const void *ptr,
-                               const iop_jpack_subfile_value_t *value,
-                               lstr_t subfile_path, sb_t *err)
+static int check_subfile_value(
+    const iop_field_t *fdesc, const void *ptr,
+    const iop_jpack_subfile_value_t *value, lstr_t subfile_path, sb_t *err
+)
 {
     iop_type_t value_type = value->full_type.type;
 
-    if (value_type != fdesc->type
-    &&  (!iop_type_is_string(value_type) || !iop_type_is_string(fdesc->type)))
+    if (value_type != fdesc->type &&
+        (!iop_type_is_string(value_type) || !iop_type_is_string(fdesc->type)))
     {
-        sb_addf(err, "subfile `%*pM` is written twice with different iop "
-                "types " "`%s` vs `%s`", LSTR_FMT_ARG(subfile_path),
-                iop_type_get_string_desc(value->full_type.type),
-                iop_type_get_string_desc(fdesc->type));
+        sb_addf(
+            err,
+            "subfile `%*pM` is written twice with different iop "
+            "types "
+            "`%s` vs `%s`",
+            LSTR_FMT_ARG(subfile_path),
+            iop_type_get_string_desc(value->full_type.type),
+            iop_type_get_string_desc(fdesc->type)
+        );
         return -1;
     }
 
     switch (value_type) {
-      case IOP_T_ENUM:
+    case IOP_T_ENUM:
         if (value->full_type.en != fdesc->u1.en_desc) {
-            sb_addf(err, "subfile `%*pM` is written twice with different "
-                    "enum types `%*pM` vs `%*pM`", LSTR_FMT_ARG(subfile_path),
-                    LSTR_FMT_ARG(value->full_type.en->fullname),
-                    LSTR_FMT_ARG(fdesc->u1.en_desc->fullname));
+            sb_addf(
+                err,
+                "subfile `%*pM` is written twice with different "
+                "enum types `%*pM` vs `%*pM`",
+                LSTR_FMT_ARG(subfile_path),
+                LSTR_FMT_ARG(value->full_type.en->fullname),
+                LSTR_FMT_ARG(fdesc->u1.en_desc->fullname)
+            );
             return -1;
         }
         /* fallthrough */
 
-      case IOP_T_I8:
-      case IOP_T_I16:
-      case IOP_T_I32:
-      case IOP_T_I64:
-      case IOP_T_U8:
-      case IOP_T_U16:
-      case IOP_T_U32:
-      case IOP_T_U64:
-      case IOP_T_BOOL:
-      case IOP_T_DOUBLE:
-      case IOP_T_XML:
-      case IOP_T_STRING:
-      case IOP_T_DATA:
-      case IOP_T_VOID:
+    case IOP_T_I8:
+    case IOP_T_I16:
+    case IOP_T_I32:
+    case IOP_T_I64:
+    case IOP_T_U8:
+    case IOP_T_U16:
+    case IOP_T_U32:
+    case IOP_T_U64:
+    case IOP_T_BOOL:
+    case IOP_T_DOUBLE:
+    case IOP_T_XML:
+    case IOP_T_STRING:
+    case IOP_T_DATA:
+    case IOP_T_VOID:
         if (!iop_value_equals(value_type, value->ptr, ptr, NULL)) {
             goto err_val;
         }
         break;
 
-      case IOP_T_STRUCT:
+    case IOP_T_STRUCT:
         if (iop_struct_is_class(value->full_type.st)) {
-            if (!iop_struct_is_class(fdesc->u1.st_desc)
-            ||  !iop_equals_desc(value->full_type.st, value->ptr, ptr))
+            if (!iop_struct_is_class(fdesc->u1.st_desc) ||
+                !iop_equals_desc(value->full_type.st, value->ptr, ptr))
             {
                 goto err_val;
             }
@@ -2526,9 +2691,9 @@ static int check_subfile_value(const iop_field_t *fdesc, const void *ptr,
         }
         /* fallthrough */
 
-      case IOP_T_UNION:
-        if (value->full_type.st != fdesc->u1.st_desc
-        ||  !iop_equals_desc(value->full_type.st, value->ptr, ptr))
+    case IOP_T_UNION:
+        if (value->full_type.st != fdesc->u1.st_desc ||
+            !iop_equals_desc(value->full_type.st, value->ptr, ptr))
         {
             goto err_val;
         }
@@ -2537,17 +2702,19 @@ static int check_subfile_value(const iop_field_t *fdesc, const void *ptr,
 
     return 0;
 
-  err_val:
-    sb_addf(err, "subfile `%*pM` is written twice with different values",
-            LSTR_FMT_ARG(subfile_path));
+err_val:
+    sb_addf(
+        err, "subfile `%*pM` is written twice with different values",
+        LSTR_FMT_ARG(subfile_path)
+    );
     return -1;
 }
 
-static int write_field(const iop_field_t *fdesc, const void *value,
-                       iop_jpack_writecb_f *writecb, void *priv,
-                       unsigned flags, jpack_file_ctx_t *file_ctx,
-                       int (^do_inline)(void),
-                       int (^do_include)(const char *path))
+static int write_field(
+    const iop_field_t *fdesc, const void *value, iop_jpack_writecb_f *writecb,
+    void *priv, unsigned flags, jpack_file_ctx_t *file_ctx,
+    int (^do_inline)(void), int (^do_include)(const char *path)
+)
 {
     int res = 0;
     int ret;
@@ -2563,16 +2730,19 @@ static int write_field(const iop_field_t *fdesc, const void *value,
         /* This field shoud be packed inline. */
         return do_inline();
     }
-    assert (file_ctx);
+    assert(file_ctx);
 
     /* This field should be written in a dedicated file.
      * Get include full path. */
-    if (path_extend(fullpath, file_ctx->file_dir, "%*pM",
-                    LSTR_FMT_ARG(subfile_path)) < 0)
+    if (path_extend(
+            fullpath, file_ctx->file_dir, "%*pM", LSTR_FMT_ARG(subfile_path)
+        ) < 0)
     {
         if (file_ctx->err) {
-            sb_addf(file_ctx->err, "cannot get fullpath of `%*pM`",
-                    LSTR_FMT_ARG(subfile_path));
+            sb_addf(
+                file_ctx->err, "cannot get fullpath of `%*pM`",
+                LSTR_FMT_ARG(subfile_path)
+            );
         }
         return -1;
     }
@@ -2580,12 +2750,15 @@ static int write_field(const iop_field_t *fdesc, const void *value,
     if (file_ctx->recursive_file_path) {
         int len;
 
-        len = path_relative_to(relative_path, file_ctx->recursive_file_path,
-                               fullpath);
+        len = path_relative_to(
+            relative_path, file_ctx->recursive_file_path, fullpath
+        );
         if (len < 0) {
             if (file_ctx->err) {
-                sb_addf(file_ctx->err, "cannot get relative path of `%*pM`",
-                        LSTR_FMT_ARG(subfile_path));
+                sb_addf(
+                    file_ctx->err, "cannot get relative path of `%*pM`",
+                    LSTR_FMT_ARG(subfile_path)
+                );
             }
             return -1;
         }
@@ -2593,8 +2766,9 @@ static int write_field(const iop_field_t *fdesc, const void *value,
     }
 
     fullpath_lstr = LSTR(fullpath);
-    pos = qm_reserve(iop_jpack_subfile_value, &file_ctx->subfiles_values,
-                     &fullpath_lstr, 0);
+    pos = qm_reserve(
+        iop_jpack_subfile_value, &file_ctx->subfiles_values, &fullpath_lstr, 0
+    );
     if (!(pos & QHASH_COLLISION)) {
         char fullpath_dir[PATH_MAX];
         const char *prev_recursive_file_path;
@@ -2606,8 +2780,10 @@ static int write_field(const iop_field_t *fdesc, const void *value,
         ret = mkdir_p(fullpath_dir, 0755);
         if (ret < 0) {
             if (file_ctx->err) {
-                sb_addf(file_ctx->err, "cannot create directory `%s`: %m",
-                        fullpath_dir);
+                sb_addf(
+                    file_ctx->err, "cannot create directory `%s`: %m",
+                    fullpath_dir
+                );
             }
             return -1;
         }
@@ -2617,8 +2793,9 @@ static int write_field(const iop_field_t *fdesc, const void *value,
         }
 
         /* Create subfile value. */
-        build_subfile_value(fdesc, value,
-                            &file_ctx->subfiles_values.values[pos]);
+        build_subfile_value(
+            fdesc, value, &file_ctx->subfiles_values.values[pos]
+        );
 
         /* Push recursive file path. */
         prev_recursive_file_path = file_ctx->recursive_file_path;
@@ -2634,44 +2811,53 @@ static int write_field(const iop_field_t *fdesc, const void *value,
     } else {
         /* File has already been written, check if it is the same as before */
         pos ^= QHASH_COLLISION;
-        RETHROW(check_subfile_value(fdesc, value,
-                                    &file_ctx->subfiles_values.values[pos],
-                                    subfile_path, file_ctx->err));
+        RETHROW(check_subfile_value(
+            fdesc, value, &file_ctx->subfiles_values.values[pos],
+            subfile_path, file_ctx->err
+        ));
     }
 
     /* Write include in original path. */
     PUTS("@include(");
-    res += RETHROW(write_string(subfile_path, IOP_T_STRING, flags, writecb,
-                                priv));
+    res += RETHROW(
+        write_string(subfile_path, IOP_T_STRING, flags, writecb, priv)
+    );
     PUTS(")");
 
     return res;
 }
 
-static int iop_jpack_file_recursive(const char *filename,
-                                    const iop_struct_t *st, const void *value,
-                                    unsigned flags, jpack_file_ctx_t *ctx);
+static int iop_jpack_file_recursive(
+    const char *filename, const iop_struct_t *st, const void *value,
+    unsigned flags, jpack_file_ctx_t *ctx
+);
+
+static int pack_txt(
+    const iop_struct_t *desc, const void *value, int lvl,
+    iop_jpack_writecb_f *writecb, void *priv, unsigned flags,
+    jpack_file_ctx_t *file_ctx
+);
 
 static int
-pack_txt(const iop_struct_t *desc, const void *value, int lvl,
-         iop_jpack_writecb_f *writecb, void *priv, unsigned flags,
-         jpack_file_ctx_t *file_ctx);
-
-static int write_subfile_string(const char *path, lstr_t value,
-                                jpack_file_ctx_t *ctx)
+write_subfile_string(const char *path, lstr_t value, jpack_file_ctx_t *ctx)
 {
     int oflags = file_flags_to_open_flags(ctx->file_flags);
 
     if (unlikely(oflags < 0)) {
         if (ctx->err) {
-            sb_addf(ctx->err, "cannot convert file flags `0x%02x` to open "
-                    "flags: %m", ctx->file_flags);
+            sb_addf(
+                ctx->err,
+                "cannot convert file flags `0x%02x` to open "
+                "flags: %m",
+                ctx->file_flags
+            );
         }
         return -1;
     }
 
-    if (xwrite_file_extended(path, value.data, value.len, oflags,
-                             ctx->file_mode) < 0)
+    if (xwrite_file_extended(
+            path, value.data, value.len, oflags, ctx->file_mode
+        ) < 0)
     {
         if (ctx->err) {
             sb_addf(ctx->err, "cannot write `%s`: %m", path);
@@ -2682,9 +2868,11 @@ static int write_subfile_string(const char *path, lstr_t value,
     return 0;
 }
 
-static int __pack_txt(const iop_struct_t *desc, const void *value, int lvl,
-                      iop_jpack_writecb_f *writecb, void *priv,
-                      unsigned flags, jpack_file_ctx_t *file_ctx, bool *first)
+static int __pack_txt(
+    const iop_struct_t *desc, const void *value, int lvl,
+    iop_jpack_writecb_f *writecb, void *priv, unsigned flags,
+    jpack_file_ctx_t *file_ctx, bool *first
+)
 {
     char ibuf[IBUF_LEN];
     int res = 0;
@@ -2695,10 +2883,10 @@ static int __pack_txt(const iop_struct_t *desc, const void *value, int lvl,
 
     if (desc->is_union) {
         fdesc = get_union_field(desc, value);
-        fend  = fdesc + 1;
+        fend = fdesc + 1;
     } else {
         fdesc = desc->fields;
-        fend  = desc->fields + desc->fields_len;
+        fend = desc->fields + desc->fields_len;
     }
 
     for (; fdesc < fend; fdesc++) {
@@ -2707,8 +2895,9 @@ static int __pack_txt(const iop_struct_t *desc, const void *value, int lvl,
         int n;
         bool is_skipped = false;
 
-        ptr = iop_json_get_n_and_ptr(desc, flags, fdesc, value, &n,
-                                     &is_skipped);
+        ptr = iop_json_get_n_and_ptr(
+            desc, flags, fdesc, value, &n, &is_skipped
+        );
         if (is_skipped) {
             continue;
         }
@@ -2719,8 +2908,9 @@ static int __pack_txt(const iop_struct_t *desc, const void *value, int lvl,
             IPUTS(",\n", ",");
         }
 
-        if (!desc->is_union)
+        if (!desc->is_union) {
             INDENT();
+        }
         PUTS("\"");
         PUTLSTR(fdesc->name);
         if (with_indent) {
@@ -2747,24 +2937,35 @@ static int __pack_txt(const iop_struct_t *desc, const void *value, int lvl,
             switch (fdesc->type) {
                 const void *v;
 
-#define CASE(n) \
-              case IOP_T_I##n: PUTD(IOP_FIELD(int##n##_t, ptr, j)); break;  \
-              case IOP_T_U##n: PUTU(IOP_FIELD(uint##n##_t, ptr, j)); break
-              CASE(8); CASE(16); CASE(32); CASE(64);
+#define CASE(n)                                                              \
+    case IOP_T_I##n:                                                         \
+        PUTD(IOP_FIELD(int##n##_t, ptr, j));                                 \
+        break;                                                               \
+    case IOP_T_U##n:                                                         \
+        PUTU(IOP_FIELD(uint##n##_t, ptr, j));                                \
+        break
+                CASE(8);
+                CASE(16);
+                CASE(32);
+                CASE(64);
 #undef CASE
 
-              case IOP_T_ENUM:
-                v = iop_enum_to_str_desc(fdesc->u1.en_desc,
-                                         IOP_FIELD(int, ptr, j)).s;
+            case IOP_T_ENUM:
+                v = iop_enum_to_str_desc(
+                        fdesc->u1.en_desc, IOP_FIELD(int, ptr, j)
+                )
+                        .s;
                 if (likely(v)) {
-                    PUTS("\""); PUTS(v); PUTS("\"");
+                    PUTS("\"");
+                    PUTS(v);
+                    PUTS("\"");
                 } else {
                     /* if not found, dump the integer */
                     PUTU(IOP_FIELD(int, ptr, j));
                 }
                 break;
 
-              case IOP_T_BOOL:
+            case IOP_T_BOOL:
                 if (IOP_FIELD(bool, ptr, j)) {
                     PUTS("true");
                 } else {
@@ -2772,7 +2973,7 @@ static int __pack_txt(const iop_struct_t *desc, const void *value, int lvl,
                 }
                 break;
 
-              case IOP_T_DOUBLE: {
+            case IOP_T_DOUBLE: {
                 double d = IOP_FIELD(double, ptr, j);
 
                 if (isnan(d) || isinf(d)) {
@@ -2780,51 +2981,59 @@ static int __pack_txt(const iop_struct_t *desc, const void *value, int lvl,
                 } else {
                     WRITE(ibuf, sprintf(ibuf, "%.17g", d));
                 }
-              } break;
+            } break;
 
-              case IOP_T_UNION:
-              case IOP_T_STRUCT:
+            case IOP_T_UNION:
+            case IOP_T_STRUCT:
                 v = iop_json_get_struct_field_value(fdesc, ptr, j);
-                tmp_res = write_field(fdesc, v, writecb, priv, flags,
-                                      file_ctx, ^int (void) {
-                    /* Write the field inline. */
-                    return pack_txt(fdesc->u1.st_desc, v, lvl, writecb,
-                                    priv, flags, file_ctx);
-                },
-                ^int (const char *path) {
-                    /* Write the field in a dedicated file. */
-                    return iop_jpack_file_recursive(path, fdesc->u1.st_desc,
-                                                    v, flags, file_ctx);
-                });
+                tmp_res = write_field(
+                    fdesc, v, writecb, priv, flags, file_ctx,
+                    ^int(void) {
+                        /* Write the field inline. */
+                        return pack_txt(
+                            fdesc->u1.st_desc, v, lvl, writecb, priv, flags,
+                            file_ctx
+                        );
+                    },
+                    ^int(const char *path) {
+                        /* Write the field in a dedicated file. */
+                        return iop_jpack_file_recursive(
+                            path, fdesc->u1.st_desc, v, flags, file_ctx
+                        );
+                    }
+                );
 
                 res += RETHROW(tmp_res);
                 break;
 
-              case IOP_T_STRING:
-              case IOP_T_XML:
-              case IOP_T_DATA: {
+            case IOP_T_STRING:
+            case IOP_T_XML:
+            case IOP_T_DATA: {
                 const lstr_t *sv = &IOP_FIELD(const lstr_t, ptr, j);
 
-                tmp_res = write_field(fdesc, sv, writecb, priv, flags,
-                                      file_ctx, ^int (void) {
-                    /* Write the field inline. */
-                    return write_string(*sv, fdesc->type, flags, writecb,
-                                        priv);
-                },
-                ^int (const char *path) {
-                    /* Write the field in a dedicated file. */
-                    return write_subfile_string(path, *sv, file_ctx);
-                });
+                tmp_res = write_field(
+                    fdesc, sv, writecb, priv, flags, file_ctx,
+                    ^int(void) {
+                        /* Write the field inline. */
+                        return write_string(
+                            *sv, fdesc->type, flags, writecb, priv
+                        );
+                    },
+                    ^int(const char *path) {
+                        /* Write the field in a dedicated file. */
+                        return write_subfile_string(path, *sv, file_ctx);
+                    }
+                );
 
                 res += RETHROW(tmp_res);
 
-              } break;
+            } break;
 
-              case IOP_T_VOID:
+            case IOP_T_VOID:
                 PUTS("null");
                 break;
 
-              default:
+            default:
                 abort();
             }
             if (file_ctx && file_ctx->has_sub_files && repeated) {
@@ -2843,10 +3052,11 @@ static int __pack_txt(const iop_struct_t *desc, const void *value, int lvl,
     return res;
 }
 
-static int
-pack_txt(const iop_struct_t *desc, const void *value, int lvl,
-         iop_jpack_writecb_f *writecb, void *priv, unsigned flags,
-         jpack_file_ctx_t *file_ctx)
+static int pack_txt(
+    const iop_struct_t *desc, const void *value, int lvl,
+    iop_jpack_writecb_f *writecb, void *priv, unsigned flags,
+    jpack_file_ctx_t *file_ctx
+)
 {
     int res = 0;
     bool first = true;
@@ -2863,20 +3073,24 @@ pack_txt(const iop_struct_t *desc, const void *value, int lvl,
         qv_t(iop_struct) parents;
         const iop_struct_t *real_desc = *(const iop_struct_t **)value;
 
-        e_assert(panic, !real_desc->class_attrs->is_abstract,
-                 "packing of abstract class '%*pM' is forbidden",
-                 LSTR_FMT_ARG(real_desc->fullname));
+        e_assert(
+            panic, !real_desc->class_attrs->is_abstract,
+            "packing of abstract class '%*pM' is forbidden",
+            LSTR_FMT_ARG(real_desc->fullname)
+        );
 
         /* If this assert fails, you are exporting private classes through
          * a public interface... this is BAD!
          */
-        assert (!real_desc->class_attrs->is_private
-                || !(flags & IOP_JPACK_SKIP_PRIVATE));
+        assert(
+            !real_desc->class_attrs->is_private ||
+            !(flags & IOP_JPACK_SKIP_PRIVATE)
+        );
 
         /* Write type of class */
-        if (!(flags & IOP_JPACK_SKIP_CLASS_NAMES)
-        &&  !(flags & IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES
-          &&  desc == real_desc))
+        if (!(flags & IOP_JPACK_SKIP_CLASS_NAMES) &&
+            !(flags & IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES &&
+              desc == real_desc))
         {
             INDENT();
             IPUTS("\"_class\": ", "\"_class\":");
@@ -2895,15 +3109,18 @@ pack_txt(const iop_struct_t *desc, const void *value, int lvl,
         } while ((real_desc = real_desc->class_attrs->parent));
 
         /* Write fields of different levels */
-        for (int pos = parents.len; pos-- > 0; ) {
-            res += RETHROW(__pack_txt(parents.tab[pos], value, lvl, writecb,
-                                      priv, flags, file_ctx, &first));
+        for (int pos = parents.len; pos-- > 0;) {
+            res += RETHROW(__pack_txt(
+                parents.tab[pos], value, lvl, writecb, priv, flags, file_ctx,
+                &first
+            ));
         }
         qv_wipe(&parents);
 
     } else {
-        res += RETHROW(__pack_txt(desc, value, lvl, writecb, priv, flags,
-                                  file_ctx, &first));
+        res += RETHROW(__pack_txt(
+            desc, value, lvl, writecb, priv, flags, file_ctx, &first
+        ));
     }
 
     if (desc->is_union) {
@@ -2930,8 +3147,10 @@ pack_txt(const iop_struct_t *desc, const void *value, int lvl,
 #undef PUTU
 #undef PUTI
 
-int iop_jpack(const iop_struct_t *desc, const void *value,
-              iop_jpack_writecb_f *writecb, void *priv, unsigned flags)
+int iop_jpack(
+    const iop_struct_t *desc, const void *value, iop_jpack_writecb_f *writecb,
+    void *priv, unsigned flags
+)
 {
     return pack_txt(desc, value, 0, writecb, priv, flags, NULL);
 }
@@ -2950,9 +3169,10 @@ static int iop_jpack_write_file(void *priv, const void *data, int len)
     return len;
 }
 
-static int iop_jpack_file_priv(const char *filename, const iop_struct_t *st,
-                               const void *value, unsigned flags,
-                               jpack_file_ctx_t *ctx)
+static int iop_jpack_file_priv(
+    const char *filename, const iop_struct_t *st, const void *value,
+    unsigned flags, jpack_file_ctx_t *ctx
+)
 {
     int res = pack_txt(st, value, 0, &iop_jpack_write_file, ctx, flags, ctx);
 
@@ -2971,9 +3191,10 @@ static int iop_jpack_file_priv(const char *filename, const iop_struct_t *st,
     return 0;
 }
 
-static int iop_jpack_file_recursive(const char *filename,
-                                    const iop_struct_t *st, const void *value,
-                                    unsigned flags, jpack_file_ctx_t *ctx)
+static int iop_jpack_file_recursive(
+    const char *filename, const iop_struct_t *st, const void *value,
+    unsigned flags, jpack_file_ctx_t *ctx
+)
 {
     int res;
     file_t *prev_file = ctx->file;
@@ -2993,10 +3214,11 @@ static int iop_jpack_file_recursive(const char *filename,
     return res;
 }
 
-static int init_jpack_sub_files(const iop_env_ctx_t *iop_env_ctx,
-                                const iop_struct_t *st, const void *value,
-                                const qv_t(iop_json_subfile) *subfiles,
-                                jpack_file_ctx_t *ctx, sb_t *err)
+static int init_jpack_sub_files(
+    const iop_env_ctx_t *iop_env_ctx, const iop_struct_t *st,
+    const void *value, const qv_t(iop_json_subfile) *subfiles,
+    jpack_file_ctx_t *ctx, sb_t *err
+)
 {
     qm_init(iop_jpack_subfile_paths, &ctx->subfiles_paths);
     qm_init(iop_jpack_subfile_value, &ctx->subfiles_values);
@@ -3007,12 +3229,15 @@ static int init_jpack_sub_files(const iop_env_ctx_t *iop_env_ctx,
         uint32_t pos;
         qm_t(iop_jpack_paths) *paths;
 
-        fdesc = iop_get_field_const(iop_env_ctx, value, st, subfile->iop_path,
-                                    &ptr, NULL);
+        fdesc = iop_get_field_const(
+            iop_env_ctx, value, st, subfile->iop_path, &ptr, NULL
+        );
         if (!fdesc) {
             if (err) {
-                sb_addf(err, "cannot get iop field with path `%*pM`",
-                        LSTR_FMT_ARG(subfile->iop_path));
+                sb_addf(
+                    err, "cannot get iop field with path `%*pM`",
+                    LSTR_FMT_ARG(subfile->iop_path)
+                );
             }
             return -1;
         }
@@ -3027,8 +3252,8 @@ static int init_jpack_sub_files(const iop_env_ctx_t *iop_env_ctx,
          * path along with the pointer.
          */
 
-        pos = qm_reserve(iop_jpack_subfile_paths, &ctx->subfiles_paths, ptr,
-                         0);
+        pos =
+            qm_reserve(iop_jpack_subfile_paths, &ctx->subfiles_paths, ptr, 0);
         if (pos & QHASH_COLLISION) {
             paths = &ctx->subfiles_paths.values[pos ^ QHASH_COLLISION];
         } else {
@@ -3036,15 +3261,19 @@ static int init_jpack_sub_files(const iop_env_ctx_t *iop_env_ctx,
             qm_init(iop_jpack_paths, paths);
         }
 
-        pos = qm_put(iop_jpack_paths, paths, &subfile->iop_path,
-                     subfile->file_path, 0);
+        pos = qm_put(
+            iop_jpack_paths, paths, &subfile->iop_path, subfile->file_path, 0
+        );
         if (pos & QHASH_COLLISION) {
             if (err) {
-                sb_setf(err, "duplicated file paths (`%*pM`, `%*pM`) for iop "
-                        "path `%*pM`",
-                        LSTR_FMT_ARG(paths->values[pos ^ QHASH_COLLISION]),
-                        LSTR_FMT_ARG(subfile->file_path),
-                        LSTR_FMT_ARG(subfile->iop_path));
+                sb_setf(
+                    err,
+                    "duplicated file paths (`%*pM`, `%*pM`) for iop "
+                    "path `%*pM`",
+                    LSTR_FMT_ARG(paths->values[pos ^ QHASH_COLLISION]),
+                    LSTR_FMT_ARG(subfile->file_path),
+                    LSTR_FMT_ARG(subfile->iop_path)
+                );
             }
             return -1;
         }
@@ -3053,25 +3282,27 @@ static int init_jpack_sub_files(const iop_env_ctx_t *iop_env_ctx,
     return 0;
 }
 
-int __iop_jpack_file(const iop_env_ctx_t *iop_env_ctx, const char *filename,
-                     unsigned file_flags, mode_t file_mode,
-                     const iop_struct_t *st, const void *value,
-                     unsigned flags, const qv_t(iop_json_subfile) *subfiles,
-                     sb_t *err)
+int __iop_jpack_file(
+    const iop_env_ctx_t *iop_env_ctx, const char *filename,
+    unsigned file_flags, mode_t file_mode, const iop_struct_t *st,
+    const void *value, unsigned flags, const qv_t(iop_json_subfile) *subfiles,
+    sb_t *err
+)
 {
     int res;
     jpack_file_ctx_t ctx = {
-        .err        = err,
+        .err = err,
         .file_flags = file_flags,
-        .file_mode  = file_mode,
+        .file_mode = file_mode,
     };
 
     if (subfiles && subfiles->len) {
         char path[PATH_MAX];
 
         ctx.has_sub_files = true;
-        RETHROW(init_jpack_sub_files(iop_env_ctx, st, value, subfiles, &ctx,
-                                     err));
+        RETHROW(
+            init_jpack_sub_files(iop_env_ctx, st, value, subfiles, &ctx, err)
+        );
         path_expand(path, sizeof(path), filename);
         path_dirname(ctx.file_dir, sizeof(ctx.file_dir), path);
     }
@@ -3096,15 +3327,17 @@ int __iop_jpack_file(const iop_env_ctx_t *iop_env_ctx, const char *filename,
     }
 
     if (ctx.has_sub_files) {
-        qm_deep_wipe(iop_jpack_subfile_value, &ctx.subfiles_values, lstr_wipe,
-                     IGNORE);
-#define wipe(_qm)  qm_wipe(iop_jpack_paths, (_qm))
-        qm_deep_wipe(iop_jpack_subfile_paths, &ctx.subfiles_paths, IGNORE,
-                     wipe);
+        qm_deep_wipe(
+            iop_jpack_subfile_value, &ctx.subfiles_values, lstr_wipe, IGNORE
+        );
+#define wipe(_qm) qm_wipe(iop_jpack_paths, (_qm))
+        qm_deep_wipe(
+            iop_jpack_subfile_paths, &ctx.subfiles_paths, IGNORE, wipe
+        );
 #undef wipe
-     }
+    }
 
-    qv_deep_wipe(&ctx.created_subdirs,  p_delete);
+    qv_deep_wipe(&ctx.created_subdirs, p_delete);
     qv_wipe(&ctx.field_paths);
     return res;
 }
@@ -3125,20 +3358,23 @@ static int iop_jtrace_write(void *_b, const void *buf, int len)
 {
     struct jtrace *jt = _b;
 
-    e_trace_put_(jt->lvl, jt->fname, jt->lno, jt->func, jt->name,
-                 "%*pM", len, buf);
+    e_trace_put_(
+        jt->lvl, jt->fname, jt->lno, jt->func, jt->name, "%*pM", len, buf
+    );
     return len;
 }
 
-void iop_jtrace_(int lvl, lstr_t fname, int lno, lstr_t func,
-                 lstr_t name, const iop_struct_t *st, const void *v)
+void iop_jtrace_(
+    int lvl, lstr_t fname, int lno, lstr_t func, lstr_t name,
+    const iop_struct_t *st, const void *v
+)
 {
     struct jtrace jt = {
-        .lvl   = lvl,
-        .lno   = lno,
+        .lvl = lvl,
+        .lno = lno,
         .fname = fname,
-        .func  = func,
-        .name  = name,
+        .func = func,
+        .name = name,
     };
     iop_jpack(st, v, iop_jtrace_write, &jt, 0);
     e_trace_put_(lvl, fname, lno, func, name, "\n");
@@ -3157,7 +3393,7 @@ static int iop_file_write(void *file, const void *buf, int len)
 }
 
 typedef struct iop_formatter_t {
-    char  *buf;
+    char *buf;
     size_t buf_len;
 } iop_formatter_t;
 
@@ -3174,9 +3410,10 @@ static int iop_formatter_write(void *out, const void *buf, int len)
     return len;
 }
 
-static ssize_t
-iop_struct_format(const iop_struct_t *st, const void *val, size_t flags,
-                  FILE *stream, char *buf, size_t buf_len)
+static ssize_t iop_struct_format(
+    const iop_struct_t *st, const void *val, size_t flags, FILE *stream,
+    char *buf, size_t buf_len
+)
 {
     if (!st) {
         /* The struct is an IOP class. */
@@ -3195,17 +3432,17 @@ iop_struct_format(const iop_struct_t *st, const void *val, size_t flags,
     }
 }
 
-static ssize_t
-iop_struct_formatter(int modifier, const void *_sv, size_t flags,
-                     FILE *stream, char *buf, size_t buf_len)
+static ssize_t iop_struct_formatter(
+    int modifier, const void *_sv, size_t flags, FILE *stream, char *buf,
+    size_t buf_len
+)
 {
     const struct iop_struct_value *sv = _sv;
 
     return iop_struct_format(sv->st, sv->val, flags, stream, buf, buf_len);
 }
 
-__attribute__((constructor))
-static void iop_struct_formatter_register(void)
+__attribute__((constructor)) static void iop_struct_formatter_register(void)
 {
     iprintf_register_formatter('S', &iop_struct_formatter);
 }
@@ -3213,8 +3450,9 @@ static void iop_struct_formatter_register(void)
 /* }}} */
 /* {{{ Check IOP json examples */
 
-static int iop_check_struct_example(const iop_env_ctx_t *iop_env_ctx,
-                                    const iop_struct_t *st, sb_t *err)
+static int iop_check_struct_example(
+    const iop_env_ctx_t *iop_env_ctx, const iop_struct_t *st, sb_t *err
+)
 {
     unsigned flags = st->flags;
 
@@ -3240,11 +3478,14 @@ static int iop_check_struct_example(const iop_env_ctx_t *iop_env_ctx,
         }
 
         example = ps_initlstr(&help->example);
-        if (t_iop_junpack_ptr_ps(iop_env_ctx, &example, st, &obj, 0,
-                                 &json_err) < 0)
+        if (t_iop_junpack_ptr_ps(
+                iop_env_ctx, &example, st, &obj, 0, &json_err
+            ) < 0)
         {
-            sb_addf(err, "invalid example for `%*pM`: %*pM",
-                    LSTR_FMT_ARG(st->fullname), SB_FMT_ARG(&json_err));
+            sb_addf(
+                err, "invalid example for `%*pM`: %*pM",
+                LSTR_FMT_ARG(st->fullname), SB_FMT_ARG(&json_err)
+            );
             return -1;
         }
     }
@@ -3252,13 +3493,11 @@ static int iop_check_struct_example(const iop_env_ctx_t *iop_env_ctx,
     return 0;
 }
 
-static int iop_check_rpc_example(const iop_env_ctx_t *iop_env_ctx,
-                                 const iop_iface_t *iface,
-                                 const iop_rpc_t *rpc,
-                                 lstr_t example,
-                                 const char *what,
-                                 const iop_struct_t *nullable st,
-                                 sb_t *err)
+static int iop_check_rpc_example(
+    const iop_env_ctx_t *iop_env_ctx, const iop_iface_t *iface,
+    const iop_rpc_t *rpc, lstr_t example, const char *what,
+    const iop_struct_t *nullable st, sb_t *err
+)
 {
     t_scope;
     SB_1k(json_err);
@@ -3266,29 +3505,34 @@ static int iop_check_rpc_example(const iop_env_ctx_t *iop_env_ctx,
     void *obj = NULL;
 
     if (!expect(st)) {
-        sb_addf(err, "example is set for %s of RPC `%*pM.%*pM` "
-                "but type does not exist",
-                what, LSTR_FMT_ARG(iface->fullname),
-                LSTR_FMT_ARG(rpc->name));
+        sb_addf(
+            err,
+            "example is set for %s of RPC `%*pM.%*pM` "
+            "but type does not exist",
+            what, LSTR_FMT_ARG(iface->fullname), LSTR_FMT_ARG(rpc->name)
+        );
         return -1;
     }
 
-    if (t_iop_junpack_ptr_ps(iop_env_ctx, &example_ps, st, &obj, 0,
-                             &json_err) < 0)
+    if (t_iop_junpack_ptr_ps(
+            iop_env_ctx, &example_ps, st, &obj, 0, &json_err
+        ) < 0)
     {
-        sb_addf(err, "invalid example for %s of RPC `%*pM.%*pM`: %*pM",
-                what, LSTR_FMT_ARG(iface->fullname), LSTR_FMT_ARG(rpc->name),
-                SB_FMT_ARG(&json_err));
+        sb_addf(
+            err, "invalid example for %s of RPC `%*pM.%*pM`: %*pM", what,
+            LSTR_FMT_ARG(iface->fullname), LSTR_FMT_ARG(rpc->name),
+            SB_FMT_ARG(&json_err)
+        );
         return -1;
     }
 
     return 0;
 }
 
-static int iop_check_rpc_examples(const iop_env_ctx_t *iop_env_ctx,
-                                  const iop_iface_t *iface,
-                                  const iop_rpc_t *rpc,
-                                  sb_t *err)
+static int iop_check_rpc_examples(
+    const iop_env_ctx_t *iop_env_ctx, const iop_iface_t *iface,
+    const iop_rpc_t *rpc, sb_t *err
+)
 {
     const iop_rpc_attrs_t *attrs;
 
@@ -3335,16 +3579,18 @@ static int iop_check_rpc_examples(const iop_env_ctx_t *iop_env_ctx,
 
         help = attr->args[0].v.p;
         if (what && help->example.len) {
-            RETHROW(iop_check_rpc_example(iop_env_ctx, iface, rpc,
-                                          help->example, what, st, err));
+            RETHROW(iop_check_rpc_example(
+                iop_env_ctx, iface, rpc, help->example, what, st, err
+            ));
         }
     }
 
     return 0;
 }
 
-int iop_check_package_examples(const iop_env_ctx_t *iop_env_ctx,
-                               const iop_pkg_t *pkg, sb_t *err)
+int iop_check_package_examples(
+    const iop_env_ctx_t *iop_env_ctx, const iop_pkg_t *pkg, sb_t *err
+)
 {
     /* Check struct/classes examples. */
     for (const iop_struct_t *const *it = pkg->structs; *it; it++) {

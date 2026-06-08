@@ -37,10 +37,10 @@ static struct {
     logger_t logger;
     unsigned http2_conn_count;
     unsigned httpc_query_count;
-    int      ssl_keylog_fd;
-    char    *ssl_keylog_file_path;
+    int ssl_keylog_fd;
+    char *ssl_keylog_file_path;
 } http_g = {
-#define _G  http_g
+#define _G http_g
     .logger = LOGGER_INIT_INHERITS(NULL, "http"),
     .ssl_keylog_fd = -1,
     .ssl_keylog_file_path = NULL,
@@ -57,30 +57,34 @@ static struct {
  */
 
 enum http_parse_code {
-    PARSE_MISSING_DATA =  1,
-    PARSE_OK           =  0,
-    PARSE_ERROR        = -1,
+    PARSE_MISSING_DATA = 1,
+    PARSE_OK = 0,
+    PARSE_ERROR = -1,
 };
 
 struct http_date {
     time_t date;
-    char   buf[sizeof("Date: Sun, 06 Nov 1994 08:49:37 GMT\r\n")];
+    char buf[sizeof("Date: Sun, 06 Nov 1994 08:49:37 GMT\r\n")];
 };
 static __thread struct http_date date_cache_g;
 
 /* "()<>@,;:\<>/[]?={} \t" + 1..31 + DEL  */
-static ctype_desc_t const http_non_token = {
-    {
-        0xffffffff, 0xfc009301, 0x38000001, 0xa8000000,
-        0x00000000, 0x00000000, 0x00000000, 0x00000000,
-    }
-};
+static ctype_desc_t const http_non_token = {{
+    0xffffffff,
+    0xfc009301,
+    0x38000001,
+    0xa8000000,
+    0x00000000,
+    0x00000000,
+    0x00000000,
+    0x00000000,
+}};
 
 static void httpd_mark_query_answered(httpd_query_t *q);
 
 static void httpd_trigger_destroy(httpd_trigger_t *cb, unsigned delta)
 {
-    assert (cb->refcnt >= delta);
+    assert(cb->refcnt >= delta);
 
     cb->refcnt -= delta;
     if (cb->refcnt == 0) {
@@ -119,69 +123,72 @@ void httpd_trigger_loose(httpd_trigger_t *cb)
 
 /* zlib helpers {{{ */
 
-#define HTTP_ZLIB_BUFSIZ   (64 << 10)
+#define HTTP_ZLIB_BUFSIZ (64 << 10)
 
 static void http_zlib_stream_reset(z_stream *s)
 {
-    s->next_in  = s->next_out  = NULL;
+    s->next_in = s->next_out = NULL;
     s->avail_in = s->avail_out = 0;
 }
 
-#define http_zlib_inflate_init(w) \
-    ({  typeof(*(w)) *_w = (w);                                   \
-                                                                  \
-        if (_w->zs.state == NULL) {                               \
-            if (inflateInit2(&_w->zs, MAX_WBITS + 32) != Z_OK)    \
-                logger_panic(&_G.logger, "zlib error");           \
-        }                                                         \
-        http_zlib_stream_reset(&_w->zs);                          \
-        _w->compressed = true;                                    \
+#define http_zlib_inflate_init(w)                                            \
+    ({                                                                       \
+        typeof(*(w)) *_w = (w);                                              \
+                                                                             \
+        if (_w->zs.state == NULL) {                                          \
+            if (inflateInit2(&_w->zs, MAX_WBITS + 32) != Z_OK)               \
+                logger_panic(&_G.logger, "zlib error");                      \
+        }                                                                    \
+        http_zlib_stream_reset(&_w->zs);                                     \
+        _w->compressed = true;                                               \
     })
 
-#define http_zlib_reset(w) \
-    ({  typeof(*(w)) *_w = (w);                                   \
-                                                                  \
-        if (_w->compressed) {                                     \
-            http_zlib_stream_reset(&_w->zs);                      \
-            inflateReset(&_w->zs);                                \
-            _w->compressed = false;                               \
-        }                                                         \
+#define http_zlib_reset(w)                                                   \
+    ({                                                                       \
+        typeof(*(w)) *_w = (w);                                              \
+                                                                             \
+        if (_w->compressed) {                                                \
+            http_zlib_stream_reset(&_w->zs);                                 \
+            inflateReset(&_w->zs);                                           \
+            _w->compressed = false;                                          \
+        }                                                                    \
     })
 
-#define http_zlib_wipe(w) \
-    ({  typeof(*(w)) *_w = (w);                            \
-                                                           \
-        if (_w->zs.state)                                  \
-            inflateEnd(&_w->zs);                           \
-        _w->compressed = false;                            \
+#define http_zlib_wipe(w)                                                    \
+    ({                                                                       \
+        typeof(*(w)) *_w = (w);                                              \
+                                                                             \
+        if (_w->zs.state)                                                    \
+            inflateEnd(&_w->zs);                                             \
+        _w->compressed = false;                                              \
     })
 
-static int http_zlib_inflate(z_stream *s, int *clen,
-                             sb_t *out, pstream_t *in, int flush)
+static int
+http_zlib_inflate(z_stream *s, int *clen, sb_t *out, pstream_t *in, int flush)
 {
     int rc;
 
-    s->next_in   = (Bytef *)in->s;
-    s->avail_in  = ps_len(in);
+    s->next_in = (Bytef *)in->s;
+    s->avail_in = ps_len(in);
 
     for (;;) {
         size_t sz = MAX(HTTP_ZLIB_BUFSIZ, s->avail_in * 4);
 
-        s->next_out  = (Bytef *)sb_grow(out, sz);
+        s->next_out = (Bytef *)sb_grow(out, sz);
         s->avail_out = sb_avail(out);
 
         rc = inflate(s, flush ? Z_FINISH : Z_SYNC_FLUSH);
         switch (rc) {
-          case Z_BUF_ERROR:
-          case Z_OK:
-          case Z_STREAM_END:
+        case Z_BUF_ERROR:
+        case Z_OK:
+        case Z_STREAM_END:
             __sb_fixlen(out, (char *)s->next_out - out->data);
             if (*clen >= 0) {
                 *clen -= (char *)s->next_in - in->s;
             }
             __ps_skip_upto(in, s->next_in);
             break;
-          default:
+        default:
             return rc;
         }
 
@@ -204,22 +211,24 @@ static int http_zlib_inflate(z_stream *s, int *clen,
 /* }}} */
 /* RFC 2616 helpers {{{ */
 
-#define PARSE_RETHROW(e)  ({                                                 \
-            int __e = (e);                                                   \
-            if (unlikely(__e)) {                                             \
-                return __e;                                                  \
-            }                                                                \
-        })
+#define PARSE_RETHROW(e)                                                     \
+    ({                                                                       \
+        int __e = (e);                                                       \
+        if (unlikely(__e)) {                                                 \
+            return __e;                                                      \
+        }                                                                    \
+    })
 
 static inline void http_skipspaces(pstream_t *ps)
 {
-    while (ps->s < ps->s_end && (ps->s[0] == ' ' || ps->s[0] == '\t'))
+    while (ps->s < ps->s_end && (ps->s[0] == ' ' || ps->s[0] == '\t')) {
         ps->s++;
+    }
 }
 
 /* rfc 2616, §2.2: Basic rules */
-static inline int http_getline(pstream_t *ps, unsigned max_len,
-                               pstream_t *out)
+static inline int
+http_getline(pstream_t *ps, unsigned max_len, pstream_t *out)
 {
     const char *p = memmem(ps->s, ps_len(ps), "\r\n", 2);
 
@@ -235,10 +244,10 @@ static inline int http_getline(pstream_t *ps, unsigned max_len,
 }
 
 /* rfc 2616, §3.3.1: Full Date */
-static char const * const days[7] = {
+static char const *const days[7] = {
     "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat",
 };
-static char const * const months[12] = {
+static char const *const months[12] = {
     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 };
@@ -249,9 +258,11 @@ static inline void http_update_date_cache(struct http_date *out, time_t now)
         struct tm tm;
 
         gmtime_r(&now, &tm);
-        sprintf(out->buf, "Date: %s, %02d %s %04d %02d:%02d:%02d GMT\r\n",
-                days[tm.tm_wday], tm.tm_mday, months[tm.tm_mon],
-                tm.tm_year + 1900, tm.tm_hour, tm.tm_min, tm.tm_sec);
+        sprintf(
+            out->buf, "Date: %s, %02d %s %04d %02d:%02d:%02d GMT\r\n",
+            days[tm.tm_wday], tm.tm_mday, months[tm.tm_mon],
+            tm.tm_year + 1900, tm.tm_hour, tm.tm_min, tm.tm_sec
+        );
     }
 }
 
@@ -260,9 +271,11 @@ void httpd_put_date_hdr(outbuf_t *ob, const char *hdr, time_t now)
     struct tm tm;
 
     gmtime_r(&now, &tm);
-    ob_addf(ob, "%s: %s, %02d %s %04d %02d:%02d:%02d GMT\r\n",
-            hdr, days[tm.tm_wday], tm.tm_mday, months[tm.tm_mon],
-            tm.tm_year + 1900, tm.tm_hour, tm.tm_min, tm.tm_sec);
+    ob_addf(
+        ob, "%s: %s, %02d %s %04d %02d:%02d:%02d GMT\r\n", hdr,
+        days[tm.tm_wday], tm.tm_mday, months[tm.tm_mon], tm.tm_year + 1900,
+        tm.tm_hour, tm.tm_min, tm.tm_sec
+    );
 }
 
 /* rfc 2616: §4.2: Message Headers */
@@ -303,8 +316,8 @@ static bool http_hdr_contains(pstream_t ps, const char *v)
 
 static int t_urldecode(httpd_qinfo_t *rq, pstream_t ps)
 {
-    char *buf  = t_new_raw(char, ps_len(&ps) + 1);
-    char *p    = buf;
+    char *buf = t_new_raw(char, ps_len(&ps) + 1);
+    char *p = buf;
 
     rq->vars = ps_initptr(NULL, NULL);
 
@@ -313,8 +326,7 @@ static int t_urldecode(httpd_qinfo_t *rq, pstream_t ps)
 
         if (c == '+') {
             c = ' ';
-        } else
-        if (c == '%') {
+        } else if (c == '%') {
             c = RETHROW(ps_hexdecode(&ps));
         }
         if (c == '?') {
@@ -328,7 +340,7 @@ static int t_urldecode(httpd_qinfo_t *rq, pstream_t ps)
 
     path_simplify2(buf, true);
     rq->prefix = ps_initptr(NULL, NULL);
-    rq->query  = ps_initstr(buf);
+    rq->query = ps_initstr(buf);
     return 0;
 }
 
@@ -340,8 +352,8 @@ static int ps_get_ver(pstream_t *ps)
     return i;
 }
 
-static int t_http_parse_request_line(pstream_t *ps, unsigned max_len,
-                                     httpd_qinfo_t *req)
+static int
+t_http_parse_request_line(pstream_t *ps, unsigned max_len, httpd_qinfo_t *req)
 {
     pstream_t line, method, uri;
 
@@ -353,7 +365,10 @@ static int t_http_parse_request_line(pstream_t *ps, unsigned max_len,
     __ps_skip(&line, 1);
 
     switch (http_get_token_ps(method)) {
-#define CASE(c)  case HTTP_TK_##c: req->method = HTTP_METHOD_##c; break
+#define CASE(c)                                                              \
+    case HTTP_TK_##c:                                                        \
+        req->method = HTTP_METHOD_##c;                                       \
+        break
         CASE(CONNECT);
         CASE(DELETE);
         CASE(GET);
@@ -363,10 +378,10 @@ static int t_http_parse_request_line(pstream_t *ps, unsigned max_len,
         CASE(PUT);
         CASE(TRACE);
         CASE(PATCH);
-      default:
+    default:
         req->method = HTTP_METHOD_ERROR;
         return PARSE_ERROR;
-#undef  CASE
+#undef CASE
     }
 
     uri = ps_initptr(NULL, NULL);
@@ -387,7 +402,7 @@ static int t_http_parse_request_line(pstream_t *ps, unsigned max_len,
     if (ps_len(&line) == 0 || !isdigit(line.b[0])) {
         return PARSE_ERROR;
     }
-    req->http_version  = RETHROW(ps_get_ver(&line)) << 8;
+    req->http_version = RETHROW(ps_get_ver(&line)) << 8;
     if (ps_getc(&line) != '.' || ps_len(&line) == 0 || !isdigit(line.b[0])) {
         return PARSE_ERROR;
     }
@@ -410,7 +425,7 @@ http_parse_status_line(pstream_t *ps, unsigned max_len, httpc_qinfo_t *qi)
     if (ps_len(&line) == 0 || !isdigit(line.b[0])) {
         return PARSE_ERROR;
     }
-    qi->http_version  = RETHROW(ps_get_ver(&line)) << 8;
+    qi->http_version = RETHROW(ps_get_ver(&line)) << 8;
     if (ps_getc(&line) != '.' || ps_len(&line) == 0 || !isdigit(line.b[0])) {
         return PARSE_ERROR;
     }
@@ -436,7 +451,7 @@ static void http_chunk_patch(outbuf_t *ob, char *buf, unsigned len)
 {
     if (len == 0) {
         sb_shrink(&ob->sb, 12);
-        ob->length      -= 12;
+        ob->length -= 12;
         ob->sb_trailing -= 12;
     } else {
         buf[0] = '\r';
@@ -446,15 +461,15 @@ static void http_chunk_patch(outbuf_t *ob, char *buf, unsigned len)
         buf[4] = __str_digits_lower[(len >> 20) & 0xf];
         buf[5] = __str_digits_lower[(len >> 16) & 0xf];
         buf[6] = __str_digits_lower[(len >> 12) & 0xf];
-        buf[7] = __str_digits_lower[(len >>  8) & 0xf];
-        buf[8] = __str_digits_lower[(len >>  4) & 0xf];
-        buf[9] = __str_digits_lower[(len >>  0) & 0xf];
+        buf[7] = __str_digits_lower[(len >> 8) & 0xf];
+        buf[8] = __str_digits_lower[(len >> 4) & 0xf];
+        buf[9] = __str_digits_lower[(len >> 0) & 0xf];
         buf[10] = '\r';
         buf[11] = '\n';
     }
 }
 
-#define CLENGTH_RESERVE  12
+#define CLENGTH_RESERVE 12
 
 static void
 http_clength_patch(outbuf_t *ob, char s[static CLENGTH_RESERVE], unsigned len)
@@ -471,7 +486,7 @@ ALWAYS_INLINE static int ssl_add_verify_file(SSL_CTX *ctx, lstr_t path)
     return SSL_CTX_load_verify_locations(ctx, path.s, NULL) == 1 ? 0 : -1;
 }
 
-#if OPENSSL_VERSION_IS(>,1,1,0)
+#if OPENSSL_VERSION_IS(>, 1, 1, 0)
 
 static int ssl_open_keylog_file(void)
 {
@@ -480,9 +495,10 @@ static int ssl_open_keylog_file(void)
     }
 
     /* Give read and write permission for user only. */
-    _G.ssl_keylog_fd = open(_G.ssl_keylog_file_path,
-                            O_CREAT | O_WRONLY | O_APPEND,
-                            S_IRUSR | S_IWUSR);
+    _G.ssl_keylog_fd = open(
+        _G.ssl_keylog_file_path, O_CREAT | O_WRONLY | O_APPEND,
+        S_IRUSR | S_IWUSR
+    );
 
     if (_G.ssl_keylog_fd < 0) {
         return -1;
@@ -501,15 +517,19 @@ static void ssl_keylog_cb(const SSL *ssl, const char *line)
     assert(_G.ssl_keylog_file_path);
 
     if (ssl_open_keylog_file() < 0) {
-        logger_trace(&_G.logger, 1, "error when trying to open file from "
-                     "env var 'SSLKEYLOGFILE' value '%s': %m",
-                     _G.ssl_keylog_file_path);
+        logger_trace(
+            &_G.logger, 1,
+            "error when trying to open file from "
+            "env var 'SSLKEYLOGFILE' value '%s': %m",
+            _G.ssl_keylog_file_path
+        );
         return;
     }
 
     if (flock(_G.ssl_keylog_fd, LOCK_EX) < 0) {
-        logger_trace(&_G.logger, 1, "error when locking SSL key log file: "
-                     " `%m`");
+        logger_trace(
+            &_G.logger, 1, "error when locking SSL key log file:  `%m`"
+        );
         return;
     }
 
@@ -529,9 +549,12 @@ static void set_ssl_keylog_cb(SSL_CTX *ssl_ctx)
     }
 
     if (ssl_open_keylog_file() < 0) {
-        logger_error(&_G.logger, "error when trying to open file from "
-                     "env var 'SSLKEYLOGFILE' value '%s': %m",
-                     _G.ssl_keylog_file_path);
+        logger_error(
+            &_G.logger,
+            "error when trying to open file from "
+            "env var 'SSLKEYLOGFILE' value '%s': %m",
+            _G.ssl_keylog_file_path
+        );
         return;
     }
 
@@ -543,8 +566,10 @@ static void set_ssl_keylog_cb(SSL_CTX *ssl_ctx)
 static void close_ssl_keylog_file(void)
 {
     if (p_close(&_G.ssl_keylog_fd) < 0) {
-        logger_error(&_G.logger, "error when closing file `%s`: `%m`",
-                     _G.ssl_keylog_file_path);
+        logger_error(
+            &_G.logger, "error when closing file `%s`: `%m`",
+            _G.ssl_keylog_file_path
+        );
     }
 }
 
@@ -573,29 +598,29 @@ httpd_qinfo_t *httpd_qinfo_dup(const httpd_qinfo_t *info)
     len += ps_len(&info->vars);
     len += ps_len(&info->hdrs_ps);
 
-    res  = p_new_extra(httpd_qinfo_t, len);
+    res = p_new_extra(httpd_qinfo_t, len);
     memcpy(res, info, offsetof(httpd_qinfo_t, host));
-    res->hdrs          = (void *)&res[1];
-    p                  = res->hdrs + res->hdrs_len;
-    res->host.s        = p;
-    res->host.s_end    = p = mempcpy(p, info->host.s, ps_len(&info->host));
-    res->prefix.s      = p;
-    res->prefix.s_end  = p = mempcpy(p, info->prefix.s, ps_len(&info->prefix));
-    res->query.s       = p;
-    res->query.s_end   = p = mempcpy(p, info->query.s, ps_len(&info->query));
-    res->vars.s        = p;
-    res->vars.s_end    = p = mempcpy(p, info->vars.s, ps_len(&info->vars));
-    res->hdrs_ps.s     = p;
+    res->hdrs = (void *)&res[1];
+    p = res->hdrs + res->hdrs_len;
+    res->host.s = p;
+    res->host.s_end = p = mempcpy(p, info->host.s, ps_len(&info->host));
+    res->prefix.s = p;
+    res->prefix.s_end = p = mempcpy(p, info->prefix.s, ps_len(&info->prefix));
+    res->query.s = p;
+    res->query.s_end = p = mempcpy(p, info->query.s, ps_len(&info->query));
+    res->vars.s = p;
+    res->vars.s_end = p = mempcpy(p, info->vars.s, ps_len(&info->vars));
+    res->hdrs_ps.s = p;
     res->hdrs_ps.s_end = mempcpy(p, info->hdrs_ps.s, ps_len(&info->hdrs_ps));
 
     offs = res->hdrs_ps.s - info->hdrs_ps.s;
     for (int i = 0; i < res->hdrs_len; i++) {
-        http_qhdr_t       *lhs = &res->hdrs[i];
+        http_qhdr_t *lhs = &res->hdrs[i];
         const http_qhdr_t *rhs = &info->hdrs[i];
 
         lhs->wkhdr = rhs->wkhdr;
-        lhs->key   = ps_initptr(rhs->key.s + offs, rhs->key.s_end + offs);
-        lhs->val   = ps_initptr(rhs->val.s + offs, rhs->val.s_end + offs);
+        lhs->key = ps_initptr(rhs->key.s + offs, rhs->key.s_end + offs);
+        lhs->val = ps_initptr(rhs->val.s + offs, rhs->val.s_end + offs);
     }
     return res;
 }
@@ -670,9 +695,10 @@ static void httpd_query_on_data_bufferize(httpd_query_t *q, pstream_t ps)
     size_t plen = ps_len(&ps);
 
     if (unlikely(plen + q->payload.len > q->payload_max_size)) {
-        httpd_reject(q, REQUEST_ENTITY_TOO_LARGE,
-                     "payload is larger than %d octets",
-                     q->payload_max_size);
+        httpd_reject(
+            q, REQUEST_ENTITY_TOO_LARGE, "payload is larger than %d octets",
+            q->payload_max_size
+        );
         return;
     }
     sb_add(&q->payload, ps.s, plen);
@@ -683,17 +709,19 @@ void httpd_bufferize(httpd_query_t *q, unsigned maxsize)
     const httpd_qinfo_t *inf = q->qinfo;
 
     q->payload_max_size = maxsize;
-    q->on_data          = &httpd_query_on_data_bufferize;
+    q->on_data = &httpd_query_on_data_bufferize;
     if (!inf) {
         return;
     }
-    for (int i = inf->hdrs_len; i-- > 0; ) {
+    for (int i = inf->hdrs_len; i-- > 0;) {
         if (inf->hdrs[i].wkhdr == HTTP_WKHDR_CONTENT_LENGTH) {
             uint64_t len = strtoull(inf->hdrs[i].val.s, NULL, 0);
 
             if (unlikely(len > maxsize)) {
-                httpd_reject(q, REQUEST_ENTITY_TOO_LARGE,
-                             "payload is larger than %d octets", maxsize);
+                httpd_reject(
+                    q, REQUEST_ENTITY_TOO_LARGE,
+                    "payload is larger than %d octets", maxsize
+                );
             } else {
                 sb_grow(&q->payload, len);
             }
@@ -702,26 +730,27 @@ void httpd_bufferize(httpd_query_t *q, unsigned maxsize)
     }
 }
 
-OBJ_VTABLE(httpd_query)
-    httpd_query.init     = httpd_query_init;
-    httpd_query.wipe     = httpd_query_wipe;
-OBJ_VTABLE_END()
-
+OBJ_VTABLE(httpd_query) {
+    cls->init = httpd_query_init;
+    cls->wipe = httpd_query_wipe;
+}
 
 /*---- low level httpd_query reply functions ----*/
 
-outbuf_t *httpd_reply_hdrs_start(httpd_query_t *q, int code,
-                                 bool force_uncacheable)
+outbuf_t *
+httpd_reply_hdrs_start(httpd_query_t *q, int code, bool force_uncacheable)
 {
     outbuf_t *ob = httpd_get_ob(q);
 
     http_update_date_cache(&date_cache_g, lp_getsec());
 
-    assert (!q->hdrs_started && !q->hdrs_done);
+    assert(!q->hdrs_started && !q->hdrs_done);
 
     q->answer_code = code;
-    ob_addf(ob, "HTTP/1.%d %d %*pM\r\n", HTTP_MINOR(q->http_version),
-            code, LSTR_FMT_ARG(http_code_to_str(code)));
+    ob_addf(
+        ob, "HTTP/1.%d %d %*pM\r\n", HTTP_MINOR(q->http_version), code,
+        LSTR_FMT_ARG(http_code_to_str(code))
+    );
     ob_add(ob, date_cache_g.buf, sizeof(date_cache_g.buf) - 1);
     ob_adds(ob, "Accept-Encoding: identity, gzip, deflate\r\n");
 
@@ -735,9 +764,10 @@ outbuf_t *httpd_reply_hdrs_start(httpd_query_t *q, int code,
         }
     }
     if (force_uncacheable) {
-        ob_adds(ob,
-                "Cache-Control: no-store, no-cache, must-revalidate\r\n"
-                "Pragma: no-cache\r\n");
+        ob_adds(
+            ob, "Cache-Control: no-store, no-cache, must-revalidate\r\n"
+                "Pragma: no-cache\r\n"
+        );
     }
     q->hdrs_started = true;
     return ob;
@@ -747,18 +777,18 @@ void httpd_reply_hdrs_done(httpd_query_t *q, int clen, bool chunked)
 {
     outbuf_t *ob = httpd_get_ob(q);
 
-    assert (!q->hdrs_done);
+    assert(!q->hdrs_done);
     q->hdrs_done = true;
 
-    if (q->answer_code == HTTP_CODE_NO_CONTENT || (q->answer_code >= 100 &&
-                                                   q->answer_code < 199))
+    if (q->answer_code == HTTP_CODE_NO_CONTENT ||
+        (q->answer_code >= 100 && q->answer_code < 199))
     {
         /* rfc 7230: §3.3.2
          * A server MUST NOT send a Content-Length header field in any
          * response with a status code of 1xx (Informational) or 204 (No
          * Content).
          */
-        assert (clen <= 0);
+        assert(clen <= 0);
         ob_adds(ob, "\r\n");
         return;
     }
@@ -791,7 +821,7 @@ void httpd_reply_hdrs_done(httpd_query_t *q, int clen, bool chunked)
     } else {
         q->clength_hack = true;
         ob_adds(ob, "Content-Length: ");
-        q->chunk_hdr_offs    = ob_reserve(ob, CLENGTH_RESERVE);
+        q->chunk_hdr_offs = ob_reserve(ob, CLENGTH_RESERVE);
         ob_adds(ob, "\r\n");
         q->chunk_prev_length = ob->length;
     }
@@ -799,31 +829,36 @@ void httpd_reply_hdrs_done(httpd_query_t *q, int clen, bool chunked)
 
 void httpd_reply_chunk_done_(httpd_query_t *q, outbuf_t *ob)
 {
-    assert (q->chunk_started);
+    assert(q->chunk_started);
     q->chunk_started = false;
-    http_chunk_patch(ob, ob->sb.data + q->chunk_hdr_offs,
-                     ob->length - q->chunk_prev_length);
+    http_chunk_patch(
+        ob, ob->sb.data + q->chunk_hdr_offs, ob->length - q->chunk_prev_length
+    );
 }
 
-
-__attribute__((format(printf, 4, 0)))
-static void httpd_notify_status(httpd_t *w, httpd_query_t *q, int handler,
-                              const char *fmt, va_list va);
+__attribute__((format(printf, 4, 0))) static void httpd_notify_status(
+    httpd_t *w, httpd_query_t *q, int handler, const char *fmt, va_list va
+);
 
 static void httpd_trace_query_result(httpd_query_t *q)
 {
     if (q->qinfo && logger_is_traced(&_G.logger, 1)) {
         lstr_t answer_code = http_code_to_str(q->answer_code);
 
-        logger_trace(&_G.logger, 1, "query `%*pM` finished (%d - %*pM)",
-                     PS_FMT_ARG(&q->qinfo->query), q->answer_code,
-                     LSTR_FMT_ARG(answer_code));
+        logger_trace(
+            &_G.logger, 1, "query `%*pM` finished (%d - %*pM)",
+            PS_FMT_ARG(&q->qinfo->query), q->answer_code,
+            LSTR_FMT_ARG(answer_code)
+        );
 
-        logger_trace(&_G.logger, 2, "query header was:\n%*pM",
-                     PS_FMT_ARG(&q->qinfo->hdrs_ps));
+        logger_trace(
+            &_G.logger, 2, "query header was:\n%*pM",
+            PS_FMT_ARG(&q->qinfo->hdrs_ps)
+        );
 
-        logger_trace(&_G.logger, 3, "query payload was:\n%*pM",
-                     SB_FMT_ARG(&q->payload));
+        logger_trace(
+            &_G.logger, 3, "query payload was:\n%*pM", SB_FMT_ARG(&q->payload)
+        );
     }
 }
 
@@ -832,13 +867,15 @@ void httpd_reply_done(httpd_query_t *q)
     va_list va;
     outbuf_t *ob = httpd_get_ob(q);
 
-    assert (q->hdrs_done && !q->answered && !q->chunk_started);
+    assert(q->hdrs_done && !q->answered && !q->chunk_started);
     if (q->chunked) {
         ob_adds(ob, "\r\n0\r\n\r\n");
     }
     if (q->clength_hack) {
-        http_clength_patch(ob, ob->sb.data + q->chunk_hdr_offs,
-                           ob->length - q->chunk_prev_length);
+        http_clength_patch(
+            ob, ob->sb.data + q->chunk_hdr_offs,
+            ob->length - q->chunk_prev_length
+        );
         q->clength_hack = false;
     }
     httpd_notify_status(q->owner, q, HTTPD_QUERY_STATUS_ANSWERED, "", va);
@@ -853,7 +890,7 @@ void httpd_signal_write(httpd_query_t *q)
     httpd_t *w = q->owner;
 
     if (w) {
-        assert (q->hdrs_done && !q->answered && !q->chunk_started);
+        assert(q->hdrs_done && !q->answered && !q->chunk_started);
         httpd_set_mask(w);
     }
 }
@@ -866,8 +903,10 @@ static ALWAYS_INLINE void httpd_query_reply_100continue_(httpd_query_t *q)
         return;
     }
     if (q->expect100cont) {
-        ob_addf(httpd_get_ob(q), "HTTP/1.%d 100 Continue\r\n\r\n",
-                HTTP_MINOR(q->http_version));
+        ob_addf(
+            httpd_get_ob(q), "HTTP/1.%d 100 Continue\r\n\r\n",
+            HTTP_MINOR(q->http_version)
+        );
         q->expect100cont = false;
     }
 }
@@ -901,8 +940,10 @@ void httpd_reject_(httpd_query_t *q, int code, const char *fmt, ...)
     ob_adds(ob, "Content-Type: text/html\r\n");
     httpd_reply_hdrs_done(q, -1, false);
 
-    ob_addf(ob, "<html><body><h1>%d - %*pM</h1><p>",
-            code, LSTR_FMT_ARG(http_code_to_str(code)));
+    ob_addf(
+        ob, "<html><body><h1>%d - %*pM</h1><p>", code,
+        LSTR_FMT_ARG(http_code_to_str(code))
+    );
     va_start(ap, fmt);
     ob_addvf(ob, fmt, ap);
     va_end(ap);
@@ -916,9 +957,11 @@ void httpd_reject_(httpd_query_t *q, int code, const char *fmt, ...)
 
 void httpd_reject_unauthorized(httpd_query_t *q, lstr_t auth_realm)
 {
-    const lstr_t body = LSTR("<html><body>"
-                             "<h1>401 - Authentication required</h1>"
-                             "</body></html>\r\n");
+    const lstr_t body = LSTR(
+        "<html><body>"
+        "<h1>401 - Authentication required</h1>"
+        "</body></html>\r\n"
+    );
     va_list va;
     outbuf_t *ob;
 
@@ -928,8 +971,10 @@ void httpd_reject_unauthorized(httpd_query_t *q, lstr_t auth_realm)
 
     ob = httpd_reply_hdrs_start(q, HTTP_CODE_UNAUTHORIZED, false);
     ob_adds(ob, "Content-Type: text/html\r\n");
-    ob_addf(ob, "WWW-Authenticate: Basic realm=\"%*pM\"\r\n",
-            LSTR_FMT_ARG(auth_realm));
+    ob_addf(
+        ob, "WWW-Authenticate: Basic realm=\"%*pM\"\r\n",
+        LSTR_FMT_ARG(auth_realm)
+    );
     httpd_reply_hdrs_done(q, body.len, false);
     ob_add(ob, body.s, body.len);
 
@@ -953,8 +998,9 @@ static void httpc_set_sni(SSL *ssl, const lstr_t tls_server_name)
     if (SSL_set_tlsext_host_name(ssl, tls_server_name_s) == 1) {
         logger_trace(&http_g.logger, 1, "set SNI to %s", tls_server_name_s);
     } else {
-        logger_error(&http_g.logger, "failed to set SNI to %s",
-                     tls_server_name_s);
+        logger_error(
+            &http_g.logger, "failed to set SNI to %s", tls_server_name_s
+        );
     }
 }
 
@@ -991,18 +1037,22 @@ static void httpd_trigger_node_wipe(httpd_trigger_node_t *node)
     qm_deep_wipe(http_path, &node->childs, IGNORE, httpd_trigger_node_delete);
 }
 
-bool httpd_trigger_register_flags(httpd_trigger_node_t *n, const char *path,
-                                  httpd_trigger_t *cb, bool overwrite)
+bool httpd_trigger_register_flags(
+    httpd_trigger_node_t *n, const char *path, httpd_trigger_t *cb,
+    bool overwrite
+)
 {
-    while (*path == '/')
+    while (*path == '/') {
         path++;
+    }
     while (*path) {
-        const char  *q = strchrnul(path, '/');
+        const char *q = strchrnul(path, '/');
         lstr_t s = LSTR_INIT(path, q - path);
 
         n = httpd_trigger_node_new(n, s);
-        while (*q == '/')
+        while (*q == '/') {
             q++;
+        }
         path = q;
     }
     if (!overwrite && n->cb) {
@@ -1016,11 +1066,14 @@ bool httpd_trigger_register_flags(httpd_trigger_node_t *n, const char *path,
     return true;
 }
 
-static bool httpd_trigger_unregister__(httpd_trigger_node_t *n, const char *path,
-                                       httpd_trigger_t *what, bool *res)
+static bool httpd_trigger_unregister__(
+    httpd_trigger_node_t *n, const char *path, httpd_trigger_t *what,
+    bool *res
+)
 {
-    while (*path == '/')
+    while (*path == '/') {
         path++;
+    }
 
     if (!*path) {
         if (!what || n->cb == what) {
@@ -1031,8 +1084,8 @@ static bool httpd_trigger_unregister__(httpd_trigger_node_t *n, const char *path
         }
     } else {
         const char *q = strchrnul(path, '/');
-        lstr_t      s = LSTR_INIT(path, q - path);
-        int pos       = qm_find(http_path, &n->childs, &s);
+        lstr_t s = LSTR_INIT(path, q - path);
+        int pos = qm_find(http_path, &n->childs, &s);
 
         if (pos < 0) {
             return false;
@@ -1045,8 +1098,9 @@ static bool httpd_trigger_unregister__(httpd_trigger_node_t *n, const char *path
     return qm_len(http_path, &n->childs) == 0;
 }
 
-bool httpd_trigger_unregister_(httpd_trigger_node_t *n, const char *path,
-                               httpd_trigger_t *what)
+bool httpd_trigger_unregister_(
+    httpd_trigger_node_t *n, const char *path, httpd_trigger_t *what
+)
 {
     bool res = false;
 
@@ -1067,10 +1121,10 @@ httpd_trigger_resolve(httpd_trigger_node_t *n, httpd_qinfo_t *req)
         lstr_t s;
         int pos;
 
-        s.s   = p;
-        p     = memchr(p, '/', q - p) ?: q;
+        s.s = p;
+        p = memchr(p, '/', q - p) ?: q;
         s.len = p - s.s;
-        pos   = qm_find(http_path, &n->childs, &s);
+        pos = qm_find(http_path, &n->childs, &s);
         if (pos < 0) {
             break;
         }
@@ -1110,15 +1164,15 @@ int t_ps_get_http_var(pstream_t *ps, lstr_t *key, lstr_t *value)
         RETHROW(ps_get_ps(ps, ps_len(ps), &value_ps));
     }
 
-    t_ps_get_http_var_parse_elem(key_ps,   key);
+    t_ps_get_http_var_parse_elem(key_ps, key);
     t_ps_get_http_var_parse_elem(value_ps, value);
 
     return 0;
 }
 
-__attribute__((format(printf, 4, 0)))
-static void httpd_notify_status(httpd_t *w, httpd_query_t *q, int handler,
-                              const char *fmt, va_list va)
+__attribute__((format(printf, 4, 0))) static void httpd_notify_status(
+    httpd_t *w, httpd_query_t *q, int handler, const char *fmt, va_list va
+)
 {
     if (!q->status_sent) {
         q->status_sent = true;
@@ -1141,9 +1195,9 @@ static void httpd_set_mask(httpd_t *w)
         return;
     }
 
-    if (w->queries >= w->cfg->pipeline_depth
-    ||  w->ob.length >= (int)w->cfg->outbuf_max_size
-    ||  w->state == HTTP_PARSER_CLOSE)
+    if (w->queries >= w->cfg->pipeline_depth ||
+        w->ob.length >= (int)w->cfg->outbuf_max_size ||
+        w->state == HTTP_PARSER_CLOSE)
     {
         mask = 0;
     } else {
@@ -1189,9 +1243,9 @@ static void httpd_query_done(httpd_t *w, httpd_query_t *q)
     struct timeval now;
 
     lp_gettv(&now);
-    q->query_sec  = now.tv_sec;
+    q->query_sec = now.tv_sec;
     q->query_usec = now.tv_usec;
-    q->parsed     = true;
+    q->parsed = true;
     w->queries++;
     httpd_flush_answered(w);
     if (w->connection_close) {
@@ -1205,10 +1259,10 @@ static void httpd_query_done(httpd_t *w, httpd_query_t *q)
 
 static void httpd_mark_query_answered(httpd_query_t *q)
 {
-    assert (!q->answered);
+    assert(!q->answered);
     q->answered = true;
-    q->on_data  = NULL;
-    q->on_done  = NULL;
+    q->on_data = NULL;
+    q->on_done = NULL;
     q->on_ready = NULL;
     if (q->owner) {
         httpd_t *w = q->owner;
@@ -1240,11 +1294,15 @@ static int httpd_parse_idle(httpd_t *w, pstream_t *ps)
     httpd_trigger_t *cb = NULL;
     struct timeval now;
 
-    if ((p = memmem(ps->s + start, ps_len(ps) - start, "\r\n\r\n", 4)) == NULL) {
+    if ((p = memmem(ps->s + start, ps_len(ps) - start, "\r\n\r\n", 4)) ==
+        NULL)
+    {
         if (ps_len(ps) > w->cfg->header_size_max) {
             q = httpd_query_create(w, NULL);
-            httpd_reject(q, FORBIDDEN, "Headers exceed %d octets",
-                         w->cfg->header_size_max);
+            httpd_reject(
+                q, FORBIDDEN, "Headers exceed %d octets",
+                w->cfg->header_size_max
+            );
             goto unrecoverable_error;
         }
         w->chunk_length = ps_len(ps);
@@ -1259,15 +1317,15 @@ static int httpd_parse_idle(httpd_t *w, pstream_t *ps)
     req.hdrs_ps = ps_initptr(ps->s, p + 4);
 
     switch (t_http_parse_request_line(ps, w->cfg->header_line_max, &req)) {
-      case PARSE_ERROR:
+    case PARSE_ERROR:
         q = httpd_query_create(w, NULL);
         httpd_reject(q, BAD_REQUEST, "Invalid request line");
         goto unrecoverable_error;
 
-      case PARSE_MISSING_DATA:
+    case PARSE_MISSING_DATA:
         return PARSE_MISSING_DATA;
 
-      default:
+    default:
         break;
     }
 
@@ -1277,24 +1335,26 @@ static int httpd_parse_idle(httpd_t *w, pstream_t *ps)
     q = httpd_query_create(w, cb);
     q->received_hdr_length = ps_len(&req.hdrs_ps);
     q->http_version = req.http_version;
-    q->qinfo        = &req;
+    q->qinfo = &req;
     buf = __ps_get_ps_upto(ps, p + 2);
     __ps_skip_upto(ps, p + 4);
     switch (req.http_version) {
-      case HTTP_1_0:
+    case HTTP_1_0:
         /* TODO: support old-style Keep-Alive ? */
         w->connection_close = true;
         break;
-      case HTTP_1_1:
+    case HTTP_1_1:
         break;
-      default:
-        httpd_reject(q, NOT_IMPLEMENTED,
-                     "This server requires an HTTP/1.1 compatible client");
+    default:
+        httpd_reject(
+            q, NOT_IMPLEMENTED,
+            "This server requires an HTTP/1.1 compatible client"
+        );
         goto unrecoverable_error;
     }
 
     lp_gettv(&now);
-    q->query_sec  = now.tv_sec;
+    q->query_sec = now.tv_sec;
     q->query_usec = now.tv_usec;
     t_qv_init(&hdrs, 64);
 
@@ -1304,16 +1364,19 @@ static int httpd_parse_idle(httpd_t *w, pstream_t *ps)
         /* TODO: normalize, make "lists" */
         qhdr->key = ps_get_cspan(&buf, &http_non_token);
         if (ps_len(&qhdr->key) == 0 || __ps_getc(&buf) != ':') {
-            httpd_reject(q, BAD_REQUEST,
-                         "Header name is empty or not followed by a colon");
+            httpd_reject(
+                q, BAD_REQUEST,
+                "Header name is empty or not followed by a colon"
+            );
             goto unrecoverable_error;
         }
         qhdr->val.s = buf.s;
         for (;;) {
             ps_skip_afterchr(&buf, '\r');
             if (__ps_getc(&buf) != '\n') {
-                httpd_reject(q, BAD_REQUEST,
-                             "CR is not followed by a LF in headers");
+                httpd_reject(
+                    q, BAD_REQUEST, "CR is not followed by a LF in headers"
+                );
                 goto unrecoverable_error;
             }
             qhdr->val.s_end = buf.s - 2;
@@ -1328,39 +1391,41 @@ static int httpd_parse_idle(httpd_t *w, pstream_t *ps)
         ps_trim(&qhdr->val);
 
         switch ((qhdr->wkhdr = http_wkhdr_from_ps(qhdr->key))) {
-          case HTTP_WKHDR_HOST:
+        case HTTP_WKHDR_HOST:
             if (ps_len(&req.host) == 0) {
                 req.host = qhdr->val;
             }
             qv_shrink(&hdrs, 1);
             break;
 
-          case HTTP_WKHDR_EXPECT:
+        case HTTP_WKHDR_EXPECT:
             q->expect100cont |= http_hdr_equals(qhdr->key, "100-continue");
             break;
 
-          case HTTP_WKHDR_CONNECTION:
+        case HTTP_WKHDR_CONNECTION:
             w->connection_close |= http_hdr_contains(qhdr->val, "close");
             break;
 
-          case HTTP_WKHDR_TRANSFER_ENCODING:
+        case HTTP_WKHDR_TRANSFER_ENCODING:
             /* rfc 2616: §4.4: != "identity" means chunked encoding */
             switch (http_get_token_ps(qhdr->val)) {
-              case HTTP_TK_IDENTITY:
+            case HTTP_TK_IDENTITY:
                 chunked = false;
                 break;
-              case HTTP_TK_CHUNKED:
+            case HTTP_TK_CHUNKED:
                 chunked = true;
                 break;
-              default:
-                httpd_reject(q, NOT_IMPLEMENTED,
-                             "Transfer-Encoding %*pM is unimplemented",
-                             (int)ps_len(&qhdr->val), qhdr->val.s);
+            default:
+                httpd_reject(
+                    q, NOT_IMPLEMENTED,
+                    "Transfer-Encoding %*pM is unimplemented",
+                    (int)ps_len(&qhdr->val), qhdr->val.s
+                );
                 break;
             }
             break;
 
-          case HTTP_WKHDR_CONTENT_LENGTH:
+        case HTTP_WKHDR_CONTENT_LENGTH:
             clen = memtoip(qhdr->val.b, ps_len(&qhdr->val), &p);
             if (p != qhdr->val.b_end) {
                 httpd_reject(q, BAD_REQUEST, "Content-Length is unparseable");
@@ -1368,21 +1433,21 @@ static int httpd_parse_idle(httpd_t *w, pstream_t *ps)
             }
             break;
 
-          case HTTP_WKHDR_CONTENT_ENCODING:
+        case HTTP_WKHDR_CONTENT_ENCODING:
             switch (http_get_token_ps(qhdr->val)) {
-              case HTTP_TK_DEFLATE:
-              case HTTP_TK_GZIP:
-              case HTTP_TK_X_GZIP:
+            case HTTP_TK_DEFLATE:
+            case HTTP_TK_GZIP:
+            case HTTP_TK_X_GZIP:
                 http_zlib_inflate_init(w);
                 qv_shrink(&hdrs, 1);
                 break;
-              default:
+            default:
                 http_zlib_reset(w);
                 break;
             }
             break;
 
-          default:
+        default:
             break;
         }
     }
@@ -1395,22 +1460,22 @@ static int httpd_parse_idle(httpd_t *w, pstream_t *ps)
         w->chunk_length = clen < 0 ? 0 : clen;
         w->state = HTTP_PARSER_BODY;
     }
-    req.hdrs      = hdrs.tab;
-    req.hdrs_len  = hdrs.len;
+    req.hdrs = hdrs.tab;
+    req.hdrs_len = hdrs.len;
 
     switch (req.method) {
-      case HTTP_METHOD_TRACE:
+    case HTTP_METHOD_TRACE:
         httpd_do_trace(w, q, &req);
         break;
-      case HTTP_METHOD_POST:
-      case HTTP_METHOD_PUT:
-      case HTTP_METHOD_PATCH:
+    case HTTP_METHOD_POST:
+    case HTTP_METHOD_PUT:
+    case HTTP_METHOD_PATCH:
         if (clen < 0) {
             httpd_reject(q, LENGTH_REQUIRED, "");
             goto unrecoverable_error;
         }
         /* FALLTHROUGH */
-      default:
+    default:
         httpd_do_any(w, q, &req);
         break;
     }
@@ -1420,7 +1485,7 @@ static int httpd_parse_idle(httpd_t *w, pstream_t *ps)
     httpd_query_reply_100continue_(q);
     return PARSE_OK;
 
-  unrecoverable_error:
+unrecoverable_error:
     if (q->qinfo == &req) {
         q->qinfo = NULL;
     }
@@ -1440,7 +1505,8 @@ httpd_flush_data(httpd_t *w, httpd_query_t *q, pstream_t *ps, bool done)
             sb_t zbuf;
 
             t_sb_init(&zbuf, HTTP_ZLIB_BUFSIZ);
-            if (http_zlib_inflate(&w->zs, &w->chunk_length, &zbuf, ps, done)) {
+            if (http_zlib_inflate(&w->zs, &w->chunk_length, &zbuf, ps, done))
+            {
                 goto zlib_error;
             }
             q->on_data(q, ps_initsb(&zbuf));
@@ -1452,7 +1518,7 @@ httpd_flush_data(httpd_t *w, httpd_query_t *q, pstream_t *ps, bool done)
     ps->b = ps->b_end;
     return PARSE_OK;
 
-  zlib_error:
+zlib_error:
     httpd_reject(q, BAD_REQUEST, "Invalid compressed data");
     w->connection_close = true;
     httpd_query_done(w, q);
@@ -1461,11 +1527,12 @@ httpd_flush_data(httpd_t *w, httpd_query_t *q, pstream_t *ps, bool done)
 
 static int httpd_parse_body(httpd_t *w, pstream_t *ps)
 {
-    httpd_query_t *q = dlist_last_entry(&w->query_list, httpd_query_t, query_link);
+    httpd_query_t *q =
+        dlist_last_entry(&w->query_list, httpd_query_t, query_link);
     ssize_t plen = ps_len(ps);
 
     q->expect100cont = false;
-    assert (w->chunk_length >= 0);
+    assert(w->chunk_length >= 0);
     if (plen >= w->chunk_length) {
         pstream_t tmp = __ps_get_ps(ps, w->chunk_length);
 
@@ -1493,10 +1560,11 @@ static int httpd_parse_body(httpd_t *w, pstream_t *ps)
  */
 static int httpd_parse_chunk_hdr(httpd_t *w, pstream_t *ps)
 {
-    httpd_query_t *q = dlist_last_entry(&w->query_list, httpd_query_t, query_link);
+    httpd_query_t *q =
+        dlist_last_entry(&w->query_list, httpd_query_t, query_link);
     const char *orig = ps->s;
     pstream_t line, hex;
-    uint64_t  len = 0;
+    uint64_t len = 0;
     int res;
 
     q->expect100cont = false;
@@ -1516,14 +1584,15 @@ static int httpd_parse_chunk_hdr(httpd_t *w, pstream_t *ps)
     if (unlikely(ps_len(&hex) == 0) || unlikely(ps_len(&hex) > 16)) {
         goto cancel_query;
     }
-    for (const char *s = hex.s; s < hex.s_end; s++)
+    for (const char *s = hex.s; s < hex.s_end; s++) {
         len = (len << 4) | __str_digit_value[*s + 128];
+    }
     w->chunk_length = len;
     w->state = len ? HTTP_PARSER_CHUNK : HTTP_PARSER_CHUNK_TRAILER;
     q->received_body_length += ps->s - orig;
     return PARSE_OK;
 
-  cancel_query:
+cancel_query:
     httpd_reject(q, BAD_REQUEST, "Chunked header is unparseable");
     w->connection_close = true;
     httpd_query_done(w, q);
@@ -1532,10 +1601,11 @@ static int httpd_parse_chunk_hdr(httpd_t *w, pstream_t *ps)
 
 static int httpd_parse_chunk(httpd_t *w, pstream_t *ps)
 {
-    httpd_query_t *q = dlist_last_entry(&w->query_list, httpd_query_t, query_link);
+    httpd_query_t *q =
+        dlist_last_entry(&w->query_list, httpd_query_t, query_link);
     ssize_t plen = ps_len(ps);
 
-    assert (w->chunk_length >= 0);
+    assert(w->chunk_length >= 0);
     if (plen >= w->chunk_length + 2) {
         pstream_t tmp = __ps_get_ps(ps, w->chunk_length);
 
@@ -1557,7 +1627,8 @@ static int httpd_parse_chunk(httpd_t *w, pstream_t *ps)
 
 static int httpd_parse_chunk_trailer(httpd_t *w, pstream_t *ps)
 {
-    httpd_query_t *q = dlist_last_entry(&w->query_list, httpd_query_t, query_link);
+    httpd_query_t *q =
+        dlist_last_entry(&w->query_list, httpd_query_t, query_link);
     const char *orig = ps->s;
     pstream_t line;
 
@@ -1589,14 +1660,13 @@ static int httpd_parse_close(httpd_t *w, pstream_t *ps)
     return PARSE_MISSING_DATA;
 }
 
-
 static int (*httpd_parsers[])(httpd_t *w, pstream_t *ps) = {
-    [HTTP_PARSER_IDLE]          = httpd_parse_idle,
-    [HTTP_PARSER_BODY]          = httpd_parse_body,
-    [HTTP_PARSER_CHUNK_HDR]     = httpd_parse_chunk_hdr,
-    [HTTP_PARSER_CHUNK]         = httpd_parse_chunk,
+    [HTTP_PARSER_IDLE] = httpd_parse_idle,
+    [HTTP_PARSER_BODY] = httpd_parse_body,
+    [HTTP_PARSER_CHUNK_HDR] = httpd_parse_chunk_hdr,
+    [HTTP_PARSER_CHUNK] = httpd_parse_chunk,
     [HTTP_PARSER_CHUNK_TRAILER] = httpd_parse_chunk_trailer,
-    [HTTP_PARSER_CLOSE]         = httpd_parse_close,
+    [HTTP_PARSER_CLOSE] = httpd_parse_close,
 };
 
 /* }}} */
@@ -1631,13 +1701,12 @@ static void httpd_cfg_tls_wipe(httpd_cfg_t *cfg)
     }
 }
 
-static int
-httpd_ssl_alpn_select_protocol_cb(SSL *ssl, const unsigned char **out,
-                                  unsigned char *outlen,
-                                  const unsigned char *in, unsigned int inlen,
-                                  void *arg)
+static int httpd_ssl_alpn_select_protocol_cb(
+    SSL *ssl, const unsigned char **out, unsigned char *outlen,
+    const unsigned char *in, unsigned int inlen, void *arg
+)
 {
-    http_mode_t mode = (intptr_t) arg;
+    http_mode_t mode = (intptr_t)arg;
     const byte *http2_found = NULL;
     const byte *http1_1_found = NULL;
     const byte *http1_0_found = NULL;
@@ -1685,18 +1754,17 @@ httpd_ssl_alpn_select_protocol_cb(SSL *ssl, const unsigned char **out,
     return SSL_TLSEXT_ERR_NOACK;
 }
 
-
 int httpd_cfg_from_iop(httpd_cfg_t *cfg, const core__httpd_cfg__t *iop_cfg)
 {
     THROW_ERR_UNLESS(expect(!cfg->ssl_ctx));
-    cfg->outbuf_max_size    = iop_cfg->outbuf_max_size;
-    cfg->pipeline_depth     = iop_cfg->pipeline_depth;
-    cfg->noact_delay        = iop_cfg->noact_delay;
-    cfg->max_queries        = iop_cfg->max_queries;
-    cfg->max_conns          = iop_cfg->max_conns_in;
-    cfg->on_data_threshold  = iop_cfg->on_data_threshold;
-    cfg->header_line_max    = iop_cfg->header_line_max;
-    cfg->header_size_max    = iop_cfg->header_size_max;
+    cfg->outbuf_max_size = iop_cfg->outbuf_max_size;
+    cfg->pipeline_depth = iop_cfg->pipeline_depth;
+    cfg->noact_delay = iop_cfg->noact_delay;
+    cfg->max_queries = iop_cfg->max_queries;
+    cfg->max_conns = iop_cfg->max_conns_in;
+    cfg->on_data_threshold = iop_cfg->on_data_threshold;
+    cfg->header_line_max = iop_cfg->header_line_max;
+    cfg->header_size_max = iop_cfg->header_size_max;
 
     if (iop_cfg->tls) {
         SSL_CTX *ctx;
@@ -1711,15 +1779,19 @@ int httpd_cfg_from_iop(httpd_cfg_t *cfg, const core__httpd_cfg__t *iop_cfg)
             logger_panic(&_G.logger, "TLS data are not provided");
         }
 
-        flags = iop_cfg->check_client_cert ? SSL_VERIFY_PEER |
-           SSL_VERIFY_FAIL_IF_NO_PEER_CERT: SSL_VERIFY_NONE;
+        flags = iop_cfg->check_client_cert
+                    ? SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT
+                    : SSL_VERIFY_NONE;
 
-        ctx = ssl_ctx_new_tls(TLS_server_method(), data->key, data->cert,
-                              flags, NULL, &errbuf);
+        ctx = ssl_ctx_new_tls(
+            TLS_server_method(), data->key, data->cert, flags, NULL, &errbuf
+        );
         httpd_cfg_set_ssl_ctx(cfg, ctx);
         if (!cfg->ssl_ctx) {
-            logger_fatal(&_G.logger, "couldn't initialize SSL_CTX: %*pM",
-                         SB_FMT_ARG(&errbuf));
+            logger_fatal(
+                &_G.logger, "couldn't initialize SSL_CTX: %*pM",
+                SB_FMT_ARG(&errbuf)
+            );
         }
 
         {
@@ -1732,8 +1804,9 @@ int httpd_cfg_from_iop(httpd_cfg_t *cfg, const core__httpd_cfg__t *iop_cfg)
             byte session[SHA1_DIGEST_SIZE];
 
             iop_hash_sha1(&core__httpd_cfg__s, iop_cfg, session, 0);
-            SSL_CTX_set_session_id_context(cfg->ssl_ctx, session,
-                                           SHA1_DIGEST_SIZE);
+            SSL_CTX_set_session_id_context(
+                cfg->ssl_ctx, session, SHA1_DIGEST_SIZE
+            );
         }
 
         if (iop_cfg->check_client_cert) {
@@ -1741,13 +1814,15 @@ int httpd_cfg_from_iop(httpd_cfg_t *cfg, const core__httpd_cfg__t *iop_cfg)
                 char path[PATH_MAX] = "/tmp/tls-cert-XXXXXX";
                 int ret;
 
-                ret = write_in_tmp_file(path, iop_cfg->ca_file.s,
-                                        iop_cfg->ca_file.len, &errbuf);
+                ret = write_in_tmp_file(
+                    path, iop_cfg->ca_file.s, iop_cfg->ca_file.len, &errbuf
+                );
                 if (ret < 0) {
                     httpd_cfg_tls_wipe(cfg);
-                    logger_error(&_G.logger,
-                                 "tls: failed to dump certificate: %*pM",
-                                 SB_FMT_ARG(&errbuf));
+                    logger_error(
+                        &_G.logger, "tls: failed to dump certificate: %*pM",
+                        SB_FMT_ARG(&errbuf)
+                    );
                     return -1;
                 }
 
@@ -1756,8 +1831,9 @@ int httpd_cfg_from_iop(httpd_cfg_t *cfg, const core__httpd_cfg__t *iop_cfg)
 
                 if (ret < 0) {
                     httpd_cfg_tls_wipe(cfg);
-                    logger_error(&_G.logger,
-                                 "tls: failed to load certificate");
+                    logger_error(
+                        &_G.logger, "tls: failed to load certificate"
+                    );
                     return -1;
                 }
             } else {
@@ -1765,13 +1841,14 @@ int httpd_cfg_from_iop(httpd_cfg_t *cfg, const core__httpd_cfg__t *iop_cfg)
             }
         }
 
-#if OPENSSL_VERSION_IS(>,1,1,0)
+#if OPENSSL_VERSION_IS(>, 1, 1, 0)
         set_ssl_keylog_cb(cfg->ssl_ctx);
 #endif
 
         if (OPT_ISSET(iop_cfg->check_cert_depth)) {
-            SSL_CTX_set_verify_depth(cfg->ssl_ctx,
-                                     OPT_VAL(iop_cfg->check_cert_depth));
+            SSL_CTX_set_verify_depth(
+                cfg->ssl_ctx, OPT_VAL(iop_cfg->check_cert_depth)
+            );
         }
     }
 
@@ -1784,8 +1861,8 @@ void httpd_cfg_wipe(httpd_cfg_t *cfg)
         httpd_trigger_node_wipe(&cfg->roots[i]);
     }
     httpd_cfg_tls_wipe(cfg);
-    assert (dlist_is_empty(&cfg->httpd_list));
-    assert (dlist_is_empty(&cfg->http2_httpd_list));
+    assert(dlist_is_empty(&cfg->httpd_list));
+    assert(dlist_is_empty(&cfg->http2_httpd_list));
     assert(!cfg->nb_conns);
 }
 
@@ -1795,9 +1872,10 @@ void httpd_cfg_set_ssl_ctx(httpd_cfg_t *nonnull cfg, SSL_CTX *nullable ctx)
 
     cfg->ssl_ctx = ctx;
     if (ctx) {
-        SSL_CTX_set_alpn_select_cb(cfg->ssl_ctx,
-                                   &httpd_ssl_alpn_select_protocol_cb,
-                                   (void *)cfg->mode);
+        SSL_CTX_set_alpn_select_cb(
+            cfg->ssl_ctx, &httpd_ssl_alpn_select_protocol_cb,
+            (void *)cfg->mode
+        );
     }
 }
 
@@ -1817,8 +1895,10 @@ static void httpd_wipe(httpd_t *w)
         va_list va;
 
         dlist_for_each(it, &w->query_list) {
-            httpd_notify_status(w, dlist_entry(it, httpd_query_t, query_link),
-                              HTTPD_QUERY_STATUS_CANCEL, "Query cancelled", va);
+            httpd_notify_status(
+                w, dlist_entry(it, httpd_query_t, query_link),
+                HTTPD_QUERY_STATUS_CANCEL, "Query cancelled", va
+            );
         }
     }
     if (w->on_disconnect) {
@@ -1842,10 +1922,10 @@ static void httpd_wipe(httpd_t *w)
     w->ssl = NULL;
 }
 
-OBJ_VTABLE(httpd)
-    httpd.init = httpd_init;
-    httpd.wipe = httpd_wipe;
-OBJ_VTABLE_END()
+OBJ_VTABLE(httpd) {
+    cls->init = httpd_init;
+    cls->wipe = httpd_wipe;
+}
 
 void httpd_close_gently(httpd_t *w)
 {
@@ -1861,7 +1941,7 @@ void httpd_close_gently(httpd_t *w)
  * \a v parameter is set to ps_initptr(NULL, NULL). */
 static void httpd_get_auth_header(const httpd_qinfo_t *info, pstream_t *v)
 {
-    for (int i = info->hdrs_len; i-- > 0; ) {
+    for (int i = info->hdrs_len; i-- > 0;) {
         const http_qhdr_t *hdr = info->hdrs + i;
 
         if (hdr->wkhdr != HTTP_WKHDR_AUTHORIZATION) {
@@ -1913,14 +1993,15 @@ t_httpd_get_basic_auth(pstream_t auth, pstream_t *user, pstream_t *pw)
     colon = strchr(sb.data, ':');
     THROW_ERR_IF(!colon);
 
-    *user    = ps_initptr(sb.data, colon);
+    *user = ps_initptr(sb.data, colon);
     *colon++ = '\0';
-    *pw      = ps_initptr(colon, sb_end(&sb));
+    *pw = ps_initptr(colon, sb_end(&sb));
     return 0;
 }
 
-int t_httpd_qinfo_get_basic_auth(const httpd_qinfo_t *info, pstream_t *user,
-                                 pstream_t *pw)
+int t_httpd_qinfo_get_basic_auth(
+    const httpd_qinfo_t *info, pstream_t *user, pstream_t *pw
+)
 {
     pstream_t auth;
 
@@ -1928,8 +2009,9 @@ int t_httpd_qinfo_get_basic_auth(const httpd_qinfo_t *info, pstream_t *user,
     return t_httpd_get_basic_auth(auth, user, pw);
 }
 
-int httpd_qinfo_get_bearer_auth(const httpd_qinfo_t *info,
-                                pstream_t *bearer_token)
+int httpd_qinfo_get_bearer_auth(
+    const httpd_qinfo_t *info, pstream_t *bearer_token
+)
 {
     pstream_t auth;
 
@@ -1955,15 +2037,19 @@ static int parse_qvalue(pstream_t *ps)
 
     /* slopily parse 1[.000] || 0[.nnn] */
     switch (ps_getc(ps)) {
-      case '0': res = 0; break;
-      case '1': res = 1; break;
-      default:
+    case '0':
+        res = 0;
+        break;
+    case '1':
+        res = 1;
+        break;
+    default:
         return -1;
     }
     if (ps_skipc(ps, '.') == 0) {
         for (int i = 0; i < 3; i++) {
             if (ps_has(ps, 1) && isdigit(ps->s[0])) {
-                res  = 10 * res + __ps_getc(ps) - '0';
+                res = 10 * res + __ps_getc(ps) - '0';
             } else {
                 res *= 10;
             }
@@ -1997,12 +2083,12 @@ static int parse_accept_enc(pstream_t ps)
         ps_skipspaces(&ps);
         q = RETHROW(parse_qvalue(&ps));
         switch (ps_getc(&ps)) {
-          case ',':
+        case ',':
             ps_skipspaces(&ps);
             break;
-          case -1:
+        case -1:
             break;
-          default:
+        default:
             return -1;
         }
 
@@ -2010,30 +2096,30 @@ static int parse_accept_enc(pstream_t ps)
             res_star = q ? HTTPD_ACCEPT_ENC_ANY : 0;
         } else {
             switch (http_get_token_ps(v)) {
-              case HTTP_TK_X_GZIP:
-              case HTTP_TK_GZIP:
+            case HTTP_TK_X_GZIP:
+            case HTTP_TK_GZIP:
                 if (q) {
                     res_valid |= HTTPD_ACCEPT_ENC_GZIP;
                 } else {
-                    res_rej   |= HTTPD_ACCEPT_ENC_GZIP;
+                    res_rej |= HTTPD_ACCEPT_ENC_GZIP;
                 }
                 break;
-              case HTTP_TK_X_COMPRESS:
-              case HTTP_TK_COMPRESS:
+            case HTTP_TK_X_COMPRESS:
+            case HTTP_TK_COMPRESS:
                 if (q) {
                     res_valid |= HTTPD_ACCEPT_ENC_COMPRESS;
                 } else {
-                    res_rej   |= HTTPD_ACCEPT_ENC_COMPRESS;
+                    res_rej |= HTTPD_ACCEPT_ENC_COMPRESS;
                 }
                 break;
-              case HTTP_TK_DEFLATE:
+            case HTTP_TK_DEFLATE:
                 if (q) {
                     res_valid |= HTTPD_ACCEPT_ENC_DEFLATE;
                 } else {
-                    res_rej   |= HTTPD_ACCEPT_ENC_DEFLATE;
+                    res_rej |= HTTPD_ACCEPT_ENC_DEFLATE;
                 }
                 break;
-              default: /* Ignore "identity" or non RFC Accept-Encodings */
+            default: /* Ignore "identity" or non RFC Accept-Encodings */
                 break;
             }
         }
@@ -2046,7 +2132,7 @@ int httpd_qinfo_accept_enc_get(const httpd_qinfo_t *info)
 {
     int res = 0;
 
-    for (int i = info->hdrs_len; i-- > 0; ) {
+    for (int i = info->hdrs_len; i-- > 0;) {
         const http_qhdr_t *hdr = info->hdrs + i;
 
         if (hdr->wkhdr != HTTP_WKHDR_ACCEPT_ENCODING) {
@@ -2109,34 +2195,38 @@ static void httpd_do_any(httpd_t *w, httpd_query_t *q, httpd_qinfo_t *req)
             return;
         }
     } else {
-        int                   method = req->method;
-        lstr_t                ms     = http_method_str[method];
-        httpd_trigger_node_t *n      = &w->cfg->roots[method];
+        int method = req->method;
+        lstr_t ms = http_method_str[method];
+        httpd_trigger_node_t *n = &w->cfg->roots[method];
 
         if (n->cb || qm_len(http_path, &n->childs)) {
             SB_1k(escaped);
 
             sb_add_lstr_xmlescape(&escaped, LSTR_PS_V(&req->query));
-            httpd_reject(q, NOT_FOUND,
-                         "%*pM %*pM HTTP/1.%d", LSTR_FMT_ARG(ms),
-                         SB_FMT_ARG(&escaped),
-                         HTTP_MINOR(req->http_version));
-        } else
-        if (method == HTTP_METHOD_OPTIONS) {
+            httpd_reject(
+                q, NOT_FOUND, "%*pM %*pM HTTP/1.%d", LSTR_FMT_ARG(ms),
+                SB_FMT_ARG(&escaped), HTTP_MINOR(req->http_version)
+            );
+        } else if (method == HTTP_METHOD_OPTIONS) {
             /* For CORS purposes, handle OPTIONS if not handled above */
-            outbuf_t *ob = httpd_reply_hdrs_start(q, HTTP_CODE_NO_CONTENT,
-                                                  false);
+            outbuf_t *ob =
+                httpd_reply_hdrs_start(q, HTTP_CODE_NO_CONTENT, false);
 
-            ob_adds(ob, "Access-Control-Allow-Methods: "
-                    "POST, GET, OPTIONS\r\n");
-            ob_adds(ob, "Access-Control-Allow-Headers: "
-                    "Authorization, Content-Type\r\n");
+            ob_adds(
+                ob, "Access-Control-Allow-Methods: "
+                    "POST, GET, OPTIONS\r\n"
+            );
+            ob_adds(
+                ob, "Access-Control-Allow-Headers: "
+                    "Authorization, Content-Type\r\n"
+            );
 
             httpd_reply_hdrs_done(q, 0, false);
             httpd_reply_done(q);
         } else {
-            httpd_reject(q, NOT_IMPLEMENTED,
-                         "no handler for %*pM", LSTR_FMT_ARG(ms));
+            httpd_reject(
+                q, NOT_IMPLEMENTED, "no handler for %*pM", LSTR_FMT_ARG(ms)
+            );
         }
     }
 }
@@ -2174,9 +2264,8 @@ static int httpd_on_event(el_t evh, int fd, short events, data_t priv)
     if (events & POLLIN) {
         int ret;
 
-        ret = w->ssl ?
-            ssl_sb_read(&w->ibuf, w->ssl, 0):
-            sb_read(&w->ibuf, fd, 0);
+        ret = w->ssl ? ssl_sb_read(&w->ibuf, w->ssl, 0)
+                     : sb_read(&w->ibuf, fd, 0);
         if (ret <= 0) {
             if (ret == 0 || !ERR_RW_RETRIABLE(errno)) {
                 goto close;
@@ -2191,31 +2280,30 @@ static int httpd_on_event(el_t evh, int fd, short events, data_t priv)
         sb_skip_upto(&w->ibuf, ps.s);
     }
 
-  write:
-    {
-        int oldlen = w->ob.length;
-        int ret;
+write: {
+    int oldlen = w->ob.length;
+    int ret;
 
-        ret = w->ssl ?
-            ob_write_with(&w->ob, fd, ssl_writev, w->ssl) :
-            ob_write(&w->ob, fd);
-        if (ret < 0 && !ERR_RW_RETRIABLE(errno)) {
-            goto close;
-        }
-
-        if (!dlist_is_empty(&w->query_list)) {
-            httpd_query_t *query = dlist_first_entry(&w->query_list,
-                                                     httpd_query_t, query_link);
-            if (!query->answered && query->on_ready != NULL
-            && oldlen >= query->ready_threshold
-            && w->ob.length < query->ready_threshold) {
-                (*query->on_ready)(query);
-            }
-        }
+    ret = w->ssl ? ob_write_with(&w->ob, fd, ssl_writev, w->ssl)
+                 : ob_write(&w->ob, fd);
+    if (ret < 0 && !ERR_RW_RETRIABLE(errno)) {
+        goto close;
     }
 
-    if (unlikely(w->state == HTTP_PARSER_CLOSE) &&
-        w->queries == 0 && ob_is_empty(&w->ob))
+    if (!dlist_is_empty(&w->query_list)) {
+        httpd_query_t *query =
+            dlist_first_entry(&w->query_list, httpd_query_t, query_link);
+        if (!query->answered && query->on_ready != NULL &&
+            oldlen >= query->ready_threshold &&
+            w->ob.length < query->ready_threshold)
+        {
+            (*query->on_ready)(query);
+        }
+    }
+}
+
+    if (unlikely(w->state == HTTP_PARSER_CLOSE) && w->queries == 0 &&
+        ob_is_empty(&w->ob))
     {
         /* XXX We call shutdown(…, SHUT_RW) to force TCP to flush our writing
          * buffer and protect our responses against a TCP RST which could be
@@ -2246,13 +2334,12 @@ static int httpd_on_event(el_t evh, int fd, short events, data_t priv)
     httpd_set_mask(w);
     return 0;
 
-  close:
+close:
     httpd_do_close(&w);
     return 0;
 }
 
-static int
-httpd_tls_handshake(el_t evh, int fd, short events, data_t priv)
+static int httpd_tls_handshake(el_t evh, int fd, short events, data_t priv)
 {
     httpd_t *w = priv.ptr;
 
@@ -2261,24 +2348,26 @@ httpd_tls_handshake(el_t evh, int fd, short events, data_t priv)
     }
 
     switch (ssl_do_handshake(w->ssl, evh, fd, NULL)) {
-      case SSL_HANDSHAKE_SUCCESS:
+    case SSL_HANDSHAKE_SUCCESS:
         el_fd_set_mask(evh, POLLIN);
         el_fd_set_hook(evh, httpd_on_event);
         break;
-      case SSL_HANDSHAKE_PENDING:
+    case SSL_HANDSHAKE_PENDING:
         break;
-      case SSL_HANDSHAKE_CLOSED:
+    case SSL_HANDSHAKE_CLOSED:
         obj_delete(&w);
         break;
-      case SSL_HANDSHAKE_ERROR: {
+    case SSL_HANDSHAKE_ERROR: {
         t_scope;
 
-        logger_error(&_G.logger,
-                     "server `%*pM`: ssl handshake error from client `%*pM`",
-                     LSTR_FMT_ARG(t_httpd_get_server_address(w)),
-                     LSTR_FMT_ARG(httpd_get_peer_address(w)));
+        logger_error(
+            &_G.logger,
+            "server `%*pM`: ssl handshake error from client `%*pM`",
+            LSTR_FMT_ARG(t_httpd_get_server_address(w)),
+            LSTR_FMT_ARG(httpd_get_peer_address(w))
+        );
         goto error;
-      }
+    }
     }
 
     return 0;
@@ -2299,9 +2388,12 @@ static int httpd_on_accept(el_t evh, int fd, short events, data_t priv)
 
     while ((sock = acceptx_get_addr(fd, O_NONBLOCK, &su)) >= 0) {
         if (cfg->nb_conns >= cfg->max_conns) {
-            logger_warning(&_G.logger, "refused incoming connection: "
-                                       "tcp connection limit %u reached",
-                                       cfg->max_conns);
+            logger_warning(
+                &_G.logger,
+                "refused incoming connection: "
+                "tcp connection limit %u reached",
+                cfg->max_conns
+            );
             close(sock);
         } else if (cfg->mode == HTTP_MODE_USE_HTTP2_ONLY) {
             return httpd_spawn_as_http2(sock, &su, cfg);
@@ -2320,8 +2412,9 @@ el_t httpd_listen(sockunion_t *su, httpd_cfg_t *cfg)
     if (fd < 0) {
         return NULL;
     }
-    return el_fd_register(fd, true, POLLIN, httpd_on_accept,
-                          httpd_cfg_retain(cfg));
+    return el_fd_register(
+        fd, true, POLLIN, httpd_on_accept, httpd_cfg_retain(cfg)
+    );
 }
 
 static void http2_close_servers(httpd_cfg_t *cfg);
@@ -2345,12 +2438,12 @@ httpd_t *httpd_spawn(int fd, httpd_cfg_t *cfg)
     el_fd_f *el_cb = cfg->ssl_ctx ? &httpd_tls_handshake : &httpd_on_event;
 
     cfg->nb_conns++;
-    w->cfg         = httpd_cfg_retain(cfg);
-    w->ev          = el_fd_register(fd, true, POLLIN, el_cb, w);
+    w->cfg = httpd_cfg_retain(cfg);
+    w->ev = el_fd_register(fd, true, POLLIN, el_cb, w);
     w->max_queries = cfg->max_queries;
     if (cfg->ssl_ctx) {
         w->ssl = SSL_new(cfg->ssl_ctx);
-        assert (w->ssl);
+        assert(w->ssl);
         SSL_set_fd(w->ssl, fd);
         SSL_set_accept_state(w->ssl);
     }
@@ -2404,23 +2497,23 @@ static httpc_qinfo_t *httpc_qinfo_dup(const httpc_qinfo_t *info)
     len += ps_len(&info->reason);
     len += ps_len(&info->hdrs_ps);
 
-    res  = p_new_extra(httpc_qinfo_t, len);
+    res = p_new_extra(httpc_qinfo_t, len);
     memcpy(res, info, offsetof(httpc_qinfo_t, hdrs_ps));
-    res->hdrs          = (void *)&res[1];
-    p                  = res->hdrs + res->hdrs_len;
-    res->reason.s      = p;
-    res->reason.s_end  = p = mempcpy(p, info->reason.s, ps_len(&info->reason));
-    res->hdrs_ps.s     = p;
+    res->hdrs = (void *)&res[1];
+    p = res->hdrs + res->hdrs_len;
+    res->reason.s = p;
+    res->reason.s_end = p = mempcpy(p, info->reason.s, ps_len(&info->reason));
+    res->hdrs_ps.s = p;
     res->hdrs_ps.s_end = mempcpy(p, info->hdrs_ps.s, ps_len(&info->hdrs_ps));
 
     offs = res->hdrs_ps.s - info->hdrs_ps.s;
     for (int i = 0; i < res->hdrs_len; i++) {
-        http_qhdr_t       *lhs = &res->hdrs[i];
+        http_qhdr_t *lhs = &res->hdrs[i];
         const http_qhdr_t *rhs = &info->hdrs[i];
 
         lhs->wkhdr = rhs->wkhdr;
-        lhs->key   = ps_initptr(rhs->key.s + offs, rhs->key.s_end + offs);
-        lhs->val   = ps_initptr(rhs->val.s + offs, rhs->val.s_end + offs);
+        lhs->key = ps_initptr(rhs->key.s + offs, rhs->key.s_end + offs);
+        lhs->val = ps_initptr(rhs->val.s + offs, rhs->val.s_end + offs);
     }
     return res;
 }
@@ -2431,14 +2524,20 @@ static void httpc_trace_query_on_done(httpc_query_t *q)
         return;
     }
 
-    logger_trace(&_G.logger, 1, "reason of answer on client's side: `%*pM`",
-                 PS_FMT_ARG(&q->qinfo->reason));
+    logger_trace(
+        &_G.logger, 1, "reason of answer on client's side: `%*pM`",
+        PS_FMT_ARG(&q->qinfo->reason)
+    );
 
-    logger_trace(&_G.logger, 2, "header of answer on client's side:\n%*pM",
-                 PS_FMT_ARG(&q->qinfo->hdrs_ps));
+    logger_trace(
+        &_G.logger, 2, "header of answer on client's side:\n%*pM",
+        PS_FMT_ARG(&q->qinfo->hdrs_ps)
+    );
 
-    logger_trace(&_G.logger, 3, "payload on client's side:\n%*pM",
-                 SB_FMT_ARG(&q->payload));
+    logger_trace(
+        &_G.logger, 3, "payload on client's side:\n%*pM",
+        SB_FMT_ARG(&q->payload)
+    );
 }
 
 static void httpc_query_on_done(httpc_query_t *q, int status)
@@ -2446,8 +2545,8 @@ static void httpc_query_on_done(httpc_query_t *q, int status)
     httpc_t *w = q->owner;
 
     if (expect(w)) {
-        if (--w->queries < w->cfg->pipeline_depth && w->max_queries && w->busy
-            && w->is_connected)
+        if (--w->queries < w->cfg->pipeline_depth && w->max_queries &&
+            w->busy && w->is_connected)
         {
             obj_vcall(w, set_ready, false);
         }
@@ -2460,7 +2559,7 @@ static void httpc_query_on_done(httpc_query_t *q, int status)
     }
     (*q->on_done)(q, status);
 }
-#define httpc_query_abort(q)  httpc_query_on_done(q, HTTPC_STATUS_ABORT)
+#define httpc_query_abort(q) httpc_query_on_done(q, HTTPC_STATUS_ABORT)
 
 static int httpc_query_ok(httpc_query_t *q)
 {
@@ -2492,12 +2591,16 @@ static int httpc_parse_idle(httpc_t *w, pstream_t *ps)
     int clen = -1, res;
 
     if (ps_len(ps) > 0 && dlist_is_empty(&w->query_list)) {
-        logger_trace(&_G.logger, 0, "UHOH spurious data from the HTTP "
-                     "server: %*pM", (int)ps_len(ps), ps->s);
+        logger_trace(
+            &_G.logger, 0, "UHOH spurious data from the HTTP server: %*pM",
+            (int)ps_len(ps), ps->s
+        );
         return PARSE_ERROR;
     }
 
-    if ((p = memmem(ps->s + start, ps_len(ps) - start, "\r\n\r\n", 4)) == NULL) {
+    if ((p = memmem(ps->s + start, ps_len(ps) - start, "\r\n\r\n", 4)) ==
+        NULL)
+    {
         if (ps_len(ps) > w->cfg->header_size_max) {
             return PARSE_ERROR;
         }
@@ -2544,12 +2647,12 @@ static int httpc_parse_idle(httpc_t *w, pstream_t *ps)
         ps_trim(&qhdr->val);
 
         switch ((qhdr->wkhdr = http_wkhdr_from_ps(qhdr->key))) {
-          case HTTP_WKHDR_CONNECTION:
+        case HTTP_WKHDR_CONNECTION:
             conn_close |= http_hdr_contains(qhdr->val, "close");
             w->connection_close |= conn_close;
             break;
 
-          case HTTP_WKHDR_TRANSFER_ENCODING:
+        case HTTP_WKHDR_TRANSFER_ENCODING:
             /* RFC 7231 § 4.3.6: A client MUST ignore any Transfer-Encoding
              * header fields received in a successful response to CONNECT.
              */
@@ -2559,18 +2662,18 @@ static int httpc_parse_idle(httpc_t *w, pstream_t *ps)
 
             /* rfc 2616: §4.4: != "identity" means chunked encoding */
             switch (http_get_token_ps(qhdr->val)) {
-              case HTTP_TK_IDENTITY:
+            case HTTP_TK_IDENTITY:
                 chunked = false;
                 break;
-              case HTTP_TK_CHUNKED:
+            case HTTP_TK_CHUNKED:
                 chunked = true;
                 break;
-              default:
+            default:
                 return PARSE_ERROR;
             }
             break;
 
-          case HTTP_WKHDR_CONTENT_LENGTH:
+        case HTTP_WKHDR_CONTENT_LENGTH:
             /* RFC 7231 § 4.3.6: A client MUST ignore any Content-Length
              * header fields received in a successful response to CONNECT.
              */
@@ -2583,21 +2686,21 @@ static int httpc_parse_idle(httpc_t *w, pstream_t *ps)
             }
             break;
 
-          case HTTP_WKHDR_CONTENT_ENCODING:
+        case HTTP_WKHDR_CONTENT_ENCODING:
             switch (http_get_token_ps(qhdr->val)) {
-              case HTTP_TK_DEFLATE:
-              case HTTP_TK_GZIP:
-              case HTTP_TK_X_GZIP:
+            case HTTP_TK_DEFLATE:
+            case HTTP_TK_GZIP:
+            case HTTP_TK_X_GZIP:
                 http_zlib_inflate_init(w);
                 qv_shrink(&hdrs, 1);
                 break;
-              default:
+            default:
                 http_zlib_reset(w);
                 break;
             }
             break;
 
-          default:
+        default:
             break;
         }
     }
@@ -2623,7 +2726,7 @@ static int httpc_parse_idle(httpc_t *w, pstream_t *ps)
         }
         w->state = HTTP_PARSER_BODY;
     }
-    req.hdrs     = hdrs.tab;
+    req.hdrs = hdrs.tab;
     req.hdrs_len = hdrs.len;
 
     if (req.code >= 100 && req.code < 200) {
@@ -2638,8 +2741,7 @@ static int httpc_parse_idle(httpc_t *w, pstream_t *ps)
          */
         if (req.http_version == HTTP_1_0) {
             return PARSE_ERROR;
-        } else
-        if (req.code != HTTP_CODE_CONTINUE) {
+        } else if (req.code != HTTP_CODE_CONTINUE) {
             return PARSE_OK;
         }
 
@@ -2669,8 +2771,7 @@ static int httpc_parse_idle(httpc_t *w, pstream_t *ps)
         if (!w->busy) {
             obj_vcall(w, set_busy);
         }
-        dlist_for_each_entry_continue(q, &w->query_list, query_link)
-        {
+        dlist_for_each_entry_continue(q, &w->query_list, query_link) {
             httpc_query_abort(q);
         }
         ob_wipe(&w->ob);
@@ -2706,7 +2807,8 @@ httpc_flush_data(httpc_t *w, httpc_query_t *q, pstream_t *ps, bool done)
 
 static int httpc_parse_body(httpc_t *w, pstream_t *ps)
 {
-    httpc_query_t *q = dlist_first_entry(&w->query_list, httpc_query_t, query_link);
+    httpc_query_t *q =
+        dlist_first_entry(&w->query_list, httpc_query_t, query_link);
     ssize_t plen = ps_len(ps);
 
     if (plen >= w->chunk_length && w->chunk_length >= 0) {
@@ -2723,10 +2825,11 @@ static int httpc_parse_body(httpc_t *w, pstream_t *ps)
 
 static int httpc_parse_chunk_hdr(httpc_t *w, pstream_t *ps)
 {
-    httpc_query_t *q = dlist_first_entry(&w->query_list, httpc_query_t, query_link);
+    httpc_query_t *q =
+        dlist_first_entry(&w->query_list, httpc_query_t, query_link);
     const char *orig = ps->s;
     pstream_t line, hex;
-    uint64_t  len = 0;
+    uint64_t len = 0;
     int res;
 
     res = http_getline(ps, w->cfg->header_line_max, &line);
@@ -2742,8 +2845,9 @@ static int httpc_parse_chunk_hdr(httpc_t *w, pstream_t *ps)
     if (unlikely(ps_len(&hex) == 0) || unlikely(ps_len(&hex) > 16)) {
         return PARSE_ERROR;
     }
-    for (const char *s = hex.s; s < hex.s_end; s++)
+    for (const char *s = hex.s; s < hex.s_end; s++) {
         len = (len << 4) | __str_digit_value[*s + 128];
+    }
     w->chunk_length = len;
     w->state = len ? HTTP_PARSER_CHUNK : HTTP_PARSER_CHUNK_TRAILER;
     q->received_body_length += ps->s - orig;
@@ -2752,10 +2856,11 @@ static int httpc_parse_chunk_hdr(httpc_t *w, pstream_t *ps)
 
 static int httpc_parse_chunk(httpc_t *w, pstream_t *ps)
 {
-    httpc_query_t *q = dlist_first_entry(&w->query_list, httpc_query_t, query_link);
+    httpc_query_t *q =
+        dlist_first_entry(&w->query_list, httpc_query_t, query_link);
     ssize_t plen = ps_len(ps);
 
-    assert (w->chunk_length >= 0);
+    assert(w->chunk_length >= 0);
     if (plen >= w->chunk_length + 2) {
         pstream_t tmp = __ps_get_ps(ps, w->chunk_length);
 
@@ -2774,7 +2879,8 @@ static int httpc_parse_chunk(httpc_t *w, pstream_t *ps)
 
 static int httpc_parse_chunk_trailer(httpc_t *w, pstream_t *ps)
 {
-    httpc_query_t *q = dlist_first_entry(&w->query_list, httpc_query_t, query_link);
+    httpc_query_t *q =
+        dlist_first_entry(&w->query_list, httpc_query_t, query_link);
     const char *orig = ps->s;
     pstream_t line;
 
@@ -2791,10 +2897,10 @@ static int httpc_parse_chunk_trailer(httpc_t *w, pstream_t *ps)
 }
 
 static int (*httpc_parsers[])(httpc_t *w, pstream_t *ps) = {
-    [HTTP_PARSER_IDLE]          = httpc_parse_idle,
-    [HTTP_PARSER_BODY]          = httpc_parse_body,
-    [HTTP_PARSER_CHUNK_HDR]     = httpc_parse_chunk_hdr,
-    [HTTP_PARSER_CHUNK]         = httpc_parse_chunk,
+    [HTTP_PARSER_IDLE] = httpc_parse_idle,
+    [HTTP_PARSER_BODY] = httpc_parse_body,
+    [HTTP_PARSER_CHUNK_HDR] = httpc_parse_chunk_hdr,
+    [HTTP_PARSER_CHUNK] = httpc_parse_chunk,
     [HTTP_PARSER_CHUNK_TRAILER] = httpc_parse_chunk_trailer,
 };
 
@@ -2806,11 +2912,13 @@ int httpc_cfg_tls_init(httpc_cfg_t *cfg, sb_t *err)
     SSL_CTX *ctx;
     int flags;
 
-    assert (cfg->ssl_ctx == NULL);
+    assert(cfg->ssl_ctx == NULL);
 
-    flags = cfg->check_server_cert ? SSL_VERIFY_PEER: SSL_VERIFY_NONE;
-    ctx = ssl_ctx_new_tls(TLS_client_method(), cfg->client_tls_key,
-                          cfg->client_tls_cert, flags, NULL, err);
+    flags = cfg->check_server_cert ? SSL_VERIFY_PEER : SSL_VERIFY_NONE;
+    ctx = ssl_ctx_new_tls(
+        TLS_client_method(), cfg->client_tls_key, cfg->client_tls_cert, flags,
+        NULL, err
+    );
 
     httpc_cfg_set_ssl_ctx(cfg, ctx);
     return cfg->ssl_ctx ? 0 : -1;
@@ -2846,18 +2954,19 @@ httpc_cfg_t *httpc_cfg_init(httpc_cfg_t *cfg)
 
 int httpc_cfg_from_iop(httpc_cfg_t *cfg, const core__httpc_cfg__t *iop_cfg)
 {
-    cfg->pipeline_depth    = iop_cfg->pipeline_depth;
-    cfg->noact_delay       = iop_cfg->noact_delay;
-    cfg->max_queries       = iop_cfg->max_queries;
+    cfg->pipeline_depth = iop_cfg->pipeline_depth;
+    cfg->noact_delay = iop_cfg->noact_delay;
+    cfg->max_queries = iop_cfg->max_queries;
     cfg->on_data_threshold = iop_cfg->on_data_threshold;
-    cfg->header_line_max   = iop_cfg->header_line_max;
-    cfg->header_size_max   = iop_cfg->header_size_max;
-    cfg->tls_server_name   = lstr_dup(iop_cfg->tls_server_name);
+    cfg->header_line_max = iop_cfg->header_line_max;
+    cfg->header_size_max = iop_cfg->header_size_max;
+    cfg->tls_server_name = lstr_dup(iop_cfg->tls_server_name);
 
     if (iop_cfg->proxy_url.len) {
         if (parse_http_url(iop_cfg->proxy_url.s, true, &cfg->proxy_url) < 0) {
-            return logger_error(&_G.logger, "invalid proxy URL `%pL'",
-                                &cfg->proxy_url);
+            return logger_error(
+                &_G.logger, "invalid proxy URL `%pL'", &cfg->proxy_url
+            );
         }
         cfg->use_proxy = true;
     }
@@ -2894,12 +3003,15 @@ int httpc_cfg_from_iop(httpc_cfg_t *cfg, const core__httpc_cfg__t *iop_cfg)
                 char path[PATH_MAX] = "/tmp/tls-cert-XXXXXX";
                 int ret;
 
-                ret = write_in_tmp_file(path, iop_cfg->tls_cert.s,
-                                             iop_cfg->tls_cert.len, &err);
+                ret = write_in_tmp_file(
+                    path, iop_cfg->tls_cert.s, iop_cfg->tls_cert.len, &err
+                );
                 if (ret < 0) {
                     httpc_cfg_tls_wipe(cfg);
-                    logger_error(&_G.logger, "tls: failed to dump certificate: "
-                                 "%*pM", SB_FMT_ARG(&err));
+                    logger_error(
+                        &_G.logger, "tls: failed to dump certificate: %*pM",
+                        SB_FMT_ARG(&err)
+                    );
                     return -1;
                 }
 
@@ -2908,7 +3020,9 @@ int httpc_cfg_from_iop(httpc_cfg_t *cfg, const core__httpc_cfg__t *iop_cfg)
 
                 if (ret < 0) {
                     httpc_cfg_tls_wipe(cfg);
-                    logger_error(&_G.logger, "tls: failed to load certificate");
+                    logger_error(
+                        &_G.logger, "tls: failed to load certificate"
+                    );
                     return -1;
                 }
             } else {
@@ -2916,13 +3030,14 @@ int httpc_cfg_from_iop(httpc_cfg_t *cfg, const core__httpc_cfg__t *iop_cfg)
             }
         }
 
-#if OPENSSL_VERSION_IS(>,1,1,0)
+#if OPENSSL_VERSION_IS(>, 1, 1, 0)
         set_ssl_keylog_cb(cfg->ssl_ctx);
 #endif
 
         if (OPT_ISSET(iop_cfg->check_cert_depth)) {
-            SSL_CTX_set_verify_depth(cfg->ssl_ctx,
-                                     OPT_VAL(iop_cfg->check_cert_depth));
+            SSL_CTX_set_verify_depth(
+                cfg->ssl_ctx, OPT_VAL(iop_cfg->check_cert_depth)
+            );
         }
     }
 
@@ -2946,7 +3061,7 @@ void httpc_cfg_set_ssl_ctx(httpc_cfg_t *nonnull cfg, SSL_CTX *nullable ctx)
     /* XXX: Currently, we only propose h2 protocol in HTTP/2 (TLS) mode */
     if (ctx && cfg->http_mode == HTTP_MODE_USE_HTTP2_ONLY) {
         const byte alpn[] = "\x02h2";
-        unsigned int alpnlen = strlen((char *) alpn);
+        unsigned int alpnlen = strlen((char *)alpn);
 
         if (SSL_CTX_set_alpn_protos(cfg->ssl_ctx, alpn, alpnlen) != 0) {
             logger_error(&_G.logger, "unable to set SSL ALPN protocols");
@@ -3043,8 +3158,9 @@ httpc_t *httpc_pool_launch(httpc_pool_t *pool)
         lstr_t host = pool->host;
 
         if (pool->cfg->use_proxy) {
-            host = t_lstr_fmt("%s:%d", pool->cfg->proxy_url.host,
-                              pool->cfg->proxy_url.port);
+            host = t_lstr_fmt(
+                "%s:%d", pool->cfg->proxy_url.host, pool->cfg->proxy_url.port
+            );
         } else {
             assert(pool->host.s);
         }
@@ -3060,8 +3176,10 @@ httpc_t *httpc_pool_launch(httpc_pool_t *pool)
 
 static inline bool httpc_pool_reach_limit(httpc_pool_t *pool)
 {
-    return (pool->len >= pool->max_len ||
-           (pool->len_global && *pool->len_global >= pool->max_len_global));
+    return (
+        pool->len >= pool->max_len ||
+        (pool->len_global && *pool->len_global >= pool->max_len_global)
+    );
 }
 
 static bool httpc_pool_is_connecting(httpc_pool_t *pool)
@@ -3115,12 +3233,12 @@ httpc_t *httpc_pool_get(httpc_pool_t *pool)
     return httpc;
 }
 
-bool httpc_pool_has_ready(httpc_pool_t * nonnull pool)
+bool httpc_pool_has_ready(httpc_pool_t *nonnull pool)
 {
     return !dlist_is_empty(&pool->ready_list);
 }
 
-bool httpc_pool_can_query(httpc_pool_t * nonnull pool)
+bool httpc_pool_can_query(httpc_pool_t *nonnull pool)
 {
     return httpc_pool_has_ready(pool) || !httpc_pool_reach_limit(pool);
 }
@@ -3135,7 +3253,7 @@ static httpc_t *httpc_init(httpc_t *w)
     return w;
 }
 
-static void http2c_ctx_unregister(http2c_ctx_t *nullable *nonnull ctxp);
+static void http2c_ctx_unregister(http2c_ctx_t * nullable * nonnull ctxp);
 
 static void httpc_wipe(httpc_t *w)
 {
@@ -3165,7 +3283,7 @@ static void httpc_set_ready(httpc_t *w, bool first)
 {
     httpc_pool_t *pool = w->pool;
 
-    assert (w->busy);
+    assert(w->busy);
     w->is_connected = true;
     w->busy = false;
     if (pool) {
@@ -3180,20 +3298,20 @@ static void httpc_set_busy(httpc_t *w)
 {
     httpc_pool_t *pool = w->pool;
 
-    assert (!w->busy);
+    assert(!w->busy);
     w->busy = true;
     if (pool) {
         dlist_move(&pool->busy_list, &w->pool_link);
     }
 }
 
-OBJ_VTABLE(httpc)
-    httpc.init       = httpc_init;
-    httpc.disconnect = httpc_disconnect;
-    httpc.wipe       = httpc_wipe;
-    httpc.set_ready  = httpc_set_ready;
-    httpc.set_busy   = httpc_set_busy;
-OBJ_VTABLE_END()
+OBJ_VTABLE(httpc) {
+    cls->init = httpc_init;
+    cls->disconnect = httpc_disconnect;
+    cls->wipe = httpc_wipe;
+    cls->set_ready = httpc_set_ready;
+    cls->set_busy = httpc_set_busy;
+}
 
 void httpc_close_gently(httpc_t *w)
 {
@@ -3260,7 +3378,7 @@ static int httpc_on_event(el_t evh, int fd, short events, data_t priv)
             if (w->chunk_length >= 0 || w->state != HTTP_PARSER_BODY) {
                 goto close;
             }
-            assert (!dlist_is_empty(&w->query_list));
+            assert(!dlist_is_empty(&w->query_list));
             /* rfc 2616: §4.4: support no Content-Length followed by close */
             w->chunk_length = ps_len(&ps);
         }
@@ -3280,7 +3398,7 @@ static int httpc_on_event(el_t evh, int fd, short events, data_t priv)
             goto close;
         }
     }
-  write:
+write:
     res = w->ssl ? ob_write_with(&w->ob, fd, ssl_writev, w->ssl)
                  : ob_write(&w->ob, fd);
     if (res < 0 && !ERR_RW_RETRIABLE(errno)) {
@@ -3289,7 +3407,7 @@ static int httpc_on_event(el_t evh, int fd, short events, data_t priv)
     httpc_set_mask(w);
     return 0;
 
-  close:
+close:
     httpc_pool_detach(w, false);
     if (!dlist_is_empty(&w->query_list)) {
         q = dlist_first_entry(&w->query_list, httpc_query_t, query_link);
@@ -3306,8 +3424,7 @@ static void httpc_on_connect_error(httpc_t *w, int errnum)
 {
     if (w->pool && w->pool->on_connect_error) {
         (*w->pool->on_connect_error)(w, errnum);
-    } else
-    if (w->on_connect_error) {
+    } else if (w->on_connect_error) {
         (*w->on_connect_error)(w, errnum);
     }
 
@@ -3315,11 +3432,10 @@ static void httpc_on_connect_error(httpc_t *w, int errnum)
     obj_delete(&w);
 }
 
-static int
-httpc_tls_handshake(el_t evh, int fd, short events, data_t priv)
+static int httpc_tls_handshake(el_t evh, int fd, short events, data_t priv)
 {
     httpc_t *w = priv.ptr;
-    X509    *cert;
+    X509 *cert;
 
     if (events == EL_EVENTS_NOACT) {
         httpc_on_connect_error(w, ETIMEDOUT);
@@ -3327,7 +3443,7 @@ httpc_tls_handshake(el_t evh, int fd, short events, data_t priv)
     }
 
     switch (ssl_do_handshake(w->ssl, evh, fd, NULL)) {
-      case SSL_HANDSHAKE_SUCCESS:
+    case SSL_HANDSHAKE_SUCCESS:
         cert = SSL_get_peer_certificate(w->ssl);
         if (unlikely(cert == NULL)) {
             httpc_on_connect_error(w, ECONNREFUSED);
@@ -3338,22 +3454,23 @@ httpc_tls_handshake(el_t evh, int fd, short events, data_t priv)
         el_fd_set_hook(evh, httpc_on_event);
         obj_vcall(w, set_ready, true);
         break;
-      case SSL_HANDSHAKE_PENDING:
+    case SSL_HANDSHAKE_PENDING:
         break;
-      case SSL_HANDSHAKE_CLOSED:
+    case SSL_HANDSHAKE_CLOSED:
         httpc_on_connect_error(w, errno);
         break;
-      case SSL_HANDSHAKE_ERROR: {
+    case SSL_HANDSHAKE_ERROR: {
         t_scope;
 
-        logger_error(&_G.logger,
-                     "client `%*pM`: ssl handshake error with "
-                     "server `%*pM`",
-                     LSTR_FMT_ARG(t_get_sock_address(fd)),
-                     LSTR_FMT_ARG(t_get_peer_address(fd)));
+        logger_error(
+            &_G.logger,
+            "client `%*pM`: ssl handshake error with server `%*pM`",
+            LSTR_FMT_ARG(t_get_sock_address(fd)),
+            LSTR_FMT_ARG(t_get_peer_address(fd))
+        );
         httpc_on_connect_error(w, errno);
         return -1;
-      }
+    }
     }
 
     return 0;
@@ -3362,9 +3479,9 @@ httpc_tls_handshake(el_t evh, int fd, short events, data_t priv)
 /* {{{ CONNECT */
 
 typedef struct httpc_connect_query_t {
-    httpc_query_t  q;
-    httpc_t       *w;
-    SSL           *ssl;
+    httpc_query_t q;
+    httpc_t *w;
+    SSL *ssl;
 } httpc_connect_query_t;
 
 static httpc_connect_query_t *
@@ -3385,8 +3502,7 @@ static void httpc_connect_query_wipe(httpc_connect_query_t *p)
 GENERIC_NEW(httpc_connect_query_t, httpc_connect_query);
 GENERIC_DELETE(httpc_connect_query_t, httpc_connect_query);
 
-static void httpc_send_connect_cb(httpc_query_t *q,
-                                  httpc_status_t status)
+static void httpc_send_connect_cb(httpc_query_t *q, httpc_status_t status)
 {
     httpc_connect_query_t *p = container_of(q, httpc_connect_query_t, q);
 
@@ -3432,8 +3548,8 @@ static void httpc_send_connect(httpc_t *w)
 
 static int httpc_on_connect(el_t evh, int fd, short events, data_t priv)
 {
-    httpc_t *w   = priv.ptr;
-    int      res;
+    httpc_t *w = priv.ptr;
+    int res;
 
     if (events == EL_EVENTS_NOACT) {
         httpc_on_connect_error(w, ETIMEDOUT);
@@ -3444,7 +3560,7 @@ static int httpc_on_connect(el_t evh, int fd, short events, data_t priv)
     if (res > 0) {
         if (w->cfg->ssl_ctx) {
             w->ssl = SSL_new(w->cfg->ssl_ctx);
-            assert (w->ssl);
+            assert(w->ssl);
             httpc_set_sni(w->ssl, w->cfg->tls_server_name);
             SSL_set_fd(w->ssl, fd);
             SSL_set_connect_state(w->ssl);
@@ -3460,26 +3576,27 @@ static int httpc_on_connect(el_t evh, int fd, short events, data_t priv)
             httpc_set_mask(w);
             obj_vcall(w, set_ready, true);
         }
-    } else
-    if (res < 0) {
+    } else if (res < 0) {
         httpc_on_connect_error(w, errno);
     }
     return res;
 }
 
-httpc_t *httpc_connect(const sockunion_t *su, httpc_cfg_t *cfg,
-                       httpc_pool_t *pool)
+httpc_t *
+httpc_connect(const sockunion_t *su, httpc_cfg_t *cfg, httpc_pool_t *pool)
 {
     return httpc_connect_as(su, NULL, cfg, pool);
 }
 
-static httpc_t *httpc_connect_as_http2(const sockunion_t *su,
-                                       const sockunion_t *nullable su_src,
-                                       httpc_cfg_t *cfg, httpc_pool_t *pool);
+static httpc_t *httpc_connect_as_http2(
+    const sockunion_t *su, const sockunion_t *nullable su_src,
+    httpc_cfg_t *cfg, httpc_pool_t *pool
+);
 
-httpc_t *httpc_connect_as(const sockunion_t *su,
-                          const sockunion_t *nullable su_src,
-                          httpc_cfg_t *cfg, httpc_pool_t *pool)
+httpc_t *httpc_connect_as(
+    const sockunion_t *su, const sockunion_t *nullable su_src,
+    httpc_cfg_t *cfg, httpc_pool_t *pool
+)
 {
     httpc_t *w;
     int fd;
@@ -3487,14 +3604,15 @@ httpc_t *httpc_connect_as(const sockunion_t *su,
     if (cfg->http_mode == HTTP_MODE_USE_HTTP2_ONLY) {
         return httpc_connect_as_http2(su, su_src, cfg, pool);
     }
-    fd = RETHROW_NP(connectx_as(-1, su, 1, su_src, SOCK_STREAM, IPPROTO_TCP,
-                                O_NONBLOCK, 0));
-    w  = obj_new_of_class(httpc, cfg->httpc_cls);
-    w->cfg         = httpc_cfg_retain(cfg);
-    w->ev          = el_fd_register(fd, true, POLLOUT, &httpc_on_connect, w);
+    fd = RETHROW_NP(connectx_as(
+        -1, su, 1, su_src, SOCK_STREAM, IPPROTO_TCP, O_NONBLOCK, 0
+    ));
+    w = obj_new_of_class(httpc, cfg->httpc_cls);
+    w->cfg = httpc_cfg_retain(cfg);
+    w->ev = el_fd_register(fd, true, POLLOUT, &httpc_on_connect, w);
     w->max_queries = cfg->max_queries;
     el_fd_watch_activity(w->ev, POLLINOUT, w->cfg->noact_delay);
-    w->busy        = true;
+    w->busy = true;
     if (pool) {
         httpc_pool_attach(w, pool);
     }
@@ -3505,8 +3623,8 @@ httpc_t *httpc_spawn(int fd, httpc_cfg_t *cfg, httpc_pool_t *pool)
 {
     httpc_t *w = obj_new_of_class(httpc, cfg->httpc_cls);
 
-    w->cfg         = httpc_cfg_retain(cfg);
-    w->ev          = el_fd_register(fd, true, POLLIN, &httpc_on_event, w);
+    w->cfg = httpc_cfg_retain(cfg);
+    w->ev = el_fd_register(fd, true, POLLIN, &httpc_on_event, w);
     w->max_queries = cfg->max_queries;
     el_fd_watch_activity(w->ev, POLLINOUT, w->cfg->noact_delay);
     httpc_set_mask(w);
@@ -3526,12 +3644,14 @@ void httpc_query_init(httpc_query_t *q)
     sb_init(&q->payload);
 }
 
-#define clear_fields_range_(type_t, v, f1, f2) \
-    ({ type_t *__v = (v);                      \
-       size_t off1 = offsetof(type_t, f1);     \
-       size_t off2 = offsetof(type_t, f2);     \
-       memset((uint8_t *)__v + off1, 0, off2 - off1); })
-#define clear_fields_range(v, f1, f2) \
+#define clear_fields_range_(type_t, v, f1, f2)                               \
+    ({                                                                       \
+        type_t *__v = (v);                                                   \
+        size_t off1 = offsetof(type_t, f1);                                  \
+        size_t off2 = offsetof(type_t, f2);                                  \
+        memset((uint8_t *)__v + off1, 0, off2 - off1);                       \
+    })
+#define clear_fields_range(v, f1, f2)                                        \
     clear_fields_range_(typeof(*(v)), v, f1, f2)
 
 void httpc_query_reset(httpc_query_t *q)
@@ -3554,7 +3674,7 @@ void httpc_query_wipe(httpc_query_t *q)
 void httpc_query_attach(httpc_query_t *q, httpc_t *w)
 {
     assert((w->ev || w->connected_as_http2) && w->max_queries > 0);
-    assert (!q->hdrs_started && !q->hdrs_done);
+    assert(!q->hdrs_started && !q->hdrs_done);
     q->id = ++_G.httpc_query_count;
     q->owner = w;
     dlist_add_tail(&w->query_list, &q->query_link);
@@ -3583,17 +3703,19 @@ static int httpc_query_on_data_bufferize(httpc_query_t *q, pstream_t ps)
 void httpc_bufferize(httpc_query_t *q, unsigned maxsize)
 {
     q->payload_max_size = maxsize;
-    q->on_data          = &httpc_query_on_data_bufferize;
+    q->on_data = &httpc_query_on_data_bufferize;
 }
 
-void httpc_query_start_flags(httpc_query_t *q, http_method_t m,
-                             lstr_t host, lstr_t uri, bool httpc_encode_url)
+void httpc_query_start_flags(
+    httpc_query_t *q, http_method_t m, lstr_t host, lstr_t uri,
+    bool httpc_encode_url
+)
 {
-    httpc_t  *w  = q->owner;
+    httpc_t *w = q->owner;
     outbuf_t *ob = &w->ob;
     int encode_at = 0;
 
-    assert (!q->hdrs_started && !q->hdrs_done);
+    assert(!q->hdrs_started && !q->hdrs_done);
 
     ob_add(ob, http_method_str[m].s, http_method_str[m].len);
     ob_adds(ob, " ");
@@ -3608,13 +3730,13 @@ void httpc_query_start_flags(httpc_query_t *q, http_method_t m,
              */
             ob_addf(ob, "%*pM", LSTR_FMT_ARG(host));
         } else if (lstr_ascii_istartswith(uri, LSTR("http://"))) {
-            uri.s   += 7;
+            uri.s += 7;
             uri.len -= 7;
             ob_add(ob, "http://", 7);
             s = memchr(uri.s, '/', uri.len);
             encode_at = (s) ? s - uri.s : uri.len;
         } else if (lstr_ascii_istartswith(uri, LSTR("https://"))) {
-            uri.s   += 8;
+            uri.s += 8;
             uri.len -= 8;
             ob_add(ob, "https://", 8);
             s = memchr(uri.s, '/', uri.len);
@@ -3627,8 +3749,10 @@ void httpc_query_start_flags(httpc_query_t *q, http_method_t m,
             }
         }
     } else {
-        assert (!lstr_startswith(uri, LSTR("http://"))
-             && !lstr_startswith(uri, LSTR("https://")));
+        assert(
+            !lstr_startswith(uri, LSTR("http://")) &&
+            !lstr_startswith(uri, LSTR("https://"))
+        );
     }
     if (httpc_encode_url) {
         ob_add(ob, uri.s, encode_at);
@@ -3636,7 +3760,12 @@ void httpc_query_start_flags(httpc_query_t *q, http_method_t m,
     } else {
         ob_add(ob, uri.s, uri.len);
     }
-    ob_addf(ob, " HTTP/1.1\r\n" "Host: %*pM\r\n", LSTR_FMT_ARG(host));
+    ob_addf(
+        ob,
+        " HTTP/1.1\r\n"
+        "Host: %*pM\r\n",
+        LSTR_FMT_ARG(host)
+    );
     http_update_date_cache(&date_cache_g, lp_getsec());
     ob_add(ob, date_cache_g.buf, sizeof(date_cache_g.buf) - 1);
     ob_adds(ob, "Accept-Encoding: identity, gzip, deflate\r\n");
@@ -3644,14 +3773,14 @@ void httpc_query_start_flags(httpc_query_t *q, http_method_t m,
         ob_adds(ob, "Connection: close\r\n");
     }
     q->hdrs_started = true;
-    q->is_connect   = m == HTTP_METHOD_CONNECT;
+    q->is_connect = m == HTTP_METHOD_CONNECT;
 }
 
 void httpc_query_hdrs_done(httpc_query_t *q, int clen, bool chunked)
 {
     outbuf_t *ob = &q->owner->ob;
 
-    assert (!q->hdrs_done);
+    assert(!q->hdrs_done);
     q->hdrs_done = true;
 
     if (q->expect100cont) {
@@ -3668,7 +3797,7 @@ void httpc_query_hdrs_done(httpc_query_t *q, int clen, bool chunked)
     } else {
         q->clength_hack = true;
         ob_adds(ob, "Content-Length: ");
-        q->chunk_hdr_offs    = ob_reserve(ob, CLENGTH_RESERVE);
+        q->chunk_hdr_offs = ob_reserve(ob, CLENGTH_RESERVE);
         ob_adds(ob, "\r\n");
         q->chunk_prev_length = ob->length;
     }
@@ -3676,39 +3805,42 @@ void httpc_query_hdrs_done(httpc_query_t *q, int clen, bool chunked)
 
 void httpc_query_chunk_done_(httpc_query_t *q, outbuf_t *ob)
 {
-    assert (q->chunk_started);
+    assert(q->chunk_started);
     q->chunk_started = false;
-    http_chunk_patch(ob, ob->sb.data + q->chunk_hdr_offs,
-                     ob->length - q->chunk_prev_length);
+    http_chunk_patch(
+        ob, ob->sb.data + q->chunk_hdr_offs, ob->length - q->chunk_prev_length
+    );
 }
 
 void httpc_query_done(httpc_query_t *q)
 {
     outbuf_t *ob = &q->owner->ob;
 
-    assert (q->hdrs_done && !q->query_done && !q->chunk_started);
+    assert(q->hdrs_done && !q->query_done && !q->chunk_started);
     if (q->chunked) {
         ob_adds(ob, "\r\n0\r\n\r\n");
     }
     if (q->clength_hack) {
-        http_clength_patch(ob, ob->sb.data + q->chunk_hdr_offs,
-                           ob->length - q->chunk_prev_length);
+        http_clength_patch(
+            ob, ob->sb.data + q->chunk_hdr_offs,
+            ob->length - q->chunk_prev_length
+        );
         q->clength_hack = false;
     }
     q->query_done = true;
     httpc_set_mask(q->owner);
 }
 
-static
-void _httpc_query_hdrs_add_auth(httpc_query_t *q, lstr_t login, lstr_t passwd,
-                                const char *header_name)
+static void _httpc_query_hdrs_add_auth(
+    httpc_query_t *q, lstr_t login, lstr_t passwd, const char *header_name
+)
 {
     outbuf_t *ob = &q->owner->ob;
     sb_t *sb;
     sb_b64_ctx_t ctx;
     int oldlen;
 
-    assert (q->hdrs_started && !q->hdrs_done);
+    assert(q->hdrs_started && !q->hdrs_done);
 
     sb = outbuf_sb_start(ob, &oldlen);
 
@@ -3728,8 +3860,9 @@ void httpc_query_hdrs_add_auth(httpc_query_t *q, lstr_t login, lstr_t passwd)
     _httpc_query_hdrs_add_auth(q, login, passwd, "Authorization");
 }
 
-void httpc_query_hdrs_add_proxy_auth(httpc_query_t *q, lstr_t login,
-                                     lstr_t passwd)
+void httpc_query_hdrs_add_proxy_auth(
+    httpc_query_t *q, lstr_t login, lstr_t passwd
+)
 {
     _httpc_query_hdrs_add_auth(q, login, passwd, "Proxy-Authorization");
 }
@@ -3740,12 +3873,12 @@ void httpc_query_hdrs_add_proxy_auth(httpc_query_t *q, lstr_t login,
 
 /** Settings of HTTP2 framing layer as per RFC7540/RFC9113 */
 typedef struct http2_settings_t {
-    uint32_t                    header_table_size;
-    uint32_t                    enable_push;
-    opt_u32_t                   max_concurrent_streams;
-    uint32_t                    initial_window_size;
-    uint32_t                    max_frame_size;
-    opt_u32_t                   max_header_list_size;
+    uint32_t header_table_size;
+    uint32_t enable_push;
+    opt_u32_t max_concurrent_streams;
+    uint32_t initial_window_size;
+    uint32_t max_frame_size;
+    opt_u32_t max_header_list_size;
 } http2_settings_t;
 
 /* default setting values acc. to RFC7540/RFC9113 */
@@ -3798,85 +3931,85 @@ typedef struct http2_server_t http2_server_t;
 
 /** HTTP2 connection object that can be configure as server or client. */
 typedef struct http2_conn_t {
-    el_t                nonnull ev;
-    http2_settings_t    settings;
-    http2_settings_t    peer_settings;
-    unsigned            refcnt;
-    unsigned            id;
-    outbuf_t            ob;
-    sb_t                ibuf;
-    SSL                 * nullable ssl;
+    el_t nonnull ev;
+    http2_settings_t settings;
+    http2_settings_t peer_settings;
+    unsigned refcnt;
+    unsigned id;
+    outbuf_t ob;
+    sb_t ibuf;
+    SSL *nullable ssl;
     /* hpack compression contexts */
-    hpack_enc_dtbl_t    enc;
-    hpack_dec_dtbl_t    dec;
+    hpack_enc_dtbl_t enc;
+    hpack_dec_dtbl_t dec;
     /* tracked streams */
-    qm_t(qstream)       streams;
-    dlist_t             stream_list;
+    qm_t(qstream) streams;
+    dlist_t stream_list;
     /* inactive streams: either in idle or closed<untracked> state */
-    dlist_t             inactive_stream_list;
+    dlist_t inactive_stream_list;
     /* closed<tracked> streams */
-    dlist_t             closed_stream_list;
+    dlist_t closed_stream_list;
 
-    uint32_t            client_streams;
-    uint32_t            server_streams;
-    int                 queries_can_send;
-    int                 queries_can_recv;
+    uint32_t client_streams;
+    uint32_t server_streams;
+    int queries_can_send;
+    int queries_can_recv;
     /* backstream contexts */
     union {
         http2_client_t *nullable client_ctx;
         http2_server_t *nullable server_ctx;
     };
     /* flow control */
-    int32_t             recv_window;
-    int32_t             send_window;
+    int32_t recv_window;
+    int32_t send_window;
     /* socket idle timeout */
-    unsigned            idle_timeout;
+    unsigned idle_timeout;
     /* frame parser */
-    http2_frame_info_t  frame;
-    unsigned            cont_chunk;
-    unsigned            promised_id;
-    uint8_t             state;
+    http2_frame_info_t frame;
+    unsigned cont_chunk;
+    unsigned promised_id;
+    uint8_t state;
 
     /** Connection Flags */
 
     /* True iff is configured as client. */
-    bool                is_client : 1;
+    bool is_client : 1;
     /* True once the socket is connected. */
-    bool                connected : 1;
+    bool connected : 1;
     /* True once the peer's preface is received. */
-    bool                preface_recv : 1;
+    bool preface_recv : 1;
     /* True iff the initial SETTINGS been acknowledged. */
-    bool                preface_acked : 1;
+    bool preface_acked : 1;
     /* Closing State Flags */
     /* True iff an abortive GOAWAY was received. */
-    bool                abort_recv: 1;
+    bool abort_recv : 1;
     /* True iff the final graceful GOAWAY was received. */
-    bool                goaway_recv: 1;
+    bool goaway_recv : 1;
     /* True iff a 'will-close-soon' GOAWAY was received. */
-    bool                will_close_recv: 1;
+    bool will_close_recv : 1;
     /* True iff the peer closed its end of the connection. */
-    bool                eof_read : 1;
+    bool eof_read : 1;
     /* True iff eof condition was processed. */
-    bool                eof_processed : 1;
+    bool eof_processed : 1;
     /* True iff our abortive GOAWAY was sent to the peer. */
-    bool                abort_in_flight: 1;
+    bool abort_in_flight : 1;
     /* True iff our final graceful GOAWAY was sent to the peer. */
-    bool                goaway_in_flight: 1;
+    bool goaway_in_flight : 1;
     /* True iff an I/O error was encountered. */
-    bool                sock_err : 1;
+    bool sock_err : 1;
     /* True iff the connection is in the closing fin_time_wait state. */
-    bool                fin_time_wait: 1;
+    bool fin_time_wait : 1;
     /* True once the closing is done and the socket should be closed. */
-    bool                done : 1;
+    bool done : 1;
     /* True once we enter the closing state. */
-    bool                closing : 1;
+    bool closing : 1;
 
     /** Async Inputs & Flags */
 
     /* True once asked to close the connection gracefully. */
-    bool                send_goaway : 1;
+    bool send_goaway : 1;
     /* True iff there is a current async write from the http1.1 layer. */
-    bool                async_write : 1;
+    bool async_write : 1;
 } http2_conn_t;
 
 /** Get effective HTTP2 settings */
@@ -3889,23 +4022,28 @@ static http2_settings_t http2_get_settings(http2_conn_t *w)
 /* {{{ Logging */
 
 /* TODO: add additional conn-related info to the log message */
-#define http2_conn_log(/* const http_conn_t* */ w, /* int */ level,          \
-                       /* const char* */ fmt, ...)                           \
-    logger_log(&_G.logger, level, "[h2 %s %u] " fmt,                         \
-               (w)->is_client ? "client" : "server", (w)->id, ##__VA_ARGS__)
+#define http2_conn_log(                                                      \
+    /* const http_conn_t* */ w, /* int */ level, /* const char* */ fmt, ...  \
+)                                                                            \
+    logger_log(                                                              \
+        &_G.logger, level, "[h2 %s %u] " fmt,                                \
+        (w)->is_client ? "client" : "server", (w)->id, ##__VA_ARGS__         \
+    )
 
 #define http2_conn_trace(w, level, fmt, ...)                                 \
     http2_conn_log((w), LOG_TRACE + (level), "" fmt, ##__VA_ARGS__)
 
 /* TODO: add additional stream-related info to the log message */
-#define http2_stream_log(/* const http_conn_t* */ w,                         \
-                         /* const stream_t* */ stream, /* int */ level,      \
-                         /* const char* */ fmt, ...)                         \
+#define http2_stream_log(                                                    \
+    /* const http_conn_t* */ w, /* const stream_t* */ stream,                \
+    /* int */ level, /* const char* */ fmt, ...                              \
+)                                                                            \
     http2_conn_log((w), (level), "[sid %d] " fmt, (stream)->id, ##__VA_ARGS__)
 
 #define http2_stream_trace(w, stream, level, fmt, ...)                       \
-    http2_stream_log((w), (stream), LOG_TRACE + (level), "" fmt,             \
-                     ##__VA_ARGS__)
+    http2_stream_log(                                                        \
+        (w), (stream), LOG_TRACE + (level), "" fmt, ##__VA_ARGS__            \
+    )
 
 /* }}} */
 /* {{{ Connection Management */
@@ -3926,8 +4064,9 @@ static http2_conn_t *http2_conn_init(http2_conn_t *w)
     hpack_enc_dtbl_init(&w->enc);
     hpack_dec_dtbl_init(&w->dec);
     hpack_enc_dtbl_init_settings(&w->enc, w->peer_settings.header_table_size);
-    hpack_dec_dtbl_init_settings(&w->dec,
-                                 http2_get_settings(w).header_table_size);
+    hpack_dec_dtbl_init_settings(
+        &w->dec, http2_get_settings(w).header_table_size
+    );
     return w;
 }
 
@@ -4019,11 +4158,11 @@ http2_stream_on_reset(http2_conn_t *w, http2_stream_t *stream, bool remote);
  * Note: Affects only query ids greater than \p query_max and push ids greater
  * \p push_max. Passing -1 means no effect so keep all the streams of the
  * class (query or push) while passing 0 means close the whole class. */
-static void http2_conn_close_streams_internal(http2_conn_t *w, int query_max,
-                                              int push_max)
+static void http2_conn_close_streams_internal(
+    http2_conn_t *w, int query_max, int push_max
+)
 {
-    dlist_for_each_entry(http2_stream_t, stream, &w->stream_list, link)
-    {
+    dlist_for_each_entry(http2_stream_t, stream, &w->stream_list, link) {
         bool is_query = stream->id % 2; /* query or push */
 
         if (is_query && (query_max < 0 || (int)stream->id <= query_max)) {
@@ -4128,8 +4267,9 @@ static int http2_conn_close_terminated(http2_conn_t **w)
     const char *sent = (**w).goaway_in_flight ? "sent" : "not sent";
     const char *recv = (**w).goaway_recv ? "received" : "not received";
 
-    http2_conn_trace(*w, 2, "connection terminated: GOAWAY %s GOAWAY %s",
-                     sent, recv);
+    http2_conn_trace(
+        *w, 2, "connection terminated: GOAWAY %s GOAWAY %s", sent, recv
+    );
     http2_conn_close(w);
     return 0;
 }
@@ -4236,9 +4376,9 @@ static void http2_conn_process_state_change_settings_sent(http2_conn_t *w)
     /* FIXME: add timer to receive the acknowledgement. */
 }
 
-static void
-http2_conn_process_state_change_goaway_recv(http2_conn_t *w,
-                                            uint32_t last_stream_id)
+static void http2_conn_process_state_change_goaway_recv(
+    http2_conn_t *w, uint32_t last_stream_id
+)
 {
     assert(!w->goaway_recv);
     w->goaway_recv = true;
@@ -4252,15 +4392,13 @@ http2_conn_process_state_change_goaway_recv(http2_conn_t *w,
     http2_conn_trace(w, 3, "closing: goaway recv");
 }
 
-static void
-http2_conn_process_state_change_will_close_recv(http2_conn_t *w)
+static void http2_conn_process_state_change_will_close_recv(http2_conn_t *w)
 {
     w->will_close_recv = true;
     http2_conn_trace(w, 3, "'will-close' goaway recv");
 }
 
-static void
-http2_conn_process_state_change_abort_recv(http2_conn_t *w)
+static void http2_conn_process_state_change_abort_recv(http2_conn_t *w)
 {
     assert(!w->abort_recv);
     w->abort_recv = true;
@@ -4289,8 +4427,7 @@ static void http2_conn_process_state_change_abort_in_flight(http2_conn_t *w)
      * this abort. */
 }
 
-static void
-http2_conn_process_state_change_fin_time_wait(http2_conn_t *w)
+static void http2_conn_process_state_change_fin_time_wait(http2_conn_t *w)
 {
     assert(w->closing);
     assert(!w->fin_time_wait);
@@ -4386,9 +4523,10 @@ typedef struct http2_frame_hdr_t {
     be32_t stream_id;
 } __attribute__((packed)) http2_frame_hdr_t;
 
-static void
-http2_conn_send_common_hdr(http2_conn_t *w, unsigned len, uint8_t type,
-                           uint8_t flags, uint32_t stream_id)
+static void http2_conn_send_common_hdr(
+    http2_conn_t *w, unsigned len, uint8_t type, uint8_t flags,
+    uint32_t stream_id
+)
 {
     http2_frame_hdr_t hdr;
 
@@ -4425,10 +4563,7 @@ static void http2_conn_send_init_settings(http2_conn_t *w)
     qv_t(qsettings) items;
 
 #define STNG_ITEM(id_, val_)                                                 \
-    (setting_item_t)                                                         \
-    {                                                                        \
-        .id = HTTP2_ID_##id_, .val = init_settings.val_                      \
-    }
+    (setting_item_t){.id = HTTP2_ID_##id_, .val = init_settings.val_}
 
 #define STNG_ITEM_OPT(id_, val_)                                             \
     (setting_item_t){.id = HTTP2_ID_##id_, .val = OPT_VAL(init_settings.val_)}
@@ -4443,30 +4578,38 @@ static void http2_conn_send_init_settings(http2_conn_t *w)
         qv_append(&items, STNG_ITEM(ENABLE_PUSH, enable_push));
     }
     if (OPT_ISSET(init_settings.max_concurrent_streams) &&
-        !OPT_EQUAL(init_settings.max_concurrent_streams,
-                   defaults.max_concurrent_streams))
+        !OPT_EQUAL(
+            init_settings.max_concurrent_streams,
+            defaults.max_concurrent_streams
+        ))
     {
-        qv_append(&items, STNG_ITEM_OPT(MAX_CONCURRENT_STREAMS,
-                                        max_concurrent_streams));
+        qv_append(
+            &items,
+            STNG_ITEM_OPT(MAX_CONCURRENT_STREAMS, max_concurrent_streams)
+        );
     }
     if (init_settings.initial_window_size != defaults.initial_window_size) {
-        qv_append(&items,
-                  STNG_ITEM(INITIAL_WINDOW_SIZE, initial_window_size));
+        qv_append(
+            &items, STNG_ITEM(INITIAL_WINDOW_SIZE, initial_window_size)
+        );
     }
     if (init_settings.max_frame_size != defaults.max_frame_size) {
         qv_append(&items, STNG_ITEM(MAX_FRAME_SIZE, max_frame_size));
     }
     if (OPT_ISSET(init_settings.max_header_list_size) &&
-        !OPT_EQUAL(init_settings.max_header_list_size,
-                   defaults.max_header_list_size))
+        !OPT_EQUAL(
+            init_settings.max_header_list_size, defaults.max_header_list_size
+        ))
     {
-        qv_append(&items, STNG_ITEM_OPT(MAX_HEADER_LIST_SIZE,
-                                        max_header_list_size));
+        qv_append(
+            &items, STNG_ITEM_OPT(MAX_HEADER_LIST_SIZE, max_header_list_size)
+        );
     }
     assert(items.len <= HTTP2_LEN_MAX_SETTINGS_ITEMS);
-    http2_conn_send_common_hdr(w, HTTP2_LEN_SETTINGS_ITEM * items.len,
-                               HTTP2_TYPE_SETTINGS, HTTP2_FLAG_NONE,
-                               HTTP2_ID_NO_STREAM);
+    http2_conn_send_common_hdr(
+        w, HTTP2_LEN_SETTINGS_ITEM * items.len, HTTP2_TYPE_SETTINGS,
+        HTTP2_FLAG_NONE, HTTP2_ID_NO_STREAM
+    );
     tab_for_each_ptr(item, &items) {
         OB_WRAP(sb_add_be16, &w->ob, item->id);
         OB_WRAP(sb_add_be32, &w->ob, item->val);
@@ -4483,8 +4626,10 @@ typedef struct http2_min_goaway_payload_t {
     be32_t error_code;
 } http2_min_goaway_payload_t;
 
-static void http2_conn_send_goaway(http2_conn_t *w, uint32_t last_stream_id,
-                                   uint32_t error_code, lstr_t debug)
+static void http2_conn_send_goaway(
+    http2_conn_t *w, uint32_t last_stream_id, uint32_t error_code,
+    lstr_t debug
+)
 {
     http2_min_goaway_payload_t payload;
     int len = sizeof(payload) + debug.len;
@@ -4493,15 +4638,17 @@ static void http2_conn_send_goaway(http2_conn_t *w, uint32_t last_stream_id,
     assert(last_stream_id <= HTTP2_ID_MAX_STREAM);
     payload.last_stream_id = cpu_to_be32(last_stream_id);
     payload.error_code = cpu_to_be32(error_code);
-    http2_conn_send_common_hdr(w, len, HTTP2_TYPE_GOAWAY, HTTP2_FLAG_NONE,
-                               HTTP2_ID_NO_STREAM);
+    http2_conn_send_common_hdr(
+        w, len, HTTP2_TYPE_GOAWAY, HTTP2_FLAG_NONE, HTTP2_ID_NO_STREAM
+    );
     ob_add(&w->ob, &payload, sizeof(payload));
     ob_add(&w->ob, debug.data, debug.len);
 }
 
 /** Send data block as 0 or more data frames. */
-static void http2_conn_send_data_block(http2_conn_t *w, uint32_t stream_id,
-                                       pstream_t blk, bool end_stream)
+static void http2_conn_send_data_block(
+    http2_conn_t *w, uint32_t stream_id, pstream_t blk, bool end_stream
+)
 {
     pstream_t chunk;
     uint8_t flags;
@@ -4523,8 +4670,9 @@ static void http2_conn_send_data_block(http2_conn_t *w, uint32_t stream_id,
 }
 
 /** Send header block as 1 header frame plus 0 or more continuation frames. */
-static void http2_conn_send_headers_block(http2_conn_t *w, uint32_t stream_id,
-                                          pstream_t blk, bool end_stream)
+static void http2_conn_send_headers_block(
+    http2_conn_t *w, uint32_t stream_id, pstream_t blk, bool end_stream
+)
 {
     pstream_t chunk;
     uint8_t type;
@@ -4547,28 +4695,31 @@ static void http2_conn_send_headers_block(http2_conn_t *w, uint32_t stream_id,
     } while (!ps_done(&blk));
 }
 
-static void http2_conn_send_rst_stream(http2_conn_t *w, uint32_t stream_id,
-                                       uint32_t error_code)
+static void http2_conn_send_rst_stream(
+    http2_conn_t *w, uint32_t stream_id, uint32_t error_code
+)
 {
     assert(stream_id);
-    http2_conn_send_common_hdr(w, HTTP2_LEN_RST_STREAM_PAYLOAD,
-                               HTTP2_TYPE_RST_STREAM, HTTP2_FLAG_NONE,
-                               stream_id);
+    http2_conn_send_common_hdr(
+        w, HTTP2_LEN_RST_STREAM_PAYLOAD, HTTP2_TYPE_RST_STREAM,
+        HTTP2_FLAG_NONE, stream_id
+    );
     OB_WRAP(sb_add_be32, &w->ob, error_code);
 }
 
-static void http2_conn_send_window_update(http2_conn_t *w, uint32_t stream_id,
-                                          uint32_t incr)
+static void http2_conn_send_window_update(
+    http2_conn_t *w, uint32_t stream_id, uint32_t incr
+)
 {
     assert(incr > 0 && incr <= 0x7fffffff);
-    http2_conn_send_common_hdr(w, HTTP2_LEN_WINDOW_UPDATE_PAYLOAD,
-                               HTTP2_TYPE_WINDOW_UPDATE, HTTP2_FLAG_NONE,
-                               stream_id);
+    http2_conn_send_common_hdr(
+        w, HTTP2_LEN_WINDOW_UPDATE_PAYLOAD, HTTP2_TYPE_WINDOW_UPDATE,
+        HTTP2_FLAG_NONE, stream_id
+    );
     OB_WRAP(sb_add_be32, &w->ob, incr);
 }
 
-static void
-http2_conn_send_shutdown(http2_conn_t *w, lstr_t debug)
+static void http2_conn_send_shutdown(http2_conn_t *w, lstr_t debug)
 {
     uint32_t stream_id = http2_conn_max_peer_stream_id(w);
 
@@ -4630,7 +4781,6 @@ http2_conn_is_peer_stream_id(const http2_conn_t *w, uint32_t stream_id)
     }
     return 0;
 }
-
 
 /** Check if \p stream_id is a stream that can be initiated by the peer. */
 static int
@@ -4703,9 +4853,9 @@ static uint32_t http2_stream_get_idle(http2_conn_t *w)
  * Note :\p events are the new events received or transmitted in *one* HTTP/2
  * frame.
  */
-static void
-http2_stream_handle_events(http2_conn_t *w, http2_stream_t *stream,
-                           unsigned events)
+static void http2_stream_handle_events(
+    http2_conn_t *w, http2_stream_t *stream, unsigned events
+)
 {
     unsigned flags = stream->events;
 
@@ -4805,10 +4955,8 @@ static struct {
         .offset = offsetof(http2_header_info_t, key_),                       \
     }
 
-    PSEUDO_HDR(METHOD, method),
-    PSEUDO_HDR(SCHEME, scheme),
-    PSEUDO_HDR(PATH, path),
-    PSEUDO_HDR(AUTHORITY, authority),
+    PSEUDO_HDR(METHOD, method), PSEUDO_HDR(SCHEME, scheme),
+    PSEUDO_HDR(PATH, path),     PSEUDO_HDR(AUTHORITY, authority),
     PSEUDO_HDR(STATUS, status),
 
 #undef PSEUDO_HDR
@@ -4820,9 +4968,9 @@ static struct {
  * \return 0 if decoding succeed, -1 otherwise.
  *
  */
-static int
-t_http2_conn_decode_header_block(http2_conn_t *w, pstream_t in,
-                                 http2_header_info_t *res, sb_t *buf)
+static int t_http2_conn_decode_header_block(
+    http2_conn_t *w, pstream_t in, http2_header_info_t *res, sb_t *buf
+)
 {
     hpack_dec_dtbl_t *dec = &w->dec;
     http2_header_info_t info = {0};
@@ -4846,8 +4994,9 @@ t_http2_conn_decode_header_block(http2_conn_t *w, pstream_t in,
         len = RETHROW(hpack_decoder_write_hdr(dec, &xhdr, out, &keylen));
         key = LSTR_DATA_V(out, keylen);
         val = LSTR_DATA_V(out + keylen + 2, len - keylen - 4);
-        http2_conn_trace(w, 2, "%*pM: %*pM", LSTR_FMT_ARG(key),
-                         LSTR_FMT_ARG(val));
+        http2_conn_trace(
+            w, 2, "%*pM: %*pM", LSTR_FMT_ARG(key), LSTR_FMT_ARG(val)
+        );
         THROW_ERR_IF(keylen < 1);
         if (unlikely(key.s[0] == ':')) {
             lstr_t *matched_phdr = NULL;
@@ -4858,7 +5007,8 @@ t_http2_conn_decode_header_block(http2_conn_t *w, pstream_t in,
             carray_for_each_entry(phdr, http2_pseudo_hdr_descs_g) {
                 if (lstr_equal(key, phdr.key)) {
                     if (!(phdr.flag_seen & info.flags)) {
-                        matched_phdr = (lstr_t *)((byte *)(&info) + phdr.offset);
+                        matched_phdr =
+                            (lstr_t *)((byte *)(&info) + phdr.offset);
 
                         info.flags |= phdr.flag_seen;
                         *matched_phdr = t_lstr_dup(val);
@@ -4886,12 +5036,13 @@ t_http2_conn_decode_header_block(http2_conn_t *w, pstream_t in,
     }
     sb_set_trailing0(buf);
     /* Basic validation according to RFC9113 §8.3. */
-   *res = info;
+    *res = info;
     return 0;
 }
 
-static void http2_headerlines_get_next_hdr(pstream_t *headerlines,
-                                           lstr_t *key, lstr_t *val)
+static void http2_headerlines_get_next_hdr(
+    pstream_t *headerlines, lstr_t *key, lstr_t *val
+)
 {
     pstream_t line = PS_NODATA;
     pstream_t ps = PS_NODATA;
@@ -4910,8 +5061,9 @@ static void http2_headerlines_get_next_hdr(pstream_t *headerlines,
     *val = LSTR_PS_V(&line);
 }
 
-static void http2_conn_pack_single_hdr(http2_conn_t *w, lstr_t key,
-                                       lstr_t val, sb_t *out_)
+static void http2_conn_pack_single_hdr(
+    http2_conn_t *w, lstr_t key, lstr_t val, sb_t *out_
+)
 {
     hpack_enc_dtbl_t *enc = &w->enc;
     int len;
@@ -4920,8 +5072,8 @@ static void http2_conn_pack_single_hdr(http2_conn_t *w, lstr_t key,
 
     buflen = hpack_buflen_to_write_hdr(key, val, 0);
     out = (byte *)sb_grow(out_, buflen);
-    len = hpack_encoder_write_hdr(enc, key, val, 0, 0, HPACK_FLG_LWR_KEY,
-                                  out);
+    len =
+        hpack_encoder_write_hdr(enc, key, val, 0, 0, HPACK_FLG_LWR_KEY, out);
     assert(len > 0);
     assert(len <= buflen);
     __sb_fixlen(out_, out_->len + len);
@@ -4935,8 +5087,9 @@ static void http2_conn_pack_single_hdr(http2_conn_t *w, lstr_t key,
         http2_conn_t *__w = (w);                                             \
         http2_stream_t *__s = (stream);                                      \
                                                                              \
-        http2_stream_trace(__w, __s, 2, "stream error: " fmt,                \
-                           ##__VA_ARGS__);                                   \
+        http2_stream_trace(                                                  \
+            __w, __s, 2, "stream error: " fmt, ##__VA_ARGS__                 \
+        );                                                                   \
         http2_conn_send_rst_stream(__w, __s->id, HTTP2_CODE_##error_code);   \
         http2_stream_handle_events(__w, __s, HTTP2_STREAM_EV_RST_SENT);      \
     } while (0)
@@ -4949,18 +5102,19 @@ static void http2_conn_pack_single_hdr(http2_conn_t *w, lstr_t key,
 
 static void http2_stream_on_accept(http2_conn_t *w, http2_stream_t *stream);
 
-static void
-http2_stream_on_headers_client(http2_conn_t *w, http2_stream_t *stream,
-                               http2_header_info_t *info,
-                               pstream_t headerlines, bool eos);
-static void
-http2_stream_on_headers_server(http2_conn_t *w, http2_stream_t *stream,
-                               http2_header_info_t *info,
-                               pstream_t headerlines, bool eos);
+static void http2_stream_on_headers_client(
+    http2_conn_t *w, http2_stream_t *stream, http2_header_info_t *info,
+    pstream_t headerlines, bool eos
+);
+static void http2_stream_on_headers_server(
+    http2_conn_t *w, http2_stream_t *stream, http2_header_info_t *info,
+    pstream_t headerlines, bool eos
+);
 
-static void http2_stream_on_headers(http2_conn_t *w, http2_stream_t *stream,
-                                    http2_header_info_t *info,
-                                    pstream_t headerlines, bool eos)
+static void http2_stream_on_headers(
+    http2_conn_t *w, http2_stream_t *stream, http2_header_info_t *info,
+    pstream_t headerlines, bool eos
+)
 {
     if (!http2_stream_has_http1_ctx(stream)) {
         http2_stream_send_reset_cancel(w, stream, "stream cancelled");
@@ -4973,15 +5127,16 @@ static void http2_stream_on_headers(http2_conn_t *w, http2_stream_t *stream,
     }
 }
 
-static void
-http2_stream_on_data_client(http2_conn_t *w, http2_stream_t *stream,
-                            pstream_t data, bool eos);
-static void
-http2_stream_on_data_server(http2_conn_t *w, http2_stream_t *stream,
-                            pstream_t data, bool eos);
+static void http2_stream_on_data_client(
+    http2_conn_t *w, http2_stream_t *stream, pstream_t data, bool eos
+);
+static void http2_stream_on_data_server(
+    http2_conn_t *w, http2_stream_t *stream, pstream_t data, bool eos
+);
 
-static void http2_stream_on_data(http2_conn_t *w, http2_stream_t *stream,
-                                 pstream_t data, bool eos)
+static void http2_stream_on_data(
+    http2_conn_t *w, http2_stream_t *stream, pstream_t data, bool eos
+)
 {
     if (!http2_stream_has_http1_ctx(stream)) {
         http2_stream_send_reset_cancel(w, stream, "stream cancelled");
@@ -4994,11 +5149,13 @@ static void http2_stream_on_data(http2_conn_t *w, http2_stream_t *stream,
     }
 }
 
-static void http2_stream_on_reset_client(http2_conn_t *w,
-                                         http2_stream_t *stream, bool remote);
+static void http2_stream_on_reset_client(
+    http2_conn_t *w, http2_stream_t *stream, bool remote
+);
 
-static void http2_stream_on_reset_server(http2_conn_t *w,
-                                         http2_stream_t *stream, bool remote);
+static void http2_stream_on_reset_server(
+    http2_conn_t *w, http2_stream_t *stream, bool remote
+);
 
 static void
 http2_stream_on_reset(http2_conn_t *w, http2_stream_t *stream, bool remote)
@@ -5058,10 +5215,10 @@ http2_is_valid_response_hdr_to_send(lstr_t key_, lstr_t val, int *clen)
     return true;
 }
 
-static void
-http2_stream_send_response_headers(http2_conn_t *w, http2_stream_t *stream,
-                                   lstr_t status, pstream_t headerlines,
-                                   httpd_http2_ctx_t *httpd_ctx, int *clen)
+static void http2_stream_send_response_headers(
+    http2_conn_t *w, http2_stream_t *stream, lstr_t status,
+    pstream_t headerlines, httpd_http2_ctx_t *httpd_ctx, int *clen
+)
 {
     t_scope;
     t_SB_1k(out);
@@ -5081,8 +5238,7 @@ http2_stream_send_response_headers(http2_conn_t *w, http2_stream_t *stream,
         http2_conn_pack_single_hdr(w, key, val, &out);
     }
     lstr_to_int(status, &code);
-    if (code == HTTP_CODE_NO_CONTENT || (code >= 100 && code < 199))
-    {
+    if (code == HTTP_CODE_NO_CONTENT || (code >= 100 && code < 199)) {
         /* rfc 7230: §3.3.2
          * A server MUST NOT send a Content-Length header field in any
          * response with a status code of 1xx (Informational) or 204 (No
@@ -5118,11 +5274,10 @@ http2_is_valid_request_hdr_to_send(lstr_t key_, lstr_t val, int *clen)
     return true;
 }
 
-static void
-http2_stream_send_request_headers(http2_conn_t *w, http2_stream_t *stream,
-                                  lstr_t method, lstr_t scheme, lstr_t path,
-                                  lstr_t authority, pstream_t headerlines,
-                                  int *clen)
+static void http2_stream_send_request_headers(
+    http2_conn_t *w, http2_stream_t *stream, lstr_t method, lstr_t scheme,
+    lstr_t path, lstr_t authority, pstream_t headerlines, int *clen
+)
 {
     SB_1k(out);
     unsigned events;
@@ -5133,8 +5288,9 @@ http2_stream_send_request_headers(http2_conn_t *w, http2_stream_t *stream,
     http2_conn_pack_single_hdr(w, LSTR_IMMED_V(":scheme"), scheme, &out);
     http2_conn_pack_single_hdr(w, LSTR_IMMED_V(":path"), path, &out);
     if (authority.len) {
-        http2_conn_pack_single_hdr(w, LSTR_IMMED_V(":authority"), authority,
-                                   &out);
+        http2_conn_pack_single_hdr(
+            w, LSTR_IMMED_V(":authority"), authority, &out
+        );
     }
     while (!ps_done(&headerlines)) {
         lstr_t key;
@@ -5152,8 +5308,9 @@ http2_stream_send_request_headers(http2_conn_t *w, http2_stream_t *stream,
     http2_stream_handle_events(w, stream, events);
 }
 
-static void http2_stream_send_data(http2_conn_t *w, http2_stream_t *stream,
-                                   pstream_t data, bool eos)
+static void http2_stream_send_data(
+    http2_conn_t *w, http2_stream_t *stream, pstream_t data, bool eos
+)
 {
     int len = ps_len(&data);
 
@@ -5175,17 +5332,18 @@ static void http2_stream_send_data(http2_conn_t *w, http2_stream_t *stream,
         http2_conn_t *__w = (w);                                             \
         http2_stream_t *__s = (stream);                                      \
                                                                              \
-        http2_stream_trace(__w, __s, 2, "connection error: " fmt,            \
-                           ##__VA_ARGS__);                                   \
-        http2_stream_conn_error_(__w, __s, HTTP2_CODE_##error_code, fmt,     \
-                                 ##__VA_ARGS__);                             \
+        http2_stream_trace(                                                  \
+            __w, __s, 2, "connection error: " fmt, ##__VA_ARGS__             \
+        );                                                                   \
+        http2_stream_conn_error_(                                            \
+            __w, __s, HTTP2_CODE_##error_code, fmt, ##__VA_ARGS__            \
+        );                                                                   \
     })
 
-__attribute__((format(printf, 4, 5)))
-static int http2_stream_conn_error_(http2_conn_t *w,
-                                    const http2_stream_t *stream,
-                                    uint32_t error_code,
-                                    const char *fmt, ...)
+__attribute__((format(printf, 4, 5))) static int http2_stream_conn_error_(
+    http2_conn_t *w, const http2_stream_t *stream, uint32_t error_code,
+    const char *fmt, ...
+)
 {
     t_scope;
     lstr_t debug;
@@ -5202,8 +5360,7 @@ http2_stream_maintain_recv_window(http2_conn_t *w, http2_stream_t *stream)
 {
     int incr;
 
-    incr =
-        http2_get_settings(w).initial_window_size - stream->recv_window;
+    incr = http2_get_settings(w).initial_window_size - stream->recv_window;
     if (incr <= 0) {
         return;
     }
@@ -5211,9 +5368,9 @@ http2_stream_maintain_recv_window(http2_conn_t *w, http2_stream_t *stream)
     stream->recv_window += incr;
 }
 
-static int
-http2_stream_consume_recv_window(http2_conn_t *w, http2_stream_t *stream,
-                                 unsigned delta)
+static int http2_stream_consume_recv_window(
+    http2_conn_t *w, http2_stream_t *stream, unsigned delta
+)
 {
     assert(delta <= http2_get_settings(w).max_frame_size);
 
@@ -5224,37 +5381,42 @@ http2_stream_consume_recv_window(http2_conn_t *w, http2_stream_t *stream,
     return 0;
 }
 
-static int
-http2_stream_check_can_recv(http2_conn_t *w, http2_stream_t *stream,
-                            bool is_headers)
+static int http2_stream_check_can_recv(
+    http2_conn_t *w, http2_stream_t *stream, bool is_headers
+)
 {
     unsigned flags = stream->events;
     const char *type = is_headers ? "HEADERS" : "DATA";
 
     if (flags & HTTP2_STREAM_EV_CLOSED) {
-        return http2_stream_conn_error(w, stream, PROTOCOL_ERROR,
-                                       "%s on closed stream", type);
+        return http2_stream_conn_error(
+            w, stream, PROTOCOL_ERROR, "%s on closed stream", type
+        );
     }
     if (flags & HTTP2_STREAM_EV_MASK_PEER_CANT_WRITE) {
-        return http2_stream_conn_error(w, stream, STREAM_CLOSED,
-                                       "%s on closed stream", type);
+        return http2_stream_conn_error(
+            w, stream, STREAM_CLOSED, "%s on closed stream", type
+        );
     }
     if (!flags) {
         if (!is_headers) {
-            return http2_stream_conn_error(w, stream, PROTOCOL_ERROR,
-                                           "DATA on idle stream");
+            return http2_stream_conn_error(
+                w, stream, PROTOCOL_ERROR, "DATA on idle stream"
+            );
         } else if (w->is_client) {
             return http2_stream_conn_error(
                 w, stream, PROTOCOL_ERROR,
-                "HEADERS on idle stream (at client)");
+                "HEADERS on idle stream (at client)"
+            );
         }
     }
     return 0;
 }
 
-static int
-http2_stream_do_recv_data(http2_conn_t *w, uint32_t stream_id, pstream_t data,
-                          int initial_payload_len, bool eos)
+static int http2_stream_do_recv_data(
+    http2_conn_t *w, uint32_t stream_id, pstream_t data,
+    int initial_payload_len, bool eos
+)
 {
     http2_stream_t *stream = http2_stream_get(w, stream_id);
     unsigned flags = stream->events;
@@ -5263,8 +5425,7 @@ http2_stream_do_recv_data(http2_conn_t *w, uint32_t stream_id, pstream_t data,
     if (eos) {
         http2_stream_handle_events(w, stream, HTTP2_STREAM_EV_EOS_RECV);
     }
-    RETHROW(http2_stream_consume_recv_window(w, stream,
-                                             initial_payload_len));
+    RETHROW(http2_stream_consume_recv_window(w, stream, initial_payload_len));
     if (!(flags & HTTP2_STREAM_EV_RST_SENT)) {
         http2_stream_on_data(w, stream, data, eos);
     }
@@ -5274,10 +5435,10 @@ http2_stream_do_recv_data(http2_conn_t *w, uint32_t stream_id, pstream_t data,
 static unsigned http2_valid_pseudo_hdr_combination_g[] = {
     0,
     HTTP2_HDR_FLAG_HAS_STATUS,
-    HTTP2_HDR_FLAG_HAS_SCHEME | HTTP2_HDR_FLAG_HAS_PATH
-        | HTTP2_HDR_FLAG_HAS_METHOD,
-    HTTP2_HDR_FLAG_HAS_SCHEME | HTTP2_HDR_FLAG_HAS_PATH
-        | HTTP2_HDR_FLAG_HAS_METHOD | HTTP2_HDR_FLAG_HAS_AUTHORITY,
+    HTTP2_HDR_FLAG_HAS_SCHEME | HTTP2_HDR_FLAG_HAS_PATH |
+        HTTP2_HDR_FLAG_HAS_METHOD,
+    HTTP2_HDR_FLAG_HAS_SCHEME | HTTP2_HDR_FLAG_HAS_PATH |
+        HTTP2_HDR_FLAG_HAS_METHOD | HTTP2_HDR_FLAG_HAS_AUTHORITY,
 };
 
 static bool http2_stream_validate_recv_headrs(http2_header_info_t *info)
@@ -5287,8 +5448,9 @@ static bool http2_stream_validate_recv_headrs(http2_header_info_t *info)
     if (flags & HTTP2_HDR_FLAG_HAS_EXTRA_PSEUDO_HDR) {
         return false;
     }
-    flags &= ~(HTTP2_HDR_FLAG_HAS_CONTENT_LENGTH
-               | HTTP2_HDR_FLAG_HAS_REGULAR_HEADERS);
+    flags &=
+        ~(HTTP2_HDR_FLAG_HAS_CONTENT_LENGTH |
+          HTTP2_HDR_FLAG_HAS_REGULAR_HEADERS);
 
     carray_for_each_entry(e, http2_valid_pseudo_hdr_combination_g) {
         if (e == flags) {
@@ -5298,9 +5460,10 @@ static bool http2_stream_validate_recv_headrs(http2_header_info_t *info)
     return false;
 }
 
-static int http2_stream_do_recv_headers(http2_conn_t *w, uint32_t stream_id,
-                                        http2_header_info_t *info,
-                                        pstream_t headerlines, bool eos)
+static int http2_stream_do_recv_headers(
+    http2_conn_t *w, uint32_t stream_id, http2_header_info_t *info,
+    pstream_t headerlines, bool eos
+)
 {
     http2_stream_t *stream = http2_stream_get(w, stream_id);
     unsigned flags = stream->events;
@@ -5310,7 +5473,8 @@ static int http2_stream_do_recv_headers(http2_conn_t *w, uint32_t stream_id,
         if (!(flags & HTTP2_STREAM_EV_PSH_RECV)) {
             return http2_stream_conn_error(
                 w, stream, PROTOCOL_ERROR,
-                "HEADERS on server stream (invalid state)");
+                "HEADERS on server stream (invalid state)"
+            );
         }
         assert(w->is_client);
         /* Discard (responses) headers on server streams. This may happen for
@@ -5325,8 +5489,9 @@ static int http2_stream_do_recv_headers(http2_conn_t *w, uint32_t stream_id,
         if (!flags) {
             http2_stream_handle_events(w, stream, HTTP2_STREAM_EV_1ST_HDRS);
         }
-        http2_stream_error(w, stream, PROTOCOL_ERROR,
-                           "HEADERS with invalid HTTP headers");
+        http2_stream_error(
+            w, stream, PROTOCOL_ERROR, "HEADERS with invalid HTTP headers"
+        );
         http2_stream_on_reset(w, stream, false);
         return 0;
     }
@@ -5344,7 +5509,8 @@ static int http2_stream_do_recv_headers(http2_conn_t *w, uint32_t stream_id,
     if (!flags && w->goaway_recv) {
         http2_stream_error(
             w, stream, REFUSED_STREAM,
-            "server is finalizing, no more stream is accepted");
+            "server is finalizing, no more stream is accepted"
+        );
         http2_stream_on_reset(w, stream, false);
     }
     if (!(flags & HTTP2_STREAM_EV_RST_SENT)) {
@@ -5357,8 +5523,9 @@ static int http2_stream_do_recv_headers(http2_conn_t *w, uint32_t stream_id,
     return 0;
 }
 
-static int http2_stream_do_recv_priority(http2_conn_t *w, uint32_t stream_id,
-                                         uint32_t stream_dependency)
+static int http2_stream_do_recv_priority(
+    http2_conn_t *w, uint32_t stream_id, uint32_t stream_dependency
+)
 {
     http2_stream_t *stream = http2_stream_get(w, stream_id);
 
@@ -5369,16 +5536,18 @@ static int http2_stream_do_recv_priority(http2_conn_t *w, uint32_t stream_id,
         return http2_stream_conn_error(
             w, stream, PROTOCOL_ERROR,
             "frame error: PRIORITY with self-dependency [%d]",
-            stream_dependency);
+            stream_dependency
+        );
     }
-    http2_stream_trace(w, stream, 2, "PRIORITY [dependency on %d]",
-                       stream_dependency);
+    http2_stream_trace(
+        w, stream, 2, "PRIORITY [dependency on %d]", stream_dependency
+    );
     return 0;
 }
 
-static int
-http2_stream_do_recv_rst_stream(http2_conn_t *w, uint32_t stream_id,
-                                uint32_t error_code)
+static int http2_stream_do_recv_rst_stream(
+    http2_conn_t *w, uint32_t stream_id, uint32_t error_code
+)
 {
     http2_stream_t *stream = http2_stream_get(w, stream_id);
     unsigned flags = stream->events;
@@ -5386,17 +5555,20 @@ http2_stream_do_recv_rst_stream(http2_conn_t *w, uint32_t stream_id,
     if (flags & HTTP2_STREAM_EV_CLOSED) {
         return http2_stream_conn_error(
             w, stream, PROTOCOL_ERROR,
-            "RST_STREAM on closed stream [code %u]", error_code);
+            "RST_STREAM on closed stream [code %u]", error_code
+        );
     }
     if (!flags) {
-        return http2_stream_conn_error(w, stream, PROTOCOL_ERROR,
-                                       "RST_STREAM on idle stream [code %u]",
-                                       error_code);
+        return http2_stream_conn_error(
+            w, stream, PROTOCOL_ERROR, "RST_STREAM on idle stream [code %u]",
+            error_code
+        );
     }
     if (flags & HTTP2_STREAM_EV_RST_SENT) {
-        http2_stream_trace(w, stream, 2,
-                           "RST_STREAM ingored (rst sent already) [code %u]",
-                           error_code);
+        http2_stream_trace(
+            w, stream, 2, "RST_STREAM ingored (rst sent already) [code %u]",
+            error_code
+        );
         http2_stream_handle_events(w, stream, HTTP2_STREAM_EV_RST_RECV);
         return 0;
     }
@@ -5404,10 +5576,10 @@ http2_stream_do_recv_rst_stream(http2_conn_t *w, uint32_t stream_id,
     return 0;
 }
 
-static int
-http2_stream_do_recv_push_promise(http2_conn_t *w, uint32_t stream_id,
-                                  http2_header_info_t *info,
-                                  pstream_t headerlines, uint32_t promised_id)
+static int http2_stream_do_recv_push_promise(
+    http2_conn_t *w, uint32_t stream_id, http2_header_info_t *info,
+    pstream_t headerlines, uint32_t promised_id
+)
 {
     http2_stream_t *stream = http2_stream_get(w, stream_id);
     http2_stream_t *promised = http2_stream_get(w, promised_id);
@@ -5418,16 +5590,18 @@ http2_stream_do_recv_push_promise(http2_conn_t *w, uint32_t stream_id,
     if (http2_stream_id_is_server(stream_id)) {
         return http2_stream_conn_error(
             w, stream, PROTOCOL_ERROR,
-            "cannot accept promised stream %d on a server stream",
-            promised_id);
+            "cannot accept promised stream %d on a server stream", promised_id
+        );
     }
     if (flags & HTTP2_STREAM_EV_CLOSED) {
-        return http2_stream_conn_error(w, stream, PROTOCOL_ERROR,
-                                       "PUSH_STREAM on closed stream");
+        return http2_stream_conn_error(
+            w, stream, PROTOCOL_ERROR, "PUSH_STREAM on closed stream"
+        );
     }
     if (!flags) {
-        return http2_stream_conn_error(w, stream, PROTOCOL_ERROR,
-                                       "PUSH_STREAM on idle stream");
+        return http2_stream_conn_error(
+            w, stream, PROTOCOL_ERROR, "PUSH_STREAM on idle stream"
+        );
     }
     /* RFC 9113 §6.6. PUSH_PROMISE:
      * `PUSH_PROMISE frames MUST only be sent on a peer-initiated stream that
@@ -5439,18 +5613,20 @@ http2_stream_do_recv_push_promise(http2_conn_t *w, uint32_t stream_id,
     if (flags & HTTP2_STREAM_EV_EOS_RECV) {
         return http2_stream_conn_error(
             w, stream, PROTOCOL_ERROR,
-            "PUSH_STREAM on half-closed (remote) stream");
+            "PUSH_STREAM on half-closed (remote) stream"
+        );
     }
     /* Refuse the pushed stream: not supported (yet). */
     http2_stream_handle_events(w, promised, HTTP2_STREAM_EV_PSH_RECV);
-    http2_stream_error(w, promised, REFUSED_STREAM,
-                       "refuse push promise (not supported)");
+    http2_stream_error(
+        w, promised, REFUSED_STREAM, "refuse push promise (not supported)"
+    );
     return 0;
 }
 
-static int
-http2_stream_do_recv_window_update(http2_conn_t *w, uint32_t stream_id,
-                                   int32_t incr)
+static int http2_stream_do_recv_window_update(
+    http2_conn_t *w, uint32_t stream_id, int32_t incr
+)
 {
     http2_stream_t *stream = http2_stream_get(w, stream_id);
     unsigned flags = stream->events;
@@ -5458,35 +5634,42 @@ http2_stream_do_recv_window_update(http2_conn_t *w, uint32_t stream_id,
 
     assert(incr >= 0);
     if (flags & HTTP2_STREAM_EV_CLOSED) {
-        return http2_stream_conn_error(w, stream, PROTOCOL_ERROR,
-                                       "WINDOW_UPDATE on closed stream");
+        return http2_stream_conn_error(
+            w, stream, PROTOCOL_ERROR, "WINDOW_UPDATE on closed stream"
+        );
     }
     if (!flags) {
-        return http2_stream_conn_error(w, stream, PROTOCOL_ERROR,
-                                       "WINDOW_UPDATE on idle stream");
+        return http2_stream_conn_error(
+            w, stream, PROTOCOL_ERROR, "WINDOW_UPDATE on idle stream"
+        );
     }
     if (!incr) {
-        http2_stream_error(w, stream, PROTOCOL_ERROR,
-                           "frame error: WINDOW_UPDATE with 0 increment");
+        http2_stream_error(
+            w, stream, PROTOCOL_ERROR,
+            "frame error: WINDOW_UPDATE with 0 increment"
+        );
         return 0;
     }
     if (new_size > HTTP2_LEN_WINDOW_SIZE_LIMIT) {
         if (flags & HTTP2_STREAM_EV_RST_SENT) {
             http2_stream_trace(
                 w, stream, 2,
-                "flow control: ignored WINDOW_UPDATE (already RST_SENT)");
+                "flow control: ignored WINDOW_UPDATE (already RST_SENT)"
+            );
             return 0;
         }
         http2_stream_error(
             w, stream, FLOW_CONTROL_ERROR,
             "flow control: WINDOW_UPDATE cannot increment send-window beyond "
             "limit [cur %d, incr %d, new %jd]",
-            stream->send_window, incr, new_size);
+            stream->send_window, incr, new_size
+        );
         return 0;
     }
-    http2_stream_trace(w, stream, 2,
-                       "send-window incremented [new size %lld, incr %d]",
-                       (long long)new_size, incr);
+    http2_stream_trace(
+        w, stream, 2, "send-window incremented [new size %lld, incr %d]",
+        (long long)new_size, incr
+    );
     stream->send_window += incr;
     return 0;
 }
@@ -5502,13 +5685,13 @@ http2_stream_do_recv_window_update(http2_conn_t *w, uint32_t stream_id,
 #define http2_conn_error(w, error_code, fmt, ...)                            \
     ({                                                                       \
         http2_conn_trace(w, 2, "connection error: " fmt, ##__VA_ARGS__);     \
-        http2_conn_error_(w, HTTP2_CODE_##error_code, "" fmt,                \
-                          ##__VA_ARGS__);                                    \
+        http2_conn_error_(                                                   \
+            w, HTTP2_CODE_##error_code, "" fmt, ##__VA_ARGS__                \
+        );                                                                   \
     })
 
-__attribute__((format(printf, 3, 4)))
-static int http2_conn_error_(http2_conn_t *w, uint32_t error_code,
-                             const char *fmt, ...)
+__attribute__((format(printf, 3, 4))) static int
+http2_conn_error_(http2_conn_t *w, uint32_t error_code, const char *fmt, ...)
 {
     t_scope;
     lstr_t debug;
@@ -5546,17 +5729,17 @@ static void http2_conn_maintain_recv_window(http2_conn_t *w)
     w->recv_window += incr;
 }
 
-static void
-http2_conn_consume_recv_window(http2_conn_t *w, int len)
+static void http2_conn_consume_recv_window(http2_conn_t *w, int len)
 {
     /* Maintain the recv window at a specific level each time the peer
-    * sends DATA frame. This effectively disables the flow control. */
+     * sends DATA frame. This effectively disables the flow control. */
     w->recv_window -= len;
     http2_conn_maintain_recv_window(w);
 }
 
-int http2_payload_get_trimmed_chunk(pstream_t payload, int frame_flags,
-                                    pstream_t *chunk)
+int http2_payload_get_trimmed_chunk(
+    pstream_t payload, int frame_flags, pstream_t *chunk
+)
 {
     if (frame_flags & HTTP2_FLAG_PADDED) {
         int padding_sz;
@@ -5568,8 +5751,9 @@ int http2_payload_get_trimmed_chunk(pstream_t payload, int frame_flags,
     return 0;
 }
 
-static int http2_conn_parse_data(http2_conn_t *w, uint32_t stream_id,
-                                 pstream_t payload, uint8_t flags)
+static int http2_conn_parse_data(
+    http2_conn_t *w, uint32_t stream_id, pstream_t payload, uint8_t flags
+)
 {
     bool end_stream;
     int initial_payload_len;
@@ -5577,15 +5761,17 @@ static int http2_conn_parse_data(http2_conn_t *w, uint32_t stream_id,
 
     initial_payload_len = ps_len(&payload);
     if (http2_payload_get_trimmed_chunk(payload, flags, &chunk) < 0) {
-        HTTP2_THROW_ERR(w, PROTOCOL_ERROR,
-                        "frame error: invalid padding on stream %d",
-                        stream_id);
+        HTTP2_THROW_ERR(
+            w, PROTOCOL_ERROR, "frame error: invalid padding on stream %d",
+            stream_id
+        );
     }
 
     http2_conn_consume_recv_window(w, initial_payload_len);
     end_stream = flags & HTTP2_FLAG_END_STREAM;
-    return http2_stream_do_recv_data(w, stream_id, chunk, initial_payload_len,
-                                     end_stream);
+    return http2_stream_do_recv_data(
+        w, stream_id, chunk, initial_payload_len, end_stream
+    );
 }
 
 /** Consolidate a header block from an already-validated multiframe.
@@ -5599,10 +5785,10 @@ static int http2_conn_parse_data(http2_conn_t *w, uint32_t stream_id,
  */
 /* TODO: Bench performance against a version of the function that uses the
  * safe counterparts of __ps_* .*/
-static void
-http2_conn_construct_hdr_blk(http2_conn_t *w, pstream_t multiframe,
-                             size_t initial_len, uint8_t flags,
-                             uint32_t promised_id, sb_t *blk)
+static void http2_conn_construct_hdr_blk(
+    http2_conn_t *w, pstream_t multiframe, size_t initial_len, uint8_t flags,
+    uint32_t promised_id, sb_t *blk
+)
 {
     pstream_t chunk;
     int chunk_len;
@@ -5632,9 +5818,10 @@ http2_conn_construct_hdr_blk(http2_conn_t *w, pstream_t multiframe,
     }
 }
 
-static int http2_conn_do_on_end_headers(http2_conn_t *w, uint32_t stream_id,
-                                        pstream_t ps, size_t initial_len,
-                                        uint32_t flags, uint32_t promised_id)
+static int http2_conn_do_on_end_headers(
+    http2_conn_t *w, uint32_t stream_id, pstream_t ps, size_t initial_len,
+    uint32_t flags, uint32_t promised_id
+)
 {
     t_scope;
     http2_header_info_t info;
@@ -5643,25 +5830,29 @@ static int http2_conn_do_on_end_headers(http2_conn_t *w, uint32_t stream_id,
     SB_8k(headerlines);
     int rc;
 
-    http2_conn_construct_hdr_blk(w, ps, initial_len, flags, promised_id,
-                                 &blk);
-    rc = t_http2_conn_decode_header_block(w, ps_initsb(&blk), &info,
-                                          &headerlines);
+    http2_conn_construct_hdr_blk(
+        w, ps, initial_len, flags, promised_id, &blk
+    );
+    rc = t_http2_conn_decode_header_block(
+        w, ps_initsb(&blk), &info, &headerlines
+    );
     if (rc < 0) {
-        HTTP2_THROW_ERR(w, COMPRESSION_ERROR,
-                        "compression error: "
-                        "invalid header block on stream %d",
-                        stream_id);
+        HTTP2_THROW_ERR(
+            w, COMPRESSION_ERROR,
+            "compression error: invalid header block on stream %d", stream_id
+        );
     }
     if (promised_id) {
         /* We have block as PUSH + 0 or more CONTINUATION(s). */
         return http2_stream_do_recv_push_promise(
-            w, stream_id, &info, ps_initsb(&headerlines), promised_id);
+            w, stream_id, &info, ps_initsb(&headerlines), promised_id
+        );
     }
     /* We have block as HEADERS + 0 or more CONTINUATION(s). */
     end_stream = flags & HTTP2_FLAG_END_STREAM;
-    return http2_stream_do_recv_headers(w, stream_id, &info,
-                                        ps_initsb(&headerlines), end_stream);
+    return http2_stream_do_recv_headers(
+        w, stream_id, &info, ps_initsb(&headerlines), end_stream
+    );
 }
 
 static bool http2_conn_is_server_push_enabled(http2_conn_t *w)
@@ -5669,23 +5860,27 @@ static bool http2_conn_is_server_push_enabled(http2_conn_t *w)
     return http2_get_settings(w).enable_push && w->peer_settings.enable_push;
 }
 
-static int http2_conn_parse_headers(http2_conn_t *w, uint32_t stream_id,
-                                    pstream_t payload, uint8_t flags)
+static int http2_conn_parse_headers(
+    http2_conn_t *w, uint32_t stream_id, pstream_t payload, uint8_t flags
+)
 {
     pstream_t chunk;
 
     if (http2_payload_get_trimmed_chunk(payload, flags, &chunk) < 0) {
-        HTTP2_THROW_ERR(w, PROTOCOL_ERROR,
-                        "frame error: HEADERS with invalid padding");
+        HTTP2_THROW_ERR(
+            w, PROTOCOL_ERROR, "frame error: HEADERS with invalid padding"
+        );
     }
 
     if (flags & HTTP2_FLAG_PRIORITY) {
         uint32_t stream_dependency;
 
         if (ps_get_be32(&chunk, &stream_dependency) < 0) {
-            HTTP2_THROW_ERR(w, FRAME_SIZE_ERROR,
-                            "frame error: "
-                            "HEADERS is too short to read stream dependency");
+            HTTP2_THROW_ERR(
+                w, FRAME_SIZE_ERROR,
+                "frame error: "
+                "HEADERS is too short to read stream dependency"
+            );
         }
         stream_dependency &= HTTP2_STREAM_ID_MASK;
 
@@ -5695,18 +5890,21 @@ static int http2_conn_parse_headers(http2_conn_t *w, uint32_t stream_id,
             HTTP2_THROW_ERR(
                 w, PROTOCOL_ERROR,
                 "frame error: self-dependency in HEADERS on stream %d",
-                stream_id);
+                stream_id
+            );
         }
     }
     if (flags & HTTP2_FLAG_END_HEADERS) {
-        return http2_conn_do_on_end_headers(w, stream_id, payload,
-                                            ps_len(&payload), flags, 0);
+        return http2_conn_do_on_end_headers(
+            w, stream_id, payload, ps_len(&payload), flags, 0
+        );
     }
     return PARSE_OK;
 }
 
-static int http2_conn_parse_push_promise(http2_conn_t *w, uint32_t stream_id,
-                                         pstream_t payload, uint8_t flags)
+static int http2_conn_parse_push_promise(
+    http2_conn_t *w, uint32_t stream_id, pstream_t payload, uint8_t flags
+)
 {
     pstream_t chunk;
     uint32_t promised_id;
@@ -5715,50 +5913,62 @@ static int http2_conn_parse_push_promise(http2_conn_t *w, uint32_t stream_id,
     if (http2_payload_get_trimmed_chunk(payload, flags, &chunk) < 0) {
         HTTP2_THROW_ERR(
             w, PROTOCOL_ERROR,
-            "frame error: PUSH_PROMISE with invalid padding");
+            "frame error: PUSH_PROMISE with invalid padding"
+        );
     }
 
     if (ps_get_be32(&chunk, &promised_id) < 0) {
         HTTP2_THROW_ERR(
             w, FRAME_SIZE_ERROR,
-            "frame error: PUSH_PROMISE too short to read promised id");
+            "frame error: PUSH_PROMISE too short to read promised id"
+        );
     }
     promised_id &= HTTP2_STREAM_ID_MASK;
 
     if (!promised_id) {
-        HTTP2_THROW_ERR(w, PROTOCOL_ERROR,
-                        "frame error: PUSH_PROMISE with zero promised id");
+        HTTP2_THROW_ERR(
+            w, PROTOCOL_ERROR,
+            "frame error: PUSH_PROMISE with zero promised id"
+        );
     }
 
     if (http2_conn_check_peer_stream_id(w, promised_id)) {
-        HTTP2_THROW_ERR(w, PROTOCOL_ERROR,
-                                "frame error: promised_id is PUSH_PROMISE is "
-                                "not server stream %d",
-                                promised_id);
+        HTTP2_THROW_ERR(
+            w, PROTOCOL_ERROR,
+            "frame error: promised_id is PUSH_PROMISE is "
+            "not server stream %d",
+            promised_id
+        );
     }
 
     if (!http2_conn_peer_stream_id_is_idle(w, promised_id)) {
-        HTTP2_THROW_ERR(w, PROTOCOL_ERROR,
-                        "frame error: invalid promised stream %d "
-                        "in PUSH_PROMISE on stream %d",
-                        promised_id, stream_id);
+        HTTP2_THROW_ERR(
+            w, PROTOCOL_ERROR,
+            "frame error: invalid promised stream %d "
+            "in PUSH_PROMISE on stream %d",
+            promised_id, stream_id
+        );
     }
     if (!http2_conn_is_server_push_enabled(w)) {
-        HTTP2_THROW_ERR(w, PROTOCOL_ERROR,
-                        "settings error: unexpected PUSH_PROMISE on "
-                        "stream %d (server push disabled)",
-                        stream_id);
+        HTTP2_THROW_ERR(
+            w, PROTOCOL_ERROR,
+            "settings error: unexpected PUSH_PROMISE on "
+            "stream %d (server push disabled)",
+            stream_id
+        );
     }
     w->promised_id = promised_id;
     if (flags & HTTP2_FLAG_END_HEADERS) {
         return http2_conn_do_on_end_headers(
-            w, stream_id, payload, ps_len(&payload), flags, promised_id);
+            w, stream_id, payload, ps_len(&payload), flags, promised_id
+        );
     }
     return PARSE_OK;
 }
 
-static int http2_conn_parse_priority(http2_conn_t *w, uint32_t stream_id,
-                                     pstream_t payload, uint8_t flags)
+static int http2_conn_parse_priority(
+    http2_conn_t *w, uint32_t stream_id, pstream_t payload, uint8_t flags
+)
 {
     int len = ps_len(&payload);
     uint32_t stream_dependency;
@@ -5782,19 +5992,22 @@ static int http2_conn_parse_priority(http2_conn_t *w, uint32_t stream_id,
     return PARSE_OK;
 
 size_error:
-    HTTP2_THROW_ERR(w, FRAME_SIZE_ERROR,
-                    "frame error: PRIORITY with invalid size %d", len);
+    HTTP2_THROW_ERR(
+        w, FRAME_SIZE_ERROR, "frame error: PRIORITY with invalid size %d", len
+    );
 }
 
-static int http2_conn_parse_rst_stream(http2_conn_t *w, uint32_t stream_id,
-                                       pstream_t payload, uint8_t flags)
+static int http2_conn_parse_rst_stream(
+    http2_conn_t *w, uint32_t stream_id, pstream_t payload, uint8_t flags
+)
 {
     uint32_t error_code;
 
     if (ps_get_be32(&payload, &error_code) < 0) {
-        HTTP2_THROW_ERR(w, FRAME_SIZE_ERROR,
-                        "frame error: RST_STREAM with invalid size %jd",
-                        ps_len(&payload));
+        HTTP2_THROW_ERR(
+            w, FRAME_SIZE_ERROR,
+            "frame error: RST_STREAM with invalid size %jd", ps_len(&payload)
+        );
     }
     RETHROW(http2_stream_do_recv_rst_stream(w, stream_id, error_code));
     return PARSE_OK;
@@ -5823,13 +6036,15 @@ http2_conn_on_peer_initial_window_size_changed(http2_conn_t *w, int32_t delta)
                 w, FLOW_CONTROL_ERROR,
                 "settings error: INITIAL_WINDOW_SIZE causes stream %d "
                 "send-window to overflow (%jd out of range)",
-                stream->id, new_size);
+                stream->id, new_size
+            );
         }
         stream->send_window += delta;
         http2_stream_trace(
             w, stream, 2,
             "send-window updated by SETTINGS [new size %d, delta %d]",
-            stream->send_window, delta);
+            stream->send_window, delta
+        );
     }
     return PARSE_OK;
 }
@@ -5849,8 +6064,10 @@ http2_conn_process_peer_settings(http2_conn_t *w, uint16_t id, uint32_t val)
 
     case HTTP2_ID_ENABLE_PUSH:
         if (val > 1) {
-            HTTP2_THROW_ERR(w, PROTOCOL_ERROR,
-                            "settings error: invalid ENABLE_PUSH (%u)", val);
+            HTTP2_THROW_ERR(
+                w, PROTOCOL_ERROR, "settings error: invalid ENABLE_PUSH (%u)",
+                val
+            );
         }
         w->peer_settings.enable_push = val;
         break;
@@ -5865,7 +6082,8 @@ http2_conn_process_peer_settings(http2_conn_t *w, uint16_t id, uint32_t val)
         {
             HTTP2_THROW_ERR(
                 w, PROTOCOL_ERROR,
-                "settings error: invalid FRAME_SIZE (%u out of range)", val);
+                "settings error: invalid FRAME_SIZE (%u out of range)", val
+            );
         }
         w->peer_settings.max_frame_size = val;
         break;
@@ -5876,10 +6094,12 @@ http2_conn_process_peer_settings(http2_conn_t *w, uint16_t id, uint32_t val)
 
     case HTTP2_ID_INITIAL_WINDOW_SIZE:
         if (val > HTTP2_LEN_WINDOW_SIZE_LIMIT) {
-            HTTP2_THROW_ERR(w, FLOW_CONTROL_ERROR,
-                            "settings error: invalid "
-                            "INITIAL_WINDOW_SIZE (%u out of range)",
-                            val);
+            HTTP2_THROW_ERR(
+                w, FLOW_CONTROL_ERROR,
+                "settings error: invalid "
+                "INITIAL_WINDOW_SIZE (%u out of range)",
+                val
+            );
         }
 
         /* XXX Make sure that the cast '(int32_t)val' is legitimate. */
@@ -5891,9 +6111,9 @@ http2_conn_process_peer_settings(http2_conn_t *w, uint16_t id, uint32_t val)
         break;
 
     default:
-        http2_conn_trace(w, 2,
-                         "ignored unknown setting from peer [id %d, val %u]",
-                         id, val);
+        http2_conn_trace(
+            w, 2, "ignored unknown setting from peer [id %d, val %u]", id, val
+        );
     }
     return PARSE_OK;
 }
@@ -5907,21 +6127,26 @@ http2_conn_parse_settings(http2_conn_t *w, pstream_t payload, uint8_t flags)
     if ((flags & HTTP2_FLAG_ACK) && len) {
         HTTP2_THROW_ERR(
             w, FRAME_SIZE_ERROR,
-            "frame error: invalid SETTINGS (ACK_FLAG with non-zero payload)");
+            "frame error: invalid SETTINGS (ACK_FLAG with non-zero payload)"
+        );
     }
     if (flags & HTTP2_FLAG_ACK) {
         if (w->preface_acked) {
-            HTTP2_THROW_ERR(w, PROTOCOL_ERROR,
-                            "frame error: invalid SETTINGS (ACK with "
-                            "no previously sent SETTINGS)");
+            HTTP2_THROW_ERR(
+                w, PROTOCOL_ERROR,
+                "frame error: invalid SETTINGS (ACK with "
+                "no previously sent SETTINGS)"
+            );
         }
         w->preface_acked = true;
         return PARSE_OK;
     }
     if (len % HTTP2_LEN_SETTINGS_ITEM != 0) {
-        HTTP2_THROW_ERR(w, PROTOCOL_ERROR,
-                        "frame error: invalid SETTINGS (payload size "
-                        "not a multiple of 6)");
+        HTTP2_THROW_ERR(
+            w, PROTOCOL_ERROR,
+            "frame error: invalid SETTINGS (payload size "
+            "not a multiple of 6)"
+        );
     }
     /* new peer settings */
     nb_items = len / HTTP2_LEN_SETTINGS_ITEM;
@@ -5931,8 +6156,10 @@ http2_conn_parse_settings(http2_conn_t *w, pstream_t payload, uint8_t flags)
 
         RETHROW(http2_conn_process_peer_settings(w, id, val));
     }
-    http2_conn_send_common_hdr(w, HTTP2_LEN_NO_PAYLOAD, HTTP2_TYPE_SETTINGS,
-                               HTTP2_FLAG_ACK, HTTP2_ID_NO_STREAM);
+    http2_conn_send_common_hdr(
+        w, HTTP2_LEN_NO_PAYLOAD, HTTP2_TYPE_SETTINGS, HTTP2_FLAG_ACK,
+        HTTP2_ID_NO_STREAM
+    );
     return PARSE_OK;
 }
 
@@ -5943,15 +6170,18 @@ http2_conn_parse_ping(http2_conn_t *w, pstream_t payload, uint8_t flags)
 
     STATIC_ASSERT(HTTP2_LEN_PING_PAYLOAD == 8);
     if (len != HTTP2_LEN_PING_PAYLOAD) {
-        HTTP2_THROW_ERR(w, FRAME_SIZE_ERROR,
-                        "frame error: invalid PING size");
+        HTTP2_THROW_ERR(
+            w, FRAME_SIZE_ERROR, "frame error: invalid PING size"
+        );
     }
     if (w->frame.flags & HTTP2_FLAG_ACK) {
         /* TODO: correlate the acked frame with a sent one and estimate the
          * ping rtt. */
     } else {
-        http2_conn_send_common_hdr(w, HTTP2_LEN_PING_PAYLOAD, HTTP2_TYPE_PING,
-                                   HTTP2_FLAG_ACK, HTTP2_ID_NO_STREAM);
+        http2_conn_send_common_hdr(
+            w, HTTP2_LEN_PING_PAYLOAD, HTTP2_TYPE_PING, HTTP2_FLAG_ACK,
+            HTTP2_ID_NO_STREAM
+        );
         ob_add(&w->ob, payload.p, HTTP2_LEN_PING_PAYLOAD);
     }
     return PARSE_OK;
@@ -5965,10 +6195,12 @@ http2_conn_parse_goaway(http2_conn_t *w, pstream_t payload, uint8_t flags)
     uint32_t error_code;
     pstream_t debug;
 
-    STATIC_ASSERT(HTTP2_LEN_GOAWAY_PAYLOAD_MIN
-                  == sizeof last_stream_id + sizeof error_code);
-    if (len < HTTP2_LEN_GOAWAY_PAYLOAD_MIN
-        || ps_get_be32(&payload, &last_stream_id) < 0)
+    STATIC_ASSERT(
+        HTTP2_LEN_GOAWAY_PAYLOAD_MIN ==
+        sizeof last_stream_id + sizeof error_code
+    );
+    if (len < HTTP2_LEN_GOAWAY_PAYLOAD_MIN ||
+        ps_get_be32(&payload, &last_stream_id) < 0)
     {
         goto size_error;
     }
@@ -5978,15 +6210,17 @@ http2_conn_parse_goaway(http2_conn_t *w, pstream_t payload, uint8_t flags)
         goto size_error;
     }
     debug = payload;
-    http2_conn_trace(w, 2, "received GOAWAY "
-                     "[last stream %d, error code %d, debug <%*pM>]",
-                     last_stream_id, error_code, PS_FMT_ARG(&debug));
+    http2_conn_trace(
+        w, 2, "received GOAWAY [last stream %d, error code %d, debug <%*pM>]",
+        last_stream_id, error_code, PS_FMT_ARG(&debug)
+    );
 
     if (error_code == HTTP2_CODE_NO_ERROR) {
         if (last_stream_id != HTTP2_ID_MAX_STREAM) {
             if (w->goaway_recv) {
-                HTTP2_THROW_ERR(w, PROTOCOL_ERROR,
-                                "frame error: second shutdown GOAWAY");
+                HTTP2_THROW_ERR(
+                    w, PROTOCOL_ERROR, "frame error: second shutdown GOAWAY"
+                );
             }
 
             http2_conn_process_state_change_goaway_recv(w, last_stream_id);
@@ -6002,15 +6236,17 @@ size_error:
     HTTP2_THROW_ERR(w, FRAME_SIZE_ERROR, "frame error: invalid GOAWAY size");
 }
 
-static int http2_conn_parse_window_update(http2_conn_t *w, uint32_t stream_id,
-                                          pstream_t payload, uint8_t flags)
+static int http2_conn_parse_window_update(
+    http2_conn_t *w, uint32_t stream_id, pstream_t payload, uint8_t flags
+)
 {
     uint32_t incr;
     int64_t new_size;
 
     if (ps_get_be32(&payload, &incr) < 0 || !ps_done(&payload)) {
-        HTTP2_THROW_ERR(w, FRAME_SIZE_ERROR,
-                        "frame error: invalid WINDOW_UPDATE size");
+        HTTP2_THROW_ERR(
+            w, FRAME_SIZE_ERROR, "frame error: invalid WINDOW_UPDATE size"
+        );
     }
     incr &= HTTP2_LEN_MAX_WINDOW_UPDATE_INCR;
 
@@ -6019,19 +6255,23 @@ static int http2_conn_parse_window_update(http2_conn_t *w, uint32_t stream_id,
         return http2_stream_do_recv_window_update(w, stream_id, incr);
     }
     if (!incr) {
-        HTTP2_THROW_ERR(w, PROTOCOL_ERROR,
-                        "frame error: 0 increment in WINDOW_UPDATE");
+        HTTP2_THROW_ERR(
+            w, PROTOCOL_ERROR, "frame error: 0 increment in WINDOW_UPDATE"
+        );
     }
     new_size = (int64_t)w->send_window + incr;
     if (new_size > HTTP2_LEN_WINDOW_SIZE_LIMIT) {
-        HTTP2_THROW_ERR(w, FLOW_CONTROL_ERROR,
-                        "flow control: "
-                        "tried to increment send-window beyond limit "
-                        "[cur %d, incr %d, new %jd]",
-                        w->send_window, incr, new_size);
+        HTTP2_THROW_ERR(
+            w, FLOW_CONTROL_ERROR,
+            "flow control: "
+            "tried to increment send-window beyond limit "
+            "[cur %d, incr %d, new %jd]",
+            w->send_window, incr, new_size
+        );
     }
-    http2_conn_trace(w, 2, "send-window increment [new size %jd, incr %d]",
-                     new_size, incr);
+    http2_conn_trace(
+        w, 2, "send-window increment [new size %jd, incr %d]", new_size, incr
+    );
     w->send_window = new_size;
     return PARSE_OK;
 }
@@ -6047,8 +6287,9 @@ static bool http2_is_known_frame_type(uint8_t type)
 static int http2_conn_check_frame_type_role(http2_conn_t *w)
 {
     if (!w->is_client && w->frame.type == HTTP2_TYPE_PUSH_PROMISE) {
-        HTTP2_THROW_ERR(w, PROTOCOL_ERROR,
-                        "PUSH_PROMISE received from client");
+        HTTP2_THROW_ERR(
+            w, PROTOCOL_ERROR, "PUSH_PROMISE received from client"
+        );
     }
     return PARSE_OK;
 }
@@ -6086,9 +6327,10 @@ static int http2_conn_check_frame_type_level(http2_conn_t *w)
     default:
         assert(false && "unexpected frame type");
     }
-    HTTP2_THROW_ERR(w, PROTOCOL_ERROR,
-                    "frame error: type %x incompatible with stream id %u",
-                    type, stream_id);
+    HTTP2_THROW_ERR(
+        w, PROTOCOL_ERROR,
+        "frame error: type %x incompatible with stream id %u", type, stream_id
+    );
 }
 
 static int http2_conn_check_frame_size(http2_conn_t *w, uint32_t len)
@@ -6096,12 +6338,13 @@ static int http2_conn_check_frame_size(http2_conn_t *w, uint32_t len)
     uint32_t lim = http2_get_settings(w).max_frame_size;
 
     if (len > lim) {
-        HTTP2_THROW_ERR(w, FRAME_SIZE_ERROR,
-                        "frame error: size %u > setting limit %u", len, lim);
+        HTTP2_THROW_ERR(
+            w, FRAME_SIZE_ERROR, "frame error: size %u > setting limit %u",
+            len, lim
+        );
     }
     return PARSE_OK;
 }
-
 
 static int http2_conn_parse_preface(http2_conn_t *w, pstream_t *ps)
 {
@@ -6119,8 +6362,9 @@ static int http2_conn_parse_preface(http2_conn_t *w, pstream_t *ps)
             return PARSE_MISSING_DATA;
         }
         if (!lstr_equal(LSTR_PS_V(&preface_recv), http2_client_preamble_g)) {
-            HTTP2_THROW_ERR(w, PROTOCOL_ERROR,
-                            "parse error: invalid preface");
+            HTTP2_THROW_ERR(
+                w, PROTOCOL_ERROR, "parse error: invalid preface"
+            );
         }
     }
     http2_conn_send_preface(w);
@@ -6138,8 +6382,9 @@ static int http2_conn_parse_init_settings_hdr(http2_conn_t *w, pstream_t *ps)
         w->frame.flags & HTTP2_FLAG_ACK ||
         w->frame.len % HTTP2_LEN_SETTINGS_ITEM != 0)
     {
-        HTTP2_THROW_ERR(w, PROTOCOL_ERROR,
-                        "invalid preamble (not a setting frame)");
+        HTTP2_THROW_ERR(
+            w, PROTOCOL_ERROR, "invalid preamble (not a setting frame)"
+        );
     }
 
     return PARSE_OK;
@@ -6200,15 +6445,18 @@ static int http2_conn_parse_payload(http2_conn_t *w, pstream_t *ps)
         return http2_conn_parse_window_update(w, stream_id, payload, flags);
 
     case HTTP2_TYPE_CONTINUATION:
-        HTTP2_THROW_ERR(w, PROTOCOL_ERROR,
-                        "frame error: CONTINUATION with no previous "
-                        "HEADERS or PUSH_PROMISE");
+        HTTP2_THROW_ERR(
+            w, PROTOCOL_ERROR,
+            "frame error: CONTINUATION with no previous "
+            "HEADERS or PUSH_PROMISE"
+        );
 
     default:
         break;
     }
-    http2_conn_trace(w, 2, "discarded received frame with unknown type %d",
-                     w->frame.type);
+    http2_conn_trace(
+        w, 2, "discarded received frame with unknown type %d", w->frame.type
+    );
     return PARSE_OK;
 }
 
@@ -6228,8 +6476,9 @@ static int http2_conn_parse_cont_hdr(http2_conn_t *w, pstream_t ps)
     if (frame.type != HTTP2_TYPE_CONTINUATION ||
         frame.stream_id != w->frame.stream_id)
     {
-        HTTP2_THROW_ERR(w, PROTOCOL_ERROR,
-                        "frame error: missing CONTINUATION");
+        HTTP2_THROW_ERR(
+            w, PROTOCOL_ERROR, "frame error: missing CONTINUATION"
+        );
     }
     w->frame.flags |= (frame.flags & HTTP2_FLAG_END_HEADERS);
     w->cont_chunk += HTTP2_LEN_FRAME_HDR + frame.len;
@@ -6253,8 +6502,9 @@ static int http2_conn_parse_cont_fragment(http2_conn_t *w, pstream_t *ps)
 
         payload = __ps_get_ps(ps, len);
         assert((!!promised_id) ^ (w->frame.type == HTTP2_TYPE_HEADERS));
-        return http2_conn_do_on_end_headers(w, stream_id, payload,
-                                            initial_len, flags, promised_id);
+        return http2_conn_do_on_end_headers(
+            w, stream_id, payload, initial_len, flags, promised_id
+        );
     }
     /* XXX: No END_HEADERS yet: continue to keep the chunks in place to be
      * reassembled later in http2_conn_do_on_end_headers() when END_HEADERS
@@ -6273,13 +6523,13 @@ static int http2_conn_parse_shutdown_sent(http2_conn_t *w, pstream_t *ps)
 
 /* parser state(s) */
 typedef enum {
-    HTTP2_PARSE_PREAMBLE             = 0,
-    HTTP2_PARSE_INIT_SETTINGS_HDR    = 1,
-    HTTP2_PARSE_COMMON_HDR           = 2,
-    HTTP2_PARSE_PAYLOAD              = 3,
-    HTTP2_PARSE_CONT_HDR             = 4,
-    HTTP2_PARSE_CONT_FRAGMENT        = 5,
-    HTTP2_PARSE_GOAWAY_SENT          = 6,
+    HTTP2_PARSE_PREAMBLE = 0,
+    HTTP2_PARSE_INIT_SETTINGS_HDR = 1,
+    HTTP2_PARSE_COMMON_HDR = 2,
+    HTTP2_PARSE_PAYLOAD = 3,
+    HTTP2_PARSE_CONT_HDR = 4,
+    HTTP2_PARSE_CONT_FRAGMENT = 5,
+    HTTP2_PARSE_GOAWAY_SENT = 6,
 } parse_state_t;
 
 static void http2_conn_process_eof_read(http2_conn_t *w, pstream_t *ps)
@@ -6359,8 +6609,10 @@ static void http2_conn_process_input_buffer(http2_conn_t *w)
         case HTTP2_PARSE_CONT_FRAGMENT:
             rc = http2_conn_parse_cont_fragment(w, &ps);
             if (rc == PARSE_OK) {
-                assert(w->frame.type == HTTP2_TYPE_HEADERS
-                       || w->frame.type == HTTP2_TYPE_PUSH_PROMISE);
+                assert(
+                    w->frame.type == HTTP2_TYPE_HEADERS ||
+                    w->frame.type == HTTP2_TYPE_PUSH_PROMISE
+                );
                 if (w->frame.flags & HTTP2_FLAG_END_HEADERS) {
                     state = HTTP2_PARSE_COMMON_HDR;
                 } else {
@@ -6383,8 +6635,9 @@ static void http2_conn_process_input_buffer(http2_conn_t *w)
     sb_skip_upto(&w->ibuf, ps.s);
 
     /* prune useless stream objects created during parsing */
-    dlist_for_each_entry(http2_stream_t, stream, &w->inactive_stream_list,
-                         class_link)
+    dlist_for_each_entry(
+        http2_stream_t, stream, &w->inactive_stream_list, class_link
+    )
     {
         http2_stream_delete(&stream);
     }
@@ -6564,8 +6817,9 @@ static int http2_conn_check_preface(http2_conn_t *w)
         THROW_ERR_IF(!ps_memequal(&tmp, http2_client_preamble_g.data, n));
     }
 
-    if (!ps_has(&ps, w->is_client ? hdrlen : http2_client_preamble_g.len +
-                hdrlen))
+    if (!ps_has(
+            &ps, w->is_client ? hdrlen : http2_client_preamble_g.len + hdrlen
+        ))
     {
         return w->eof_read || w->sock_err ? -1 : 0;
     }
@@ -6651,17 +6905,19 @@ static int http2_conn_tls_handshake(http2_conn_t *w, el_t evh, int fd)
         t_scope;
 
         if (w->is_client) {
-            logger_error(&_G.logger,
-                         "HTTP2 client `%*pM`: ssl handshake error with "
-                         "server `%*pM`",
-                         LSTR_FMT_ARG(t_http2_get_sock_address(w)),
-                         LSTR_FMT_ARG(t_http2_get_peer_address(w)));
+            logger_error(
+                &_G.logger,
+                "HTTP2 client `%*pM`: ssl handshake error with server `%*pM`",
+                LSTR_FMT_ARG(t_http2_get_sock_address(w)),
+                LSTR_FMT_ARG(t_http2_get_peer_address(w))
+            );
         } else {
-            logger_error(&_G.logger,
-                         "HTTP2 server `%*pM`: ssl handshake error from "
-                         "client `%*pM`",
-                         LSTR_FMT_ARG(t_http2_get_sock_address(w)),
-                         LSTR_FMT_ARG(t_http2_get_peer_address(w)));
+            logger_error(
+                &_G.logger,
+                "HTTP2 server `%*pM`: ssl handshake error from client `%*pM`",
+                LSTR_FMT_ARG(t_http2_get_sock_address(w)),
+                LSTR_FMT_ARG(t_http2_get_peer_address(w))
+            );
         }
         break;
     }
@@ -6739,11 +6995,11 @@ static int http2_conn_on_connect(el_t evh, int fd, short events, data_t priv)
 /* {{{ HTTP2 Server Adaptation */
 
 typedef struct http2_server_t {
-    http2_conn_t    * conn;
-    httpd_cfg_t     * httpd_cfg;
-    dlist_t         active_httpds;
-    dlist_t         idle_httpds;
-    dlist_t         http2_link;
+    http2_conn_t *conn;
+    httpd_cfg_t *httpd_cfg;
+    dlist_t active_httpds;
+    dlist_t idle_httpds;
+    dlist_t http2_link;
 } http2_server_t;
 
 static http2_server_t *http2_server_init(http2_server_t *w)
@@ -6852,8 +7108,9 @@ static void http2_stream_close_httpd(http2_conn_t *w, http2_stream_t *stream)
     httpd_do_close(&httpd);
 }
 
-static int httpd_unpack_http2_headers(httpd_t *w, http2_header_info_t *info,
-                                      pstream_t headerlines, bool eos)
+static int httpd_unpack_http2_headers(
+    httpd_t *w, http2_header_info_t *info, pstream_t headerlines, bool eos
+)
 {
     sb_t *ibuf = &w->ibuf;
     enum http_parser_state state = w->state;
@@ -6863,8 +7120,10 @@ static int httpd_unpack_http2_headers(httpd_t *w, http2_header_info_t *info,
         if (!info->method.s) {
             return -1;
         }
-        sb_addf(ibuf, "%*pM %*pM HTTP/1.1\r\n", LSTR_FMT_ARG(info->method),
-                LSTR_FMT_ARG(info->path));
+        sb_addf(
+            ibuf, "%*pM %*pM HTTP/1.1\r\n", LSTR_FMT_ARG(info->method),
+            LSTR_FMT_ARG(info->path)
+        );
         if (!(info->flags & HTTP2_HDR_FLAG_HAS_HOST)) {
             /* Host: is missing, copy it from :authority. */
             sb_addf(ibuf, "Host: %pL\r\n", &info->authority);
@@ -6879,7 +7138,8 @@ static int httpd_unpack_http2_headers(httpd_t *w, http2_header_info_t *info,
         case HTTP_TK_PATCH:
             if (!info->content_length.s) {
                 lstr_t zero_clen_hdr = LSTR("Content-Length: 0\r\n");
-                lstr_t chunked_te_hdr = LSTR("Transfer-Encoding: chunked\r\n");
+                lstr_t chunked_te_hdr =
+                    LSTR("Transfer-Encoding: chunked\r\n");
 
                 sb_add_lstr(ibuf, eos ? zero_clen_hdr : chunked_te_hdr);
             }
@@ -6901,8 +7161,7 @@ static int httpd_unpack_http2_headers(httpd_t *w, http2_header_info_t *info,
     return 0;
 }
 
-static void
-http2_stream_on_accept(http2_conn_t *conn, http2_stream_t *stream)
+static void http2_stream_on_accept(http2_conn_t *conn, http2_stream_t *stream)
 {
     httpd_t *httpd;
 
@@ -6915,10 +7174,10 @@ http2_stream_on_accept(http2_conn_t *conn, http2_stream_t *stream)
     obj_retain(httpd);
 }
 
-static void
-http2_stream_on_headers_server(http2_conn_t *conn, http2_stream_t *stream,
-                               http2_header_info_t *info,
-                               pstream_t headerlines, bool eos)
+static void http2_stream_on_headers_server(
+    http2_conn_t *conn, http2_stream_t *stream, http2_header_info_t *info,
+    pstream_t headerlines, bool eos
+)
 {
     httpd_t *httpd = stream->http2d_ctx->httpd;
     sb_t *ibuf;
@@ -6938,26 +7197,29 @@ http2_stream_on_headers_server(http2_conn_t *conn, http2_stream_t *stream,
     }
     return;
 malformed_err:
-    http2_stream_send_reset(conn, stream,
-                            "malformed request [invalid headers]");
+    http2_stream_send_reset(
+        conn, stream, "malformed request [invalid headers]"
+    );
     http2_stream_close_httpd(conn, stream);
 }
 
-static void
-http2_stream_on_data_server(http2_conn_t *w, http2_stream_t *stream,
-                            pstream_t data, bool eos)
+static void http2_stream_on_data_server(
+    http2_conn_t *w, http2_stream_t *stream, pstream_t data, bool eos
+)
 {
     httpd_t *httpd = stream->http2d_ctx->httpd;
     pstream_t ps;
     int len;
     int res;
 
-    assert(httpd->state == HTTP_PARSER_BODY
-               || httpd->state == HTTP_PARSER_CHUNK_HDR);
+    assert(
+        httpd->state == HTTP_PARSER_BODY ||
+        httpd->state == HTTP_PARSER_CHUNK_HDR
+    );
     if (ps_done(&data) && !eos) {
         return;
     }
-    switch(httpd->state) {
+    switch (httpd->state) {
     case HTTP_PARSER_BODY:
         sb_add_ps(&httpd->ibuf, data);
         ps = ps_initsb(&httpd->ibuf);
@@ -6975,7 +7237,8 @@ http2_stream_on_data_server(http2_conn_t *w, http2_stream_t *stream,
             /* mismatch: DATA frames > content-length */
             if (!eos) {
                 http2_stream_send_reset(
-                    w, stream, "malformed response [DATA > Content-Length]");
+                    w, stream, "malformed response [DATA > Content-Length]"
+                );
             }
             http2_stream_close_httpd(w, stream);
             return;
@@ -6987,8 +7250,9 @@ http2_stream_on_data_server(http2_conn_t *w, http2_stream_t *stream,
             sb_skip_upto(&httpd->ibuf, ps.p);
             if (eos) {
                 /* mismatch: content-length > DATA frames.*/
-                http2_stream_trace(w, stream, 2,
-                                   "malformed response [unexpected eos]");
+                http2_stream_trace(
+                    w, stream, 2, "malformed response [unexpected eos]"
+                );
                 http2_stream_close_httpd(w, stream);
                 return;
             }
@@ -7001,9 +7265,11 @@ http2_stream_on_data_server(http2_conn_t *w, http2_stream_t *stream,
             return;
         case PARSE_ERROR:
             if (!eos) {
-                http2_stream_send_reset(w, stream,
-                                        "malformed response [invalid payload "
-                                        "format or compression]");
+                http2_stream_send_reset(
+                    w, stream,
+                    "malformed response [invalid payload "
+                    "format or compression]"
+                );
             }
             http2_stream_close_httpd(w, stream);
             return;
@@ -7042,8 +7308,9 @@ http2_stream_on_data_server(http2_conn_t *w, http2_stream_t *stream,
     }
 }
 
-static void http2_stream_on_reset_server(http2_conn_t *w,
-                                         http2_stream_t *stream, bool remote)
+static void http2_stream_on_reset_server(
+    http2_conn_t *w, http2_stream_t *stream, bool remote
+)
 {
     http2_stream_close_httpd(w, stream);
 }
@@ -7056,8 +7323,9 @@ static void http2_stream_on_reset_server(http2_conn_t *w,
  *
  * FIXME: add unit tests to verify our hypotheses OR use defensive parsing.
  */
-static void http_get_http2_response_hdrs(pstream_t *chunk, lstr_t *code,
-                                         pstream_t *headerlines)
+static void http_get_http2_response_hdrs(
+    pstream_t *chunk, lstr_t *code, pstream_t *headerlines
+)
 {
     byte *p;
     pstream_t line;
@@ -7077,8 +7345,7 @@ static void http_get_http2_response_hdrs(pstream_t *chunk, lstr_t *code,
     *headerlines = control;
 }
 
-static void
-http2_conn_assert_idle_httpd_invariants(httpd_t *nonnull httpd)
+static void http2_conn_assert_idle_httpd_invariants(httpd_t *nonnull httpd)
 {
 #ifndef NDEBUG
     assert(httpd->http2_ctx->http2_stream_id);
@@ -7118,8 +7385,9 @@ static void http2_conn_stream_idle_httpd(http2_conn_t *w, httpd_t *httpd)
     stream = http2_stream_get(w, http2_ctx->http2_stream_id);
     chunk = ps_initsb(&httpd->ob.sb);
     http_get_http2_response_hdrs(&chunk, &code, &headerlines);
-    http2_stream_send_response_headers(w, stream, code, headerlines,
-                                       http2_ctx, &clen);
+    http2_stream_send_response_headers(
+        w, stream, code, headerlines, http2_ctx, &clen
+    );
     /* TODO: support 1xx informational responses (100-continue) */
     assert(clen >= 0 && "TODO: support chunked responses");
     http2_ctx->http2_sync_mark = clen;
@@ -7135,8 +7403,7 @@ static void http2_conn_stream_idle_httpd(http2_conn_t *w, httpd_t *httpd)
     dlist_move_tail(&ctx->active_httpds, &http2_ctx->http2_link);
 }
 
-static void
-http2_conn_assert_active_httpd_invariants(httpd_t *nonnull httpd)
+static void http2_conn_assert_active_httpd_invariants(httpd_t *nonnull httpd)
 {
 #ifndef NDEBUG
     assert(httpd->http2_ctx->http2_stream_id);
@@ -7199,8 +7466,8 @@ static void http2_conn_on_streams_can_write_server(http2_conn_t *w)
     }
     httpds = &ctx->active_httpds;
     do {
-#define OB_SEND_ALLOC   (8 << 10)
-#define OB_HIGH_MARK    (1 << 20)
+#define OB_SEND_ALLOC (8 << 10)
+#define OB_HIGH_MARK (1 << 20)
         /* A simple DATA send "scheduling" algorithm for active streams as we
          * don't have a sophisticated frame-aware scheduler:
          *  - To be fair, we allow each stream to send (i.e., output) up to
@@ -7279,20 +7546,21 @@ peer_equals(const qhash_t *qh, const sockunion_t *su1, const sockunion_t *su2)
     return sockunion_equal(su1, su2);
 }
 
-qm_kvec_t(qhttp2_clients, sockunion_t, http2_client_t *, peer_hash,
-          peer_equals);
+qm_kvec_t(
+    qhttp2_clients, sockunion_t, http2_client_t *, peer_hash, peer_equals
+);
 
 typedef struct http2_pool_t {
     qm_t(qhttp2_clients) qclients;
 } http2_pool_t;
 
 typedef struct http2_client_t {
-    int             refcnt;
-    http2_conn_t   *conn;
-    http2_pool_t   *pool;
-    sockunion_t     peer_su;
-    dlist_t         active_http2c_ctxs;
-    dlist_t         idle_http2c_ctxs;
+    int refcnt;
+    http2_conn_t *conn;
+    http2_pool_t *pool;
+    sockunion_t peer_su;
+    dlist_t active_http2c_ctxs;
+    dlist_t idle_http2c_ctxs;
 } http2_client_t;
 
 /* {{{ http2_pool_t new/init/wipe/delete */
@@ -7368,7 +7636,8 @@ http2_conn_connect_client_as(const sockunion_t *su, httpc_cfg_t *cfg)
     int fd;
 
     fd = RETHROW_NP(
-        connectx_as(-1, su, 1, NULL, SOCK_STREAM, IPPROTO_TCP, flags, 0));
+        connectx_as(-1, su, 1, NULL, SOCK_STREAM, IPPROTO_TCP, flags, 0)
+    );
     w = http2_conn_new();
     if (cfg->ssl_ctx) {
         w->ssl = SSL_new(cfg->ssl_ctx);
@@ -7417,9 +7686,10 @@ http2_pool_get_client(httpc_cfg_t *cfg, const sockunion_t *peer_su)
 static http2c_ctx_t *
 http2c_ctx_register(http2_client_t *client, httpc_t *httpc);
 
-static httpc_t *httpc_connect_as_http2(const sockunion_t *su,
-                                       const sockunion_t *nullable su_src,
-                                       httpc_cfg_t *cfg, httpc_pool_t *pool)
+static httpc_t *httpc_connect_as_http2(
+    const sockunion_t *su, const sockunion_t *nullable su_src,
+    httpc_cfg_t *cfg, httpc_pool_t *pool
+)
 {
     http2_client_t *client = RETHROW_P(http2_pool_get_client(cfg, su));
     httpc_t *w;
@@ -7446,10 +7716,10 @@ static httpc_t *httpc_connect_as_http2(const sockunion_t *su,
  *
  * FIXME: add unit tests to verify our hypotheses OR use defensive parsing.
  */
-static void
-http_get_http2_request_hdrs(pstream_t *chunk, lstr_t *method, lstr_t *scheme,
-                            lstr_t *path, lstr_t *authority,
-                            pstream_t *headerlines)
+static void http_get_http2_request_hdrs(
+    pstream_t *chunk, lstr_t *method, lstr_t *scheme, lstr_t *path,
+    lstr_t *authority, pstream_t *headerlines
+)
 {
     const byte *p;
     pstream_t line;
@@ -7474,7 +7744,7 @@ http_get_http2_request_hdrs(pstream_t *chunk, lstr_t *method, lstr_t *scheme,
         *scheme = LSTR_NULL_V;
         *authority = LSTR_NULL_V;
     } else {
-        assert(line.b[0]  == 'h');
+        assert(line.b[0] == 'h');
         if (line.b[4] == ':') {
             *scheme = LSTR_INIT_V(line.s, 4); /* http */
             __ps_skip(&line, sizeof("http://") - 1);
@@ -7526,22 +7796,22 @@ http_get_http2_request_hdrs(pstream_t *chunk, lstr_t *method, lstr_t *scheme,
  * idle state. See the state diagram below. */
 typedef struct http2c_ctx_t {
     http2_client_t *owner;
-    httpc_t        *httpc;
-    dlist_t         link;
+    httpc_t *httpc;
+    dlist_t link;
     /* The current attached stream if active, 0 otherwise */
-    uint32_t        stream_id;
+    uint32_t stream_id;
     /* The current query_id being dispatch (implies active) */
-    unsigned        query_id;
+    unsigned query_id;
     /* Remaining bytes to finish the request payload (offset into httpc.ob) */
-    int             to_write;
+    int to_write;
     /* Status of the current query */
-    int             httpc_status;
+    int httpc_status;
     /* True iff calling http1 code that may fire callbacks (implies active) */
-    bool            http1_firing;
+    bool http1_firing;
     /* True iff unregistered by httpc_disconnect (disowns httpc) */
-    bool            unregistered;
+    bool unregistered;
     /* True iff the 1st httpc.set_ready after connecting is called */
-    bool            first_set_ready_called;
+    bool first_set_ready_called;
 } http2c_ctx_t;
 
 static http2c_ctx_t *http2c_ctx_init(http2c_ctx_t *ctx)
@@ -7597,7 +7867,7 @@ http2c_ctx_register(http2_client_t *client, httpc_t *httpc)
     return ctx;
 }
 
-static void http2c_ctx_unregister(http2c_ctx_t *nullable *nonnull ctxp)
+static void http2c_ctx_unregister(http2c_ctx_t * nullable * nonnull ctxp)
 {
     http2c_ctx_t *ctx = *ctxp;
 
@@ -7681,18 +7951,22 @@ http2c_ctx_query_has_gone(http2c_ctx_t *ctx, httpc_query_t **first)
 
 /* {{{ Active State Transitions */
 
-static bool httpc_ctx_err_bad_parser_state(http2c_ctx_t *ctx, int state,
-                                           bool query_gone, sb_t *err)
+static bool httpc_ctx_err_bad_parser_state(
+    http2c_ctx_t *ctx, int state, bool query_gone, sb_t *err
+)
 {
     ctx->httpc_status = query_gone ? HTTPC_STATUS_OK : HTTPC_STATUS_INVALID;
 
-    sb_addf(err, "bad response: bad parser state %d%s", state,
-            query_gone ? " while query gone" : "");
+    sb_addf(
+        err, "bad response: bad parser state %d%s", state,
+        query_gone ? " while query gone" : ""
+    );
     return true;
 }
 
-static bool httpc_ctx_err_bad_data_type(http2c_ctx_t *ctx, int state,
-                                       bool headers, sb_t *err)
+static bool httpc_ctx_err_bad_data_type(
+    http2c_ctx_t *ctx, int state, bool headers, sb_t *err
+)
 {
     const char *types[2] = {"HEADERS", "DATA"};
 
@@ -7709,8 +7983,9 @@ httpc_ctx_err_parse_error(http2c_ctx_t *ctx, int parse_err, sb_t *err)
     return true;
 }
 
-static bool httpc_ctx_err_clen_data_mismatch(http2c_ctx_t *ctx,
-                                             bool query_done, sb_t *err)
+static bool httpc_ctx_err_clen_data_mismatch(
+    http2c_ctx_t *ctx, bool query_done, sb_t *err
+)
 {
     ctx->httpc_status = query_done ? HTTPC_STATUS_OK : HTTPC_STATUS_INVALID;
     sb_adds(err, "bad response: mismatch content-length vs DATA frames");
@@ -7853,15 +8128,17 @@ static void http2c_ctx_open_stream(http2c_ctx_t *ctx, httpc_query_t *q)
     sb_reset(&httpc->ibuf);
 
     chunk = ps_initsb(&httpc->ob.sb);
-    http_get_http2_request_hdrs(&chunk, &method, &scheme, &path, &authority,
-                                &headerlines);
+    http_get_http2_request_hdrs(
+        &chunk, &method, &scheme, &path, &authority, &headerlines
+    );
     if (!scheme.len) {
         scheme = w->ssl ? LSTR_IMMED_V("https") : LSTR_IMMED_V("http");
     }
 
     stream = http2_stream_get(w, ctx->stream_id);
-    http2_stream_send_request_headers(w, stream, method, scheme, path,
-                                      authority, headerlines, &clen);
+    http2_stream_send_request_headers(
+        w, stream, method, scheme, path, authority, headerlines, &clen
+    );
     stream->http2c_ctx = ctx;
     assert(clen >= 0 && "TODO: support chunked requests");
     ctx->to_write = clen;
@@ -7905,8 +8182,10 @@ static void http2c_ctx_try_reset_query(http2c_ctx_t *ctx)
 
     if (http2c_ctx_query_has_gone(ctx, &q)) {
         if (status < 0) {
-            logger_warning(&_G.logger, "bad http2c state: %s query to reset",
-                           q ? "bad" : "no");
+            logger_warning(
+                &_G.logger, "bad http2c state: %s query to reset",
+                q ? "bad" : "no"
+            );
         }
         return; /* normal case: query was done successfully. */
     }
@@ -7925,7 +8204,7 @@ static void http2c_ctx_try_reset_query(http2c_ctx_t *ctx)
 
 /** Release the attached stream and cause \p *ctxp to go idle.
  * XXX. Always nullifies the caller pointer. */
-static void http2c_ctx_enter_idle(http2c_ctx_t *nonnull *nonnull ctxp)
+static void http2c_ctx_enter_idle(http2c_ctx_t * nonnull * nonnull ctxp)
 {
     http2c_ctx_t *ctx = *ctxp;
 
@@ -7956,17 +8235,18 @@ static void http2c_ctx_enter_idle(http2c_ctx_t *nonnull *nonnull ctxp)
 /* }}} */
 /* }}} */
 
-static void
-http2_stream_on_headers_client(http2_conn_t *w, http2_stream_t *stream,
-                               http2_header_info_t *info,
-                               pstream_t headerlines, bool eos)
+static void http2_stream_on_headers_client(
+    http2_conn_t *w, http2_stream_t *stream, http2_header_info_t *info,
+    pstream_t headerlines, bool eos
+)
 {
     httpc_t *httpc = stream->http2c_ctx->httpc;
     SB_1k(err);
 
     if (httpc->state == HTTP_PARSER_IDLE) {
-        sb_addf(&httpc->ibuf, "HTTP/1.1 %pL Nothing But Code\r\n",
-                &info->status);
+        sb_addf(
+            &httpc->ibuf, "HTTP/1.1 %pL Nothing But Code\r\n", &info->status
+        );
         sb_add_ps(&httpc->ibuf, headerlines);
         sb_add(&httpc->ibuf, "\r\n", 2);
     }
@@ -7980,9 +8260,9 @@ http2_stream_on_headers_client(http2_conn_t *w, http2_stream_t *stream,
     }
 }
 
-static void
-http2_stream_on_data_client(http2_conn_t *w, http2_stream_t *stream,
-                            pstream_t data, bool eos)
+static void http2_stream_on_data_client(
+    http2_conn_t *w, http2_stream_t *stream, pstream_t data, bool eos
+)
 {
     httpc_t *httpc = stream->http2c_ctx->httpc;
     SB_1k(err);
@@ -7998,8 +8278,9 @@ http2_stream_on_data_client(http2_conn_t *w, http2_stream_t *stream,
     }
 }
 
-static void http2_stream_on_reset_client(http2_conn_t *w,
-                                         http2_stream_t *stream, bool remote)
+static void http2_stream_on_reset_client(
+    http2_conn_t *w, http2_stream_t *stream, bool remote
+)
 {
     stream->http2c_ctx->httpc_status = HTTPC_STATUS_INVALID;
     http2c_ctx_enter_idle(&stream->http2c_ctx);
@@ -8017,8 +8298,8 @@ static void http2_conn_on_streams_can_write_client(http2_conn_t *w)
     }
     httpcs = &client->active_http2c_ctxs;
     do {
-#define OB_SEND_ALLOC   (8 << 10)
-#define OB_HIGH_MARK    (1 << 20)
+#define OB_SEND_ALLOC (8 << 10)
+#define OB_HIGH_MARK (1 << 20)
         /* XXX: see http2_conn_on_streams_can_write_server() */
         can_progress = false;
 
@@ -8070,7 +8351,7 @@ static void http2_conn_on_connect_error(http2_conn_t *w, int errnum)
             dlist_t *ctxs = &client->idle_http2c_ctxs;
 
             assert(dlist_is_empty(&client->active_http2c_ctxs));
-            dlist_for_each_entry (http2c_ctx_t, ctx, ctxs, link) {
+            dlist_for_each_entry(http2c_ctx_t, ctx, ctxs, link) {
                 httpc_on_connect_error(ctx->httpc, errnum);
             }
         }
@@ -8144,9 +8425,9 @@ static int http_shutdown(void)
     return 0;
 }
 
-MODULE_BEGIN(http)
+MODULE_DEFINE(http) {
     MODULE_DEPENDS_ON(ssl);
-MODULE_END()
+}
 
 /* }}} */
 /* Tests {{{ */
@@ -8205,8 +8486,8 @@ static int z_reply_gzip_empty(el_t el, int fd, short mask, data_t data)
     return 0;
 }
 
-static int z_reply_close_without_content_length(el_t el, int fd, short mask,
-                                                data_t data)
+static int
+z_reply_close_without_content_length(el_t el, int fd, short mask, data_t data)
 {
     SB_1k(buf);
 
@@ -8255,7 +8536,7 @@ static int z_reply_no_content(el_t el, int fd, short mask, data_t data)
 
 static int z_accept(el_t el, int fd, short mask, data_t data)
 {
-    int (* query_cb)(el_t, int, short, data_t) = data.ptr;
+    int (*query_cb)(el_t, int, short, data_t) = data.ptr;
     int client = acceptx(fd, 0);
 
     if (client >= 0) {
@@ -8287,8 +8568,10 @@ enum z_query_flags {
     Z_QUERY_USE_HTTP2 = (1 << 1),
 };
 
-static int z_query_setup(int (* query_cb)(el_t, int, short, el_data_t),
-                         enum z_query_flags flags, lstr_t host, lstr_t uri)
+static int z_query_setup(
+    int (*query_cb)(el_t, int, short, el_data_t), enum z_query_flags flags,
+    lstr_t host, lstr_t uri
+)
 {
     sockunion_t su;
     int server;
@@ -8335,7 +8618,8 @@ static int z_query_setup(int (* query_cb)(el_t, int, short, el_data_t),
     Z_HELPER_END;
 }
 
-static void z_query_cleanup(void) {
+static void z_query_cleanup(void)
+{
     httpc_query_wipe(&zquery_g);
     el_unregister(&zel_server_g);
     el_unregister(&zel_client_g);
@@ -8345,33 +8629,45 @@ static void z_query_cleanup(void) {
     sb_wipe(&zquery_sb_g);
 }
 
-Z_GROUP_EXPORT(httpc) {
+Z_GROUP_EXPORT(httpc)
+{
     Z_TEST(unexpected_100_continue, "test behavior when receiving 100") {
-        Z_HELPER_RUN(z_query_setup(&z_reply_100, 0,
-                                   LSTR("localhost"), LSTR("/")));
+        Z_HELPER_RUN(
+            z_query_setup(&z_reply_100, 0, LSTR("localhost"), LSTR("/"))
+        );
 
-        Z_ASSERT_EQ((http_code_t)HTTP_CODE_OK , code_g);
+        Z_ASSERT_EQ((http_code_t)HTTP_CODE_OK, code_g);
         Z_ASSERT_LSTREQUAL(LSTR_SB_V(&body_g), LSTR("Coucou"));
 
         z_query_cleanup();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
-    Z_TEST(gzip_with_zero_length, "test Content-Encoding: gzip with Content-Length: 0") {
-        Z_HELPER_RUN(z_query_setup(&z_reply_gzip_empty, 0,
-                                   LSTR("localhost"), LSTR("/")));
+    Z_TEST(
+        gzip_with_zero_length,
+        "test Content-Encoding: gzip with Content-Length: 0"
+    )
+    {
+        Z_HELPER_RUN(z_query_setup(
+            &z_reply_gzip_empty, 0, LSTR("localhost"), LSTR("/")
+        ));
 
-        Z_ASSERT_EQ((http_code_t)HTTP_CODE_ACCEPTED , code_g);
+        Z_ASSERT_EQ((http_code_t)HTTP_CODE_ACCEPTED, code_g);
         Z_ASSERT_LSTREQUAL(LSTR_SB_V(&body_g), LSTR(""));
 
         z_query_cleanup();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
-    Z_TEST(close_with_no_content_length, "test close without Content-Length") {
-        Z_HELPER_RUN(z_query_setup(&z_reply_close_without_content_length, 0,
-                                   LSTR("localhost"), LSTR("/")));
+    Z_TEST(close_with_no_content_length, "test close without Content-Length")
+    {
+        Z_HELPER_RUN(z_query_setup(
+            &z_reply_close_without_content_length, 0, LSTR("localhost"),
+            LSTR("/")
+        ));
 
-        Z_ASSERT_EQ((http_code_t)HTTP_CODE_OK , code_g);
-        Z_ASSERT_EQ(body_g.len, 8192 * 4096  + 4);
+        Z_ASSERT_EQ((http_code_t)HTTP_CODE_OK, code_g);
+        Z_ASSERT_EQ(body_g.len, 8192 * 4096 + 4);
         Z_ASSERT_LSTREQUAL(LSTR_INIT_V(body_g.data, 4), LSTR("Plop"));
         sb_skip(&body_g, 4);
         for (int i = 0; i < body_g.len; i++) {
@@ -8379,74 +8675,106 @@ Z_GROUP_EXPORT(httpc) {
         }
 
         z_query_cleanup();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(url_host_and_uri, "test hosts and URIs") {
         /* Normal usage, target separate host and URI */
-        Z_HELPER_RUN(z_query_setup(&z_reply_keep, 0,
-                                   LSTR("localhost"), LSTR("/coucou")));
-        Z_ASSERT_EQ((http_code_t)HTTP_CODE_OK , code_g);
+        Z_HELPER_RUN(z_query_setup(
+            &z_reply_keep, 0, LSTR("localhost"), LSTR("/coucou")
+        ));
+        Z_ASSERT_EQ((http_code_t)HTTP_CODE_OK, code_g);
         Z_ASSERT_LSTREQUAL(LSTR_SB_V(&body_g), LSTR("Coucou"));
-        Z_ASSERT(lstr_startswith(LSTR_SB_V(&zquery_sb_g),
-            LSTR("GET /coucou HTTP/1.1\r\n"
-                 "Host: localhost\r\n")));
+        Z_ASSERT(lstr_startswith(
+            LSTR_SB_V(&zquery_sb_g), LSTR(
+                                         "GET /coucou HTTP/1.1\r\n"
+                                         "Host: localhost\r\n"
+                                     )
+        ));
         z_query_cleanup();
 
         /* Proxy that target separate host and URI, URI must be transform to
          * absolute */
-        Z_HELPER_RUN(z_query_setup(&z_reply_keep, Z_QUERY_USE_PROXY,
-                                   LSTR("localhost"), LSTR("/coucou")));
-        Z_ASSERT_EQ((http_code_t)HTTP_CODE_OK , code_g);
+        Z_HELPER_RUN(z_query_setup(
+            &z_reply_keep, Z_QUERY_USE_PROXY, LSTR("localhost"),
+            LSTR("/coucou")
+        ));
+        Z_ASSERT_EQ((http_code_t)HTTP_CODE_OK, code_g);
         Z_ASSERT_LSTREQUAL(LSTR_SB_V(&body_g), LSTR("Coucou"));
-        Z_ASSERT(lstr_startswith(LSTR_SB_V(&zquery_sb_g),
-            LSTR("GET http://localhost/coucou HTTP/1.1\r\n"
-                 "Host: localhost\r\n")));
+        Z_ASSERT(lstr_startswith(
+            LSTR_SB_V(&zquery_sb_g),
+            LSTR(
+                "GET http://localhost/coucou HTTP/1.1\r\n"
+                "Host: localhost\r\n"
+            )
+        ));
         z_query_cleanup();
 
         /* same thing without leading / */
-        Z_HELPER_RUN(z_query_setup(&z_reply_keep, Z_QUERY_USE_PROXY,
-                                   LSTR("localhost"), LSTR("coucou")));
-        Z_ASSERT_EQ((http_code_t)HTTP_CODE_OK , code_g);
+        Z_HELPER_RUN(z_query_setup(
+            &z_reply_keep, Z_QUERY_USE_PROXY, LSTR("localhost"),
+            LSTR("coucou")
+        ));
+        Z_ASSERT_EQ((http_code_t)HTTP_CODE_OK, code_g);
         Z_ASSERT_LSTREQUAL(LSTR_SB_V(&body_g), LSTR("Coucou"));
-        Z_ASSERT(lstr_startswith(LSTR_SB_V(&zquery_sb_g),
-            LSTR("GET http://localhost/coucou HTTP/1.1\r\n"
-                 "Host: localhost\r\n")));
+        Z_ASSERT(lstr_startswith(
+            LSTR_SB_V(&zquery_sb_g),
+            LSTR(
+                "GET http://localhost/coucou HTTP/1.1\r\n"
+                "Host: localhost\r\n"
+            )
+        ));
         z_query_cleanup();
 
         /* Proxy with absolute HTTP URL */
-        Z_HELPER_RUN(z_query_setup(&z_reply_keep, Z_QUERY_USE_PROXY,
-                                   LSTR("localhost"),
-                                   LSTR("http://localhost:80/coucou")));
-        Z_ASSERT_EQ((http_code_t)HTTP_CODE_OK , code_g);
+        Z_HELPER_RUN(z_query_setup(
+            &z_reply_keep, Z_QUERY_USE_PROXY, LSTR("localhost"),
+            LSTR("http://localhost:80/coucou")
+        ));
+        Z_ASSERT_EQ((http_code_t)HTTP_CODE_OK, code_g);
         Z_ASSERT_LSTREQUAL(LSTR_SB_V(&body_g), LSTR("Coucou"));
-        Z_ASSERT(lstr_startswith(LSTR_SB_V(&zquery_sb_g),
-            LSTR("GET http://localhost:80/coucou HTTP/1.1\r\n"
-                 "Host: localhost\r\n")));
+        Z_ASSERT(lstr_startswith(
+            LSTR_SB_V(&zquery_sb_g),
+            LSTR(
+                "GET http://localhost:80/coucou HTTP/1.1\r\n"
+                "Host: localhost\r\n"
+            )
+        ));
         z_query_cleanup();
 
         /* Same thing with HTTPS */
-        Z_HELPER_RUN(z_query_setup(&z_reply_keep, Z_QUERY_USE_PROXY,
-                                   LSTR("localhost"),
-                                   LSTR("https://localhost:443/coucou")));
-        Z_ASSERT_EQ((http_code_t)HTTP_CODE_OK , code_g);
+        Z_HELPER_RUN(z_query_setup(
+            &z_reply_keep, Z_QUERY_USE_PROXY, LSTR("localhost"),
+            LSTR("https://localhost:443/coucou")
+        ));
+        Z_ASSERT_EQ((http_code_t)HTTP_CODE_OK, code_g);
         Z_ASSERT_LSTREQUAL(LSTR_SB_V(&body_g), LSTR("Coucou"));
-        Z_ASSERT(lstr_startswith(LSTR_SB_V(&zquery_sb_g),
-            LSTR("GET https://localhost:443/coucou HTTP/1.1\r\n"
-                 "Host: localhost\r\n")));
+        Z_ASSERT(lstr_startswith(
+            LSTR_SB_V(&zquery_sb_g),
+            LSTR(
+                "GET https://localhost:443/coucou HTTP/1.1\r\n"
+                "Host: localhost\r\n"
+            )
+        ));
         z_query_cleanup();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(no_content, "test a reply with NO_CONTENT code") {
-        Z_HELPER_RUN(z_query_setup(&z_reply_no_content, 0,
-                                   LSTR("localhost"), LSTR("/")));
+        Z_HELPER_RUN(z_query_setup(
+            &z_reply_no_content, 0, LSTR("localhost"), LSTR("/")
+        ));
         Z_ASSERT_EQ((http_code_t)HTTP_CODE_NO_CONTENT, code_g);
         z_query_cleanup();
-    } Z_TEST_END;
-} Z_GROUP_END;
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END;
 
-static int
-z_http2_write_reply(http2_conn_t *w, uint32_t stream_id, int code,
-                    lstr_t headerlines_, lstr_t payload, int payload_repeat)
+static int z_http2_write_reply(
+    http2_conn_t *w, uint32_t stream_id, int code, lstr_t headerlines_,
+    lstr_t payload, int payload_repeat
+)
 {
     t_scope;
     pstream_t headerlines = ps_initlstr(&headerlines_);
@@ -8466,8 +8794,9 @@ z_http2_write_reply(http2_conn_t *w, uint32_t stream_id, int code,
     http2_conn_send_headers_block(w, stream_id, ps_initsb(&hdrs), eos);
     if (!eos) {
         for (int i = payload_repeat + 1; i-- > 0;) {
-            http2_conn_send_data_block(w, stream_id, ps_initlstr(&payload),
-                                       i == 0);
+            http2_conn_send_data_block(
+                w, stream_id, ps_initlstr(&payload), i == 0
+            );
         }
     }
     return 0;
@@ -8477,7 +8806,7 @@ static struct {
     int code;
     lstr_t headerlines;
     lstr_t payload;
-    int    payload_repeat;
+    int payload_repeat;
 } z_http2_reply_params_g;
 
 static int z_http2_reply_null(el_t el, int fd, short mask, data_t data)
@@ -8499,9 +8828,10 @@ static int z_http2_reply(el_t el, int fd, short mask, data_t data)
         /* XXX: so flow control does not get in our way. */
         w.send_window = HTTP2_LEN_MAX_WINDOW_UPDATE_INCR;
         /* Write Server's initial settings */
-        http2_conn_send_common_hdr(&w, HTTP2_LEN_NO_PAYLOAD,
-                                   HTTP2_TYPE_SETTINGS, HTTP2_FLAG_NONE,
-                                   HTTP2_ID_NO_STREAM);
+        http2_conn_send_common_hdr(
+            &w, HTTP2_LEN_NO_PAYLOAD, HTTP2_TYPE_SETTINGS, HTTP2_FLAG_NONE,
+            HTTP2_ID_NO_STREAM
+        );
         fd_set_features(fd, O_NONBLOCK);
         while (!ob_is_empty(&w.ob) || !query_reply_written) {
             http2c_ctx_t *ctx = zhttpc_g->http2_ctx;
@@ -8514,10 +8844,12 @@ static int z_http2_reply(el_t el, int fd, short mask, data_t data)
                 lstr_t payload = z_http2_reply_params_g.payload;
                 int payload_repeat = z_http2_reply_params_g.payload_repeat;
 
-                z_http2_write_reply(&w, stream_id, code, headerlines, payload,
-                                    payload_repeat);
-                http2_conn_send_goaway(&w, stream_id, HTTP2_CODE_NO_ERROR,
-                                       LSTR_EMPTY_V);
+                z_http2_write_reply(
+                    &w, stream_id, code, headerlines, payload, payload_repeat
+                );
+                http2_conn_send_goaway(
+                    &w, stream_id, HTTP2_CODE_NO_ERROR, LSTR_EMPTY_V
+                );
                 query_reply_written = true;
             }
             if (!ob_is_empty(&w.ob) && ((res = ob_write(&w.ob, fd)) <= 0)) {
@@ -8559,9 +8891,10 @@ static int z_http2_reply_no_content(el_t el, int fd, short mask, data_t data)
 static int z_http2_reply_ok(el_t el, int fd, short mask, data_t data)
 {
     z_http2_reply_params_g.code = HTTP_CODE_OK;
-    z_http2_reply_params_g.headerlines =
-        LSTR("x-custom-header-1: value-1\r\n"
-             "x-custom-header-2: value-2\r\n");
+    z_http2_reply_params_g.headerlines = LSTR(
+        "x-custom-header-1: value-1\r\n"
+        "x-custom-header-2: value-2\r\n"
+    );
     z_http2_reply_params_g.payload = LSTR("Coucou");
     z_http2_reply_params_g.payload_repeat = 0;
 
@@ -8573,9 +8906,10 @@ static int z_http2_reply_ok_big(el_t el, int fd, short mask, data_t data)
     sb_t payload;
 
     z_http2_reply_params_g.code = HTTP_CODE_OK;
-    z_http2_reply_params_g.headerlines =
-        LSTR("x-custom-header-1: value-1\r\n"
-             "x-custom-header-2: value-2\r\n");
+    z_http2_reply_params_g.headerlines = LSTR(
+        "x-custom-header-1: value-1\r\n"
+        "x-custom-header-2: value-2\r\n"
+    );
     sb_init(&payload);
     while (payload.len < 8192) {
         const char *s = "abcdefghijklmnopqrstuvwxyz";
@@ -8588,42 +8922,50 @@ static int z_http2_reply_ok_big(el_t el, int fd, short mask, data_t data)
     return z_http2_reply(el, fd, mask, data);
 }
 
-Z_GROUP_EXPORT(httpc_http2) {
+Z_GROUP_EXPORT(httpc_http2)
+{
     Z_TEST(no_content, "test a reply with NO_CONTENT code") {
-        Z_HELPER_RUN(z_query_setup(&z_http2_reply_no_content,
-                                   Z_QUERY_USE_HTTP2,
-                                   LSTR("localhost"), LSTR("/")));
+        Z_HELPER_RUN(z_query_setup(
+            &z_http2_reply_no_content, Z_QUERY_USE_HTTP2, LSTR("localhost"),
+            LSTR("/")
+        ));
         Z_ASSERT_EQ((http_code_t)HTTP_CODE_NO_CONTENT, code_g);
         z_query_cleanup();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(ok, "test a reply with 200 OK code and a small payload") {
-        Z_HELPER_RUN(z_query_setup(&z_http2_reply_ok,
-                                   Z_QUERY_USE_HTTP2,
-                                   LSTR("localhost"), LSTR("/")));
+        Z_HELPER_RUN(z_query_setup(
+            &z_http2_reply_ok, Z_QUERY_USE_HTTP2, LSTR("localhost"), LSTR("/")
+        ));
         Z_ASSERT_EQ((http_code_t)HTTP_CODE_OK, code_g);
         Z_ASSERT_LSTREQUAL(LSTR_SB_V(&body_g), LSTR("Coucou"));
         z_query_cleanup();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(ok_big, "test a reply with 200 OK code and a big payload") {
-        Z_HELPER_RUN(z_query_setup(&z_http2_reply_ok_big, Z_QUERY_USE_HTTP2,
-                                   LSTR("localhost"), LSTR("/")));
+        Z_HELPER_RUN(z_query_setup(
+            &z_http2_reply_ok_big, Z_QUERY_USE_HTTP2, LSTR("localhost"),
+            LSTR("/")
+        ));
         Z_ASSERT_EQ((http_code_t)HTTP_CODE_OK, code_g);
         Z_ASSERT_EQ(body_g.len, 8192 * 4096);
         for (int i = 0; i < body_g.len; i++) {
             Z_ASSERT_EQ(body_g.data[i], 'a' + (i % 8192) % 26);
         }
         z_query_cleanup();
-    } Z_TEST_END;
-} Z_GROUP_END;
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END;
 
 enum zhttpd_flags {
     ZHTTPD_QUERY_DONT_QUIT = (1 << 0),
-    ZHTTPD_NO_ANSWER       = (1 << 1),
-    ZHTTPD_BASIC_AUTH      = (1 << 2),
-    ZHTTPD_BEARER_AUTH     = (1 << 3),
-    ZHTTPD_REDUCE_NODELAY  = (1 << 4),
+    ZHTTPD_NO_ANSWER = (1 << 1),
+    ZHTTPD_BASIC_AUTH = (1 << 2),
+    ZHTTPD_BEARER_AUTH = (1 << 3),
+    ZHTTPD_REDUCE_NODELAY = (1 << 4),
 };
 
 static struct {
@@ -8678,30 +9020,34 @@ static void zhttpd_query_on_done(httpd_query_t *q)
     httpd_reply_done(q);
 }
 
-static void
-zhttpd_query_hook(httpd_trigger_t *tcb, struct httpd_query_t *q,
-                   const httpd_qinfo_t *qi)
+static void zhttpd_query_hook(
+    httpd_trigger_t *tcb, struct httpd_query_t *q, const httpd_qinfo_t *qi
+)
 {
     q->on_done = &zhttpd_query_on_done;
     q->qinfo = httpd_qinfo_dup(qi);
     httpd_bufferize(q, 1 << 20);
 }
 
-static void zhttpd_basic_auth_hook(httpd_trigger_t * nonnull cb,
-                                   struct httpd_query_t * nonnull q,
-                                   pstream_t user, pstream_t pw)
+static void zhttpd_basic_auth_hook(
+    httpd_trigger_t *nonnull cb, struct httpd_query_t *nonnull q,
+    pstream_t user, pstream_t pw
+)
 {
     if (ps_len(&user) && ps_len(&pw)) {
-        sb_setf(&zhttpd_g.auth_read, "%*pM:%*pM", PS_FMT_ARG(&user),
-                PS_FMT_ARG(&pw));
+        sb_setf(
+            &zhttpd_g.auth_read, "%*pM:%*pM", PS_FMT_ARG(&user),
+            PS_FMT_ARG(&pw)
+        );
     } else {
         sb_setf(&zhttpd_g.auth_read, "empty from %s", __FUNCTION__);
     }
 }
 
-static void zhttpd_bearer_auth_hook(httpd_trigger_t * nonnull cb,
-                                    struct httpd_query_t * nonnull q,
-                                    pstream_t token)
+static void zhttpd_bearer_auth_hook(
+    httpd_trigger_t *nonnull cb, struct httpd_query_t *nonnull q,
+    pstream_t token
+)
 {
     if (ps_len(&token)) {
         sb_setf(&zhttpd_g.auth_read, "%*pM", PS_FMT_ARG(&token));
@@ -8763,9 +9109,9 @@ static void zhttpd_cleanup(void)
     sb_wipe(&zhttpd_g.auth_read);
 }
 
-#define ZHTTPD_NOACT_DELAY_MS  3000
-#define ZHTTPD_TIMEOUT_MS  ZHTTPD_NOACT_DELAY_MS * 2
-#define ZHTTPD_FAST_NOACT_DELAY_MS  200
+#define ZHTTPD_NOACT_DELAY_MS 3000
+#define ZHTTPD_TIMEOUT_MS ZHTTPD_NOACT_DELAY_MS * 2
+#define ZHTTPD_FAST_NOACT_DELAY_MS 200
 
 static int zhttpd_setup(const lstr_t *query, int flags)
 {
@@ -8784,20 +9130,22 @@ static int zhttpd_setup(const lstr_t *query, int flags)
     zhttpd_g.cfg = httpd_cfg_new();
     zhttpd_g.cfg->max_conns = 1;
     zhttpd_g.cfg->pipeline_depth = 1;
-    zhttpd_g.cfg->noact_delay = zhttpd_g.flags & ZHTTPD_REDUCE_NODELAY ?
-                                ZHTTPD_FAST_NOACT_DELAY_MS :
-                                ZHTTPD_NOACT_DELAY_MS;
+    zhttpd_g.cfg->noact_delay = zhttpd_g.flags & ZHTTPD_REDUCE_NODELAY
+                                    ? ZHTTPD_FAST_NOACT_DELAY_MS
+                                    : ZHTTPD_NOACT_DELAY_MS;
 
     trigger = httpd_trigger_new();
-    trigger->cb         = &zhttpd_query_hook;
+    trigger->cb = &zhttpd_query_hook;
 
     if (zhttpd_g.flags & (ZHTTPD_BASIC_AUTH | ZHTTPD_BEARER_AUTH)) {
-        httpd_trigger_set_auth(trigger,
-            zhttpd_g.flags & ZHTTPD_BASIC_AUTH ? &zhttpd_basic_auth_hook :
-                                                 NULL,
-            zhttpd_g.flags & ZHTTPD_BEARER_AUTH ? &zhttpd_bearer_auth_hook :
-                                                  NULL,
-        NULL);
+        httpd_trigger_set_auth(
+            trigger,
+            zhttpd_g.flags & ZHTTPD_BASIC_AUTH ? &zhttpd_basic_auth_hook
+                                               : NULL,
+            zhttpd_g.flags & ZHTTPD_BEARER_AUTH ? &zhttpd_bearer_auth_hook
+                                                : NULL,
+            NULL
+        );
     }
 
     httpd_trigger_register(zhttpd_g.cfg, GET, "zchk", trigger);
@@ -8805,20 +9153,23 @@ static int zhttpd_setup(const lstr_t *query, int flags)
     zhttpd_g.httpd_el = httpd_listen(&su, zhttpd_g.cfg);
     Z_ASSERT_P(zhttpd_g.httpd_el);
     el_unref(zhttpd_g.httpd_el);
-    sockunion_setport(&su, getsockport(el_fd_get_fd(zhttpd_g.httpd_el),
-                                       AF_INET));
+    sockunion_setport(
+        &su, getsockport(el_fd_get_fd(zhttpd_g.httpd_el), AF_INET)
+    );
 
     client_fd = connectx(-1, &su, 1, SOCK_STREAM, IPPROTO_TCP, O_NONBLOCK);
     Z_ASSERT_N(client_fd);
 
-    zhttpd_g.client_el = el_fd_register(client_fd, true, POLLOUT,
-                                        &zhttpd_query_handle, (void *)query);
+    zhttpd_g.client_el = el_fd_register(
+        client_fd, true, POLLOUT, &zhttpd_query_handle, (void *)query
+    );
 
     sb_init(&zhttpd_g.read_buf);
     sb_init(&zhttpd_g.auth_read);
     zhttpd_g.got_io_error = false;
-    zhttpd_g.timeout_timer = el_timer_register(ZHTTPD_TIMEOUT_MS, 0, 0,
-                                               &zhttpd_query_timeout, NULL);
+    zhttpd_g.timeout_timer = el_timer_register(
+        ZHTTPD_TIMEOUT_MS, 0, 0, &zhttpd_query_timeout, NULL
+    );
     el_unref(zhttpd_g.timeout_timer);
     el_loop();
 
@@ -8837,62 +9188,73 @@ static int zhttpd_setup(const lstr_t *query, int flags)
     Z_HELPER_END;
 }
 
-Z_GROUP_EXPORT(httpd) {
-    Z_TEST(simple_query, "test a simple query")
-    {
+Z_GROUP_EXPORT(httpd)
+{
+    Z_TEST(simple_query, "test a simple query") {
         lstr_t query = LSTR(
             "GET /zchk HTTP/1.1\r\n"
             "Host: 127.0.0.1\r\n"
             "Content-Length: 0\r\n"
-            "\r\n");
+            "\r\n"
+        );
 
         Z_HELPER_RUN(zhttpd_setup(&query, 0));
 
-        Z_ASSERT(lstr_startswith(LSTR_SB_V(&zhttpd_g.read_buf),
-                               LSTR("HTTP/1.1 200 OK")));
-        Z_ASSERT(lstr_endswith(LSTR_SB_V(&zhttpd_g.read_buf),
-                               LSTR("ZHTTPD OK")));
+        Z_ASSERT(lstr_startswith(
+            LSTR_SB_V(&zhttpd_g.read_buf), LSTR("HTTP/1.1 200 OK")
+        ));
+        Z_ASSERT(
+            lstr_endswith(LSTR_SB_V(&zhttpd_g.read_buf), LSTR("ZHTTPD OK"))
+        );
 
         zhttpd_cleanup();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
-    Z_TEST(noact_delay, "test the behavior of the noactDelay timeout")
-    {
+    Z_TEST(noact_delay, "test the behavior of the noactDelay timeout") {
         uint64_t tstart, tend;
         lstr_t query = LSTR(
             "GET /zchk HTTP/1.1\r\n"
             "Host: 127.0.0.1\r\n"
             "Content-Length: 0\r\n"
-            "\r\n");
+            "\r\n"
+        );
 
         tstart = lp_getmsec();
         Z_HELPER_RUN(zhttpd_setup(&query, ZHTTPD_QUERY_DONT_QUIT));
         tend = lp_getmsec();
 
-        Z_ASSERT(lstr_startswith(LSTR_SB_V(&zhttpd_g.read_buf),
-                               LSTR("HTTP/1.1 200 OK")));
-        Z_ASSERT(lstr_endswith(LSTR_SB_V(&zhttpd_g.read_buf),
-                               LSTR("ZHTTPD OK")));
+        Z_ASSERT(lstr_startswith(
+            LSTR_SB_V(&zhttpd_g.read_buf), LSTR("HTTP/1.1 200 OK")
+        ));
+        Z_ASSERT(
+            lstr_endswith(LSTR_SB_V(&zhttpd_g.read_buf), LSTR("ZHTTPD OK"))
+        );
         /* Check that the connection was actually closed by the noactDelay */
         Z_ASSERT_GE((int)(tend - tstart), ZHTTPD_NOACT_DELAY_MS);
         Z_ASSERT_LE((int)(tend - tstart), (int)(ZHTTPD_NOACT_DELAY_MS * 1.5));
 
         zhttpd_cleanup();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
-    Z_TEST(noact_delay_pending_answer,
-           "noactDelay shouldn't close with a pending answer")
+    Z_TEST(
+        noact_delay_pending_answer,
+        "noactDelay shouldn't close with a pending answer"
+    )
     {
         uint64_t tstart, tend;
         lstr_t query = LSTR(
             "GET /zchk HTTP/1.1\r\n"
             "Host: 127.0.0.1\r\n"
             "Content-Length: 0\r\n"
-            "\r\n");
+            "\r\n"
+        );
 
         tstart = lp_getmsec();
-        Z_HELPER_RUN(zhttpd_setup(&query, ZHTTPD_QUERY_DONT_QUIT |
-                                  ZHTTPD_NO_ANSWER));
+        Z_HELPER_RUN(
+            zhttpd_setup(&query, ZHTTPD_QUERY_DONT_QUIT | ZHTTPD_NO_ANSWER)
+        );
         tend = lp_getmsec();
 
         /* Check that the connection was actually closed by the tests timeout
@@ -8901,11 +9263,14 @@ Z_GROUP_EXPORT(httpd) {
         Z_ASSERT_GE((int)(tend - tstart), ZHTTPD_TIMEOUT_MS);
 
         zhttpd_cleanup();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
-    Z_TEST(noact_delay_pending_answer_conn_close,
-           "noactDelay shouldn't close with a pending answer even with a"
-           " Connection: close")
+    Z_TEST(
+        noact_delay_pending_answer_conn_close,
+        "noactDelay shouldn't close with a pending answer even with a"
+        " Connection: close"
+    )
     {
         uint64_t tstart, tend;
         lstr_t query = LSTR(
@@ -8913,12 +9278,14 @@ Z_GROUP_EXPORT(httpd) {
             "Host: 127.0.0.1\r\n"
             "Connection: close\r\n"
             "Content-Length: 0\r\n"
-            "\r\n");
+            "\r\n"
+        );
 
         Z_TEST_FLAGS("redmine_99255");
         tstart = lp_getmsec();
-        Z_HELPER_RUN(zhttpd_setup(&query, ZHTTPD_QUERY_DONT_QUIT |
-                                  ZHTTPD_NO_ANSWER));
+        Z_HELPER_RUN(
+            zhttpd_setup(&query, ZHTTPD_QUERY_DONT_QUIT | ZHTTPD_NO_ANSWER)
+        );
         tend = lp_getmsec();
 
         /* Check that the connection was actually closed by the tests timeout
@@ -8927,23 +9294,26 @@ Z_GROUP_EXPORT(httpd) {
         Z_ASSERT_GE((int)(tend - tstart), ZHTTPD_TIMEOUT_MS);
 
         zhttpd_cleanup();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
-    Z_TEST(authentication, "test basic and bearer authentications")
-    {
+    Z_TEST(authentication, "test basic and bearer authentications") {
         /* Basic authentication */
         lstr_t query = LSTR(
             "GET /zchk HTTP/1.1\r\n"
             "Host: 127.0.0.1\r\n"
             "Authorization: Basic dXNlcjpwdw== \r\n"
             "Content-Length: 0\r\n"
-            "\r\n");
+            "\r\n"
+        );
 
         Z_HELPER_RUN(zhttpd_setup(&query, ZHTTPD_BASIC_AUTH));
-        Z_ASSERT(lstr_startswith(LSTR_SB_V(&zhttpd_g.read_buf),
-                               LSTR("HTTP/1.1 200 OK")));
-        Z_ASSERT(lstr_equal(LSTR("user:pw"),
-                            LSTR_SB_V((&zhttpd_g.auth_read))));
+        Z_ASSERT(lstr_startswith(
+            LSTR_SB_V(&zhttpd_g.read_buf), LSTR("HTTP/1.1 200 OK")
+        ));
+        Z_ASSERT(
+            lstr_equal(LSTR("user:pw"), LSTR_SB_V((&zhttpd_g.auth_read)))
+        );
         zhttpd_cleanup();
 
         /* Bearer authentication */
@@ -8952,14 +9322,18 @@ Z_GROUP_EXPORT(httpd) {
             "Host: 127.0.0.1\r\n"
             "Authorization: Bearer blabla \r\n"
             "Content-Length: 0\r\n"
-            "\r\n");
+            "\r\n"
+        );
 
-        Z_HELPER_RUN(zhttpd_setup(&query, ZHTTPD_BASIC_AUTH |
-                                          ZHTTPD_BEARER_AUTH));
-        Z_ASSERT(lstr_startswith(LSTR_SB_V(&zhttpd_g.read_buf),
-                               LSTR("HTTP/1.1 200 OK")));
-        Z_ASSERT(lstr_equal(LSTR("blabla"),
-                            LSTR_SB_V((&zhttpd_g.auth_read))));
+        Z_HELPER_RUN(
+            zhttpd_setup(&query, ZHTTPD_BASIC_AUTH | ZHTTPD_BEARER_AUTH)
+        );
+        Z_ASSERT(lstr_startswith(
+            LSTR_SB_V(&zhttpd_g.read_buf), LSTR("HTTP/1.1 200 OK")
+        ));
+        Z_ASSERT(
+            lstr_equal(LSTR("blabla"), LSTR_SB_V((&zhttpd_g.auth_read)))
+        );
         zhttpd_cleanup();
 
         /* Basic authentication with no credentials provided but basic auth
@@ -8968,22 +9342,30 @@ Z_GROUP_EXPORT(httpd) {
             "GET /zchk HTTP/1.1\r\n"
             "Host: 127.0.0.1\r\n"
             "Content-Length: 0\r\n"
-            "\r\n");
+            "\r\n"
+        );
 
-        Z_HELPER_RUN(zhttpd_setup(&query, ZHTTPD_BASIC_AUTH |
-                                          ZHTTPD_BEARER_AUTH));
-        Z_ASSERT(lstr_startswith(LSTR_SB_V(&zhttpd_g.read_buf),
-                               LSTR("HTTP/1.1 200 OK")));
-        Z_ASSERT(lstr_equal(LSTR("empty from zhttpd_basic_auth_hook"),
-                            LSTR_SB_V((&zhttpd_g.auth_read))));
+        Z_HELPER_RUN(
+            zhttpd_setup(&query, ZHTTPD_BASIC_AUTH | ZHTTPD_BEARER_AUTH)
+        );
+        Z_ASSERT(lstr_startswith(
+            LSTR_SB_V(&zhttpd_g.read_buf), LSTR("HTTP/1.1 200 OK")
+        ));
+        Z_ASSERT(lstr_equal(
+            LSTR("empty from zhttpd_basic_auth_hook"),
+            LSTR_SB_V((&zhttpd_g.auth_read))
+        ));
         zhttpd_cleanup();
 
         /* Bearer authentication available but no credential provided */
         Z_HELPER_RUN(zhttpd_setup(&query, ZHTTPD_BEARER_AUTH));
-        Z_ASSERT(lstr_startswith(LSTR_SB_V(&zhttpd_g.read_buf),
-                               LSTR("HTTP/1.1 200 OK")));
-        Z_ASSERT(lstr_equal(LSTR("empty from zhttpd_bearer_auth_hook"),
-                            LSTR_SB_V((&zhttpd_g.auth_read))));
+        Z_ASSERT(lstr_startswith(
+            LSTR_SB_V(&zhttpd_g.read_buf), LSTR("HTTP/1.1 200 OK")
+        ));
+        Z_ASSERT(lstr_equal(
+            LSTR("empty from zhttpd_bearer_auth_hook"),
+            LSTR_SB_V((&zhttpd_g.auth_read))
+        ));
         zhttpd_cleanup();
 
         /* Bearer authentication failure (no token provided) */
@@ -8992,17 +9374,21 @@ Z_GROUP_EXPORT(httpd) {
             "Host: 127.0.0.1\r\n"
             "Authorization: Bearer \r\n"
             "Content-Length: 0\r\n"
-            "\r\n");
+            "\r\n"
+        );
 
-        Z_HELPER_RUN(zhttpd_setup(&query, ZHTTPD_BEARER_AUTH |
-                                          ZHTTPD_REDUCE_NODELAY));
-        Z_ASSERT(lstr_startswith(LSTR_SB_V(&zhttpd_g.read_buf),
-                               LSTR("HTTP/1.1 400 Bad Request")));
+        Z_HELPER_RUN(
+            zhttpd_setup(&query, ZHTTPD_BEARER_AUTH | ZHTTPD_REDUCE_NODELAY)
+        );
+        Z_ASSERT(lstr_startswith(
+            LSTR_SB_V(&zhttpd_g.read_buf), LSTR("HTTP/1.1 400 Bad Request")
+        ));
         zhttpd_cleanup();
-
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     zhttpd_cleanup();
-} Z_GROUP_END;
+}
+Z_GROUP_END;
 
 /* }}} */

@@ -45,15 +45,17 @@ static int z_test_padding(lstr_t initial_value, lstr_t padded_exp_value)
     sb_add_pkcs7_8_bytes_padding(&sb_padded);
 
     Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sb_padded), padded_exp_value);
-    Z_ASSERT_LSTREQUAL(initial_value,
-                       lstr_trim_pkcs7_padding(LSTR_SB_V(&sb_padded)));
+    Z_ASSERT_LSTREQUAL(
+        initial_value, lstr_trim_pkcs7_padding(LSTR_SB_V(&sb_padded))
+    );
 
     Z_HELPER_END;
 }
 
-static int z_memtoxll_ext(bool str, bool sgn, const char *p, int len,
-                          bool use_endp, int base, uint64_t val_exp,
-                          int ret_exp, int end_exp, int err_exp)
+static int z_memtoxll_ext(
+    bool str, bool sgn, const char *p, int len, bool use_endp, int base,
+    uint64_t val_exp, int ret_exp, int end_exp, int err_exp
+)
 {
     const void *endp;
     uint64_t val;
@@ -63,17 +65,21 @@ static int z_memtoxll_ext(bool str, bool sgn, const char *p, int len,
     int ret;
 
     if (str) {
-        ret = (sgn) ? strtoll_ext(p, (int64_t *)&val,
-                                  use_endp ? (const char **)&endp : NULL,
-                                  base)
-                    : strtoull_ext(p, &val,
-                                   use_endp ? (const char **)&endp : NULL,
-                                   base);
+        ret = (sgn)
+                  ? strtoll_ext(
+                        p, (int64_t *)&val,
+                        use_endp ? (const char **)&endp : NULL, base
+                    )
+                  : strtoull_ext(
+                        p, &val, use_endp ? (const char **)&endp : NULL, base
+                    );
     } else {
-        ret = (sgn) ? memtoll_ext(p, z_len, (int64_t *)&val,
-                                  use_endp ? &endp : NULL, base)
-                    : memtoull_ext(p, z_len, &val,
-                                   use_endp ? &endp : NULL, base);
+        ret =
+            (sgn)
+                ? memtoll_ext(
+                      p, z_len, (int64_t *)&val, use_endp ? &endp : NULL, base
+                  )
+                : memtoull_ext(p, z_len, &val, use_endp ? &endp : NULL, base);
     }
 
     Z_ASSERT_EQ(z_ret_end, ret);
@@ -88,14 +94,16 @@ static int z_memtoxll_ext(bool str, bool sgn, const char *p, int len,
     Z_HELPER_END;
 }
 
-Z_GROUP_EXPORT(str) {
+Z_GROUP_EXPORT(str)
+{
     Z_TEST(lstr_equal) {
         Z_ASSERT_LSTREQUAL(LSTR_EMPTY_V, LSTR_EMPTY_V);
         Z_ASSERT_LSTREQUAL(LSTR_NULL_V, LSTR_NULL_V);
         Z_ASSERT_LSTREQUAL(LSTR("toto"), LSTR("toto"));
         Z_ASSERT(!lstr_equal(LSTR_EMPTY_V, LSTR_NULL_V));
         Z_ASSERT(!lstr_equal(LSTR(""), LSTR("toto")));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(lstr_copyc) {
         lstr_t dst = lstr_dup(LSTR("a string"));
@@ -108,12 +116,15 @@ Z_GROUP_EXPORT(str) {
         lstr_copyc(&dst, src);
         mem_pool_libc.free = libc_free;
 
-        Z_ASSERT_NULL(to_free_g, "destination string has not been freed"
-                      " before writing a new value to it");
+        Z_ASSERT_NULL(
+            to_free_g, "destination string has not been freed"
+                       " before writing a new value to it"
+        );
 
         Z_ASSERT(dst.mem_pool == MEM_STATIC);
         Z_ASSERT(lstr_equal(dst, src));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(lstr_ascii_converters) {
         t_scope;
@@ -125,7 +136,8 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_LSTREQUAL(lower, LSTR("the fox jumps over the lazy dog"));
         Z_ASSERT_LSTREQUAL(upper, LSTR("THE FOX JUMPS OVER THE LAZY DOG"));
         Z_ASSERT_LSTREQUAL(reversed, LSTR("gOd YzaL eHt ReVo sPmUj XoF EhT"));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(sb_detach) {
         sb_t sb;
@@ -143,7 +155,8 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_EQ(len, 3);
         Z_ASSERT_STREQUAL(p, "foo");
         p_delete(&p);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(sb_add, "sb_add/sb_prepend") {
         SB_1k(sb);
@@ -176,16 +189,19 @@ Z_GROUP_EXPORT(str) {
         sb_adds(&sb, "ol");
         sb_prependc(&sb, 'l');
         Z_ASSERT_STREQUAL(sb.data, "lol");
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(sb_add_urlencode) {
         SB_1k(sb);
         lstr_t raw = LSTR("test32@localhost-#!$;*");
 
         sb_add_lstr_urlencode(&sb, raw);
-        Z_ASSERT_LSTREQUAL(LSTR("test32%40localhost-%23%21%24%3B%2A"),
-                           LSTR_SB_V(&sb));
-    } Z_TEST_END;
+        Z_ASSERT_LSTREQUAL(
+            LSTR("test32%40localhost-%23%21%24%3B%2A"), LSTR_SB_V(&sb)
+        );
+    }
+    Z_TEST_END;
 
     Z_TEST(strconv_hexdecode) {
         const char *encoded = "30313233";
@@ -200,13 +216,18 @@ Z_GROUP_EXPORT(str) {
 
         encoded = "1234567";
         p_clear(&buf, 1);
-        Z_ASSERT_NEG(strconv_hexdecode(buf, sizeof(buf), encoded, -1),
-                 "str_hexdecode should not accept odd-length strings");
+        Z_ASSERT_NEG(
+            strconv_hexdecode(buf, sizeof(buf), encoded, -1),
+            "str_hexdecode should not accept odd-length strings"
+        );
         encoded = "1234567X";
         p_clear(&buf, 1);
-        Z_ASSERT_NEG(strconv_hexdecode(buf, sizeof(buf), encoded, -1),
-                 "str_hexdecode accepted non hexadecimal string");
-    } Z_TEST_END;
+        Z_ASSERT_NEG(
+            strconv_hexdecode(buf, sizeof(buf), encoded, -1),
+            "str_hexdecode accepted non hexadecimal string"
+        );
+    }
+    Z_TEST_END;
 
     Z_TEST(lstr_hexencode) {
         t_scope;
@@ -222,13 +243,14 @@ Z_GROUP_EXPORT(str) {
         out = t_lstr_hexdecode(LSTR_IMMED_V("F"));
         Z_ASSERT_EQ(out.len, 0);
         Z_ASSERT_NULL(out.s);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(lstr_obfuscate) {
-        uint64_t keys[] = { 0, 1, 1234, 2327841961327486523LLU, UINT64_MAX };
+        uint64_t keys[] = {0, 1, 1234, 2327841961327486523LLU, UINT64_MAX};
         char buf[BUFSIZ];
 
-        STATIC_ASSERT (sizeof(buf) >= 3 * 16);
+        STATIC_ASSERT(sizeof(buf) >= 3 * 16);
         /* Check, for different key values that:
          *   - obfuscation preserves the input (when different than output),
          *   - obfuscation is not identity,
@@ -259,34 +281,40 @@ Z_GROUP_EXPORT(str) {
             lstr_unobfuscate(inplace, keys[i], inplace);
             Z_ASSERT_LSTREQUAL(orig, inplace);
         }
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(utf8_stricmp) {
 
-#define RUN_UTF8_TEST_(Str1, Str2, Strip, Val) \
-        ({  int len1 = strlen(Str1);                                         \
-            int len2 = strlen(Str2);                                         \
-            int cmp  = utf8_stricmp(Str1, len1, Str2, len2, Strip);          \
+#define RUN_UTF8_TEST_(Str1, Str2, Strip, Val)                               \
+    ({                                                                       \
+        int len1 = strlen(Str1);                                             \
+        int len2 = strlen(Str2);                                             \
+        int cmp = utf8_stricmp(Str1, len1, Str2, len2, Strip);               \
                                                                              \
-            Z_ASSERT_EQ(cmp, Val, "utf8_stricmp(\"%.*s\", \"%.*s\", %d) "    \
-                        "returned bad value: %d, expected %d",               \
-                        len1, Str1, len2, Str2, Strip, cmp, Val);            \
-        })
+        Z_ASSERT_EQ(                                                         \
+            cmp, Val,                                                        \
+            "utf8_stricmp(\"%.*s\", \"%.*s\", %d) "                          \
+            "returned bad value: %d, expected %d",                           \
+            len1, Str1, len2, Str2, Strip, cmp, Val                          \
+        );                                                                   \
+    })
 
-#define RUN_UTF8_TEST(Str1, Str2, Val) \
-        ({  RUN_UTF8_TEST_(Str1, Str2, false, Val);                          \
-            RUN_UTF8_TEST_(Str2, Str1, false, -(Val));                       \
-            RUN_UTF8_TEST_(Str1, Str2, true, Val);                           \
-            RUN_UTF8_TEST_(Str2, Str1, true, -(Val));                        \
-            RUN_UTF8_TEST_(Str1"   ", Str2, true, Val);                      \
-            RUN_UTF8_TEST_(Str1, Str2"    ", true, Val);                     \
-            RUN_UTF8_TEST_(Str1"     ", Str2"  ", true, Val);                \
-            if (Val == 0) {                                                  \
-                RUN_UTF8_TEST_(Str1"   ", Str2, false, 1);                   \
-                RUN_UTF8_TEST_(Str1, Str2"   ", false, -1);                  \
-                RUN_UTF8_TEST_(Str1"  ", Str2"    ", false, -1);             \
-            }                                                                \
-        })
+#define RUN_UTF8_TEST(Str1, Str2, Val)                                       \
+    ({                                                                       \
+        RUN_UTF8_TEST_(Str1, Str2, false, Val);                              \
+        RUN_UTF8_TEST_(Str2, Str1, false, -(Val));                           \
+        RUN_UTF8_TEST_(Str1, Str2, true, Val);                               \
+        RUN_UTF8_TEST_(Str2, Str1, true, -(Val));                            \
+        RUN_UTF8_TEST_(Str1 "   ", Str2, true, Val);                         \
+        RUN_UTF8_TEST_(Str1, Str2 "    ", true, Val);                        \
+        RUN_UTF8_TEST_(Str1 "     ", Str2 "  ", true, Val);                  \
+        if (Val == 0) {                                                      \
+            RUN_UTF8_TEST_(Str1 "   ", Str2, false, 1);                      \
+            RUN_UTF8_TEST_(Str1, Str2 "   ", false, -1);                     \
+            RUN_UTF8_TEST_(Str1 "  ", Str2 "    ", false, -1);               \
+        }                                                                    \
+    })
 
         /* Basic tests and case tests */
         RUN_UTF8_TEST("abcdef", "abcdef", 0);
@@ -313,34 +341,40 @@ Z_GROUP_EXPORT(str) {
 
 #undef RUN_UTF8_TEST_
 #undef RUN_UTF8_TEST
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(utf8_strcmp) {
 
-#define RUN_UTF8_TEST_(Str1, Str2, Strip, Val) \
-        ({  int len1 = strlen(Str1);                                         \
-            int len2 = strlen(Str2);                                         \
-            int cmp  = utf8_strcmp(Str1, len1, Str2, len2, Strip);           \
+#define RUN_UTF8_TEST_(Str1, Str2, Strip, Val)                               \
+    ({                                                                       \
+        int len1 = strlen(Str1);                                             \
+        int len2 = strlen(Str2);                                             \
+        int cmp = utf8_strcmp(Str1, len1, Str2, len2, Strip);                \
                                                                              \
-            Z_ASSERT_EQ(cmp, Val, "utf8_strcmp(\"%.*s\", \"%.*s\", %d) "     \
-                        "returned bad value: %d, expected %d",               \
-                        len1, Str1, len2, Str2, Strip, cmp, Val);            \
-        })
+        Z_ASSERT_EQ(                                                         \
+            cmp, Val,                                                        \
+            "utf8_strcmp(\"%.*s\", \"%.*s\", %d) "                           \
+            "returned bad value: %d, expected %d",                           \
+            len1, Str1, len2, Str2, Strip, cmp, Val                          \
+        );                                                                   \
+    })
 
-#define RUN_UTF8_TEST(Str1, Str2, Val) \
-        ({  RUN_UTF8_TEST_(Str1, Str2, false, Val);                          \
-            RUN_UTF8_TEST_(Str2, Str1, false, -(Val));                       \
-            RUN_UTF8_TEST_(Str1, Str2, true, Val);                           \
-            RUN_UTF8_TEST_(Str2, Str1, true, -(Val));                        \
-            RUN_UTF8_TEST_(Str1"   ", Str2, true, Val);                      \
-            RUN_UTF8_TEST_(Str1, Str2"    ", true, Val);                     \
-            RUN_UTF8_TEST_(Str1"     ", Str2"  ", true, Val);                \
-            if (Val == 0) {                                                  \
-                RUN_UTF8_TEST_(Str1"   ", Str2, false, 1);                   \
-                RUN_UTF8_TEST_(Str1, Str2"   ", false, -1);                  \
-                RUN_UTF8_TEST_(Str1"  ", Str2"    ", false, -1);             \
-            }                                                                \
-        })
+#define RUN_UTF8_TEST(Str1, Str2, Val)                                       \
+    ({                                                                       \
+        RUN_UTF8_TEST_(Str1, Str2, false, Val);                              \
+        RUN_UTF8_TEST_(Str2, Str1, false, -(Val));                           \
+        RUN_UTF8_TEST_(Str1, Str2, true, Val);                               \
+        RUN_UTF8_TEST_(Str2, Str1, true, -(Val));                            \
+        RUN_UTF8_TEST_(Str1 "   ", Str2, true, Val);                         \
+        RUN_UTF8_TEST_(Str1, Str2 "    ", true, Val);                        \
+        RUN_UTF8_TEST_(Str1 "     ", Str2 "  ", true, Val);                  \
+        if (Val == 0) {                                                      \
+            RUN_UTF8_TEST_(Str1 "   ", Str2, false, 1);                      \
+            RUN_UTF8_TEST_(Str1, Str2 "   ", false, -1);                     \
+            RUN_UTF8_TEST_(Str1 "  ", Str2 "    ", false, -1);               \
+        }                                                                    \
+    })
 
         /* Basic tests and case tests */
         RUN_UTF8_TEST("abcdef", "abcdef", 0);
@@ -367,20 +401,24 @@ Z_GROUP_EXPORT(str) {
 
 #undef RUN_UTF8_TEST_
 #undef RUN_UTF8_TEST
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(utf8_str_istartswith) {
 
-#define RUN_UTF8_TEST(Str1, Str2, Val)  \
-        ({  int len1 = strlen(Str1);                                         \
-            int len2 = strlen(Str2);                                         \
-            int cmp  = utf8_str_istartswith(Str1, len1, Str2, len2);         \
+#define RUN_UTF8_TEST(Str1, Str2, Val)                                       \
+    ({                                                                       \
+        int len1 = strlen(Str1);                                             \
+        int len2 = strlen(Str2);                                             \
+        int cmp = utf8_str_istartswith(Str1, len1, Str2, len2);              \
                                                                              \
-            Z_ASSERT_EQ(cmp, Val,                                            \
-                        "utf8_str_istartswith(\"%.*s\", \"%.*s\") "          \
-                        "returned bad value: %d, expected %d",               \
-                        len1, Str1, len2, Str2, cmp, Val);                   \
-        })
+        Z_ASSERT_EQ(                                                         \
+            cmp, Val,                                                        \
+            "utf8_str_istartswith(\"%.*s\", \"%.*s\") "                      \
+            "returned bad value: %d, expected %d",                           \
+            len1, Str1, len2, Str2, cmp, Val                                 \
+        );                                                                   \
+    })
 
         /* Basic tests and case tests */
         RUN_UTF8_TEST("abcdef", "abc", true);
@@ -399,20 +437,24 @@ Z_GROUP_EXPORT(str) {
         RUN_UTF8_TEST("abcde", "àbcdéf", false);
 
 #undef RUN_UTF8_TEST
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(lstr_utf8_iendswith) {
 
-#define RUN_UTF8_TEST(Str1, Str2, Val)  \
-        ({  lstr_t lstr1 = LSTR(Str1);                                       \
-            lstr_t lstr2 = LSTR(Str2);                                       \
-            int cmp  = lstr_utf8_iendswith(lstr1, lstr2);                    \
+#define RUN_UTF8_TEST(Str1, Str2, Val)                                       \
+    ({                                                                       \
+        lstr_t lstr1 = LSTR(Str1);                                           \
+        lstr_t lstr2 = LSTR(Str2);                                           \
+        int cmp = lstr_utf8_iendswith(lstr1, lstr2);                         \
                                                                              \
-            Z_ASSERT_EQ(cmp, Val,                                            \
-                        "lstr_utf8_iendswith(\"%s\", \"%s\") "               \
-                        "returned bad value: %d, expected %d",               \
-                        Str1, Str2, cmp, Val);                               \
-        })
+        Z_ASSERT_EQ(                                                         \
+            cmp, Val,                                                        \
+            "lstr_utf8_iendswith(\"%s\", \"%s\") "                           \
+            "returned bad value: %d, expected %d",                           \
+            Str1, Str2, cmp, Val                                             \
+        );                                                                   \
+    })
 
         /* Basic tests and case tests */
         RUN_UTF8_TEST("abcdef", "def", true);
@@ -432,20 +474,24 @@ Z_GROUP_EXPORT(str) {
         RUN_UTF8_TEST("abcde", "0àbcdé", false);
 
 #undef RUN_UTF8_TEST
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(utf8_str_startswith) {
 
-#define RUN_UTF8_TEST(Str1, Str2, Val)  \
-        ({  int len1 = strlen(Str1);                                         \
-            int len2 = strlen(Str2);                                         \
-            int cmp  = utf8_str_startswith(Str1, len1, Str2, len2);          \
+#define RUN_UTF8_TEST(Str1, Str2, Val)                                       \
+    ({                                                                       \
+        int len1 = strlen(Str1);                                             \
+        int len2 = strlen(Str2);                                             \
+        int cmp = utf8_str_startswith(Str1, len1, Str2, len2);               \
                                                                              \
-            Z_ASSERT_EQ(cmp, Val,                                            \
-                        "utf8_str_startswith(\"%.*s\", \"%.*s\") "           \
-                        "returned bad value: %d, expected %d",               \
-                        len1, Str1, len2, Str2, cmp, Val);                   \
-        })
+        Z_ASSERT_EQ(                                                         \
+            cmp, Val,                                                        \
+            "utf8_str_startswith(\"%.*s\", \"%.*s\") "                       \
+            "returned bad value: %d, expected %d",                           \
+            len1, Str1, len2, Str2, cmp, Val                                 \
+        );                                                                   \
+    })
 
         /* Basic tests and case tests */
         RUN_UTF8_TEST("abcdef", "abc", true);
@@ -465,20 +511,24 @@ Z_GROUP_EXPORT(str) {
         RUN_UTF8_TEST("abcde", "àbcdéf", false);
 
 #undef RUN_UTF8_TEST
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(lstr_utf8_endswith) {
 
-#define RUN_UTF8_TEST(Str1, Str2, Val)  \
-        ({  lstr_t lstr1 = LSTR(Str1);                                       \
-            lstr_t lstr2 = LSTR(Str2);                                       \
-            int cmp  = lstr_utf8_endswith(lstr1, lstr2);                     \
+#define RUN_UTF8_TEST(Str1, Str2, Val)                                       \
+    ({                                                                       \
+        lstr_t lstr1 = LSTR(Str1);                                           \
+        lstr_t lstr2 = LSTR(Str2);                                           \
+        int cmp = lstr_utf8_endswith(lstr1, lstr2);                          \
                                                                              \
-            Z_ASSERT_EQ(cmp, Val,                                            \
-                        "lstr_utf8_endswith(\"%s\", \"%s\") "                \
-                        "returned bad value: %d, expected %d",               \
-                        Str1, Str2, cmp, Val);                               \
-        })
+        Z_ASSERT_EQ(                                                         \
+            cmp, Val,                                                        \
+            "lstr_utf8_endswith(\"%s\", \"%s\") "                            \
+            "returned bad value: %d, expected %d",                           \
+            Str1, Str2, cmp, Val                                             \
+        );                                                                   \
+    })
 
         /* Basic tests and case tests */
         RUN_UTF8_TEST("abcdef", "def", true);
@@ -497,11 +547,12 @@ Z_GROUP_EXPORT(str) {
         RUN_UTF8_TEST("abcde", "0àbcdé", false);
 
 #undef RUN_UTF8_TEST
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(lstr_utf8_strlen) {
-        char unterminated[] = { 0xEE, 0x80, 0x80, 0xEE };
-        char invalid[]      = { 0xB0, 0x80, 0x80 };
+        char unterminated[] = {0xEE, 0x80, 0x80, 0xEE};
+        char invalid[] = {0xB0, 0x80, 0x80};
 
         /* Valid strings. */
         Z_ASSERT_EQ(lstr_utf8_strlen(LSTR_NULL_V), 0);
@@ -513,18 +564,24 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_EQ(lstr_utf8_strlen(LSTR("This is a penguin: ")), 20);
 
         /* Invalid strings. */
-        Z_ASSERT_EQ(lstr_utf8_strlen(LSTR_INIT_V(unterminated,
-                                                 countof(unterminated))), -1);
-        Z_ASSERT_EQ(lstr_utf8_strlen(LSTR_INIT_V(invalid,
-                                                 countof(invalid))), -1);
-    } Z_TEST_END;
+        Z_ASSERT_EQ(
+            lstr_utf8_strlen(
+                LSTR_INIT_V(unterminated, countof(unterminated))
+            ),
+            -1
+        );
+        Z_ASSERT_EQ(
+            lstr_utf8_strlen(LSTR_INIT_V(invalid, countof(invalid))), -1
+        );
+    }
+    Z_TEST_END;
 
     Z_TEST(lstr_utf8_truncate) {
-        char data[9] = { 'a', 'b', 'c', 0xff, 'e', 0xff, 'g', 'h', '\0' };
+        char data[9] = {'a', 'b', 'c', 0xff, 'e', 0xff, 'g', 'h', '\0'};
         lstr_t lstr_null = LSTR_NULL_V;
 
-#define RUN_TEST(str, count, out) \
-        Z_ASSERT_LSTREQUAL(lstr_utf8_truncate(LSTR(str), count), out)
+#define RUN_TEST(str, count, out)                                            \
+    Z_ASSERT_LSTREQUAL(lstr_utf8_truncate(LSTR(str), count), out)
 
         RUN_TEST("abcdefgh", 9, LSTR("abcdefgh"));
         RUN_TEST("abcdefgh", 8, LSTR("abcdefgh"));
@@ -549,40 +606,45 @@ Z_GROUP_EXPORT(str) {
         RUN_TEST(data, 4, lstr_null);
         RUN_TEST(data, 3, LSTR("abc"));
 #undef RUN_TEST
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(path_simplify) {
         char buf[BUFSIZ];
 
-#define T(s0, s1)  \
-        ({ pstrcpy(buf, sizeof(buf), s0);    \
-            Z_ASSERT_N(path_simplify(buf)); \
-            Z_ASSERT_STREQUAL(buf, s1); })
+#define T(s0, s1)                                                            \
+    ({                                                                       \
+        pstrcpy(buf, sizeof(buf), s0);                                       \
+        Z_ASSERT_N(path_simplify(buf));                                      \
+        Z_ASSERT_STREQUAL(buf, s1);                                          \
+    })
 
         buf[0] = '\0';
         Z_ASSERT_NEG(path_simplify(buf));
         T("/a/b/../../foo/./", "/foo");
         T("/test/..///foo/./", "/foo");
-        T("/../test//foo///",  "/test/foo");
-        T("./test/bar",        "test/bar");
-        T("./test/../bar",     "bar");
-        T("./../test",         "../test");
-        T(".//test",           "test");
-        T("a/..",              ".");
-        T("a/../../..",        "../..");
-        T("a/../../b/../c",    "../c");
+        T("/../test//foo///", "/test/foo");
+        T("./test/bar", "test/bar");
+        T("./test/../bar", "bar");
+        T("./../test", "../test");
+        T(".//test", "test");
+        T("a/..", ".");
+        T("a/../../..", "../..");
+        T("a/../../b/../c", "../c");
 #undef T
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(path_is_safe) {
-#define T(how, path)  Z_ASSERT(how path_is_safe(path), path)
+#define T(how, path) Z_ASSERT(how path_is_safe(path), path)
         T(!, "/foo");
         T(!, "../foo");
-        T( , "foo/bar");
+        T(, "foo/bar");
         T(!, "foo/bar/foo/../../../../bar");
         T(!, "foo/bar///foo/../../../../bar");
 #undef T
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(path_extend) {
         const char *env_home = getenv("HOME") ?: "/";
@@ -592,12 +654,14 @@ Z_GROUP_EXPORT(str) {
         char very_long_prefix[2 * PATH_MAX];
         char very_long_suffix[2 * PATH_MAX];
 
-#define T(_expected, _prefix, _suffix, ...)  \
-        ({ Z_ASSERT_EQ(path_extend(path_test, _prefix, _suffix,              \
-                                   ##__VA_ARGS__),                           \
-                       (int)strlen(_expected));                              \
-            Z_ASSERT_STREQUAL(_expected, path_test);                         \
-        })
+#define T(_expected, _prefix, _suffix, ...)                                  \
+    ({                                                                       \
+        Z_ASSERT_EQ(                                                         \
+            path_extend(path_test, _prefix, _suffix, ##__VA_ARGS__),         \
+            (int)strlen(_expected)                                           \
+        );                                                                   \
+        Z_ASSERT_STREQUAL(_expected, path_test);                             \
+    })
 
         T("/foo/bar/1", "/foo/bar/", "%d", 1);
         T("/foo/bar/", "/foo/bar/", "");
@@ -617,8 +681,9 @@ Z_GROUP_EXPORT(str) {
 
         memset(very_long_prefix, '1', sizeof(very_long_prefix));
         very_long_prefix[PATH_MAX + 5] = '\0';
-        Z_ASSERT_EQ(path_extend(path_test, very_long_prefix, "foo/bar%d", 1),
-                    -1);
+        Z_ASSERT_EQ(
+            path_extend(path_test, very_long_prefix, "foo/bar%d", 1), -1
+        );
 
         memset(long_prefix, '1', sizeof(long_prefix));
         long_prefix[PATH_MAX - 1] = '\0';
@@ -639,8 +704,8 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_EQ(path_extend(path_test, long_prefix, "a"), PATH_MAX - 1);
 
         memset(very_long_prefix, '1', sizeof(very_long_prefix));
-        very_long_prefix[PATH_MAX-1] = '\0';
-        very_long_prefix[PATH_MAX-2] = '/';
+        very_long_prefix[PATH_MAX - 1] = '\0';
+        very_long_prefix[PATH_MAX - 2] = '/';
         T("/foo/bar1", very_long_prefix, "/foo/bar%d", 1);
 
         memset(very_long_suffix, '1', sizeof(very_long_suffix));
@@ -648,20 +713,23 @@ Z_GROUP_EXPORT(str) {
         very_long_suffix[0] = '/';
         very_long_suffix[PATH_MAX + 5] = '\0';
         long_prefix[PATH_MAX - 4] = '\0';
-        Z_ASSERT_EQ(path_extend(path_test, long_prefix, "%s",
-                                very_long_suffix), -1);
+        Z_ASSERT_EQ(
+            path_extend(path_test, long_prefix, "%s", very_long_suffix), -1
+        );
 
         memset(very_long_suffix, '1', sizeof(very_long_suffix));
         memset(very_long_prefix, '1', sizeof(very_long_prefix));
         very_long_suffix[0] = '/';
         very_long_suffix[PATH_MAX + 5] = '\0';
         very_long_prefix[PATH_MAX + 5] = '\0';
-        Z_ASSERT_EQ(path_extend(path_test, very_long_prefix, "%s",
-                                very_long_suffix), -1);
+        Z_ASSERT_EQ(
+            path_extend(path_test, very_long_prefix, "%s", very_long_suffix),
+            -1
+        );
 
         memset(very_long_prefix, '1', sizeof(very_long_prefix));
-        very_long_prefix[PATH_MAX-2] = '\0';
-        very_long_prefix[PATH_MAX-3] = '/';
+        very_long_prefix[PATH_MAX - 2] = '\0';
+        very_long_prefix[PATH_MAX - 3] = '/';
         T("/foo/bar1", very_long_prefix, "/foo/bar%d", 1);
 
         snprintf(expected, sizeof(expected), "%s/foo/bar/1", env_home);
@@ -671,8 +739,8 @@ Z_GROUP_EXPORT(str) {
         very_long_prefix[PATH_MAX + 5] = '\0';
         T(expected, very_long_prefix, "~/foo/bar/%d", 1);
 #undef T
-
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(path_relative_to) {
         char old_cwd[PATH_MAX];
@@ -706,7 +774,8 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_N(chdir(old_cwd));
 
 #undef T
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(strstart) {
         static const char *week =
@@ -714,11 +783,16 @@ Z_GROUP_EXPORT(str) {
         const char *p;
 
         Z_ASSERT(strstart(week, "Monday", &p));
-        Z_ASSERT(week + strlen("Monday") == p,
-                 "finding Monday at the proper position");
-        Z_ASSERT(!strstart(week, "Tuesday", NULL),
-                 "week doesn't start with Tuesday");
-    } Z_TEST_END;
+        Z_ASSERT(
+            week + strlen("Monday") == p,
+            "finding Monday at the proper position"
+        );
+        Z_ASSERT(
+            !strstart(week, "Tuesday", NULL),
+            "week doesn't start with Tuesday"
+        );
+    }
+    Z_TEST_END;
 
     Z_TEST(stristart) {
         static const char *week =
@@ -726,44 +800,59 @@ Z_GROUP_EXPORT(str) {
         const char *p = NULL;
 
         Z_ASSERT(stristart(week, "mOnDaY", &p));
-        Z_ASSERT(week + strlen("mOnDaY") == p,
-                 "finding mOnDaY at the proper position");
-        Z_ASSERT(!stristart(week, "tUESDAY", NULL),
-                 "week doesn't start with tUESDAY");
-    } Z_TEST_END;
+        Z_ASSERT(
+            week + strlen("mOnDaY") == p,
+            "finding mOnDaY at the proper position"
+        );
+        Z_ASSERT(
+            !stristart(week, "tUESDAY", NULL),
+            "week doesn't start with tUESDAY"
+        );
+    }
+    Z_TEST_END;
 
     Z_TEST(stristrn) {
         static const char *alphabet = "abcdefghijklmnopqrstuvwxyz";
 
-        Z_ASSERT(stristr(alphabet, "aBC") == alphabet,
-                 "not found at start of string");
-        Z_ASSERT(stristr(alphabet, "Z") == alphabet + 25,
-                 "not found at end of string");
-        Z_ASSERT(stristr(alphabet, "mn") == alphabet + 12,
-                 "not found in the middle of the string");
+        Z_ASSERT(
+            stristr(alphabet, "aBC") == alphabet,
+            "not found at start of string"
+        );
+        Z_ASSERT(
+            stristr(alphabet, "Z") == alphabet + 25,
+            "not found at end of string"
+        );
+        Z_ASSERT(
+            stristr(alphabet, "mn") == alphabet + 12,
+            "not found in the middle of the string"
+        );
         Z_ASSERT_NULL(stristr(alphabet, "123"), "inexistant string found");
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(strfind) {
-        Z_ASSERT( strfind("1,2,3,4", "1", ','));
-        Z_ASSERT( strfind("1,2,3,4", "2", ','));
-        Z_ASSERT( strfind("1,2,3,4", "4", ','));
+        Z_ASSERT(strfind("1,2,3,4", "1", ','));
+        Z_ASSERT(strfind("1,2,3,4", "2", ','));
+        Z_ASSERT(strfind("1,2,3,4", "4", ','));
         Z_ASSERT(!strfind("11,12,13,14", "1", ','));
         Z_ASSERT(!strfind("11,12,13,14", "2", ','));
-        Z_ASSERT( strfind("11,12,13,14", "11", ','));
+        Z_ASSERT(strfind("11,12,13,14", "11", ','));
         Z_ASSERT(!strfind("11,12,13,14", "111", ','));
         Z_ASSERT(!strfind("toto,titi,tata,tutu", "to", ','));
         Z_ASSERT(!strfind("1|2|3|4|", "", '|'));
-        Z_ASSERT( strfind("1||3|4|", "", '|'));
-    } Z_TEST_END;
+        Z_ASSERT(strfind("1||3|4|", "", '|'));
+    }
+    Z_TEST_END;
 
     Z_TEST(buffer_increment) {
         char buf[BUFSIZ];
 
-#define T(initval, expectedval, expectedret)       \
-        ({  pstrcpy(buf, sizeof(buf), initval);                      \
-            Z_ASSERT_EQ(expectedret, buffer_increment(buf, -1));     \
-            Z_ASSERT_STREQUAL(buf, expectedval); })
+#define T(initval, expectedval, expectedret)                                 \
+    ({                                                                       \
+        pstrcpy(buf, sizeof(buf), initval);                                  \
+        Z_ASSERT_EQ(expectedret, buffer_increment(buf, -1));                 \
+        Z_ASSERT_STREQUAL(buf, expectedval);                                 \
+    })
 
         T("0", "1", 0);
         T("1", "2", 0);
@@ -777,15 +866,18 @@ Z_GROUP_EXPORT(str) {
         T("foobar-0-99", "foobar-0-00", 1);
 
 #undef T
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(buffer_increment_hex) {
         char buf[BUFSIZ];
 
-#define T(initval, expectedval, expectedret)   \
-        ({  pstrcpy(buf, sizeof(buf), initval);                          \
-            Z_ASSERT_EQ(expectedret, buffer_increment_hex(buf, -1));     \
-            Z_ASSERT_STREQUAL(buf, expectedval); })
+#define T(initval, expectedval, expectedret)                                 \
+    ({                                                                       \
+        pstrcpy(buf, sizeof(buf), initval);                                  \
+        Z_ASSERT_EQ(expectedret, buffer_increment_hex(buf, -1));             \
+        Z_ASSERT_STREQUAL(buf, expectedval);                                 \
+    })
 
         T("0", "1", 0);
         T("1", "2", 0);
@@ -806,7 +898,8 @@ Z_GROUP_EXPORT(str) {
         T("foobar-0-ff", "foobar-0-00", 1);
 
 #undef T
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(strrand) {
         char b[32];
@@ -820,18 +913,20 @@ Z_GROUP_EXPORT(str) {
         /* Ask for 32 bytes, where buffer can only contain 31. */
         Z_ASSERT_EQ(ssizeof(b) - 1, pstrrand(b, sizeof(b), 0, sizeof(b)));
         Z_ASSERT_EQ(sizeof(b) - 1, strlen(b));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(strtoip) {
-#define T(p, err_exp, val_exp, end_i) \
-        ({  const char *endp;                                               \
-            int end_exp = (end_i >= 0) ? end_i : (int)strlen(p);            \
-                                                                            \
-            errno = 0;                                                      \
-            Z_ASSERT_EQ(val_exp, strtoip(p, &endp));                        \
-            Z_ASSERT_EQ(err_exp, errno);                                    \
-            Z_ASSERT_EQ(end_exp, endp - p);                                 \
-        })
+#define T(p, err_exp, val_exp, end_i)                                        \
+    ({                                                                       \
+        const char *endp;                                                    \
+        int end_exp = (end_i >= 0) ? end_i : (int)strlen(p);                 \
+                                                                             \
+        errno = 0;                                                           \
+        Z_ASSERT_EQ(val_exp, strtoip(p, &endp));                             \
+        Z_ASSERT_EQ(err_exp, errno);                                         \
+        Z_ASSERT_EQ(end_exp, endp - p);                                      \
+    })
 
         T("123", 0, 123, -1);
         T(" 123", 0, 123, -1);
@@ -856,18 +951,20 @@ Z_GROUP_EXPORT(str) {
         T("0x0", 0, 0, 1);
         T("010", 0, 10, -1);
 #undef T
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(memtoip) {
-#define T(p, err_exp, val_exp, end_i) \
-        ({  const byte *endp;                                               \
-            int end_exp = (end_i >= 0) ? end_i : (int)strlen(p);            \
-                                                                            \
-            errno = 0;                                                      \
-            Z_ASSERT_EQ(val_exp, memtoip(p, strlen(p), &endp));             \
-            Z_ASSERT_EQ(err_exp, errno);                                    \
-            Z_ASSERT_EQ(end_exp, endp - (const byte *)p);                   \
-        })
+#define T(p, err_exp, val_exp, end_i)                                        \
+    ({                                                                       \
+        const byte *endp;                                                    \
+        int end_exp = (end_i >= 0) ? end_i : (int)strlen(p);                 \
+                                                                             \
+        errno = 0;                                                           \
+        Z_ASSERT_EQ(val_exp, memtoip(p, strlen(p), &endp));                  \
+        Z_ASSERT_EQ(err_exp, errno);                                         \
+        Z_ASSERT_EQ(end_exp, endp - (const byte *)p);                        \
+    })
 
         T("123", 0, 123, -1);
         T(" 123", 0, 123, -1);
@@ -892,11 +989,13 @@ Z_GROUP_EXPORT(str) {
         T("0x0", 0, 0, 1);
         T("010", 0, 10, -1);
 #undef T
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(strtolp) {
-#define T(p, flags, min, max, val_exp, ret_exp, end_i) \
-    ({  const char *endp;                                                    \
+#define T(p, flags, min, max, val_exp, ret_exp, end_i)                       \
+    ({                                                                       \
+        const char *endp;                                                    \
         long val;                                                            \
         int end_exp = (end_i >= 0) ? end_i : (int)strlen(p);                 \
                                                                              \
@@ -922,22 +1021,30 @@ Z_GROUP_EXPORT(str) {
         /* Check skipspaces */
         T(" 123", 0, 0, 1000, 123, -EINVAL, 0);
         T("123 ", STRTOLP_CHECK_END, 0, 100, 123, -EINVAL, 0);
-        T(" 123 ", STRTOLP_CHECK_END | STRTOLP_CHECK_RANGE, 0, 100, 123, -EINVAL, 0);
+        T(" 123 ", STRTOLP_CHECK_END | STRTOLP_CHECK_RANGE, 0, 100, 123,
+          -EINVAL, 0);
         T(" 123", STRTOLP_IGNORE_SPACES, 0, 100, 123, 0, -1);
         T(" 123 ", STRTOLP_IGNORE_SPACES, 0, 100, 123, 0, -1);
-        T(" 123 ", STRTOLP_IGNORE_SPACES | STRTOLP_CHECK_RANGE, 0, 100, 123, -ERANGE, 0);
-        T(" 123 ", STRTOLP_IGNORE_SPACES | STRTOLP_CLAMP_RANGE, 0, 100, 100, 0, -1);
+        T(" 123 ", STRTOLP_IGNORE_SPACES | STRTOLP_CHECK_RANGE, 0, 100, 123,
+          -ERANGE, 0);
+        T(" 123 ", STRTOLP_IGNORE_SPACES | STRTOLP_CLAMP_RANGE, 0, 100, 100,
+          0, -1);
         T("123456789012345678901234567890", 0, 0, 100, 123, -ERANGE, 0);
-        T("123456789012345678901234567890 ", STRTOLP_CHECK_END, 0, 100, 123, -EINVAL, 0);
-        T("123456789012345678901234567890",  STRTOLP_CLAMP_RANGE, 0, 100, 100, 0, -1);
-        T("123456789012345678901234567890 ", STRTOLP_CLAMP_RANGE, 0, 100, 100, 0, 30);
+        T("123456789012345678901234567890 ", STRTOLP_CHECK_END, 0, 100, 123,
+          -EINVAL, 0);
+        T("123456789012345678901234567890", STRTOLP_CLAMP_RANGE, 0, 100, 100,
+          0, -1);
+        T("123456789012345678901234567890 ", STRTOLP_CLAMP_RANGE, 0, 100, 100,
+          0, 30);
 #undef T
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(memtoxll_ext) {
 #define T(str, sgn, p, len, _endp, base, val_exp, ret_exp, end_exp, err_exp) \
-    Z_HELPER_RUN(z_memtoxll_ext(str, sgn, p, len, _endp, base, val_exp,      \
-                                ret_exp, end_exp, err_exp))
+    Z_HELPER_RUN(z_memtoxll_ext(                                             \
+        str, sgn, p, len, _endp, base, val_exp, ret_exp, end_exp, err_exp    \
+    ))
 
 #define TT_MEM(p, len, _endp, base, val_exp, ret_exp, end_exp, err_exp)      \
     do {                                                                     \
@@ -960,88 +1067,104 @@ Z_GROUP_EXPORT(str) {
 #define TT_ALL(p, len, _endp, base, val_exp, ret_exp, end_exp, err_exp)      \
     do {                                                                     \
         TT_USGN(p, len, _endp, base, val_exp, ret_exp, end_exp, err_exp);    \
-        TT_SGN( p, len, _endp, base, val_exp, ret_exp, end_exp, err_exp);    \
+        TT_SGN(p, len, _endp, base, val_exp, ret_exp, end_exp, err_exp);     \
     } while (0)
 
-        TT_ALL("123",           3, true, 0, 123,  3, 0, 0);
-        TT_ALL("123.456", INT_MAX, true, 0, 123,  3, 0, 0);
+        TT_ALL("123", 3, true, 0, 123, 3, 0, 0);
+        TT_ALL("123.456", INT_MAX, true, 0, 123, 3, 0, 0);
 
         /* different len */
-        TT_MEM("123",  2, true, 0,  12,  2, 0, 0);
-        TT_MEM("123;", 4, true, 0, 123,  3, 0, 0);
-        TT_MEM("123k", 3, true, 0, 123,  3, 0, 0);
-        TT_MEM("123",  0, true, 0,   0,  0, 0, 0);
-        TT_MEM("123", -1, true, 0,   0, -1, 0, EINVAL);
+        TT_MEM("123", 2, true, 0, 12, 2, 0, 0);
+        TT_MEM("123;", 4, true, 0, 123, 3, 0, 0);
+        TT_MEM("123k", 3, true, 0, 123, 3, 0, 0);
+        TT_MEM("123", 0, true, 0, 0, 0, 0, 0);
+        TT_MEM("123", -1, true, 0, 0, -1, 0, EINVAL);
 
         /* argument endp NULL */
         TT_ALL("123", INT_MAX, false, 0, 123, INT_MAX, 0, 0);
 
         /* spaces and sign char */
-        TT_ALL("  123  ", INT_MAX, true, 0,  123, 5,       0, 0);
-        TT_ALL("+123",    INT_MAX, true, 0,  123, INT_MAX, 0, 0);
-        TT_SGN("-123",    INT_MAX, true, 0, -123, INT_MAX, 0, 0);
-        TT_ALL("  +",     INT_MAX, true, 0,  -1, -1, 0, EINVAL);
-        TT_ALL("  -",     INT_MAX, true, 0,  -1, -1, 0, EINVAL);
+        TT_ALL("  123  ", INT_MAX, true, 0, 123, 5, 0, 0);
+        TT_ALL("+123", INT_MAX, true, 0, 123, INT_MAX, 0, 0);
+        TT_SGN("-123", INT_MAX, true, 0, -123, INT_MAX, 0, 0);
+        TT_ALL("  +", INT_MAX, true, 0, -1, -1, 0, EINVAL);
+        TT_ALL("  -", INT_MAX, true, 0, -1, -1, 0, EINVAL);
 
         /* other bases than 10 */
-        TT_ALL("0x123", INT_MAX, true,  0, 0x123, INT_MAX, 0, 0);
-        TT_ALL("0123",  INT_MAX, true,  0,  0123, INT_MAX, 0, 0);
-        TT_ALL("123",   INT_MAX, true, 20,   443, INT_MAX, 0, 0);
+        TT_ALL("0x123", INT_MAX, true, 0, 0x123, INT_MAX, 0, 0);
+        TT_ALL("0123", INT_MAX, true, 0, 0123, INT_MAX, 0, 0);
+        TT_ALL("123", INT_MAX, true, 20, 443, INT_MAX, 0, 0);
 
         /* extensions */
-        TT_ALL("100w",  INT_MAX, true, 0,   60480000, INT_MAX, 0, 0);
-        TT_ALL("100d",  INT_MAX, true, 0,    8640000, INT_MAX, 0, 0);
-        TT_ALL("100h",  INT_MAX, true, 0,     360000, INT_MAX, 0, 0);
-        TT_ALL("100m",  INT_MAX, true, 0,       6000, INT_MAX, 0, 0);
-        TT_ALL("100s",  INT_MAX, true, 0,        100, INT_MAX, 0, 0);
-        TT_ALL("100T",  INT_MAX, true, 0, 100L << 40, INT_MAX, 0, 0);
-        TT_ALL("100G",  INT_MAX, true, 0, 100L << 30, INT_MAX, 0, 0);
-        TT_ALL("100M",  INT_MAX, true, 0, 100  << 20, INT_MAX, 0, 0);
-        TT_ALL("100K",  INT_MAX, true, 0,     102400, INT_MAX, 0, 0);
-        TT_ALL("100K;", INT_MAX, true, 0,     102400,       4, 0, 0);
-        TT_MEM("100Ki",       4, true, 0,     102400,       4, 0, 0);
+        TT_ALL("100w", INT_MAX, true, 0, 60480000, INT_MAX, 0, 0);
+        TT_ALL("100d", INT_MAX, true, 0, 8640000, INT_MAX, 0, 0);
+        TT_ALL("100h", INT_MAX, true, 0, 360000, INT_MAX, 0, 0);
+        TT_ALL("100m", INT_MAX, true, 0, 6000, INT_MAX, 0, 0);
+        TT_ALL("100s", INT_MAX, true, 0, 100, INT_MAX, 0, 0);
+        TT_ALL("100T", INT_MAX, true, 0, 100L << 40, INT_MAX, 0, 0);
+        TT_ALL("100G", INT_MAX, true, 0, 100L << 30, INT_MAX, 0, 0);
+        TT_ALL("100M", INT_MAX, true, 0, 100 << 20, INT_MAX, 0, 0);
+        TT_ALL("100K", INT_MAX, true, 0, 102400, INT_MAX, 0, 0);
+        TT_ALL("100K;", INT_MAX, true, 0, 102400, 4, 0, 0);
+        TT_MEM("100Ki", 4, true, 0, 102400, 4, 0, 0);
 
         /* extension with octal number */
-        TT_ALL("012K",  INT_MAX, true, 0, 10240, INT_MAX, 0, 0);
+        TT_ALL("012K", INT_MAX, true, 0, 10240, INT_MAX, 0, 0);
 
         /* negative number with extension */
         TT_SGN("-100K", INT_MAX, true, 0, -102400, INT_MAX, 0, 0);
 
         /* invalid extensions */
-        TT_ALL("100k",  INT_MAX, true, 0, 100, -1, 3, EDOM);
+        TT_ALL("100k", INT_MAX, true, 0, 100, -1, 3, EDOM);
         TT_ALL("100Ki", INT_MAX, true, 0, 100, -1, 4, EDOM);
 
         /* values at limits for unsigned */
-        TT_USGN("18446744073709551615s", INT_MAX, true, 0, UINT64_MAX,
-                INT_MAX, 0, 0);
-        TT_USGN("18446744073709551616s", INT_MAX, true, 0, UINT64_MAX,
-                -1, 20, ERANGE);
-        TT_USGN("16777215T", INT_MAX, true, 0, 16777215 * (1UL << 40),
-                INT_MAX, 0, 0);
+        TT_USGN(
+            "18446744073709551615s", INT_MAX, true, 0, UINT64_MAX, INT_MAX, 0,
+            0
+        );
+        TT_USGN(
+            "18446744073709551616s", INT_MAX, true, 0, UINT64_MAX, -1, 20,
+            ERANGE
+        );
+        TT_USGN(
+            "16777215T", INT_MAX, true, 0, 16777215 * (1UL << 40), INT_MAX, 0,
+            0
+        );
         TT_USGN("16777216T", INT_MAX, true, 0, UINT64_MAX, -1, 9, ERANGE);
-        TT_USGN("-123",    INT_MAX, true, 0, 0, -1, 0, ERANGE);
+        TT_USGN("-123", INT_MAX, true, 0, 0, -1, 0, ERANGE);
         TT_USGN("   -123", INT_MAX, true, 0, 0, -1, 0, ERANGE);
-        TT_USGN("    -0 ", INT_MAX, true, 0,  0, 6, 0, 0);
-        TT_USGN("  -az ",  INT_MAX, true, 0,  -1, -1, 0, EINVAL);
-        TT_USGN("  - az ", INT_MAX, true, 0,  -1, -1, 0, EINVAL);
-        TT_USGN("  az ",   INT_MAX, true, 0,  -1, -1, 0, EINVAL);
+        TT_USGN("    -0 ", INT_MAX, true, 0, 0, 6, 0, 0);
+        TT_USGN("  -az ", INT_MAX, true, 0, -1, -1, 0, EINVAL);
+        TT_USGN("  - az ", INT_MAX, true, 0, -1, -1, 0, EINVAL);
+        TT_USGN("  az ", INT_MAX, true, 0, -1, -1, 0, EINVAL);
 
         /* positives values at limits for signed */
-        TT_SGN("9223372036854775807s", INT_MAX, true, 0, INT64_MAX,
-               INT_MAX, 0, 0);
-        TT_SGN("9223372036854775808s", INT_MAX, true, 0, INT64_MAX,
-               -1, 19, ERANGE);
-        TT_SGN("8388607T", INT_MAX, true, 0, 8388607 * (1L << 40),
-               INT_MAX, 0, 0);
+        TT_SGN(
+            "9223372036854775807s", INT_MAX, true, 0, INT64_MAX, INT_MAX, 0, 0
+        );
+        TT_SGN(
+            "9223372036854775808s", INT_MAX, true, 0, INT64_MAX, -1, 19,
+            ERANGE
+        );
+        TT_SGN(
+            "8388607T", INT_MAX, true, 0, 8388607 * (1L << 40), INT_MAX, 0, 0
+        );
         TT_SGN("8388608T", INT_MAX, true, 0, INT64_MAX, -1, 8, ERANGE);
 
         /* negatives values at limits for signed */
-        TT_SGN("-9223372036854775808s", INT_MAX, true, 0, INT64_MIN,
-               INT_MAX, 0, 0);
-        TT_SGN("-9223372036854775809s", INT_MAX, true, 0, INT64_MIN,
-               -1, 20, ERANGE);
-        TT_SGN("-8388608T", INT_MAX, true, 0, -8388608 * (1L << 40),
-               INT_MAX, 0, 0);
+        TT_SGN(
+            "-9223372036854775808s", INT_MAX, true, 0, INT64_MIN, INT_MAX, 0,
+            0
+        );
+        TT_SGN(
+            "-9223372036854775809s", INT_MAX, true, 0, INT64_MIN, -1, 20,
+            ERANGE
+        );
+        TT_SGN(
+            "-8388608T", INT_MAX, true, 0, -8388608 * (1L << 40), INT_MAX, 0,
+            0
+        );
         TT_SGN("-8388609T", INT_MAX, true, 0, INT64_MIN, -1, 9, ERANGE);
 
 #undef T
@@ -1049,29 +1172,31 @@ Z_GROUP_EXPORT(str) {
 #undef TT_USGN
 #undef TT_SGN
 #undef TT_ALL
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(memtod) {
 
-#define DOUBLE_ABS(_d)   (_d) > 0 ? (_d) : -(_d)
+#define DOUBLE_ABS(_d) (_d) > 0 ? (_d) : -(_d)
 
 /* Absolute maximum error is bad, but in our case it is perfectly
  * acceptable
  */
-#define DOUBLE_CMP(_d1, _d2)  (DOUBLE_ABS(_d1 - _d2) < 0.00001)
+#define DOUBLE_CMP(_d1, _d2) (DOUBLE_ABS(_d1 - _d2) < 0.00001)
 
-#define TD(p, err_exp, val_exp, end_i) \
-        ({  const byte *endp;                                               \
-            int end_exp = (end_i >= 0) ? end_i : (int)strlen(p);            \
-                                                                            \
-            errno = 0;                                                      \
-            Z_ASSERT(DOUBLE_CMP(val_exp, memtod(p, strlen(p), &endp)));     \
-            Z_ASSERT_EQ(err_exp, errno);                                    \
-            Z_ASSERT_EQ(end_exp, endp - (const byte *)p);                   \
-            Z_ASSERT(DOUBLE_CMP(val_exp, memtod(p, -1, &endp)));            \
-            Z_ASSERT_EQ(err_exp, errno);                                    \
-            Z_ASSERT_EQ(end_exp, endp - (const byte *)p);                   \
-        })
+#define TD(p, err_exp, val_exp, end_i)                                       \
+    ({                                                                       \
+        const byte *endp;                                                    \
+        int end_exp = (end_i >= 0) ? end_i : (int)strlen(p);                 \
+                                                                             \
+        errno = 0;                                                           \
+        Z_ASSERT(DOUBLE_CMP(val_exp, memtod(p, strlen(p), &endp)));          \
+        Z_ASSERT_EQ(err_exp, errno);                                         \
+        Z_ASSERT_EQ(end_exp, endp - (const byte *)p);                        \
+        Z_ASSERT(DOUBLE_CMP(val_exp, memtod(p, -1, &endp)));                 \
+        Z_ASSERT_EQ(err_exp, errno);                                         \
+        Z_ASSERT_EQ(end_exp, endp - (const byte *)p);                        \
+    })
 
         TD("123", 0, 123.0, -1);
         TD(" 123", 0, 123.0, -1);
@@ -1094,48 +1219,50 @@ Z_GROUP_EXPORT(str) {
 #undef TD
 #undef DOUBLE_CMP
 #undef DOUBLE_ABS
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(strtod_allow_subnormal) {
-#define T_OK(str, val_exp)  \
-        do {                                                                 \
-            errno = 0;                                                       \
-            Z_ASSERT_EQ(strtod_allow_subnormal(str, NULL), val_exp);         \
-            Z_ASSERT_EQ(errno, 0);                                           \
-        } while (0)
+#define T_OK(str, val_exp)                                                   \
+    do {                                                                     \
+        errno = 0;                                                           \
+        Z_ASSERT_EQ(strtod_allow_subnormal(str, NULL), val_exp);             \
+        Z_ASSERT_EQ(errno, 0);                                               \
+    } while (0)
 
         T_OK("0", 0);
         T_OK("1", 1);
         T_OK("-1", -1);
 #undef T_OK
 
-#define T_SUBNORMAL(str, val_exp)  \
-        do {                                                                 \
-            double res;                                                      \
+#define T_SUBNORMAL(str, val_exp)                                            \
+    do {                                                                     \
+        double res;                                                          \
                                                                              \
-            errno = 0;                                                       \
-            res = strtod_allow_subnormal(str, NULL);                         \
-            Z_ASSERT_EQ(errno, 0);                                           \
-            Z_ASSERT_EQ(fpclassify(res), FP_SUBNORMAL);                      \
+        errno = 0;                                                           \
+        res = strtod_allow_subnormal(str, NULL);                             \
+        Z_ASSERT_EQ(errno, 0);                                               \
+        Z_ASSERT_EQ(fpclassify(res), FP_SUBNORMAL);                          \
                                                                              \
-            strtod(str, NULL);                                               \
-            Z_ASSERT_EQ(errno, ERANGE);                                      \
-        } while (0)
+        strtod(str, NULL);                                                   \
+        Z_ASSERT_EQ(errno, ERANGE);                                          \
+    } while (0)
 
         T_SUBNORMAL("4.68120573995851602e-310", 4.68120573995851602e-310);
         T_SUBNORMAL("-4.68120573995851602e-310", -4.68120573995851602e-310);
 #undef T_SUBNORMAL
 
-#define T_OVERFLOW(str)  \
-        do {                                                                 \
-            errno = 0;                                                       \
-            strtod_allow_subnormal(str, NULL);                               \
-            Z_ASSERT_EQ(errno, ERANGE);                                      \
-        } while (0)
+#define T_OVERFLOW(str)                                                      \
+    do {                                                                     \
+        errno = 0;                                                           \
+        strtod_allow_subnormal(str, NULL);                                   \
+        Z_ASSERT_EQ(errno, ERANGE);                                          \
+    } while (0)
 
         T_OVERFLOW("1e99999");
 #undef T_OVERFLOW
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(memtoxllp) {
         lstr_t s = LSTR("123");
@@ -1148,20 +1275,23 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_EQ(123U, memtoullp(s.s, s.len, NULL));
         Z_ASSERT_EQ(123U, memtoullp(s.s, s.len, &end));
         Z_ASSERT(end == (byte *)s.s + s.len);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(str_tables, "str: test conversion tables") {
         for (int i = 0; i < countof(__str_unicode_lower); i++) {
             /* Check idempotence */
             if (__str_unicode_lower[i] < countof(__str_unicode_lower)) {
-                Z_ASSERT_EQ(__str_unicode_lower[i],
-                            __str_unicode_lower[__str_unicode_lower[i]],
-                            "%x", i);
+                Z_ASSERT_EQ(
+                    __str_unicode_lower[i],
+                    __str_unicode_lower[__str_unicode_lower[i]], "%x", i
+                );
             }
             if (__str_unicode_upper[i] < countof(__str_unicode_upper)) {
-                Z_ASSERT_EQ(__str_unicode_upper[i],
-                            __str_unicode_upper[__str_unicode_upper[i]],
-                            "%x", i);
+                Z_ASSERT_EQ(
+                    __str_unicode_upper[i],
+                    __str_unicode_upper[__str_unicode_upper[i]], "%x", i
+                );
             }
         }
 
@@ -1169,17 +1299,19 @@ Z_GROUP_EXPORT(str) {
             uint32_t ci = __str_unicode_general_ci[i];
             uint32_t cs = __str_unicode_general_cs[i];
 
-            cs = (__str_unicode_upper[cs >> 16] << 16)
-               |  __str_unicode_upper[cs & 0xffff];
+            cs = (__str_unicode_upper[cs >> 16] << 16) |
+                 __str_unicode_upper[cs & 0xffff];
 
             Z_ASSERT_EQ(ci, cs);
         }
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(str_normalize) {
         SB_1k(sb);
 
-#define T(from, ci, cs)  do {                                                \
+#define T(from, ci, cs)                                                      \
+    do {                                                                     \
         sb_reset(&sb);                                                       \
         Z_ASSERT_N(sb_normalize_utf8(&sb, from, sizeof(from) - 1, true));    \
         Z_ASSERT_EQUAL(sb.data, sb.len, ci, sizeof(ci) - 1);                 \
@@ -1196,12 +1328,14 @@ Z_GROUP_EXPORT(str) {
         T("Blisßs", "BLISSSS", "Blissss");
         T("Œœ", "OEOE", "OEoe");
 #undef T
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(str_lowup, "str: utf8 tolower/toupper") {
         SB_1k(sb);
 
-#define T(from, low, up)  do {                                               \
+#define T(from, low, up)                                                     \
+    do {                                                                     \
         sb_reset(&sb);                                                       \
         Z_ASSERT_N(sb_add_utf8_tolower(&sb, from, sizeof(from) - 1));        \
         Z_ASSERT_EQUAL(sb.data, sb.len, low, sizeof(low) - 1);               \
@@ -1218,45 +1352,47 @@ Z_GROUP_EXPORT(str) {
         T("Blisßs", "blisßs", "BLISßS");
         T("Œœ", "œœ", "ŒŒ");
 #undef T
-    } Z_TEST_END;
-
+    }
+    Z_TEST_END;
 
     Z_TEST(sb_add_double_fmt) {
-#define T(val, nb_max_decimals, dec_sep, thousand_sep, res) \
-    ({  SB_1k(sb);                                                           \
+#define T(val, nb_max_decimals, dec_sep, thousand_sep, res)                  \
+    ({                                                                       \
+        SB_1k(sb);                                                           \
                                                                              \
         sb_add_double_fmt(&sb, val, nb_max_decimals, dec_sep, thousand_sep); \
         Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sb), LSTR(res));                       \
     })
 
-        T(    0,          5, '.', ',',  "0");
-        T(   -0,          5, '.', ',',  "0");
-        T(    1,          5, '.', ',',  "1");
-        T(   12,          5, '.', ',',  "12");
-        T(  123,          5, '.', ',',  "123");
-        T( 1234,          5, '.', ',',  "1,234");
-        T( 1234.123,      0, '.', ',',  "1,234");
-        T( 1234.123,      1, '.', ',',  "1,234.1");
-        T( 1234.123,      2, '.', ',',  "1,234.12");
-        T( 1234.123,      3, '.', ',',  "1,234.123");
-        T( 1234.123,      4, '.', ',',  "1,234.1230");
-        T(-1234.123,      5, ',', ' ', "-1 234,12300");
-        T(-1234.123,      5, '.',  -1, "-1234.12300");
-        T( 1234.00000001, 2, '.', ',', "1,234");
-        T(NAN,       5, '.',  -1, "NaN");
-        T(INFINITY,  5, '.',  -1, "Inf");
+        T(0, 5, '.', ',', "0");
+        T(-0, 5, '.', ',', "0");
+        T(1, 5, '.', ',', "1");
+        T(12, 5, '.', ',', "12");
+        T(123, 5, '.', ',', "123");
+        T(1234, 5, '.', ',', "1,234");
+        T(1234.123, 0, '.', ',', "1,234");
+        T(1234.123, 1, '.', ',', "1,234.1");
+        T(1234.123, 2, '.', ',', "1,234.12");
+        T(1234.123, 3, '.', ',', "1,234.123");
+        T(1234.123, 4, '.', ',', "1,234.1230");
+        T(-1234.123, 5, ',', ' ', "-1 234,12300");
+        T(-1234.123, 5, '.', -1, "-1234.12300");
+        T(1234.00000001, 2, '.', ',', "1,234");
+        T(NAN, 5, '.', -1, "NaN");
+        T(INFINITY, 5, '.', -1, "Inf");
 #undef T
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(sb_add_punycode) {
         SB_1k(sb);
 
-#define T(_in, _out) \
-        do {                                                                 \
-            Z_ASSERT_N(sb_add_punycode_str(&sb, _in, strlen(_in)));          \
-            Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sb), LSTR(_out));                  \
-            sb_reset(&sb);                                                   \
-        } while (0)
+#define T(_in, _out)                                                         \
+    do {                                                                     \
+        Z_ASSERT_N(sb_add_punycode_str(&sb, _in, strlen(_in)));              \
+        Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sb), LSTR(_out));                      \
+        sb_reset(&sb);                                                       \
+    } while (0)
 
         /* Basic test cases to validate sb_add_punycode_str */
         T("hello-world", "hello-world-");
@@ -1265,52 +1401,52 @@ Z_GROUP_EXPORT(str) {
         T("bücherü", "bcher-kvae");
 #undef T
 
-#define T(_name, _out, ...) \
-        do {                                                                 \
-            const uint32_t _in[] = { __VA_ARGS__ };                          \
+#define T(_name, _out, ...)                                                  \
+    do {                                                                     \
+        const uint32_t _in[] = {__VA_ARGS__};                                \
                                                                              \
-            Z_ASSERT_N(sb_add_punycode_vec(&sb, _in, countof(_in)),          \
-                       "punycode encoding failed for " _name);               \
-            Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sb), LSTR(_out),                   \
-                               "punycode comparison failed for " _name);     \
-            sb_reset(&sb);                                                   \
-        } while (0)
+        Z_ASSERT_N(                                                          \
+            sb_add_punycode_vec(&sb, _in, countof(_in)),                     \
+            "punycode encoding failed for " _name                            \
+        );                                                                   \
+        Z_ASSERT_LSTREQUAL(                                                  \
+            LSTR_SB_V(&sb), LSTR(_out),                                      \
+            "punycode comparison failed for " _name                          \
+        );                                                                   \
+        sb_reset(&sb);                                                       \
+    } while (0)
 
         /* More complex test cases taken in section 7.1 (Sample strings) of
          * RFC 3492. */
-        T("(A) Arabic (Egyptian)", "egbpdaj6bu4bxfgehfvwxn",
-          0x0644, 0x064A, 0x0647, 0x0645, 0x0627, 0x0628, 0x062A, 0x0643,
-          0x0644, 0x0645, 0x0648, 0x0634, 0x0639, 0x0631, 0x0628, 0x064A,
-          0x061F);
-        T("(B) Chinese (simplified)", "ihqwcrb4cv8a8dqg056pqjye",
-          0x4ED6, 0x4EEC, 0x4E3A, 0x4EC0, 0x4E48, 0x4E0D, 0x8BF4, 0x4E2D,
-          0x6587);
-        T("(C) Chinese (traditional)", "ihqwctvzc91f659drss3x8bo0yb",
-          0x4ED6, 0x5011, 0x7232, 0x4EC0, 0x9EBD, 0x4E0D, 0x8AAA, 0x4E2D,
-          0x6587);
+        T("(A) Arabic (Egyptian)", "egbpdaj6bu4bxfgehfvwxn", 0x0644, 0x064A,
+          0x0647, 0x0645, 0x0627, 0x0628, 0x062A, 0x0643, 0x0644, 0x0645,
+          0x0648, 0x0634, 0x0639, 0x0631, 0x0628, 0x064A, 0x061F);
+        T("(B) Chinese (simplified)", "ihqwcrb4cv8a8dqg056pqjye", 0x4ED6,
+          0x4EEC, 0x4E3A, 0x4EC0, 0x4E48, 0x4E0D, 0x8BF4, 0x4E2D, 0x6587);
+        T("(C) Chinese (traditional)", "ihqwctvzc91f659drss3x8bo0yb", 0x4ED6,
+          0x5011, 0x7232, 0x4EC0, 0x9EBD, 0x4E0D, 0x8AAA, 0x4E2D, 0x6587);
         T("(D) Czech: Pro<ccaron>prost<ecaron>nemluv<iacute><ccaron>esky",
-          "Proprostnemluvesky-uyb24dma41a",
-          0x0050, 0x0072, 0x006F, 0x010D, 0x0070, 0x0072, 0x006F, 0x0073,
-          0x0074, 0x011B, 0x006E, 0x0065, 0x006D, 0x006C, 0x0075, 0x0076,
-          0x00ED, 0x010D, 0x0065, 0x0073, 0x006B, 0x0079,
-        );
-        T("(E) Hebrew:", "4dbcagdahymbxekheh6e0a7fei0b",
-          0x05DC, 0x05DE, 0x05D4, 0x05D4, 0x05DD, 0x05E4, 0x05E9, 0x05D5,
-          0x05D8, 0x05DC, 0x05D0, 0x05DE, 0x05D3, 0x05D1, 0x05E8, 0x05D9,
-          0x05DD, 0x05E2, 0x05D1, 0x05E8, 0x05D9, 0x05EA);
+          "Proprostnemluvesky-uyb24dma41a", 0x0050, 0x0072, 0x006F, 0x010D,
+          0x0070, 0x0072, 0x006F, 0x0073, 0x0074, 0x011B, 0x006E, 0x0065,
+          0x006D, 0x006C, 0x0075, 0x0076, 0x00ED, 0x010D, 0x0065, 0x0073,
+          0x006B, 0x0079, );
+        T("(E) Hebrew:", "4dbcagdahymbxekheh6e0a7fei0b", 0x05DC, 0x05DE,
+          0x05D4, 0x05D4, 0x05DD, 0x05E4, 0x05E9, 0x05D5, 0x05D8, 0x05DC,
+          0x05D0, 0x05DE, 0x05D3, 0x05D1, 0x05E8, 0x05D9, 0x05DD, 0x05E2,
+          0x05D1, 0x05E8, 0x05D9, 0x05EA);
         T("(F) Hindi (Devanagari):",
-          "i1baa7eci9glrd9b2ae1bj0hfcgg6iyaf8o0a1dig0cd",
-          0x092F, 0x0939, 0x0932, 0x094B, 0x0917, 0x0939, 0x093F, 0x0928,
-          0x094D, 0x0926, 0x0940, 0x0915, 0x094D, 0x092F, 0x094B, 0x0902,
-          0x0928, 0x0939, 0x0940, 0x0902, 0x092C, 0x094B, 0x0932, 0x0938,
-          0x0915, 0x0924, 0x0947, 0x0939, 0x0948, 0x0902);
+          "i1baa7eci9glrd9b2ae1bj0hfcgg6iyaf8o0a1dig0cd", 0x092F, 0x0939,
+          0x0932, 0x094B, 0x0917, 0x0939, 0x093F, 0x0928, 0x094D, 0x0926,
+          0x0940, 0x0915, 0x094D, 0x092F, 0x094B, 0x0902, 0x0928, 0x0939,
+          0x0940, 0x0902, 0x092C, 0x094B, 0x0932, 0x0938, 0x0915, 0x0924,
+          0x0947, 0x0939, 0x0948, 0x0902);
         T("(G) Japanese (kanji and hiragana):",
-          "n8jok5ay5dzabd5bym9f0cm5685rrjetr6pdxa",
-          0x306A, 0x305C, 0x307F, 0x3093, 0x306A, 0x65E5, 0x672C, 0x8A9E,
-          0x3092, 0x8A71, 0x3057, 0x3066, 0x304F, 0x308C, 0x306A, 0x3044,
-          0x306E, 0x304B);
+          "n8jok5ay5dzabd5bym9f0cm5685rrjetr6pdxa", 0x306A, 0x305C, 0x307F,
+          0x3093, 0x306A, 0x65E5, 0x672C, 0x8A9E, 0x3092, 0x8A71, 0x3057,
+          0x3066, 0x304F, 0x308C, 0x306A, 0x3044, 0x306E, 0x304B);
         T("(H) Korean (Hangul syllables):",
-          "989aomsvi5e83db1d2a355cv1e0vak1dwrv93d5xbh15a0dt30a5jpsd879ccm6fea98c",
+          "989aomsvi5e83db1d2a355cv1e0vak1dwrv93d5xbh15a0dt30a5jpsd879ccm6fea"
+          "98c",
           0xC138, 0xACC4, 0xC758, 0xBAA8, 0xB4E0, 0xC0AC, 0xB78C, 0xB4E4,
           0xC774, 0xD55C, 0xAD6D, 0xC5B4, 0xB97C, 0xC774, 0xD574, 0xD55C,
           0xB2E4, 0xBA74, 0xC5BC, 0xB9C8, 0xB098, 0xC88B, 0xC744, 0xAE4C);
@@ -1319,13 +1455,14 @@ Z_GROUP_EXPORT(str) {
           0x043E, 0x043D, 0x0438, 0x043D, 0x0435, 0x0433, 0x043E, 0x0432,
           0x043E, 0x0440, 0x044F, 0x0442, 0x043F, 0x043E, 0x0440, 0x0443,
           0x0441, 0x0441, 0x043A, 0x0438);
-        T("(J) Spanish: Porqu<eacute>nopuedensimplementehablarenEspa<ntilde>ol",
-          "PorqunopuedensimplementehablarenEspaol-fmd56a",
-          0x0050, 0x006F, 0x0072, 0x0071, 0x0075, 0x00E9, 0x006E, 0x006F,
-          0x0070, 0x0075, 0x0065, 0x0064, 0x0065, 0x006E, 0x0073, 0x0069,
-          0x006D, 0x0070, 0x006C, 0x0065, 0x006D, 0x0065, 0x006E, 0x0074,
-          0x0065, 0x0068, 0x0061, 0x0062, 0x006C, 0x0061, 0x0072, 0x0065,
-          0x006E, 0x0045, 0x0073, 0x0070, 0x0061, 0x00F1, 0x006F, 0x006C);
+        T("(J) Spanish: "
+          "Porqu<eacute>nopuedensimplementehablarenEspa<ntilde>ol",
+          "PorqunopuedensimplementehablarenEspaol-fmd56a", 0x0050, 0x006F,
+          0x0072, 0x0071, 0x0075, 0x00E9, 0x006E, 0x006F, 0x0070, 0x0075,
+          0x0065, 0x0064, 0x0065, 0x006E, 0x0073, 0x0069, 0x006D, 0x0070,
+          0x006C, 0x0065, 0x006D, 0x0065, 0x006E, 0x0074, 0x0065, 0x0068,
+          0x0061, 0x0062, 0x006C, 0x0061, 0x0072, 0x0065, 0x006E, 0x0045,
+          0x0073, 0x0070, 0x0061, 0x00F1, 0x006F, 0x006C);
         T("(K) Vietnamese:", "TisaohkhngthchnitingVit-kjcr8268qyxafd2f1b9g",
           0x0054, 0x1EA1, 0x0069, 0x0073, 0x0061, 0x006F, 0x0068, 0x1ECD,
           0x006B, 0x0068, 0x00F4, 0x006E, 0x0067, 0x0074, 0x0068, 0x1EC3,
@@ -1334,52 +1471,51 @@ Z_GROUP_EXPORT(str) {
         T("(L) 3<nen>B<gumi><kinpachi><sensei>", "3B-ww4c5e180e575a65lsy2b",
           0x0033, 0x5E74, 0x0042, 0x7D44, 0x91D1, 0x516B, 0x5148, 0x751F);
         T("(M) <amuro><namie>-with-SUPER-MONKEYS",
-          "-with-SUPER-MONKEYS-pc58ag80a8qai00g7n9n",
-          0x5B89, 0x5BA4, 0x5948, 0x7F8E, 0x6075, 0x002D, 0x0077, 0x0069,
-          0x0074, 0x0068, 0x002D, 0x0053, 0x0055, 0x0050, 0x0045, 0x0052,
-          0x002D, 0x004D, 0x004F, 0x004E, 0x004B, 0x0045, 0x0059, 0x0053);
+          "-with-SUPER-MONKEYS-pc58ag80a8qai00g7n9n", 0x5B89, 0x5BA4, 0x5948,
+          0x7F8E, 0x6075, 0x002D, 0x0077, 0x0069, 0x0074, 0x0068, 0x002D,
+          0x0053, 0x0055, 0x0050, 0x0045, 0x0052, 0x002D, 0x004D, 0x004F,
+          0x004E, 0x004B, 0x0045, 0x0059, 0x0053);
         T("(N) Hello-Another-Way-<sorezore><no><basho>",
-          "Hello-Another-Way--fc4qua05auwb3674vfr0b",
-          0x0048, 0x0065, 0x006C, 0x006C, 0x006F, 0x002D, 0x0041, 0x006E,
-          0x006F, 0x0074, 0x0068, 0x0065, 0x0072, 0x002D, 0x0057, 0x0061,
-          0x0079, 0x002D, 0x305D, 0x308C, 0x305E, 0x308C, 0x306E, 0x5834,
-          0x6240);
-        T("(O) <hitotsu><yane><no><shita>2", "2-u9tlzr9756bt3uc0v",
-          0x3072, 0x3068, 0x3064, 0x5C4B, 0x6839, 0x306E, 0x4E0B, 0x0032);
+          "Hello-Another-Way--fc4qua05auwb3674vfr0b", 0x0048, 0x0065, 0x006C,
+          0x006C, 0x006F, 0x002D, 0x0041, 0x006E, 0x006F, 0x0074, 0x0068,
+          0x0065, 0x0072, 0x002D, 0x0057, 0x0061, 0x0079, 0x002D, 0x305D,
+          0x308C, 0x305E, 0x308C, 0x306E, 0x5834, 0x6240);
+        T("(O) <hitotsu><yane><no><shita>2", "2-u9tlzr9756bt3uc0v", 0x3072,
+          0x3068, 0x3064, 0x5C4B, 0x6839, 0x306E, 0x4E0B, 0x0032);
         T("(P) Maji<de>Koi<suru>5<byou><mae>", "MajiKoi5-783gue6qz075azm5e",
           0x004D, 0x0061, 0x006A, 0x0069, 0x3067, 0x004B, 0x006F, 0x0069,
           0x3059, 0x308B, 0x0035, 0x79D2, 0x524D);
-        T("(Q) <pafii>de<runba>", "de-jg4avhby1noc0d",
-          0x30D1, 0x30D5, 0x30A3, 0x30FC, 0x0064, 0x0065, 0x30EB, 0x30F3,
-          0x30D0);
-        T("(R) <sono><supiido><de>", "d9juau41awczczp",
-          0x305D, 0x306E, 0x30B9, 0x30D4, 0x30FC, 0x30C9, 0x3067);
-        T("(S) -> $1.00 <-", "-> $1.00 <--",
-          0x002D, 0x003E, 0x0020, 0x0024, 0x0031, 0x002E, 0x0030, 0x0030,
-          0x0020, 0x003C, 0x002D);
+        T("(Q) <pafii>de<runba>", "de-jg4avhby1noc0d", 0x30D1, 0x30D5, 0x30A3,
+          0x30FC, 0x0064, 0x0065, 0x30EB, 0x30F3, 0x30D0);
+        T("(R) <sono><supiido><de>", "d9juau41awczczp", 0x305D, 0x306E,
+          0x30B9, 0x30D4, 0x30FC, 0x30C9, 0x3067);
+        T("(S) -> $1.00 <-", "-> $1.00 <--", 0x002D, 0x003E, 0x0020, 0x0024,
+          0x0031, 0x002E, 0x0030, 0x0030, 0x0020, 0x003C, 0x002D);
 #undef T
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(sb_add_idna_domain_name) {
         SB_1k(sb);
         SB_1k(domain);
 
-#define T_OK(_in, _out, _flags, _nb_labels) \
-        do {                                                                 \
-            int nb_labels = sb_add_idna_domain_name(&sb, _in, strlen(_in),   \
-                                                    _flags);                 \
-            Z_ASSERT_N(nb_labels);                                           \
-            Z_ASSERT_EQ(nb_labels, _nb_labels);                              \
-            Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sb), LSTR(_out));                  \
-            sb_reset(&sb);                                                   \
-        } while (0)
+#define T_OK(_in, _out, _flags, _nb_labels)                                  \
+    do {                                                                     \
+        int nb_labels =                                                      \
+            sb_add_idna_domain_name(&sb, _in, strlen(_in), _flags);          \
+        Z_ASSERT_N(nb_labels);                                               \
+        Z_ASSERT_EQ(nb_labels, _nb_labels);                                  \
+        Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sb), LSTR(_out));                      \
+        sb_reset(&sb);                                                       \
+    } while (0)
 
-#define T_KO(_in, _flags) \
-        do {                                                                 \
-            Z_ASSERT_NEG(sb_add_idna_domain_name(&sb, _in, strlen(_in),      \
-                                                 _flags));                   \
-            sb_reset(&sb);                                                   \
-        } while (0)
+#define T_KO(_in, _flags)                                                    \
+    do {                                                                     \
+        Z_ASSERT_NEG(                                                        \
+            sb_add_idna_domain_name(&sb, _in, strlen(_in), _flags)           \
+        );                                                                   \
+        sb_reset(&sb);                                                       \
+    } while (0)
 
         /* Basic failure cases */
         T_KO("intersec", 0);
@@ -1388,23 +1524,35 @@ Z_GROUP_EXPORT(str) {
         T_KO("intersec-.com", IDNA_USE_STD3_ASCII_RULES);
         T_KO("intersec.-com", IDNA_USE_STD3_ASCII_RULES);
         T_KO("xN--bücher.com", 0);
-        T_KO("123456789012345678901234567890123456789012345678901234567890"
-             "1234.com", 0);
+        T_KO(
+            "123456789012345678901234567890123456789012345678901234567890"
+            "1234.com",
+            0
+        );
         T_KO("InSighted!.intersec.com", IDNA_USE_STD3_ASCII_RULES);
 
         /* Basic success cases */
-        T_OK("jObs.InTerseC.coM", "jObs.InTerseC.coM",
-             IDNA_USE_STD3_ASCII_RULES, 3);
-        T_OK("jObs.InTerseC.coM", "jobs.intersec.com",
-             IDNA_USE_STD3_ASCII_RULES | IDNA_ASCII_TOLOWER, 3);
-        T_OK("jobs.intersec.com", "jobs.intersec.com",
-             IDNA_USE_STD3_ASCII_RULES, 3);
+        T_OK(
+            "jObs.InTerseC.coM", "jObs.InTerseC.coM",
+            IDNA_USE_STD3_ASCII_RULES, 3
+        );
+        T_OK(
+            "jObs.InTerseC.coM", "jobs.intersec.com",
+            IDNA_USE_STD3_ASCII_RULES | IDNA_ASCII_TOLOWER, 3
+        );
+        T_OK(
+            "jobs.intersec.com", "jobs.intersec.com",
+            IDNA_USE_STD3_ASCII_RULES, 3
+        );
         T_OK("bücher.com", "xn--bcher-kva.com", IDNA_USE_STD3_ASCII_RULES, 2);
-        T_OK("xn--bcher-kva.com", "xn--bcher-kva.com",
-             IDNA_USE_STD3_ASCII_RULES, 2);
-        T_OK("label1.label2。label3．label4｡com",
-             "label1.label2.label3.label4.com",
-             IDNA_USE_STD3_ASCII_RULES, 5);
+        T_OK(
+            "xn--bcher-kva.com", "xn--bcher-kva.com",
+            IDNA_USE_STD3_ASCII_RULES, 2
+        );
+        T_OK(
+            "label1.label2。label3．label4｡com",
+            "label1.label2.label3.label4.com", IDNA_USE_STD3_ASCII_RULES, 5
+        );
         T_OK("intersec-.com", "intersec-.com", 0, 2);
         T_OK("intersec.-com", "intersec.-com", 0, 2);
         T_OK("xn-bücher.com", "xn--xn-bcher-95a.com", 0, 2);
@@ -1436,19 +1584,25 @@ Z_GROUP_EXPORT(str) {
         sb_adds(&domain, "inter");
         sb_adduc(&domain, 0x00a0);
         sb_adds(&domain, "sec.com");
-        Z_ASSERT_NEG(sb_add_idna_domain_name(&sb, domain.data, domain.len,
-                                             0));
+        Z_ASSERT_NEG(
+            sb_add_idna_domain_name(&sb, domain.data, domain.len, 0)
+        );
 
         /* Unassigned Code Points */
         sb_reset(&domain);
         sb_adds(&domain, "inter");
         sb_adduc(&domain, 0x0221);
         sb_adds(&domain, "sec.com");
-        Z_ASSERT_NEG(sb_add_idna_domain_name(&sb, domain.data, domain.len,
-                                             0));
-        Z_ASSERT(sb_add_idna_domain_name(&sb, domain.data, domain.len,
-                                         IDNA_ALLOW_UNASSIGNED) == 2);
-    } Z_TEST_END;
+        Z_ASSERT_NEG(
+            sb_add_idna_domain_name(&sb, domain.data, domain.len, 0)
+        );
+        Z_ASSERT(
+            sb_add_idna_domain_name(
+                &sb, domain.data, domain.len, IDNA_ALLOW_UNASSIGNED
+            ) == 2
+        );
+    }
+    Z_TEST_END;
 
     Z_TEST(sb_add_duration) {
         SB_1k(sb);
@@ -1456,37 +1610,34 @@ Z_GROUP_EXPORT(str) {
 #define T(d, h, m, s, ms, str)                                               \
     do {                                                                     \
         uint64_t dur;                                                        \
-        dur = (d)  * 24 * 60 * 60 * 1000                                     \
-            + (h)  *      60 * 60 * 1000                                     \
-            + (m)  *           60 * 1000                                     \
-            + (s)  *                1000                                     \
-            + (ms) *                   1;                                    \
+        dur = (d) * 24 * 60 * 60 * 1000 + (h) * 60 * 60 * 1000 +             \
+              (m) * 60 * 1000 + (s) * 1000 + (ms) * 1;                       \
         sb_add_duration_ms(&sb, dur);                                        \
         Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sb), LSTR(str));                       \
         sb_reset(&sb);                                                       \
     } while (0)
 
-        T(2, 3,  5, 6, 900, "2d 3h");
-        T(2, 3,  5, 0,   0, "2d 3h");
-        T(2, 3, 45, 0,   0, "2d 4h");
-        T(2, 4,  0, 0,   0, "2d 4h");
+        T(2, 3, 5, 6, 900, "2d 3h");
+        T(2, 3, 5, 0, 0, "2d 3h");
+        T(2, 3, 45, 0, 0, "2d 4h");
+        T(2, 4, 0, 0, 0, "2d 4h");
 
-        T(0, 3, 5, 29,   0, "3h 5m");
-        T(0, 3, 5, 30,   0, "3h 6m");
-        T(0, 3, 5, 31,   0, "3h 6m");
+        T(0, 3, 5, 29, 0, "3h 5m");
+        T(0, 3, 5, 30, 0, "3h 6m");
+        T(0, 3, 5, 31, 0, "3h 6m");
         T(0, 3, 5, 31, 300, "3h 6m");
 
         T(0, 0, 59, 59, 999, "1h 0m");
-        T(0, 1,  0, 29,   0, "1h 0m");
+        T(0, 1, 0, 29, 0, "1h 0m");
 
-        T(0, 1, 45, 29,  12, "1h 45m");
-        T(0, 1, 45, 34,  12, "1h 46m");
+        T(0, 1, 45, 29, 12, "1h 45m");
+        T(0, 1, 45, 34, 12, "1h 46m");
 
-        T(0, 0, 45, 34,   0, "45m 34s");
-        T(0, 0, 45, 34,  12, "45m 34s");
+        T(0, 0, 45, 34, 0, "45m 34s");
+        T(0, 0, 45, 34, 12, "45m 34s");
         T(0, 0, 45, 34, 888, "45m 35s");
 
-        T(0, 0, 0, 8,   0, "8s 0ms");
+        T(0, 0, 0, 8, 0, "8s 0ms");
         T(0, 0, 0, 8, 100, "8s 100ms");
         T(0, 0, 0, 8, 900, "8s 900ms");
 
@@ -1503,25 +1654,52 @@ Z_GROUP_EXPORT(str) {
         sb_reset(&sb);
 
 #undef T
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(sb_add_pkcs7_8_bytes_padding) {
-#define T(lstr_init, lstr_expected_padded)  \
-        Z_HELPER_RUN(z_test_padding(lstr_init, lstr_expected_padded))
+#define T(lstr_init, lstr_expected_padded)                                   \
+    Z_HELPER_RUN(z_test_padding(lstr_init, lstr_expected_padded))
 
-        T(LSTR_EMPTY_V,     LSTR(          "\x8\x8\x8\x8\x8\x8\x8\x8"));
-        T(LSTR("1"),        LSTR("1"       "\x7\x7\x7\x7\x7\x7\x7"));
-        T(LSTR("2"),        LSTR("2"       "\x7\x7\x7\x7\x7\x7\x7"));
-        T(LSTR("12"),       LSTR("12"      "\x6\x6\x6\x6\x6\x6"));
-        T(LSTR("123"),      LSTR("123"     "\x5\x5\x5\x5\x5"));
-        T(LSTR("1234"),     LSTR("1234"    "\x4\x4\x4\x4"));
-        T(LSTR("12345"),    LSTR("12345"   "\x3\x3\x3"));
-        T(LSTR("123456"),   LSTR("123456"  "\x2\x2"));
-        T(LSTR("1234567"),  LSTR("1234567" "\x1"));
-        T(LSTR("12345678"), LSTR("12345678""\x8\x8\x8\x8\x8\x8\x8\x8"));
+        T(LSTR_EMPTY_V, LSTR("\x8\x8\x8\x8\x8\x8\x8\x8"));
+        T(LSTR("1"), LSTR(
+                         "1"
+                         "\x7\x7\x7\x7\x7\x7\x7"
+                     ));
+        T(LSTR("2"), LSTR(
+                         "2"
+                         "\x7\x7\x7\x7\x7\x7\x7"
+                     ));
+        T(LSTR("12"), LSTR(
+                          "12"
+                          "\x6\x6\x6\x6\x6\x6"
+                      ));
+        T(LSTR("123"), LSTR(
+                           "123"
+                           "\x5\x5\x5\x5\x5"
+                       ));
+        T(LSTR("1234"), LSTR(
+                            "1234"
+                            "\x4\x4\x4\x4"
+                        ));
+        T(LSTR("12345"), LSTR(
+                             "12345"
+                             "\x3\x3\x3"
+                         ));
+        T(LSTR("123456"), LSTR(
+                              "123456"
+                              "\x2\x2"
+                          ));
+        T(LSTR("1234567"), LSTR(
+                               "1234567"
+                               "\x1"
+                           ));
+        T(LSTR("12345678"), LSTR(
+                                "12345678"
+                                "\x8\x8\x8\x8\x8\x8\x8\x8"
+                            ));
 
-        T(LSTR("12345678123"),
-          LSTR("12345678123\x5\x5\x5\x5\x5"));
+        T(LSTR("12345678123"), LSTR("12345678123\x5\x5\x5\x5\x5"));
         T(LSTR("12345678123456781234"),
           LSTR("12345678123456781234\x4\x4\x4\x4"));
         T(LSTR("123456781234567812345678"),
@@ -1532,8 +1710,8 @@ Z_GROUP_EXPORT(str) {
 #undef T
 
         /* failing lstr_trim_pkcs7_padding cases */
-#define TEST_FAIL(_l)  \
-        Z_ASSERT_LSTREQUAL(LSTR_NULL_V, lstr_trim_pkcs7_padding(_l))
+#define TEST_FAIL(_l)                                                        \
+    Z_ASSERT_LSTREQUAL(LSTR_NULL_V, lstr_trim_pkcs7_padding(_l))
 
         TEST_FAIL(LSTR_NULL_V);
         TEST_FAIL(LSTR_EMPTY_V);
@@ -1543,12 +1721,14 @@ Z_GROUP_EXPORT(str) {
         TEST_FAIL(LSTR("1234567890"));
 
 #undef TEST_FAIL
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(str_span) {
         SB_1k(sb);
 
-#define T(f, d, c, from, to) do {                                            \
+#define T(f, d, c, from, to)                                                 \
+    do {                                                                     \
         f(&sb, LSTR(from), d, c);                                            \
         Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sb), LSTR(to));                        \
         sb_reset(&sb);                                                       \
@@ -1577,7 +1757,8 @@ Z_GROUP_EXPORT(str) {
           "1a2b3_4_5e6f7");
 
 #undef T
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(lstr_startswithc) {
         Z_ASSERT(lstr_startswithc(LSTR("1234"), '1'));
@@ -1585,7 +1766,8 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT(lstr_startswithc(LSTR("a"), 'a'));
         Z_ASSERT(!lstr_startswithc(LSTR_NULL_V, '2'));
         Z_ASSERT(!lstr_startswithc(LSTR_EMPTY_V, '2'));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(lstr_endswithc) {
         Z_ASSERT(!lstr_endswithc(LSTR("1234"), '1'));
@@ -1593,11 +1775,13 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT(lstr_endswithc(LSTR("1234"), '4'));
         Z_ASSERT(!lstr_endswithc(LSTR_NULL_V, '2'));
         Z_ASSERT(!lstr_endswithc(LSTR_EMPTY_V, '2'));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(lstr_ascii_reverse) {
         t_scope;
-#define T(f, t) do {                                                         \
+#define T(f, t)                                                              \
+    do {                                                                     \
         lstr_t a = t_lstr_dup(f);                                            \
         lstr_t b = t_lstr_dup_ascii_reversed(a);                             \
         lstr_ascii_reverse(&a);                                              \
@@ -1611,11 +1795,13 @@ Z_GROUP_EXPORT(str) {
         T(LSTR("abc"), LSTR("cba"));
         T(LSTR("abcd"), LSTR("dcba"));
 #undef T
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(lstr_utf8_reverse) {
         t_scope;
-#define T(f, t) do {                                                         \
+#define T(f, t)                                                              \
+    do {                                                                     \
         lstr_t a = t_lstr_dup_utf8_reversed(f);                              \
         Z_ASSERT_LSTREQUAL(a, (t));                                          \
     } while (0)
@@ -1630,10 +1816,12 @@ Z_GROUP_EXPORT(str) {
         T(LSTR("éa"), LSTR("aé"));
         T(LSTR("béa"), LSTR("aéb"));
 #undef T
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(lstr_dl_distance, "str: Damerau–Levenshtein distance") {
-#define T(s1, s2, exp) do {                                                  \
+#define T(s1, s2, exp)                                                       \
+    do {                                                                     \
         Z_ASSERT_EQ(lstr_dlevenshtein(LSTR(s1), LSTR(s2), exp), exp);        \
         Z_ASSERT_EQ(lstr_dlevenshtein(LSTR(s2), LSTR(s1), exp), exp);        \
         Z_ASSERT_EQ(lstr_dlevenshtein(LSTR(s1), LSTR(s2), -1), exp);         \
@@ -1642,43 +1830,46 @@ Z_GROUP_EXPORT(str) {
         }                                                                    \
     } while (0)
 
-        T("",         "",         0);
-        T("abcd",     "abcd",     0);
-        T("",         "abcd",     4);
-        T("toto",     "totototo", 4);
-        T("ba",       "abc",      2);
-        T("fee",      "deed",     2);
-        T("hurqbohp", "qkhoz",    6);
+        T("", "", 0);
+        T("abcd", "abcd", 0);
+        T("", "abcd", 4);
+        T("toto", "totototo", 4);
+        T("ba", "abc", 2);
+        T("fee", "deed", 2);
+        T("hurqbohp", "qkhoz", 6);
 #undef T
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(ps_split) {
         qv_t(lstr) arr;
 
         qv_init(&arr);
 
-#define T(str1, str2, str3, sep, seps) \
-        TST_MAIN(str1, str1, str2, str3, sep, seps, 0)
+#define T(str1, str2, str3, sep, seps)                                       \
+    TST_MAIN(str1, str1, str2, str3, sep, seps, 0)
 
-#define T_SKIP(str_main, str1, str2, str3, seps) \
-        TST_MAIN(str_main, str1, str2, str3, "\0", seps, PS_SPLIT_SKIP_EMPTY)
+#define T_SKIP(str_main, str1, str2, str3, seps)                             \
+    TST_MAIN(str_main, str1, str2, str3, "\0", seps, PS_SPLIT_SKIP_EMPTY)
 
 #define TST_MAIN(str_main, str1, str2, str3, sep, seps, flags)               \
-        ({  pstream_t ps;                                                    \
-            ctype_desc_t desc;                                               \
+    ({                                                                       \
+        pstream_t ps;                                                        \
+        ctype_desc_t desc;                                                   \
                                                                              \
-            if (flags & PS_SPLIT_SKIP_EMPTY) {                               \
-                ps = ps_initstr(str_main);                                   \
-            } else {                                                         \
-                ps = ps_initstr(str1 sep str2 sep str3);                     \
-            }                                                                \
-            ctype_desc_build(&desc, seps);                                   \
-            qv_deep_clear(&arr, lstr_wipe);                            \
-            ps_split(ps, &desc, flags, &arr);                                \
-            Z_ASSERT_EQ(arr.len, 3);                                         \
-            Z_ASSERT_LSTREQUAL(arr.tab[0], LSTR(str1));                      \
-            Z_ASSERT_LSTREQUAL(arr.tab[1], LSTR(str2));                      \
-            Z_ASSERT_LSTREQUAL(arr.tab[2], LSTR(str3)); })
+        if (flags & PS_SPLIT_SKIP_EMPTY) {                                   \
+            ps = ps_initstr(str_main);                                       \
+        } else {                                                             \
+            ps = ps_initstr(str1 sep str2 sep str3);                         \
+        }                                                                    \
+        ctype_desc_build(&desc, seps);                                       \
+        qv_deep_clear(&arr, lstr_wipe);                                      \
+        ps_split(ps, &desc, flags, &arr);                                    \
+        Z_ASSERT_EQ(arr.len, 3);                                             \
+        Z_ASSERT_LSTREQUAL(arr.tab[0], LSTR(str1));                          \
+        Z_ASSERT_LSTREQUAL(arr.tab[1], LSTR(str2));                          \
+        Z_ASSERT_LSTREQUAL(arr.tab[2], LSTR(str3));                          \
+    })
 
         T("123", "abc", "!%*", "/", "/");
         T("123", "abc", "!%*", " ", " ");
@@ -1695,18 +1886,25 @@ Z_GROUP_EXPORT(str) {
         T_SKIP("$123$$$abc$!%*", "123", "abc", "!%*", "$");
         T_SKIP(",   ,:::,!!!,,", "   ", ":::", "!!!", ",");
 
-        T_SKIP(" secret1 secret2   secret3", "secret1",
-               "secret2" , "secret3", " ,;");
-        T_SKIP(",secret1;secret2,,secret3,;,,", "secret1", "secret2",
-               "secret3", " ,;");
-        T_SKIP("secret1;;,,secret2; ;secret3;;", "secret1", "secret2",
-               "secret3", " ,;");
+        T_SKIP(
+            " secret1 secret2   secret3", "secret1", "secret2", "secret3",
+            " ,;"
+        );
+        T_SKIP(
+            ",secret1;secret2,,secret3,;,,", "secret1", "secret2", "secret3",
+            " ,;"
+        );
+        T_SKIP(
+            "secret1;;,,secret2; ;secret3;;", "secret1", "secret2", "secret3",
+            " ,;"
+        );
 
         qv_deep_wipe(&arr, lstr_wipe);
 #undef T
 #undef TST_MAIN
 #undef T_SKIP
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(t_ps_split_escaped) {
         t_scope;
@@ -1715,42 +1913,44 @@ Z_GROUP_EXPORT(str) {
         qv_init(&arr);
 
 #define T(str_main, str1, str2, str3, seps, esc)                             \
-        TST_MAIN(str_main, str1, str2, str3, seps, esc, 0)
+    TST_MAIN(str_main, str1, str2, str3, seps, esc, 0)
 
 #define T_SKIP(str_main, str1, str2, str3, seps, esc)                        \
-        TST_MAIN(str_main, str1, str2, str3, seps, esc, PS_SPLIT_SKIP_EMPTY)
+    TST_MAIN(str_main, str1, str2, str3, seps, esc, PS_SPLIT_SKIP_EMPTY)
 
 #define TST_EMPTY(str_main, str, seps, esc, flags)                           \
-        ({  pstream_t ps;                                                    \
-            ctype_desc_t sep_desc;                                           \
-            const char esc_char = esc;                                       \
+    ({                                                                       \
+        pstream_t ps;                                                        \
+        ctype_desc_t sep_desc;                                               \
+        const char esc_char = esc;                                           \
                                                                              \
-            ps = ps_initstr(str_main);                                       \
-            ctype_desc_build(&sep_desc, seps);                               \
-            qv_deep_clear(&arr, lstr_wipe);                                  \
-            t_ps_split_escaped(ps, &sep_desc, esc_char, flags, &arr);        \
-            if (flags & PS_SPLIT_SKIP_EMPTY) {                               \
-                Z_ASSERT_EQ(arr.len, 0);                                     \
-            } else {                                                         \
-                Z_ASSERT_EQ(arr.len, 1);                                     \
-                Z_ASSERT_LSTREQUAL(arr.tab[0], LSTR(str));                   \
-            }                                                                \
-         })
+        ps = ps_initstr(str_main);                                           \
+        ctype_desc_build(&sep_desc, seps);                                   \
+        qv_deep_clear(&arr, lstr_wipe);                                      \
+        t_ps_split_escaped(ps, &sep_desc, esc_char, flags, &arr);            \
+        if (flags & PS_SPLIT_SKIP_EMPTY) {                                   \
+            Z_ASSERT_EQ(arr.len, 0);                                         \
+        } else {                                                             \
+            Z_ASSERT_EQ(arr.len, 1);                                         \
+            Z_ASSERT_LSTREQUAL(arr.tab[0], LSTR(str));                       \
+        }                                                                    \
+    })
 
 #define TST_MAIN(str_main, str1, str2, str3, seps, esc, flags)               \
-        ({  pstream_t ps;                                                    \
-            ctype_desc_t sep_desc;                                           \
-            const char esc_char = esc;                                       \
+    ({                                                                       \
+        pstream_t ps;                                                        \
+        ctype_desc_t sep_desc;                                               \
+        const char esc_char = esc;                                           \
                                                                              \
-            ps = ps_initstr(str_main);                                       \
-            ctype_desc_build(&sep_desc, seps);                               \
-            qv_deep_clear(&arr, lstr_wipe);                                  \
-            t_ps_split_escaped(ps, &sep_desc, esc_char, flags, &arr);        \
-            Z_ASSERT_EQ(arr.len, 3);                                         \
-            Z_ASSERT_LSTREQUAL(arr.tab[0], LSTR(str1));                      \
-            Z_ASSERT_LSTREQUAL(arr.tab[1], LSTR(str2));                      \
-            Z_ASSERT_LSTREQUAL(arr.tab[2], LSTR(str3));                      \
-        })
+        ps = ps_initstr(str_main);                                           \
+        ctype_desc_build(&sep_desc, seps);                                   \
+        qv_deep_clear(&arr, lstr_wipe);                                      \
+        t_ps_split_escaped(ps, &sep_desc, esc_char, flags, &arr);            \
+        Z_ASSERT_EQ(arr.len, 3);                                             \
+        Z_ASSERT_LSTREQUAL(arr.tab[0], LSTR(str1));                          \
+        Z_ASSERT_LSTREQUAL(arr.tab[1], LSTR(str2));                          \
+        Z_ASSERT_LSTREQUAL(arr.tab[2], LSTR(str3));                          \
+    })
 
         TST_EMPTY("", "", "123 ", '\\', 0);
         T("123/abc !%*", "123", "abc", "!%*", " /", '\0');
@@ -1760,16 +1960,17 @@ Z_GROUP_EXPORT(str) {
         T_SKIP("//123//abc/!%*", "123", "abc", "!%*", "/", '\0');
         T_SKIP("$123$$$abc$!%*", "123", "abc", "!%*", "$", '\0');
         T_SKIP(",   ,:::,!!!,,", "   ", ":::", "!!!", ",", '\0');
-        T_SKIP(",secret1;secret2, ,secret3,;,,", "secret1", "secret2",
-               "secret3", " ,;", '\0');
+        T_SKIP(
+            ",secret1;secret2, ,secret3,;,,", "secret1", "secret2", "secret3",
+            " ,;", '\0'
+        );
 
         /* with escape characters */
         TST_EMPTY("", "", "123 ", '\\', PS_SPLIT_SKIP_EMPTY);
         TST_EMPTY("///", "", "123/", '\\', PS_SPLIT_SKIP_EMPTY);
         T("12\\3\\%abc%%abc", "12\\3%abc", "", "abc", "%", '\\');
         T("123&%abc&!def!ghi;ab", "123%abc!def", "ghi", "ab", "%;!", '&');
-        T("&123&%&abc&!def!ghi;ab", "&123%&abc!def", "ghi", "ab",
-          "%;!", '&');
+        T("&123&%&abc&!def!ghi;ab", "&123%&abc!def", "ghi", "ab", "%;!", '&');
         T("1\\%\\%\\%\\\\a%b%c", "1%%%\\a", "b", "c", "%", '\\');
         T("%\\%%", "", "%", "", "%", '\\');
         T("\\%%%\\%", "%", "", "%", "%", '\\');
@@ -1786,18 +1987,19 @@ Z_GROUP_EXPORT(str) {
 #undef TST_EMPTY
 #undef TST_MAIN
 #undef T_SKIP
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(t_ps_get_http_var) {
         t_scope;
         pstream_t ps;
-        lstr_t    key, value;
+        lstr_t key, value;
 
-#define TST_INVALID(_text)  \
-        do {                                                                 \
-            ps = ps_initstr(_text);                                          \
-            Z_ASSERT_NEG(t_ps_get_http_var(&ps, &key, &value));              \
-        } while (0)
+#define TST_INVALID(_text)                                                   \
+    do {                                                                     \
+        ps = ps_initstr(_text);                                              \
+        Z_ASSERT_NEG(t_ps_get_http_var(&ps, &key, &value));                  \
+    } while (0)
 
         TST_INVALID("");
         TST_INVALID("key");
@@ -1807,67 +2009,72 @@ Z_GROUP_EXPORT(str) {
 
         ps = ps_initstr("cid1%3d1%26cid2=2&cid3=3&cid4=");
         Z_ASSERT_N(t_ps_get_http_var(&ps, &key, &value));
-        Z_ASSERT_LSTREQUAL(key,   LSTR("cid1=1&cid2"));
+        Z_ASSERT_LSTREQUAL(key, LSTR("cid1=1&cid2"));
         Z_ASSERT_LSTREQUAL(value, LSTR("2"));
         Z_ASSERT_N(t_ps_get_http_var(&ps, &key, &value));
-        Z_ASSERT_LSTREQUAL(key,   LSTR("cid3"));
+        Z_ASSERT_LSTREQUAL(key, LSTR("cid3"));
         Z_ASSERT_LSTREQUAL(value, LSTR("3"));
         Z_ASSERT_N(t_ps_get_http_var(&ps, &key, &value));
-        Z_ASSERT_LSTREQUAL(key,   LSTR("cid4"));
+        Z_ASSERT_LSTREQUAL(key, LSTR("cid4"));
         Z_ASSERT_LSTREQUAL(value, LSTR(""));
         Z_ASSERT(ps_done(&ps));
         Z_ASSERT_NEG(t_ps_get_http_var(&ps, &key, &value));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(sb_add_int_fmt) {
-#define T(val, thousand_sep, res) \
-    ({  SB_1k(sb);                                                           \
+#define T(val, thousand_sep, res)                                            \
+    ({                                                                       \
+        SB_1k(sb);                                                           \
                                                                              \
         sb_add_int_fmt(&sb, val, thousand_sep);                              \
         Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sb), LSTR(res));                       \
     })
 
-        T(        0, ',', "0");
-        T(        1, ',', "1");
-        T(       -1, ',', "-1");
-        T(       12, ',', "12");
-        T(      123, ',', "123");
-        T(     1234, ',', "1,234");
+        T(0, ',', "0");
+        T(1, ',', "1");
+        T(-1, ',', "-1");
+        T(12, ',', "12");
+        T(123, ',', "123");
+        T(1234, ',', "1,234");
         T(INT64_MIN, ',', "-9,223,372,036,854,775,808");
         T(INT64_MAX, ',', "9,223,372,036,854,775,807");
-        T(     1234, ' ', "1 234");
-        T(     1234,  -1, "1234");
+        T(1234, ' ', "1 234");
+        T(1234, -1, "1234");
 #undef T
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(sb_add_uint_fmt) {
-#define T(val, thousand_sep, res) \
-    ({  SB_1k(sb);                                                           \
+#define T(val, thousand_sep, res)                                            \
+    ({                                                                       \
+        SB_1k(sb);                                                           \
                                                                              \
         sb_add_uint_fmt(&sb, val, thousand_sep);                             \
         Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sb), LSTR(res));                       \
     })
 
-        T(         0, ',', "0");
-        T(         1, ',', "1");
-        T(        12, ',', "12");
-        T(       123, ',', "123");
-        T(      1234, ',', "1,234");
+        T(0, ',', "0");
+        T(1, ',', "1");
+        T(12, ',', "12");
+        T(123, ',', "123");
+        T(1234, ',', "1,234");
         T(UINT64_MAX, ',', "18,446,744,073,709,551,615");
-        T(      1234, ' ', "1 234");
-        T(      1234,  -1, "1234");
+        T(1234, ' ', "1 234");
+        T(1234, -1, "1234");
 #undef T
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(sb_add_csvescape) {
         SB_1k(sb);
 
-#define CHECK(_str, _sep, _expected)  \
-        do {                                                                 \
-            sb_adds_csvescape(&sb, _sep, _str);                              \
-            Z_ASSERT_STREQUAL(_expected, sb.data);                           \
-            sb_reset(&sb);                                                   \
-        } while (0)
+#define CHECK(_str, _sep, _expected)                                         \
+    do {                                                                     \
+        sb_adds_csvescape(&sb, _sep, _str);                                  \
+        Z_ASSERT_STREQUAL(_expected, sb.data);                               \
+        sb_reset(&sb);                                                       \
+    } while (0)
 
         CHECK("toto", ';', "toto");
         CHECK("toto;tata", ';', "\"toto;tata\"");
@@ -1881,7 +2088,8 @@ Z_GROUP_EXPORT(str) {
         CHECK("toto\"\ntata", ';', "\"toto\"\"\ntata\"");
         CHECK("", ';', "");
         CHECK("\"", ';', "\"\"\"\"");
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(sb_splice_lstr) {
         SB_1k(sb);
@@ -1889,10 +2097,13 @@ Z_GROUP_EXPORT(str) {
         sb_sets(&sb, "123");
         sb_splice_lstr(&sb, 1, 1, LSTR("two"));
         Z_ASSERT_LSTREQUAL(LSTR("1two3"), LSTR_SB_V(&sb));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
-    Z_TEST(sb_loop_safe,
-           "Test using SB() in a loop does not trigger a stack overflow")
+    Z_TEST(
+        sb_loop_safe,
+        "Test using SB() in a loop does not trigger a stack overflow"
+    )
     {
         for (int i = 0; i < 1000000; i++) {
             SB(sb, 32 << 10);
@@ -1900,7 +2111,8 @@ Z_GROUP_EXPORT(str) {
             sb_sets(&sb, "pouet");
             Z_ASSERT_LSTREQUAL(LSTR("pouet"), LSTR_SB_V(&sb));
         }
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(ps_skip_afterlastchr) {
         pstream_t ps = ps_initstr("test_1_2");
@@ -1921,7 +2133,8 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_N(ps_skip_afterlastchr(&ps3, '_'));
         Z_ASSERT(ps_len(&ps3) == 1);
         Z_ASSERT(ps_strequal(&ps3, "2"));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(ps_clip_atlastchr) {
         pstream_t ps = ps_initstr("test_1_2");
@@ -1942,7 +2155,8 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_N(ps_clip_atlastchr(&ps3, '_'));
         Z_ASSERT(ps_len(&ps3) == 4);
         Z_ASSERT(ps_strequal(&ps3, "test"));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(ps_clip_afterlastchr) {
         pstream_t ps = ps_initstr("test_1_2");
@@ -1963,41 +2177,44 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_N(ps_clip_afterlastchr(&ps3, '_'));
         Z_ASSERT(ps_len(&ps3) == 5);
         Z_ASSERT(ps_strequal(&ps3, "test_"));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(ps_skip_upto_str) {
         const char *str = "foo bar baz";
         pstream_t ps = ps_initstr(str);
 
         Z_ASSERT_NEG(ps_skip_upto_str(&ps, "toto"));
-        Z_ASSERT(ps_len(&ps) ==  strlen(str));
+        Z_ASSERT(ps_len(&ps) == strlen(str));
         Z_ASSERT(ps_strequal(&ps, str));
 
         Z_ASSERT_N(ps_skip_upto_str(&ps, ""));
-        Z_ASSERT(ps_len(&ps) ==  strlen(str));
+        Z_ASSERT(ps_len(&ps) == strlen(str));
         Z_ASSERT(ps_strequal(&ps, str));
 
         Z_ASSERT_N(ps_skip_upto_str(&ps, "bar"));
         Z_ASSERT(ps_len(&ps) == 7);
         Z_ASSERT(ps_strequal(&ps, "bar baz"));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(ps_skip_after_str) {
         const char *str = "foo bar baz";
         pstream_t ps = ps_initstr(str);
 
         Z_ASSERT_NEG(ps_skip_after_str(&ps, "toto"));
-        Z_ASSERT(ps_len(&ps) ==  strlen(str));
+        Z_ASSERT(ps_len(&ps) == strlen(str));
         Z_ASSERT(ps_strequal(&ps, str));
 
         Z_ASSERT_N(ps_skip_after_str(&ps, ""));
-        Z_ASSERT(ps_len(&ps) ==  strlen(str));
+        Z_ASSERT(ps_len(&ps) == strlen(str));
         Z_ASSERT(ps_strequal(&ps, str));
 
         Z_ASSERT_N(ps_skip_after_str(&ps, "bar"));
         Z_ASSERT(ps_len(&ps) == 4);
         Z_ASSERT(ps_strequal(&ps, " baz"));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(ps_get_ps_upto_str) {
         const char *str = "foo bar baz";
@@ -2006,21 +2223,22 @@ Z_GROUP_EXPORT(str) {
 
         p_clear(&extract, 1);
         Z_ASSERT_NEG(ps_get_ps_upto_str(&ps, "toto", &extract));
-        Z_ASSERT(ps_len(&ps) ==  strlen(str));
+        Z_ASSERT(ps_len(&ps) == strlen(str));
         Z_ASSERT(ps_strequal(&ps, str));
         Z_ASSERT(ps_len(&extract) == 0);
 
         Z_ASSERT_N(ps_get_ps_upto_str(&ps, "", &extract));
-        Z_ASSERT(ps_len(&ps) ==  strlen(str));
+        Z_ASSERT(ps_len(&ps) == strlen(str));
         Z_ASSERT(ps_strequal(&ps, str));
         Z_ASSERT(ps_len(&extract) == 0);
 
         Z_ASSERT_N(ps_get_ps_upto_str(&ps, "bar", &extract));
-        Z_ASSERT(ps_len(&ps) ==  7);
+        Z_ASSERT(ps_len(&ps) == 7);
         Z_ASSERT(ps_strequal(&ps, "bar baz"));
         Z_ASSERT(ps_len(&extract) == 4);
         Z_ASSERT(ps_strequal(&extract, "foo "));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(ps_get_ps_upto_str_and_skip) {
         const char *str = "foo bar baz";
@@ -2029,21 +2247,22 @@ Z_GROUP_EXPORT(str) {
 
         p_clear(&extract, 1);
         Z_ASSERT_NEG(ps_get_ps_upto_str_and_skip(&ps, "toto", &extract));
-        Z_ASSERT(ps_len(&ps) ==  strlen(str));
+        Z_ASSERT(ps_len(&ps) == strlen(str));
         Z_ASSERT(ps_strequal(&ps, str));
         Z_ASSERT(ps_len(&extract) == 0);
 
         Z_ASSERT_N(ps_get_ps_upto_str_and_skip(&ps, "", &extract));
-        Z_ASSERT(ps_len(&ps) ==  strlen(str));
+        Z_ASSERT(ps_len(&ps) == strlen(str));
         Z_ASSERT(ps_strequal(&ps, str));
         Z_ASSERT(ps_len(&extract) == 0);
 
         Z_ASSERT_N(ps_get_ps_upto_str_and_skip(&ps, "bar", &extract));
-        Z_ASSERT(ps_len(&ps) ==  4);
+        Z_ASSERT(ps_len(&ps) == 4);
         Z_ASSERT(ps_strequal(&ps, " baz"));
         Z_ASSERT(ps_len(&extract) == 4);
         Z_ASSERT(ps_strequal(&extract, "foo "));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(ps_endswith) {
         pstream_t ps1 = ps_initstr("toto");
@@ -2055,7 +2274,8 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT(ps_endswithstr(&ps2, "toto"));
         Z_ASSERT(!ps_endswithstr(&ps3, "toto"));
         Z_ASSERT(!ps_endswithstr(&ps4, "toto"));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(ps_get_data) {
         pstream_t ps = ps_initstr("1234567");
@@ -2066,65 +2286,67 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_STREQUAL(ps_get_data(&ps, 2), "67");
         Z_ASSERT_NULL(ps_get_data(&ps, 1));
         Z_ASSERT(ps_done(&ps));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(lstr_ascii_icmp) {
 #define T(_str1, _str2, _expected)                                           \
-        Z_ASSERT(lstr_ascii_icmp(LSTR_IMMED_V(_str1),  LSTR_IMMED_V(_str2))  \
+    Z_ASSERT(lstr_ascii_icmp(LSTR_IMMED_V(_str1), LSTR_IMMED_V(_str2))       \
                  _expected)
 
-        T("a",    "b",     <  0);
-        T("b",    "a",     >  0);
-        T("a",    "a",     == 0);
-        T("A",    "a",     == 0);
-        T("aaa",  "b",     <  0);
-        T("bbb",  "a",     >  0);
-        T("aaa",  "aa",    >  0);
-        T("aaa",  "AA",    >  0);
-        T("AbCd", "aBcD",  == 0);
-        T("AbCd", "aBcDe", <  0);
-        T("faaa", "FAAB",  <  0);
-        T("FAAA", "faab",  <  0);
-        T("faaa", "FAAA",  == 0);
-        T("faab", "faaba", <  0);
-        T("faab", "faaab", >  0);
+        T("a", "b", < 0);
+        T("b", "a", > 0);
+        T("a", "a", == 0);
+        T("A", "a", == 0);
+        T("aaa", "b", < 0);
+        T("bbb", "a", > 0);
+        T("aaa", "aa", > 0);
+        T("aaa", "AA", > 0);
+        T("AbCd", "aBcD", == 0);
+        T("AbCd", "aBcDe", < 0);
+        T("faaa", "FAAB", < 0);
+        T("FAAA", "faab", < 0);
+        T("faaa", "FAAA", == 0);
+        T("faab", "faaba", < 0);
+        T("faab", "faaab", > 0);
 #undef T
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(lstr_to_int) {
         t_scope;
-        int      i;
+        int i;
         uint32_t u32;
-        int64_t  i64;
+        int64_t i64;
         uint64_t u64;
 
-#define T_OK(_str, _exp)  \
-        do {                                                                 \
-            Z_ASSERT_N(lstr_to_int(LSTR(_str), &i));                         \
-            Z_ASSERT_EQ(i, _exp);                                            \
-            Z_ASSERT_N(lstr_to_uint(LSTR(_str), &u32));                      \
-            Z_ASSERT_EQ(u32, (uint32_t)_exp);                                \
-            Z_ASSERT_N(lstr_to_int64(LSTR(_str), &i64));                     \
-            Z_ASSERT_EQ(i64, _exp);                                          \
-            Z_ASSERT_N(lstr_to_uint64(LSTR(_str), &u64));                    \
-            Z_ASSERT_EQ(u64, (uint64_t)_exp);                                \
-        } while (0)
+#define T_OK(_str, _exp)                                                     \
+    do {                                                                     \
+        Z_ASSERT_N(lstr_to_int(LSTR(_str), &i));                             \
+        Z_ASSERT_EQ(i, _exp);                                                \
+        Z_ASSERT_N(lstr_to_uint(LSTR(_str), &u32));                          \
+        Z_ASSERT_EQ(u32, (uint32_t)_exp);                                    \
+        Z_ASSERT_N(lstr_to_int64(LSTR(_str), &i64));                         \
+        Z_ASSERT_EQ(i64, _exp);                                              \
+        Z_ASSERT_N(lstr_to_uint64(LSTR(_str), &u64));                        \
+        Z_ASSERT_EQ(u64, (uint64_t)_exp);                                    \
+    } while (0)
 
-        T_OK("0",        0);
-        T_OK("1234",     1234);
+        T_OK("0", 0);
+        T_OK("1234", 1234);
         T_OK("  1234  ", 1234);
 #undef T_OK
 
         Z_ASSERT_N(lstr_to_uint(t_lstr_fmt("%u", UINT32_MAX), &u32));
         Z_ASSERT_EQ(u32, UINT32_MAX);
 
-#define T_KO(_str)  \
-        do {                                                                 \
-            Z_ASSERT_NEG(lstr_to_int(LSTR(_str), &i));                       \
-            Z_ASSERT_NEG(lstr_to_uint(LSTR(_str), &u32));                    \
-            Z_ASSERT_NEG(lstr_to_int64(LSTR(_str), &i64));                   \
-            Z_ASSERT_NEG(lstr_to_uint64(LSTR(_str), &u64));                  \
-        } while (0)
+#define T_KO(_str)                                                           \
+    do {                                                                     \
+        Z_ASSERT_NEG(lstr_to_int(LSTR(_str), &i));                           \
+        Z_ASSERT_NEG(lstr_to_uint(LSTR(_str), &u32));                        \
+        Z_ASSERT_NEG(lstr_to_int64(LSTR(_str), &i64));                       \
+        Z_ASSERT_NEG(lstr_to_uint64(LSTR(_str), &u64));                      \
+    } while (0)
 
         T_KO("");
         T_KO("   ");
@@ -2137,67 +2359,70 @@ Z_GROUP_EXPORT(str) {
         errno = 0;
         Z_ASSERT_NEG(lstr_to_uint(LSTR(" -123"), &u32));
         Z_ASSERT_EQ(errno, ERANGE);
-        Z_ASSERT_NEG(lstr_to_uint(t_lstr_fmt("%jd", (uint64_t)UINT32_MAX + 1),
-                                  &u32));
+        Z_ASSERT_NEG(
+            lstr_to_uint(t_lstr_fmt("%jd", (uint64_t)UINT32_MAX + 1), &u32)
+        );
         Z_ASSERT_EQ(errno, ERANGE);
 
         errno = 0;
         Z_ASSERT_NEG(lstr_to_uint64(LSTR(" -123"), &u64));
         Z_ASSERT_EQ(errno, ERANGE);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(lstr_to_double) {
         double d;
 
-#define T(_str, _exp, _res)  \
-        do {                                                                 \
-            Z_ASSERT_EQ(_res, lstr_to_double(LSTR(_str), &d));               \
-            Z_ASSERT_EQ(d, _exp);                                            \
-        } while (0)
+#define T(_str, _exp, _res)                                                  \
+    do {                                                                     \
+        Z_ASSERT_EQ(_res, lstr_to_double(LSTR(_str), &d));                   \
+        Z_ASSERT_EQ(d, _exp);                                                \
+    } while (0)
 
-        T("0",        0,        0);
-        T("1234",     1234,     0);
-        T("  1234  ", 1234,     0);
+        T("0", 0, 0);
+        T("1234", 1234, 0);
+        T("  1234  ", 1234, 0);
         T("-1.33e12", -1.33e12, 0);
-        T("INF",      INFINITY, 0);
+        T("INF", INFINITY, 0);
         T("INFINITY", INFINITY, 0);
-        T("",         0,       -1);
-        T(" ",        0,       -1);
+        T("", 0, -1);
+        T(" ", 0, -1);
 #undef T
 
-#define T_KO(_str)  \
-        do {                                                                 \
-            Z_ASSERT_NEG(lstr_to_double(LSTR(_str), &d));                    \
-        } while (0)
+#define T_KO(_str)                                                           \
+    do {                                                                     \
+        Z_ASSERT_NEG(lstr_to_double(LSTR(_str), &d));                        \
+    } while (0)
 
         T_KO("abcd");
         T_KO("  12 12 ");
         T_KO("  12abcd");
 #undef T_KO
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(str_match_ctype) {
         struct {
-            lstr_t              s;
+            lstr_t s;
             const ctype_desc_t *d;
-            bool                expected;
+            bool expected;
         } t[] = {
 #define T(_str, _ctype, _expected)                                           \
-            {.s = LSTR_IMMED(_str), .d = _ctype, .expected = _expected}
+    {.s = LSTR_IMMED(_str), .d = _ctype, .expected = _expected}
 
-            T("0123456789",       &ctype_isdigit,    true),
-            T("abcde",            &ctype_islower,    true),
-            T("ABCDE",            &ctype_isupper,    true),
-            T(" \n",              &ctype_isspace,    true),
+            T("0123456789", &ctype_isdigit, true),
+            T("abcde", &ctype_islower, true),
+            T("ABCDE", &ctype_isupper, true),
+            T(" \n", &ctype_isspace, true),
             T("0123456789ABCDEF", &ctype_ishexdigit, true),
             T("0123456789abcdef", &ctype_ishexdigit, true),
 
-            T("abcdEF",           &ctype_isdigit,    false),
-            T("ABC",              &ctype_islower,    false),
-            T("abcABC",           &ctype_islower,    false),
-            T("abc132",           &ctype_islower,    false),
-            T("abc",              &ctype_isupper,    false),
-            T("aBCDE",            &ctype_isupper,    false),
+            T("abcdEF", &ctype_isdigit, false),
+            T("ABC", &ctype_islower, false),
+            T("abcABC", &ctype_islower, false),
+            T("abc132", &ctype_islower, false),
+            T("abc", &ctype_isupper, false),
+            T("aBCDE", &ctype_isupper, false),
 
 #undef T
         };
@@ -2205,10 +2430,11 @@ Z_GROUP_EXPORT(str) {
         for (int i = 0; i < countof(t); i++) {
             Z_ASSERT_EQ(lstr_match_ctype(t[i].s, t[i].d), t[i].expected);
         }
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(lstr_macros) {
-        uint16_t data[] = { 11, 22, 33 };
+        uint16_t data[] = {11, 22, 33};
         lstr_t data_ref, data_s, data_c;
 
         data_ref = LSTR_INIT_V((const char *)data, sizeof(data));
@@ -2217,14 +2443,15 @@ Z_GROUP_EXPORT(str) {
 
         Z_ASSERT_LSTREQUAL(data_s, data_ref);
         Z_ASSERT_LSTREQUAL(data_c, data_ref);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(ps_has_char) {
         pstream_t p;
 
         p = ps_initstr("aBcdEfGhij");
         Z_ASSERT(!ps_has_char_in_ctype(&p, &ctype_isdigit));
-        Z_ASSERT( ps_has_char_in_ctype(&p, &ctype_isalpha));
+        Z_ASSERT(ps_has_char_in_ctype(&p, &ctype_isalpha));
 
         p = ps_initstr("abcdef1hij");
         Z_ASSERT(ps_has_char_in_ctype(&p, &ctype_isdigit));
@@ -2235,16 +2462,18 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT(ps_has_char_in_ctype(&p, &ctype_isalpha));
 
         p = ps_initstr("9191959485889");
-        Z_ASSERT( ps_has_char_in_ctype(&p, &ctype_isdigit));
+        Z_ASSERT(ps_has_char_in_ctype(&p, &ctype_isdigit));
         Z_ASSERT(!ps_has_char_in_ctype(&p, &ctype_isalpha));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(sb_add_expandenv) {
         const char *var = getenv("HOME");
         SB_1k(data);
         SB_1k(expected);
 
-#define T(str, res, ...)  do {                                               \
+#define T(str, res, ...)                                                     \
+    do {                                                                     \
         sb_reset(&data);                                                     \
         Z_ASSERT_N(sb_adds_expandenv(&data, str));                           \
                                                                              \
@@ -2264,20 +2493,20 @@ Z_GROUP_EXPORT(str) {
         T("\\\\$HOME", "\\%s", var);
 
 #undef T
-#define T_ERR(str)  Z_ASSERT_NEG(sb_adds_expandenv(&data, str))
+#define T_ERR(str) Z_ASSERT_NEG(sb_adds_expandenv(&data, str))
 
         T_ERR("${HOME");
         T_ERR("$$");
 
 #undef T_ERR
-
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(lstr_is_like) {
 #define MATCH(str, pattern)                                                  \
-        Z_ASSERT(lstr_utf8_is_ilike(LSTR(str), LSTR(pattern)))
+    Z_ASSERT(lstr_utf8_is_ilike(LSTR(str), LSTR(pattern)))
 #define NOMATCH(str, pattern)                                                \
-        Z_ASSERT(!lstr_utf8_is_ilike(LSTR(str), LSTR(pattern)))
+    Z_ASSERT(!lstr_utf8_is_ilike(LSTR(str), LSTR(pattern)))
 
         /* cases with no special characters */
         MATCH("", "");
@@ -2340,7 +2569,8 @@ Z_GROUP_EXPORT(str) {
 
 #undef NOMATCH
 #undef MATCH
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(ps_get_str) {
         lstr_t lstr_zero_terminated = LSTR_IMMED("foo\0baar\0");
@@ -2357,7 +2587,8 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_NULL(ps_gets(&ps_zero_terminated, NULL));
 
         Z_ASSERT_NULL(ps_gets(&ps_not_zero_term, NULL));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(ps_get_lstr) {
         lstr_t lstr_zero_terminated = LSTR_IMMED("foo\0baar\0");
@@ -2365,15 +2596,18 @@ Z_GROUP_EXPORT(str) {
         lstr_t lstr_not_zero_term = LSTR_IMMED("foobar");
         pstream_t ps_not_zero_term = ps_initlstr(&lstr_not_zero_term);
 
-        Z_ASSERT_LSTREQUAL(ps_get_lstr(&ps_zero_terminated),
-                           LSTR_IMMED_V("foo"));
-        Z_ASSERT_LSTREQUAL(ps_get_lstr(&ps_zero_terminated),
-                           LSTR_IMMED_V("baar"));
+        Z_ASSERT_LSTREQUAL(
+            ps_get_lstr(&ps_zero_terminated), LSTR_IMMED_V("foo")
+        );
+        Z_ASSERT_LSTREQUAL(
+            ps_get_lstr(&ps_zero_terminated), LSTR_IMMED_V("baar")
+        );
         Z_ASSERT(ps_done(&ps_zero_terminated));
         Z_ASSERT_LSTREQUAL(ps_get_lstr(&ps_zero_terminated), LSTR_NULL_V);
 
         Z_ASSERT_LSTREQUAL(ps_get_lstr(&ps_not_zero_term), LSTR_NULL_V);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(base64) {
         lstr_t data = LSTR_IMMED("\xD9\x87\xE3\xFE\x48\x7E\x25\x81\xFB");
@@ -2404,7 +2638,8 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_NEG(sb_adds_unb64url(&data_decoded, "wQA/03e="));
         Z_ASSERT_NEG(sb_adds_unb64url(&data_decoded, "wQA+03e="));
         Z_ASSERT_NEG(sb_adds_unb64url(&data_decoded, "wQA&03e="));
-    } Z_TEST_END
+    }
+    Z_TEST_END
 
     Z_TEST(init_from_file) {
         t_scope;
@@ -2412,7 +2647,7 @@ Z_GROUP_EXPORT(str) {
         lstr_t map;
         lstr_t content = LSTR("lstr_init_from_file test 1\n");
 
-        path = t_fmt("%*pM/file-test",  LSTR_FMT_ARG(z_tmpdir_g));
+        path = t_fmt("%*pM/file-test", LSTR_FMT_ARG(z_tmpdir_g));
 
         Z_ASSERT_N(xwrite_file(path, content.s, content.len));
 
@@ -2427,8 +2662,9 @@ Z_GROUP_EXPORT(str) {
 
         /* Reopening the map in RW.*/
         lstr_wipe(&map);
-        Z_ASSERT_N(lstr_init_from_file(&map, path, PROT_READ | PROT_WRITE,
-                                       MAP_SHARED));
+        Z_ASSERT_N(lstr_init_from_file(
+            &map, path, PROT_READ | PROT_WRITE, MAP_SHARED
+        ));
         Z_ASSERT_LSTREQUAL(map, content);
 
         /* Changing the content of the lstr_t should be reported to the
@@ -2441,7 +2677,8 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_LSTREQUAL(map, content);
 
         lstr_wipe(&map);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(init_from_file_fallback) {
         t_scope;
@@ -2509,14 +2746,17 @@ Z_GROUP_EXPORT(str) {
         /* read() fallback must not be allowed when asking for a writable
          * mmap() as the returned memory isn't linked to the file anymore.
          */
-        Z_ASSERT_NEG(lstr_init_from_file(&map, path, PROT_READ | PROT_WRITE,
-                                         MAP_SHARED));
+        Z_ASSERT_NEG(lstr_init_from_file(
+            &map, path, PROT_READ | PROT_WRITE, MAP_SHARED
+        ));
 
-        Z_ASSERT_N(lstr_init_from_file(&map, path, PROT_READ | PROT_WRITE,
-                                       MAP_PRIVATE));
+        Z_ASSERT_N(lstr_init_from_file(
+            &map, path, PROT_READ | PROT_WRITE, MAP_PRIVATE
+        ));
         Z_ASSERT_LSTREQUAL(map, LSTR_EMPTY_V);
         lstr_wipe(&map);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(lstr_dupz) {
         t_scope;
@@ -2535,7 +2775,8 @@ Z_GROUP_EXPORT(str) {
 
         /* No need to check 'mp_lstr_dupz()' as it is used for implementation
          * of both 'lstr_dupz()', 't_lstr_dupz()'. */
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(sb_overlaps) {
         SB_1k(abcdef);
@@ -2544,7 +2785,7 @@ Z_GROUP_EXPORT(str) {
         sb_t klmnop;
 
         sb_adds(&abcdef, "abcdef");
-        bcd = LSTR_INIT_V(abcdef.data + 1,  3);
+        bcd = LSTR_INIT_V(abcdef.data + 1, 3);
         Z_ASSERT(sb_overlaps(&abcdef, bcd.s, bcd.len));
 
         sb_adds(&ghi, "GHI");
@@ -2556,37 +2797,39 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT(!sb_overlaps(&abcdef, klmnop.data, klmnop.len));
         Z_ASSERT(!sb_overlaps(&klmnop, abcdef.data, abcdef.len));
         sb_wipe(&klmnop);
-    } Z_TEST_END;
-} Z_GROUP_END;
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END;
 
 /* }}} */
 /* {{{ csv */
 
 #define CSV_TEST_START(_str, _separator, _qchar)                             \
-        __attr_unused__ int quoting_character = (_qchar);                    \
-        __attr_unused__ int separator = (_separator);                        \
-        qv_t(lstr) fields;                                                   \
-        pstream_t str = ps_initstr(_str);                                    \
+    __attr_unused__ int quoting_character = (_qchar);                        \
+    __attr_unused__ int separator = (_separator);                            \
+    qv_t(lstr) fields;                                                       \
+    pstream_t str = ps_initstr(_str);                                        \
                                                                              \
-        qv_init(&fields)
+    qv_init(&fields)
 
-
-#define CSV_TEST_END()                                                       \
-        qv_deep_wipe(&fields, lstr_wipe)
+#define CSV_TEST_END() qv_deep_wipe(&fields, lstr_wipe)
 
 #define CSV_TEST_GET_ROW(out_line)                                           \
-    qv_deep_clear(&fields, lstr_wipe);                                 \
-    Z_ASSERT_N(ps_get_csv_line(NULL, &str, separator,                        \
-                               quoting_character, &fields, out_line))
+    qv_deep_clear(&fields, lstr_wipe);                                       \
+    Z_ASSERT_N(ps_get_csv_line(                                              \
+        NULL, &str, separator, quoting_character, &fields, out_line          \
+    ))
 
-#define CSV_TEST_FAIL_ROW() \
-    qv_deep_clear(&fields, lstr_wipe);                                 \
-    Z_ASSERT_NEG(ps_get_csv_line(NULL, &str, separator, quoting_character,   \
-                                 &fields, NULL))
+#define CSV_TEST_FAIL_ROW()                                                  \
+    qv_deep_clear(&fields, lstr_wipe);                                       \
+    Z_ASSERT_NEG(ps_get_csv_line(                                            \
+        NULL, &str, separator, quoting_character, &fields, NULL              \
+    ))
 
-#define CSV_TEST_CHECK_EOF()  Z_ASSERT(ps_done(&str))
+#define CSV_TEST_CHECK_EOF() Z_ASSERT(ps_done(&str))
 
-#define CSV_TEST_CHECK_NB_FIELDS(_n) \
+#define CSV_TEST_CHECK_NB_FIELDS(_n)                                         \
     Z_ASSERT_EQ(fields.len, _n, "field count mismatch");
 
 #define CSV_TEST_CHECK_FIELD(_n, _str)                                       \
@@ -2597,13 +2840,15 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_LSTREQUAL(fields.tab[_n], LSTR(_str), "field value");       \
     }
 
-Z_GROUP_EXPORT(csv) {
+Z_GROUP_EXPORT(csv)
+{
     Z_TEST(row1, "no row") {
         /* No row */
         CSV_TEST_START("", ',', '"');
         CSV_TEST_CHECK_EOF();
         CSV_TEST_END();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(row2, "Single row") {
         pstream_t row;
@@ -2612,31 +2857,38 @@ Z_GROUP_EXPORT(csv) {
         CSV_TEST_GET_ROW(&row);
         Z_ASSERT_LSTREQUAL(LSTR("foo,bar,baz"), LSTR_PS_V(&row));
         CSV_TEST_END();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(row3, "Several rows") {
         pstream_t row;
 
-        CSV_TEST_START("foo,bar,baz\r\n"
-                       "truc,machin,bidule\r\n",
-                       ',', '"');
+        CSV_TEST_START(
+            "foo,bar,baz\r\n"
+            "truc,machin,bidule\r\n",
+            ',', '"'
+        );
         CSV_TEST_GET_ROW(NULL);
         CSV_TEST_GET_ROW(&row);
         Z_ASSERT_LSTREQUAL(LSTR("truc,machin,bidule"), LSTR_PS_V(&row));
         CSV_TEST_END();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(row4, "Mixed line terminators") {
         pstream_t row;
 
-        CSV_TEST_START("foo,bar,baz\n"
-                       "truc,machin,bidule\r\n",
-                       ',', '"');
+        CSV_TEST_START(
+            "foo,bar,baz\n"
+            "truc,machin,bidule\r\n",
+            ',', '"'
+        );
         CSV_TEST_GET_ROW(&row);
         Z_ASSERT_LSTREQUAL(LSTR("foo,bar,baz"), LSTR_PS_V(&row));
         CSV_TEST_GET_ROW(NULL);
         CSV_TEST_END();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(row5, "No line terminator") {
         pstream_t row;
@@ -2645,7 +2897,8 @@ Z_GROUP_EXPORT(csv) {
         CSV_TEST_GET_ROW(&row);
         Z_ASSERT_LSTREQUAL(LSTR("foo,bar,baz"), LSTR_PS_V(&row));
         CSV_TEST_END();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(base1) {
         CSV_TEST_START("foo", ',', '"');
@@ -2653,7 +2906,8 @@ Z_GROUP_EXPORT(csv) {
         CSV_TEST_CHECK_NB_FIELDS(1);
         CSV_TEST_CHECK_FIELD(0, "foo");
         CSV_TEST_END();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(base2, "Base 2") {
         CSV_TEST_START("foo,bar", ',', '"');
@@ -2662,7 +2916,8 @@ Z_GROUP_EXPORT(csv) {
         CSV_TEST_CHECK_FIELD(0, "foo");
         CSV_TEST_CHECK_FIELD(1, "bar");
         CSV_TEST_END();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(base3) {
         CSV_TEST_START("foo,bar,baz", ',', '"');
@@ -2672,7 +2927,8 @@ Z_GROUP_EXPORT(csv) {
         CSV_TEST_CHECK_FIELD(1, "bar");
         CSV_TEST_CHECK_FIELD(2, "baz");
         CSV_TEST_END();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(allowed1, "Invalid but allowed fields 1") {
         CSV_TEST_START("foo,bar\"baz", ',', '"');
@@ -2681,13 +2937,15 @@ Z_GROUP_EXPORT(csv) {
         CSV_TEST_CHECK_FIELD(0, "foo");
         CSV_TEST_CHECK_FIELD(1, "bar\"baz");
         CSV_TEST_END();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(invalid1, "Invalid fields 2") {
         CSV_TEST_START("foo,\"ba\"z", ',', '"');
         CSV_TEST_FAIL_ROW();
         CSV_TEST_END();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(empty1, "Empty fields 1") {
         CSV_TEST_START("foo,,baz", ',', '"');
@@ -2697,7 +2955,8 @@ Z_GROUP_EXPORT(csv) {
         CSV_TEST_CHECK_FIELD(1, NULL);
         CSV_TEST_CHECK_FIELD(2, "baz");
         CSV_TEST_END();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(empty2, "Empty fields 2") {
         CSV_TEST_START("foo,bar,", ',', '"');
@@ -2707,7 +2966,8 @@ Z_GROUP_EXPORT(csv) {
         CSV_TEST_CHECK_FIELD(1, "bar");
         CSV_TEST_CHECK_FIELD(2, NULL);
         CSV_TEST_END();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(empty3, "Empty fields 3") {
         CSV_TEST_START(",bar,baz", ',', '"');
@@ -2717,7 +2977,8 @@ Z_GROUP_EXPORT(csv) {
         CSV_TEST_CHECK_FIELD(1, "bar");
         CSV_TEST_CHECK_FIELD(2, "baz");
         CSV_TEST_END();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(empty4, "Empty fields 4") {
         CSV_TEST_START(",,", ',', '"');
@@ -2727,14 +2988,16 @@ Z_GROUP_EXPORT(csv) {
         CSV_TEST_CHECK_FIELD(1, NULL);
         CSV_TEST_CHECK_FIELD(2, NULL);
         CSV_TEST_END();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(quoted1, "Quoted fields 1") {
         CSV_TEST_START("foo,\"bar\",baz", ',', '"');
         CSV_TEST_GET_ROW(NULL);
         CSV_TEST_CHECK_NB_FIELDS(3);
         CSV_TEST_END();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(quoted2, "Quoted fields 2") {
         CSV_TEST_START("foo,bar,\"baz\"", ',', '"');
@@ -2744,7 +3007,8 @@ Z_GROUP_EXPORT(csv) {
         CSV_TEST_CHECK_FIELD(1, "bar");
         CSV_TEST_CHECK_FIELD(2, "baz");
         CSV_TEST_END();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(quoted3, "Quoted fields 3") {
         CSV_TEST_START("\"foo\",bar,baz", ',', '"');
@@ -2754,7 +3018,8 @@ Z_GROUP_EXPORT(csv) {
         CSV_TEST_CHECK_FIELD(1, "bar");
         CSV_TEST_CHECK_FIELD(2, "baz");
         CSV_TEST_END();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(quoted4, "Quoted fields 4") {
         CSV_TEST_START("\"foo,bar\",baz", ',', '"');
@@ -2763,7 +3028,8 @@ Z_GROUP_EXPORT(csv) {
         CSV_TEST_CHECK_FIELD(0, "foo,bar");
         CSV_TEST_CHECK_FIELD(1, "baz");
         CSV_TEST_END();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(quoted5, "Quoted fields 5") {
         CSV_TEST_START("\"foo,\"\"\"", ',', '"');
@@ -2771,29 +3037,36 @@ Z_GROUP_EXPORT(csv) {
         CSV_TEST_CHECK_NB_FIELDS(1);
         CSV_TEST_CHECK_FIELD(0, "foo,\"");
         CSV_TEST_END();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(quoted6, "Quoted fields 6") {
-        CSV_TEST_START("\"foo\n"
-                       "bar\",baz", ',', '"');
+        CSV_TEST_START(
+            "\"foo\n"
+            "bar\",baz",
+            ',', '"'
+        );
         CSV_TEST_GET_ROW(NULL);
         CSV_TEST_CHECK_NB_FIELDS(2);
         CSV_TEST_CHECK_FIELD(0, "foo\nbar");
         CSV_TEST_CHECK_FIELD(1, "baz");
         CSV_TEST_END();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(quoted7, "Quoted fields 7") {
         CSV_TEST_START("\"foo,\"\"", ',', '"');
         CSV_TEST_FAIL_ROW();
         CSV_TEST_END();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(quoted8, "Quoted fields 8") {
         CSV_TEST_START("\"foo,\"bar\"", ',', '"');
         CSV_TEST_FAIL_ROW();
         CSV_TEST_END();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(noquoting1, "No quoting character 1") {
         CSV_TEST_START("foo,bar", ',', -1);
@@ -2802,7 +3075,8 @@ Z_GROUP_EXPORT(csv) {
         CSV_TEST_CHECK_FIELD(0, "foo");
         CSV_TEST_CHECK_FIELD(1, "bar");
         CSV_TEST_END();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(noquoting2, "No quoting character 2") {
         CSV_TEST_START("foo,\"bar\"", ',', -1);
@@ -2811,7 +3085,8 @@ Z_GROUP_EXPORT(csv) {
         CSV_TEST_CHECK_FIELD(0, "foo");
         CSV_TEST_CHECK_FIELD(1, "\"bar\"");
         CSV_TEST_END();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(noquoting3, "No quoting character 3") {
         CSV_TEST_START("fo\"o", ',', -1);
@@ -2819,24 +3094,30 @@ Z_GROUP_EXPORT(csv) {
         CSV_TEST_CHECK_NB_FIELDS(1);
         CSV_TEST_CHECK_FIELD(0, "fo\"o");
         CSV_TEST_END();
-    } Z_TEST_END;
-} Z_GROUP_END;
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END;
 
 /* }}} */
 /* {{{ str_buf_pp */
 
-Z_GROUP_EXPORT(str_buf_pp) {
+Z_GROUP_EXPORT(str_buf_pp)
+{
     Z_TEST(add_table) {
         t_scope;
         t_SB_1k(sb);
         qv_t(table_hdr) hdr;
         qv_t(lstr) *row;
         qv_t(table_data) data;
-        table_hdr_t hdr_data[] = { {
+        table_hdr_t hdr_data[] = {
+            {
                 .title = LSTR_IMMED("COL A"),
-            }, {
+            },
+            {
                 .title = LSTR_IMMED("COL B"),
-            }, {
+            },
+            {
                 .title = LSTR_IMMED("COL C"),
             }
         };
@@ -2854,15 +3135,19 @@ Z_GROUP_EXPORT(str_buf_pp) {
 
         sb_reset(&sb);
         sb_add_table(&sb, &hdr, &data);
-        Z_ASSERT_STREQUAL(sb.data, "COL A          COL B          COL C\n"
-                                   "col A - rôw 1  col B - row 1  \n"
-                                   "col A - row 2  çôl B - row 2  \n");
+        Z_ASSERT_STREQUAL(
+            sb.data, "COL A          COL B          COL C\n"
+                     "col A - rôw 1  col B - row 1  \n"
+                     "col A - row 2  çôl B - row 2  \n"
+        );
 
         sb_reset(&sb);
         sb_add_csv_table(&sb, &hdr, &data, ';');
-        Z_ASSERT_STREQUAL(sb.data, "COL A;COL B;COL C\n"
-                                   "col A - rôw 1;col B - row 1;\n"
-                                   "col A - row 2;çôl B - row 2;\n");
+        Z_ASSERT_STREQUAL(
+            sb.data, "COL A;COL B;COL C\n"
+                     "col A - rôw 1;col B - row 1;\n"
+                     "col A - row 2;çôl B - row 2;\n"
+        );
 
         hdr_data[0].max_width = 7;
         hdr_data[1].min_width = 20;
@@ -2870,15 +3155,19 @@ Z_GROUP_EXPORT(str_buf_pp) {
 
         sb_reset(&sb);
         sb_add_table(&sb, &hdr, &data);
-        Z_ASSERT_STREQUAL(sb.data, "COL A    COL B               \n"
-                                   "col A -  col B - row 1       \n"
-                                   "col A -  çôl B - row 2       \n");
+        Z_ASSERT_STREQUAL(
+            sb.data, "COL A    COL B               \n"
+                     "col A -  col B - row 1       \n"
+                     "col A -  çôl B - row 2       \n"
+        );
 
         sb_reset(&sb);
         sb_add_csv_table(&sb, &hdr, &data, ';');
-        Z_ASSERT_STREQUAL(sb.data, "COL A;COL B\n"
-                                   "col A - rôw 1;col B - row 1\n"
-                                   "col A - row 2;çôl B - row 2\n");
+        Z_ASSERT_STREQUAL(
+            sb.data, "COL A;COL B\n"
+                     "col A - rôw 1;col B - row 1\n"
+                     "col A - row 2;çôl B - row 2\n"
+        );
 
         hdr_data[0].max_width = 7;
         hdr_data[0].add_ellipsis = true;
@@ -2888,31 +3177,39 @@ Z_GROUP_EXPORT(str_buf_pp) {
 
         sb_reset(&sb);
         sb_add_table(&sb, &hdr, &data);
-        Z_ASSERT_STREQUAL(sb.data, "COL A    COL B          COL C\n"
-                                   "col A …  col B - row 1  -\n"
-                                   "col A …  çôl B - row 2  -\n");
+        Z_ASSERT_STREQUAL(
+            sb.data, "COL A    COL B          COL C\n"
+                     "col A …  col B - row 1  -\n"
+                     "col A …  çôl B - row 2  -\n"
+        );
 
         sb_reset(&sb);
         sb_add_csv_table(&sb, &hdr, &data, ';');
-        Z_ASSERT_STREQUAL(sb.data, "COL A;COL B;COL C\n"
-                                   "col A - rôw 1;col B - row 1;-\n"
-                                   "col A - row 2;çôl B - row 2;-\n");
+        Z_ASSERT_STREQUAL(
+            sb.data, "COL A;COL B;COL C\n"
+                     "col A - rôw 1;col B - row 1;-\n"
+                     "col A - row 2;çôl B - row 2;-\n"
+        );
 
         hdr_data[2].align = ALIGN_RIGHT;
 
         sb_reset(&sb);
         sb_add_table(&sb, &hdr, &data);
-        Z_ASSERT_STREQUAL(sb.data, "COL A    COL B          COL C\n"
-                                   "col A …  col B - row 1      -\n"
-                                   "col A …  çôl B - row 2      -\n");
+        Z_ASSERT_STREQUAL(
+            sb.data, "COL A    COL B          COL C\n"
+                     "col A …  col B - row 1      -\n"
+                     "col A …  çôl B - row 2      -\n"
+        );
 
         hdr_data[2].align = ALIGN_CENTER;
 
         sb_reset(&sb);
         sb_add_table(&sb, &hdr, &data);
-        Z_ASSERT_STREQUAL(sb.data, "COL A    COL B          COL C\n"
-                                   "col A …  col B - row 1    -\n"
-                                   "col A …  çôl B - row 2    -\n");
+        Z_ASSERT_STREQUAL(
+            sb.data, "COL A    COL B          COL C\n"
+                     "col A …  col B - row 1    -\n"
+                     "col A …  çôl B - row 2    -\n"
+        );
 
         /* Add a row with characters that will be escaped. */
         row = qv_growlen(&data, 1);
@@ -2922,11 +3219,12 @@ Z_GROUP_EXPORT(str_buf_pp) {
 
         sb_reset(&sb);
         sb_add_csv_table(&sb, &hdr, &data, ';');
-        Z_ASSERT_STREQUAL(sb.data,
-            "COL A;COL B;COL C\n"
-            "col A - rôw 1;col B - row 1;-\n"
-            "col A - row 2;çôl B - row 2;-\n"
-            "\"col A -\n \"\"row\"\" 3\";\"çôl B -\r row 3\";-\n");
+        Z_ASSERT_STREQUAL(
+            sb.data, "COL A;COL B;COL C\n"
+                     "col A - rôw 1;col B - row 1;-\n"
+                     "col A - row 2;çôl B - row 2;-\n"
+                     "\"col A -\n \"\"row\"\" 3\";\"çôl B -\r row 3\";-\n"
+        );
 
         qv_clear(&data);
         row = qv_growlen(&data, 1);
@@ -2937,8 +3235,10 @@ Z_GROUP_EXPORT(str_buf_pp) {
 
         sb_reset(&sb);
         sb_add_table(&sb, &hdr, &data);
-        Z_ASSERT_STREQUAL(sb.data, "COL B          COL C\n"
-                                   "col B - row 1    -\n");
+        Z_ASSERT_STREQUAL(
+            sb.data, "COL B          COL C\n"
+                     "col B - row 1    -\n"
+        );
 
         /* Header with empty value. */
         hdr_data[2].title = LSTR_EMPTY_V;
@@ -2952,11 +3252,14 @@ Z_GROUP_EXPORT(str_buf_pp) {
 
         sb_reset(&sb);
         sb_add_table(&sb, &hdr, &data);
-        Z_ASSERT_STREQUAL(sb.data, "COL A  COL B  \n"
-                                   "col A  col B  col C\n");
-
-    } Z_TEST_END;
-} Z_GROUP_END
+        Z_ASSERT_STREQUAL(
+            sb.data, "COL A  COL B  \n"
+                     "col A  col B  col C\n"
+        );
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END
 
 /* }}} */
 /* {{{ conv */
@@ -2971,34 +3274,40 @@ Z_GROUP_EXPORT(conv)
         "\x40\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4a\x4b\x4c\x4d\x4e\x4f"
         "\x50\x51\x52\x53\x54\x55\x56\x57\x58\x59\x5a\x5b\x5c\x5d\x5e\x5f"
         "\x60\x61\x62\x63\x64\x65\x66\x67\x68\x69\x6a\x6b\x6c\x6d\x6e\x6f"
-        "\x70\x71\x72\x73\x74\x75\x76\x77\x78\x79\x7a\x7b\x7c\x7d\x7e\x7f");
+        "\x70\x71\x72\x73\x74\x75\x76\x77\x78\x79\x7a\x7b\x7c\x7d\x7e\x7f"
+    );
     lstr_t extended_tab = LSTR_IMMED(
-        "\x1b\x14\x1b\x28\x1b\x29\x1b\x2f\x1b\x3c\x1b\x3d\x1b\x3e\x1b\x40\x1b\x65");
+        "\x1b\x14\x1b\x28\x1b\x29\x1b\x2f\x1b"
+        "\x3c\x1b\x3d\x1b\x3e\x1b\x40\x1b\x65"
+    );
 
     Z_TEST(sb_conv_gsm) {
         sb_t tmp, out;
 
-#define TL(input, expected, desc)       \
-        ({  lstr_t in    = input;                                            \
-            lstr_t exp_s = expected;                                         \
-            sb_reset(&tmp);                                                  \
-            sb_reset(&out);                                                  \
-            sb_conv_from_gsm(&tmp, in.s, in.len);                            \
-            sb_conv_to_gsm(&out, tmp.data, tmp.len);                         \
-            Z_ASSERT_LSTREQUAL(exp_s, LSTR_SB_V(&out), desc);                \
-        })
-#define TLHEX(input, expected, desc)    \
-        ({  lstr_t in    = input;                                            \
-            lstr_t exp_s = expected;                                         \
-            SB_1k(in_hex); SB_1k(exp_hex);                                   \
-            sb_add_lstr_hex(&in_hex, in);                                    \
-            sb_add_lstr_hex(&exp_hex, exp_s);                                \
-            sb_reset(&tmp);                                                  \
-            sb_reset(&out);                                                  \
-            sb_conv_from_gsm_hex(&tmp, in_hex.data, in_hex.len);             \
-            sb_conv_to_gsm_hex(&out, tmp.data, tmp.len);                     \
-            Z_ASSERT_LSTREQUAL(LSTR_SB_V(&exp_hex), LSTR_SB_V(&out), desc);  \
-        })
+#define TL(input, expected, desc)                                            \
+    ({                                                                       \
+        lstr_t in = input;                                                   \
+        lstr_t exp_s = expected;                                             \
+        sb_reset(&tmp);                                                      \
+        sb_reset(&out);                                                      \
+        sb_conv_from_gsm(&tmp, in.s, in.len);                                \
+        sb_conv_to_gsm(&out, tmp.data, tmp.len);                             \
+        Z_ASSERT_LSTREQUAL(exp_s, LSTR_SB_V(&out), desc);                    \
+    })
+#define TLHEX(input, expected, desc)                                         \
+    ({                                                                       \
+        lstr_t in = input;                                                   \
+        lstr_t exp_s = expected;                                             \
+        SB_1k(in_hex);                                                       \
+        SB_1k(exp_hex);                                                      \
+        sb_add_lstr_hex(&in_hex, in);                                        \
+        sb_add_lstr_hex(&exp_hex, exp_s);                                    \
+        sb_reset(&tmp);                                                      \
+        sb_reset(&out);                                                      \
+        sb_conv_from_gsm_hex(&tmp, in_hex.data, in_hex.len);                 \
+        sb_conv_to_gsm_hex(&out, tmp.data, tmp.len);                         \
+        Z_ASSERT_LSTREQUAL(LSTR_SB_V(&exp_hex), LSTR_SB_V(&out), desc);      \
+    })
 
         sb_init(&tmp);
         sb_init(&out);
@@ -3009,26 +3318,30 @@ Z_GROUP_EXPORT(conv)
            "conversion with invalid characters");
 
         for (int i = 0; i < default_tab.len; i++) {
-            TL(LSTR_INIT_V(default_tab.s, i),
-               LSTR_INIT_V(default_tab.s, i),
+            TL(LSTR_INIT_V(default_tab.s, i), LSTR_INIT_V(default_tab.s, i),
                "test default table with various lengths");
-            TLHEX(LSTR_INIT_V(default_tab.s, i),
-                  LSTR_INIT_V(default_tab.s, i),
-                  "test default table with various lengths (hex)");
+            TLHEX(
+                LSTR_INIT_V(default_tab.s, i), LSTR_INIT_V(default_tab.s, i),
+                "test default table with various lengths (hex)"
+            );
         }
         for (int i = 0; i < extended_tab.len; i += 2) {
-            TL(LSTR_INIT_V(extended_tab.s, i),
-               LSTR_INIT_V(extended_tab.s, i),
+            TL(LSTR_INIT_V(extended_tab.s, i), LSTR_INIT_V(extended_tab.s, i),
                "test extension table with various lengths");
-            TLHEX(LSTR_INIT_V(extended_tab.s, i),
-                  LSTR_INIT_V(extended_tab.s, i),
-                  "test extension table with various lengths (hex)");
+            TLHEX(
+                LSTR_INIT_V(extended_tab.s, i),
+                LSTR_INIT_V(extended_tab.s, i),
+                "test extension table with various lengths (hex)"
+            );
         }
 
         {
             lstr_t str = LSTR_IMMED(
-                "coucou random:\"jk6q?#hU*1/m.VVteU[i4S|\\\"@>'wrTFuV[Csrvi<^|%/1>|"
-                "'9kpfG76aY5)gWN!+1D8aj-j|)'3'\"ZO:F#XL7n2=DpIEtU5%H8UICK.F\"&2HBOi6ZLZ[|ptN-z");
+                "coucou "
+                "random:\"jk6q?#hU*1/m.VVteU[i4S|\\\"@>'wrTFuV[Csrvi<^|%/1>|"
+                "'9kpfG76aY5)gWN!+1D8aj-j|)'3'\"ZO:F#XL7n2=DpIEtU5%H8UICK."
+                "F\"&2HBOi6ZLZ[|ptN-z"
+            );
             sb_wipe(&tmp);
             sb_reset(&out);
             sb_conv_to_gsm_hex(&tmp, str.s, str.len);
@@ -3041,20 +3354,22 @@ Z_GROUP_EXPORT(conv)
 
 #undef TL
 #undef TLHEX
-    } Z_TEST_END
+    }
+    Z_TEST_END
 
     Z_TEST(sb_conv_cimd) {
         SB_1k(sb);
         sb_t tmp, out;
 
-#define T(input, _expected, description)      \
-        ({  lstr_t expected = LSTR_IMMED(_expected);                         \
-            lstr_t in  = LSTR_IMMED(input);                                  \
+#define T(input, _expected, description)                                     \
+    ({                                                                       \
+        lstr_t expected = LSTR_IMMED(_expected);                             \
+        lstr_t in = LSTR_IMMED(input);                                       \
                                                                              \
-            sb_reset(&out);                                                  \
-            sb_conv_from_gsm_plan(&out, in.s, in.len, GSM_CIMD_PLAN);        \
-            Z_ASSERT_LSTREQUAL(expected, LSTR_SB_V(&out), description);      \
-        })
+        sb_reset(&out);                                                      \
+        sb_conv_from_gsm_plan(&out, in.s, in.len, GSM_CIMD_PLAN);            \
+        Z_ASSERT_LSTREQUAL(expected, LSTR_SB_V(&out), description);          \
+    })
 
         sb_init(&tmp);
         sb_init(&out);
@@ -3080,11 +3395,13 @@ Z_GROUP_EXPORT(conv)
             sb_addc(&sb, c);
         }
         sb_reset(&out);
-        Z_ASSERT_N(sb_conv_from_gsm_plan(&out, sb.data, sb.len,
-                                         GSM_DEFAULT_PLAN));
+        Z_ASSERT_N(
+            sb_conv_from_gsm_plan(&out, sb.data, sb.len, GSM_DEFAULT_PLAN)
+        );
         sb_reset(&out);
-        Z_ASSERT_N(sb_conv_from_gsm_plan(&out, sb.data, sb.len,
-                                         GSM_CIMD_PLAN));
+        Z_ASSERT_N(
+            sb_conv_from_gsm_plan(&out, sb.data, sb.len, GSM_CIMD_PLAN)
+        );
 
         sb_reset(&sb);
         for (int c = 0; c < 128; c++) {
@@ -3095,32 +3412,34 @@ Z_GROUP_EXPORT(conv)
         sb_conv_to_cimd(&tmp, sb.data, sb.len);
 
         sb_reset(&out);
-        Z_ASSERT_N(sb_conv_from_gsm_plan(&out, tmp.data, tmp.len,
-                                         GSM_CIMD_PLAN));
+        Z_ASSERT_N(
+            sb_conv_from_gsm_plan(&out, tmp.data, tmp.len, GSM_CIMD_PLAN)
+        );
         Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sb), LSTR_SB_V(&out));
 
         sb_wipe(&out);
         sb_wipe(&tmp);
 
 #undef T
-    } Z_TEST_END
+    }
+    Z_TEST_END
 
     Z_TEST(sb_conv_to_gsm_isok) {
-#define T(input, res, plan, description)      \
-        ({  lstr_t in  = LSTR_IMMED(input);                                 \
-            Z_ASSERT(res == sb_conv_to_gsm_isok(in.s, in.len, plan),        \
-                     description);                                          \
-        })
+#define T(input, res, plan, description)                                     \
+    ({                                                                       \
+        lstr_t in = LSTR_IMMED(input);                                       \
+        Z_ASSERT(                                                            \
+            res == sb_conv_to_gsm_isok(in.s, in.len, plan), description      \
+        );                                                                   \
+    })
 
         T("\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f",
-          false, GSM_DEFAULT_PLAN,
-          "utf8 which cannot be mapped to gsm7");
+          false, GSM_DEFAULT_PLAN, "utf8 which cannot be mapped to gsm7");
 
         T("\x40\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4a\x4b\x4c\x4d\x4e\x4f"
           /* éèêàâç */
           "\xc3\xa9\xc3\xa8\xc3\xaa\xc3\xa0\xc3\xa2\xc3\xa7",
-          true, GSM_DEFAULT_PLAN,
-          "utf8 which can be mapped to gsm7");
+          true, GSM_DEFAULT_PLAN, "utf8 which can be mapped to gsm7");
 
         T("\xe2\x82\xac", false, GSM_DEFAULT_PLAN,
           "euro cannot be mapped with default table");
@@ -3128,33 +3447,40 @@ Z_GROUP_EXPORT(conv)
           "euro can be mapped with extension table");
 
 #undef T
-    } Z_TEST_END
+    }
+    Z_TEST_END
     Z_TEST(sb_conv_to_gsm7) {
         SB_1k(sb);
         const char *long_str = "abcdefghijklmnopqrstuvwxyz";
         struct {
             const char *in;
-            int         size;
-            lstr_t      exp;
+            int size;
+            lstr_t exp;
         } t[] = {
 
-#define T(_in, _size, _exp) { .in = _in, .size = _size, .exp = _exp }
+#define T(_in, _size, _exp) {.in = _in, .size = _size, .exp = _exp}
 
             T("abcd", 4, LSTR_IMMED("\x61\xF1\x98\x0C")),
             /* euro symbole */
             T("\xE2\x82\xAC\x00", 2, LSTR_IMMED("\x9B\x32")),
             /* start with euro */
-            T("\xE2\x82\xAC""abcd", 6, LSTR_IMMED("\x9B\x72\x58\x3C\x26\x03")),
+            T("\xE2\x82\xAC"
+              "abcd",
+              6, LSTR_IMMED("\x9B\x72\x58\x3C\x26\x03")),
             /* euro in the middle */
-            T("ab\xE2\x82\xAC""cd", 6, LSTR_IMMED("\x61\xF1\xA6\x3C\x26\x03")),
+            T("ab\xE2\x82\xAC"
+              "cd",
+              6, LSTR_IMMED("\x61\xF1\xA6\x3C\x26\x03")),
             /* stop with euro */
             T("abcd\xE2\x82\xAC", 6, LSTR_IMMED("\x61\xF1\x98\xBC\x29\x03")),
             /* [ and ] are extended */
             T("[*]", 5, LSTR_IMMED("\x1B\x9E\x6A\xE3\x03")),
             /* long string */
             T(long_str, 23,
-              LSTR_IMMED("\x61\xF1\x98\x5C\x36\x9F\xD1\x69\xF5\x9A\xDD\x76"
-                         "\xBF\xE1\x71\xF9\x9C\x5E\xB7\xDF\xF1\x79\x3D")),
+              LSTR_IMMED(
+                  "\x61\xF1\x98\x5C\x36\x9F\xD1\x69\xF5\x9A\xDD\x76"
+                  "\xBF\xE1\x71\xF9\x9C\x5E\xB7\xDF\xF1\x79\x3D"
+              )),
 
 #undef T
 
@@ -3162,31 +3488,33 @@ Z_GROUP_EXPORT(conv)
 
         for (int i = 0; i < countof(t); i++) {
             sb_reset(&sb);
-            Z_ASSERT_N(sb_conv_to_gsm7(&sb, 0, t[i].in, ' ',
-                                       GSM_EXTENSION_PLAN, -1));
+            Z_ASSERT_N(
+                sb_conv_to_gsm7(&sb, 0, t[i].in, ' ', GSM_EXTENSION_PLAN, -1)
+            );
             sb_reset(&sb);
-            Z_ASSERT_N(sb_conv_to_gsm7(&sb, 0, t[i].in, ' ',
-                                               GSM_EXTENSION_PLAN,
-                                               t[i].size));
+            Z_ASSERT_N(sb_conv_to_gsm7(
+                &sb, 0, t[i].in, ' ', GSM_EXTENSION_PLAN, t[i].size
+            ));
             Z_ASSERT_LSTREQUAL(t[i].exp, LSTR_SB_V(&sb));
             sb_reset(&sb);
-            Z_ASSERT_N(sb_conv_to_gsm7(&sb, 0, t[i].in, ' ',
-                                               GSM_EXTENSION_PLAN,
-                                               t[i].size + 1));
+            Z_ASSERT_N(sb_conv_to_gsm7(
+                &sb, 0, t[i].in, ' ', GSM_EXTENSION_PLAN, t[i].size + 1
+            ));
             Z_ASSERT_LSTREQUAL(t[i].exp, LSTR_SB_V(&sb));
             sb_reset(&sb);
-            Z_ASSERT_NEG(sb_conv_to_gsm7(&sb, 0, t[i].in, ' ',
-                                                 GSM_EXTENSION_PLAN,
-                                                 t[i].size - 1));
+            Z_ASSERT_NEG(sb_conv_to_gsm7(
+                &sb, 0, t[i].in, ' ', GSM_EXTENSION_PLAN, t[i].size - 1
+            ));
         }
 
         /* long string without check */
-        Z_ASSERT_N(sb_conv_to_gsm7(&sb, 0, long_str, ' ',
-                                           GSM_EXTENSION_PLAN, -1));
-
-    } Z_TEST_END
-
-} Z_GROUP_END
+        Z_ASSERT_N(
+            sb_conv_to_gsm7(&sb, 0, long_str, ' ', GSM_EXTENSION_PLAN, -1)
+        );
+    }
+    Z_TEST_END
+}
+Z_GROUP_END
 
 /* }}} */
 

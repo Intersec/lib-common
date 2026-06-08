@@ -32,7 +32,8 @@ void spsc_queue_wipe(spsc_queue_t *q)
 {
     spsc_node_t *n = q->first;
     do {
-        spsc_node_t *next = atomic_load_explicit(&n->next, memory_order_relaxed);
+        spsc_node_t *next =
+            atomic_load_explicit(&n->next, memory_order_relaxed);
 
         p_delete(&n);
         n = next;

@@ -23,9 +23,9 @@ static void iop_core_obj_wipe(iop_core_obj_t *obj)
     p_delete(&obj->desc);
 }
 
-OBJ_VTABLE(iop_core_obj)
-    iop_core_obj.wipe = &iop_core_obj_wipe;
-OBJ_VTABLE_END()
+OBJ_VTABLE(iop_core_obj) {
+    cls->wipe = &iop_core_obj_wipe;
+}
 
 qm_k32_t(iop_core_cls, const object_class_t *nonnull);
 
@@ -50,23 +50,24 @@ static void iop_core_obj_map_wipe(iop_core_obj_map_t *map)
 
 DO_DELETE(iop_core_obj_map_t, iop_core_obj_map);
 
-const object_class_t *nullable
-_iop_core_obj_map_get_cls(const iop_core_obj_map_t *nonnull map,
-                          const void *nonnull iop_obj)
+const object_class_t *nullable _iop_core_obj_map_get_cls(
+    const iop_core_obj_map_t *nonnull map, const void *nonnull iop_obj
+)
 {
     const iop_struct_t *iop_class;
 
     iop_class = *(const iop_struct_t **)iop_obj;
 
-    assert (iop_struct_is_class(iop_class));
+    assert(iop_struct_is_class(iop_class));
 
-    return qm_get_def_safe(iop_core_cls, &map->qm,
-                           iop_class->class_attrs->class_id, NULL);
+    return qm_get_def_safe(
+        iop_core_cls, &map->qm, iop_class->class_attrs->class_id, NULL
+    );
 }
 
-void *nullable
-_iop_core_obj_map_new_obj(const iop_core_obj_map_t *nonnull map,
-                          const void *nonnull iop_obj)
+void *nullable _iop_core_obj_map_new_obj(
+    const iop_core_obj_map_t *nonnull map, const void *nonnull iop_obj
+)
 {
     const object_class_t *cls;
     const iop_struct_t *iop_class;
@@ -80,22 +81,28 @@ _iop_core_obj_map_new_obj(const iop_core_obj_map_t *nonnull map,
     return obj;
 }
 
-void _iop_core_obj_map_register_cls(iop_core_obj_map_t *nonnull map,
-                                    const iop_struct_t *nonnull iop_cls,
-                                    const object_class_t *nonnull cls)
+void _iop_core_obj_map_register_cls(
+    iop_core_obj_map_t *nonnull map, const iop_struct_t *nonnull iop_cls,
+    const object_class_t *nonnull cls
+)
 {
     uint32_t pos;
 
-    e_assert(panic, iop_struct_is_class(iop_cls),
-             "the IOP struct is not a class");
-    pos = qm_put(iop_core_cls, &map->qm,
-                 iop_cls->class_attrs->class_id, cls, 0);
-    e_assert(panic, !(pos & QHASH_COLLISION),
-             "class for `%pL' registered twice", &iop_cls->fullname);
+    e_assert(
+        panic, iop_struct_is_class(iop_cls), "the IOP struct is not a class"
+    );
+    pos = qm_put(
+        iop_core_cls, &map->qm, iop_cls->class_attrs->class_id, cls, 0
+    );
+    e_assert(
+        panic, !(pos & QHASH_COLLISION), "class for `%pL' registered twice",
+        &iop_cls->fullname
+    );
 }
 
-void iop_core_obj_map_for_each_cls(const iop_core_obj_map_t *nonnull map,
-                                   on_core_obj_cls_b nonnull on_cls)
+void iop_core_obj_map_for_each_cls(
+    const iop_core_obj_map_t *nonnull map, on_core_obj_cls_b nonnull on_cls
+)
 {
     qm_for_each_key_value(iop_core_cls, class_id, cls, &map->qm) {
         if (on_cls(class_id, cls) < 0) {

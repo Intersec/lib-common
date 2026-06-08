@@ -19,12 +19,13 @@
 #if !defined(IS_LIB_COMMON_HASH_H) || defined(IS_LIB_COMMON_HASH_IOP_H)
 #  error "you must include <lib-common/hash.h> instead"
 #else
-#define IS_LIB_COMMON_HASH_IOP_H
+#  define IS_LIB_COMMON_HASH_IOP_H
 
 struct iop_struct_t;
 
-typedef void (iop_hash_f)(void * nonnull ctx, const void * nonnull input,
-                          ssize_t ilen);
+typedef void(iop_hash_f)(
+    void *nonnull ctx, const void *nonnull input, ssize_t ilen
+);
 
 enum {
     IOP_HASH_SKIP_MISSING = 1 << 0, /* Skip missing optional fields         */
@@ -36,10 +37,10 @@ enum {
                                               */
 };
 
-#define ATTRS
-#define F(x)  x
-#include "iop.in.h"
-#undef F
-#undef ATTRS
+#  define ATTRS
+#  define F(x) x
+#  include "iop.in.h"
+#  undef F
+#  undef ATTRS
 
 #endif

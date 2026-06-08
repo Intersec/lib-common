@@ -50,7 +50,7 @@ struct iop_env_t {
 
     /** ArcSwap holding the current IOP context (owned, freed in
      * `iop_env_wipe`). */
-    iop_env_ctx_arcswap_t * nonnull ctx_swap;
+    iop_env_ctx_arcswap_t *nonnull ctx_swap;
 
     /** The Lmid_t for the DSOs loaded in the IOP environment.
      *
@@ -98,26 +98,25 @@ void iop_env_ctx_copy_fields(iop_env_ctx_t *dst, const iop_env_ctx_t *src);
 /* {{{ Rust FFI prototypes */
 
 /** Drop function pointer used by the Rust ArcSwap to free a ctx. */
-typedef void (*iop_env_ctx_drop_f)(void * nonnull ctx);
+typedef void (*iop_env_ctx_drop_f)(void *nonnull ctx);
 
-iop_env_ctx_arcswap_t * nonnull
-iop_env_ctx_arcswap_new(void * nonnull initial_ctx,
-                        iop_env_ctx_drop_f nonnull drop_fn);
+iop_env_ctx_arcswap_t *nonnull iop_env_ctx_arcswap_new(
+    void *nonnull initial_ctx, iop_env_ctx_drop_f nonnull drop_fn
+);
 
-void
-iop_env_ctx_arcswap_free(iop_env_ctx_arcswap_t * nullable arcswap);
+void iop_env_ctx_arcswap_free(iop_env_ctx_arcswap_t *nullable arcswap);
 
 iop_env_ctx_guard_t
-iop_env_ctx_arcswap_acquire(const iop_env_ctx_arcswap_t * nonnull arcswap);
+iop_env_ctx_arcswap_acquire(const iop_env_ctx_arcswap_t *nonnull arcswap);
 
 void iop_env_ctx_arcswap_release(iop_env_ctx_guard_t guard);
 
-iop_env_ctx_guard_t
-iop_env_ctx_arcswap_guard_dup(iop_env_ctx_guard_t guard);
+iop_env_ctx_guard_t iop_env_ctx_arcswap_guard_dup(iop_env_ctx_guard_t guard);
 
-void iop_env_ctx_arcswap_store(iop_env_ctx_arcswap_t * nonnull arcswap,
-                               void * nonnull new_ctx,
-                               iop_env_ctx_drop_f nonnull drop_fn);
+void iop_env_ctx_arcswap_store(
+    iop_env_ctx_arcswap_t *nonnull arcswap, void *nonnull new_ctx,
+    iop_env_ctx_drop_f nonnull drop_fn
+);
 
 /* }}} */
 
@@ -128,7 +127,7 @@ void iop_env_ctx_arcswap_store(iop_env_ctx_arcswap_t * nonnull arcswap,
  *  installed via \ref iop_env_ctx_replace or freed via
  *  \ref iop_env_ctx_free_wipe.
  */
-iop_env_ctx_t * nonnull iop_env_ctx_copy(const iop_env_t * nonnull iop_env);
+iop_env_ctx_t *nonnull iop_env_ctx_copy(const iop_env_t *nonnull iop_env);
 
 /** Atomically install \p *new_ctx into \p iop_env, dropping the
  *  previous ctx once its last reader releases it.
@@ -136,18 +135,21 @@ iop_env_ctx_t * nonnull iop_env_ctx_copy(const iop_env_t * nonnull iop_env);
  *  Takes ownership of \p *new_ctx; the caller's pointer is set to NULL
  *  on return.
  */
-void iop_env_ctx_replace(iop_env_t * nonnull iop_env,
-                         iop_env_ctx_t * nullable * nonnull new_ctx);
+void iop_env_ctx_replace(
+    iop_env_t *nonnull iop_env, iop_env_ctx_t * nullable * nonnull new_ctx
+);
 
-int iop_check_registered_classes_ctx(const iop_env_ctx_t *iop_env_ctx,
-                                     sb_t *err);
+int iop_check_registered_classes_ctx(
+    const iop_env_ctx_t *iop_env_ctx, sb_t *err
+);
 
-iop_dso_t *iop_dso_get_from_pkg(const iop_env_t *iop_env,
-                                const iop_pkg_t *pkg);
+iop_dso_t *
+iop_dso_get_from_pkg(const iop_env_t *iop_env, const iop_pkg_t *pkg);
 
-int iop_register_packages_ctx(iop_env_ctx_t *iop_env_ctx,
-                              const iop_pkg_t * const *pkgs,
-                              int len, iop_dso_t * nullable dso, sb_t *err);
+int iop_register_packages_ctx(
+    iop_env_ctx_t *iop_env_ctx, const iop_pkg_t *const *pkgs, int len,
+    iop_dso_t *nullable dso, sb_t *err
+);
 
 /* }}} */
 /* {{{ Getters */
@@ -160,25 +162,25 @@ iop_pkg_get_struct_by_name(const iop_pkg_t *pkg, lstr_t name);
 
 static inline bool iop_int_type_is_signed(iop_type_t type)
 {
-    assert (type <= IOP_T_U64);
+    assert(type <= IOP_T_U64);
     return !(type & 1);
 }
 
 static inline size_t iop_int_type_size(iop_type_t type)
 {
-    assert (type <= IOP_T_U64);
+    assert(type <= IOP_T_U64);
     return 1 << (type >> 1);
 }
-
 
 /** Rough equivalent of memcmp() for IOP objects.
  *
  * This API is exposed only for testing purposes and should not be used in
  * production code.
  */
-bool z_iop_mem_equals_desc(const iop_struct_t *nonnull st,
-                           const void *nonnull v1,
-                           const void *nonnull v2);
+bool z_iop_mem_equals_desc(
+    const iop_struct_t *nonnull st, const void *nonnull v1,
+    const void *nonnull v2
+);
 
 /* }}} */
 

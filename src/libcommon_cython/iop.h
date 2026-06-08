@@ -22,13 +22,13 @@
 #include <lib-common/iop.h>
 
 /* Macros for ic hdr */
-#define is_ic_hdr_simple_hdr(hdr)  IOP_UNION_IS(ic__hdr, (hdr), simple)
-#define t_iop_new_ic_hdr()  t_iop_new(ic__hdr)
-#define iop_init_ic_simple_hdr(hdr)  iop_init(ic__simple_hdr, (hdr))
-#define iop_ic_hdr_from_simple_hdr(hdr)  IOP_UNION(ic__hdr, simple, (hdr))
-#define iop_dup_ic_hdr(hdr)  iop_dup(ic__hdr, (hdr))
+#define is_ic_hdr_simple_hdr(hdr) IOP_UNION_IS(ic__hdr, (hdr), simple)
+#define t_iop_new_ic_hdr() t_iop_new(ic__hdr)
+#define iop_init_ic_simple_hdr(hdr) iop_init(ic__simple_hdr, (hdr))
+#define iop_ic_hdr_from_simple_hdr(hdr) IOP_UNION(ic__hdr, simple, (hdr))
+#define iop_dup_ic_hdr(hdr) iop_dup(ic__hdr, (hdr))
 
 /* Macros for ichannels */
-#define ichannel_get_cmd(ic)  (ic)->cmd
+#define ichannel_get_cmd(ic) (ic)->cmd
 
 #endif /* IS_CYTHON_LIBCOMMON_IOP_H */

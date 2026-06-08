@@ -22,11 +22,11 @@
 #include <lib-common/core.h>
 
 #if __has_feature(nullability)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic error "-Wnullability-completeness"
-#if __has_warning("-Wnullability-completeness-on-arrays")
-#pragma GCC diagnostic ignored "-Wnullability-completeness-on-arrays"
-#endif
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic error "-Wnullability-completeness"
+#  if __has_warning("-Wnullability-completeness-on-arrays")
+#    pragma GCC diagnostic ignored "-Wnullability-completeness-on-arrays"
+#  endif
 #endif
 
 /* An implementation of anchor-based htlists.
@@ -78,24 +78,24 @@
  */
 
 typedef struct htnode_t {
-    struct htnode_t * nullable next;
+    struct htnode_t *nullable next;
 } htnode_t;
 
 typedef struct htlist_t {
-    htnode_t * nullable head;
-    htnode_t * nullable tail;
+    htnode_t *nullable head;
+    htnode_t *nullable tail;
 } htlist_t;
 GENERIC_INIT(htlist_t, htlist);
 
-#define HTLIST(name)       htlist_t name = HTLIST_INIT(name)
-#define HTLIST_INIT(name)  { .tail = NULL }
+#define HTLIST(name) htlist_t name = HTLIST_INIT(name)
+#define HTLIST_INIT(name) {.tail = NULL}
 
-static inline bool htlist_is_empty(const htlist_t * nonnull l)
+static inline bool htlist_is_empty(const htlist_t *nonnull l)
 {
     return l->tail == NULL;
 }
 
-static inline void htlist_add(htlist_t * nonnull l, htnode_t * nonnull n)
+static inline void htlist_add(htlist_t *nonnull l, htnode_t *nonnull n)
 {
     n->next = l->head;
     l->head = n;
@@ -104,22 +104,22 @@ static inline void htlist_add(htlist_t * nonnull l, htnode_t * nonnull n)
     }
 }
 
-static inline void htlist_add_tail(htlist_t * nonnull l, htnode_t * nonnull n)
+static inline void htlist_add_tail(htlist_t *nonnull l, htnode_t *nonnull n)
 {
     if (htlist_is_empty(l)) {
         htlist_add(l, n);
     } else {
         n->next = l->tail->next;
         l->tail->next = n;
-        l->tail  = n;
+        l->tail = n;
     }
 }
 
 /* Adding a node after another one. If prev is NULL, the new_node will be
  * added to the head */
-static inline void
-htlist_add_after(htlist_t * nonnull l, htnode_t * nullable prev,
-                 htnode_t * nonnull new_node)
+static inline void htlist_add_after(
+    htlist_t *nonnull l, htnode_t *nullable prev, htnode_t *nonnull new_node
+)
 {
     if (!prev) {
         return htlist_add(l, new_node);
@@ -133,11 +133,11 @@ htlist_add_after(htlist_t * nonnull l, htnode_t * nullable prev,
     }
 }
 
-static inline htnode_t * nonnull htlist_pop(htlist_t * nonnull l)
+static inline htnode_t *nonnull htlist_pop(htlist_t *nonnull l)
 {
     htnode_t *res = l->head;
 
-    assert (!htlist_is_empty(l));
+    assert(!htlist_is_empty(l));
 
     l->head = res->next;
     if (l->tail == res) {
@@ -146,8 +146,7 @@ static inline htnode_t * nonnull htlist_pop(htlist_t * nonnull l)
     return res;
 }
 
-static inline void htlist_splice(htlist_t * nonnull dst,
-                                 htlist_t * nonnull src)
+static inline void htlist_splice(htlist_t *nonnull dst, htlist_t *nonnull src)
 {
     if (!htlist_is_empty(src)) {
         src->tail->next = dst->head;
@@ -159,16 +158,15 @@ static inline void htlist_splice(htlist_t * nonnull dst,
     }
 }
 
-static inline void htlist_move(htlist_t * nonnull dst,
-                               htlist_t * nonnull src)
+static inline void htlist_move(htlist_t *nonnull dst, htlist_t *nonnull src)
 {
     htlist_init(dst);
     htlist_splice(dst, src);
     htlist_init(src);
 }
 
-static inline void htlist_splice_tail(htlist_t * nonnull dst,
-                                      htlist_t * nonnull src)
+static inline void
+htlist_splice_tail(htlist_t *nonnull dst, htlist_t *nonnull src)
 {
     if (!htlist_is_empty(src)) {
         src->tail->next = dst->tail->next;
@@ -180,28 +178,40 @@ static inline void htlist_splice_tail(htlist_t * nonnull dst,
     }
 }
 
-#define htlist_entry(ptr, type, member)    container_of(ptr, type, member)
-#define htlist_entry_of(ptr, n, member)    htlist_entry(ptr, typeof(*(n)), member)
-#define htlist_first_entry(l, type, member)  htlist_entry((l)->head, type, member)
-#define htlist_last_entry(l, type, member)  htlist_entry((htnode_t *)(l)->tail, type, member)
-#define htlist_pop_entry(hd, type, member) htlist_entry(htlist_pop(hd), type, member)
+#define htlist_entry(ptr, type, member) container_of(ptr, type, member)
+#define htlist_entry_of(ptr, n, member)                                      \
+    htlist_entry(ptr, typeof(*(n)), member)
+#define htlist_first_entry(l, type, member)                                  \
+    htlist_entry((l)->head, type, member)
+#define htlist_last_entry(l, type, member)                                   \
+    htlist_entry((htnode_t *)(l)->tail, type, member)
+#define htlist_pop_entry(hd, type, member)                                   \
+    htlist_entry(htlist_pop(hd), type, member)
 
-#define __htlist_for_each(pos, n, hd, doit)  \
-     for (htnode_t *n##_end_ = (hd)->tail ? (hd)->tail->next : (pos),        \
-          *n = (pos);                                                        \
-          n != n##_end_ && ({ doit; 1; }); n = n->next)
+#define __htlist_for_each(pos, n, hd, doit)                                  \
+    for (htnode_t *n##_end_ = (hd)->tail ? (hd)->tail->next : (pos),         \
+                  *n = (pos);                                                \
+         n != n##_end_ && ({                                                 \
+             doit;                                                           \
+             1;                                                              \
+         });                                                                 \
+         n = n->next)
 
-#define htlist_for_each(n, hd)    __htlist_for_each((hd)->head, n, hd, )
-#define htlist_for_each_start(pos, n, hd)    __htlist_for_each(pos, n, hd, )
+#define htlist_for_each(n, hd) __htlist_for_each((hd)->head, n, hd, )
+#define htlist_for_each_start(pos, n, hd) __htlist_for_each(pos, n, hd, )
 
-#define htlist_for_each_entry(n, hd, member)  \
-    __htlist_for_each((hd)->head, __real_##n, hd,                            \
-                      n = htlist_entry_of(__real_##n, n, member))
-#define htlist_for_each_entry_start(pos, n, hd, member) \
-    __htlist_for_each(&(pos)->member, __real_##n, hd,                        \
-                      n = htlist_entry_of(__real_##n, n, member))
+#define htlist_for_each_entry(n, hd, member)                                 \
+    __htlist_for_each(                                                       \
+        (hd)->head, __real_##n, hd,                                          \
+        n = htlist_entry_of(__real_##n, n, member)                           \
+    )
+#define htlist_for_each_entry_start(pos, n, hd, member)                      \
+    __htlist_for_each(                                                       \
+        &(pos)->member, __real_##n, hd,                                      \
+        n = htlist_entry_of(__real_##n, n, member)                           \
+    )
 
-#define htlist_add_entry_after(hd, prev, new_entity, member)  \
+#define htlist_add_entry_after(hd, prev, new_entity, member)                 \
     do {                                                                     \
         typeof(prev) _ptr = prev;                                            \
         typeof(prev) _n_ptr = new_entity;                                    \
@@ -210,26 +220,26 @@ static inline void htlist_splice_tail(htlist_t * nonnull dst,
         htlist_add_after(hd, _prev_node, &_n_ptr->member);                   \
     } while (0)
 
-#define htlist_deep_clear(ptr, type, member, delete)  \
+#define htlist_deep_clear(ptr, type, member, delete)                         \
     do {                                                                     \
         type *e, *prev = NULL;                                               \
         htlist_t *_ptr = ptr;                                                \
                                                                              \
         htlist_for_each_entry(e, _ptr, member) {                             \
             if (prev) {                                                      \
-                delete(&prev);                                               \
+                delete (&prev);                                              \
             }                                                                \
             prev = e;                                                        \
         }                                                                    \
         if (prev) {                                                          \
-            delete(&prev);                                                   \
+            delete (&prev);                                                  \
         }                                                                    \
         _ptr->head = NULL;                                                   \
         _ptr->tail = _ptr->head;                                             \
     } while (0)
 
 #if __has_feature(nullability)
-#pragma GCC diagnostic pop
+#  pragma GCC diagnostic pop
 #endif
 
 #endif

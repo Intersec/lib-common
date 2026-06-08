@@ -71,10 +71,12 @@ uint32_t gcd_stein(uint32_t a, uint32_t b)
     uint8_t za;
     uint8_t zb;
 
-    if (!a)
+    if (!a) {
         return b;
-    if (!b)
+    }
+    if (!b) {
         return a;
+    }
 
     za = bsf32(a);
     a >>= za;

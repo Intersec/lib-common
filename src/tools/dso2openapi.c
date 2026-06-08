@@ -31,8 +31,7 @@ static struct {
     const char *module;
 } opts_g;
 
-static iop_dso_t *
-handle_args(int argc, char **argv, iop_env_t *iop_env)
+static iop_dso_t *handle_args(int argc, char **argv, iop_env_t *iop_env)
 {
     const char *arg0 = NEXTARG(argc, argv);
     iop_dso_t *dso;
@@ -40,19 +39,25 @@ handle_args(int argc, char **argv, iop_env_t *iop_env)
     popt_t options[] = {
         OPT_FLAG('h', "help", &opts_g.help, "show help"),
         OPT_STR('d', "dso", &opts_g.dso_path, "path to IOP dso file"),
-        OPT_STR('m', "module", &opts_g.module,
-                "fullname of the IOP module to use"),
-        OPT_STR('w', "whitelist", &opts_g.whitelist_path,
-                "path to the RPCs whitelist file"),
-        OPT_STR(0, "description", &opts_g.description,
-                "Add a description of the openapi app"),
+        OPT_STR(
+            'm', "module", &opts_g.module, "fullname of the IOP module to use"
+        ),
+        OPT_STR(
+            'w', "whitelist", &opts_g.whitelist_path,
+            "path to the RPCs whitelist file"
+        ),
+        OPT_STR(
+            0, "description", &opts_g.description,
+            "Add a description of the openapi app"
+        ),
         OPT_END(),
     };
 
     argc = parseopt(argc, argv, options, 0);
     if (argc < 3 || opts_g.help) {
-        makeusage(!opts_g.help, arg0, "<name> <version> <route>", NULL,
-                  options);
+        makeusage(
+            !opts_g.help, arg0, "<name> <version> <route>", NULL, options
+        );
     }
 
     opts_g.title = NEXTARG(argc, argv);
@@ -77,8 +82,7 @@ handle_args(int argc, char **argv, iop_env_t *iop_env)
     return dso;
 }
 
-static const iop_mod_t * nullable
-get_iop_module(const iop_dso_t * nonnull dso)
+static const iop_mod_t *nullable get_iop_module(const iop_dso_t *nonnull dso)
 {
     lstr_t wanted_module = LSTR(opts_g.module);
     const iop_mod_t *module = NULL;
@@ -91,8 +95,11 @@ get_iop_module(const iop_dso_t * nonnull dso)
     }
 
     if (!module) {
-        e_error("Could not find the IOP module `%pL` in the DSO. Here are "
-                "the available modules:", &wanted_module);
+        e_error(
+            "Could not find the IOP module `%pL` in the DSO. Here are "
+            "the available modules:",
+            &wanted_module
+        );
         qm_for_each_key(iop_mod, mod_name, &dso->mod_h) {
             e_error("  `%pL`", &mod_name);
         }
@@ -101,8 +108,7 @@ get_iop_module(const iop_dso_t * nonnull dso)
     return module;
 }
 
-static int
-t_whitelist_rpcs(iop_openapi_t *oa)
+static int t_whitelist_rpcs(iop_openapi_t *oa)
 {
     FILE *file;
     SB_1k(sb);
@@ -124,23 +130,25 @@ t_whitelist_rpcs(iop_openapi_t *oa)
         sb_reset(&sb);
     }
     if (res < 0) {
-        e_error("error while reading whitelist file `%s`: %m",
-                opts_g.whitelist_path);
+        e_error(
+            "error while reading whitelist file `%s`: %m",
+            opts_g.whitelist_path
+        );
         return -1;
     }
 
     return 0;
 }
 
-static int yaml_pack_write_stdout(void * nullable priv,
-                                  const void * nonnull buf, int len,
-                                  sb_t *err)
+static int yaml_pack_write_stdout(
+    void *nullable priv, const void *nonnull buf, int len, sb_t *err
+)
 {
     return printf("%.*s", len, (const char *)buf);
 }
 
 static int
-generate_openapi(const iop_env_t *iop_env, const iop_mod_t * nonnull module)
+generate_openapi(const iop_env_t *iop_env, const iop_mod_t *nonnull module)
 {
     t_scope;
     SB_1k(err);
@@ -149,8 +157,10 @@ generate_openapi(const iop_env_t *iop_env, const iop_mod_t * nonnull module)
     yaml_data_t yaml;
     yaml_pack_env_t *env;
 
-    oa = t_new_iop_openapi(iop_env_ctx, LSTR(opts_g.title),
-                           LSTR(opts_g.version), module, LSTR(opts_g.route));
+    oa = t_new_iop_openapi(
+        iop_env_ctx, LSTR(opts_g.title), LSTR(opts_g.version), module,
+        LSTR(opts_g.route)
+    );
     if (opts_g.description) {
         t_iop_openapi_set_description(oa, LSTR(opts_g.description));
     }

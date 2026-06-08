@@ -24,13 +24,14 @@
 #include <lib-common/z.h>
 
 struct {
-    int events[ LOG_FILE_DELETE + 1 ];
+    int events[LOG_FILE_DELETE + 1];
 } log_files_calls_g;
 #define _G log_files_calls_g
 
-
-static void on_cb(struct log_file_t *file, enum log_file_event event,
-                  const char *fpath, void *priv)
+static void on_cb(
+    struct log_file_t *file, enum log_file_event event, const char *fpath,
+    void *priv
+)
 {
     _G.events[event]++;
 }
@@ -58,16 +59,15 @@ static int z_check_file_permission(const char *prefix, uint32_t mode)
 
 Z_GROUP_EXPORT(file_log)
 {
-#define RANDOM_DATA_SIZE  (2 << 20)
-#define NB_FILES          10
+#define RANDOM_DATA_SIZE (2 << 20)
+#define NB_FILES 10
 
     Z_TEST(file_log_max_file_size) {
         t_scope;
-        lstr_t      path = t_lstr_fmt("%*pMtmp_log",
-                                      LSTR_FMT_ARG(z_tmpdir_g));
-        char       *data = t_new_raw(char, RANDOM_DATA_SIZE);
+        lstr_t path = t_lstr_fmt("%*pMtmp_log", LSTR_FMT_ARG(z_tmpdir_g));
+        char *data = t_new_raw(char, RANDOM_DATA_SIZE);
         log_file_t *cfg;
-        bool        waiting = true;
+        bool waiting = true;
 
         Z_TEST_FLAGS("redmine_43539");
 
@@ -81,7 +81,7 @@ Z_GROUP_EXPORT(file_log)
         }
 
         /* create dummy log file */
-        for(int i = 0; i < NB_FILES; i++) {
+        for (int i = 0; i < NB_FILES; i++) {
             lstr_t name = t_lstr_fmt("%s_19700101_%06d.log", path.s, i);
             file_t *file = file_open(name.s, FILE_WRONLY | FILE_CREATE, 0666);
 
@@ -115,7 +115,7 @@ Z_GROUP_EXPORT(file_log)
             fc = globbuf.gl_pathc;
             if (fc == NB_FILES - 1) {
                 waiting = false;
-                for (int i = 0;  i < fc; i++) {
+                for (int i = 0; i < fc; i++) {
                     fv[i][strlen(fv[i]) - 3] = '\0';
                     if (stat(fv[i], &st) == 0) {
                         waiting = true;
@@ -140,7 +140,8 @@ Z_GROUP_EXPORT(file_log)
 
         /* Properly wait for gzip children termination. */
         el_loop();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
 #define NB_RECENT_FILES 3
 
@@ -164,11 +165,15 @@ Z_GROUP_EXPORT(file_log)
         }
 
         /* Retrieve the date from 1.5 years ago. */
-        Z_ASSERT_GT(format_timestamp("%Y%m%d", now - 47304000, NULL, date_buf,
-                                     countof(date_buf)), 0);
+        Z_ASSERT_GT(
+            format_timestamp(
+                "%Y%m%d", now - 47304000, NULL, date_buf, countof(date_buf)
+            ),
+            0
+        );
 
         /* Create NB_FILES dummy log files that were created 1.5 years ago. */
-        for(int i = 0; i < NB_FILES; i++) {
+        for (int i = 0; i < NB_FILES; i++) {
             lstr_t name = t_lstr_fmt("%s_%s_%06d.log", path.s, date_buf, i);
             file_t *file = file_open(name.s, FILE_WRONLY | FILE_CREATE, 0666);
 
@@ -177,11 +182,15 @@ Z_GROUP_EXPORT(file_log)
         }
 
         /* Retrieve the current date. */
-        Z_ASSERT_GT(format_timestamp("%Y%m%d", now, NULL, date_buf,
-                                     countof(date_buf)), 0);
+        Z_ASSERT_GT(
+            format_timestamp(
+                "%Y%m%d", now, NULL, date_buf, countof(date_buf)
+            ),
+            0
+        );
 
         /* Create NB_RECENT_FILES recent dummy log files. */
-        for(int i = 0; i < NB_RECENT_FILES; i++) {
+        for (int i = 0; i < NB_RECENT_FILES; i++) {
             lstr_t name = t_lstr_fmt("%s_%s_%06d.log", path.s, date_buf, i);
             file_t *file = file_open(name.s, FILE_WRONLY | FILE_CREATE, 0666);
 
@@ -228,7 +237,8 @@ Z_GROUP_EXPORT(file_log)
 
         /* Properly wait for gzip children termination. */
         el_loop();
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 #undef NB_RECENT_FILES
 #undef RANDOM_DATA_SIZE
 #undef NB_FILES
@@ -255,5 +265,7 @@ Z_GROUP_EXPORT(file_log)
         Z_ASSERT_EQ(log_file_close(&log_file), 0);
 
         Z_HELPER_RUN(z_check_file_permission(path.s, 0640u));
-    } Z_TEST_END;
-} Z_GROUP_END
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END

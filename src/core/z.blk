@@ -42,22 +42,22 @@ enum z_state {
 struct z_grp {
     lstr_t name;
 
-    int    state;
+    int state;
     lstr_t skip_reason;
     lstr_t todo_reason;
 
-    int    n_total;
-    int    n_total_digits;
+    int n_total;
+    int n_total_digits;
 
-    int    t_idx;
-    int    t_running;
-    int    t_asserts;
+    int t_idx;
+    int t_running;
+    int t_asserts;
 
-    int    t_skipped;
-    int    t_failed;
-    int    t_passed;
-    int    t_todo_passed;
-    int    t_todo_failed;
+    int t_skipped;
+    int t_failed;
+    int t_passed;
+    int t_todo_passed;
+    int t_todo_failed;
 
     lstr_t t_name;
     lstr_t t_skip_reason;
@@ -71,80 +71,95 @@ struct z_grp {
 struct z_export *z_exports_g;
 
 static struct {
-    bool          stopping;
-    bool          do_fancy_output;
-    int           res;
-    char         *wd;
-    struct z_grp  grp;
-    qv_t(z_cbs)   cbs;
-    qv_t(lstr)    only;
-    qv_t(z_blk)   blks;
+    bool stopping;
+    bool do_fancy_output;
+    int res;
+    char *wd;
+    struct z_grp grp;
+    qv_t(z_cbs) cbs;
+    qv_t(lstr) only;
+    qv_t(z_blk) blks;
 
-    qh_t(lstr)    tag_skip;
-    qh_t(lstr)    tag_or;
-    qv_t(lstr)    prefixes;
+    qh_t(lstr) tag_skip;
+    qh_t(lstr) tag_or;
+    qv_t(lstr) prefixes;
 
     /* Command-line options. */
-    lstr_t      arg0;
-    bool        opt_help;
-    bool        opt_list;
-    bool        abort_on_fail;
-    bool        do_fork;
+    lstr_t arg0;
+    bool opt_help;
+    bool opt_list;
+    bool abort_on_fail;
+    bool do_fork;
     const char *tmp_dir;
     const char *opt_tag_skip;
     const char *opt_mode;
     const char *opt_tag_or;
 } z_ctx_g = {
-#define _G  z_ctx_g
+#define _G z_ctx_g
     .tag_skip = QH_INIT(lstr, _G.tag_skip),
     .tag_or = QH_INIT(lstr, _G.tag_or),
 };
 
 static popt_t z_opts_g[] = {
     OPT_GROUP("Options:"),
-    OPT_FLAG('h', "help", &_G.opt_help,    "show this help"),
+    OPT_FLAG('h', "help", &_G.opt_help, "show this help"),
 
-    OPT_FLAG('l', "list", &_G.opt_list,
-             "only list the available Z groups and tests."),
-    OPT_FLAG('f', "fork", &_G.do_fork,
-             "run in fork mode. In this mode, every test will be run in a "
-             "dedicated fork so that a crashing test do not impact others. "
-             "It is enabled by default except when running under a debugging "
-             "tool. Use --no-fork to disable."),
-    OPT_FLAG('a', "abort", &_G.abort_on_fail,
-             "abort when a test fails. It is enabled by default when running "
-             "in gdb. Use --no-abort to disable."),
+    OPT_FLAG(
+        'l', "list", &_G.opt_list,
+        "only list the available Z groups and tests."
+    ),
+    OPT_FLAG(
+        'f', "fork", &_G.do_fork,
+        "run in fork mode. In this mode, every test will be run in a "
+        "dedicated fork so that a crashing test do not impact others. "
+        "It is enabled by default except when running under a debugging "
+        "tool. Use --no-fork to disable."
+    ),
+    OPT_FLAG(
+        'a', "abort", &_G.abort_on_fail,
+        "abort when a test fails. It is enabled by default when running "
+        "in gdb. Use --no-abort to disable."
+    ),
 
-    OPT_STR('d', "z-dir", &_G.tmp_dir,
-            "specify the tests temporary directory. If not specified, the "
-            "current directory or /tmp is taken. It can also be specified "
-            "using the Z_DIR environment variable."),
-    OPT_STR('s', "z-tag-skip", &_G.opt_tag_skip,
-            "specify the list of Z tags to skip, separated by spaces. It can "
-            "also be specified using the Z_TAG_SKIP environment variable."),
-    OPT_STR('s', "z-tag-or", &_G.opt_tag_or,
-            "specify the list of Z tags, separated by spaces, to run the test "
-            "even if it is marked with a tag that is in the skip list. It can "
-            "also be specified using the Z_TAG_OR environment variable."),
-    OPT_STR('m', "z-mode", &_G.opt_mode,
-            "specify the list of Z modes to apply, separated by spaces. It "
-            "can also be specified using the Z_MODE environment variable. "
-            "List of supported modes: fast."),
+    OPT_STR(
+        'd', "z-dir", &_G.tmp_dir,
+        "specify the tests temporary directory. If not specified, the "
+        "current directory or /tmp is taken. It can also be specified "
+        "using the Z_DIR environment variable."
+    ),
+    OPT_STR(
+        's', "z-tag-skip", &_G.opt_tag_skip,
+        "specify the list of Z tags to skip, separated by spaces. It can "
+        "also be specified using the Z_TAG_SKIP environment variable."
+    ),
+    OPT_STR(
+        's', "z-tag-or", &_G.opt_tag_or,
+        "specify the list of Z tags, separated by spaces, to run the test "
+        "even if it is marked with a tag that is in the skip list. It can "
+        "also be specified using the Z_TAG_OR environment variable."
+    ),
+    OPT_STR(
+        'm', "z-mode", &_G.opt_mode,
+        "specify the list of Z modes to apply, separated by spaces. It "
+        "can also be specified using the Z_MODE environment variable. "
+        "List of supported modes: fast."
+    ),
     OPT_END(),
 };
 
 lstr_t z_tmpdir_g;
-int    z_tmpdfd_g = -1;
+int z_tmpdfd_g = -1;
 lstr_t z_grpdir_g;
-int    z_grpdfd_g = -1;
+int z_grpdfd_g = -1;
 lstr_t z_cmddir_g;
-int    z_cmddfd_g = -1;
+int z_cmddfd_g = -1;
 uint32_t z_modes_g;
 
 /* private helpers {{{ */
 
-__attr_printf__(2, 0)
-static void _z_vfmt(lstr_t *out, const char *fmt, va_list ap)
+__attr_printf__(2, 0) static void _z_vfmt(
+    lstr_t *out, const char *fmt, va_list ap
+)
 {
     sb_t sb;
 
@@ -152,11 +167,16 @@ static void _z_vfmt(lstr_t *out, const char *fmt, va_list ap)
     sb_addvf(&sb, fmt, ap);
     lstr_transfer_sb(out, &sb, false);
 }
-#define _z_fmt(out, fmt) \
-    ({ va_list ap; va_start(ap, fmt); _z_vfmt(out, fmt, ap); va_end(ap); })
+#define _z_fmt(out, fmt)                                                     \
+    ({                                                                       \
+        va_list ap;                                                          \
+        va_start(ap, fmt);                                                   \
+        _z_vfmt(out, fmt, ap);                                               \
+        va_end(ap);                                                          \
+    })
 
-#define IN_TEST        assert (_G.grp.t_running)
-#define NOT_IN_TEST    assert (!_G.grp.t_running)
+#define IN_TEST assert(_G.grp.t_running)
+#define NOT_IN_TEST assert(!_G.grp.t_running)
 
 static void blktst_wipe(struct z_blktst *t)
 {
@@ -171,16 +191,16 @@ void z_blkgrp_wipe(struct z_blkgrp *g, bool delete_tests)
     }
     lstr_wipe(&g->name);
     lstr_wipe(&g->file);
-    if (delete_tests)
+    if (delete_tests) {
         p_delete(&g->tests);
+    }
     Block_release(g->before);
     Block_release(g->after);
     Block_release(g->setup);
     Block_release(g->teardown);
 }
 
-__attribute__((destructor))
-static void z_shutdown(void)
+__attribute__((destructor)) static void z_shutdown(void)
 {
     tab_for_each_pos(i, &_G.blks) {
         z_blkgrp_wipe(&_G.blks.tab[i], true);
@@ -217,8 +237,8 @@ bool _z_step_is_skipped(int unused, ...)
     while ((s = va_arg(ap, const char *))) {
         lstr_t t = LSTR(s);
 
-        if (qh_find(lstr, &_G.tag_or, &t) >= 0
-        &&  qh_find(lstr, &_G.tag_or, &wip) < 0)
+        if (qh_find(lstr, &_G.tag_or, &t) >= 0 &&
+            qh_find(lstr, &_G.tag_or, &wip) < 0)
         {
             return false;
         }
@@ -242,7 +262,7 @@ bool _z_step_is_skipped(int unused, ...)
 
 static inline void assert_one_liner(lstr_t s)
 {
-    assert (memchr(s.s, '\n', s.len) == NULL);
+    assert(memchr(s.s, '\n', s.len) == NULL);
 }
 
 void _z_step_skip(const char *reason, ...)
@@ -286,20 +306,20 @@ void z_todo_end(void)
 
 static void do_fail_comment(void);
 
-#define _z_add_extra(sb, fmt) \
-    ({                                 \
-        if (*fmt) {                    \
-            va_list ap;                \
-                                       \
-            va_start(ap, fmt);         \
-            sb_addvf(&sb, fmt, ap);    \
-            va_end(ap);                \
-            sb_rtrim(&sb);             \
-            sb_addc(&sb, '\n');        \
-        }                              \
+#define _z_add_extra(sb, fmt)                                                \
+    ({                                                                       \
+        if (*fmt) {                                                          \
+            va_list ap;                                                      \
+                                                                             \
+            va_start(ap, fmt);                                               \
+            sb_addvf(&sb, fmt, ap);                                          \
+            va_end(ap);                                                      \
+            sb_rtrim(&sb);                                                   \
+            sb_addc(&sb, '\n');                                              \
+        }                                                                    \
     })
 
-#define fmt_len(fmt, ...)  snprintf(NULL, 0, fmt, ##__VA_ARGS__)
+#define fmt_len(fmt, ...) snprintf(NULL, 0, fmt, ##__VA_ARGS__)
 
 static int uint64_ndigits(uint64_t lh, uint64_t rh)
 {
@@ -325,7 +345,7 @@ static int uint64_nxdigits(uint64_t lh, uint64_t rh)
 static void sb_add_z_val(sb_t *buf, z_val_t v, int ndigits, int nxdigits)
 {
     switch (v.type) {
-      case Z_VAL_TYPE_I:
+    case Z_VAL_TYPE_I:
         if (ndigits && nxdigits) {
             sb_addf(buf, "%*jd / %#0*jx", ndigits, v.i, 2 + nxdigits, v.i);
         } else {
@@ -333,7 +353,7 @@ static void sb_add_z_val(sb_t *buf, z_val_t v, int ndigits, int nxdigits)
         }
         break;
 
-      case Z_VAL_TYPE_U:
+    case Z_VAL_TYPE_U:
         if (ndigits && nxdigits) {
             sb_addf(buf, "%*ju / %#0*jx", ndigits, v.u, 2 + nxdigits, v.u);
         } else {
@@ -341,71 +361,76 @@ static void sb_add_z_val(sb_t *buf, z_val_t v, int ndigits, int nxdigits)
         }
         break;
 
-      case Z_VAL_TYPE_D:
+    case Z_VAL_TYPE_D:
         /* TODO Improve format. */
         sb_addf(buf, "%f", v.d);
         break;
 
-      case Z_VAL_TYPE_B:
+    case Z_VAL_TYPE_B:
         sb_addf(buf, "%s", v.b ? "true" : "false");
         break;
 
-      case Z_VAL_TYPE_C:
+    case Z_VAL_TYPE_C:
         sb_addf(buf, "'%c' (%x)", v.c, v.c);
         break;
 
-      case Z_VAL_TYPE_I128:
-        sb_addf(buf, PRId128" / "PRIx128, PRId128_FMT_ARG(v.i128),
-                PRIx128_FMT_ARG(v.i128));
+    case Z_VAL_TYPE_I128:
+        sb_addf(
+            buf, PRId128 " / " PRIx128, PRId128_FMT_ARG(v.i128),
+            PRIx128_FMT_ARG(v.i128)
+        );
         break;
 
-      case Z_VAL_TYPE_U128:
-        sb_addf(buf, PRIu128" / "PRIx128, PRIu128_FMT_ARG(v.u128),
-                PRIx128_FMT_ARG(v.u128));
+    case Z_VAL_TYPE_U128:
+        sb_addf(
+            buf, PRIu128 " / " PRIx128, PRIu128_FMT_ARG(v.u128),
+            PRIx128_FMT_ARG(v.u128)
+        );
         break;
     }
 }
 
-static void sb_add_z_val_field(sb_t *buf, z_val_t v, const char *vs,
-                               int ndigits, int nxdigits)
+static void sb_add_z_val_field(
+    sb_t *buf, z_val_t v, const char *vs, int ndigits, int nxdigits
+)
 {
     sb_addc(buf, ' ');
     sb_add_z_val(buf, v, ndigits, nxdigits);
     sb_addf(buf, " (%s)\n", vs);
 }
 
-static void z_val_cmp_get_ndigits(z_val_t lv, z_val_t rv,
-                                  int *ndigits, int *nxdigits)
+static void
+z_val_cmp_get_ndigits(z_val_t lv, z_val_t rv, int *ndigits, int *nxdigits)
 {
     *ndigits = 0;
     *nxdigits = 0;
 
     if (lv.type == rv.type) {
         switch (lv.type) {
-          case Z_VAL_TYPE_I:
+        case Z_VAL_TYPE_I:
             *ndigits = int64_ndigits(lv.i, rv.i);
             *nxdigits = uint64_nxdigits(lv.i, rv.i);
             break;
 
-          case Z_VAL_TYPE_U:
+        case Z_VAL_TYPE_U:
             *ndigits = uint64_ndigits(lv.u, rv.u);
             *nxdigits = uint64_nxdigits(lv.u, rv.u);
             break;
 
-          case Z_VAL_TYPE_D:
-          case Z_VAL_TYPE_B:
-          case Z_VAL_TYPE_C:
-          case Z_VAL_TYPE_I128:
-          case Z_VAL_TYPE_U128:
+        case Z_VAL_TYPE_D:
+        case Z_VAL_TYPE_B:
+        case Z_VAL_TYPE_C:
+        case Z_VAL_TYPE_I128:
+        case Z_VAL_TYPE_U128:
             break;
         }
     }
 }
 
-bool _z_assert_cmp(const char *file, int lno, const char *op, bool res,
-                   const char *lvs, z_val_t lv,
-                   const char *rvs, z_val_t rv,
-                   const char *fmt, ...)
+bool _z_assert_cmp(
+    const char *file, int lno, const char *op, bool res, const char *lvs,
+    z_val_t lv, const char *rvs, z_val_t rv, const char *fmt, ...
+)
 {
     IN_TEST;
     _G.grp.t_asserts++;
@@ -417,8 +442,10 @@ bool _z_assert_cmp(const char *file, int lno, const char *op, bool res,
 
         z_val_cmp_get_ndigits(lv, rv, &nd, &nx);
 
-        sb_addf(&sb, "%s:%d: assertion failed: %s %s %s\n",
-                file, lno, lvs, op, rvs);
+        sb_addf(
+            &sb, "%s:%d: assertion failed: %s %s %s\n", file, lno, lvs, op,
+            rvs
+        );
 
         sb_add_z_val_field(&sb, lv, lvs, nd, nx);
         sb_add_z_val_field(&sb, rv, rvs, nd, nx);
@@ -436,8 +463,8 @@ bool _z_assert_cmp(const char *file, int lno, const char *op, bool res,
  *
  * \return The number of skipped bytes.
  */
-static size_t ps_skip_utf8_aligned(pstream_t *ps, size_t n,
-                                   pstream_t *nullable skipped)
+static size_t
+ps_skip_utf8_aligned(pstream_t *ps, size_t n, pstream_t *nullable skipped)
 {
     const byte *start = ps->b;
 
@@ -509,8 +536,9 @@ static lstr_t t_z_colored_lstr(lstr_t s, const char *color_fmt)
         return s;
     }
 
-    return t_lstr_fmt(TERM_COLOR_FMT("%*pM"),
-                      TERM_COLOR_FMT_ARG(color_fmt, LSTR_FMT_ARG(s)));
+    return t_lstr_fmt(
+        TERM_COLOR_FMT("%*pM"), TERM_COLOR_FMT_ARG(color_fmt, LSTR_FMT_ARG(s))
+    );
 }
 
 static const char *t_z_colored_str(const char *s, const char *color_fmt)
@@ -518,16 +546,16 @@ static const char *t_z_colored_str(const char *s, const char *color_fmt)
     return t_z_colored_lstr(LSTR(s), color_fmt).s;
 }
 
-static void z_sb_add_char(sb_t *sb, int c, bool full_hex, bool printable,
-                          const char *nullable color)
+static void z_sb_add_char(
+    sb_t *sb, int c, bool full_hex, bool printable, const char *nullable color
+)
 {
     if (color) {
         z_sb_set_color(sb, color);
     }
     if (full_hex) {
         sb_addf(sb, "%02X", c);
-    } else
-    if (printable) {
+    } else if (printable) {
         sb_adduc_escaped(sb, c);
     } else {
         sb_addf(sb, "\\x%02X", c);
@@ -558,8 +586,8 @@ static int z_ps_get_char(pstream_t *ps, bool full_hex, bool *printable)
     return c;
 }
 
-static void z_sb_add_lstr(sb_t *sb, lstr_t s, int first_diff_pos,
-                          bool full_hex)
+static void
+z_sb_add_lstr(sb_t *sb, lstr_t s, int first_diff_pos, bool full_hex)
 {
     pstream_t ps = ps_initlstr(&s);
     bool highlighting_done = false;
@@ -584,8 +612,9 @@ static void z_sb_add_lstr(sb_t *sb, lstr_t s, int first_diff_pos,
     }
 }
 
-static void z_sb_put_string(sb_t *sb, lstr_t s, int first_diff_pos,
-                            bool use_hex, bool can_clip)
+static void z_sb_put_string(
+    sb_t *sb, lstr_t s, int first_diff_pos, bool use_hex, bool can_clip
+)
 {
     const int skip_threshold = use_hex ? 20 : 60;
     const int skip_context = use_hex ? 10 : 20;
@@ -638,10 +667,10 @@ static int lstr_first_diff_pos(lstr_t s1, lstr_t s2)
     return len;
 }
 
-bool _z_assert_lstrequal(const char *file, int lno, bool use_hex,
-                         const char *lhs, lstr_t lh,
-                         const char *rhs, lstr_t rh,
-                         const char *fmt, ...)
+bool _z_assert_lstrequal(
+    const char *file, int lno, bool use_hex, const char *lhs, lstr_t lh,
+    const char *rhs, lstr_t rh, const char *fmt, ...
+)
 {
     IN_TEST;
     _G.grp.t_asserts++;
@@ -649,8 +678,9 @@ bool _z_assert_lstrequal(const char *file, int lno, bool use_hex,
     if (!lstr_equal(lh, rh)) {
         SB_1k(sb);
 
-        sb_addf(&sb, "%s:%d: assertion failed: %s == %s\n",
-                file, lno, lhs, rhs);
+        sb_addf(
+            &sb, "%s:%d: assertion failed: %s == %s\n", file, lno, lhs, rhs
+        );
         if (lstr_contains(lh, LSTR("\n")) || lstr_contains(rh, LSTR("\n"))) {
             /* At least one of the member is multi-line.
              * Use a multi-line diff. */
@@ -675,8 +705,9 @@ bool _z_assert_lstrequal(const char *file, int lno, bool use_hex,
     return false;
 }
 
-int z_show_diff(lstr_t got, lstr_t exp, const char *nullable diff_opts,
-                sb_t *diff)
+int z_show_diff(
+    lstr_t got, lstr_t exp, const char *nullable diff_opts, sb_t *diff
+)
 {
     t_scope;
     const char *exp_file;
@@ -702,19 +733,21 @@ int z_show_diff(lstr_t got, lstr_t exp, const char *nullable diff_opts,
 
     if (_G.do_fancy_output) {
         sed_color = " | sed '"
-            /* Removals: lines that start with '-'. */
-            "s/^-/\\x1b[" TERM_COLOR_PURPLE "m-/;"
+                    /* Removals: lines that start with '-'. */
+                    "s/^-/\\x1b[" TERM_COLOR_PURPLE "m-/;"
 
-            /* Additions: lines that start with '+'. */
-            "s/^+/\\x1b[" TERM_COLOR_BRIGHTER(TERM_COLOR_CYAN) "m+/;"
+                    /* Additions: lines that start with '+'. */
+                    "s/^+/\\x1b[" TERM_COLOR_BRIGHTER(
+                        TERM_COLOR_CYAN
+                    ) "m+/;"
 
-            /* Line/column number information. */
-            "s/^@/\\x1b[" TERM_COLOR_YELLOW "m@/;"
+                      /* Line/column number information. */
+                      "s/^@/\\x1b[" TERM_COLOR_YELLOW "m@/;"
 
-            /* Reset color at EOL. */
-            "s/$/\\x1b[0m/"
+                      /* Reset color at EOL. */
+                      "s/$/\\x1b[0m/"
 
-            "'";
+                      "'";
     }
 
     /* Run diff with a system command and write it in a diff file. */
@@ -722,9 +755,10 @@ int z_show_diff(lstr_t got, lstr_t exp, const char *nullable diff_opts,
     if (!diff_opts) {
         diff_opts = "-urNw";
     }
-    sb_setf(&cmd, "/bin/bash -c "
-            "\"set -o pipefail; diff %s %s %s%s >%s\"",
-            diff_opts, exp_file, got_file, sed_color, diff_file);
+    sb_setf(
+        &cmd, "/bin/bash -c \"set -o pipefail; diff %s %s %s%s >%s\"",
+        diff_opts, exp_file, got_file, sed_color, diff_file
+    );
     ret = system(cmd.data);
     THROW_ERR_IF(WEXITSTATUS(ret) != 0 && WEXITSTATUS(ret) != 1);
 
@@ -734,8 +768,8 @@ int z_show_diff(lstr_t got, lstr_t exp, const char *nullable diff_opts,
     return 0;
 }
 
-static int z_iop_diff(const iop_struct_t *st, const void *l, const void *r,
-                      sb_t *diff)
+static int
+z_iop_diff(const iop_struct_t *st, const void *l, const void *r, sb_t *diff)
 {
     t_scope;
     SB_1k(lbuf);
@@ -749,11 +783,10 @@ static int z_iop_diff(const iop_struct_t *st, const void *l, const void *r,
     return z_show_diff(LSTR_SB_V(&lbuf), LSTR_SB_V(&rbuf), NULL, diff);
 }
 
-bool _z_assert_iopequal(const char *file, int lno,
-                        const iop_struct_t *st,
-                        const char *lhs, const void *lh,
-                        const char *rhs, const void *rh,
-                        const char *fmt, ...)
+bool _z_assert_iopequal(
+    const char *file, int lno, const iop_struct_t *st, const char *lhs,
+    const void *lh, const char *rhs, const void *rh, const char *fmt, ...
+)
 {
     IN_TEST;
     _G.grp.t_asserts++;
@@ -762,8 +795,9 @@ bool _z_assert_iopequal(const char *file, int lno,
         SB_1k(sb);
         SB_1k(diff_desc);
 
-        sb_addf(&sb, "%s:%d: assertion failed: %s == %s\n",
-                file, lno, lhs, rhs);
+        sb_addf(
+            &sb, "%s:%d: assertion failed: %s == %s\n", file, lno, lhs, rhs
+        );
         iop_first_diff_desc(st, lh, rh, &diff_desc);
         sb_addf(&sb, " %*pM\n", SB_FMT_ARG(&diff_desc));
         sb_adds(&sb, "\n");
@@ -778,12 +812,11 @@ bool _z_assert_iopequal(const char *file, int lno,
     return false;
 }
 
-bool _z_assert_iopjsonequal(const char *file, int lno,
-                            const iop_env_t *iop_env,
-                            const iop_struct_t *st,
-                            const char *lhs, const void *lh,
-                            const char *rhs, lstr_t json,
-                            const char *fmt, ...)
+bool _z_assert_iopjsonequal(
+    const char *file, int lno, const iop_env_t *iop_env,
+    const iop_struct_t *st, const char *lhs, const void *lh, const char *rhs,
+    lstr_t json, const char *fmt, ...
+)
 {
     t_scope;
     SB_1k(err);
@@ -812,17 +845,18 @@ bool _z_assert_iopjsonequal(const char *file, int lno,
         SB_1k(sb);
 
         _z_add_extra(sb, fmt);
-        return _z_assert_iopequal(file, lno, st, lhs, lh, rhs, data, "%*pM",
-                                  SB_FMT_ARG(&sb));
+        return _z_assert_iopequal(
+            file, lno, st, lhs, lh, rhs, data, "%*pM", SB_FMT_ARG(&sb)
+        );
     }
     _G.grp.t_asserts++;
     return false;
 }
 
-bool _z_assert_dblequal(const char *file, int lno,
-                        const char *lhs, double lh,
-                        const char *rhs, double rh,
-                        uint8_t precision, const char *fmt, ...)
+bool _z_assert_dblequal(
+    const char *file, int lno, const char *lhs, double lh, const char *rhs,
+    double rh, uint8_t precision, const char *fmt, ...
+)
 {
     double diff = double_round(fabs(lh - rh), precision);
 
@@ -832,8 +866,10 @@ bool _z_assert_dblequal(const char *file, int lno,
     if (diff > DBL_EPSILON) {
         SB_1k(sb);
 
-        sb_addf(&sb, "%s:%d: assertion failed: %s == %s (precision %u)\n",
-                file, lno, lhs, rhs, precision);
+        sb_addf(
+            &sb, "%s:%d: assertion failed: %s == %s (precision %u)\n", file,
+            lno, lhs, rhs, precision
+        );
 
         sb_addf(&sb, " %f (%s)\n", lh, lhs);
         sb_addf(&sb, " %f (%s)\n", rh, rhs);
@@ -850,8 +886,10 @@ bool _z_assert_dblequal(const char *file, int lno,
     return false;
 }
 
-bool _z_assert(const char *file, int lno, const char *expr,
-               bool res, const char *fmt, ...)
+bool _z_assert(
+    const char *file, int lno, const char *expr, bool res, const char *fmt,
+    ...
+)
 {
     IN_TEST;
     _G.grp.t_asserts++;
@@ -868,14 +906,17 @@ bool _z_assert(const char *file, int lno, const char *expr,
     return !res;
 }
 
-void _z_helper_failed(const char *file, int lno, const char *expr,
-                      const char *fmt, ...)
+void _z_helper_failed(
+    const char *file, int lno, const char *expr, const char *fmt, ...
+)
 {
     SB_1k(sb);
 
     IN_TEST;
-    sb_addf(&sb, "%*pM%s: %d: helper failed: %s\n",
-            LSTR_FMT_ARG(_G.grp.t_fail_reason), file, lno, expr);
+    sb_addf(
+        &sb, "%*pM%s: %d: helper failed: %s\n",
+        LSTR_FMT_ARG(_G.grp.t_fail_reason), file, lno, expr
+    );
     _z_add_extra(sb, fmt);
     lstr_transfer_sb(&_G.grp.t_fail_reason, &sb, false);
 }
@@ -890,11 +931,13 @@ static void do_plan(void)
 
 static void do_summary(void)
 {
-#define P(x)  (_G.grp.t_##x * 100 / n)
+#define P(x) (_G.grp.t_##x * 100 / n)
     int n = _G.grp.n_total;
 
-    printf("# %d%% skipped  %d%% passed  %d%% failed\n",
-           P(skipped), P(passed), P(failed));
+    printf(
+        "# %d%% skipped  %d%% passed  %d%% failed\n", P(skipped), P(passed),
+        P(failed)
+    );
     if (_G.grp.t_todo_passed || _G.grp.t_todo_failed) {
         printf("# %d%% fixed  %d%% todo\n", P(todo_passed), P(todo_failed));
     }
@@ -908,16 +951,19 @@ static void do_comment(lstr_t s)
         printf(": %*pM\n", (int)ps_len(&l), l.s);
         __ps_skip(&ps, 1);
     }
-    if (ps_len(&ps))
+    if (ps_len(&ps)) {
         printf(": %*pM\n", (int)ps_len(&ps), ps.s);
+    }
 }
 
 static void do_fail_comment(void)
 {
     t_scope;
 
-    do_comment(t_lstr_fmt("$ %*pM %*pM.%*pM", LSTR_FMT_ARG(_G.arg0),
-           LSTR_FMT_ARG(_G.grp.name), LSTR_FMT_ARG(_G.grp.t_name)));
+    do_comment(t_lstr_fmt(
+        "$ %*pM %*pM.%*pM", LSTR_FMT_ARG(_G.arg0), LSTR_FMT_ARG(_G.grp.name),
+        LSTR_FMT_ARG(_G.grp.t_name)
+    ));
     do_comment(LSTR("\n"));
     do_comment(_G.grp.t_fail_reason);
     fflush(stdout);
@@ -934,11 +980,14 @@ static void print_test_summary(const char *outcome, const char *color)
     if (color) {
         outcome = t_z_colored_str(outcome, color);
     }
-    name = t_z_colored_lstr(_G.grp.t_name,
-                            TERM_COLOR_BRIGHTER(TERM_COLOR_WHITE));
-    printf("%*d %s %*pM # (%ld.%06lds)", _G.grp.n_total_digits,
-           _G.grp.t_idx, outcome, LSTR_FMT_ARG(name),
-           _G.grp.tv_diff.tv_sec, (long)_G.grp.tv_diff.tv_usec);
+    name = t_z_colored_lstr(
+        _G.grp.t_name, TERM_COLOR_BRIGHTER(TERM_COLOR_WHITE)
+    );
+    printf(
+        "%*d %s %*pM # (%ld.%06lds)", _G.grp.n_total_digits, _G.grp.t_idx,
+        outcome, LSTR_FMT_ARG(name), _G.grp.tv_diff.tv_sec,
+        (long)_G.grp.tv_diff.tv_usec
+    );
 }
 
 static void do_skip(void)
@@ -991,9 +1040,11 @@ static void do_bail_out_(lstr_t s)
     }
     fflush(stdout);
 }
-#define do_bail_out(fmt, ...) \
-    ({ t_scope; do_bail_out_(t_lstr_fmt(fmt, ##__VA_ARGS__)); })
-
+#define do_bail_out(fmt, ...)                                                \
+    ({                                                                       \
+        t_scope;                                                             \
+        do_bail_out_(t_lstr_fmt(fmt, ##__VA_ARGS__));                        \
+    })
 
 /* }}} */
 /* state machine {{{ */
@@ -1013,16 +1064,19 @@ static bool _z_is_group_ignored(void)
 {
     lstr_t g = _G.grp.name;
 
-    if (_G.only.len == 0)
+    if (_G.only.len == 0) {
         return false;
+    }
     for (int i = 0; i < _G.only.len; i++) {
         lstr_t s = _G.only.tab[i];
 
         if (lstr_startswith(s, g)) {
-            if (s.len == g.len)
+            if (s.len == g.len) {
                 return false;
-            if (s.s[g.len] == '.')
+            }
+            if (s.s[g.len] == '.') {
                 return false;
+            }
         }
     }
     return true;
@@ -1045,7 +1099,7 @@ static bool _z_group_run(void)
     if (pid == 0) {
         signal(SIGTERM, SIG_DFL);
         signal(SIGQUIT, SIG_DFL);
-        signal(SIGINT,  SIG_DFL);
+        signal(SIGINT, SIG_DFL);
         return true;
     }
     if (pid < 0) {
@@ -1054,13 +1108,15 @@ static bool _z_group_run(void)
     }
     waitpid(pid, &st, 0);
     if (WIFEXITED(st)) {
-        if (WEXITSTATUS(st))
+        if (WEXITSTATUS(st)) {
             _G.res = -1;
+        }
         return false;
     }
     if (WIFSIGNALED(st)) {
-        do_bail_out("exit with signal %d %s", WTERMSIG(st),
-                    strsignal(WTERMSIG(st)));
+        do_bail_out(
+            "exit with signal %d %s", WTERMSIG(st), strsignal(WTERMSIG(st))
+        );
     } else {
         do_bail_out("should not happen");
     }
@@ -1088,28 +1144,28 @@ bool _z_group_process(void)
         return false;
     }
 
-    assert (_G.grp.state < Z_CHILD_DIE);
+    assert(_G.grp.state < Z_CHILD_DIE);
 
     switch (++_G.grp.state) {
-      case Z_COUNT:
+    case Z_COUNT:
         if (_G.opt_list) {
             printf("%*pM\n", LSTR_FMT_ARG(_G.grp.name));
         }
         return true;
 
-      case Z_RUN:
+    case Z_RUN:
         if (_G.opt_list || !_G.grp.n_total) {
             return false;
         }
         return _z_group_run();
 
-      case Z_CHILD_DIE:
+    case Z_CHILD_DIE:
         if (!_G.opt_list && _G.grp.n_total) {
             do_summary();
         }
         return _z_group_exit();
 
-      default:
+    default:
         e_panic("should not happen");
     }
 }
@@ -1129,19 +1185,22 @@ static bool _z_is_step_ignored(lstr_t t)
 {
     lstr_t g = _G.grp.name;
 
-    if (_G.only.len == 0)
+    if (_G.only.len == 0) {
         return false;
+    }
     for (int i = 0; i < _G.only.len; i++) {
         lstr_t s = _G.only.tab[i];
 
         if (lstr_startswith(s, g)) {
-            if (s.len == g.len)
+            if (s.len == g.len) {
                 return false;
+            }
             if (s.s[g.len] == '.') {
                 lstr_t ss = LSTR_INIT(s.s + g.len + 1, s.len - g.len - 1);
 
-                if (lstr_equal(ss, t))
+                if (lstr_equal(ss, t)) {
                     return false;
+                }
             }
         }
     }
@@ -1214,8 +1273,10 @@ static void _z_blkgrp_process(struct z_blkgrp *g)
             continue;
         }
         if (_G.opt_list) {
-            printf("%*pM.%*pM\n",
-                   LSTR_FMT_ARG(g->name), LSTR_FMT_ARG(g->tests[i].name));
+            printf(
+                "%*pM.%*pM\n", LSTR_FMT_ARG(g->name),
+                LSTR_FMT_ARG(g->tests[i].name)
+            );
         }
         _G.grp.n_total++;
     }
@@ -1230,26 +1291,31 @@ static void _z_blkgrp_process(struct z_blkgrp *g)
         }
 
         for (size_t i = 0; i < g->len; i++) {
-            if (!g->tests[i].run)
+            if (!g->tests[i].run) {
                 continue;
+            }
             _z_step_prepare(g->tests[i].name);
             if (_G.grp.t_skip_reason.s == NULL) {
-                if (g->setup)
+                if (g->setup) {
                     g->setup();
-                if (_G.grp.t_fail_reason.s == NULL)
+                }
+                if (_G.grp.t_fail_reason.s == NULL) {
                     g->tests[i].run();
-                if (g->teardown)
+                }
+                if (g->teardown) {
                     g->teardown();
+                }
             }
             _z_step_report();
         }
 
-        if (g->after)
+        if (g->after) {
             g->after();
+        }
         _z_group_exit();
     }
 
-  end:
+end:
     _z_group_done();
 }
 
@@ -1264,7 +1330,7 @@ int _z_step_run(const char *name)
     }
 
     switch (_G.grp.state) {
-      case Z_COUNT:
+    case Z_COUNT:
         _z_check_test_name(n, "test");
         _G.grp.n_total++;
         if (_G.opt_list) {
@@ -1272,13 +1338,14 @@ int _z_step_run(const char *name)
         }
         return 0;
 
-      case Z_RUN:
+    case Z_RUN:
         _z_step_prepare(n);
-        if (_G.grp.t_skip_reason.s)
+        if (_G.grp.t_skip_reason.s) {
             return 2;
+        }
         return 1;
 
-      default:
+    default:
         return 0;
     }
 }
@@ -1296,8 +1363,9 @@ void _z_step_report(void)
         do_skip();
     } else {
         if (_G.grp.t_asserts == 0) {
-            lstr_copyc(&_G.grp.t_fail_reason,
-                       LSTR("no assertions in test !?"));
+            lstr_copyc(
+                &_G.grp.t_fail_reason, LSTR("no assertions in test !?")
+            );
         }
         if (_G.grp.t_todo_reason.s) {
             if (_G.grp.t_fail_reason.s) {
@@ -1354,13 +1422,15 @@ static void z_parse_mode(const char *s)
 
         ps_skipspaces(&ps);
         while (!ps_done(&ps)) {
-            pstream_t tok  = ps_get_cspan(&ps, &ctype_isspace);
-            lstr_t    stok = LSTR_INIT_V(tok.s, ps_len(&tok));
+            pstream_t tok = ps_get_cspan(&ps, &ctype_isspace);
+            lstr_t stok = LSTR_INIT_V(tok.s, ps_len(&tok));
 
             if (lstr_equal(LSTR("fast"), stok)) {
                 SET_BIT(&z_modes_g, Z_MODE_FAST);
             } else {
-                e_warning("ignoring unsupported mode: %*pM", LSTR_FMT_ARG(stok));
+                e_warning(
+                    "ignoring unsupported mode: %*pM", LSTR_FMT_ARG(stok)
+                );
             }
         }
     }
@@ -1372,7 +1442,7 @@ int z_setup(int argc, char **argv)
     bool is_traced = psinfo_get_tracer_pid(0) > 0;
     char abspath[PATH_MAX];
 
-    _G.do_fork       = !is_traced && !mem_tool_is_running(MEM_TOOL_VALGRIND);
+    _G.do_fork = !is_traced && !mem_tool_is_running(MEM_TOOL_VALGRIND);
     _G.abort_on_fail = is_traced;
 
     path_canonify(abspath, sizeof(abspath), NEXTARG(argc, argv));
@@ -1384,8 +1454,10 @@ int z_setup(int argc, char **argv)
 
     argc = parseopt(argc, argv, z_opts_g, 0);
     if (argc < 0 || _G.opt_help) {
-        makeusage(_G.opt_help ? EX_OK : EX_USAGE, _G.arg0.s,
-                  "[tests...]", NULL, z_opts_g);
+        makeusage(
+            _G.opt_help ? EX_OK : EX_USAGE, _G.arg0.s, "[tests...]", NULL,
+            z_opts_g
+        );
     }
 
     /* Parse tags to skip. */
@@ -1451,20 +1523,20 @@ void z_register_blkgroup(struct z_blkgrp const *g, const char *file)
     _z_check_test_name(g->name, "group");
 
     p_clear(t, 1);
-    t->name     = lstr_dup(g->name);
-    t->file     = lstr_dups(file, -1);
-    t->before   = Block_copy(g->before);
-    t->after    = Block_copy(g->after);
-    t->setup    = Block_copy(g->setup);
+    t->name = lstr_dup(g->name);
+    t->file = lstr_dups(file, -1);
+    t->before = Block_copy(g->before);
+    t->after = Block_copy(g->after);
+    t->setup = Block_copy(g->setup);
     t->teardown = Block_copy(g->teardown);
 
-    t->len      = g->len;
-    t->tests    = p_new(struct z_blktst, t->len);
+    t->len = g->len;
+    t->tests = p_new(struct z_blktst, t->len);
 
     for (size_t i = 0; i < t->len; i++) {
         _z_check_test_name(g->tests[i].name, "test");
         t->tests[i].name = lstr_dup(g->tests[i].name);
-        t->tests[i].run  = Block_copy(g->tests[i].run);
+        t->tests[i].run = Block_copy(g->tests[i].run);
     }
 }
 
@@ -1473,8 +1545,8 @@ static void z_on_term(int signum)
     _G.stopping = true;
 }
 
-static int t_our_mkdtemp_(const char *wd, const char *ns, lstr_t *out,
-                          int *dfd)
+static int
+t_our_mkdtemp_(const char *wd, const char *ns, lstr_t *out, int *dfd)
 {
     char *s = t_fmt("%s/z.%s.%d.XXXXXX", wd, ns, 0 + getpid());
 
@@ -1515,7 +1587,7 @@ int z_run(void)
     char path[PATH_MAX];
 
     signal(SIGTERM, z_on_term);
-    signal(SIGINT,  z_on_term);
+    signal(SIGINT, z_on_term);
     signal(SIGQUIT, z_on_term);
 
     if (!_G.do_fork) {
@@ -1524,8 +1596,9 @@ int z_run(void)
     _G.wd = getcwd(NULL, 0);
     path_dirname(path, sizeof(path), _G.arg0.s);
     z_cmddir_g = lstr_fmt("%s/", path);
-    if (z_cmddir_g.s[z_cmddir_g.len - 2] == '/')
+    if (z_cmddir_g.s[z_cmddir_g.len - 2] == '/') {
         z_cmddir_g.v[--z_cmddir_g.len] = '\0';
+    }
     z_cmddfd_g = open(z_cmddir_g.s, O_RDONLY);
     if (z_cmddfd_g < 0) {
         e_panic("unable to open cmddir: %m");
@@ -1562,7 +1635,7 @@ int z_run(void)
     rmdir_r(z_grpdir_g.s, false);
     signal(SIGTERM, SIG_DFL);
     signal(SIGQUIT, SIG_DFL);
-    signal(SIGINT,  SIG_DFL);
+    signal(SIGINT, SIG_DFL);
     _G.stopping = false;
     return _G.res;
 }

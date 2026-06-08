@@ -29,7 +29,7 @@ static struct {
     el_t httpd;
     httpd_cfg_t *httpd_cfg;
 } prom_http_g = {
-#define _G  prom_http_g
+#define _G prom_http_g
     .logger = LOGGER_INIT_INHERITS(&prom_logger_g, "http"),
 };
 
@@ -52,18 +52,18 @@ static void metrics_query_on_done(httpd_query_t *q)
     httpd_reply_done(q);
 }
 
-static void metrics_query_hook(httpd_trigger_t *tcb, struct httpd_query_t *q,
-                               const httpd_qinfo_t *qi)
+static void metrics_query_hook(
+    httpd_trigger_t *tcb, struct httpd_query_t *q, const httpd_qinfo_t *qi
+)
 {
     q->on_done = metrics_query_on_done;
-    q->qinfo   = httpd_qinfo_dup(qi);
+    q->qinfo = httpd_qinfo_dup(qi);
 }
 
 /* }}} */
 /* {{{ API */
 
-int prom_http_start_server(const core__httpd_cfg__t *cfg,
-                           sb_t * nullable err)
+int prom_http_start_server(const core__httpd_cfg__t *cfg, sb_t *nullable err)
 {
     t_scope;
     pstream_t host;
@@ -79,8 +79,9 @@ int prom_http_start_server(const core__httpd_cfg__t *cfg,
     }
 
     /* Resolve address */
-    RETHROW(addr_resolve2("prometheus HTTP server", addr, 0, 0, &su,
-                          &host, &_G.listen_port, err));
+    RETHROW(addr_resolve2(
+        "prometheus HTTP server", addr, 0, 0, &su, &host, &_G.listen_port, err
+    ));
 
     /* Start HTTP server */
     _G.httpd_cfg = httpd_cfg_new();
@@ -88,8 +89,9 @@ int prom_http_start_server(const core__httpd_cfg__t *cfg,
     if (!(_G.httpd = httpd_listen(&su, _G.httpd_cfg))) {
         httpd_cfg_delete(&_G.httpd_cfg);
         if (err) {
-            sb_addf(err, "cannot bind HTTP server on %*pM",
-                    LSTR_FMT_ARG(addr));
+            sb_addf(
+                err, "cannot bind HTTP server on %*pM", LSTR_FMT_ARG(addr)
+            );
             return -1;
         }
     }
@@ -101,17 +103,20 @@ int prom_http_start_server(const core__httpd_cfg__t *cfg,
     _G.listen_host = lstr_dup(LSTR_PS_V(&host));
 
     /* Register "metrics/" trigger */
-    trigger     = httpd_trigger_new();
+    trigger = httpd_trigger_new();
     trigger->cb = metrics_query_hook;
     httpd_trigger_register(_G.httpd_cfg, GET, "/metrics", trigger);
 
-    logger_notice(&_G.logger, "listening for prometheus scraping on %*pM",
-                  LSTR_FMT_ARG(addr));
+    logger_notice(
+        &_G.logger, "listening for prometheus scraping on %*pM",
+        LSTR_FMT_ARG(addr)
+    );
     return 0;
 }
 
-void prom_http_get_infos(lstr_t * nullable host, in_port_t * nullable port,
-                         int * nullable fd)
+void prom_http_get_infos(
+    lstr_t *nullable host, in_port_t *nullable port, int *nullable fd
+)
 {
     if (host) {
         *host = _G.listen_host;
@@ -145,9 +150,9 @@ static int prometheus_client_http_shutdown(void)
     return 0;
 }
 
-MODULE_BEGIN(prometheus_client_http)
+MODULE_DEFINE(prometheus_client_http) {
     MODULE_DEPENDS_ON(http);
     MODULE_IMPLEMENTS_INT(on_term, &prometheus_client_http_on_term);
-MODULE_END()
+}
 
 /* }}} */

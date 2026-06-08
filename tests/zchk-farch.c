@@ -42,8 +42,9 @@ Z_GROUP_EXPORT(farch)
             lstr_t contents;
 
             path = t_fmt("%*pM/%s", LSTR_FMT_ARG(z_cmddir_g), filename);
-            Z_ASSERT_ZERO(lstr_init_from_file(&contents, path, PROT_READ,
-                                              MAP_SHARED));
+            Z_ASSERT_ZERO(
+                lstr_init_from_file(&contents, path, PROT_READ, MAP_SHARED)
+            );
 
             /* test get_filename */
             Z_ASSERT_P(farch_get_filename(entry, ffilename));
@@ -68,7 +69,9 @@ Z_GROUP_EXPORT(farch)
 
             lstr_wipe(&contents);
         }
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     MODULE_RELEASE(farch);
-} Z_GROUP_END
+}
+Z_GROUP_END

@@ -101,18 +101,19 @@
 #include <lib-common/el.h>
 
 #define OPENSSL_VERSION_IS(op, maj1, maj2, min)                              \
-    (((OPENSSL_VERSION_NUMBER >> 12) & 0xFFFFF) op (((maj1) << 16)           \
-                                                    | ((maj2) << 8)          \
-                                                    | (min)))
-#if OPENSSL_VERSION_IS(<,1,1,0)
-#define TLS_method()  SSLv23_method()
-#define TLS_server_method()  SSLv23_server_method()
-#define TLS_client_method()  SSLv23_client_method()
+    (((OPENSSL_VERSION_NUMBER >> 12) & 0xFFFFF)                              \
+         op(((maj1) << 16) | ((maj2) << 8) | (min)))
+#if OPENSSL_VERSION_IS(<, 1, 1, 0)
+#  define TLS_method() SSLv23_method()
+#  define TLS_server_method() SSLv23_server_method()
+#  define TLS_client_method() SSLv23_client_method()
 #endif
-#if OPENSSL_VERSION_IS(<,1,0,2)
+#if OPENSSL_VERSION_IS(<, 1, 0, 2)
 /* Note: this function is also removed after 1.1.0, so please remove all its
  * occurrences if you remove this compatibility code. */
-#define SSL_CTX_set_ecdh_auto(ctx, onoff)  do {} while(0)
+#  define SSL_CTX_set_ecdh_auto(ctx, onoff)                                  \
+      do {                                                                   \
+      } while (0)
 #endif
 
 #ifndef RSA_OAEP_PADDING_SIZE
@@ -125,7 +126,7 @@
  * padding size used with OAEP -- which seems to be the current standard. The
  * RSA_public_encrypt(3) man page says it's 41 bytes.
  */
-# define RSA_OAEP_PADDING_SIZE  41
+#  define RSA_OAEP_PADDING_SIZE 41
 #endif
 
 /* Encryption {{{ */
@@ -141,13 +142,13 @@ enum ssl_ctx_state {
  * SSL context used to encrypt and decrypt data.
  */
 typedef struct ssl_ctx_t {
-    EVP_CIPHER_CTX     *encrypt;
-    EVP_CIPHER_CTX     *decrypt;
+    EVP_CIPHER_CTX *encrypt;
+    EVP_CIPHER_CTX *decrypt;
 
     /* PKEY data */
-    EVP_PKEY          *pkey;
-    EVP_PKEY_CTX      *pkey_encrypt;
-    EVP_PKEY_CTX      *pkey_decrypt;
+    EVP_PKEY *pkey;
+    EVP_PKEY_CTX *pkey_encrypt;
+    EVP_PKEY_CTX *pkey_decrypt;
 
     /* common data */
     enum ssl_ctx_state encrypt_state;
@@ -173,8 +174,9 @@ GENERIC_DELETE(ssl_ctx_t, ssl_ctx);
  *
  * \return The initialized AES context or NULL in case of error.
  */
-ssl_ctx_t *ssl_ctx_init_aes256(ssl_ctx_t *ctx, lstr_t password, uint64_t salt,
-                               int nb_rounds);
+ssl_ctx_t *ssl_ctx_init_aes256(
+    ssl_ctx_t *ctx, lstr_t password, uint64_t salt, int nb_rounds
+);
 
 /**
  * Same as ssl_ctx_init_aes() but allocate the ssl_ctx_t for you.
@@ -206,8 +208,7 @@ ssl_ctx_t *ssl_ctx_init_aes256_by_key(ssl_ctx_t *ctx, lstr_t key, lstr_t iv);
  * \param  key  The AES 128bits key.
  * \return The initialiased AES context or NULL in case of error.
  */
-ssl_ctx_t *
-ssl_ctx_init_aes128_ecb_by_key(ssl_ctx_t *ctx, lstr_t key);
+ssl_ctx_t *ssl_ctx_init_aes128_ecb_by_key(ssl_ctx_t *ctx, lstr_t key);
 
 /** Init Triple DES ECB context with the symmetric key.
  *
@@ -215,8 +216,7 @@ ssl_ctx_init_aes128_ecb_by_key(ssl_ctx_t *ctx, lstr_t key);
  * \param  key  The 3DES key.
  * \return The initialiased 3DES context or NULL in case of error.
  */
-ssl_ctx_t *
-ssl_ctx_init_3des_by_key(ssl_ctx_t *ctx, lstr_t key);
+ssl_ctx_t *ssl_ctx_init_3des_by_key(ssl_ctx_t *ctx, lstr_t key);
 
 /**
  * Reset the whole SSL context and change the AES key and IV.
@@ -234,8 +234,9 @@ ssl_ctx_init_3des_by_key(ssl_ctx_t *ctx, lstr_t key);
  *                    1024 should be good in most situations).
  * \return 0 on success and -1 on error.
  */
-int ssl_ctx_reset(ssl_ctx_t *ctx, lstr_t password, uint64_t salt,
-                  int nb_rounds);
+int ssl_ctx_reset(
+    ssl_ctx_t *ctx, lstr_t password, uint64_t salt, int nb_rounds
+);
 
 /**
  * Init the given SSL context with the given key. You can use private or
@@ -248,10 +249,9 @@ int ssl_ctx_reset(ssl_ctx_t *ctx, lstr_t password, uint64_t salt,
  *
  * \return The initialized context or NULL in case of error.
  */
-__attr_nonnull__((1))
-ssl_ctx_t *ssl_ctx_init_pkey(ssl_ctx_t *ctx,
-                             lstr_t priv_key, lstr_t pub_key,
-                             lstr_t pass);
+__attr_nonnull__((1)) ssl_ctx_t *ssl_ctx_init_pkey(
+    ssl_ctx_t *ctx, lstr_t priv_key, lstr_t pub_key, lstr_t pass
+);
 
 /**
  * Init the given SSL context with the public key.
@@ -263,11 +263,11 @@ ssl_ctx_t *ssl_ctx_init_pkey(ssl_ctx_t *ctx,
  *
  * \return The initialized context or NULL in case of error.
  */
-__attr_nonnull__((1)) static inline
-ssl_ctx_t *ssl_ctx_init_pkey_pub(ssl_ctx_t *ctx, lstr_t pub_key)
+__attr_nonnull__((1)) static inline ssl_ctx_t *ssl_ctx_init_pkey_pub(
+    ssl_ctx_t *ctx, lstr_t pub_key
+)
 {
     return ssl_ctx_init_pkey(ctx, LSTR_EMPTY_V, pub_key, LSTR_EMPTY_V);
-
 }
 
 /**
@@ -281,9 +281,9 @@ ssl_ctx_t *ssl_ctx_init_pkey_pub(ssl_ctx_t *ctx, lstr_t pub_key)
  *
  * \return The initialized context or NULL in case of error.
  */
-__attr_nonnull__((1)) static inline
-ssl_ctx_t *ssl_ctx_init_pkey_priv(ssl_ctx_t *ctx,
-                                  lstr_t priv_key, lstr_t pass)
+__attr_nonnull__((1)) static inline ssl_ctx_t *ssl_ctx_init_pkey_priv(
+    ssl_ctx_t *ctx, lstr_t priv_key, lstr_t pass
+)
 {
     return ssl_ctx_init_pkey(ctx, priv_key, LSTR_EMPTY_V, pass);
 }
@@ -361,7 +361,6 @@ ssl_encrypt(ssl_ctx_t *ctx, lstr_t data, sb_t *out)
     return 0;
 }
 
-
 /**
  * Decrypt the given data and put the result in out.
  */
@@ -429,7 +428,7 @@ ssl_decrypt(ssl_ctx_t *ctx, lstr_t data, sb_t *out)
 /* {{{ Signature */
 
 #ifdef __has_blocks
-typedef int (BLOCK_CARET pem_password_b)(char *buf, int size, int rwflag);
+typedef int(BLOCK_CARET pem_password_b)(char *buf, int size, int rwflag);
 #else
 typedef void *pem_password_b;
 #endif
@@ -440,36 +439,37 @@ typedef enum rsa_hash_algo_t {
 
 typedef struct rsa_sign_t rsa_sign_t;
 
-rsa_sign_t * nullable rsa_sign_new(lstr_t priv_key, rsa_hash_algo_t algo,
-                                   pem_password_b nullable pass_cb);
+rsa_sign_t *nullable rsa_sign_new(
+    lstr_t priv_key, rsa_hash_algo_t algo, pem_password_b nullable pass_cb
+);
 
-void rsa_sign_update(rsa_sign_t * nonnull ctx, const void * nonnull input,
-                     ssize_t ilen);
+void rsa_sign_update(
+    rsa_sign_t *nonnull ctx, const void *nonnull input, ssize_t ilen
+);
 
-__must_check__
-int rsa_sign_finish(rsa_sign_t * nonnull * nonnull ctx, sb_t *out);
+__must_check__ int
+rsa_sign_finish(rsa_sign_t * nonnull * nonnull ctx, sb_t *out);
 
-__must_check__
-int rsa_sign_finish_hex(rsa_sign_t * nonnull * nonnull ctx, sb_t *out);
-
+__must_check__ int
+rsa_sign_finish_hex(rsa_sign_t * nonnull * nonnull ctx, sb_t *out);
 
 typedef struct rsa_verif_t rsa_verif_t;
 
-__must_check__
-rsa_verif_t * nullable rsa_verif_new(lstr_t pub_key, rsa_hash_algo_t algo,
-                                     lstr_t bin_sig,
-                                     pem_password_b nullable pass_cb);
+__must_check__ rsa_verif_t *nullable rsa_verif_new(
+    lstr_t pub_key, rsa_hash_algo_t algo, lstr_t bin_sig,
+    pem_password_b nullable pass_cb
+);
 
-__must_check__
-rsa_verif_t * nullable rsa_verif_hex_new(lstr_t pub_key, rsa_hash_algo_t algo,
-                                         lstr_t hex_sig,
-                                         pem_password_b nullable pass_cb);
+__must_check__ rsa_verif_t *nullable rsa_verif_hex_new(
+    lstr_t pub_key, rsa_hash_algo_t algo, lstr_t hex_sig,
+    pem_password_b nullable pass_cb
+);
 
-void rsa_verif_update(rsa_verif_t * nonnull ctx, const void * nonnull input,
-                      ssize_t ilen);
+void rsa_verif_update(
+    rsa_verif_t *nonnull ctx, const void *nonnull input, ssize_t ilen
+);
 
-__must_check__
-int rsa_verif_finish(rsa_verif_t * nonnull * nonnull ctx);
+__must_check__ int rsa_verif_finish(rsa_verif_t * nonnull * nonnull ctx);
 
 /* }}} */
 /* {{{ TLS */
@@ -494,11 +494,14 @@ typedef int (*SSL_verify_cb)(int preverify_ok, X509_STORE_CTX *x509_ctx);
  * \param[in]  cert        The TLS certificate (optional).
  * \param[in]  verify_mode The TLS verify mode (cf man SSL_CTX_set_verify).
  * \param[in]  verify_cb   The TLS verify_cb (cf man SSL_CTX_set_verify).
- * \param[out] err         The sb that describes the error if an error occured.
+ * \param[out] err         The sb that describes the error if an error
+ * occured.
  * \return a pointer on a SSL_CTX on success, NULL on error
  */
-SSL_CTX *ssl_ctx_new_tls(const SSL_METHOD *meth, lstr_t key, lstr_t cert,
-                         int verify_mode, SSL_verify_cb verify_cb, sb_t *err);
+SSL_CTX *ssl_ctx_new_tls(
+    const SSL_METHOD *meth, lstr_t key, lstr_t cert, int verify_mode,
+    SSL_verify_cb verify_cb, sb_t *err
+);
 
 typedef enum ssl_handshake_status_t {
     SSL_HANDSHAKE_SUCCESS,
@@ -519,7 +522,7 @@ typedef enum ssl_handshake_status_t {
  * \return the handshake's status
  */
 ssl_handshake_status_t
-ssl_do_handshake(SSL *ssl, el_t nullable ev, int fd, sb_t * nullable rbuf);
+ssl_do_handshake(SSL *ssl, el_t nullable ev, int fd, sb_t *nullable rbuf);
 
 /** Wrapper to SSL_read that mimic read(2).
  *

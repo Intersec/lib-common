@@ -50,13 +50,14 @@ static void el_fd_initialize(void)
     }
 }
 
-el_t el_fd_register_d(int fd, bool own_fd, short events, el_fd_f *cb,
-                      data_t priv)
+el_t el_fd_register_d(
+    int fd, bool own_fd, short events, el_fd_f *cb, data_t priv
+)
 {
     ev_t *ev = el_create(EV_FD, cb, priv, true);
     struct epoll_event event = {
         .data.ptr = ev,
-        .events   = events,
+        .events = events,
     };
 
     el_fd_initialize();
@@ -67,8 +68,10 @@ el_t el_fd_register_d(int fd, bool own_fd, short events, el_fd_f *cb,
     ev->priority = EV_PRIORITY_NORMAL;
 
     if (epoll_ctl(el_epoll_g.fd, EPOLL_CTL_ADD, fd, &event)) {
-        e_panic("epoll_ctl(el_epoll_g.fd=%d, EPOLL_CTL_ADD, fd=%d, &event): "
-                "%m", el_epoll_g.fd, fd);
+        e_panic(
+            "epoll_ctl(el_epoll_g.fd=%d, EPOLL_CTL_ADD, fd=%d, &event): %m",
+            el_epoll_g.fd, fd
+        );
     }
 
     return ev;
@@ -79,18 +82,23 @@ short el_fd_set_mask(ev_t *ev, short events)
     short old = ev->events_wanted;
 
     if (EV_IS_TRACED(ev)) {
-        e_trace(0, "ev-fd(%p): set mask to %s%s", ev,
-                events & POLLIN ? "IN" : "", events & POLLOUT ? "OUT" : "");
+        e_trace(
+            0, "ev-fd(%p): set mask to %s%s", ev, events & POLLIN ? "IN" : "",
+            events & POLLOUT ? "OUT" : ""
+        );
     }
     CHECK_EV_TYPE(ev, EV_FD);
     if (old != events && likely(ev->fd.generation == el_epoll_g.generation)) {
         struct epoll_event event = {
             .data.ptr = ev,
-            .events   = ev->events_wanted = events,
+            .events = ev->events_wanted = events,
         };
         if (epoll_ctl(el_epoll_g.fd, EPOLL_CTL_MOD, ev->fd.fd, &event)) {
-            e_panic("epoll_ctl(el_epoll_g.fd=%d, EPOLL_CTL_MOD, "
-                    "ev->fd.fd=%d, &event): %m", el_epoll_g.fd, ev->fd.fd);
+            e_panic(
+                "epoll_ctl(el_epoll_g.fd=%d, EPOLL_CTL_MOD, "
+                "ev->fd.fd=%d, &event): %m",
+                el_epoll_g.fd, ev->fd.fd
+            );
         }
     }
     return old;
@@ -124,11 +132,12 @@ static void el_loop_fds_poll(int timeout)
     el_bl_unlock();
     timeout = el_signal_has_pending_events() ? 0 : timeout;
     thr_enter_blocking_syscall();
-    el_epoll_g.pending = epoll_wait(el_epoll_g.fd, el_epoll_g.events,
-                                    countof(el_epoll_g.events), timeout);
+    el_epoll_g.pending = epoll_wait(
+        el_epoll_g.fd, el_epoll_g.events, countof(el_epoll_g.events), timeout
+    );
     thr_exit_blocking_syscall();
     el_bl_lock();
-    assert (el_epoll_g.pending >= 0 || ERR_RW_RETRIABLE(errno));
+    assert(el_epoll_g.pending >= 0 || ERR_RW_RETRIABLE(errno));
 }
 
 static bool el_fds_has_pending_events(void)
@@ -150,7 +159,7 @@ static void el_loop_fds(int timeout)
     if (el_epoll_g.pending == 0) {
         before = get_clock();
         el_loop_fds_poll(timeout);
-        now    = get_clock();
+        now = get_clock();
         if (now - before > 100) {
             dlist_splice_tail(&_G.idle, &_G.idle_parked);
         }
@@ -165,14 +174,17 @@ static void el_loop_fds(int timeout)
     el_timer_process(now);
     while (res-- > 0) {
         ev_t *ev = el_epoll_g.events[res].data.ptr;
-        int  evs = el_epoll_g.events[res].events;
+        int evs = el_epoll_g.events[res].events;
 
-        if (unlikely(ev->type != EV_FD))
+        if (unlikely(ev->type != EV_FD)) {
             continue;
-        if (ev->priority > prio)
+        }
+        if (ev->priority > prio) {
             prio = ev->priority;
-        if (ev->priority == EV_PRIORITY_HIGH)
+        }
+        if (ev->priority == EV_PRIORITY_HIGH) {
             el_fd_fire(ev, evs);
+        }
     }
 
     if (prio == EV_PRIORITY_HIGH) {
@@ -180,11 +192,13 @@ static void el_loop_fds(int timeout)
     }
     while (res2-- > 0) {
         ev_t *ev = el_epoll_g.events[res2].data.ptr;
-        int  evs = el_epoll_g.events[res2].events;
+        int evs = el_epoll_g.events[res2].events;
 
-        if (unlikely(ev->type != EV_FD))
+        if (unlikely(ev->type != EV_FD)) {
             continue;
-        if (ev->priority == prio)
+        }
+        if (ev->priority == prio) {
             el_fd_fire(ev, evs);
+        }
     }
 }

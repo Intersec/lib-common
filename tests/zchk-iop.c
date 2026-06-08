@@ -76,10 +76,10 @@ struct {
 
 /* {{{ iop_get_field_values() */
 
-static int
-z_iop_get_field_values_check(const iop_struct_t *st_desc, const void *st_ptr,
-                             const char *fpath, const void *exp_values,
-                             int exp_len, bool exp_is_array_of_pointers)
+static int z_iop_get_field_values_check(
+    const iop_struct_t *st_desc, const void *st_ptr, const char *fpath,
+    const void *exp_values, int exp_len, bool exp_is_array_of_pointers
+)
 {
     iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
     const iop_field_t *fdesc;
@@ -87,25 +87,31 @@ z_iop_get_field_values_check(const iop_struct_t *st_desc, const void *st_ptr,
     int len;
     bool is_array_of_pointers;
 
-    fdesc = iop_get_field_const(iop_env_ctx, st_ptr, st_desc, LSTR(fpath),
-                                NULL, NULL);
+    fdesc = iop_get_field_const(
+        iop_env_ctx, st_ptr, st_desc, LSTR(fpath), NULL, NULL
+    );
     Z_ASSERT_P(fdesc, "call to 'iop_get_field_const()' failed");
-    iop_get_field_values_const(fdesc, st_ptr, &values, &len,
-                               &is_array_of_pointers);
-    Z_ASSERT(values == exp_values, "pointers differ, got %p, expected %p",
-             values, exp_values);
+    iop_get_field_values_const(
+        fdesc, st_ptr, &values, &len, &is_array_of_pointers
+    );
+    Z_ASSERT(
+        values == exp_values, "pointers differ, got %p, expected %p", values,
+        exp_values
+    );
     Z_ASSERT_EQ(len, exp_len, "lengths differ");
-    Z_ASSERT_EQ(is_array_of_pointers, exp_is_array_of_pointers,
-                "values differ for `is_array_of_pointers'");
+    Z_ASSERT_EQ(
+        is_array_of_pointers, exp_is_array_of_pointers,
+        "values differ for `is_array_of_pointers'"
+    );
     Z_HELPER_END;
 }
 
 /* }}} */
 /* {{{ iop_value_get_bpack_size() */
 
-static int
-_z_check_iop_value_get_bpack_size(const tstiop__get_bpack_sz_u__t *u,
-                                  const char *fname)
+static int _z_check_iop_value_get_bpack_size(
+    const tstiop__get_bpack_sz_u__t *u, const char *fname
+)
 {
     size_t st_bpack_sz;
     size_t field_bpack_sz;
@@ -117,25 +123,31 @@ _z_check_iop_value_get_bpack_size(const tstiop__get_bpack_sz_u__t *u,
     st_bpack_sz = iop_bpack_size(&tstiop__get_bpack_sz_u__s, u, &szs);
     qv_wipe(&szs);
 
-    Z_ASSERT_N(iop_field_find_by_name(&tstiop__get_bpack_sz_u__s,
-                                      LSTR(fname), NULL, &f),
-               "field `%s' does not exist", fname);
+    Z_ASSERT_N(
+        iop_field_find_by_name(
+            &tstiop__get_bpack_sz_u__s, LSTR(fname), NULL, &f
+        ),
+        "field `%s' does not exist", fname
+    );
     /* XXX The real tag binary packing length is 'tag_len' + 1. */
     field_bpack_sz = st_bpack_sz - f->tag_len - 1;
 
     Z_ASSERT_N(iop_value_from_field(u, f, &v), "cannot get value");
-    Z_ASSERT_EQ(iop_value_get_bpack_size(&v, f->type, f->u1.st_desc),
-                field_bpack_sz, "unexpected bpack size");
+    Z_ASSERT_EQ(
+        iop_value_get_bpack_size(&v, f->type, f->u1.st_desc), field_bpack_sz,
+        "unexpected bpack size"
+    );
     Z_HELPER_END;
 }
 
-static int
-z_check_iop_value_get_bpack_size(const tstiop__get_bpack_sz_u__t *u,
-                                 const char *fname)
+static int z_check_iop_value_get_bpack_size(
+    const tstiop__get_bpack_sz_u__t *u, const char *fname
+)
 {
-    Z_HELPER_RUN(_z_check_iop_value_get_bpack_size(u, fname),
-                 "check failed for %*pS",
-                 IOP_ST_FMT_ARG(tstiop__get_bpack_sz_u, u));
+    Z_HELPER_RUN(
+        _z_check_iop_value_get_bpack_size(u, fname), "check failed for %*pS",
+        IOP_ST_FMT_ARG(tstiop__get_bpack_sz_u, u)
+    );
     Z_HELPER_END;
 }
 
@@ -154,10 +166,11 @@ typedef enum z_test_dup_and_copy_flags_t {
     Z_TEST_DUP_AND_COPY_END = 1 << 7,
 } z_test_dup_and_copy_flags_t;
 
-#define _F(_fl)  ((z_flags) & Z_TEST_DUP_AND_COPY_##_fl)
+#define _F(_fl) ((z_flags) & Z_TEST_DUP_AND_COPY_##_fl)
 
-static int z_test_dup_or_copy(const iop_struct_t *st, const void *v,
-                              size_t exp_size, unsigned z_flags)
+static int z_test_dup_or_copy(
+    const iop_struct_t *st, const void *v, size_t exp_size, unsigned z_flags
+)
 {
     t_scope;
     void *res;
@@ -210,8 +223,7 @@ static int z_test_dup_or_copy(const iop_struct_t *st, const void *v,
     Z_HELPER_END;
 }
 
-static int
-z_test_dup_and_copy(const iop_struct_t *st, const void *v)
+static int z_test_dup_and_copy(const iop_struct_t *st, const void *v)
 {
     t_scope;
     size_t exp_size;
@@ -219,26 +231,29 @@ z_test_dup_and_copy(const iop_struct_t *st, const void *v)
     Z_ASSERT_P(mp_iop_dup_desc_sz(t_pool(), st, v, &exp_size));
 
     for (unsigned z_flags = 0; z_flags < Z_TEST_DUP_AND_COPY_END; z_flags++) {
-        Z_HELPER_RUN(z_test_dup_or_copy(st, v, exp_size, z_flags),
-                     "%s test failed (use_pool=%s, get_size=%s, shallow=%s, "
-                     "multiple_alloc=%s)",
-                     _F(TEST_DUP) ? "duplication" : "copy",
-                     _F(USE_POOL) ? "true" : "false",
-                     _F(GET_SIZE) ? "true" : "false",
-                     _F(MULTIPLE_ALLOC) ? "true" : "false",
-                     _F(SHALLOW)  ? "true" : "false");
+        Z_HELPER_RUN(
+            z_test_dup_or_copy(st, v, exp_size, z_flags),
+            "%s test failed (use_pool=%s, get_size=%s, shallow=%s, "
+            "multiple_alloc=%s)",
+            _F(TEST_DUP) ? "duplication" : "copy",
+            _F(USE_POOL) ? "true" : "false", _F(GET_SIZE) ? "true" : "false",
+            _F(MULTIPLE_ALLOC) ? "true" : "false",
+            _F(SHALLOW) ? "true" : "false"
+        );
     }
 
     Z_HELPER_END;
 }
 
-static int z_test_macros_dup_copy_eq(const tstiop__full_struct__t *v,
-                                     const tstiop__full_struct__t *out,
-                                     bool memcmp_eq)
+static int z_test_macros_dup_copy_eq(
+    const tstiop__full_struct__t *v, const tstiop__full_struct__t *out,
+    bool memcmp_eq
+)
 {
     Z_ASSERT_IOPEQUAL(tstiop__full_struct, out, v);
-    Z_ASSERT_EQ(z_iop_mem_equals_desc(&tstiop__full_struct__s, v, out),
-                memcmp_eq);
+    Z_ASSERT_EQ(
+        z_iop_mem_equals_desc(&tstiop__full_struct__s, v, out), memcmp_eq
+    );
     Z_HELPER_END;
 }
 
@@ -309,13 +324,13 @@ static int z_test_macros_dup_copy(const tstiop__full_struct__t *v)
     out = r_iop_shallow_dup(tstiop__full_struct, v);
     Z_HELPER_RUN(z_test_macros_dup_copy_eq(v, out, true));
 
-
     /* copy */
 
     out = NULL;
     sz = 0;
-    mp_iop_copy_desc_sz(t_pool(), &tstiop__full_struct__s, (void **)&out, v,
-                        &sz);
+    mp_iop_copy_desc_sz(
+        t_pool(), &tstiop__full_struct__s, (void **)&out, v, &sz
+    );
     Z_HELPER_RUN(z_test_macros_dup_copy_eq(v, out, false));
     Z_ASSERT_NE(sz, (size_t)0);
 
@@ -392,12 +407,10 @@ static int z_test_macros_dup_copy(const tstiop__full_struct__t *v)
     r_iop_copy_v(tstiop__full_struct, out, v);
     Z_HELPER_RUN(z_test_macros_dup_copy_eq(v, out, false));
 
-
     /* iop_shallow_copy_v */
     iop_init(tstiop__full_struct, out);
     iop_shallow_copy_v(tstiop__full_struct, out, v);
     Z_HELPER_RUN(z_test_macros_dup_copy_eq(v, out, true));
-
 
     r_release(frame);
     Z_HELPER_END;
@@ -408,24 +421,27 @@ static int z_test_macros_dup_copy(const tstiop__full_struct__t *v)
 /* }}} */
 /* {{{ zchk iop.equals_and_cmp */
 
-static int z_assert_iop_gt_desc(const struct iop_struct_t *st,
-                                const void *s1, const void *s2)
+static int z_assert_iop_gt_desc(
+    const struct iop_struct_t *st, const void *s1, const void *s2
+)
 {
     Z_ASSERT(!iop_equals_desc(st, s1, s2));
     Z_ASSERT_GT(iop_cmp_desc(st, s1, s2), 0);
     Z_HELPER_END;
 }
 
-static int z_assert_iop_lt_desc(const struct iop_struct_t *st,
-                                const void *s1, const void *s2)
+static int z_assert_iop_lt_desc(
+    const struct iop_struct_t *st, const void *s1, const void *s2
+)
 {
     Z_ASSERT(!iop_equals_desc(st, s1, s2));
     Z_ASSERT_LT(iop_cmp_desc(st, s1, s2), 0);
     Z_HELPER_END;
 }
 
-static int z_assert_iop_eq_desc(const struct iop_struct_t *st,
-                                const void *s1, const void *s2)
+static int z_assert_iop_eq_desc(
+    const struct iop_struct_t *st, const void *s1, const void *s2
+)
 {
     Z_ASSERT_IOPEQUAL_DESC(st, s1, s2);
     Z_ASSERT_ZERO(iop_cmp_desc(st, s1, s2));
@@ -439,7 +455,8 @@ static int _z_check_field_path_compile(
     const iop_struct_t *st, lstr_t path, const void *nullable value,
     iop_type_t exp_type, bool exp_is_array,
     const iop_struct_t *nullable exp_st, const iop_enum_t *nullable exp_en,
-    lstr_t exp_error)
+    lstr_t exp_error
+)
 {
     t_scope;
     iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
@@ -449,8 +466,9 @@ static int _z_check_field_path_compile(
     int res;
 
     if (value) {
-        res = iop_obj_get_field_type(iop_env_ctx, st, value, path, &type,
-                                     &is_array, &err);
+        res = iop_obj_get_field_type(
+            iop_env_ctx, st, value, path, &type, &is_array, &err
+        );
     } else {
         const iop_field_path_t *fp = NULL;
 
@@ -471,13 +489,17 @@ static int _z_check_field_path_compile(
         Z_ASSERT_EQ(is_array, exp_is_array);
         if (exp_st) {
             Z_ASSERT(!iop_type_is_scalar(exp_type), "broken test");
-            Z_ASSERT(type.st == exp_st, "unexpected struct type: %pL != %pL",
-                     &type.st->fullname, &exp_st->fullname);
+            Z_ASSERT(
+                type.st == exp_st, "unexpected struct type: %pL != %pL",
+                &type.st->fullname, &exp_st->fullname
+            );
         }
         if (exp_en) {
             Z_ASSERT(exp_type == IOP_T_ENUM, "broken test");
-            Z_ASSERT(type.en == exp_en, "unexpected enum type: %pL != %pL",
-                     &type.en->name, &exp_en->name);
+            Z_ASSERT(
+                type.en == exp_en, "unexpected enum type: %pL != %pL",
+                &type.en->name, &exp_en->name
+            );
         }
     }
 
@@ -488,20 +510,24 @@ static int z_check_field_path_compile(
     const iop_struct_t *st, lstr_t path, const void *nullable value,
     iop_type_t exp_type, bool exp_is_array,
     const iop_struct_t *nullable exp_st, const iop_enum_t *nullable exp_en,
-    lstr_t exp_error)
+    lstr_t exp_error
+)
 {
-    Z_HELPER_RUN(_z_check_field_path_compile(st, path, value, exp_type,
-                                             exp_is_array, exp_st, exp_en,
-                                             exp_error),
-                 "%pL:%pL", &st->fullname, &path);
+    Z_HELPER_RUN(
+        _z_check_field_path_compile(
+            st, path, value, exp_type, exp_is_array, exp_st, exp_en, exp_error
+        ),
+        "%pL:%pL", &st->fullname, &path
+    );
     Z_HELPER_END;
 }
 
 /* }}} */
 /* {{{ zchk iop.iop_filter* */
 
-static void **t_z_create_values_ptr_from_values(void *values, int values_len,
-                                                size_t value_size)
+static void **t_z_create_values_ptr_from_values(
+    void *values, int values_len, size_t value_size
+)
 {
     void **values_ptrs = t_new_raw(void *, values_len);
 
@@ -512,9 +538,10 @@ static void **t_z_create_values_ptr_from_values(void *values, int values_len,
     return values_ptrs;
 }
 
-static int z_iop_filter_check_results(const iop_struct_t *obj_st,
-                                      void *tst_objs, int tst_objs_len,
-                                      void *exp_objs, int exp_objs_len)
+static int z_iop_filter_check_results(
+    const iop_struct_t *obj_st, void *tst_objs, int tst_objs_len,
+    void *exp_objs, int exp_objs_len
+)
 {
     bool is_pointer = iop_struct_is_class(obj_st);
     size_t obj_size = is_pointer ? sizeof(void *) : obj_st->size;
@@ -538,27 +565,31 @@ static int z_iop_filter_check_results(const iop_struct_t *obj_st,
     Z_HELPER_END;
 }
 
-static int z_iop_filter_check_filter(const char *field, unsigned flags,
-                                     void *values, int values_len,
-                                     size_t value_size,
-                                     const iop_struct_t *obj_st,
-                                     void *tst_objs, int tst_objs_len,
-                                     void *exp_objs, int exp_objs_len)
+static int z_iop_filter_check_filter(
+    const char *field, unsigned flags, void *values, int values_len,
+    size_t value_size, const iop_struct_t *obj_st, void *tst_objs,
+    int tst_objs_len, void *exp_objs, int exp_objs_len
+)
 {
     t_scope;
     iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
     SB_1k(err);
     void *values_ptrs;
 
-    values_ptrs = t_z_create_values_ptr_from_values(values, values_len,
-                                                    value_size);
+    values_ptrs =
+        t_z_create_values_ptr_from_values(values, values_len, value_size);
 
-    Z_ASSERT_N(iop_filter(iop_env_ctx, obj_st, tst_objs, &tst_objs_len,
-                          LSTR(field), values_ptrs, values_len, flags, &err),
-               "%*pM", SB_FMT_ARG(&err));
+    Z_ASSERT_N(
+        iop_filter(
+            iop_env_ctx, obj_st, tst_objs, &tst_objs_len, LSTR(field),
+            values_ptrs, values_len, flags, &err
+        ),
+        "%*pM", SB_FMT_ARG(&err)
+    );
 
-    Z_HELPER_RUN(z_iop_filter_check_results(obj_st, tst_objs, tst_objs_len,
-                                            exp_objs, exp_objs_len));
+    Z_HELPER_RUN(z_iop_filter_check_results(
+        obj_st, tst_objs, tst_objs_len, exp_objs, exp_objs_len
+    ));
     Z_HELPER_END;
 }
 
@@ -569,11 +600,12 @@ static int z_iop_filter_check_filter(const char *field, unsigned flags,
  * will be expanded as `ARGS_TO_ARRAY (a, b, ...)`, and thus will finally be
  * expanded as `{a, b, ...}`.
  */
-#define ARGS_TO_ARRAY(...)  { __VA_ARGS__ }
+#define ARGS_TO_ARRAY(...) {__VA_ARGS__}
 
-#define Z_IOP_FILTER_CHECK_FILTER(_value_type, _obj_type, _obj_st,           \
-                                  _tst_objs_args, _flags, _field,            \
-                                  _values_args, _exp_objs_args)              \
+#define Z_IOP_FILTER_CHECK_FILTER(                                           \
+    _value_type, _obj_type, _obj_st, _tst_objs_args, _flags, _field,         \
+    _values_args, _exp_objs_args                                             \
+)                                                                            \
     do {                                                                     \
         _value_type _values[] = ARGS_TO_ARRAY _values_args;                  \
         _obj_type _tst_objs[] = ARGS_TO_ARRAY _tst_objs_args;                \
@@ -582,35 +614,39 @@ static int z_iop_filter_check_filter(const char *field, unsigned flags,
         Z_HELPER_RUN(z_iop_filter_check_filter(                              \
             _field, _flags, _values, countof(_values), sizeof(_value_type),  \
             _obj_st, _tst_objs, countof(_tst_objs), _exp_objs,               \
-            countof(_exp_objs)));                                            \
+            countof(_exp_objs)                                               \
+        ));                                                                  \
     } while (0)
 
-static int t_z_iop_filter_add_bitmap(const char *field, unsigned flags,
-                                     iop_filter_bitmap_op_t op,
-                                     void *values, int values_len,
-                                     size_t value_size,
-                                     const iop_struct_t *obj_st,
-                                     void *tst_objs, int tst_objs_len,
-                                     byte **bitmap)
+static int t_z_iop_filter_add_bitmap(
+    const char *field, unsigned flags, iop_filter_bitmap_op_t op,
+    void *values, int values_len, size_t value_size,
+    const iop_struct_t *obj_st, void *tst_objs, int tst_objs_len,
+    byte **bitmap
+)
 {
     iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
     SB_1k(err);
     void *values_ptrs;
 
-    values_ptrs = t_z_create_values_ptr_from_values(values, values_len,
-                                                    value_size);
+    values_ptrs =
+        t_z_create_values_ptr_from_values(values, values_len, value_size);
 
-    Z_ASSERT_N(t_iop_filter_bitmap(iop_env_ctx, obj_st, tst_objs,
-                                   tst_objs_len, LSTR(field), values_ptrs,
-                                   values_len, flags, op, bitmap, &err),
-               "%*pM", SB_FMT_ARG(&err));
+    Z_ASSERT_N(
+        t_iop_filter_bitmap(
+            iop_env_ctx, obj_st, tst_objs, tst_objs_len, LSTR(field),
+            values_ptrs, values_len, flags, op, bitmap, &err
+        ),
+        "%*pM", SB_FMT_ARG(&err)
+    );
 
     Z_HELPER_END;
 }
 
-#define T_Z_IOP_FILTER_ADD_BITMAP(_value_type, _obj_type, _obj_st,           \
-                                  _tst_objs_args, _flags, _field, _op,       \
-                                  _values_args, _bitmap)                     \
+#define T_Z_IOP_FILTER_ADD_BITMAP(                                           \
+    _value_type, _obj_type, _obj_st, _tst_objs_args, _flags, _field, _op,    \
+    _values_args, _bitmap                                                    \
+)                                                                            \
     do {                                                                     \
         _value_type _values[] = ARGS_TO_ARRAY _values_args;                  \
         _obj_type _tst_objs[] = ARGS_TO_ARRAY _tst_objs_args;                \
@@ -618,63 +654,75 @@ static int t_z_iop_filter_add_bitmap(const char *field, unsigned flags,
         Z_HELPER_RUN(t_z_iop_filter_add_bitmap(                              \
             _field, _flags, _op, _values, countof(_values),                  \
             sizeof(_value_type), _obj_st, _tst_objs, countof(_tst_objs),     \
-            _bitmap));                                                       \
+            _bitmap                                                          \
+        ));                                                                  \
     } while (0)
 
-static int z_iop_filter_apply_bitmap(byte *bitmap,
-                                     const iop_struct_t *obj_st,
-                                     void *tst_objs, int tst_objs_len,
-                                     void *exp_objs, int exp_objs_len)
+static int z_iop_filter_apply_bitmap(
+    byte *bitmap, const iop_struct_t *obj_st, void *tst_objs,
+    int tst_objs_len, void *exp_objs, int exp_objs_len
+)
 {
     iop_filter_bitmap_apply(obj_st, tst_objs, &tst_objs_len, bitmap);
-    Z_HELPER_RUN(z_iop_filter_check_results(obj_st, tst_objs, tst_objs_len,
-                                            exp_objs, exp_objs_len));
+    Z_HELPER_RUN(z_iop_filter_check_results(
+        obj_st, tst_objs, tst_objs_len, exp_objs, exp_objs_len
+    ));
     Z_HELPER_END;
 }
 
-#define Z_IOP_FILTER_APPLY_BITMAP(_obj_type, _obj_st, _tst_objs_args,        \
-                                  _exp_objs_args, _bitmap)                   \
+#define Z_IOP_FILTER_APPLY_BITMAP(                                           \
+    _obj_type, _obj_st, _tst_objs_args, _exp_objs_args, _bitmap              \
+)                                                                            \
     do {                                                                     \
         _obj_type _tst_objs[] = ARGS_TO_ARRAY _tst_objs_args;                \
         _obj_type _exp_objs[] = ARGS_TO_ARRAY _exp_objs_args;                \
                                                                              \
-        Z_HELPER_RUN(z_iop_filter_apply_bitmap(_bitmap, _obj_st, _tst_objs,  \
-                                               countof(_tst_objs), _exp_objs,\
-                                               countof(_exp_objs)));         \
+        Z_HELPER_RUN(z_iop_filter_apply_bitmap(                              \
+            _bitmap, _obj_st, _tst_objs, countof(_tst_objs), _exp_objs,      \
+            countof(_exp_objs)                                               \
+        ));                                                                  \
     } while (0)
 
-static int z_iop_filter_check_opt(const char *field, bool must_be_set,
-                                  const iop_struct_t *obj_st, void *tst_objs,
-                                  int tst_objs_len, void *exp_objs,
-                                  int exp_objs_len)
+static int z_iop_filter_check_opt(
+    const char *field, bool must_be_set, const iop_struct_t *obj_st,
+    void *tst_objs, int tst_objs_len, void *exp_objs, int exp_objs_len
+)
 {
     iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
     SB_1k(err);
 
-    Z_ASSERT_N(iop_filter_opt(iop_env_ctx, obj_st, tst_objs, &tst_objs_len,
-                              LSTR(field), must_be_set, &err),
-               "%*pM", SB_FMT_ARG(&err));
-    Z_HELPER_RUN(z_iop_filter_check_results(obj_st, tst_objs, tst_objs_len,
-                                            exp_objs, exp_objs_len));
+    Z_ASSERT_N(
+        iop_filter_opt(
+            iop_env_ctx, obj_st, tst_objs, &tst_objs_len, LSTR(field),
+            must_be_set, &err
+        ),
+        "%*pM", SB_FMT_ARG(&err)
+    );
+    Z_HELPER_RUN(z_iop_filter_check_results(
+        obj_st, tst_objs, tst_objs_len, exp_objs, exp_objs_len
+    ));
     Z_HELPER_END;
 }
 
-#define Z_IOP_FILTER_CHECK_OPT(_obj_type, _obj_st, _tst_objs_args, _field,   \
-                               _must_be_set, _exp_objs_args)                 \
+#define Z_IOP_FILTER_CHECK_OPT(                                              \
+    _obj_type, _obj_st, _tst_objs_args, _field, _must_be_set, _exp_objs_args \
+)                                                                            \
     do {                                                                     \
         _obj_type _tst_objs[] = ARGS_TO_ARRAY _tst_objs_args;                \
         _obj_type _exp_objs[] = ARGS_TO_ARRAY _exp_objs_args;                \
                                                                              \
         Z_HELPER_RUN(z_iop_filter_check_opt(                                 \
             _field, _must_be_set, _obj_st, _tst_objs, countof(_tst_objs),    \
-            _exp_objs, countof(_exp_objs)));                                 \
+            _exp_objs, countof(_exp_objs)                                    \
+        ));                                                                  \
     } while (0)
 
 /* }}} */
 /* {{{ zchk iop.iop_field_print_defval */
 
-static int z_test_iop_field_print_defval(const iop_struct_t *st,
-                                         const char *name, const char *exp)
+static int z_test_iop_field_print_defval(
+    const iop_struct_t *st, const char *name, const char *exp
+)
 {
     SB_1k(buf);
     const iop_field_t *fdesc = NULL;
@@ -700,24 +748,27 @@ typedef struct {
     iop_type_t field_type;
 } z_iop_get_field_exp_t;
 
-static int z_test_iop_struct_get_field(const iop_struct_t *st,
-                                       const char *path,
-                                       z_iop_get_field_exp_t exp)
+static int z_test_iop_struct_get_field(
+    const iop_struct_t *st, const char *path, z_iop_get_field_exp_t exp
+)
 {
     iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
     const iop_struct_t *found_st = NULL;
     const iop_field_t *found_fdesc = NULL;
 
-    Z_ASSERT_N(iop_struct_get_field(iop_env_ctx, st, LSTR(path), &found_st,
-                                    &found_fdesc),
-               "field path `%s` not found in `%*pM`",
-               path, LSTR_FMT_ARG(st->fullname));
+    Z_ASSERT_N(
+        iop_struct_get_field(
+            iop_env_ctx, st, LSTR(path), &found_st, &found_fdesc
+        ),
+        "field path `%s` not found in `%*pM`", path,
+        LSTR_FMT_ARG(st->fullname)
+    );
     Z_ASSERT_P(found_st);
     Z_ASSERT_P(found_fdesc);
-    Z_ASSERT(exp.field_st == found_st,
-             "expected field st `%*pM`, found `%*pM`",
-             LSTR_FMT_ARG(exp.field_st->fullname),
-             LSTR_FMT_ARG(found_st->fullname));
+    Z_ASSERT(
+        exp.field_st == found_st, "expected field st `%*pM`, found `%*pM`",
+        LSTR_FMT_ARG(exp.field_st->fullname), LSTR_FMT_ARG(found_st->fullname)
+    );
     Z_ASSERT_LSTREQUAL(LSTR(exp.field_name), found_fdesc->name);
     Z_ASSERT_EQ((int)exp.field_type, (int)found_fdesc->type);
 
@@ -727,7 +778,7 @@ static int z_test_iop_struct_get_field(const iop_struct_t *st,
 /* }}} */
 /* {{{ Other helpers (waiting proper folds). */
 
-#define IOP_XML_HEADER \
+#define IOP_XML_HEADER                                                       \
     "<root"                                                                  \
     " xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\""                        \
     " xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\""
@@ -736,8 +787,8 @@ static int z_test_iop_struct_get_field(const iop_struct_t *st,
 
 #define IOP_XML_FOOTER "</root>\n"
 
-static int iop_xml_test_struct(const iop_struct_t *st, void *v,
-                               const char *info)
+static int
+iop_xml_test_struct(const iop_struct_t *st, void *v, const char *info)
 {
     t_scope;
     iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
@@ -757,8 +808,9 @@ static int iop_xml_test_struct(const iop_struct_t *st, void *v,
     if (iop_struct_is_class(st)) {
         const iop_struct_t *real_st = *(const iop_struct_t **)v;
 
-        sb_addf(&sb, " xsi:type=\"tns:%*pM\"",
-                LSTR_FMT_ARG(real_st->fullname));
+        sb_addf(
+            &sb, " xsi:type=\"tns:%*pM\"", LSTR_FMT_ARG(real_st->fullname)
+        );
     }
     sb_addc(&sb, '>');
     len = sb.len;
@@ -770,31 +822,36 @@ static int iop_xml_test_struct(const iop_struct_t *st, void *v,
     /* unpacking */
     Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
     ret = iop_xunpack_ptr(xmlr_g, t_pool(), iop_env_ctx, st, &res);
-    Z_ASSERT_N(ret, "XML unpacking failure (%s, %s): %s", st->fullname.s,
-               info, xmlr_get_err());
+    Z_ASSERT_N(
+        ret, "XML unpacking failure (%s, %s): %s", st->fullname.s, info,
+        xmlr_get_err()
+    );
 
     /* pack again ! */
     t_sb_init(&sb, 10);
     iop_xpack(&sb, st, res, false, true);
 
     /* check packing equality */
-    Z_ASSERT_LSTREQUAL(s, LSTR_SB_V(&sb),
-                       "XML packing/unpacking doesn't match! (%s, %s)",
-                       st->fullname.s, info);
+    Z_ASSERT_LSTREQUAL(
+        s, LSTR_SB_V(&sb), "XML packing/unpacking doesn't match! (%s, %s)",
+        st->fullname.s, info
+    );
 
     /* In case of, check hashes equality */
-    iop_hash_sha1(st, v,   buf1, 0);
+    iop_hash_sha1(st, v, buf1, 0);
     iop_hash_sha1(st, res, buf2, 0);
-    Z_ASSERT_EQUAL(buf1, sizeof(buf1), buf2, sizeof(buf2),
-                   "XML packing/unpacking hashes don't match! (%s, %s)",
-                   st->fullname.s, info);
+    Z_ASSERT_EQUAL(
+        buf1, sizeof(buf1), buf2, sizeof(buf2),
+        "XML packing/unpacking hashes don't match! (%s, %s)", st->fullname.s,
+        info
+    );
 
     xmlr_close(&xmlr_g);
     Z_HELPER_END;
 }
 
-static int iop_xml_test_struct_invalid(const iop_struct_t *st, void *v,
-                                       const char *info)
+static int
+iop_xml_test_struct_invalid(const iop_struct_t *st, void *v, const char *info)
 {
     t_scope;
     iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
@@ -810,8 +867,9 @@ static int iop_xml_test_struct_invalid(const iop_struct_t *st, void *v,
     if (iop_struct_is_class(st)) {
         const iop_struct_t *real_st = *(const iop_struct_t **)v;
 
-        sb_addf(&sb, " xsi:type=\"tns:%*pM\"",
-                LSTR_FMT_ARG(real_st->fullname));
+        sb_addf(
+            &sb, " xsi:type=\"tns:%*pM\"", LSTR_FMT_ARG(real_st->fullname)
+        );
     }
     sb_addc(&sb, '>');
     iop_xpack(&sb, st, v, false, true);
@@ -819,16 +877,17 @@ static int iop_xml_test_struct_invalid(const iop_struct_t *st, void *v,
 
     /* unpacking */
     Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
-    Z_ASSERT_NEG(iop_xunpack_ptr(xmlr_g, t_pool(), iop_env_ctx, st, &res),
-                 "XML unpacking unexpected success (%s, %s)", st->fullname.s,
-                 info);
+    Z_ASSERT_NEG(
+        iop_xunpack_ptr(xmlr_g, t_pool(), iop_env_ctx, st, &res),
+        "XML unpacking unexpected success (%s, %s)", st->fullname.s, info
+    );
 
     xmlr_close(&xmlr_g);
     Z_HELPER_END;
 }
 
-static int iop_json_test_struct(const iop_struct_t *st, void *v,
-                                const char *info)
+static int
+iop_json_test_struct(const iop_struct_t *st, void *v, const char *info)
 {
     t_scope;
     iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
@@ -852,8 +911,10 @@ static int iop_json_test_struct(const iop_struct_t *st, void *v,
         t_sb_init(&sb, 10);
 
         /* packing */
-        Z_ASSERT_N(iop_jpack(st, v, iop_sb_write, &sb, strict),
-                   "JSon packing failure! (%s, %s)", st->fullname.s, info);
+        Z_ASSERT_N(
+            iop_jpack(st, v, iop_sb_write, &sb, strict),
+            "JSon packing failure! (%s, %s)", st->fullname.s, info
+        );
 
         /* unpacking */
         ps = ps_initsb(&sb);
@@ -862,17 +923,20 @@ static int iop_json_test_struct(const iop_struct_t *st, void *v,
             t_sb_init(&sb, 10);
             iop_jlex_write_error(&jll, &sb);
         }
-        Z_ASSERT_N(ret, "JSon unpacking error (%s, %s): %s", st->fullname.s,
-                   info, sb.data);
+        Z_ASSERT_N(
+            ret, "JSon unpacking error (%s, %s): %s", st->fullname.s, info,
+            sb.data
+        );
         iop_jlex_detach(&jll);
 
         /* check hashes equality */
-        iop_hash_sha1(st, v,   buf1, 0);
+        iop_hash_sha1(st, v, buf1, 0);
         iop_hash_sha1(st, res, buf2, 0);
-        Z_ASSERT_EQUAL(buf1, sizeof(buf1), buf2, sizeof(buf2),
-                       "JSON %spacking/unpacking hashes don't match! (%s, %s)",
-                       (strict ? "strict " : ""),
-                       st->fullname.s, info);
+        Z_ASSERT_EQUAL(
+            buf1, sizeof(buf1), buf2, sizeof(buf2),
+            "JSON %spacking/unpacking hashes don't match! (%s, %s)",
+            (strict ? "strict " : ""), st->fullname.s, info
+        );
 
         strict++;
     }
@@ -882,8 +946,9 @@ static int iop_json_test_struct(const iop_struct_t *st, void *v,
     Z_HELPER_END;
 }
 
-static int iop_json_test_struct_invalid(const iop_struct_t *st, void *v,
-                                        const char *info)
+static int iop_json_test_struct_invalid(
+    const iop_struct_t *st, void *v, const char *info
+)
 {
     t_scope;
     iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
@@ -906,15 +971,19 @@ static int iop_json_test_struct_invalid(const iop_struct_t *st, void *v,
         t_sb_init(&sb, 10);
 
         /* packing */
-        Z_ASSERT_N(iop_jpack(st, v, iop_sb_write, &sb, strict),
-                   "JSon packing failure! (%s, %s)", st->fullname.s, info);
+        Z_ASSERT_N(
+            iop_jpack(st, v, iop_sb_write, &sb, strict),
+            "JSon packing failure! (%s, %s)", st->fullname.s, info
+        );
 
         /* unpacking */
         ps = ps_initsb(&sb);
         iop_jlex_attach(&jll, &ps);
         ret = iop_junpack_ptr(&jll, st, &res, true);
-        Z_ASSERT_NEG(ret, "JSon unpacking unexpected success (%s, %s)",
-                     st->fullname.s, info);
+        Z_ASSERT_NEG(
+            ret, "JSon unpacking unexpected success (%s, %s)", st->fullname.s,
+            info
+        );
         iop_jlex_detach(&jll);
 
         strict++;
@@ -925,9 +994,10 @@ static int iop_json_test_struct_invalid(const iop_struct_t *st, void *v,
     Z_HELPER_END;
 }
 
-
-static int iop_json_test_json(const iop_struct_t *st, const char *json,
-                              const void *expected, const char *info)
+static int iop_json_test_json(
+    const iop_struct_t *st, const char *json, const void *expected,
+    const char *info
+)
 {
     t_scope;
     iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
@@ -952,40 +1022,49 @@ static int iop_json_test_json(const iop_struct_t *st, const char *json,
     if ((ret = iop_junpack_ptr(&jll, st, &res, true)) < 0) {
         iop_jlex_write_error(&jll, &sb);
     }
-    Z_ASSERT_N(ret, "JSon unpacking error (%s, %s): %s", st->fullname.s, info,
-               sb.data);
+    Z_ASSERT_N(
+        ret, "JSon unpacking error (%s, %s): %s", st->fullname.s, info,
+        sb.data
+    );
     iop_jlex_detach(&jll);
 
     /* visualize result */
     if (e_is_traced(1)) {
-        iop_jtrace_(1, LSTR(__FILE__), __LINE__, LSTR(__func__), LSTR_NULL_V,
-                    st, res);
+        iop_jtrace_(
+            1, LSTR(__FILE__), __LINE__, LSTR(__func__), LSTR_NULL_V, st, res
+        );
     }
 
     /* check hashes equality */
-    iop_hash_sha1(st, res,      buf1, 0);
+    iop_hash_sha1(st, res, buf1, 0);
     iop_hash_sha1(st, expected, buf2, 0);
-    Z_ASSERT_EQUAL(buf1, sizeof(buf1), buf2, sizeof(buf2),
-                   "JSON unpacking hashes don't match! (%s, %s)",
-                   st->fullname.s, info);
+    Z_ASSERT_EQUAL(
+        buf1, sizeof(buf1), buf2, sizeof(buf2),
+        "JSON unpacking hashes don't match! (%s, %s)", st->fullname.s, info
+    );
 
     iop_jlex_wipe(&jll);
 
     /* Test iop_jpack_file / t_iop_junpack_file */
     path = t_fmt("%*pM/tstjson.json", LSTR_FMT_ARG(z_tmpdir_g));
     sb_reset(&sb);
-    Z_ASSERT_N(iop_jpack_file(iop_env_ctx, path, st, res, 0, &sb),
-               "%*pM", SB_FMT_ARG(&sb));
-    Z_ASSERT_N(t_iop_junpack_ptr_file(iop_env_ctx, path, st, &res, 0, NULL,
-                                      &sb),
-               "%*pM", SB_FMT_ARG(&sb));
+    Z_ASSERT_N(
+        iop_jpack_file(iop_env_ctx, path, st, res, 0, &sb), "%*pM",
+        SB_FMT_ARG(&sb)
+    );
+    Z_ASSERT_N(
+        t_iop_junpack_ptr_file(iop_env_ctx, path, st, &res, 0, NULL, &sb),
+        "%*pM", SB_FMT_ARG(&sb)
+    );
     Z_ASSERT_IOPEQUAL_DESC(st, res, expected);
 
     Z_HELPER_END;
 }
 
-static int iop_json_test_unpack(const iop_struct_t *st, const char *json,
-                                int flags, bool valid, const char *info)
+static int iop_json_test_unpack(
+    const iop_struct_t *st, const char *json, int flags, bool valid,
+    const char *info
+)
 {
     t_scope;
     iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
@@ -1010,11 +1089,15 @@ static int iop_json_test_unpack(const iop_struct_t *st, const char *json,
         iop_jlex_write_error(&jll, &sb);
     }
     if (valid) {
-        Z_ASSERT_N(ret, "JSon unpacking error (%s, %s): %s", st->fullname.s,
-                   info, sb.data);
+        Z_ASSERT_N(
+            ret, "JSon unpacking error (%s, %s): %s", st->fullname.s, info,
+            sb.data
+        );
     } else {
-        Z_ASSERT_NEG(ret, "JSon unpacking unexpected success (%s, %s)",
-                     st->fullname.s, info);
+        Z_ASSERT_NEG(
+            ret, "JSon unpacking unexpected success (%s, %s)", st->fullname.s,
+            info
+        );
     }
     iop_jlex_detach(&jll);
 
@@ -1023,9 +1106,10 @@ static int iop_json_test_unpack(const iop_struct_t *st, const char *json,
     Z_HELPER_END;
 }
 
-static int iop_json_test_pack(const iop_struct_t *st, const void *value,
-                              unsigned flags, bool test_unpack,
-                              bool must_be_equal, const char *expected)
+static int iop_json_test_pack(
+    const iop_struct_t *st, const void *value, unsigned flags,
+    bool test_unpack, bool must_be_equal, const char *expected
+)
 {
     t_scope;
     iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
@@ -1038,8 +1122,9 @@ static int iop_json_test_pack(const iop_struct_t *st, const void *value,
     if (test_unpack) {
         pstream_t ps = ps_initsb(&sb);
 
-        Z_ASSERT_N(t_iop_junpack_ptr_ps(iop_env_ctx, &ps, st, &unpacked, 0,
-                                        NULL));
+        Z_ASSERT_N(
+            t_iop_junpack_ptr_ps(iop_env_ctx, &ps, st, &unpacked, 0, NULL)
+        );
         if (must_be_equal) {
             Z_ASSERT(iop_equals_desc(st, value, unpacked));
         }
@@ -1048,8 +1133,10 @@ static int iop_json_test_pack(const iop_struct_t *st, const void *value,
     Z_HELPER_END;
 }
 
-static void iop_std_test_speed(const iop_struct_t *st, void *v, int iter,
-                               const unsigned flags, const char *info)
+static void iop_std_test_speed(
+    const iop_struct_t *st, void *v, int iter, const unsigned flags,
+    const char *info
+)
 {
     proctimer_t pt;
     int elapsed, elapsed2;
@@ -1083,12 +1170,15 @@ static void iop_std_test_speed(const iop_struct_t *st, void *v, int iter,
     elapsed2 = proctimer_stop(&pt);
     MODULE_RELEASE(thr);
     e_named_trace(1, "iop_speed", "pack multithread: %i", elapsed2);
-    e_named_trace(1, "iop_speed", "multithread improvement: x%f",
-                  (float)elapsed / elapsed2);
+    e_named_trace(
+        1, "iop_speed", "multithread improvement: x%f",
+        (float)elapsed / elapsed2
+    );
 }
 
-static int iop_std_test_struct_flags(const iop_struct_t *st, void *v,
-                                     const unsigned flags, const char *info)
+static int iop_std_test_struct_flags(
+    const iop_struct_t *st, void *v, const unsigned flags, const char *info
+)
 {
     t_scope;
     iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
@@ -1105,15 +1195,18 @@ static int iop_std_test_struct_flags(const iop_struct_t *st, void *v,
     t_qv_init(&szs, 2);
 
     /* packing */
-    Z_ASSERT_N((len = iop_bpack_size_flags(st, v, flags, &szs)),
-               "invalid structure size (%s, %s)", st->fullname.s, info);
+    Z_ASSERT_N(
+        (len = iop_bpack_size_flags(st, v, flags, &szs)),
+        "invalid structure size (%s, %s)", st->fullname.s, info
+    );
     dst = t_new(byte, len);
     iop_bpack(dst, st, v, szs.tab);
 
     /* packing with strict flag should give the same result */
-    Z_ASSERT_DATAEQUAL(t_iop_bpack_struct_flags(st, v, flags |
-                                                IOP_BPACK_STRICT),
-                       LSTR_INIT_V((const char *)dst, len));
+    Z_ASSERT_DATAEQUAL(
+        t_iop_bpack_struct_flags(st, v, flags | IOP_BPACK_STRICT),
+        LSTR_INIT_V((const char *)dst, len)
+    );
 
     /* packing in threaded mode should work */
     MODULE_REQUIRE(thr);
@@ -1124,49 +1217,61 @@ static int iop_std_test_struct_flags(const iop_struct_t *st, void *v,
     Z_ASSERT_LE(szs.len, szs2.len);
     dst2 = t_new(byte, len2);
     iop_bpack(dst2, st, v, szs2.tab);
-    Z_ASSERT_DATAEQUAL(LSTR_INIT_V((const char *)dst, len),
-                       LSTR_INIT_V((const char *)dst2, len2));
+    Z_ASSERT_DATAEQUAL(
+        LSTR_INIT_V((const char *)dst, len),
+        LSTR_INIT_V((const char *)dst2, len2)
+    );
 
     /* test flag to force monothread */
     t_qv_init(&szs2, 2);
-    len2 =  iop_bpack_size_flags(st, v, flags | IOP_BPACK_MONOTHREAD, &szs2);
+    len2 = iop_bpack_size_flags(st, v, flags | IOP_BPACK_MONOTHREAD, &szs2);
     Z_ASSERT_EQ(len, len2);
     Z_ASSERT_EQ(szs.len, szs2.len);
     dst2 = t_new(byte, len2);
     iop_bpack(dst2, st, v, szs2.tab);
-    Z_ASSERT_DATAEQUAL(LSTR_INIT_V((const char *)dst, len),
-                       LSTR_INIT_V((const char *)dst2, len2));
+    Z_ASSERT_DATAEQUAL(
+        LSTR_INIT_V((const char *)dst, len),
+        LSTR_INIT_V((const char *)dst2, len2)
+    );
     MODULE_RELEASE(thr);
 
     /* unpacking */
-    ret = iop_bunpack_ptr(t_pool(), iop_env_ctx, st, &res, ps_init(dst, len),
-                          false);
-    Z_ASSERT_N(ret, "IOP unpacking error (%s, %s, %s)",
-               st->fullname.s, info, iop_get_err());
+    ret = iop_bunpack_ptr(
+        t_pool(), iop_env_ctx, st, &res, ps_init(dst, len), false
+    );
+    Z_ASSERT_N(
+        ret, "IOP unpacking error (%s, %s, %s)", st->fullname.s, info,
+        iop_get_err()
+    );
 
     /* check hashes equality */
-    iop_hash_sha1(st, v,   buf1, 0);
+    iop_hash_sha1(st, v, buf1, 0);
     iop_hash_sha1(st, res, buf2, 0);
-    Z_ASSERT_EQUAL(buf1, sizeof(buf1), buf2, sizeof(buf2),
-                   "IOP packing/unpacking hashes don't match! (%s, %s)",
-                   st->fullname.s, info);
+    Z_ASSERT_EQUAL(
+        buf1, sizeof(buf1), buf2, sizeof(buf2),
+        "IOP packing/unpacking hashes don't match! (%s, %s)", st->fullname.s,
+        info
+    );
 
     /* check equality */
     Z_ASSERT_IOPEQUAL_DESC(st, v, res);
 
     /* test duplication */
     Z_ASSERT_NULL(mp_iop_dup_desc_sz(NULL, st, NULL, NULL));
-    Z_ASSERT_P(res = mp_iop_dup_desc_sz(t_pool(), st, v, NULL),
-               "IOP duplication error! (%s, %s)", st->fullname.s, info);
+    Z_ASSERT_P(
+        res = mp_iop_dup_desc_sz(t_pool(), st, v, NULL),
+        "IOP duplication error! (%s, %s)", st->fullname.s, info
+    );
 
     /* check equality */
     Z_ASSERT_IOPEQUAL_DESC(st, v, res);
 
     /* check hashes equality */
     iop_hash_sha1(st, res, buf2, 0);
-    Z_ASSERT_EQUAL(buf1, sizeof(buf1), buf2, sizeof(buf2),
-                   "IOP duplication hashes don't match! (%s, %s)",
-                   st->fullname.s, info);
+    Z_ASSERT_EQUAL(
+        buf1, sizeof(buf1), buf2, sizeof(buf2),
+        "IOP duplication hashes don't match! (%s, %s)", st->fullname.s, info
+    );
 
     /* test copy */
     mp_iop_copy_desc_sz(t_pool(), st, (void **)&res, NULL, NULL);
@@ -1178,17 +1283,19 @@ static int iop_std_test_struct_flags(const iop_struct_t *st, void *v,
 
     /* check hashes equality */
     iop_hash_sha1(st, res, buf2, 0);
-    Z_ASSERT_EQUAL(buf1, sizeof(buf1), buf2, sizeof(buf2),
-                   "IOP copy hashes don't match! (%s, %s)",
-                   st->fullname.s, info);
+    Z_ASSERT_EQUAL(
+        buf1, sizeof(buf1), buf2, sizeof(buf2),
+        "IOP copy hashes don't match! (%s, %s)", st->fullname.s, info
+    );
 
     Z_HELPER_END;
 }
-#define iop_std_test_struct(st, v, info) \
+#define iop_std_test_struct(st, v, info)                                     \
     iop_std_test_struct_flags(st, v, 0, info)
 
-static int iop_std_test_struct_invalid(const iop_struct_t *st, void *v,
-                                       const char *info, const char *err)
+static int iop_std_test_struct_invalid(
+    const iop_struct_t *st, void *v, const char *info, const char *err
+)
 {
     t_scope;
     iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
@@ -1198,8 +1305,9 @@ static int iop_std_test_struct_invalid(const iop_struct_t *st, void *v,
     byte *dst;
 
     /* packing with strict flag should fail */
-    Z_ASSERT_DATAEQUAL(t_iop_bpack_struct_flags(st, v, IOP_BPACK_STRICT),
-                       LSTR_NULL_V);
+    Z_ASSERT_DATAEQUAL(
+        t_iop_bpack_struct_flags(st, v, IOP_BPACK_STRICT), LSTR_NULL_V
+    );
     Z_ASSERT_STREQUAL(iop_get_err(), err);
 
     /* XXX: Use a small t_qv here to force a realloc during (un)packing and
@@ -1208,16 +1316,20 @@ static int iop_std_test_struct_invalid(const iop_struct_t *st, void *v,
     t_qv_init(&szs, 2);
 
     /* here packing will work... */
-    Z_ASSERT_N((len = iop_bpack_size(st, v, &szs)),
-               "invalid structure size (%s, %s)", st->fullname.s, info);
+    Z_ASSERT_N(
+        (len = iop_bpack_size(st, v, &szs)),
+        "invalid structure size (%s, %s)", st->fullname.s, info
+    );
     dst = t_new(byte, len);
     iop_bpack(dst, st, v, szs.tab);
 
     /* and unpacking should fail */
-    ret = iop_bunpack_ptr(t_pool(), iop_env_ctx, st, &res, ps_init(dst, len),
-                          false);
-    Z_ASSERT_NEG(ret, "IOP unpacking unexpected success (%s, %s)",
-                 st->fullname.s, info);
+    ret = iop_bunpack_ptr(
+        t_pool(), iop_env_ctx, st, &res, ps_init(dst, len), false
+    );
+    Z_ASSERT_NEG(
+        ret, "IOP unpacking unexpected success (%s, %s)", st->fullname.s, info
+    );
     Z_ASSERT_STREQUAL(iop_get_err(), err);
 
     Z_HELPER_END;
@@ -1230,12 +1342,12 @@ static int iop_check_retro_compat_roptimized(lstr_t path)
     tstiop__repeated__t sr;
     const iop_struct_t *st;
 
-    int8_t   *i8;
-    uint8_t  *u8;
-    bool     *b;
-    int16_t  *i16;
+    int8_t *i8;
+    uint8_t *u8;
+    bool *b;
+    int16_t *i16;
     uint16_t *u16;
-    int32_t  *i32;
+    int32_t *i32;
 
     lstr_t s[] = {
         LSTR_IMMED("foo"),
@@ -1253,48 +1365,58 @@ static int iop_check_retro_compat_roptimized(lstr_t path)
     {
         iop_env_ctx_scope(iop_env, iop_env_ctx);
 
-        Z_ASSERT_P(dso, "unable to load zchk-tstiop-plugin: %*pM",
-                   SB_FMT_ARG(&err));
+        Z_ASSERT_P(
+            dso, "unable to load zchk-tstiop-plugin: %*pM", SB_FMT_ARG(&err)
+        );
 
-        Z_ASSERT_P(st = iop_env_ctx_get_struct(iop_env_ctx,
-                                               LSTR("tstiop.Repeated")));
+        Z_ASSERT_P(
+            st = iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.Repeated"))
+        );
 
         /* initialize my arrays */
         {
             const int sz = 256;
 
-            i8  = t_new_raw(int8_t, sz);
-            u8  = t_new_raw(uint8_t, sz);
+            i8 = t_new_raw(int8_t, sz);
+            u8 = t_new_raw(uint8_t, sz);
             i16 = t_new_raw(int16_t, sz);
             u16 = t_new_raw(uint16_t, sz);
-            b   = t_new_raw(bool, sz);
+            b = t_new_raw(bool, sz);
             i32 = t_new_raw(int32_t, sz);
 
             for (int i = 0; i < sz; i++) {
-                i8[i]  = (int8_t)i;
-                u8[i]  = (uint8_t)i;
+                i8[i] = (int8_t)i;
+                u8[i] = (uint8_t)i;
                 i16[i] = (int16_t)i;
                 u16[i] = (uint16_t)i;
-                b[i]   = (bool)i;
+                b[i] = (bool)i;
                 i32[i] = i;
             }
         }
 
         /* do some tests… */
-#define SET(dst, f, _len)  ({ dst.f.tab = f; dst.f.len = (_len); })
-#define SET_RAND(dst, f)   ({ dst.f.tab = f; dst.f.len = (rand() % 256); })
+#define SET(dst, f, _len)                                                    \
+    ({                                                                       \
+        dst.f.tab = f;                                                       \
+        dst.f.len = (_len);                                                  \
+    })
+#define SET_RAND(dst, f)                                                     \
+    ({                                                                       \
+        dst.f.tab = f;                                                       \
+        dst.f.len = (rand() % 256);                                          \
+    })
         iop_init_desc(st, &sr);
         SET(sr, i8, 13);
-        Z_HELPER_RUN(iop_std_test_struct(st, &sr,  "sr1"));
+        Z_HELPER_RUN(iop_std_test_struct(st, &sr, "sr1"));
 
         iop_init_desc(st, &sr);
         SET(sr, i8, 13);
         SET(sr, i32, 4);
-        Z_HELPER_RUN(iop_std_test_struct(st, &sr,  "sr2"));
+        Z_HELPER_RUN(iop_std_test_struct(st, &sr, "sr2"));
 
         srand(seed);
         e_trace(1, "rand seed: %u", seed);
-        for (int i = 0; i < 256; i++ ) {
+        for (int i = 0; i < 256; i++) {
             iop_init_desc(st, &sr);
             SET_RAND(sr, i8);
             SET_RAND(sr, u8);
@@ -1303,7 +1425,7 @@ static int iop_check_retro_compat_roptimized(lstr_t path)
             SET_RAND(sr, b);
             SET_RAND(sr, i32);
             SET(sr, s, rand() % (countof(s) + 1));
-            Z_HELPER_RUN(iop_std_test_struct(st, &sr,  "sr_rand"));
+            Z_HELPER_RUN(iop_std_test_struct(st, &sr, "sr_rand"));
         }
         /* Check the retro-compatibility */
         {
@@ -1311,10 +1433,10 @@ static int iop_check_retro_compat_roptimized(lstr_t path)
             pstream_t ps;
 
             /* map the file */
-            path = t_lstr_cat(z_cmddir_g,
-                              LSTR("samples/repeated.ibp"));
-            Z_ASSERT_N(lstr_init_from_file(&file_map, path.s,
-                                           PROT_READ, MAP_SHARED));
+            path = t_lstr_cat(z_cmddir_g, LSTR("samples/repeated.ibp"));
+            Z_ASSERT_N(
+                lstr_init_from_file(&file_map, path.s, PROT_READ, MAP_SHARED)
+            );
 
             /* check the data */
             ps = ps_initlstr(&file_map);
@@ -1327,10 +1449,14 @@ static int iop_check_retro_compat_roptimized(lstr_t path)
                 Z_ASSERT(ps_has(&ps, dlen));
 
                 iop_init_desc(st, &sr);
-                Z_ASSERT_N(iop_bunpack(t_pool(), iop_env_ctx, st, &sr_res,
-                                       __ps_get_ps(&ps, dlen), false),
-                           "IOP unpacking error (%s) at offset %zu",
-                           st->fullname.s, ps.b - (byte *)file_map.data);
+                Z_ASSERT_N(
+                    iop_bunpack(
+                        t_pool(), iop_env_ctx, st, &sr_res,
+                        __ps_get_ps(&ps, dlen), false
+                    ),
+                    "IOP unpacking error (%s) at offset %zu", st->fullname.s,
+                    ps.b - (byte *)file_map.data
+                );
             }
 
             lstr_wipe(&file_map);
@@ -1358,11 +1484,14 @@ static int iop_check_retro_compat_copy_inv_tab(lstr_t path)
     {
         iop_env_ctx_scope(iop_env, iop_env_ctx);
 
-        Z_ASSERT_P(dso, "unable to load zchk-tstiop-plugin: %*pM",
-                   SB_FMT_ARG(&err));
+        Z_ASSERT_P(
+            dso, "unable to load zchk-tstiop-plugin: %*pM", SB_FMT_ARG(&err)
+        );
 
-        Z_ASSERT_P(st_sb = iop_env_ctx_get_struct(iop_env_ctx,
-                                                  LSTR("tstiop.MyStructB")));
+        Z_ASSERT_P(
+            st_sb =
+                iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.MyStructB"))
+        );
 
         iop_init_desc(st_sb, &sb);
         sb.b.tab = (void *)0x42;
@@ -1382,16 +1511,16 @@ static int iop_check_retro_compat_copy_inv_tab(lstr_t path)
 
 typedef struct z_json_sub_file_t {
     const iop_struct_t *st; /* NULL for string fields. */
-    const void         *val;
-    const char         *path;
+    const void *val;
+    const char *path;
 } z_json_sub_file_t;
 qvector_t(z_json_sub_file, z_json_sub_file_t);
 
-static int
-iop_check_json_include_packing(const iop_struct_t *st, const void *val,
-                               const qv_t(iop_json_subfile) *sub_files,
-                               const qv_t(z_json_sub_file) *z_sub_files,
-                               const char *exp_err)
+static int iop_check_json_include_packing(
+    const iop_struct_t *st, const void *val,
+    const qv_t(iop_json_subfile) *sub_files,
+    const qv_t(z_json_sub_file) *z_sub_files, const char *exp_err
+)
 {
     t_scope;
     iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
@@ -1407,9 +1536,10 @@ iop_check_json_include_packing(const iop_struct_t *st, const void *val,
     /* Pack val in a file, using the sub_files. */
     path = t_fmt("%s/main.json", dir);
 
-    res = __iop_jpack_file(iop_env_ctx, path,
-                           FILE_WRONLY | FILE_CREATE | FILE_TRUNC,
-                           0444, st, val, 0, sub_files, &err);
+    res = __iop_jpack_file(
+        iop_env_ctx, path, FILE_WRONLY | FILE_CREATE | FILE_TRUNC, 0444, st,
+        val, 0, sub_files, &err
+    );
 
     if (exp_err) {
         Z_ASSERT_NEG(res);
@@ -1419,15 +1549,18 @@ iop_check_json_include_packing(const iop_struct_t *st, const void *val,
 
     Z_ASSERT_N(res, "%*pM", SB_FMT_ARG(&err));
 
-#define CHECK_FILE(_st, _file, _exp)  \
+#define CHECK_FILE(_st, _file, _exp)                                         \
     do {                                                                     \
         t_scope;                                                             \
         void *_val = NULL;                                                   \
                                                                              \
         path = t_fmt("%s/%s", dir, _file);                                   \
-        Z_ASSERT_N(t_iop_junpack_ptr_file(iop_env_ctx, path, _st, &_val, 0, \
-                                          NULL, &err),                       \
-                   "cannot unpack `%s`: %*pM", path, SB_FMT_ARG(&err));      \
+        Z_ASSERT_N(                                                          \
+            t_iop_junpack_ptr_file(                                          \
+                iop_env_ctx, path, _st, &_val, 0, NULL, &err                 \
+            ),                                                               \
+            "cannot unpack `%s`: %*pM", path, SB_FMT_ARG(&err)               \
+        );                                                                   \
         Z_ASSERT_IOPEQUAL_DESC(_st, _val, _exp);                             \
     } while (0)
 
@@ -1445,8 +1578,9 @@ iop_check_json_include_packing(const iop_struct_t *st, const void *val,
             lstr_t file_map;
 
             path = t_fmt("%s/%s", dir, sub_file->path);
-            Z_ASSERT_N(lstr_init_from_file(&file_map, path, PROT_READ,
-                                           MAP_SHARED));
+            Z_ASSERT_N(
+                lstr_init_from_file(&file_map, path, PROT_READ, MAP_SHARED)
+            );
             Z_ASSERT_LSTREQUAL(file_map, *content);
             lstr_wipe(&file_map);
         }
@@ -1456,31 +1590,36 @@ iop_check_json_include_packing(const iop_struct_t *st, const void *val,
     Z_HELPER_END;
 }
 
-static int
-iop_check_struct_backward_compat(const iop_struct_t *st1,
-                                 const iop_struct_t *st2,
-                                 unsigned flags, const char *exp_err,
-                                 const void *obj1)
+static int iop_check_struct_backward_compat(
+    const iop_struct_t *st1, const iop_struct_t *st2, unsigned flags,
+    const char *exp_err, const void *obj1
+)
 {
     t_scope;
     iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
     SB_1k(err);
     const char *ctx;
 
-    ctx = t_fmt("check_backward_compat from %*pM to %*pM",
-                LSTR_FMT_ARG(st1->fullname), LSTR_FMT_ARG(st2->fullname));
+    ctx = t_fmt(
+        "check_backward_compat from %*pM to %*pM",
+        LSTR_FMT_ARG(st1->fullname), LSTR_FMT_ARG(st2->fullname)
+    );
 
     if (exp_err) {
-        Z_ASSERT_NEG(iop_struct_check_backward_compat(iop_env_ctx, st1,
-                                                      iop_env_ctx, st2,
-                                                      flags, &err),
-                     "%s should fail", ctx);
+        Z_ASSERT_NEG(
+            iop_struct_check_backward_compat(
+                iop_env_ctx, st1, iop_env_ctx, st2, flags, &err
+            ),
+            "%s should fail", ctx
+        );
         Z_ASSERT_LSTREQUAL(LSTR_SB_V(&err), LSTR(exp_err));
     } else {
-        Z_ASSERT_N(iop_struct_check_backward_compat(iop_env_ctx, st1,
-                                                    iop_env_ctx, st2,
-                                                    flags, &err),
-                   "unexpected failure of %s: %*pM", ctx, SB_FMT_ARG(&err));
+        Z_ASSERT_N(
+            iop_struct_check_backward_compat(
+                iop_env_ctx, st1, iop_env_ctx, st2, flags, &err
+            ),
+            "unexpected failure of %s: %*pM", ctx, SB_FMT_ARG(&err)
+        );
     }
 
     if (!obj1) {
@@ -1492,14 +1631,21 @@ iop_check_struct_backward_compat(const iop_struct_t *st1,
         lstr_t data = t_iop_bpack_struct(st1, obj1);
 
         if (exp_err) {
-            Z_ASSERT_NEG(iop_bunpack_ptr(t_pool(), iop_env_ctx, st2, &obj2,
-                                         ps_initlstr(&data), false),
-                         "bunpack should fail when testing %s", ctx);
+            Z_ASSERT_NEG(
+                iop_bunpack_ptr(
+                    t_pool(), iop_env_ctx, st2, &obj2, ps_initlstr(&data),
+                    false
+                ),
+                "bunpack should fail when testing %s", ctx
+            );
         } else {
-            Z_ASSERT_N(iop_bunpack_ptr(t_pool(), iop_env_ctx, st2,
-                                       (void **)&obj2, ps_initlstr(&data),
-                                       false),
-                       "unexpected bunpack failure when testing %s", ctx);
+            Z_ASSERT_N(
+                iop_bunpack_ptr(
+                    t_pool(), iop_env_ctx, st2, (void **)&obj2,
+                    ps_initlstr(&data), false
+                ),
+                "unexpected bunpack failure when testing %s", ctx
+            );
         }
     }
 
@@ -1511,36 +1657,43 @@ iop_check_struct_backward_compat(const iop_struct_t *st1,
         iop_sb_jpack(&data, st1, obj1, 0);
         ps = ps_initsb(&data);
         if (exp_err) {
-            Z_ASSERT_NEG(t_iop_junpack_ptr_ps(iop_env_ctx, &ps, st2, &obj2, 0,
-                                              &err),
-                         "junpack should fail when testing %s", ctx);
+            Z_ASSERT_NEG(
+                t_iop_junpack_ptr_ps(iop_env_ctx, &ps, st2, &obj2, 0, &err),
+                "junpack should fail when testing %s", ctx
+            );
         } else {
-            Z_ASSERT_N(t_iop_junpack_ptr_ps(iop_env_ctx, &ps, st2, &obj2, 0,
-                                            &err),
-                       "unexpected junpack failure when testing %s: %*pM",
-                       ctx, SB_FMT_ARG(&err));
+            Z_ASSERT_N(
+                t_iop_junpack_ptr_ps(iop_env_ctx, &ps, st2, &obj2, 0, &err),
+                "unexpected junpack failure when testing %s: %*pM", ctx,
+                SB_FMT_ARG(&err)
+            );
         }
     }
 
     Z_HELPER_END;
 }
 
-static int iop_check_typedef_backward_compat(const iop_struct_t *st,
-                                             const iop_typedef_t *td,
-                                             unsigned flags, const void *obj1)
+static int iop_check_typedef_backward_compat(
+    const iop_struct_t *st, const iop_typedef_t *td, unsigned flags,
+    const void *obj1
+)
 {
     t_scope;
     iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
     SB_1k(err);
     const char *ctx;
 
-    ctx = t_fmt("check_backward_compat from %*pM to %*pM",
-                LSTR_FMT_ARG(td->fullname), LSTR_FMT_ARG(st->fullname));
+    ctx = t_fmt(
+        "check_backward_compat from %*pM to %*pM", LSTR_FMT_ARG(td->fullname),
+        LSTR_FMT_ARG(st->fullname)
+    );
 
-    Z_ASSERT_N(iop_struct_check_backward_compat(iop_env_ctx, st,
-                                                iop_env_ctx, td->ref_struct,
-                                                flags, &err),
-               "unexpected failure of %s: %*pM", ctx, SB_FMT_ARG(&err));
+    Z_ASSERT_N(
+        iop_struct_check_backward_compat(
+            iop_env_ctx, st, iop_env_ctx, td->ref_struct, flags, &err
+        ),
+        "unexpected failure of %s: %*pM", ctx, SB_FMT_ARG(&err)
+    );
 
     if (!obj1) {
         return 0;
@@ -1550,9 +1703,13 @@ static int iop_check_typedef_backward_compat(const iop_struct_t *st,
         void *obj2 = NULL;
         lstr_t data = t_iop_bpack_struct(td->ref_struct, obj1);
 
-        Z_ASSERT_N(iop_bunpack_ptr(t_pool(), iop_env_ctx, st, (void **)&obj2,
-                                   ps_initlstr(&data), false),
-                   "unexpected bunpack failure when testing %s", ctx);
+        Z_ASSERT_N(
+            iop_bunpack_ptr(
+                t_pool(), iop_env_ctx, st, (void **)&obj2, ps_initlstr(&data),
+                false
+            ),
+            "unexpected bunpack failure when testing %s", ctx
+        );
     }
 
     if (flags & IOP_COMPAT_JSON) {
@@ -1562,18 +1719,20 @@ static int iop_check_typedef_backward_compat(const iop_struct_t *st,
 
         iop_sb_jpack(&data, td->ref_struct, obj1, 0);
         ps = ps_initsb(&data);
-        Z_ASSERT_N(t_iop_junpack_ptr_ps(iop_env_ctx, &ps, st, &obj2, 0, &err),
-                   "unexpected junpack failure when testing %s: %*pM",
-                   ctx, SB_FMT_ARG(&err));
+        Z_ASSERT_N(
+            t_iop_junpack_ptr_ps(iop_env_ctx, &ps, st, &obj2, 0, &err),
+            "unexpected junpack failure when testing %s: %*pM", ctx,
+            SB_FMT_ARG(&err)
+        );
     }
 
     Z_HELPER_END;
 }
 
-static int iop_check_pkg_backward_compat(const iop_pkg_t *pkg1,
-                                         const iop_pkg_t *pkg2,
-                                         unsigned flags,
-                                         const char * nullable exp_err)
+static int iop_check_pkg_backward_compat(
+    const iop_pkg_t *pkg1, const iop_pkg_t *pkg2, unsigned flags,
+    const char *nullable exp_err
+)
 {
     SB_1k(err);
     iop_env_t *iop_env1;
@@ -1592,8 +1751,9 @@ static int iop_check_pkg_backward_compat(const iop_pkg_t *pkg1,
         iop_env_ctx_scope(iop_env1, iop_env_ctx1);
         iop_env_ctx_scope(iop_env2, iop_env_ctx2);
 
-        res = iop_pkg_check_backward_compat(iop_env_ctx1, pkg1,
-                                            iop_env_ctx2, pkg2, flags, &err);
+        res = iop_pkg_check_backward_compat(
+            iop_env_ctx1, pkg1, iop_env_ctx2, pkg2, flags, &err
+        );
     }
 
     /* Clean up the envs */
@@ -1611,8 +1771,9 @@ static int iop_check_pkg_backward_compat(const iop_pkg_t *pkg1,
     Z_HELPER_END;
 }
 
-static int z_dso_open(const char *dso_path, bool in_cmddir,
-                      iop_env_t *iop_env, iop_dso_t **dsop)
+static int z_dso_open(
+    const char *dso_path, bool in_cmddir, iop_env_t *iop_env, iop_dso_t **dsop
+)
 {
     t_scope;
     SB_1k(err);
@@ -1623,16 +1784,16 @@ static int z_dso_open(const char *dso_path, bool in_cmddir,
         path = t_lstr_cat(z_cmddir_g, path);
     }
     dso = iop_dso_open(iop_env, path.s, &err);
-    Z_ASSERT_P(dso, "unable to load `%s`: %*pM",
-               path.s, SB_FMT_ARG(&err));
+    Z_ASSERT_P(dso, "unable to load `%s`: %*pM", path.s, SB_FMT_ARG(&err));
 
     *dsop = dso;
     Z_HELPER_END;
 }
 
-static int z_check_static_field_type(const iop_struct_t *st,
-                                     lstr_t name, iop_type_t type,
-                                     const char *type_name)
+static int z_check_static_field_type(
+    const iop_struct_t *st, lstr_t name, iop_type_t type,
+    const char *type_name
+)
 {
     const iop_static_field_t *static_field = NULL;
 
@@ -1647,10 +1808,14 @@ static int z_check_static_field_type(const iop_struct_t *st,
         }
     }
 
-    Z_ASSERT_P(static_field, "static field `%*pM` not found in class `%*pM`",
-               LSTR_FMT_ARG(name), LSTR_FMT_ARG(st->fullname));
-    Z_ASSERT_EQ((int)type, iop_class_static_field_type(st, static_field),
-                "expected type `%s`", type_name);
+    Z_ASSERT_P(
+        static_field, "static field `%*pM` not found in class `%*pM`",
+        LSTR_FMT_ARG(name), LSTR_FMT_ARG(st->fullname)
+    );
+    Z_ASSERT_EQ(
+        (int)type, iop_class_static_field_type(st, static_field),
+        "expected type `%s`", type_name
+    );
 
     Z_HELPER_END;
 }
@@ -1662,32 +1827,34 @@ static int z_check_static_field_type(const iop_struct_t *st,
 Z_GROUP_EXPORT(iop)
 {
     _G.iop_env = iop_env_new();
-    IOP_REGISTER_PACKAGES(_G.iop_env,
-                          &tstiop__pkg,
-                          &tstiop_dox__pkg,
-                          &tstiop_inheritance__pkg,
-                          &tstiop_backward_compat__pkg,
-                          &tstiop_typedef__pkg);
+    IOP_REGISTER_PACKAGES(
+        _G.iop_env, &tstiop__pkg, &tstiop_dox__pkg, &tstiop_inheritance__pkg,
+        &tstiop_backward_compat__pkg, &tstiop_typedef__pkg
+    );
 
-    Z_TEST(dso_open, "test whether iop_dso_open works and loads stuff") { /* {{{ */
+    Z_TEST(
+        dso_open, "test whether iop_dso_open works and loads stuff"
+    ) { /* {{{ */
         t_scope;
         SB_1k(err);
         iop_dso_t *dso;
-        lstr_t path = t_lstr_cat(z_cmddir_g,
-                                 LSTR("zchk-iop-plugin"SO_FILEEXT));
+        lstr_t path =
+            t_lstr_cat(z_cmddir_g, LSTR("zchk-iop-plugin" SO_FILEEXT));
 
         dso = iop_dso_open(_G.iop_env, path.s, &err);
 
         Z_ASSERT(dso, "%*pM", SB_FMT_ARG(&err));
-        Z_ASSERT_N(qm_find(iop_struct, &dso->struct_h,
-                           &LSTR_IMMED_V("ic.Hdr")));
+        Z_ASSERT_N(
+            qm_find(iop_struct, &dso->struct_h, &LSTR_IMMED_V("ic.Hdr"))
+        );
 
         {
             iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
             const iop_struct_t *st;
 
-            Z_ASSERT_P(st = iop_env_ctx_get_struct(iop_env_ctx,
-                                                   LSTR("ic.SimpleHdr")));
+            Z_ASSERT_P(
+                st = iop_env_ctx_get_struct(iop_env_ctx, LSTR("ic.SimpleHdr"))
+            );
             Z_ASSERT(st != &ic__simple_hdr__s);
         }
 
@@ -1707,37 +1874,41 @@ Z_GROUP_EXPORT(iop)
         iop_dso_unregister(dso);
         iop_dso_unregister(dso);
         qm_for_each_pos(iop_pkg, pos, &dso->pkg_h) {
-            Z_ASSERT_NULL(iop_dso_get_from_pkg(_G.iop_env,
-                                               dso->pkg_h.values[pos]));
+            Z_ASSERT_NULL(
+                iop_dso_get_from_pkg(_G.iop_env, dso->pkg_h.values[pos])
+            );
         }
         iop_dso_register(dso);
         iop_dso_register(dso);
 
         iop_dso_close(&dso);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
-    Z_TEST(hash_sha1, "test whether iop_hash_sha1 is stable wrt ABI change") { /* {{{ */
+    Z_TEST(
+        hash_sha1, "test whether iop_hash_sha1 is stable wrt ABI change"
+    ) { /* {{{ */
         t_scope;
         iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
-        int  i_10 = 10, i_11 = 11;
+        int i_10 = 10, i_11 = 11;
         long j_10 = 10;
 
         struct tstiop__hash_v1__t v1 = {
-            .b  = OPT(true),
-            .i  = IOP_ARRAY(&i_10, 1),
-            .s  = LSTR_IMMED("foo bar baz"),
+            .b = OPT(true),
+            .i = IOP_ARRAY(&i_10, 1),
+            .s = LSTR_IMMED("foo bar baz"),
         };
 
         struct tstiop__hash_v2__t v2 = {
-            .b  = OPT(true),
-            .i  = IOP_ARRAY(&j_10, 1),
-            .s  = LSTR_IMMED("foo bar baz"),
+            .b = OPT(true),
+            .i = IOP_ARRAY(&j_10, 1),
+            .s = LSTR_IMMED("foo bar baz"),
         };
 
         struct tstiop__hash_v1__t v1_not_same = {
-            .b  = OPT(true),
-            .i  = IOP_ARRAY(&i_11, 1),
-            .s  = LSTR_IMMED("foo bar baz"),
+            .b = OPT(true),
+            .i = IOP_ARRAY(&i_11, 1),
+            .s = LSTR_IMMED("foo bar baz"),
         };
 
         const iop_struct_t *stv1;
@@ -1745,10 +1916,12 @@ Z_GROUP_EXPORT(iop)
 
         uint8_t buf1[20], buf2[20];
 
-        Z_ASSERT_P(stv1 = iop_env_ctx_get_struct(iop_env_ctx,
-                                                 LSTR("tstiop.HashV1")));
-        Z_ASSERT_P(stv2 = iop_env_ctx_get_struct(iop_env_ctx,
-                                                 LSTR("tstiop.HashV2")));
+        Z_ASSERT_P(
+            stv1 = iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.HashV1"))
+        );
+        Z_ASSERT_P(
+            stv2 = iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.HashV2"))
+        );
 
         iop_hash_sha1(stv1, &v1, buf1, 0);
         iop_hash_sha1(stv2, &v2, buf2, 0);
@@ -1756,9 +1929,13 @@ Z_GROUP_EXPORT(iop)
 
         iop_hash_sha1(stv1, &v1_not_same, buf2, 0);
         Z_ASSERT(memcmp(buf1, buf2, sizeof(buf1)) != 0);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
-    Z_TEST(hash_sha1_class, "test whether iop_hash_sha1 takes the IOP_HASH_DONT_INCLUDE_CLASS_ID param into account") { /* {{{ */
+    Z_TEST(
+        hash_sha1_class, "test whether iop_hash_sha1 takes the "
+                         "IOP_HASH_DONT_INCLUDE_CLASS_ID param into account"
+    ) { /* {{{ */
         tstiop__my_class2__t cl2;
         tstiop__my_class2_bis__t cl2bis;
         tstiop__my_class2_after__t cl2after;
@@ -1775,10 +1952,13 @@ Z_GROUP_EXPORT(iop)
 
         /* test both classes hash are equal with
          * IOP_HASH_DONT_INCLUDE_CLASS_ID param */
-        iop_hash_sha1(&tstiop__my_class1__s, &cl2, buf1,
-                      IOP_HASH_DONT_INCLUDE_CLASS_ID);
-        iop_hash_sha1(&tstiop__my_class1__s, &cl2bis, buf2,
-                      IOP_HASH_DONT_INCLUDE_CLASS_ID);
+        iop_hash_sha1(
+            &tstiop__my_class1__s, &cl2, buf1, IOP_HASH_DONT_INCLUDE_CLASS_ID
+        );
+        iop_hash_sha1(
+            &tstiop__my_class1__s, &cl2bis, buf2,
+            IOP_HASH_DONT_INCLUDE_CLASS_ID
+        );
         Z_ASSERT(memcmp(buf1, buf2, sizeof(buf1)) == 0);
 
         /* test both classes hash are different without
@@ -1795,37 +1975,44 @@ Z_GROUP_EXPORT(iop)
         cl2after.int2 = 2;
         iop_hash_sha1(&tstiop__my_class1_after__s, &cl2after, buf2, 0);
         Z_ASSERT(memcmp(buf1, buf2, sizeof(buf1)) == 0);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(constant_folder, "test the IOP constant folder") { /* {{{ */
-#define feed_num(_num)                                                  \
-        Z_ASSERT_N(iop_cfolder_feed_number(&cfolder, _num, true),       \
-                   "error when feeding %jd", (int64_t)_num)
-#define feed_op(_op)                                                    \
-        Z_ASSERT_N(iop_cfolder_feed_operator(&cfolder, _op),            \
-                   "error when feeding with %d", _op)
+#define feed_num(_num)                                                       \
+    Z_ASSERT_N(                                                              \
+        iop_cfolder_feed_number(&cfolder, _num, true),                       \
+        "error when feeding %jd", (int64_t)_num                              \
+    )
+#define feed_op(_op)                                                         \
+    Z_ASSERT_N(                                                              \
+        iop_cfolder_feed_operator(&cfolder, _op),                            \
+        "error when feeding with %d", _op                                    \
+    )
 
-#define result(_res, _signed) \
-        do {                                                            \
-            uint64_t cres;                                              \
-            bool is_signed;                                             \
-            \
-            Z_ASSERT_N(iop_cfolder_get_result(&cfolder, &cres, &is_signed),\
-                       "constant folder error");                        \
-            Z_ASSERT_EQ((int64_t)cres, (int64_t)_res);                  \
-            Z_ASSERT_EQ(is_signed, _signed);                            \
-            iop_cfolder_wipe(&cfolder);                                 \
-            iop_cfolder_init(&cfolder);                                 \
-        } while (false)
+#define result(_res, _signed)                                                \
+    do {                                                                     \
+        uint64_t cres;                                                       \
+        bool is_signed;                                                      \
+                                                                             \
+        Z_ASSERT_N(                                                          \
+            iop_cfolder_get_result(&cfolder, &cres, &is_signed),             \
+            "constant folder error"                                          \
+        );                                                                   \
+        Z_ASSERT_EQ((int64_t)cres, (int64_t)_res);                           \
+        Z_ASSERT_EQ(is_signed, _signed);                                     \
+        iop_cfolder_wipe(&cfolder);                                          \
+        iop_cfolder_init(&cfolder);                                          \
+    } while (false)
 
-#define error()                                                         \
-        do {                                                            \
-            uint64_t cres;                                              \
-                                                                        \
-            Z_ASSERT_NEG(iop_cfolder_get_result(&cfolder, &cres, NULL));\
-            iop_cfolder_wipe(&cfolder);                                 \
-            iop_cfolder_init(&cfolder);                                 \
-        } while (false)
+#define error()                                                              \
+    do {                                                                     \
+        uint64_t cres;                                                       \
+                                                                             \
+        Z_ASSERT_NEG(iop_cfolder_get_result(&cfolder, &cres, NULL));         \
+        iop_cfolder_wipe(&cfolder);                                          \
+        iop_cfolder_init(&cfolder);                                          \
+    } while (false)
 
         iop_cfolder_t cfolder;
 
@@ -1999,41 +2186,52 @@ Z_GROUP_EXPORT(iop)
 #undef feed_op
 #undef result
 #undef error
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(camelcase_to_c, "test IOP camelcase name to C") { /* {{{ */
         t_scope;
 
         Z_ASSERT_LSTREQUAL(LSTR("foo"), t_camelcase_to_c(LSTR("foo")));
-        Z_ASSERT_LSTREQUAL(LSTR("foo_bar123_long_name456"),
-                           t_camelcase_to_c(LSTR("FooBar123LongName456")));
+        Z_ASSERT_LSTREQUAL(
+            LSTR("foo_bar123_long_name456"),
+            t_camelcase_to_c(LSTR("FooBar123LongName456"))
+        );
 
         Z_ASSERT_LSTREQUAL(LSTR("foo"), t_iop_type_to_c(LSTR("foo")));
-        Z_ASSERT_LSTREQUAL(LSTR("pa__cka__ge__foo_bar123_long_name456"),
-            t_iop_type_to_c(LSTR("pa.cka.ge.FooBar123LongName456")));
-        Z_ASSERT_LSTREQUAL(LSTR("foo__bar__baz_baz__qux"),
-                           t_iop_type_to_c(LSTR("foo.bar.baz_baz.qux")));
-    } Z_TEST_END;
+        Z_ASSERT_LSTREQUAL(
+            LSTR("pa__cka__ge__foo_bar123_long_name456"),
+            t_iop_type_to_c(LSTR("pa.cka.ge.FooBar123LongName456"))
+        );
+        Z_ASSERT_LSTREQUAL(
+            LSTR("foo__bar__baz_baz__qux"),
+            t_iop_type_to_c(LSTR("foo.bar.baz_baz.qux"))
+        );
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(c_to_camelcase, "test C name to IOP camelcase") { /* {{{ */
         t_scope;
         SB_1k(out);
 
 #define CHECK_C_TO_CAMELCASE(_lhs, _rhs, _caps)                              \
-        Z_ASSERT_N(c_to_camelcase(_lhs, _caps, &out));                       \
-        Z_ASSERT_LSTREQUAL(_rhs,                                             \
-                           lstr_init_(out.data, out.len, MEM_STACK));        \
+    Z_ASSERT_N(c_to_camelcase(_lhs, _caps, &out));                           \
+    Z_ASSERT_LSTREQUAL(_rhs, lstr_init_(out.data, out.len, MEM_STACK));
 
         CHECK_C_TO_CAMELCASE(LSTR("foo"), LSTR("foo"), false);
-        CHECK_C_TO_CAMELCASE(LSTR("foo_bar_123_long_name456"),
-                             LSTR("FooBar123LongName456"), true);
-        CHECK_C_TO_CAMELCASE(t_camelcase_to_c(LSTR("fBa42")),
-                             LSTR("fBa42"), false);
+        CHECK_C_TO_CAMELCASE(
+            LSTR("foo_bar_123_long_name456"), LSTR("FooBar123LongName456"),
+            true
+        );
+        CHECK_C_TO_CAMELCASE(
+            t_camelcase_to_c(LSTR("fBa42")), LSTR("fBa42"), false
+        );
 
         Z_ASSERT_N(c_to_camelcase(LSTR("a_b_c"), false, &out));
-        Z_ASSERT_LSTREQUAL(LSTR("a_b_c"),
-                           t_camelcase_to_c(lstr_init_(out.data, out.len,
-                                                       MEM_STACK)));
+        Z_ASSERT_LSTREQUAL(
+            LSTR("a_b_c"),
+            t_camelcase_to_c(lstr_init_(out.data, out.len, MEM_STACK))
+        );
 
         Z_ASSERT_NEG(c_to_camelcase(LSTR("_foo"), false, &out));
         Z_ASSERT_NEG(c_to_camelcase(LSTR("bar_"), true, &out));
@@ -2043,11 +2241,14 @@ Z_GROUP_EXPORT(iop)
 
 #undef CHECK_C_TO_CAMELCASE
 
-        Z_ASSERT_LSTREQUAL(t_c_to_camelcase(LSTR("foo_bar"), true),
-                           LSTR("FooBar"));
-        Z_ASSERT_LSTREQUAL(t_c_to_camelcase(LSTR("foo_bar"), false),
-                           LSTR("fooBar"));
-    } Z_TEST_END;
+        Z_ASSERT_LSTREQUAL(
+            t_c_to_camelcase(LSTR("foo_bar"), true), LSTR("FooBar")
+        );
+        Z_ASSERT_LSTREQUAL(
+            t_c_to_camelcase(LSTR("foo_bar"), false), LSTR("fooBar")
+        );
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(unions, "test IOP union helpers") { /* {{{ */
         t_scope;
@@ -2057,18 +2258,22 @@ Z_GROUP_EXPORT(iop)
             int *uavp, uav = 0;
 
             IOP_UNION_SWITCH(&ua) {
-              IOP_UNION_CASE(tstiop__my_union_a, &ua, ua, v) {
-                Z_ASSERT_EQ(v, 42);
-              }
-              IOP_UNION_CASE_V(tstiop__my_union_a, &ua, ub) {
-                Z_ASSERT(false, "shouldn't be reached");
-              }
-              IOP_UNION_CASE_V(tstiop__my_union_a, &ua, us) {
-                Z_ASSERT(false, "shouldn't be reached");
-              }
-              IOP_UNION_DEFAULT() {
-                Z_ASSERT(false, "default case shouldn't be reached");
-              }
+                IOP_UNION_CASE(tstiop__my_union_a, &ua, ua, v)
+                {
+                    Z_ASSERT_EQ(v, 42);
+                }
+                IOP_UNION_CASE_V(tstiop__my_union_a, &ua, ub)
+                {
+                    Z_ASSERT(false, "shouldn't be reached");
+                }
+                IOP_UNION_CASE_V(tstiop__my_union_a, &ua, us)
+                {
+                    Z_ASSERT(false, "shouldn't be reached");
+                }
+                IOP_UNION_DEFAULT()
+                {
+                    Z_ASSERT(false, "default case shouldn't be reached");
+                }
             }
 
             Z_ASSERT_P(uavp = tstiop__my_union_a__get(&ua, ua));
@@ -2085,18 +2290,22 @@ Z_GROUP_EXPORT(iop)
             int8_t *ubvp;
 
             IOP_UNION_SWITCH(&ub) {
-              IOP_UNION_CASE_V(tstiop__my_union_a, &ub, ua) {
-                Z_ASSERT(false, "shouldn't be reached");
-              }
-              IOP_UNION_CASE_P(tstiop__my_union_a, &ub, ub, v) {
-                Z_ASSERT_EQ(*v, 42);
-              }
-              IOP_UNION_CASE_V(tstiop__my_union_a, &ub, us) {
-                Z_ASSERT(false, "shouldn't be reached");
-              }
-              IOP_UNION_DEFAULT() {
-                Z_ASSERT(false, "default case shouldn't be reached");
-              }
+                IOP_UNION_CASE_V(tstiop__my_union_a, &ub, ua)
+                {
+                    Z_ASSERT(false, "shouldn't be reached");
+                }
+                IOP_UNION_CASE_P(tstiop__my_union_a, &ub, ub, v)
+                {
+                    Z_ASSERT_EQ(*v, 42);
+                }
+                IOP_UNION_CASE_V(tstiop__my_union_a, &ub, us)
+                {
+                    Z_ASSERT(false, "shouldn't be reached");
+                }
+                IOP_UNION_DEFAULT()
+                {
+                    Z_ASSERT(false, "default case shouldn't be reached");
+                }
             }
 
             Z_ASSERT_P(ubvp = tstiop__my_union_a__get(&ub, ub));
@@ -2107,23 +2316,27 @@ Z_GROUP_EXPORT(iop)
         }
 
         {
-            tstiop__my_union_a__t us = IOP_UNION(tstiop__my_union_a, us,
-                                                 LSTR_IMMED("foo"));
+            tstiop__my_union_a__t us =
+                IOP_UNION(tstiop__my_union_a, us, LSTR_IMMED("foo"));
             lstr_t *usvp;
 
             IOP_UNION_SWITCH(&us) {
-              IOP_UNION_CASE_V(tstiop__my_union_a, &us, ua) {
-                Z_ASSERT(false, "shouldn't be reached");
-              }
-              IOP_UNION_CASE_V(tstiop__my_union_a, &us, ub) {
-                Z_ASSERT(false, "shouldn't be reached");
-              }
-              IOP_UNION_CASE(tstiop__my_union_a, &us, us, v) {
-                Z_ASSERT_LSTREQUAL(v, LSTR("foo"));
-              }
-              IOP_UNION_DEFAULT() {
-                Z_ASSERT(false, "default case shouldn't be reached");
-              }
+                IOP_UNION_CASE_V(tstiop__my_union_a, &us, ua)
+                {
+                    Z_ASSERT(false, "shouldn't be reached");
+                }
+                IOP_UNION_CASE_V(tstiop__my_union_a, &us, ub)
+                {
+                    Z_ASSERT(false, "shouldn't be reached");
+                }
+                IOP_UNION_CASE(tstiop__my_union_a, &us, us, v)
+                {
+                    Z_ASSERT_LSTREQUAL(v, LSTR("foo"));
+                }
+                IOP_UNION_DEFAULT()
+                {
+                    Z_ASSERT(false, "default case shouldn't be reached");
+                }
             }
 
             Z_ASSERT_P(usvp = tstiop__my_union_a__get(&us, us));
@@ -2132,7 +2345,8 @@ Z_GROUP_EXPORT(iop)
             Z_ASSERT_NULL(tstiop__my_union_a__get(&us, ua));
             Z_ASSERT_NULL(tstiop__my_union_a__get(&us, ub));
         }
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
     Z_TEST(soap, "test IOP SOAP (un)packer") { /* {{{ */
         t_scope;
@@ -2142,7 +2356,9 @@ Z_GROUP_EXPORT(iop)
         tstiop__my_struct_e__t se = {
             .a = 10,
             .b = IOP_UNION(tstiop__my_union_a, ua, 42),
-            .c = { .b = IOP_ARRAY(val, countof(val)), },
+            .c = {
+                .b = IOP_ARRAY(val, countof(val)),
+            },
         };
 
         uint64_t uval[] = {UINT64_MAX, INT64_MAX, 0};
@@ -2169,21 +2385,32 @@ Z_GROUP_EXPORT(iop)
             .cls2 = &cls2,
             .m = 3.14159265,
             .n = true,
-            .xml_field = LSTR_IMMED("<foo><bar/><foobar "
-                                    "attr=\"value\">toto</foobar></foo>"),
+            .xml_field = LSTR_IMMED(
+                "<foo><bar/><foobar "
+                "attr=\"value\">toto</foobar></foo>"
+            ),
         };
 
         lstr_t svals[] = {
-            LSTR_IMMED("foo"), LSTR_IMMED("bar"), LSTR_IMMED("foobar"),
+            LSTR_IMMED("foo"),
+            LSTR_IMMED("bar"),
+            LSTR_IMMED("foobar"),
         };
 
         lstr_t dvals[] = {
-            LSTR_IMMED("Test"), LSTR_IMMED("Foo"), LSTR_IMMED("BAR"),
+            LSTR_IMMED("Test"),
+            LSTR_IMMED("Foo"),
+            LSTR_IMMED("BAR"),
         };
 
         tstiop__my_struct_b__t bvals[] = {
-            { .b = IOP_ARRAY(NULL, 0), },
-            { .a = OPT(55), .b = IOP_ARRAY(NULL, 0), }
+            {
+                .b = IOP_ARRAY(NULL, 0),
+            },
+            {
+                .a = OPT(55),
+                .b = IOP_ARRAY(NULL, 0),
+            }
         };
 
         tstiop__my_struct_f__t sf = {
@@ -2195,18 +2422,32 @@ Z_GROUP_EXPORT(iop)
         const iop_struct_t *st_se, *st_sa, *st_sf, *st_cs, *st_sa_opt;
         const iop_struct_t *st_cls2;
 
-        Z_ASSERT_P(st_se = iop_env_ctx_get_struct(
-            iop_env_ctx, LSTR("tstiop.MyStructE")));
-        Z_ASSERT_P(st_sa = iop_env_ctx_get_struct(
-            iop_env_ctx, LSTR("tstiop.MyStructA")));
-        Z_ASSERT_P(st_sf = iop_env_ctx_get_struct(
-            iop_env_ctx, LSTR("tstiop.MyStructF")));
-        Z_ASSERT_P(st_cs = iop_env_ctx_get_struct(
-            iop_env_ctx, LSTR("tstiop.ConstraintS")));
-        Z_ASSERT_P(st_sa_opt = iop_env_ctx_get_struct(
-            iop_env_ctx, LSTR("tstiop.MyStructAOpt")));
-        Z_ASSERT_P(st_cls2 = iop_env_ctx_get_struct(
-            iop_env_ctx, LSTR("tstiop.MyClass2")));
+        Z_ASSERT_P(
+            st_se =
+                iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.MyStructE"))
+        );
+        Z_ASSERT_P(
+            st_sa =
+                iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.MyStructA"))
+        );
+        Z_ASSERT_P(
+            st_sf =
+                iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.MyStructF"))
+        );
+        Z_ASSERT_P(
+            st_cs = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.ConstraintS")
+            )
+        );
+        Z_ASSERT_P(
+            st_sa_opt = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.MyStructAOpt")
+            )
+        );
+        Z_ASSERT_P(
+            st_cls2 =
+                iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.MyClass2"))
+        );
 
         iop_init_desc(st_cls2, &cls2);
 
@@ -2221,27 +2462,33 @@ Z_GROUP_EXPORT(iop)
             SB_1k(sb);
 
             sb_adds(&sb, IOP_XML_HEADER_FULL);
-            sb_adds(&sb,
-                    "<unk1></unk1>"
-                    "<a>foo</a><a>bar</a><a>foobar</a>"
-                    "<b>VGVzdA==</b><b>Rm9v</b><b>QkFS</b>"
-                    "<c><unk2>foo</unk2></c><c><a>55</a><unk3 /></c><c />"
-                    "<c><a>55</a><b>2</b><unk3 /></c>"
-                    "<unk4>foo</unk4>");
+            sb_adds(
+                &sb, "<unk1></unk1>"
+                     "<a>foo</a><a>bar</a><a>foobar</a>"
+                     "<b>VGVzdA==</b><b>Rm9v</b><b>QkFS</b>"
+                     "<c><unk2>foo</unk2></c><c><a>55</a><unk3 /></c><c />"
+                     "<c><a>55</a><b>2</b><unk3 /></c>"
+                     "<unk4>foo</unk4>"
+            );
             sb_adds(&sb, IOP_XML_FOOTER);
 
             iop_init_desc(st_sf, &sf_ret);
             Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
-            Z_ASSERT_NEG(iop_xunpack(xmlr_g, t_pool(), iop_env_ctx, st_sf,
-                                     &sf_ret),
-                         "unexpected successful unpacking");
+            Z_ASSERT_NEG(
+                iop_xunpack(xmlr_g, t_pool(), iop_env_ctx, st_sf, &sf_ret),
+                "unexpected successful unpacking"
+            );
             xmlr_close(&xmlr_g);
 
             iop_init_desc(st_sf, &sf_ret);
             Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
-            Z_ASSERT_N(iop_xunpack_flags(xmlr_g, t_pool(), iop_env_ctx, st_sf,
-                                         &sf_ret, IOP_UNPACK_IGNORE_UNKNOWN),
-                       "unexpected unpacking failure using IGNORE_UNKNOWN");
+            Z_ASSERT_N(
+                iop_xunpack_flags(
+                    xmlr_g, t_pool(), iop_env_ctx, st_sf, &sf_ret,
+                    IOP_UNPACK_IGNORE_UNKNOWN
+                ),
+                "unexpected unpacking failure using IGNORE_UNKNOWN"
+            );
             xmlr_close(&xmlr_g);
         }
 
@@ -2258,26 +2505,32 @@ Z_GROUP_EXPORT(iop)
             qm_add(part, &parts, &bar, LSTR("part cid bar"));
 
             sb_adds(&sb, IOP_XML_HEADER_FULL);
-            sb_adds(&sb,
-                    "<a></a><a/><a>foo</a>"
-                    "<a href=\'cid:foo\'/>"
-                    "<a><inc:Include href=\'cid:bar\' xmlns:inc=\"url\" /></a>"
-                    "<b>VGVzdA==</b>"
-                    "<b href=\'cid:foo\'/>");
+            sb_adds(
+                &sb,
+                "<a></a><a/><a>foo</a>"
+                "<a href=\'cid:foo\'/>"
+                "<a><inc:Include href=\'cid:bar\' xmlns:inc=\"url\" /></a>"
+                "<b>VGVzdA==</b>"
+                "<b href=\'cid:foo\'/>"
+            );
             sb_adds(&sb, IOP_XML_FOOTER);
 
             iop_init_desc(st_sf, &sf_ret);
             Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
-            Z_ASSERT_NEG(iop_xunpack(xmlr_g, t_pool(), iop_env_ctx, st_sf,
-                                     &sf_ret),
-                         "unexpected successful unpacking");
+            Z_ASSERT_NEG(
+                iop_xunpack(xmlr_g, t_pool(), iop_env_ctx, st_sf, &sf_ret),
+                "unexpected successful unpacking"
+            );
             xmlr_close(&xmlr_g);
 
             iop_init_desc(st_sf, &sf_ret);
             Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
-            Z_ASSERT_N(iop_xunpack_parts(xmlr_g, t_pool(), iop_env_ctx, st_sf,
-                                         &sf_ret, 0, &parts),
-                       "unexpected unpacking failure with parts");
+            Z_ASSERT_N(
+                iop_xunpack_parts(
+                    xmlr_g, t_pool(), iop_env_ctx, st_sf, &sf_ret, 0, &parts
+                ),
+                "unexpected unpacking failure with parts"
+            );
             xmlr_close(&xmlr_g);
 
             qm_wipe(part, &parts);
@@ -2289,17 +2542,19 @@ Z_GROUP_EXPORT(iop)
             SB_1k(sb);
 
             sb_adds(&sb, IOP_XML_HEADER_FULL);
-            sb_adds(&sb,
-                    "<a>42</a>"
-                    "<b>0x10</b>"
-                    "<e>-42</e>"
-                    "<f>0x42</f>");
+            sb_adds(
+                &sb, "<a>42</a>"
+                     "<b>0x10</b>"
+                     "<e>-42</e>"
+                     "<f>0x42</f>"
+            );
             sb_adds(&sb, IOP_XML_FOOTER);
 
             iop_init_desc(st_sa_opt, &sa_opt);
             Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
-            Z_ASSERT_N(iop_xunpack(xmlr_g, t_pool(), iop_env_ctx, st_sa_opt,
-                                   &sa_opt));
+            Z_ASSERT_N(
+                iop_xunpack(xmlr_g, t_pool(), iop_env_ctx, st_sa_opt, &sa_opt)
+            );
             xmlr_close(&xmlr_g);
 
             Z_ASSERT(OPT_ISSET(sa_opt.a));
@@ -2348,10 +2603,14 @@ Z_GROUP_EXPORT(iop)
             iop_init_desc(st_cs, res);
 
             Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
-            ret = iop_xunpack_flags(xmlr_g, t_pool(), iop_env_ctx, st_cs, &cs,
-                                    IOP_UNPACK_FORBID_PRIVATE);
-            Z_ASSERT_N(ret, "XML unpacking failure (%s, %s): %s",
-                       st_cs->fullname.s, "st_cs", xmlr_get_err());
+            ret = iop_xunpack_flags(
+                xmlr_g, t_pool(), iop_env_ctx, st_cs, &cs,
+                IOP_UNPACK_FORBID_PRIVATE
+            );
+            Z_ASSERT_N(
+                ret, "XML unpacking failure (%s, %s): %s", st_cs->fullname.s,
+                "st_cs", xmlr_get_err()
+            );
             Z_ASSERT(!OPT_ISSET(cs.priv));
             Z_ASSERT(cs.priv2);
 
@@ -2359,48 +2618,56 @@ Z_GROUP_EXPORT(iop)
              * specified */
             sb_reset(&sb);
             sb_adds(&sb, IOP_XML_HEADER_FULL);
-            sb_adds(&sb,
-                    "<s>abcd</s>"
-                    "<s>abcd</s>");
+            sb_adds(
+                &sb, "<s>abcd</s>"
+                     "<s>abcd</s>"
+            );
             sb_adds(&sb, IOP_XML_FOOTER);
 
             iop_init_desc(st_cs, &cs);
             Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
-            Z_ASSERT_N(iop_xunpack_flags(xmlr_g, t_pool(), iop_env_ctx, st_cs,
-                                         &cs, IOP_UNPACK_FORBID_PRIVATE));
+            Z_ASSERT_N(iop_xunpack_flags(
+                xmlr_g, t_pool(), iop_env_ctx, st_cs, &cs,
+                IOP_UNPACK_FORBID_PRIVATE
+            ));
             xmlr_close(&xmlr_g);
 
             sb_reset(&sb);
             sb_adds(&sb, IOP_XML_HEADER_FULL);
-            sb_adds(&sb,
-                    "<s>abcd</s>"
-                    "<s>abcd</s>"
-                    "<priv>true</priv>");
+            sb_adds(
+                &sb, "<s>abcd</s>"
+                     "<s>abcd</s>"
+                     "<priv>true</priv>"
+            );
             sb_adds(&sb, IOP_XML_FOOTER);
 
             iop_init_desc(st_cs, &cs);
             Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
-            Z_ASSERT_NEG(iop_xunpack_flags(xmlr_g, t_pool(), iop_env_ctx,
-                                           st_cs, &cs,
-                                           IOP_UNPACK_FORBID_PRIVATE));
+            Z_ASSERT_NEG(iop_xunpack_flags(
+                xmlr_g, t_pool(), iop_env_ctx, st_cs, &cs,
+                IOP_UNPACK_FORBID_PRIVATE
+            ));
             xmlr_close(&xmlr_g);
 
             sb_reset(&sb);
             sb_adds(&sb, IOP_XML_HEADER_FULL);
-            sb_adds(&sb,
-                    "<s>abcd</s>"
-                    "<s>abcd</s>"
-                    "<priv2>true</priv2>");
+            sb_adds(
+                &sb, "<s>abcd</s>"
+                     "<s>abcd</s>"
+                     "<priv2>true</priv2>"
+            );
             sb_adds(&sb, IOP_XML_FOOTER);
 
             iop_init_desc(st_cs, &cs);
             Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
-            Z_ASSERT_NEG(iop_xunpack_flags(xmlr_g, t_pool(), iop_env_ctx,
-                                           st_cs, &cs,
-                                           IOP_UNPACK_FORBID_PRIVATE));
+            Z_ASSERT_NEG(iop_xunpack_flags(
+                xmlr_g, t_pool(), iop_env_ctx, st_cs, &cs,
+                IOP_UNPACK_FORBID_PRIVATE
+            ));
             xmlr_close(&xmlr_g);
         }
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
     Z_TEST(json, "test IOP JSon (un)packer") { /* {{{ */
         t_scope;
@@ -2496,8 +2763,7 @@ Z_GROUP_EXPORT(iop)
             "    \"r\": c\'\\x2A\',\n"
             "    \"s\": c\'\\u002B\',\n"
             "    \"t\": c\'\\t\'\n"
-            "};\n"
-            ;
+            "};\n";
 
         const char json_sa2[] =
             "/* Json example */\n"
@@ -2533,8 +2799,7 @@ Z_GROUP_EXPORT(iop)
             "    \"s\": c\'\\u002B\',\n"
             "    \"t\": c\'\\t\'\n"
             "};\n"
-            "// last line contains a comment and no \\n"
-            ;
+            "// last line contains a comment and no \\n";
 
         tstiop__my_struct_a__t json_sa_res = {
             .a = 42,
@@ -2570,8 +2835,7 @@ Z_GROUP_EXPORT(iop)
             "       b = [ 1w, 1d, 1h, 1m, 1s, 1G, 1M, 1K, ];\n"
             "    }];\n"
             "    d = [ .us: \"foo\", .ub: true ];\n"
-            "};;;\n"
-            ;
+            "};;;\n";
 
         const char json_sf2[] =
             "/* Json example */\n"
@@ -2582,8 +2846,7 @@ Z_GROUP_EXPORT(iop)
             "       b = [ 1w, 1d, 1h, 1m, 1s, 1G, 1M, 1K, ];\n"
             "    }];\n"
             "    d = [ {us: \"foo\"}, {ub: true} ];\n"
-            "};;;\n"
-            ;
+            "};;;\n";
 
         lstr_t avals[] = {
             LSTR_IMMED("foo"),
@@ -2595,14 +2858,13 @@ Z_GROUP_EXPORT(iop)
             LSTR_IMMED("barfoo"),
         };
 
-        int b2vals[] = { 86400*7, 86400, 3600, 60, 1, 1<<30, 1<<20, 1<<10 };
+        int b2vals[] = {86400 * 7, 86400,   3600,    60,
+                        1,         1 << 30, 1 << 20, 1 << 10};
 
-        tstiop__my_struct_b__t cvals[] = {
-            {
-                .a = OPT(10),
-                .b = IOP_ARRAY(b2vals, countof(b2vals)),
-            }
-        };
+        tstiop__my_struct_b__t cvals[] = {{
+            .a = OPT(10),
+            .b = IOP_ARRAY(b2vals, countof(b2vals)),
+        }};
 
         tstiop__my_union_a__t dvals[] = {
             IOP_UNION(tstiop__my_union_a, us, LSTR_IMMED("foo")),
@@ -2617,40 +2879,43 @@ Z_GROUP_EXPORT(iop)
         };
 
 #define xstr(...) str(__VA_ARGS__)
-#define str(...)  #__VA_ARGS__
+#define str(...) #__VA_ARGS__
 
-#define IVALS -1*10-(-10-1), 0x10|0x11, ((0x1f + 010)- 0X1E -5-8) *(2+2),   \
-    0-1, ((0x1f + 010) - 0X1E - 5 - 8) * (2 +2),                            \
-    ~0xffffffffffffff00 + POW(3, 4) - (1 << 2), (2 * 3 + 1) << 2,           \
-    POW(2, (5+(-2))), 1, -1, +1, 1+1, -1+1, +1+1
+#define IVALS                                                                \
+    -1 * 10 - (-10 - 1), 0x10 | 0x11,                                        \
+        ((0x1f + 010) - 0X1E - 5 - 8) * (2 + 2), 0 - 1,                      \
+        ((0x1f + 010) - 0X1E - 5 - 8) * (2 + 2),                             \
+        ~0xffffffffffffff00 + POW(3, 4) - (1 << 2), (2 * 3 + 1) << 2,        \
+        POW(2, (5 + (-2))), 1, -1, +1, 1 + 1, -1 + 1, +1 + 1
 #define DVALS .5, +.5, -.5, 0.5, +0.5, -0.5, 5.5, 0.2e2, 0x1P10
-#define EVALS  EC(A), EC(A) | EC(B) | EC(C) | EC(D) | EC(E), (1 << 5) - 1
+#define EVALS EC(A), EC(A) | EC(B) | EC(C) | EC(D) | EC(E), (1 << 5) - 1
 
-#define EC(s)       #s
-#define POW(a,b)    a ** b
+#define EC(s) #s
+#define POW(a, b) a **b
         const char json_si[] =
             "/* Json example */\n"
             "{\n"
             "    i = [ " xstr(IVALS) " ];\n"
-            "    d = [ " xstr(DVALS) " ];\n"
-            "    e = [ " xstr(EVALS) " ];\n"
-            "};;;\n"
-            ;
+                                     "    d = [ " xstr(
+                                         DVALS
+                                     ) " ];\n"
+                                       "    e = [ " xstr(EVALS) " ];\n"
+                                                                "};;;\n";
 
-        const char json_si_p1[] = "{l = [ -0x7fffffffffffffff + (-1) ]; };" ;
-        const char json_si_p2[] = "{u =    0xffffffffffffffff +   0   ; };" ;
-        const char json_si_p3[] = "{u = [ \"9223372036854775808\" ]; };" ;
+        const char json_si_p1[] = "{l = [ -0x7fffffffffffffff + (-1) ]; };";
+        const char json_si_p2[] = "{u =    0xffffffffffffffff +   0   ; };";
+        const char json_si_p3[] = "{u = [ \"9223372036854775808\" ]; };";
 
-        const char json_si_n1[] = "{l = [ -0x7fffffffffffffff + (-2) ]; };" ;
-        const char json_si_n2[] = "{u = [  0xffffffffffffffff +   1  ]; };" ;
+        const char json_si_n1[] = "{l = [ -0x7fffffffffffffff + (-2) ]; };";
+        const char json_si_n2[] = "{u = [  0xffffffffffffffff +   1  ]; };";
 #undef EC
 #undef POW
 
-#define EC(s)       MY_ENUM_C_ ##s
-#define POW(a,b)    (int)pow(a,b)
-        int                     i_ivals[] = { IVALS };
-        double                  i_dvals[] = { DVALS };
-        tstiop__my_enum_c__t    i_evals[] = { EVALS };
+#define EC(s) MY_ENUM_C_##s
+#define POW(a, b) (int)pow(a, b)
+        int i_ivals[] = {IVALS};
+        double i_dvals[] = {DVALS};
+        tstiop__my_enum_c__t i_evals[] = {EVALS};
 #undef EC
 #undef POW
         const tstiop__my_struct_i__t json_si_res = {
@@ -2666,21 +2931,22 @@ Z_GROUP_EXPORT(iop)
             "                  b.a.us = \"foo\";\n"
             "                  btab = [ .bval: 0xf + 1, .a.ua: 2*8 ];\n"
             "                };\n"
-            "};;;\n"
-            ;
+            "};;;\n";
 
         tstiop__my_union_b__t j_bvals[] = {
             IOP_UNION(tstiop__my_union_b, bval, 16),
-            IOP_UNION(tstiop__my_union_b, a,
-                      (IOP_UNION(tstiop__my_union_a, ua, 16))),
+            IOP_UNION(
+                tstiop__my_union_b, a, (IOP_UNION(tstiop__my_union_a, ua, 16))
+            ),
         };
 
         const tstiop__my_struct_k__t json_sk_res = {
             .j = {
-                .cval   = 2,
-                .b      = IOP_UNION(tstiop__my_union_b, a,
-                                    IOP_UNION(tstiop__my_union_a, us,
-                                              LSTR("foo"))),
+                .cval = 2,
+                .b = IOP_UNION(
+                    tstiop__my_union_b, a,
+                    IOP_UNION(tstiop__my_union_a, us, LSTR("foo"))
+                ),
                 .btab = IOP_ARRAY(j_bvals, countof(j_bvals)),
             },
         };
@@ -2702,174 +2968,228 @@ Z_GROUP_EXPORT(iop)
 
         /* }}} */
 
-        Z_ASSERT_P(st_sa = iop_env_ctx_get_struct(
-                iop_env_ctx, LSTR("tstiop.MyStructA")));
-        Z_ASSERT_P(st_sf = iop_env_ctx_get_struct(
-                iop_env_ctx, LSTR("tstiop.MyStructF")));
-        Z_ASSERT_P(st_si = iop_env_ctx_get_struct(
-                iop_env_ctx, LSTR("tstiop.MyStructI")));
-        Z_ASSERT_P(st_sk = iop_env_ctx_get_struct(
-                iop_env_ctx, LSTR("tstiop.MyStructK")));
-        Z_ASSERT_P(st_sn = iop_env_ctx_get_struct(
-                iop_env_ctx, LSTR("tstiop.MyStructN")));
-        Z_ASSERT_P(st_sa_opt = iop_env_ctx_get_struct(
-                iop_env_ctx, LSTR("tstiop.MyStructAOpt")));
-        Z_ASSERT_P(st_cls2 = iop_env_ctx_get_struct(
-                iop_env_ctx, LSTR("tstiop.MyClass2")));
-        Z_ASSERT_P(st_sg = iop_env_ctx_get_struct(
-                iop_env_ctx, LSTR("tstiop.MyStructG")));
-        Z_ASSERT_P(st_uc = iop_env_ctx_get_struct(
-                iop_env_ctx, LSTR("tstiop.MyUnionC")));
+        Z_ASSERT_P(
+            st_sa =
+                iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.MyStructA"))
+        );
+        Z_ASSERT_P(
+            st_sf =
+                iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.MyStructF"))
+        );
+        Z_ASSERT_P(
+            st_si =
+                iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.MyStructI"))
+        );
+        Z_ASSERT_P(
+            st_sk =
+                iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.MyStructK"))
+        );
+        Z_ASSERT_P(
+            st_sn =
+                iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.MyStructN"))
+        );
+        Z_ASSERT_P(
+            st_sa_opt = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.MyStructAOpt")
+            )
+        );
+        Z_ASSERT_P(
+            st_cls2 =
+                iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.MyClass2"))
+        );
+        Z_ASSERT_P(
+            st_sg =
+                iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.MyStructG"))
+        );
+        Z_ASSERT_P(
+            st_uc =
+                iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.MyUnionC"))
+        );
 
         iop_init_desc(st_cls2, &cls2);
         cls2.int1 = 1;
         cls2.int2 = 2;
 
         /* test packing/unpacking */
-        Z_HELPER_RUN(iop_json_test_struct(st_sa, &sa,  "sa"));
+        Z_HELPER_RUN(iop_json_test_struct(st_sa, &sa, "sa"));
         Z_HELPER_RUN(iop_json_test_struct(st_sa, &sa2, "sa2"));
 
         /* test unpacking */
-        Z_HELPER_RUN(iop_json_test_json(st_sa, json_sa,  &json_sa_res,
-                                        "json_sa"));
-        Z_HELPER_RUN(iop_json_test_json(st_sa, json_sa2, &json_sa_res,
-                                        "json_sa2"));
-        Z_HELPER_RUN(iop_json_test_json(st_sf, json_sf,  &json_sf_res,
-                                        "json_sf"));
-        Z_HELPER_RUN(iop_json_test_json(st_sf, json_sf2, &json_sf_res,
-                                        "json_sf2"));
-        Z_HELPER_RUN(iop_json_test_json(st_si, json_si,  &json_si_res,
-                                        "json_si"));
-        Z_HELPER_RUN(iop_json_test_json(st_sk, json_sk,  &json_sk_res,
-                                        "json_sk"));
+        Z_HELPER_RUN(
+            iop_json_test_json(st_sa, json_sa, &json_sa_res, "json_sa")
+        );
+        Z_HELPER_RUN(
+            iop_json_test_json(st_sa, json_sa2, &json_sa_res, "json_sa2")
+        );
+        Z_HELPER_RUN(
+            iop_json_test_json(st_sf, json_sf, &json_sf_res, "json_sf")
+        );
+        Z_HELPER_RUN(
+            iop_json_test_json(st_sf, json_sf2, &json_sf_res, "json_sf2")
+        );
+        Z_HELPER_RUN(
+            iop_json_test_json(st_si, json_si, &json_si_res, "json_si")
+        );
+        Z_HELPER_RUN(
+            iop_json_test_json(st_sk, json_sk, &json_sk_res, "json_sk")
+        );
 
-        Z_HELPER_RUN(iop_json_test_json(st_sa_opt, "{ a:42, o: null }",
-                                        &json_sa_opt_res, "json_sa_opt"));
+        Z_HELPER_RUN(iop_json_test_json(
+            st_sa_opt, "{ a:42, o: null }", &json_sa_opt_res, "json_sa_opt"
+        ));
 
         /* test iop void */
         json_sa_opt_res.v = &iop_void;
         /* test escaping of characters according to http://www.json.org/ */
         json_sa_opt_res.j = LSTR("\" \\ / \b \f \n \r \t ♡");
-        Z_HELPER_RUN(iop_json_test_json(st_sa_opt, "{ a:42, o: null, v: {}, "
-                                        "j: \"\\\" \\\\ \\/ \\b \\f \\n \\r "
-                                        "\\t \\u2661\" }",
-                                        &json_sa_opt_res, "json_sa_opt"));
+        Z_HELPER_RUN(iop_json_test_json(
+            st_sa_opt,
+            "{ a:42, o: null, v: {}, "
+            "j: \"\\\" \\\\ \\/ \\b \\f \\n \\r "
+            "\\t \\u2661\" }",
+            &json_sa_opt_res, "json_sa_opt"
+        ));
 
-        Z_HELPER_RUN(iop_json_test_unpack(st_si, json_si_p1,
-                                          IOP_UNPACK_IGNORE_UNKNOWN,
-                                          true, "json_si_p1"));
-        Z_HELPER_RUN(iop_json_test_unpack(st_si, json_si_p2,
-                                          IOP_UNPACK_IGNORE_UNKNOWN,
-                                          true, "json_si_p2"));
-        Z_HELPER_RUN(iop_json_test_unpack(st_si, json_si_p3,
-                                          IOP_UNPACK_IGNORE_UNKNOWN,
-                                          true, "json_si_p3"));
+        Z_HELPER_RUN(iop_json_test_unpack(
+            st_si, json_si_p1, IOP_UNPACK_IGNORE_UNKNOWN, true, "json_si_p1"
+        ));
+        Z_HELPER_RUN(iop_json_test_unpack(
+            st_si, json_si_p2, IOP_UNPACK_IGNORE_UNKNOWN, true, "json_si_p2"
+        ));
+        Z_HELPER_RUN(iop_json_test_unpack(
+            st_si, json_si_p3, IOP_UNPACK_IGNORE_UNKNOWN, true, "json_si_p3"
+        ));
 
-        Z_HELPER_RUN(iop_json_test_unpack(st_si, json_si_n1,
-                                          IOP_UNPACK_IGNORE_UNKNOWN,
-                                          false, "json_si_n1"));
-        Z_HELPER_RUN(iop_json_test_unpack(st_si, json_si_n2,
-                                          IOP_UNPACK_IGNORE_UNKNOWN,
-                                          false, "json_si_n2"));
+        Z_HELPER_RUN(iop_json_test_unpack(
+            st_si, json_si_n1, IOP_UNPACK_IGNORE_UNKNOWN, false, "json_si_n1"
+        ));
+        Z_HELPER_RUN(iop_json_test_unpack(
+            st_si, json_si_n2, IOP_UNPACK_IGNORE_UNKNOWN, false, "json_si_n2"
+        ));
 
-        Z_HELPER_RUN(iop_json_test_unpack(st_sg, json_sg_p1, 0, false,
-                                          "json_sg_p1"));
-        Z_HELPER_RUN(iop_json_test_unpack(st_sg, json_sg_p1,
-                                          IOP_UNPACK_USE_C_CASE, true,
-                                          "json_sg_p1"));
-        Z_HELPER_RUN(iop_json_test_unpack(st_uc, json_uc_p1, 0, false,
-                                          "json_uc_p1"));
-        Z_HELPER_RUN(iop_json_test_unpack(st_uc, json_uc_p1,
-                                          IOP_UNPACK_USE_C_CASE, true,
-                                          "json_uc_p1"));
+        Z_HELPER_RUN(
+            iop_json_test_unpack(st_sg, json_sg_p1, 0, false, "json_sg_p1")
+        );
+        Z_HELPER_RUN(iop_json_test_unpack(
+            st_sg, json_sg_p1, IOP_UNPACK_USE_C_CASE, true, "json_sg_p1"
+        ));
+        Z_HELPER_RUN(
+            iop_json_test_unpack(st_uc, json_uc_p1, 0, false, "json_uc_p1")
+        );
+        Z_HELPER_RUN(iop_json_test_unpack(
+            st_uc, json_uc_p1, IOP_UNPACK_USE_C_CASE, true, "json_uc_p1"
+        ));
 
-        Z_HELPER_RUN(iop_json_test_unpack(st_sg, json_sg_p2, 0, false,
-                                          "json_sg_p2"));
-        Z_HELPER_RUN(iop_json_test_unpack(st_sg, json_sg_p2,
-                                          IOP_UNPACK_USE_C_CASE, false,
-                                          "json_sg_p2"));
-        Z_HELPER_RUN(iop_json_test_unpack(st_sg, json_sg_p2,
-                                          IOP_UNPACK_USE_C_CASE |
-                                          IOP_UNPACK_IGNORE_UNKNOWN, true,
-                                          "json_sg_p2"));
+        Z_HELPER_RUN(
+            iop_json_test_unpack(st_sg, json_sg_p2, 0, false, "json_sg_p2")
+        );
+        Z_HELPER_RUN(iop_json_test_unpack(
+            st_sg, json_sg_p2, IOP_UNPACK_USE_C_CASE, false, "json_sg_p2"
+        ));
+        Z_HELPER_RUN(iop_json_test_unpack(
+            st_sg, json_sg_p2,
+            IOP_UNPACK_USE_C_CASE | IOP_UNPACK_IGNORE_UNKNOWN, true,
+            "json_sg_p2"
+        ));
 
         /* Test iop_jpack_file failure */
-        Z_ASSERT_NEG(iop_jpack_file(iop_env_ctx,
-                                    "/proc/path/to/unknown/dir.json",
-                                    st_sk, &json_sk_res, 0,
-                                    &err));
-        Z_ASSERT_STREQUAL(err.data, "cannot open output file "
-                          "`/proc/path/to/unknown/dir.json`: "
-                          "No such file or directory");
+        Z_ASSERT_NEG(iop_jpack_file(
+            iop_env_ctx, "/proc/path/to/unknown/dir.json", st_sk,
+            &json_sk_res, 0, &err
+        ));
+        Z_ASSERT_STREQUAL(
+            err.data, "cannot open output file "
+                      "`/proc/path/to/unknown/dir.json`: "
+                      "No such file or directory"
+        );
 
         /* Test packer flags. */
         {
             tstiop__struct_jpack_flags__t st_jpack;
             tstiop__my_class1__t my_class_1;
             tstiop__my_class2__t my_class_2;
-            unsigned flags = IOP_JPACK_NO_WHITESPACES
-                           | IOP_JPACK_NO_TRAILING_EOL;
+            unsigned flags =
+                IOP_JPACK_NO_WHITESPACES | IOP_JPACK_NO_TRAILING_EOL;
 
             iop_init(tstiop__struct_jpack_flags, &st_jpack);
             iop_init(tstiop__my_class1, &my_class_1);
             iop_init(tstiop__my_class2, &my_class_2);
 
-#define TST_FLAGS(_flags, _test_unpack, _must_be_equal, _exp)  \
-            Z_HELPER_RUN(iop_json_test_pack(&tstiop__struct_jpack_flags__s,  \
-                                            &st_jpack, _flags, _test_unpack, \
-                                            _must_be_equal, _exp))
+#define TST_FLAGS(_flags, _test_unpack, _must_be_equal, _exp)                \
+    Z_HELPER_RUN(iop_json_test_pack(                                         \
+        &tstiop__struct_jpack_flags__s, &st_jpack, _flags, _test_unpack,     \
+        _must_be_equal, _exp                                                 \
+    ))
 
             /* NO_WHITESPACES, NO_TRAILING_EOL */
-            TST_FLAGS(0, true, true,
-                      "{\n"
-                      "    \"def\": 1,\n"
-                      "    \"rep\": [  ]\n"
-                      "}\n");
-            TST_FLAGS(IOP_JPACK_NO_WHITESPACES, true, true,
-                      "{\"def\":1,\"rep\":[]}\n");
-            TST_FLAGS(flags, true, true,
-                      "{\"def\":1,\"rep\":[]}");
+            TST_FLAGS(
+                0, true, true,
+                "{\n"
+                "    \"def\": 1,\n"
+                "    \"rep\": [  ]\n"
+                "}\n"
+            );
+            TST_FLAGS(
+                IOP_JPACK_NO_WHITESPACES, true, true,
+                "{\"def\":1,\"rep\":[]}\n"
+            );
+            TST_FLAGS(flags, true, true, "{\"def\":1,\"rep\":[]}");
 
             /* SKIP_DEFAULT */
-            TST_FLAGS(flags | IOP_JPACK_SKIP_DEFAULT, true, true,
-                      "{\"rep\":[]}");
+            TST_FLAGS(
+                flags | IOP_JPACK_SKIP_DEFAULT, true, true, "{\"rep\":[]}"
+            );
             st_jpack.def = 2;
-            TST_FLAGS(flags | IOP_JPACK_SKIP_DEFAULT, true, true,
-                      "{\"def\":2,\"rep\":[]}");
+            TST_FLAGS(
+                flags | IOP_JPACK_SKIP_DEFAULT, true, true,
+                "{\"def\":2,\"rep\":[]}"
+            );
             st_jpack.def = 1;
 
             /* SKIP_EMPTY_ARRAYS */
-            TST_FLAGS(flags | IOP_JPACK_SKIP_EMPTY_ARRAYS, true, true,
-                      "{\"def\":1}");
+            TST_FLAGS(
+                flags | IOP_JPACK_SKIP_EMPTY_ARRAYS, true, true, "{\"def\":1}"
+            );
             st_jpack.rep.tab = &st_jpack.def;
             st_jpack.rep.len = 1;
-            TST_FLAGS(flags | IOP_JPACK_SKIP_EMPTY_ARRAYS, true, true,
-                      "{\"def\":1,\"rep\":[1]}");
+            TST_FLAGS(
+                flags | IOP_JPACK_SKIP_EMPTY_ARRAYS, true, true,
+                "{\"def\":1,\"rep\":[1]}"
+            );
             st_jpack.rep.len = 0;
             flags |= IOP_JPACK_SKIP_EMPTY_ARRAYS;
 
             /* SKIP_OPTIONAL_CLASS_NAME */
             st_jpack.my_class = &my_class_1;
-            TST_FLAGS(flags, true, true,
-                      "{\"def\":1,\"myClass\":{\"_class\":\"tstiop.MyClass1\""
-                      ",\"int1\":0}}");
-            TST_FLAGS(flags | IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES, true, true,
-                      "{\"def\":1,\"myClass\":{\"int1\":0}}");
+            TST_FLAGS(
+                flags, true, true,
+                "{\"def\":1,\"myClass\":{\"_class\":\"tstiop.MyClass1\""
+                ",\"int1\":0}}"
+            );
+            TST_FLAGS(
+                flags | IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES, true, true,
+                "{\"def\":1,\"myClass\":{\"int1\":0}}"
+            );
             st_jpack.my_class = &my_class_2.super;
-            TST_FLAGS(flags | IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES, true, true,
-                      "{\"def\":1,\"myClass\":{\"_class\":\"tstiop.MyClass2\""
-                      ",\"int1\":0,\"int2\":0}}");
+            TST_FLAGS(
+                flags | IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES, true, true,
+                "{\"def\":1,\"myClass\":{\"_class\":\"tstiop.MyClass2\""
+                ",\"int1\":0,\"int2\":0}}"
+            );
 
             /* IOP_JPACK_SKIP_CLASS_NAMES */
-            TST_FLAGS(flags | IOP_JPACK_SKIP_CLASS_NAMES, false, false,
-                      "{\"def\":1,\"myClass\":{\"int1\":0,\"int2\":0}}");
+            TST_FLAGS(
+                flags | IOP_JPACK_SKIP_CLASS_NAMES, false, false,
+                "{\"def\":1,\"myClass\":{\"int1\":0,\"int2\":0}}"
+            );
             st_jpack.my_class = NULL;
 
             /* SKIP_PRIVATE */
             OPT_SET(st_jpack.priv, 12);
             TST_FLAGS(flags, true, true, "{\"priv\":12,\"def\":1}");
-            TST_FLAGS(flags | IOP_JPACK_SKIP_PRIVATE, true, false,
-                      "{\"def\":1}");
+            TST_FLAGS(
+                flags | IOP_JPACK_SKIP_PRIVATE, true, false, "{\"def\":1}"
+            );
 
 #undef TST_FLAGS
         }
@@ -2887,9 +3207,10 @@ Z_GROUP_EXPORT(iop)
             empty_jpack.sub.cls = &clsb;
 
 #define TST(_flags, _must_be_equal, _exp)                                    \
-            Z_HELPER_RUN(iop_json_test_pack(&tstiop__jpack_empty_struct__s,  \
-                                            &empty_jpack, _flags, true,      \
-                                            _must_be_equal, _exp))
+    Z_HELPER_RUN(iop_json_test_pack(                                         \
+        &tstiop__jpack_empty_struct__s, &empty_jpack, _flags, true,          \
+        _must_be_equal, _exp                                                 \
+    ))
 
             TST(flags, true, "{}");
 
@@ -2912,22 +3233,30 @@ Z_GROUP_EXPORT(iop)
             empty_jpack.sub.rep.len = 0;
 
             OPT_SET(empty_jpack.sub.req_st.opt, 65);
-            TST(flags, true, "{\"sub\":{\"reqSt\":{\"opt\":65}}""}");
+            TST(flags, true,
+                "{\"sub\":{\"reqSt\":{\"opt\":65}}"
+                "}");
             OPT_CLR(empty_jpack.sub.req_st.opt);
 
             iop_init(tstiop__struct_jpack_flags, &sub_st);
             empty_jpack.sub.opt_st = &sub_st;
-            TST(flags, true, "{\"sub\":{\"optSt\":{}}""}");
+            TST(flags, true,
+                "{\"sub\":{\"optSt\":{}}"
+                "}");
             empty_jpack.sub.opt_st = NULL;
 
             clsb.a = 10;
-            TST(flags, true, "{\"sub\":{\"cls\":{\"a\":10}}""}");
+            TST(flags, true,
+                "{\"sub\":{\"cls\":{\"a\":10}}"
+                "}");
             clsb.a = 1;
 
             iop_init(tstiop__jpack_empty_cls_c, &clsc);
             empty_jpack.sub.cls = &clsc.super;
-            TST(flags, true, "{\"sub\":{\"cls\":{"
-                "\"_class\":\"tstiop.JpackEmptyClsC\"}}""}");
+            TST(flags, true,
+                "{\"sub\":{\"cls\":{"
+                "\"_class\":\"tstiop.JpackEmptyClsC\"}}"
+                "}");
             empty_jpack.sub.cls = &clsb;
 
 #undef TST
@@ -2937,25 +3266,28 @@ Z_GROUP_EXPORT(iop)
         {
             tstiop__force_field_name_struct__t jns = {
                 .abc_def = 44,
-                .a_b_c   = LSTR("dgdfhfh"),
+                .a_b_c = LSTR("dgdfhfh"),
             };
             const char *jns_str = "{\"abc_def\":44,\"ABC\":\"dgdfhfh\"}";
 
-            Z_HELPER_RUN(
-                iop_json_test_pack(&tstiop__force_field_name_struct__s, &jns,
-                                   IOP_JPACK_MINIMAL, true, true, jns_str)
-            );
+            Z_HELPER_RUN(iop_json_test_pack(
+                &tstiop__force_field_name_struct__s, &jns, IOP_JPACK_MINIMAL,
+                true, true, jns_str
+            ));
         }
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
-    Z_TEST(json_unicode_surrogates, "test JSON Unicode surrogate pairs") { /* {{{ */
+    Z_TEST(
+        json_unicode_surrogates, "test JSON Unicode surrogate pairs"
+    ) { /* {{{ */
         t_scope;
         iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         const iop_struct_t *st_string;
         SB_1k(sb);
 
-        st_string = iop_env_ctx_get_struct(iop_env_ctx,
-                                       LSTR("tstiop.StringTest"));
+        st_string =
+            iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.StringTest"));
         Z_ASSERT_P(st_string, "Failed to find tstiop.StringTest struct");
 
         /* Test decoding: surrogate pairs to UTF-8 */
@@ -2975,36 +3307,30 @@ Z_GROUP_EXPORT(iop)
 
                 /* Boundary cases */
                 {"\"\\uD800\\uDC00\"", "𐀀", "U+10000 first supplementary"},
-                {
-                    "\"\\uDBFF\\uDFFF\"", "\364\217\277\277",
-                    "U+10FFFF last supplementary"
-                },
+                {"\"\\uDBFF\\uDFFF\"", "\364\217\277\277",
+                 "U+10FFFF last supplementary"},
 
                 /* BMP boundaries (not surrogates) */
                 {"\"\\uD7FF\"", "\xed\x9f\xbf", "U+D7FF before surrogates"},
                 {"\"\\uE000\"", "\xee\x80\x80", "U+E000 after surrogates"},
 
                 /* Mixed content */
-                {
-                    "\"Hello \\uD83D\\uDE00 World\"", "Hello 😀 World",
-                    "mixed text with emoji"
-                },
-                {
-                    "\"\\uD83D\\uDE00\\uD83D\\uDE80\"", "😀🚀",
-                    "consecutive emojis"
-                },
+                {"\"Hello \\uD83D\\uDE00 World\"", "Hello 😀 World",
+                 "mixed text with emoji"},
+                {"\"\\uD83D\\uDE00\\uD83D\\uDE80\"", "😀🚀",
+                 "consecutive emojis"},
             };
 
             carray_for_each_ptr(t, decode_tests) {
                 tstiop__string_test__t string_test;
                 const char *json_buf;
 
-                json_buf = t_fmt("{\"testString\": %s}",t->json_input);
+                json_buf = t_fmt("{\"testString\": %s}", t->json_input);
                 string_test.test_string = LSTR(t->expected_string);
 
-                Z_HELPER_RUN(iop_json_test_json(st_string, json_buf,
-                                                &string_test,
-                                                t->test_name));
+                Z_HELPER_RUN(iop_json_test_json(
+                    st_string, json_buf, &string_test, t->test_name
+                ));
             }
         }
 
@@ -3016,12 +3342,15 @@ Z_GROUP_EXPORT(iop)
             st.test_string = LSTR("Hello \xf0\x9f\x98\x80 World");
 
             sb_reset(&sb);
-            Z_ASSERT_N(iop_sb_jpack(&sb, &tstiop__string_test__s, &st,
-                                    IOP_JPACK_MINIMAL));
+            Z_ASSERT_N(iop_sb_jpack(
+                &sb, &tstiop__string_test__s, &st, IOP_JPACK_MINIMAL
+            ));
 
-            Z_ASSERT(strstr(sb.data, "\\ud83d\\ude00") ||
-                     strstr(sb.data, "\\uD83D\\uDE00"),
-                     "emoji should be encoded as surrogate pair");
+            Z_ASSERT(
+                strstr(sb.data, "\\ud83d\\ude00") ||
+                    strstr(sb.data, "\\uD83D\\uDE00"),
+                "emoji should be encoded as surrogate pair"
+            );
         }
 
         /* Test full round-trip: encode -> decode -> encode */
@@ -3036,18 +3365,21 @@ Z_GROUP_EXPORT(iop)
 
             /* First encode */
             sb_reset(&sb);
-            Z_ASSERT_N(iop_sb_jpack(&sb, &tstiop__string_test__s, &orig,
-                                    IOP_JPACK_MINIMAL));
+            Z_ASSERT_N(iop_sb_jpack(
+                &sb, &tstiop__string_test__s, &orig, IOP_JPACK_MINIMAL
+            ));
 
             /* Decode */
             ps = ps_initsb(&sb);
-            Z_ASSERT_N(t_iop_junpack_ptr_ps(iop_env_ctx, &ps, st_string,
-                                            (void **)&parsed, 0, NULL));
+            Z_ASSERT_N(t_iop_junpack_ptr_ps(
+                iop_env_ctx, &ps, st_string, (void **)&parsed, 0, NULL
+            ));
             Z_ASSERT_LSTREQUAL(parsed->test_string, orig.test_string);
 
             /* Re-encode and compare */
-            Z_ASSERT_N(iop_sb_jpack(&sb2, &tstiop__string_test__s, parsed,
-                                    IOP_JPACK_MINIMAL));
+            Z_ASSERT_N(iop_sb_jpack(
+                &sb2, &tstiop__string_test__s, parsed, IOP_JPACK_MINIMAL
+            ));
             Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sb), LSTR_SB_V(&sb2));
         }
 
@@ -3060,18 +3392,11 @@ Z_GROUP_EXPORT(iop)
                 {"{\"testString\": \"\\uD83D\"}", "lone high surrogate"},
                 {"{\"testString\": \"\\uDE00\"}", "lone low surrogate"},
                 {"{\"testString\": \"\\uD83Dabc\"}", "high + text"},
-                {
-                    "{\"testString\": \"\\uD83D\\u0041\"}",
-                    "high + BMP escape"
-                },
-                {
-                    "{\"testString\": \"\\uD83D\\uD83D\"}",
-                    "high + high (not a pair)"
-                },
-                {
-                    "{\"testString\": \"\\uDE00\\uD83D\"}",
-                    "low + high (reversed)"
-                },
+                {"{\"testString\": \"\\uD83D\\u0041\"}", "high + BMP escape"},
+                {"{\"testString\": \"\\uD83D\\uD83D\"}",
+                 "high + high (not a pair)"},
+                {"{\"testString\": \"\\uDE00\\uD83D\"}",
+                 "low + high (reversed)"},
             };
 
             carray_for_each_ptr(t, unpaired_tests) {
@@ -3079,8 +3404,9 @@ Z_GROUP_EXPORT(iop)
                 void *res = NULL;
                 int ret;
 
-                ret = t_iop_junpack_ptr_ps(iop_env_ctx, &ps, st_string,
-                                          &res, 0, NULL);
+                ret = t_iop_junpack_ptr_ps(
+                    iop_env_ctx, &ps, st_string, &res, 0, NULL
+                );
                 /* Unpaired surrogates should be accepted (WHATWG) */
                 Z_ASSERT_N(ret, "%s should be accepted", t->test_name);
             }
@@ -3093,10 +3419,10 @@ Z_GROUP_EXPORT(iop)
                 int expected_high;
                 int expected_low;
             } calc_tests[] = {
-                {0x10000, 0xD800, 0xDC00},   /* first supplementary */
-                {0x10FFFF, 0xDBFF, 0xDFFF},  /* last supplementary */
-                {0x10400, 0xD801, 0xDC00},   /* high surrogate rollover */
-                {0x1F600, 0xD83D, 0xDE00},   /* common emoji */
+                {0x10000, 0xD800, 0xDC00},  /* first supplementary */
+                {0x10FFFF, 0xDBFF, 0xDFFF}, /* last supplementary */
+                {0x10400, 0xD801, 0xDC00},  /* high surrogate rollover */
+                {0x1F600, 0xD83D, 0xDE00},  /* common emoji */
             };
 
             carray_for_each_ptr(t, calc_tests) {
@@ -3110,8 +3436,8 @@ Z_GROUP_EXPORT(iop)
                 Z_ASSERT_EQ(low, t->expected_low);
 
                 /* Verify round-trip */
-                reconstructed = 0x10000 + ((high - 0xD800) << 10)
-                              + (low - 0xDC00);
+                reconstructed =
+                    0x10000 + ((high - 0xD800) << 10) + (low - 0xDC00);
                 Z_ASSERT_EQ(reconstructed, cp);
             }
         }
@@ -3126,14 +3452,15 @@ Z_GROUP_EXPORT(iop)
             } char_tests[] = {
                 {"{\"testInt\": c'A'}", 'A', "basic char"},
                 {"{\"testInt\": c'\\u0041'}", 0x41, "BMP escape"},
-                {"{\"testInt\": c'\\uD83D\\uDE00'}", 0x1F600, "surrogate pair"},
+                {"{\"testInt\": c'\\uD83D\\uDE00'}", 0x1F600,
+                 "surrogate pair"},
                 {"{\"testInt\": c'\\uD800\\uDC00'}", 0x10000, "U+10000"},
                 {"{\"testInt\": c'\\uDBFF\\uDFFF'}", 0x10FFFF, "U+10FFFF"},
                 {"{\"testInt\": c'\\uD83D'}", 0xD83D, "unpaired high"},
             };
 
-            st_int = iop_env_ctx_get_struct(iop_env_ctx,
-                                       LSTR("tstiop.IntTest"));
+            st_int =
+                iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.IntTest"));
             Z_ASSERT_P(st_int, "Failed to find tstiop.IntTest struct");
 
             carray_for_each_ptr(t, char_tests) {
@@ -3141,63 +3468,67 @@ Z_GROUP_EXPORT(iop)
                 tstiop__int_test__t *res = NULL;
                 int ret;
 
-                ret = t_iop_junpack_ptr_ps(iop_env_ctx, &ps, st_int,
-                                          (void **)&res, 0, NULL);
+                ret = t_iop_junpack_ptr_ps(
+                    iop_env_ctx, &ps, st_int, (void **)&res, 0, NULL
+                );
                 Z_ASSERT_N(ret, "%s should parse", t->test_name);
-                Z_ASSERT_EQ(res->test_int, t->expected,
-                            "%s value mismatch", t->test_name);
+                Z_ASSERT_EQ(
+                    res->test_int, t->expected, "%s value mismatch",
+                    t->test_name
+                );
             }
         }
-
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
-    Z_TEST(json_big_integer, "test JSON packing with big integers") { /* {{{ */
+    Z_TEST(json_big_integer, "test JSON packing with big integers") { /* {{{
+                                                                       */
         SB_1k(sb);
         tstiop__my_struct_n__t sn = {
-            .u = 9223372036854775808ull,
-            .i = -4611686018427387904ll
+            .u = 9223372036854775808ull, .i = -4611686018427387904ll
         };
 
-        const char json_sn_bigint[] =
-            "{\n"
-            "    \"u\": 9223372036854775808,\n"
-            "    \"i\": -4611686018427387904\n"
-            "}\n";
+        const char json_sn_bigint[] = "{\n"
+                                      "    \"u\": 9223372036854775808,\n"
+                                      "    \"i\": -4611686018427387904\n"
+                                      "}\n";
 
-        const char json_sn_strint[] =
-            "{\n"
-            "    \"u\": \"9223372036854775808\",\n"
-            "    \"i\": \"-4611686018427387904\"\n"
-            "}\n";
+        const char json_sn_strint[] = "{\n"
+                                      "    \"u\": \"9223372036854775808\",\n"
+                                      "    \"i\": \"-4611686018427387904\"\n"
+                                      "}\n";
 
-        Z_ASSERT_N(iop_jpack(&tstiop__my_struct_n__s, &sn, iop_sb_write,
-                             &sb, IOP_JPACK_UNSAFE_INTEGERS));
+        Z_ASSERT_N(iop_jpack(
+            &tstiop__my_struct_n__s, &sn, iop_sb_write, &sb,
+            IOP_JPACK_UNSAFE_INTEGERS
+        ));
         Z_ASSERT_STREQUAL(sb.data, json_sn_bigint);
 
         sb_reset(&sb);
-        Z_ASSERT_N(iop_jpack(&tstiop__my_struct_n__s, &sn, iop_sb_write,
-                             &sb, 0));
+        Z_ASSERT_N(
+            iop_jpack(&tstiop__my_struct_n__s, &sn, iop_sb_write, &sb, 0)
+        );
         Z_ASSERT_STREQUAL(sb.data, json_sn_strint);
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
     Z_TEST(json_big_bytes, "test JSON packing big bytes fields") { /* {{{ */
         SB_1k(sb);
         tstiop__my_struct_a_opt__t sn;
 
-#define B64_RES_START  "QUJDREVGR0h"
-#define B64_RES_MIDDLE  "JSktMTU5PUFFSU1RVVldYWVpBQkNERUZHSElKS0xNTk9QUVJTV"
-#define B64_RES_END  "FVWV1hZWg=="
+#define B64_RES_START "QUJDREVGR0h"
+#define B64_RES_MIDDLE "JSktMTU5PUFFSU1RVVldYWVpBQkNERUZHSElKS0xNTk9QUVJTV"
+#define B64_RES_END "FVWV1hZWg=="
 
         const char json[] =
             "{\n"
             "    \"i\": \"" B64_RES_START B64_RES_MIDDLE B64_RES_END "\"\n"
             "}\n";
 
-        const char json_cut[] =
-            "{\n"
-            "    \"i\": \"" B64_RES_START " …(skip 50 bytes)… " B64_RES_END
-                "\"\n"
-            "}\n";
+        const char json_cut[] = "{\n"
+                                "    \"i\": \"" B64_RES_START
+                                " …(skip 50 bytes)… " B64_RES_END "\"\n"
+                                "}\n";
 
         Z_ASSERT_EQ(strlen(B64_RES_MIDDLE), 50ul);
         Z_ASSERT_EQ(strlen(B64_RES_START), 11ul);
@@ -3210,232 +3541,316 @@ Z_GROUP_EXPORT(iop)
         iop_init(tstiop__my_struct_a_opt, &sn);
         sn.i = LSTR("ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ");
 
-        Z_ASSERT_N(iop_jpack(&tstiop__my_struct_a_opt__s, &sn, iop_sb_write,
-                             &sb, IOP_JPACK_UNSAFE_INTEGERS
-                                      | IOP_JPACK_SKIP_EMPTY_ARRAYS));
+        Z_ASSERT_N(iop_jpack(
+            &tstiop__my_struct_a_opt__s, &sn, iop_sb_write, &sb,
+            IOP_JPACK_UNSAFE_INTEGERS | IOP_JPACK_SKIP_EMPTY_ARRAYS
+        ));
         Z_ASSERT_STREQUAL(sb.data, json, "`%*pM`", SB_FMT_ARG(&sb));
 
         sb_reset(&sb);
 
-        Z_ASSERT_N(iop_jpack(&tstiop__my_struct_a_opt__s, &sn, iop_sb_write,
-                             &sb, IOP_JPACK_UNSAFE_INTEGERS
-                                      | IOP_JPACK_SKIP_EMPTY_ARRAYS
-                                      | IOP_JPACK_SHORTEN_DATA));
+        Z_ASSERT_N(iop_jpack(
+            &tstiop__my_struct_a_opt__s, &sn, iop_sb_write, &sb,
+            IOP_JPACK_UNSAFE_INTEGERS | IOP_JPACK_SKIP_EMPTY_ARRAYS |
+                IOP_JPACK_SHORTEN_DATA
+        ));
         Z_ASSERT_STREQUAL(sb.data, json_cut, "`%*pM`", SB_FMT_ARG(&sb));
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
-    Z_TEST(json_file_include, "test file inclusion in IOP JSon (un)packer") { /* {{{ */
+    Z_TEST(
+        json_file_include, "test file inclusion in IOP JSon (un)packer"
+    ) { /* {{{ */
         t_scope;
         iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         SB_1k(err);
         const char *exp_err;
         qv_t(iop_json_subfile) sub_files;
-        qv_t(z_json_sub_file)  z_sub_files;
+        qv_t(z_json_sub_file) z_sub_files;
         tstiop__my_struct_a_opt__t obj_basic_string;
-        tstiop__my_struct_f__t     obj_string_array;
-        tstiop__my_struct_c__t     obj_struct;
-        tstiop__my_struct_e__t     obj_union;
-        tstiop__my_struct_f__t     obj_class;
-        tstiop__my_ref_struct__t   obj_ref;
-        tstiop__my_struct_c__t     obj_recursion;
-        tstiop__my_struct_m__t     obj_first_field;
+        tstiop__my_struct_f__t obj_string_array;
+        tstiop__my_struct_c__t obj_struct;
+        tstiop__my_struct_e__t obj_union;
+        tstiop__my_struct_f__t obj_class;
+        tstiop__my_ref_struct__t obj_ref;
+        tstiop__my_struct_c__t obj_recursion;
+        tstiop__my_struct_m__t obj_first_field;
 
         /* {{{ Unpacker tests */
 
-#define T_KO(_type, _file, _exp)  \
-        do {                                                                 \
-            t_scope;                                                         \
-            _type##__t _obj;                                                 \
-            const char *_path;                                               \
+#define T_KO(_type, _file, _exp)                                             \
+    do {                                                                     \
+        t_scope;                                                             \
+        _type##__t _obj;                                                     \
+        const char *_path;                                                   \
                                                                              \
-            _path = t_fmt("%*pM/iop/tstiop_file_inclusion_invalid-" _file    \
-                          ".json", LSTR_FMT_ARG(z_cmddir_g));                \
-            Z_ASSERT_NEG(t_iop_junpack_file(iop_env_ctx, _path,              \
-                                            &_type##__s, &_obj, 0, NULL,     \
-                                            &err));                          \
-            Z_ASSERT(strstr(err.data, _exp), "unexpected error: %s",         \
-                     err.data);                                              \
-            sb_reset(&err);                                                  \
-        } while (0)
+        _path = t_fmt(                                                       \
+            "%*pM/iop/tstiop_file_inclusion_invalid-" _file ".json",         \
+            LSTR_FMT_ARG(z_cmddir_g)                                         \
+        );                                                                   \
+        Z_ASSERT_NEG(t_iop_junpack_file(                                     \
+            iop_env_ctx, _path, &_type##__s, &_obj, 0, NULL, &err            \
+        ));                                                                  \
+        Z_ASSERT(strstr(err.data, _exp), "unexpected error: %s", err.data);  \
+        sb_reset(&err);                                                      \
+    } while (0)
 
-        T_KO(tstiop__my_struct_a_opt, "include-alone",
-             "3:10: expected a string value, got `@'");
-        T_KO(tstiop__my_struct_a_opt, "include-empty",
-             "3:19: unexpected token `)'");
-        T_KO(tstiop__my_struct_a_opt, "include-eof",
-             "3:19: something was expected after `\"'");
-        T_KO(tstiop__my_struct_a_opt, "missing-quotes",
-             "3:19: unexpected token `t'");
-        T_KO(tstiop__my_struct_a_opt, "unclosed-quotes",
-             "3:20: unclosed string");
-        T_KO(tstiop__my_struct_a_opt, "unclosed-parenthesis",
-             "3:39: expected ), got `g'");
-        T_KO(tstiop__my_struct_a_opt, "misplaced-include",
-             "3:5: expected a valid member name, got `@'");
-        T_KO(tstiop__my_struct_a_opt, "unknown-file",
-             "3:19: cannot read file `/proc/path/to/unknown/file`: "
-             "No such file or directory");
-        T_KO(tstiop__my_struct_a_opt, "int",
-             "3:19: file inclusion not supported for int fields");
-        T_KO(tstiop__my_struct_a_opt, "json",
-             "3:22: cannot unpack file");
-        T_KO(tstiop__my_struct_c, "infinite-recursion",
-             "infinite recursion detected in includes");
+        T_KO(
+            tstiop__my_struct_a_opt, "include-alone",
+            "3:10: expected a string value, got `@'"
+        );
+        T_KO(
+            tstiop__my_struct_a_opt, "include-empty",
+            "3:19: unexpected token `)'"
+        );
+        T_KO(
+            tstiop__my_struct_a_opt, "include-eof",
+            "3:19: something was expected after `\"'"
+        );
+        T_KO(
+            tstiop__my_struct_a_opt, "missing-quotes",
+            "3:19: unexpected token `t'"
+        );
+        T_KO(
+            tstiop__my_struct_a_opt, "unclosed-quotes",
+            "3:20: unclosed string"
+        );
+        T_KO(
+            tstiop__my_struct_a_opt, "unclosed-parenthesis",
+            "3:39: expected ), got `g'"
+        );
+        T_KO(
+            tstiop__my_struct_a_opt, "misplaced-include",
+            "3:5: expected a valid member name, got `@'"
+        );
+        T_KO(
+            tstiop__my_struct_a_opt, "unknown-file",
+            "3:19: cannot read file `/proc/path/to/unknown/file`: "
+            "No such file or directory"
+        );
+        T_KO(
+            tstiop__my_struct_a_opt, "int",
+            "3:19: file inclusion not supported for int fields"
+        );
+        T_KO(tstiop__my_struct_a_opt, "json", "3:22: cannot unpack file");
+        T_KO(
+            tstiop__my_struct_c, "infinite-recursion",
+            "infinite recursion detected in includes"
+        );
 #undef T_KO
 
 #define T_OK(_type, _res, _file, ...)                                        \
-        do {                                                                 \
-            _type##__t _exp;                                                 \
-            const char *_path;                                               \
-            qv_t(iop_json_subfile) _subfiles;                                \
-            iop_json_subfile__t _subfiles_exp[] = { __VA_ARGS__ };           \
-            int _subfiles_nb = countof(_subfiles_exp);                       \
+    do {                                                                     \
+        _type##__t _exp;                                                     \
+        const char *_path;                                                   \
+        qv_t(iop_json_subfile) _subfiles;                                    \
+        iop_json_subfile__t _subfiles_exp[] = {__VA_ARGS__};                 \
+        int _subfiles_nb = countof(_subfiles_exp);                           \
                                                                              \
-            t_qv_init(&_subfiles, _subfiles_nb);                             \
-            _path = t_fmt("%*pM/iop/tstiop_file_inclusion_" _file ".json",   \
-                          LSTR_FMT_ARG(z_cmddir_g));                         \
-            Z_ASSERT_N(t_iop_junpack_file(iop_env_ctx, _path, &_type##__s,   \
-                                          _res, 0, &_subfiles, &err),        \
-                       "cannot unpack `%s`: %*pM", _path, SB_FMT_ARG(&err)); \
+        t_qv_init(&_subfiles, _subfiles_nb);                                 \
+        _path = t_fmt(                                                       \
+            "%*pM/iop/tstiop_file_inclusion_" _file ".json",                 \
+            LSTR_FMT_ARG(z_cmddir_g)                                         \
+        );                                                                   \
+        Z_ASSERT_N(                                                          \
+            t_iop_junpack_file(                                              \
+                iop_env_ctx, _path, &_type##__s, _res, 0, &_subfiles, &err   \
+            ),                                                               \
+            "cannot unpack `%s`: %*pM", _path, SB_FMT_ARG(&err)              \
+        );                                                                   \
                                                                              \
-            _path = t_fmt("%*pM/iop/tstiop_file_inclusion_" _file            \
-                          "-exp.json", LSTR_FMT_ARG(z_cmddir_g));            \
-            Z_ASSERT_N(t_iop_junpack_file(iop_env_ctx, _path, &_type##__s,   \
-                                          &_exp, 0, NULL, &err),             \
-                       "cannot unpack `%s`: %*pM", _path, SB_FMT_ARG(&err)); \
-            Z_ASSERT_IOPEQUAL(_type, _res, &_exp);                           \
-            Z_ASSERT_EQ(_subfiles_nb, _subfiles.len);                        \
-            for (int i = 0; i < _subfiles_nb; i++) {                         \
-                Z_ASSERT_LSTREQUAL(_subfiles_exp[i].file_path,               \
-                                   _subfiles.tab[i].file_path);              \
-                Z_ASSERT_LSTREQUAL(_subfiles_exp[i].iop_path,                \
-                                   _subfiles.tab[i].iop_path);               \
-            }                                                                \
-        } while (0)
+        _path = t_fmt(                                                       \
+            "%*pM/iop/tstiop_file_inclusion_" _file "-exp.json",             \
+            LSTR_FMT_ARG(z_cmddir_g)                                         \
+        );                                                                   \
+        Z_ASSERT_N(                                                          \
+            t_iop_junpack_file(                                              \
+                iop_env_ctx, _path, &_type##__s, &_exp, 0, NULL, &err        \
+            ),                                                               \
+            "cannot unpack `%s`: %*pM", _path, SB_FMT_ARG(&err)              \
+        );                                                                   \
+        Z_ASSERT_IOPEQUAL(_type, _res, &_exp);                               \
+        Z_ASSERT_EQ(_subfiles_nb, _subfiles.len);                            \
+        for (int i = 0; i < _subfiles_nb; i++) {                             \
+            Z_ASSERT_LSTREQUAL(                                              \
+                _subfiles_exp[i].file_path, _subfiles.tab[i].file_path       \
+            );                                                               \
+            Z_ASSERT_LSTREQUAL(                                              \
+                _subfiles_exp[i].iop_path, _subfiles.tab[i].iop_path         \
+            );                                                               \
+        }                                                                    \
+    } while (0)
 
-        T_OK(tstiop__my_struct_a_opt, &obj_basic_string, "basic-string", {
-            .file_path = LSTR("json-includes/string.txt"),
-            .iop_path = LSTR("j"),
-        });
+        T_OK(
+            tstiop__my_struct_a_opt, &obj_basic_string, "basic-string",
+            {
+                .file_path = LSTR("json-includes/string.txt"),
+                .iop_path = LSTR("j"),
+            }
+        );
 
-        T_OK(tstiop__my_struct_f, &obj_string_array, "string-array", {
-            .file_path = LSTR("json-includes/string.txt"),
-            .iop_path = LSTR("a[0]"),
-        }, {
-            .file_path = LSTR("json-includes/string2.txt"),
-            .iop_path = LSTR("a[2]"),
-        }, {
-            .file_path = LSTR("json-includes/string.txt"),
-            .iop_path = LSTR("b[1]"),
-        });
+        T_OK(
+            tstiop__my_struct_f, &obj_string_array, "string-array",
+            {
+                .file_path = LSTR("json-includes/string.txt"),
+                .iop_path = LSTR("a[0]"),
+            },
+            {
+                .file_path = LSTR("json-includes/string2.txt"),
+                .iop_path = LSTR("a[2]"),
+            },
+            {
+                .file_path = LSTR("json-includes/string.txt"),
+                .iop_path = LSTR("b[1]"),
+            }
+        );
 
-        T_OK(tstiop__my_struct_c, &obj_struct, "struct", {
-            .file_path = LSTR("json-includes/MyStructC-1.json"),
-            .iop_path = LSTR("b"),
-        }, {
-            .file_path = LSTR("json-includes/MyStructC-2.json"),
-            .iop_path = LSTR("b.b"),
-        }, {
-            .file_path = LSTR("json-includes/MyStructC-2.json"),
-            .iop_path = LSTR("c[1]"),
-        });
+        T_OK(
+            tstiop__my_struct_c, &obj_struct, "struct",
+            {
+                .file_path = LSTR("json-includes/MyStructC-1.json"),
+                .iop_path = LSTR("b"),
+            },
+            {
+                .file_path = LSTR("json-includes/MyStructC-2.json"),
+                .iop_path = LSTR("b.b"),
+            },
+            {
+                .file_path = LSTR("json-includes/MyStructC-2.json"),
+                .iop_path = LSTR("c[1]"),
+            }
+        );
 
-        T_OK(tstiop__my_struct_e, &obj_union, "union", {
-            .file_path = LSTR("json-includes/MyUnionA.json"),
-            .iop_path = LSTR("b"),
-        });
+        T_OK(
+            tstiop__my_struct_e, &obj_union, "union",
+            {
+                .file_path = LSTR("json-includes/MyUnionA.json"),
+                .iop_path = LSTR("b"),
+            }
+        );
 
-        T_OK(tstiop__my_struct_f, &obj_class, "class", {
-            .file_path = LSTR("json-includes/MyClass1.json"),
-            .iop_path = LSTR("e[0]"),
-        }, {
-            .file_path = LSTR("json-includes/string.txt"),
-            .iop_path = LSTR("e[0].string1"),
-        }, {
-            .file_path = LSTR("json-includes/MyClass1.json"),
-            .iop_path = LSTR("f"),
-        }, {
-            .file_path = LSTR("json-includes/string.txt"),
-            .iop_path = LSTR("f.string1"),
-        });
+        T_OK(
+            tstiop__my_struct_f, &obj_class, "class",
+            {
+                .file_path = LSTR("json-includes/MyClass1.json"),
+                .iop_path = LSTR("e[0]"),
+            },
+            {
+                .file_path = LSTR("json-includes/string.txt"),
+                .iop_path = LSTR("e[0].string1"),
+            },
+            {
+                .file_path = LSTR("json-includes/MyClass1.json"),
+                .iop_path = LSTR("f"),
+            },
+            {
+                .file_path = LSTR("json-includes/string.txt"),
+                .iop_path = LSTR("f.string1"),
+            }
+        );
 
-        T_OK(tstiop__my_ref_struct, &obj_ref, "ref", {
-            .file_path = LSTR("json-includes/MyReferencedStruct.json"),
-            .iop_path = LSTR("s"),
-        }, {
-            .file_path = LSTR("json-includes/MyReferencedUnion.json"),
-            .iop_path = LSTR("u"),
-        });
+        T_OK(
+            tstiop__my_ref_struct, &obj_ref, "ref",
+            {
+                .file_path = LSTR("json-includes/MyReferencedStruct.json"),
+                .iop_path = LSTR("s"),
+            },
+            {
+                .file_path = LSTR("json-includes/MyReferencedUnion.json"),
+                .iop_path = LSTR("u"),
+            }
+        );
 
-        T_OK(tstiop__my_struct_c, &obj_recursion, "recursion", {
-            .file_path = LSTR("json-includes/MyStructC-recur-3.json"),
-            .iop_path = LSTR("b"),
-        }, {
-            .file_path = LSTR("json-includes/MyStructC-recur-4.json"),
-            .iop_path = LSTR("b.b"),
-        });
+        T_OK(
+            tstiop__my_struct_c, &obj_recursion, "recursion",
+            {
+                .file_path = LSTR("json-includes/MyStructC-recur-3.json"),
+                .iop_path = LSTR("b"),
+            },
+            {
+                .file_path = LSTR("json-includes/MyStructC-recur-4.json"),
+                .iop_path = LSTR("b.b"),
+            }
+        );
 
-        T_OK(tstiop__my_struct_c, &obj_recursion, "recursion_symlinks", {
-            .file_path = LSTR("json-includes-symlinks/MyStructC-recur-3.json"),
-            .iop_path = LSTR("b"),
-        }, {
-            .file_path = LSTR("json-includes-symlinks/MyStructC-recur-4.json"),
-            .iop_path = LSTR("b.b"),
-        });
+        T_OK(
+            tstiop__my_struct_c, &obj_recursion, "recursion_symlinks",
+            {
+                .file_path =
+                    LSTR("json-includes-symlinks/MyStructC-recur-3.json"),
+                .iop_path = LSTR("b"),
+            },
+            {
+                .file_path =
+                    LSTR("json-includes-symlinks/MyStructC-recur-4.json"),
+                .iop_path = LSTR("b.b"),
+            }
+        );
 
-        T_OK(tstiop__my_struct_m, &obj_first_field, "first_field", {
-            .file_path = LSTR("json-includes/MyStructK.json"),
-            .iop_path = LSTR("k"),
-        }, {
-            .file_path = LSTR("json-includes/MyStructJ.json"),
-            .iop_path = LSTR("k.j"),
-        });
+        T_OK(
+            tstiop__my_struct_m, &obj_first_field, "first_field",
+            {
+                .file_path = LSTR("json-includes/MyStructK.json"),
+                .iop_path = LSTR("k"),
+            },
+            {
+                .file_path = LSTR("json-includes/MyStructJ.json"),
+                .iop_path = LSTR("k.j"),
+            }
+        );
 
 #undef T_OK
 
         /* }}} */
         /* {{{ Packer tests */
 
-        t_qv_init(&sub_files,   16);
+        t_qv_init(&sub_files, 16);
         t_qv_init(&z_sub_files, 16);
 
-#define CLEAR_SUB_FILES()  \
-        do {                                                                 \
-            qv_clear(&sub_files);                          \
-            qv_clear(&z_sub_files);                        \
-        } while (0)
+#define CLEAR_SUB_FILES()                                                    \
+    do {                                                                     \
+        qv_clear(&sub_files);                                                \
+        qv_clear(&z_sub_files);                                              \
+    } while (0)
 
-#define ADD_SUB_FILE(_st, _val, _iop_path, _file_path)  \
-        do {                                                                 \
-            qv_append(&sub_files, ((iop_json_subfile__t) {                   \
-                .iop_path = LSTR(_iop_path),                                 \
-                .file_path = LSTR(_file_path),                               \
-            }));                                                             \
-            qv_append(&z_sub_files, ((z_json_sub_file_t) {  \
-                .st   = (_st),                                               \
-                .val  = (_val),                                              \
-                .path = (_file_path),                                        \
-            }));                                                             \
-        } while (0)
+#define ADD_SUB_FILE(_st, _val, _iop_path, _file_path)                       \
+    do {                                                                     \
+        qv_append(                                                           \
+            &sub_files, ((iop_json_subfile__t){                              \
+                            .iop_path = LSTR(_iop_path),                     \
+                            .file_path = LSTR(_file_path),                   \
+                        })                                                   \
+        );                                                                   \
+        qv_append(                                                           \
+            &z_sub_files, ((z_json_sub_file_t){                              \
+                              .st = (_st),                                   \
+                              .val = (_val),                                 \
+                              .path = (_file_path),                          \
+                          })                                                 \
+        );                                                                   \
+    } while (0)
 
-#define T(_type, _val, _exp_err)  \
-        Z_HELPER_RUN(iop_check_json_include_packing(&_type##__s, _val,       \
-                                                    &sub_files,              \
-                                                    &z_sub_files, _exp_err))
+#define T(_type, _val, _exp_err)                                             \
+    Z_HELPER_RUN(iop_check_json_include_packing(                             \
+        &_type##__s, _val, &sub_files, &z_sub_files, _exp_err                \
+    ))
 
-#define T_OK(_type, _val)  T(_type, _val, NULL)
-#define T_KO  T
+#define T_OK(_type, _val) T(_type, _val, NULL)
+#define T_KO T
 
         /* Basic failure cases */
         CLEAR_SUB_FILES();
-        ADD_SUB_FILE(NULL, &obj_basic_string.j, "j",
-                     "/proc/path/to/unknown/file.txt");
+        ADD_SUB_FILE(
+            NULL, &obj_basic_string.j, "j", "/proc/path/to/unknown/file.txt"
+        );
         exp_err = "cannot create directory `/proc/path/to/unknown`";
         T_KO(tstiop__my_struct_a_opt, &obj_basic_string, exp_err);
 
         CLEAR_SUB_FILES();
-        ADD_SUB_FILE(&tstiop__my_struct_c__s, obj_struct.b, "b",
-                     "/proc/path/to/unknown/file.json");
+        ADD_SUB_FILE(
+            &tstiop__my_struct_c__s, obj_struct.b, "b",
+            "/proc/path/to/unknown/file.json"
+        );
         T_KO(tstiop__my_struct_c, &obj_struct, exp_err);
 
         /* Basic string */
@@ -3453,8 +3868,9 @@ Z_GROUP_EXPORT(iop)
         /* Struct */
         CLEAR_SUB_FILES();
         ADD_SUB_FILE(&tstiop__my_struct_c__s, obj_struct.b, "b", "b.json");
-        ADD_SUB_FILE(&tstiop__my_struct_c__s, &obj_struct.c.tab[1], "c[1]",
-                     "c1.json");
+        ADD_SUB_FILE(
+            &tstiop__my_struct_c__s, &obj_struct.c.tab[1], "c[1]", "c1.json"
+        );
         T_OK(tstiop__my_struct_c, &obj_struct);
 
         /* Union */
@@ -3464,47 +3880,55 @@ Z_GROUP_EXPORT(iop)
 
         /* Class */
         CLEAR_SUB_FILES();
-        ADD_SUB_FILE(&tstiop__my_class1__s, obj_class.e.tab[0], "e[0]",
-                     "e0.json");
-        ADD_SUB_FILE(&tstiop__my_class1__s, obj_class.f, "f",
-                     "f.json");
+        ADD_SUB_FILE(
+            &tstiop__my_class1__s, obj_class.e.tab[0], "e[0]", "e0.json"
+        );
+        ADD_SUB_FILE(&tstiop__my_class1__s, obj_class.f, "f", "f.json");
         T_OK(tstiop__my_struct_f, &obj_class);
 
         /* Reference */
         CLEAR_SUB_FILES();
-        ADD_SUB_FILE(&tstiop__my_referenced_struct__s, obj_ref.s, "s",
-                     "s.json");
-        ADD_SUB_FILE(&tstiop__my_referenced_union__s,  obj_ref.u, "u",
-                     "u.json");
+        ADD_SUB_FILE(
+            &tstiop__my_referenced_struct__s, obj_ref.s, "s", "s.json"
+        );
+        ADD_SUB_FILE(
+            &tstiop__my_referenced_union__s, obj_ref.u, "u", "u.json"
+        );
         T_OK(tstiop__my_ref_struct, &obj_ref);
 
         /* Recursive */
         CLEAR_SUB_FILES();
         Z_ASSERT_N(mkdir_p(t_fmt("%*pM/b1", LSTR_FMT_ARG(z_tmpdir_g)), 0755));
-        ADD_SUB_FILE(&tstiop__my_struct_c__s, obj_recursion.b, "b",
-                     "b1/b.json");
+        ADD_SUB_FILE(
+            &tstiop__my_struct_c__s, obj_recursion.b, "b", "b1/b.json"
+        );
 
         Z_ASSERT_N(mkdir_p(t_fmt("%*pM/b2", LSTR_FMT_ARG(z_tmpdir_g)), 0755));
-        ADD_SUB_FILE(&tstiop__my_struct_c__s, obj_recursion.b->b, "b.b",
-                     "b2/b.json");
+        ADD_SUB_FILE(
+            &tstiop__my_struct_c__s, obj_recursion.b->b, "b.b", "b2/b.json"
+        );
         T_OK(tstiop__my_struct_c, &obj_recursion);
 
         /* First field */
         CLEAR_SUB_FILES();
-        ADD_SUB_FILE(&tstiop__my_struct_k__s, &obj_first_field.k, "k",
-                     "k.json");
-        ADD_SUB_FILE(&tstiop__my_struct_j__s, &obj_first_field.k.j, "k.j",
-                     "j.json");
+        ADD_SUB_FILE(
+            &tstiop__my_struct_k__s, &obj_first_field.k, "k", "k.json"
+        );
+        ADD_SUB_FILE(
+            &tstiop__my_struct_j__s, &obj_first_field.k.j, "k.j", "j.json"
+        );
         T_OK(tstiop__my_struct_m, &obj_first_field);
 
         /* Dumping the exact same values in the same file twice is fine */
         /* For structs */
         CLEAR_SUB_FILES();
         ADD_SUB_FILE(&tstiop__my_struct_c__s, obj_struct.b, "b", "b.json");
-        ADD_SUB_FILE(&tstiop__my_struct_c__s, obj_struct.b->b, "b.b",
-                     "c.json");
-        ADD_SUB_FILE(&tstiop__my_struct_c__s, &obj_struct.c.tab[1], "c[1]",
-                     "c.json");
+        ADD_SUB_FILE(
+            &tstiop__my_struct_c__s, obj_struct.b->b, "b.b", "c.json"
+        );
+        ADD_SUB_FILE(
+            &tstiop__my_struct_c__s, &obj_struct.c.tab[1], "c[1]", "c.json"
+        );
         T_OK(tstiop__my_struct_c, &obj_struct);
 
         /* And for strings */
@@ -3516,10 +3940,12 @@ Z_GROUP_EXPORT(iop)
 
         /* Dumping different types in the same file twice is not ok */
         CLEAR_SUB_FILES();
-        ADD_SUB_FILE(&tstiop__my_referenced_struct__s, obj_ref.s, "s",
-                     "s.json");
-        ADD_SUB_FILE(&tstiop__my_referenced_union__s,  obj_ref.u, "u",
-                     "s.json");
+        ADD_SUB_FILE(
+            &tstiop__my_referenced_struct__s, obj_ref.s, "s", "s.json"
+        );
+        ADD_SUB_FILE(
+            &tstiop__my_referenced_union__s, obj_ref.u, "u", "s.json"
+        );
         exp_err = "subfile `s.json` is written twice with different iop "
                   "types `struct` vs `union`";
         T_KO(tstiop__my_ref_struct, &obj_ref, exp_err);
@@ -3528,10 +3954,12 @@ Z_GROUP_EXPORT(iop)
         /* For structs */
         CLEAR_SUB_FILES();
         ADD_SUB_FILE(&tstiop__my_struct_c__s, obj_struct.b, "b", "c.json");
-        ADD_SUB_FILE(&tstiop__my_struct_c__s, obj_struct.b->b, "b.b",
-                     "b.json");
-        ADD_SUB_FILE(&tstiop__my_struct_c__s, &obj_struct.c.tab[1], "c[1]",
-                     "c.json");
+        ADD_SUB_FILE(
+            &tstiop__my_struct_c__s, obj_struct.b->b, "b.b", "b.json"
+        );
+        ADD_SUB_FILE(
+            &tstiop__my_struct_c__s, &obj_struct.c.tab[1], "c[1]", "c.json"
+        );
         exp_err = "subfile `c.json` is written twice with different values";
         T_KO(tstiop__my_struct_c, &obj_struct, exp_err);
 
@@ -3549,8 +3977,8 @@ Z_GROUP_EXPORT(iop)
 #undef ADD_SUB_FILE
 #undef CLEAR_SUB_FILES
         /* }}} */
-
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
     Z_TEST(json_typedef, "test typedef in IOP Json (un)packer") { /* {{{ */
         t_scope;
@@ -3564,33 +3992,40 @@ Z_GROUP_EXPORT(iop)
         tstiop_typedef__struct_with_typedefs_from_ext__t typedef_from_ext;
         tstiop_typedef__struct_with_ext_typedef__t ext_typedef;
 
-        tstiop_typedef__basic_struct__t first_item = { .a = true,
-            .b = LSTR("1st item") };
-        tstiop_typedef__basic_struct__t second_item = { .a = false,
-            .b = LSTR("2nd item") };
-        tstiop_typedef__basic_struct__t list1[] = { first_item, second_item };
-        tstiop_typedef__enum1__t list2[] = { ENUM1_VAL1, ENUM1_VAL2,
-            ENUM1_VAL2 };
-        tstiop_typedef__local_enum2__t list3[] = { LOCAL_ENUM2_VAL2,
-            LOCAL_ENUM2_VAL1, LOCAL_ENUM2_VAL1 };
-        tstiop_typedef__local_number_struct__t list4[] = { { .u32 = 4 },
-            { .u32 = 3 }, { .u32 = 2 }, { .u32 = 1 } };
+        tstiop_typedef__basic_struct__t first_item = {
+            .a = true, .b = LSTR("1st item")
+        };
+        tstiop_typedef__basic_struct__t second_item = {
+            .a = false, .b = LSTR("2nd item")
+        };
+        tstiop_typedef__basic_struct__t list1[] = {first_item, second_item};
+        tstiop_typedef__enum1__t list2[] = {
+            ENUM1_VAL1, ENUM1_VAL2, ENUM1_VAL2
+        };
+        tstiop_typedef__local_enum2__t list3[] = {
+            LOCAL_ENUM2_VAL2, LOCAL_ENUM2_VAL1, LOCAL_ENUM2_VAL1
+        };
+        tstiop_typedef__local_number_struct__t list4[] = {
+            {.u32 = 4}, {.u32 = 3}, {.u32 = 2}, {.u32 = 1}
+        };
         tstiop_typedef__array_test__t arrays_typedef;
 
         /* {{{ Unpacker tests */
 
 #define T_OK(_type, _res, _file)                                             \
-        do {                                                                 \
-            _type##__t _exp;                                                 \
-            const char *_path;                                               \
+    do {                                                                     \
+        _type##__t _exp;                                                     \
+        const char *_path;                                                   \
                                                                              \
-            _path = t_fmt("%*pMiop/" _file ".json",                          \
-                          LSTR_FMT_ARG(z_cmddir_g));                         \
-            Z_ASSERT_N(t_iop_junpack_file(iop_env_ctx, _path, &_type##__s,   \
-                                          &_exp, 0, NULL, &err),             \
-                       "cannot unpack `%s`: %*pM", _path, SB_FMT_ARG(&err)); \
-            Z_ASSERT_IOPEQUAL(_type, _res, &_exp);                           \
-        } while (0)
+        _path = t_fmt("%*pMiop/" _file ".json", LSTR_FMT_ARG(z_cmddir_g));   \
+        Z_ASSERT_N(                                                          \
+            t_iop_junpack_file(                                              \
+                iop_env_ctx, _path, &_type##__s, &_exp, 0, NULL, &err        \
+            ),                                                               \
+            "cannot unpack `%s`: %*pM", _path, SB_FMT_ARG(&err)              \
+        );                                                                   \
+        Z_ASSERT_IOPEQUAL(_type, _res, &_exp);                               \
+    } while (0)
 
         /* Struct with mandatory object */
         iop_init(tstiop__struct_with_mandatory_object, &mandatory_object);
@@ -3598,10 +4033,14 @@ Z_GROUP_EXPORT(iop)
         mandatory_object.c = t_iop_new(tstiop__small_class);
         mandatory_object.c->i = 42;
         mandatory_object.i2 = 24;
-        T_OK(tstiop__struct_with_mandatory_object, &mandatory_object,
-             "tstiop_mandatory_object");
-        T_OK(tstiop__struct_with_mandatory_object, &mandatory_object,
-             "tstiop_local_typedef");
+        T_OK(
+            tstiop__struct_with_mandatory_object, &mandatory_object,
+            "tstiop_mandatory_object"
+        );
+        T_OK(
+            tstiop__struct_with_mandatory_object, &mandatory_object,
+            "tstiop_local_typedef"
+        );
 
         /* Struct with typedef */
         iop_init(tstiop__struct_with_typedef, &with_typedef);
@@ -3609,43 +4048,57 @@ Z_GROUP_EXPORT(iop)
         with_typedef.c = t_iop_new(tstiop__small_class);
         with_typedef.c->i = 42;
         with_typedef.i2 = 24;
-        T_OK(tstiop__struct_with_typedef, &with_typedef,
-             "tstiop_local_typedef");
-        T_OK(tstiop__struct_with_typedef, &with_typedef,
-             "tstiop_mandatory_object");
+        T_OK(
+            tstiop__struct_with_typedef, &with_typedef, "tstiop_local_typedef"
+        );
+        T_OK(
+            tstiop__struct_with_typedef, &with_typedef,
+            "tstiop_mandatory_object"
+        );
 
         /* Struct with optional object */
         iop_init(tstiop__struct_with_optional_object, &optional_object);
         optional_object.i1 = 12;
         optional_object.i2 = 24;
-        T_OK(tstiop__struct_with_optional_object, &optional_object,
-             "tstiop_optional_object");
+        T_OK(
+            tstiop__struct_with_optional_object, &optional_object,
+            "tstiop_optional_object"
+        );
         optional_object.c = t_iop_new(tstiop__small_class);
         optional_object.c->i = 42;
-        T_OK(tstiop__struct_with_optional_object, &optional_object,
-             "tstiop_mandatory_object");
-        T_OK(tstiop__struct_with_optional_object, &optional_object,
-             "tstiop_local_typedef");
+        T_OK(
+            tstiop__struct_with_optional_object, &optional_object,
+            "tstiop_mandatory_object"
+        );
+        T_OK(
+            tstiop__struct_with_optional_object, &optional_object,
+            "tstiop_local_typedef"
+        );
 
         /* Struct with a child class */
         iop_init(tstiop__struct_with_child_class, &child_class);
         child_class.my_class = t_iop_new(tstiop__my_child);
         child_class.my_class->i = 1;
         child_class.my_class->d = 3.14;
-        T_OK(tstiop__struct_with_child_class, &child_class,
-             "tstiop_child_class");
+        T_OK(
+            tstiop__struct_with_child_class, &child_class,
+            "tstiop_child_class"
+        );
 
         /* Struct with a child that inherited a Typedef */
         iop_init(tstiop__struct_with_child_inherit_typedef, &inherit_typedef);
         inherit_typedef.my_class = t_iop_new(tstiop__my_child_b);
         inherit_typedef.my_class->i = 1;
         inherit_typedef.my_class->d = 3.14;
-        T_OK(tstiop__struct_with_child_inherit_typedef, &inherit_typedef,
-             "tstiop_child_inherit_typedef");
+        T_OK(
+            tstiop__struct_with_child_inherit_typedef, &inherit_typedef,
+            "tstiop_child_inherit_typedef"
+        );
 
         /* Struct referencing typedefs located on a distant package */
-        iop_init(tstiop_typedef__struct_with_typedefs_from_ext,
-                 &typedef_from_ext);
+        iop_init(
+            tstiop_typedef__struct_with_typedefs_from_ext, &typedef_from_ext
+        );
         typedef_from_ext.tdef_s.i = 54;
         typedef_from_ext.i1 = 13;
         typedef_from_ext.tdef_c = t_iop_new(tstiop_typedef__remote_class);
@@ -3653,8 +4106,10 @@ Z_GROUP_EXPORT(iop)
         typedef_from_ext.i2 = 14;
         typedef_from_ext.tdef_e = EXTERNAL_ENUM_B;
         typedef_from_ext.i3 = 15;
-        T_OK(tstiop_typedef__struct_with_typedefs_from_ext, &typedef_from_ext,
-             "tstiop_typedef_local_typedef_referencing_ext");
+        T_OK(
+            tstiop_typedef__struct_with_typedefs_from_ext, &typedef_from_ext,
+            "tstiop_typedef_local_typedef_referencing_ext"
+        );
 
         /* Struct containing a typedef enum referenced in another package */
         iop_init(tstiop_typedef__struct_with_ext_typedef, &ext_typedef);
@@ -3662,8 +4117,10 @@ Z_GROUP_EXPORT(iop)
         ext_typedef.c = t_iop_new(tstiop_typedef__remote_typedef_class);
         ext_typedef.c->i = 48;
         ext_typedef.i2 = 24;
-        T_OK(tstiop_typedef__struct_with_ext_typedef, &ext_typedef,
-             "tstiop_typedef_ext_typedef");
+        T_OK(
+            tstiop_typedef__struct_with_ext_typedef, &ext_typedef,
+            "tstiop_typedef_ext_typedef"
+        );
 
         /* Struct containing typedef arrays of local or remote struct/enum */
         iop_init(tstiop_typedef__array_test, &arrays_typedef);
@@ -3675,12 +4132,15 @@ Z_GROUP_EXPORT(iop)
         arrays_typedef.list3.len = countof(list3);
         arrays_typedef.list4.tab = list4;
         arrays_typedef.list4.len = countof(list4);
-        T_OK(tstiop_typedef__array_test, &arrays_typedef,
-             "tstiop_typedef_arrays");
+        T_OK(
+            tstiop_typedef__array_test, &arrays_typedef,
+            "tstiop_typedef_arrays"
+        );
 #undef T_OK
 
         /* }}} */
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
     Z_TEST(std, "test IOP std (un)packer") { /* {{{ */
         t_scope;
@@ -3732,26 +4192,37 @@ Z_GROUP_EXPORT(iop)
         tstiop__my_struct_e__t se = {
             .a = 10,
             .b = IOP_UNION(tstiop__my_union_a, ua, 42),
-            .c = { .b = IOP_ARRAY(val, countof(val)), },
+            .c = {
+                .b = IOP_ARRAY(val, countof(val)),
+            },
         };
 
         const iop_struct_t *st_sa, *st_sa_opt, *st_se, *st_cls2;
 
-        Z_ASSERT_P(st_sa = iop_env_ctx_get_struct(
-                iop_env_ctx, LSTR("tstiop.MyStructA")));
-        Z_ASSERT_P(st_sa_opt = iop_env_ctx_get_struct(
-                iop_env_ctx, LSTR("tstiop.MyStructAOpt")));
-        Z_ASSERT_P(st_se = iop_env_ctx_get_struct(
-                iop_env_ctx, LSTR("tstiop.MyStructE")));
-        Z_ASSERT_P(st_cls2 = iop_env_ctx_get_struct(
-                iop_env_ctx, LSTR("tstiop.MyClass2")));
+        Z_ASSERT_P(
+            st_sa =
+                iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.MyStructA"))
+        );
+        Z_ASSERT_P(
+            st_sa_opt = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.MyStructAOpt")
+            )
+        );
+        Z_ASSERT_P(
+            st_se =
+                iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.MyStructE"))
+        );
+        Z_ASSERT_P(
+            st_cls2 =
+                iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.MyClass2"))
+        );
 
         iop_init_desc(st_cls2, &cls2);
 
         Z_ASSERT_N(iop_check_constraints_desc(st_sa, &sa));
         Z_ASSERT_N(iop_check_constraints_desc(st_sa, &sa2));
 
-        Z_HELPER_RUN(iop_std_test_struct(st_sa, &sa,  "sa"));
+        Z_HELPER_RUN(iop_std_test_struct(st_sa, &sa, "sa"));
         Z_HELPER_RUN(iop_std_test_struct(st_sa, &sa2, "sa2"));
         Z_HELPER_RUN(iop_std_test_struct(st_se, &se, "se"));
 
@@ -3759,7 +4230,8 @@ Z_GROUP_EXPORT(iop)
         OPT_SET(sa_opt.a, 32);
         sa_opt.j = LSTR("foo");
         Z_HELPER_RUN(iop_std_test_struct(st_sa_opt, &sa_opt, "sa_opt"));
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
     Z_TEST(big_array_parallel, "test big array packing") { /* {{{ */
         t_scope;
@@ -3784,27 +4256,33 @@ Z_GROUP_EXPORT(iop)
         sf.c = IOP_TYPED_ARRAY(tstiop__my_struct_b, arr, 100000);
         sf.e = IOP_TYPED_ARRAY(tstiop__my_class1, arr2, 100000);
 
-        Z_HELPER_RUN(iop_std_test_struct(&tstiop__my_struct_f__s,
-                                         &sf, "big_arr"));
+        Z_HELPER_RUN(
+            iop_std_test_struct(&tstiop__my_struct_f__s, &sf, "big_arr")
+        );
 
         iop_std_test_speed(&tstiop__my_struct_f__s, &sf, 100, 0, "big arr");
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(roptimized, "test IOP std: optimized repeated fields") { /* {{{ */
         t_scope;
         lstr_t path_curr_v;
         lstr_t path_v3;
 
-        path_curr_v = t_lstr_fmt("%*pM/iop/zchk-tstiop-plugin" SO_FILEEXT,
-                                 LSTR_FMT_ARG(z_cmddir_g));
+        path_curr_v = t_lstr_fmt(
+            "%*pM/iop/zchk-tstiop-plugin" SO_FILEEXT, LSTR_FMT_ARG(z_cmddir_g)
+        );
 
-        path_v3 = t_lstr_fmt("%*pM/test-data/test_v3_centos-5u4/"
-                             "zchk-tstiop-plugin" SO_FILEEXT,
-                             LSTR_FMT_ARG(z_cmddir_g));
+        path_v3 = t_lstr_fmt(
+            "%*pM/test-data/test_v3_centos-5u4/"
+            "zchk-tstiop-plugin" SO_FILEEXT,
+            LSTR_FMT_ARG(z_cmddir_g)
+        );
 
         Z_HELPER_RUN(iop_check_retro_compat_roptimized(path_curr_v));
         Z_HELPER_RUN(iop_check_retro_compat_roptimized(path_v3));
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
     Z_TEST(defval, "test IOP std: do not pack default values") { /* {{{ */
         t_scope;
@@ -3816,17 +4294,22 @@ Z_GROUP_EXPORT(iop)
         lstr_t s;
         const unsigned flags = IOP_BPACK_SKIP_DEFVAL;
 
-        Z_ASSERT_P(st_sg = iop_env_ctx_get_struct(
-                iop_env_ctx, LSTR("tstiop.MyStructG")));
+        Z_ASSERT_P(
+            st_sg =
+                iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.MyStructG"))
+        );
 
         t_qv_init(&szs, 1024);
 
         /* test with all the default values */
         iop_init_desc(st_sg, &sg);
-        Z_ASSERT_EQ((len = iop_bpack_size_flags(st_sg, &sg, flags, &szs)), 0,
-                    "sg-empty");
-        Z_HELPER_RUN(iop_std_test_struct_flags(st_sg, &sg, flags,
-                                               "sg-empty"));
+        Z_ASSERT_EQ(
+            (len = iop_bpack_size_flags(st_sg, &sg, flags, &szs)), 0,
+            "sg-empty"
+        );
+        Z_HELPER_RUN(
+            iop_std_test_struct_flags(st_sg, &sg, flags, "sg-empty")
+        );
 
         /* check that t_iop_bpack returns LSTR_EMPTY_V and not LSTR_NULL_V */
         s = t_iop_bpack_struct_flags(st_sg, &sg, flags);
@@ -3835,31 +4318,42 @@ Z_GROUP_EXPORT(iop)
 
         /* test with a different string length */
         sg.j.len = sg.j.len - 1;
-        Z_ASSERT_EQ((len = iop_bpack_size_flags(st_sg, &sg, flags, &szs)), 15,
-                    "sg-string-len-diff");
-        Z_HELPER_RUN(iop_std_test_struct_flags(st_sg, &sg, flags,
-                                               "sg-string-len-diff"));
+        Z_ASSERT_EQ(
+            (len = iop_bpack_size_flags(st_sg, &sg, flags, &szs)), 15,
+            "sg-string-len-diff"
+        );
+        Z_HELPER_RUN(
+            iop_std_test_struct_flags(st_sg, &sg, flags, "sg-string-len-diff")
+        );
 
         /* test with a NULL string */
         sg.j = LSTR_NULL_V;
-        Z_ASSERT_EQ((len = iop_bpack_size_flags(st_sg, &sg, flags, &szs)), 0,
-                    "sg-string-null");
+        Z_ASSERT_EQ(
+            (len = iop_bpack_size_flags(st_sg, &sg, flags, &szs)), 0,
+            "sg-string-null"
+        );
 
         /* test with a different string */
         sg.j = LSTR("plop");
-        Z_ASSERT_EQ((len = iop_bpack_size_flags(st_sg, &sg, flags, &szs)), 7,
-                    "sg-string-diff");
-        Z_HELPER_RUN(iop_std_test_struct_flags(st_sg, &sg, flags,
-                                               "sg-string-diff"));
+        Z_ASSERT_EQ(
+            (len = iop_bpack_size_flags(st_sg, &sg, flags, &szs)), 7,
+            "sg-string-diff"
+        );
+        Z_HELPER_RUN(
+            iop_std_test_struct_flags(st_sg, &sg, flags, "sg-string-diff")
+        );
 
         /* test with different values at different places */
         sg.a = 42;
         sg.f = 12;
         sg.l = 10.6;
-        Z_ASSERT_EQ((len = iop_bpack_size_flags(st_sg, &sg, flags, &szs)), 20,
-                    "sg-diff");
+        Z_ASSERT_EQ(
+            (len = iop_bpack_size_flags(st_sg, &sg, flags, &szs)), 20,
+            "sg-diff"
+        );
         Z_HELPER_RUN(iop_std_test_struct_flags(st_sg, &sg, flags, "sg-diff"));
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
     Z_TEST(private, "test private attribute with binary packing") { /* {{{ */
         t_scope;
@@ -3874,17 +4368,20 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(bpacked.s);
 
         t_qv_init(&szs, 16);
-        Z_ASSERT_NEG(iop_bunpack_ptr_flags(t_pool(), iop_env_ctx,
-                                           &tstiop_inheritance__c5__s,
-                                           &out, ps_initlstr(&bpacked),
-                                           IOP_UNPACK_FORBID_PRIVATE));
-        Z_ASSERT(strstr(iop_get_err(),
-                        "class `tstiop_inheritance.C5` is private"),
-                 "%s", iop_get_err());
-        Z_ASSERT_N(iop_bunpack_ptr_flags(t_pool(), iop_env_ctx,
-                                         &tstiop_inheritance__c5__s,
-                                         &out, ps_initlstr(&bpacked), 0));
-    } Z_TEST_END;
+        Z_ASSERT_NEG(iop_bunpack_ptr_flags(
+            t_pool(), iop_env_ctx, &tstiop_inheritance__c5__s, &out,
+            ps_initlstr(&bpacked), IOP_UNPACK_FORBID_PRIVATE
+        ));
+        Z_ASSERT(
+            strstr(iop_get_err(), "class `tstiop_inheritance.C5` is private"),
+            "%s", iop_get_err()
+        );
+        Z_ASSERT_N(iop_bunpack_ptr_flags(
+            t_pool(), iop_env_ctx, &tstiop_inheritance__c5__s, &out,
+            ps_initlstr(&bpacked), 0
+        ));
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(equals_and_cmp, "test iop_equals()/iop_cmp()") { /* {{{ */
 
@@ -3907,14 +4404,23 @@ Z_GROUP_EXPORT(iop)
 
         const iop_struct_t *st_sg, *st_sa_opt, *st_ua, *st_sr;
 
-        Z_ASSERT_P(st_sg = iop_env_ctx_get_struct(
-                iop_env_ctx, LSTR("tstiop.MyStructG")));
-        Z_ASSERT_P(st_sr = iop_env_ctx_get_struct(
-                iop_env_ctx, LSTR("tstiop.Repeated")));
-        Z_ASSERT_P(st_sa_opt = iop_env_ctx_get_struct(
-                iop_env_ctx, LSTR("tstiop.MyStructAOpt")));
-        Z_ASSERT_P(st_ua = iop_env_ctx_get_struct(
-                iop_env_ctx, LSTR("tstiop.MyUnionA")));
+        Z_ASSERT_P(
+            st_sg =
+                iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.MyStructG"))
+        );
+        Z_ASSERT_P(
+            st_sr =
+                iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.Repeated"))
+        );
+        Z_ASSERT_P(
+            st_sa_opt = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.MyStructAOpt")
+            )
+        );
+        Z_ASSERT_P(
+            st_ua =
+                iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.MyUnionA"))
+        );
 
         /* Test with all the default values */
         iop_init_desc(st_sg, &sg_a);
@@ -3983,9 +4489,9 @@ Z_GROUP_EXPORT(iop)
 
         /* Now test with some arrays */
         {
-            lstr_t strs[] = { LSTR_IMMED("a"), LSTR_IMMED("b") };
-            uint8_t uints[] = { 1, 2, 3, 4 };
-            uint8_t uints2[] = { 1, 2, 4, 4 };
+            lstr_t strs[] = {LSTR_IMMED("a"), LSTR_IMMED("b")};
+            uint8_t uints[] = {1, 2, 3, 4};
+            uint8_t uints2[] = {1, 2, 4, 4};
             tstiop__full_repeated__t st1;
             tstiop__full_repeated__t st2;
 
@@ -4037,9 +4543,12 @@ Z_GROUP_EXPORT(iop)
 #undef CHECK_IOP_EQ
 #undef CHECK_IOP_GT
 #undef CHECK_IOP_LT
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
-    Z_TEST(nr_61968, "non-regression test for bug with object comparison") { /* {{{ */
+    Z_TEST(
+        nr_61968, "non-regression test for bug with object comparison"
+    ) { /* {{{ */
         tstiop__bob__t bob1;
         tstiop__bob__t bob2;
 
@@ -4049,39 +4558,49 @@ Z_GROUP_EXPORT(iop)
         bob2.i = 2;
 
         Z_ASSERT_LT(iop_cmp(tstiop__alice, &bob1.super, &bob2.super), 0);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(xsort_and_xpsort, "test iop_xsort()/iop_xpsort()") { /* {{{ */
         t_scope;
         tstiop__xsort_struct__array_t array;
         const tstiop__xsort_struct__t **parray;
 
-#define XSORT_ST(_a, _s)  (tstiop__xsort_struct__t){ .a = _a, .s = LSTR(_s) }
+#define XSORT_ST(_a, _s) (tstiop__xsort_struct__t){.a = _a, .s = LSTR(_s)}
 
-        array = T_IOP_ARRAY(tstiop__xsort_struct, XSORT_ST(42, "abc"),
-                            XSORT_ST(42, "aaaa"), XSORT_ST(1, "toto"));
+        array = T_IOP_ARRAY(
+            tstiop__xsort_struct, XSORT_ST(42, "abc"), XSORT_ST(42, "aaaa"),
+            XSORT_ST(1, "toto")
+        );
 
         iop_xsort(tstiop__xsort_struct, array.tab, array.len);
         for (int i = 0; i < array.len - 1; i++) {
-            Z_ASSERT_LT(iop_cmp(tstiop__xsort_struct, &array.tab[i],
-                                &array.tab[i + 1]), 0);
+            Z_ASSERT_LT(
+                iop_cmp(
+                    tstiop__xsort_struct, &array.tab[i], &array.tab[i + 1]
+                ),
+                0
+            );
         }
 
-        array = T_IOP_ARRAY(tstiop__xsort_struct, XSORT_ST(51, "abc"),
-                            XSORT_ST(42, "tutu"), XSORT_ST(51, "zzz"),
-                            XSORT_ST(21, "lala"));
+        array = T_IOP_ARRAY(
+            tstiop__xsort_struct, XSORT_ST(51, "abc"), XSORT_ST(42, "tutu"),
+            XSORT_ST(51, "zzz"), XSORT_ST(21, "lala")
+        );
         parray = t_new_raw(const tstiop__xsort_struct__t *, array.len);
         tab_enumerate_ptr(pos, xs, &array) {
             parray[pos] = xs;
         }
         iop_xpsort(tstiop__xsort_struct, parray, array.len);
         for (int i = 0; i < array.len - 1; i++) {
-            Z_ASSERT_LT(iop_cmp(tstiop__xsort_struct, parray[i],
-                                parray[i + 1]), 0);
+            Z_ASSERT_LT(
+                iop_cmp(tstiop__xsort_struct, parray[i], parray[i + 1]), 0
+            );
         }
 
 #undef XSORT_ST
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(strict_enum, "test IOP strict enum (un)packing") { /* {{{ */
         t_scope;
@@ -4091,46 +4610,46 @@ Z_GROUP_EXPORT(iop)
         };
 
         tstiop__my_struct_l__t sl1 = {
-            .a      = MY_ENUM_A_A,
-            .b      = MY_ENUM_B_B,
-            .btab   = IOP_ARRAY(bvals, countof(bvals)),
-            .c      = MY_ENUM_C_A | MY_ENUM_C_B,
+            .a = MY_ENUM_A_A,
+            .b = MY_ENUM_B_B,
+            .btab = IOP_ARRAY(bvals, countof(bvals)),
+            .c = MY_ENUM_C_A | MY_ENUM_C_B,
         };
 
         tstiop__my_struct_l__t sl2 = {
-            .a      = 10,
-            .b      = MY_ENUM_B_B,
-            .btab   = IOP_ARRAY(bvals, countof(bvals)),
-            .c      = MY_ENUM_C_A | MY_ENUM_C_B,
+            .a = 10,
+            .b = MY_ENUM_B_B,
+            .btab = IOP_ARRAY(bvals, countof(bvals)),
+            .c = MY_ENUM_C_A | MY_ENUM_C_B,
         };
 
         tstiop__my_struct_l__t sl3 = {
-            .a      = MY_ENUM_A_A,
-            .b      = 10,
-            .btab   = IOP_ARRAY(bvals, countof(bvals)),
-            .c      = MY_ENUM_C_A | MY_ENUM_C_B,
+            .a = MY_ENUM_A_A,
+            .b = 10,
+            .btab = IOP_ARRAY(bvals, countof(bvals)),
+            .c = MY_ENUM_C_A | MY_ENUM_C_B,
         };
 
-        const char json_sl_p1[] =
-            "{\n"
-            "     a     = 1 << \"C\";               \n"
-            "     b     = \"C\";                    \n"
-            "     btab  = [ \"A\", \"B\", \"C\" ];  \n"
-            "     c     = 1 << \"C\";               \n"
-            "};\n";
+        const char json_sl_p1[] = "{\n"
+                                  "     a     = 1 << \"C\";               \n"
+                                  "     b     = \"C\";                    \n"
+                                  "     btab  = [ \"A\", \"B\", \"C\" ];  \n"
+                                  "     c     = 1 << \"C\";               \n"
+                                  "};\n";
 
-        const char json_sl_n1[] =
-            "{\n"
-            "     a     = 1 << \"C\";               \n"
-            "     b     = 1 << \"C\";               \n"
-            "     btab  = [ \"A\", \"B\", \"C\" ];  \n"
-            "     c     = 1 << \"C\";               \n"
-            "};\n";
+        const char json_sl_n1[] = "{\n"
+                                  "     a     = 1 << \"C\";               \n"
+                                  "     b     = 1 << \"C\";               \n"
+                                  "     btab  = [ \"A\", \"B\", \"C\" ];  \n"
+                                  "     c     = 1 << \"C\";               \n"
+                                  "};\n";
 
         const iop_struct_t *st_sl;
 
-        Z_ASSERT_P(st_sl = iop_env_ctx_get_struct(
-                iop_env_ctx, LSTR("tstiop.MyStructL")));
+        Z_ASSERT_P(
+            st_sl =
+                iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.MyStructL"))
+        );
 
         Z_ASSERT_N(iop_check_constraints_desc(st_sl, &sl1));
         Z_ASSERT_N(iop_check_constraints(tstiop__my_struct_l, &sl2));
@@ -4138,21 +4657,24 @@ Z_GROUP_EXPORT(iop)
 
         Z_HELPER_RUN(iop_std_test_struct(st_sl, &sl1, "sl1"));
         Z_HELPER_RUN(iop_std_test_struct(st_sl, &sl2, "sl2"));
-        Z_HELPER_RUN(iop_std_test_struct_invalid(st_sl, &sl3, "sl3",
-                     "in type tstiop.MyStructL: 10 is not a valid value for "
-                     "enum tstiop.MyEnumB (field b)"));
+        Z_HELPER_RUN(iop_std_test_struct_invalid(
+            st_sl, &sl3, "sl3",
+            "in type tstiop.MyStructL: 10 is not a valid value for "
+            "enum tstiop.MyEnumB (field b)"
+        ));
 
         Z_HELPER_RUN(iop_xml_test_struct(st_sl, &sl1, "sl1"));
         Z_HELPER_RUN(iop_xml_test_struct(st_sl, &sl2, "sl2"));
         Z_HELPER_RUN(iop_xml_test_struct_invalid(st_sl, &sl3, "sl3"));
 
-        Z_HELPER_RUN(iop_json_test_unpack(st_sl, json_sl_p1,
-                                          IOP_UNPACK_IGNORE_UNKNOWN,
-                                          true, "json_sl_p1"));
-        Z_HELPER_RUN(iop_json_test_unpack(st_sl, json_sl_n1,
-                                          IOP_UNPACK_IGNORE_UNKNOWN,
-                                          false, "json_sl_n1"));
-    } Z_TEST_END
+        Z_HELPER_RUN(iop_json_test_unpack(
+            st_sl, json_sl_p1, IOP_UNPACK_IGNORE_UNKNOWN, true, "json_sl_p1"
+        ));
+        Z_HELPER_RUN(iop_json_test_unpack(
+            st_sl, json_sl_n1, IOP_UNPACK_IGNORE_UNKNOWN, false, "json_sl_n1"
+        ));
+    }
+    Z_TEST_END
     /* }}} */
     Z_TEST(constraints, "test IOP constraints") { /* {{{ */
         t_scope;
@@ -4162,12 +4684,8 @@ Z_GROUP_EXPORT(iop)
         tstiop_inheritance__c1__t c;
 
         lstr_t strings[] = {
-            LSTR("fooBAR_1"),
-            LSTR("foobar_2"),
-            LSTR("foo3"),
-            LSTR("foo4"),
-            LSTR("foo5"),
-            LSTR("foo6"),
+            LSTR("fooBAR_1"), LSTR("foobar_2"), LSTR("foo3"),
+            LSTR("foo4"),     LSTR("foo5"),     LSTR("foo6"),
         };
 
         lstr_t bad_strings[] = {
@@ -4175,90 +4693,124 @@ Z_GROUP_EXPORT(iop)
             LSTR("a b c"),
         };
 
-        int8_t   i8tab[] = { INT8_MIN,  INT8_MAX,  3, 4, 5, 6 };
-        int16_t i16tab[] = { INT16_MIN, INT16_MAX, 3, 4, 5, 6 };
-        int32_t i32tab[] = { INT32_MIN, INT32_MAX, 3, 4, 5, 6 };
-        int64_t i64tab[] = { INT64_MIN, INT64_MAX, 3, 4, 5, 6 };
+        int8_t i8tab[] = {INT8_MIN, INT8_MAX, 3, 4, 5, 6};
+        int16_t i16tab[] = {INT16_MIN, INT16_MAX, 3, 4, 5, 6};
+        int32_t i32tab[] = {INT32_MIN, INT32_MAX, 3, 4, 5, 6};
+        int64_t i64tab[] = {INT64_MIN, INT64_MAX, 3, 4, 5, 6};
 
         const iop_struct_t *st_s, *st_u, *st_c;
 
-        Z_ASSERT_P(st_s = iop_env_ctx_get_struct(
-                iop_env_ctx, LSTR("tstiop.ConstraintS")));
-        Z_ASSERT_P(st_u = iop_env_ctx_get_struct(
-                iop_env_ctx, LSTR("tstiop.ConstraintU")));
-        Z_ASSERT_P(st_c = iop_env_ctx_get_struct(
-                iop_env_ctx, LSTR("tstiop_inheritance.C1")));
+        Z_ASSERT_P(
+            st_s = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.ConstraintS")
+            )
+        );
+        Z_ASSERT_P(
+            st_u = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop.ConstraintU")
+            )
+        );
+        Z_ASSERT_P(
+            st_c = iop_env_ctx_get_struct(
+                iop_env_ctx, LSTR("tstiop_inheritance.C1")
+            )
+        );
 
-#define CHECK_VALID(st, v, info) \
-        Z_ASSERT_N(iop_check_constraints_desc((st), (v)));              \
-        Z_HELPER_RUN(iop_std_test_struct((st), (v), (info)));           \
-        Z_HELPER_RUN(iop_xml_test_struct((st), (v), (info)));           \
-        Z_HELPER_RUN(iop_json_test_struct((st), (v), (info)));
+#define CHECK_VALID(st, v, info)                                             \
+    Z_ASSERT_N(iop_check_constraints_desc((st), (v)));                       \
+    Z_HELPER_RUN(iop_std_test_struct((st), (v), (info)));                    \
+    Z_HELPER_RUN(iop_xml_test_struct((st), (v), (info)));                    \
+    Z_HELPER_RUN(iop_json_test_struct((st), (v), (info)));
 
-#define CHECK_INVALID(st, v, info, err) \
-        Z_ASSERT_NEG(iop_check_constraints_desc((st), (v)));                 \
-        Z_HELPER_RUN(iop_std_test_struct_invalid((st), (v), (info), (err))); \
-        Z_HELPER_RUN(iop_xml_test_struct_invalid((st), (v), (info)));        \
-        Z_HELPER_RUN(iop_json_test_struct_invalid((st), (v), (info)));
+#define CHECK_INVALID(st, v, info, err)                                      \
+    Z_ASSERT_NEG(iop_check_constraints_desc((st), (v)));                     \
+    Z_HELPER_RUN(iop_std_test_struct_invalid((st), (v), (info), (err)));     \
+    Z_HELPER_RUN(iop_xml_test_struct_invalid((st), (v), (info)));            \
+    Z_HELPER_RUN(iop_json_test_struct_invalid((st), (v), (info)));
 
-#define CHECK_UNION(f, size) \
-        u = IOP_UNION(tstiop__constraint_u, f, 1L << (size - 1));           \
-        CHECK_VALID(st_u, &u, #f);                                          \
-        u = IOP_UNION(tstiop__constraint_u, f, 1 + (1L << (size - 1)));     \
-        CHECK_INVALID(st_u, &u, #f "_max",                                  \
-                      t_fmt("in type tstiop.ConstraintU: violation of "     \
-                            "constraint max (%ju) on field %s: val=%ju",    \
-                            1L << (size - 1), #f, 1 + (1L << (size - 1)))); \
-        u = IOP_UNION(tstiop__constraint_u, f, 0);                          \
-        CHECK_INVALID(st_u, &u, #f "_zero",                                 \
-                      t_fmt("in type tstiop.ConstraintU: violation of "     \
-                            "constraint nonZero on field %s", #f));         \
+#define CHECK_UNION(f, size)                                                 \
+    u = IOP_UNION(tstiop__constraint_u, f, 1L << (size - 1));                \
+    CHECK_VALID(st_u, &u, #f);                                               \
+    u = IOP_UNION(tstiop__constraint_u, f, 1 + (1L << (size - 1)));          \
+    CHECK_INVALID(                                                           \
+        st_u, &u, #f "_max",                                                 \
+        t_fmt(                                                               \
+            "in type tstiop.ConstraintU: violation of "                      \
+            "constraint max (%ju) on field %s: val=%ju",                     \
+            1L << (size - 1), #f, 1 + (1L << (size - 1))                     \
+        )                                                                    \
+    );                                                                       \
+    u = IOP_UNION(tstiop__constraint_u, f, 0);                               \
+    CHECK_INVALID(                                                           \
+        st_u, &u, #f "_zero",                                                \
+        t_fmt(                                                               \
+            "in type tstiop.ConstraintU: violation of "                      \
+            "constraint nonZero on field %s",                                \
+            #f                                                               \
+        )                                                                    \
+    );
 
         iop_init_desc(st_u, &u);
-        CHECK_UNION(u8,   8);
+        CHECK_UNION(u8, 8);
         CHECK_UNION(u16, 16);
         CHECK_UNION(u32, 32);
         CHECK_UNION(u64, 64);
 
         u = IOP_UNION(tstiop__constraint_u, s, LSTR_EMPTY_V);
-        CHECK_INVALID(st_u, &u, "s_empty",
-                      "in type tstiop.ConstraintU: violation of constraint "
-                      "nonEmpty on field s");
+        CHECK_INVALID(
+            st_u, &u, "s_empty",
+            "in type tstiop.ConstraintU: violation of constraint "
+            "nonEmpty on field s"
+        );
         u = IOP_UNION(tstiop__constraint_u, s, LSTR_NULL_V);
-        CHECK_INVALID(st_u, &u, "s_null",
-                      "in type tstiop.ConstraintU: violation of constraint "
-                      "nonEmpty on field s");
+        CHECK_INVALID(
+            st_u, &u, "s_null",
+            "in type tstiop.ConstraintU: violation of constraint "
+            "nonEmpty on field s"
+        );
         u = IOP_UNION(tstiop__constraint_u, s, LSTR("way_too_long"));
-        CHECK_INVALID(st_u, &u, "s_maxlength",
-                      "in type tstiop.ConstraintU: violation of constraint "
-                      "maxLength (10) on field s: length=12");
+        CHECK_INVALID(
+            st_u, &u, "s_maxlength",
+            "in type tstiop.ConstraintU: violation of constraint "
+            "maxLength (10) on field s: length=12"
+        );
         u = IOP_UNION(tstiop__constraint_u, s, LSTR("ab.{}[]"));
-        CHECK_INVALID(st_u, &u, "s_pattern",
-                      "in type tstiop.ConstraintU: violation of constraint "
-                      "pattern ([^\\[\\]]*) on field s: ab.{}[]");
+        CHECK_INVALID(
+            st_u, &u, "s_pattern",
+            "in type tstiop.ConstraintU: violation of constraint "
+            "pattern ([^\\[\\]]*) on field s: ab.{}[]"
+        );
         u = IOP_UNION(tstiop__constraint_u, s, LSTR("ab.{}()"));
         CHECK_VALID(st_u, &u, "s");
 
         iop_init_desc(st_s, &s);
-        CHECK_INVALID(st_s, &s, "s_minoccurs",
-                      "in type tstiop.ConstraintS: empty array not allowed "
-                      "for field `s`");
+        CHECK_INVALID(
+            st_s, &s, "s_minoccurs",
+            "in type tstiop.ConstraintS: empty array not allowed "
+            "for field `s`"
+        );
 
         s.s.tab = bad_strings;
         s.s.len = countof(bad_strings);
-        CHECK_INVALID(st_s, &s, "s_pattern",
-                      "in type tstiop.ConstraintS: violation of constraint "
-                      "pattern ([a-zA-Z0-9_\\-]*) on field s: abcd[]");
+        CHECK_INVALID(
+            st_s, &s, "s_pattern",
+            "in type tstiop.ConstraintS: violation of constraint "
+            "pattern ([a-zA-Z0-9_\\-]*) on field s: abcd[]"
+        );
 
         s.s.tab = strings;
         s.s.len = 1;
-        CHECK_INVALID(st_s, &s, "s_minoccurs",
-                      "in type tstiop.ConstraintS: violation of constraint "
-                      "minOccurs (2) on field s: length=1");
+        CHECK_INVALID(
+            st_s, &s, "s_minoccurs",
+            "in type tstiop.ConstraintS: violation of constraint "
+            "minOccurs (2) on field s: length=1"
+        );
         s.s.len = countof(strings);
-        CHECK_INVALID(st_s, &s, "s_maxoccurs",
-                      "in type tstiop.ConstraintS: violation of constraint "
-                      "maxOccurs (5) on field s: length=6");
+        CHECK_INVALID(
+            st_s, &s, "s_maxoccurs",
+            "in type tstiop.ConstraintS: violation of constraint "
+            "maxOccurs (5) on field s: length=6"
+        );
         s.s.len = 2;
         CHECK_VALID(st_s, &s, "s");
         s.s.len = 5;
@@ -4277,48 +4829,64 @@ Z_GROUP_EXPORT(iop)
         s1.tab.len = 1;
         s2.s.tab = strings;
         s2.s.len = 6;
-        CHECK_INVALID(st_s, &s, "s_maxoccurs",
-                      "in tab[0].tab[0] of type tstiop.ConstraintS: violation"
-                      " of constraint maxOccurs (5) on field s: length=6");
+        CHECK_INVALID(
+            st_s, &s, "s_maxoccurs",
+            "in tab[0].tab[0] of type tstiop.ConstraintS: violation"
+            " of constraint maxOccurs (5) on field s: length=6"
+        );
 
         u = IOP_UNION(tstiop__constraint_u, cs, s);
-        CHECK_INVALID(st_u, &u, "s_maxoccurs",
-                "in cs.tab[0].tab[0] of type tstiop.ConstraintS: violation"
-                " of constraint maxOccurs (5) on field s: length=6");
+        CHECK_INVALID(
+            st_u, &u, "s_maxoccurs",
+            "in cs.tab[0].tab[0] of type tstiop.ConstraintS: violation"
+            " of constraint maxOccurs (5) on field s: length=6"
+        );
 
 #define CHECK_TAB(_f, _tab)                                                  \
-        s._f.tab = _tab;                                                     \
-        s._f.len = 6;                                                        \
-        CHECK_INVALID(st_s, &s, "s",                                         \
-                      t_fmt("in type tstiop.ConstraintS: violation of "      \
-                            "constraint maxOccurs (5) on field %s: length=6",\
-                            #_f));                                           \
-        s._f.len = 5;                                                        \
-        CHECK_INVALID(st_s, &s, "s",                                         \
-                      t_fmt("in type tstiop.ConstraintS: violation of "      \
-                            "constraint min (%jd) on field %s[0]: val=%jd",  \
-                            (int64_t)_tab[0] + 1, #_f, (int64_t)_tab[0]));   \
-        s._f.tab[0]++;                                                       \
-        CHECK_VALID(st_s, &s, "s");
+    s._f.tab = _tab;                                                         \
+    s._f.len = 6;                                                            \
+    CHECK_INVALID(                                                           \
+        st_s, &s, "s",                                                       \
+        t_fmt(                                                               \
+            "in type tstiop.ConstraintS: violation of "                      \
+            "constraint maxOccurs (5) on field %s: length=6",                \
+            #_f                                                              \
+        )                                                                    \
+    );                                                                       \
+    s._f.len = 5;                                                            \
+    CHECK_INVALID(                                                           \
+        st_s, &s, "s",                                                       \
+        t_fmt(                                                               \
+            "in type tstiop.ConstraintS: violation of "                      \
+            "constraint min (%jd) on field %s[0]: val=%jd",                  \
+            (int64_t)_tab[0] + 1, #_f, (int64_t)_tab[0]                      \
+        )                                                                    \
+    );                                                                       \
+    s._f.tab[0]++;                                                           \
+    CHECK_VALID(st_s, &s, "s");
 
         s2.s.len = 5;
-        CHECK_TAB(i8,   i8tab);
-        CHECK_TAB(i16,  i16tab);
-        CHECK_TAB(i32,  i32tab);
-        CHECK_TAB(i64,  i64tab);
+        CHECK_TAB(i8, i8tab);
+        CHECK_TAB(i16, i16tab);
+        CHECK_TAB(i32, i32tab);
+        CHECK_TAB(i64, i64tab);
 
         /* With inheritance */
         iop_init_desc(st_c, &c);
         CHECK_VALID(st_c, &c, "c");
         c.a = 0;
-        CHECK_INVALID(st_c, &c, "c",
-                      "in type tstiop_inheritance.A1: violation of constraint"
-                      " nonZero on field a");
+        CHECK_INVALID(
+            st_c, &c, "c",
+            "in type tstiop_inheritance.A1: violation of constraint"
+            " nonZero on field a"
+        );
         c.a = 2;
         c.c = 0;
-        CHECK_INVALID(st_c, &c, "c",
-                      "in type tstiop_inheritance.C1: violation of constraint"
-                      " nonZero on field c");
+        CHECK_INVALID(
+            st_c, &c, "c",
+            "in type tstiop_inheritance.C1: violation of constraint"
+            " nonZero on field c"
+        );
         c.c = 3;
         CHECK_VALID(st_c, &c, "c");
 
@@ -4326,7 +4894,8 @@ Z_GROUP_EXPORT(iop)
 #undef CHECK_UNION
 #undef CHECK_VALID
 #undef CHECK_INVALID
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
     Z_TEST(iop_sort, "test IOP structures/unions sorting") { /* {{{ */
         t_scope;
@@ -4407,9 +4976,8 @@ Z_GROUP_EXPORT(iop)
         a.cls2 = t_iop_dup(tstiop__my_class2, &cls2);
         qv_append(&vec, a);
 
-#define TST_SORT_VEC(p, f)  \
-        iop_sort(iop_env_ctx, tstiop__my_struct_a, vec.tab, vec.len, p, f,   \
-                 NULL)
+#define TST_SORT_VEC(p, f)                                                   \
+    iop_sort(iop_env_ctx, tstiop__my_struct_a, vec.tab, vec.len, p, f, NULL)
 
         /* reverse sort on short e */
         Z_ASSERT_N(TST_SORT_VEC(LSTR("e"), IOP_SORT_REVERSE));
@@ -4462,15 +5030,17 @@ Z_GROUP_EXPORT(iop)
 
         /* reverse sort on int ua, member of union l, put other union members
          * first */
-        Z_ASSERT_N(TST_SORT_VEC(LSTR("l.ua"),
-                                IOP_SORT_NULL_FIRST | IOP_SORT_REVERSE));
+        Z_ASSERT_N(
+            TST_SORT_VEC(LSTR("l.ua"), IOP_SORT_NULL_FIRST | IOP_SORT_REVERSE)
+        );
         Z_ASSERT_P(IOP_UNION_GET(tstiop__my_union_a, &vec.tab[0].l, ub));
         Z_ASSERT_P(IOP_UNION_GET(tstiop__my_union_a, &vec.tab[1].l, ub));
         Z_ASSERT_EQ(vec.tab[2].l.ua, 666);
         Z_ASSERT_EQ(vec.tab[3].l.ua, 222);
         Z_ASSERT_EQ(vec.tab[4].l.ua, 111);
 
-        /* sort on byte ub, member of union l, put other union members first */
+        /* sort on byte ub, member of union l, put other union members first
+         */
         Z_ASSERT_N(TST_SORT_VEC(LSTR("l.ub"), IOP_SORT_NULL_FIRST));
         Z_ASSERT_P(IOP_UNION_GET(tstiop__my_union_a, &vec.tab[0].l, ua));
         Z_ASSERT_P(IOP_UNION_GET(tstiop__my_union_a, &vec.tab[1].l, ua));
@@ -4501,7 +5071,8 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_EQ(vec.tab[1].lr->ua, 222);
         Z_ASSERT_EQ(vec.tab[2].lr->ua, 111);
 
-        /* sort on int ua, member of union lr, put other union members first */
+        /* sort on int ua, member of union lr, put other union members first
+         */
         Z_ASSERT_N(TST_SORT_VEC(LSTR("lr.ua"), IOP_SORT_NULL_FIRST));
         Z_ASSERT_P(IOP_UNION_GET(tstiop__my_union_a, vec.tab[0].lr, ub));
         Z_ASSERT_P(IOP_UNION_GET(tstiop__my_union_a, vec.tab[1].lr, ub));
@@ -4511,15 +5082,17 @@ Z_GROUP_EXPORT(iop)
 
         /* reverse sort on int ua, member of union lr, put other union members
          * first */
-        Z_ASSERT_N(TST_SORT_VEC(LSTR("lr.ua"),
-                                IOP_SORT_NULL_FIRST | IOP_SORT_REVERSE));
+        Z_ASSERT_N(TST_SORT_VEC(
+            LSTR("lr.ua"), IOP_SORT_NULL_FIRST | IOP_SORT_REVERSE
+        ));
         Z_ASSERT_P(IOP_UNION_GET(tstiop__my_union_a, vec.tab[0].lr, ub));
         Z_ASSERT_P(IOP_UNION_GET(tstiop__my_union_a, vec.tab[1].lr, ub));
         Z_ASSERT_EQ(vec.tab[2].lr->ua, 666);
         Z_ASSERT_EQ(vec.tab[3].lr->ua, 222);
         Z_ASSERT_EQ(vec.tab[4].lr->ua, 111);
 
-        /* sort on byte ub, member of union lr, put other union members first */
+        /* sort on byte ub, member of union lr, put other union members first
+         */
         Z_ASSERT_N(TST_SORT_VEC(LSTR("lr.ub"), IOP_SORT_NULL_FIRST));
         Z_ASSERT_P(IOP_UNION_GET(tstiop__my_union_a, vec.tab[0].lr, ua));
         Z_ASSERT_P(IOP_UNION_GET(tstiop__my_union_a, vec.tab[1].lr, ua));
@@ -4545,16 +5118,21 @@ Z_GROUP_EXPORT(iop)
 
         /* sort on class name */
         Z_ASSERT_N(TST_SORT_VEC(LSTR("cls2._class"), 0));
-        Z_ASSERT_LSTREQUAL(vec.tab[0].cls2->__vptr->fullname,
-                           LSTR("tstiop.MyClass2"));
-        Z_ASSERT_LSTREQUAL(vec.tab[1].cls2->__vptr->fullname,
-                           LSTR("tstiop.MyClass2"));
-        Z_ASSERT_LSTREQUAL(vec.tab[2].cls2->__vptr->fullname,
-                           LSTR("tstiop.MyClass2"));
-        Z_ASSERT_LSTREQUAL(vec.tab[3].cls2->__vptr->fullname,
-                           LSTR("tstiop.MyClass3"));
-        Z_ASSERT_LSTREQUAL(vec.tab[4].cls2->__vptr->fullname,
-                           LSTR("tstiop.MyClass3"));
+        Z_ASSERT_LSTREQUAL(
+            vec.tab[0].cls2->__vptr->fullname, LSTR("tstiop.MyClass2")
+        );
+        Z_ASSERT_LSTREQUAL(
+            vec.tab[1].cls2->__vptr->fullname, LSTR("tstiop.MyClass2")
+        );
+        Z_ASSERT_LSTREQUAL(
+            vec.tab[2].cls2->__vptr->fullname, LSTR("tstiop.MyClass2")
+        );
+        Z_ASSERT_LSTREQUAL(
+            vec.tab[3].cls2->__vptr->fullname, LSTR("tstiop.MyClass3")
+        );
+        Z_ASSERT_LSTREQUAL(
+            vec.tab[4].cls2->__vptr->fullname, LSTR("tstiop.MyClass3")
+        );
 
         /* sort on repeated field */
         Z_ASSERT_N(TST_SORT_VEC(LSTR("htab"), 0));
@@ -4642,9 +5220,10 @@ Z_GROUP_EXPORT(iop)
         a2.o = &b2;
         qv_append(&vec2, a2);
 
-#define TST_SORT_VEC(p, f)  \
-        iop_sort(iop_env_ctx, tstiop__my_struct_a_opt, vec2.tab, vec2.len, p,\
-                 f, NULL)
+#define TST_SORT_VEC(p, f)                                                   \
+    iop_sort(                                                                \
+        iop_env_ctx, tstiop__my_struct_a_opt, vec2.tab, vec2.len, p, f, NULL \
+    )
 
         /* sort on optional int a */
         Z_ASSERT_N(TST_SORT_VEC(LSTR("a"), 0));
@@ -4704,9 +5283,8 @@ Z_GROUP_EXPORT(iop)
         m.k.j.b = IOP_UNION(tstiop__my_union_b, bval, 33);
         qv_append(&mvec, m);
 
-#define TST_SORT_VEC(p, f)  \
-        iop_sort(iop_env_ctx, tstiop__my_struct_m, mvec.tab, mvec.len, p,    \
-                 f, NULL)
+#define TST_SORT_VEC(p, f)                                                   \
+    iop_sort(iop_env_ctx, tstiop__my_struct_m, mvec.tab, mvec.len, p, f, NULL)
 
         /* sort on int cval from MyStructJ j from MyStructK k */
         Z_ASSERT_N(TST_SORT_VEC(LSTR("k.j.cval"), 0));
@@ -4728,20 +5306,19 @@ Z_GROUP_EXPORT(iop)
 
         cls2.int1 = 3;
         cls2.int2 = 4;
-        qv_append(&cls2_vec,
-                  t_iop_dup(tstiop__my_class2, &cls2));
+        qv_append(&cls2_vec, t_iop_dup(tstiop__my_class2, &cls2));
         cls2.int1 = 2;
         cls2.int2 = 5;
-        qv_append(&cls2_vec,
-                  t_iop_dup(tstiop__my_class2, &cls2));
+        qv_append(&cls2_vec, t_iop_dup(tstiop__my_class2, &cls2));
         cls2.int1 = 1;
         cls2.int2 = 6;
-        qv_append(&cls2_vec,
-                  t_iop_dup(tstiop__my_class2, &cls2));
+        qv_append(&cls2_vec, t_iop_dup(tstiop__my_class2, &cls2));
 
-#define TST_SORT_VEC(p, f)  \
-        iop_obj_sort(iop_env_ctx, tstiop__my_class2, cls2_vec.tab,           \
-                     cls2_vec.len, p, f, NULL)
+#define TST_SORT_VEC(p, f)                                                   \
+    iop_obj_sort(                                                            \
+        iop_env_ctx, tstiop__my_class2, cls2_vec.tab, cls2_vec.len, p, f,    \
+        NULL                                                                 \
+    )
 
         Z_ASSERT_N(TST_SORT_VEC(LSTR("int1"), 0));
         Z_ASSERT_EQ(cls2_vec.tab[0]->int1, 1);
@@ -4756,38 +5333,43 @@ Z_GROUP_EXPORT(iop)
 
         t_qv_init(&fvec, 3);
         fst = iop_init(tstiop__my_struct_f, qv_growlen(&fvec, 1));
-        fst->d = T_IOP_ARRAY(tstiop__my_union_a,
-                             IOP_UNION(tstiop__my_union_a, ua, 2),
-                             IOP_UNION(tstiop__my_union_a, ua, 3));
-        fst->e = T_IOP_ARRAY(tstiop__my_class1,
-                             t_iop_new(tstiop__my_class1),
-                             t_iop_new(tstiop__my_class1));
+        fst->d = T_IOP_ARRAY(
+            tstiop__my_union_a, IOP_UNION(tstiop__my_union_a, ua, 2),
+            IOP_UNION(tstiop__my_union_a, ua, 3)
+        );
+        fst->e = T_IOP_ARRAY(
+            tstiop__my_class1, t_iop_new(tstiop__my_class1),
+            t_iop_new(tstiop__my_class1)
+        );
         fst->e.tab[0]->int1 = 7;
         fst->e.tab[1]->int1 = 8;
 
         fst = iop_init(tstiop__my_struct_f, qv_growlen(&fvec, 1));
-        fst->d = T_IOP_ARRAY(tstiop__my_union_a,
-                             IOP_UNION(tstiop__my_union_a, ua, 1),
-                             IOP_UNION(tstiop__my_union_a, ua, 4));
-        fst->e = T_IOP_ARRAY(tstiop__my_class1,
-                             t_iop_new(tstiop__my_class1));
+        fst->d = T_IOP_ARRAY(
+            tstiop__my_union_a, IOP_UNION(tstiop__my_union_a, ua, 1),
+            IOP_UNION(tstiop__my_union_a, ua, 4)
+        );
+        fst->e = T_IOP_ARRAY(tstiop__my_class1, t_iop_new(tstiop__my_class1));
         fst->e.tab[0]->int1 = 4;
 
         fst = iop_init(tstiop__my_struct_f, qv_growlen(&fvec, 1));
-        fst->d = T_IOP_ARRAY(tstiop__my_union_a,
-                             IOP_UNION(tstiop__my_union_a, ua, 3));
-        fst->e = T_IOP_ARRAY(tstiop__my_class1,
-                             t_iop_new(tstiop__my_class1),
-                             t_iop_new(tstiop__my_class1),
-                             &t_iop_new(tstiop__my_class2)->super);
+        fst->d = T_IOP_ARRAY(
+            tstiop__my_union_a, IOP_UNION(tstiop__my_union_a, ua, 3)
+        );
+        fst->e = T_IOP_ARRAY(
+            tstiop__my_class1, t_iop_new(tstiop__my_class1),
+            t_iop_new(tstiop__my_class1), &t_iop_new(tstiop__my_class2)->super
+        );
         fst->e.tab[0]->int1 = 5;
         fst->e.tab[1]->int1 = 10;
         fst->e.tab[2]->int1 = 42;
         cast(tstiop__my_class2__t *, fst->e.tab[2])->int2 = 25;
 
-#define TST_SORT_VEC(p, f)  \
-        iop_sort(iop_env_ctx, tstiop__my_struct_f, fvec.tab, fvec.len,       \
-                 LSTR(p), (f), NULL)
+#define TST_SORT_VEC(p, f)                                                   \
+    iop_sort(                                                                \
+        iop_env_ctx, tstiop__my_struct_f, fvec.tab, fvec.len, LSTR(p), (f),  \
+        NULL                                                                 \
+    )
 
         Z_ASSERT_N(TST_SORT_VEC("d[0].ua", 0));
         Z_ASSERT_EQ(fvec.tab[0].d.tab[0].ua, 1);
@@ -4842,9 +5424,8 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_LT(fvec.tab[2].e.len, 3);
 
 #undef TST_SORT_VEC
-
-
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(iop_msort, "test IOP structures/unions multi sorting") { /* {{{ */
         t_scope;
@@ -4853,13 +5434,17 @@ Z_GROUP_EXPORT(iop)
         qv_t(my_struct_a) sorted;
         qv_t(iop_sort) params;
         uint64_t htab0[] = {
-            0, 1, 2,
+            0,
+            1,
+            2,
         };
         uint64_t htab1[] = {
-            2, 3,
+            2,
+            3,
         };
         uint64_t htab2[] = {
-            42, 64,
+            42,
+            64,
         };
 
         t_qv_init(&original, 3);
@@ -4883,23 +5468,29 @@ Z_GROUP_EXPORT(iop)
         original.tab[1].d = 2;
         original.tab[2].d = 1;
 
-        original.tab[0].htab = (iop_array_u64_t)IOP_ARRAY(
-            htab0, countof(htab0));
-        original.tab[1].htab = (iop_array_u64_t)IOP_ARRAY(
-            htab1, countof(htab1));
-        original.tab[2].htab = (iop_array_u64_t)IOP_ARRAY(
-            htab2, countof(htab2));
+        original.tab[0].htab =
+            (iop_array_u64_t)IOP_ARRAY(htab0, countof(htab0));
+        original.tab[1].htab =
+            (iop_array_u64_t)IOP_ARRAY(htab1, countof(htab1));
+        original.tab[2].htab =
+            (iop_array_u64_t)IOP_ARRAY(htab2, countof(htab2));
 
-#define ADD_PARAM(_field, _flags)  do {                                      \
-        qv_append(&params, ((iop_sort_t){                                    \
-            .field_path = LSTR(_field),                                      \
-            .flags = _flags,                                                 \
-        }));                                                                 \
+#define ADD_PARAM(_field, _flags)                                            \
+    do {                                                                     \
+        qv_append(                                                           \
+            &params, ((iop_sort_t){                                          \
+                         .field_path = LSTR(_field),                         \
+                         .flags = _flags,                                    \
+                     })                                                      \
+        );                                                                   \
     } while (0)
 
-#define SORT_AND_CHECK(p1, p2, p3)  do {                                     \
-        Z_ASSERT_ZERO(iop_msort(iop_env_ctx, tstiop__my_struct_a,            \
-                                sorted.tab, sorted.len, &params, NULL));     \
+#define SORT_AND_CHECK(p1, p2, p3)                                           \
+    do {                                                                     \
+        Z_ASSERT_ZERO(iop_msort(                                             \
+            iop_env_ctx, tstiop__my_struct_a, sorted.tab, sorted.len,        \
+            &params, NULL                                                    \
+        ));                                                                  \
         Z_ASSERT_EQ(sorted.tab[0].a, original.tab[p1].a);                    \
         Z_ASSERT_EQ(sorted.tab[1].a, original.tab[p2].a);                    \
         Z_ASSERT_EQ(sorted.tab[2].a, original.tab[p3].a);                    \
@@ -4942,10 +5533,12 @@ Z_GROUP_EXPORT(iop)
 
 #undef ADD_PARAM
 #undef SORT_AND_CHECK
-
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_msort_class_array, "test IOP multi sorting on a class array") { /* {{{ */
+    Z_TEST(
+        iop_msort_class_array, "test IOP multi sorting on a class array"
+    ) { /* {{{ */
         t_scope;
         iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         qv_t(my_struct_f) original;
@@ -4985,22 +5578,31 @@ Z_GROUP_EXPORT(iop)
         original.tab[1].e = IOP_TYPED_ARRAY(tstiop__my_class1, &class1_1, 1);
         original.tab[2].e = IOP_TYPED_ARRAY(tstiop__my_class1, &class1_2, 1);
 
-#define ADD_PARAM(_field, _flags)  do {                                      \
-        qv_append(&params, ((iop_sort_t){                                    \
-            .field_path = LSTR(_field),                                      \
-            .flags = _flags,                                                 \
-        }));                                                                 \
+#define ADD_PARAM(_field, _flags)                                            \
+    do {                                                                     \
+        qv_append(                                                           \
+            &params, ((iop_sort_t){                                          \
+                         .field_path = LSTR(_field),                         \
+                         .flags = _flags,                                    \
+                     })                                                      \
+        );                                                                   \
     } while (0)
 
-#define SORT_AND_CHECK(p1, p2, p3)  do {                                     \
-        Z_ASSERT_ZERO(iop_msort(iop_env_ctx, tstiop__my_struct_f,            \
-                                sorted.tab, sorted.len, &params, NULL));     \
-        Z_ASSERT_EQ(sorted.tab[0].e.tab[0]->int1,                            \
-                    original.tab[p1].e.tab[0]->int1);                        \
-        Z_ASSERT_EQ(sorted.tab[1].e.tab[0]->int1,                            \
-                    original.tab[p2].e.tab[0]->int1);                        \
-        Z_ASSERT_EQ(sorted.tab[2].e.tab[0]->int1,                            \
-                    original.tab[p3].e.tab[0]->int1);                        \
+#define SORT_AND_CHECK(p1, p2, p3)                                           \
+    do {                                                                     \
+        Z_ASSERT_ZERO(iop_msort(                                             \
+            iop_env_ctx, tstiop__my_struct_f, sorted.tab, sorted.len,        \
+            &params, NULL                                                    \
+        ));                                                                  \
+        Z_ASSERT_EQ(                                                         \
+            sorted.tab[0].e.tab[0]->int1, original.tab[p1].e.tab[0]->int1    \
+        );                                                                   \
+        Z_ASSERT_EQ(                                                         \
+            sorted.tab[1].e.tab[0]->int1, original.tab[p2].e.tab[0]->int1    \
+        );                                                                   \
+        Z_ASSERT_EQ(                                                         \
+            sorted.tab[2].e.tab[0]->int1, original.tab[p3].e.tab[0]->int1    \
+        );                                                                   \
     } while (0)
 
         /* Simple sort */
@@ -5011,8 +5613,8 @@ Z_GROUP_EXPORT(iop)
 
 #undef ADD_PARAM
 #undef SORT_AND_CHECK
-
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(iop_filter, "test IOP structures filtering") { /* {{{ */
         t_scope;
@@ -5039,10 +5641,10 @@ Z_GROUP_EXPORT(iop)
         third.d = 44;
 
 #define CHECK_FILTER(_field, _values_args, _exp_objs_args)                   \
-    Z_IOP_FILTER_CHECK_FILTER(int, tstiop__filtered_struct__t,               \
-                              &tstiop__filtered_struct__s,                   \
-                              (first, second, third), 0, _field,             \
-                              _values_args, _exp_objs_args)
+    Z_IOP_FILTER_CHECK_FILTER(                                               \
+        int, tstiop__filtered_struct__t, &tstiop__filtered_struct__s,        \
+        (first, second, third), 0, _field, _values_args, _exp_objs_args      \
+    )
 
         /* Simple filter */
         CHECK_FILTER("a", (1), (first, third));
@@ -5073,15 +5675,16 @@ Z_GROUP_EXPORT(iop)
 
         /* iop_filter_bitmap. */
 #define T_ADD_BITMAP(_field, _values_args, _op)                              \
-    T_Z_IOP_FILTER_ADD_BITMAP(int, tstiop__filtered_struct__t,               \
-                              &tstiop__filtered_struct__s,                   \
-                              (first, second, third), 0, _field, _op,        \
-                              _values_args, &bitmap)
+    T_Z_IOP_FILTER_ADD_BITMAP(                                               \
+        int, tstiop__filtered_struct__t, &tstiop__filtered_struct__s,        \
+        (first, second, third), 0, _field, _op, _values_args, &bitmap        \
+    )
 
 #define APPLY_BITMAP(...)                                                    \
-    Z_IOP_FILTER_APPLY_BITMAP(tstiop__filtered_struct__t,                    \
-                              &tstiop__filtered_struct__s,                   \
-                              (first, second, third), (__VA_ARGS__), bitmap)
+    Z_IOP_FILTER_APPLY_BITMAP(                                               \
+        tstiop__filtered_struct__t, &tstiop__filtered_struct__s,             \
+        (first, second, third), (__VA_ARGS__), bitmap                        \
+    )
 
         bitmap = NULL;
         T_ADD_BITMAP("a", (42), BITMAP_OP_OR);
@@ -5100,8 +5703,8 @@ Z_GROUP_EXPORT(iop)
 
 #undef APPLY_BITMAP
 #undef T_ADD_BITMAP
-
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(iop_filter_class, "test IOP classes filtering") { /* {{{ */
         t_scope;
@@ -5135,17 +5738,17 @@ Z_GROUP_EXPORT(iop)
         msf1.e = T_IOP_ARRAY(tstiop__my_class1, &first->super);
 
         iop_init(tstiop__my_struct_f, &msf2);
-        msf2.e = T_IOP_ARRAY(tstiop__my_class1, &second->super,
-                             &third->super);
+        msf2.e =
+            T_IOP_ARRAY(tstiop__my_class1, &second->super, &third->super);
 
         iop_init(tstiop__my_struct_f, &msf3);
         msf3.e = T_IOP_ARRAY(tstiop__my_class1, &fourth->super.super);
 
 #define CHECK_FILTER(_field, _value_type, _values_args, _exp_objs_args)      \
-    Z_IOP_FILTER_CHECK_FILTER(_value_type, tstiop__my_class2__t *,           \
-                              &tstiop__my_class2__s,                         \
-                              (first, second, third), 0, _field,             \
-                              _values_args, _exp_objs_args)
+    Z_IOP_FILTER_CHECK_FILTER(                                               \
+        _value_type, tstiop__my_class2__t *, &tstiop__my_class2__s,          \
+        (first, second, third), 0, _field, _values_args, _exp_objs_args      \
+    )
 
         /* Simple filter */
         CHECK_FILTER("int1", int, (1), (first, third));
@@ -5159,10 +5762,10 @@ Z_GROUP_EXPORT(iop)
 #undef CHECK_FILTER
 
 #define CHECK_FILTER(_field, _value_type, _values_args, _exp_objs_args)      \
-    Z_IOP_FILTER_CHECK_FILTER(_value_type, tstiop__my_struct_f__t,           \
-                              &tstiop__my_struct_f__s,                       \
-                              (msf1, msf2, msf3), 0, _field,                 \
-                              _values_args, _exp_objs_args)
+    Z_IOP_FILTER_CHECK_FILTER(                                               \
+        _value_type, tstiop__my_struct_f__t, &tstiop__my_struct_f__s,        \
+        (msf1, msf2, msf3), 0, _field, _values_args, _exp_objs_args          \
+    )
 
         /* Filter on wildcard with explicit cast on a single value */
         CHECK_FILTER("e[*].<tstiop.MyClass3>int3", int, (1), (msf2));
@@ -5171,10 +5774,11 @@ Z_GROUP_EXPORT(iop)
         CHECK_FILTER("e[*].<tstiop.MyClass3>int3", int, (1, 2), (msf2, msf3));
 
 #undef CHECK_FILTER
-
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_filter_strings, "test IOP filtering on string values") { /* {{{ */
+    Z_TEST(iop_filter_strings, "test IOP filtering on string values") { /* {{{
+                                                                         */
         t_scope;
         tstiop__filtered_struct__t first;
         tstiop__filtered_struct__t second;
@@ -5191,10 +5795,10 @@ Z_GROUP_EXPORT(iop)
         third.s = LSTR("tutu");
 
 #define CHECK_FILTER(_flags, _exp_objs_args)                                 \
-    Z_IOP_FILTER_CHECK_FILTER(lstr_t, tstiop__filtered_struct__t,            \
-                              &tstiop__filtered_struct__s,                   \
-                              (first, second, third), _flags, "s",           \
-                              (filter), _exp_objs_args)
+    Z_IOP_FILTER_CHECK_FILTER(                                               \
+        lstr_t, tstiop__filtered_struct__t, &tstiop__filtered_struct__s,     \
+        (first, second, third), _flags, "s", (filter), _exp_objs_args        \
+    )
 
         /* Simple filters */
         filter = LSTR("none");
@@ -5215,10 +5819,11 @@ Z_GROUP_EXPORT(iop)
         CHECK_FILTER(IOP_FILTER_SQL_LIKE, (first, second, third));
 
 #undef CHECK_FILTER
-
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_filter_opt, "test IOP filtering on optional fields") { /* {{{ */
+    Z_TEST(iop_filter_opt, "test IOP filtering on optional fields") { /* {{{
+                                                                       */
         t_scope;
         tstiop__my_struct_a_opt__t first;
         tstiop__my_struct_a_opt__t second;
@@ -5229,62 +5834,65 @@ Z_GROUP_EXPORT(iop)
         iop_init(tstiop__my_struct_a_opt, &third);
 
 #define CHECK_FILTER(_field, _must_be_set, _exp_objs_args)                   \
-    Z_IOP_FILTER_CHECK_OPT(tstiop__my_struct_a_opt__t,                       \
-                           &tstiop__my_struct_a_opt__s,                      \
-                           (first, second, third), _field, _must_be_set,     \
-                           _exp_objs_args)
+    Z_IOP_FILTER_CHECK_OPT(                                                  \
+        tstiop__my_struct_a_opt__t, &tstiop__my_struct_a_opt__s,             \
+        (first, second, third), _field, _must_be_set, _exp_objs_args         \
+    )
 
         /* Test filter on optional string. */
         second.j = LSTR("present");
-        CHECK_FILTER("j", true,  (second));
+        CHECK_FILTER("j", true, (second));
         CHECK_FILTER("j", false, (first, third));
 
         /* Test filter on optional integer. */
         OPT_SET(first.a, 1);
         OPT_SET(third.a, 2);
-        CHECK_FILTER("a", true,  (first, third));
+        CHECK_FILTER("a", true, (first, third));
         CHECK_FILTER("a", false, (second));
 
         /* Test filter on optional union. */
-        third.l  = t_iop_new(tstiop__my_union_a);
+        third.l = t_iop_new(tstiop__my_union_a);
         *third.l = IOP_UNION(tstiop__my_union_a, ua, 1);
-        CHECK_FILTER("l", true,  (third));
+        CHECK_FILTER("l", true, (third));
         CHECK_FILTER("l", false, (first, second));
 
         /* Test filter on optional struct. */
-        first.o  = t_iop_new(tstiop__my_struct_b);
+        first.o = t_iop_new(tstiop__my_struct_b);
         second.o = first.o;
-        CHECK_FILTER("o", true,  (first, second));
+        CHECK_FILTER("o", true, (first, second));
         CHECK_FILTER("o", false, (third));
 
         /* Test filter on optional class. */
         third.cls2 = t_iop_new(tstiop__my_class2);
-        CHECK_FILTER("cls2", true,  (third));
+        CHECK_FILTER("cls2", true, (third));
         CHECK_FILTER("cls2", false, (first, second));
 
         /* Test filter on a repeated field. */
         second.u.tab = t_new(int, 1);
         second.u.len = 1;
-        CHECK_FILTER("u", true,  (second));
+        CHECK_FILTER("u", true, (second));
         CHECK_FILTER("u", false, (first, third));
-        CHECK_FILTER("u[0]", true,  (second));
+        CHECK_FILTER("u[0]", true, (second));
         CHECK_FILTER("u[0]", false, (first, third));
-        CHECK_FILTER("u[1]", true,  ());
+        CHECK_FILTER("u[1]", true, ());
         CHECK_FILTER("u[1]", false, (first, second, third));
-        CHECK_FILTER("u[-1]", true,  (second));
+        CHECK_FILTER("u[-1]", true, (second));
         CHECK_FILTER("u[-1]", false, (first, third));
 
         /* Test filter on optional void. */
-        first.w  = true;
+        first.w = true;
         second.w = true;
-        CHECK_FILTER("w", true,  (first, second));
+        CHECK_FILTER("w", true, (first, second));
         CHECK_FILTER("w", false, (third));
 
 #undef CHECK_FILTER
-
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_filter_invert_match, "test IOP filtering by fields with invert match") { /* {{{ */
+    Z_TEST(
+        iop_filter_invert_match,
+        "test IOP filtering by fields with invert match"
+    ) { /* {{{ */
         t_scope;
         tstiop__filtered_struct__t first;
         tstiop__filtered_struct__t second;
@@ -5309,11 +5917,11 @@ Z_GROUP_EXPORT(iop)
         third.d = 44;
 
 #define CHECK_FILTER(_field, _values_args, _exp_objs_args)                   \
-    Z_IOP_FILTER_CHECK_FILTER(int, tstiop__filtered_struct__t,               \
-                              &tstiop__filtered_struct__s,                   \
-                              (first, second, third),                        \
-                              IOP_FILTER_INVERT_MATCH, _field, _values_args, \
-                              _exp_objs_args)
+    Z_IOP_FILTER_CHECK_FILTER(                                               \
+        int, tstiop__filtered_struct__t, &tstiop__filtered_struct__s,        \
+        (first, second, third), IOP_FILTER_INVERT_MATCH, _field,             \
+        _values_args, _exp_objs_args                                         \
+    )
 
         /* Simple filter */
         CHECK_FILTER("a", (1), (second));
@@ -5344,16 +5952,17 @@ Z_GROUP_EXPORT(iop)
 
         /* iop_filter_bitmap. */
 #define T_ADD_BITMAP(_field, _values_args, _op)                              \
-    T_Z_IOP_FILTER_ADD_BITMAP(int, tstiop__filtered_struct__t,               \
-                              &tstiop__filtered_struct__s,                   \
-                              (first, second, third),                        \
-                              IOP_FILTER_INVERT_MATCH, _field, _op,          \
-                              _values_args, &bitmap)
+    T_Z_IOP_FILTER_ADD_BITMAP(                                               \
+        int, tstiop__filtered_struct__t, &tstiop__filtered_struct__s,        \
+        (first, second, third), IOP_FILTER_INVERT_MATCH, _field, _op,        \
+        _values_args, &bitmap                                                \
+    )
 
 #define APPLY_BITMAP(...)                                                    \
-    Z_IOP_FILTER_APPLY_BITMAP(tstiop__filtered_struct__t,                    \
-                              &tstiop__filtered_struct__s,                   \
-                              (first, second, third), (__VA_ARGS__), bitmap)
+    Z_IOP_FILTER_APPLY_BITMAP(                                               \
+        tstiop__filtered_struct__t, &tstiop__filtered_struct__s,             \
+        (first, second, third), (__VA_ARGS__), bitmap                        \
+    )
 
         bitmap = NULL;
         T_ADD_BITMAP("a", (42), BITMAP_OP_OR);
@@ -5372,10 +5981,13 @@ Z_GROUP_EXPORT(iop)
 
 #undef APPLY_BITMAP
 #undef T_ADD_BITMAP
-
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_filter_class_invert_match, "test IOP classes filtering with invert match") { /* {{{ */
+    Z_TEST(
+        iop_filter_class_invert_match,
+        "test IOP classes filtering with invert match"
+    ) { /* {{{ */
         t_scope;
         tstiop__my_class2__t *first;
         tstiop__my_class2__t *second;
@@ -5394,11 +6006,11 @@ Z_GROUP_EXPORT(iop)
         third->int2 = 1;
 
 #define CHECK_FILTER(_field, _value_type, _values_args, _exp_objs_args)      \
-    Z_IOP_FILTER_CHECK_FILTER(_value_type, tstiop__my_class2__t *,           \
-                              &tstiop__my_class2__s,                         \
-                              (first, second, third),                        \
-                              IOP_FILTER_INVERT_MATCH, _field, _values_args, \
-                              _exp_objs_args)
+    Z_IOP_FILTER_CHECK_FILTER(                                               \
+        _value_type, tstiop__my_class2__t *, &tstiop__my_class2__s,          \
+        (first, second, third), IOP_FILTER_INVERT_MATCH, _field,             \
+        _values_args, _exp_objs_args                                         \
+    )
 
         /* Simple filter */
         CHECK_FILTER("int1", int, (1), (second));
@@ -5407,14 +6019,18 @@ Z_GROUP_EXPORT(iop)
         CHECK_FILTER("int1", int, (1, 2), ());
 
         /* Filter on class name */
-        CHECK_FILTER("_class", lstr_t, (LSTR("tstiop.MyClass3")),
-                     (first, second));
+        CHECK_FILTER(
+            "_class", lstr_t, (LSTR("tstiop.MyClass3")), (first, second)
+        );
 
 #undef CHECK_FILTER
-
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_filter_strings_invert_match, "test IOP string filtering with invert match") { /* {{{ */
+    Z_TEST(
+        iop_filter_strings_invert_match,
+        "test IOP string filtering with invert match"
+    ) { /* {{{ */
         t_scope;
         tstiop__filtered_struct__t first;
         tstiop__filtered_struct__t second;
@@ -5431,11 +6047,11 @@ Z_GROUP_EXPORT(iop)
         third.s = LSTR("tutu");
 
 #define CHECK_FILTER(_flags, _exp_objs_args)                                 \
-    Z_IOP_FILTER_CHECK_FILTER(lstr_t, tstiop__filtered_struct__t,            \
-                              &tstiop__filtered_struct__s,                   \
-                              (first, second, third),                        \
-                              _flags | IOP_FILTER_INVERT_MATCH, "s",         \
-                              (filter), _exp_objs_args)
+    Z_IOP_FILTER_CHECK_FILTER(                                               \
+        lstr_t, tstiop__filtered_struct__t, &tstiop__filtered_struct__s,     \
+        (first, second, third), _flags | IOP_FILTER_INVERT_MATCH, "s",       \
+        (filter), _exp_objs_args                                             \
+    )
 
         /* Simple filters */
         filter = LSTR("none");
@@ -5456,401 +6072,520 @@ Z_GROUP_EXPORT(iop)
         CHECK_FILTER(IOP_FILTER_SQL_LIKE, ());
 
 #undef CHECK_FILTER
-
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(iop_prune, "check gen attr filtering") { /* {{{ */
         tstiop__filtered_struct__t obj;
-        int arr[] = { 1, 2, 3 };
+        int arr[] = {1, 2, 3};
 
         iop_init(tstiop__filtered_struct, &obj);
         obj.long_string = LSTR("struct");
         obj.c = IOP_TYPED_ARRAY(i32, arr, countof(arr));
 
         /* Filter fields tagged with "test:mayBeSkipped". */
-        iop_prune(&tstiop__filtered_struct__s, &obj,
-                  LSTR("test:mayBeSkipped"));
+        iop_prune(
+            &tstiop__filtered_struct__s, &obj, LSTR("test:mayBeSkipped")
+        );
         Z_ASSERT_NULL(obj.c.tab);
         Z_ASSERT_EQ(obj.c.len, 0);
         Z_ASSERT_LSTREQUAL(obj.long_string, LSTR_NULL_V);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_field_path_compile, "test iop_field_path compilation") { /* {{{ */
+    Z_TEST(iop_field_path_compile, "test iop_field_path compilation") { /* {{{
+                                                                         */
         t_scope;
         tstiop__my_struct_f__t msf;
         tstiop__my_class3__t mc;
         tstiop__my_class3__t mc2;
         tstiop__my_class2_bis__t mc2_bis;
 
-#define TEST(pfx, _path, _value, _exp_type, _exp_is_array, _exp_st, _exp_en, \
-             _exp_error)                                                     \
-        Z_HELPER_RUN(z_check_field_path_compile(&pfx##__s, LSTR(_path),      \
-                                                (_value),                    \
-                                                (_exp_type),                 \
-                                                (_exp_is_array),             \
-                                                (_exp_st), (_exp_en),        \
-                                                (_exp_error)))
+#define TEST(                                                                \
+    pfx, _path, _value, _exp_type, _exp_is_array, _exp_st, _exp_en,          \
+    _exp_error                                                               \
+)                                                                            \
+    Z_HELPER_RUN(z_check_field_path_compile(                                 \
+        &pfx##__s, LSTR(_path), (_value), (_exp_type), (_exp_is_array),      \
+        (_exp_st), (_exp_en), (_exp_error)                                   \
+    ))
 
 #define TEST_SCALAR(pfx, _path, _value, _exp_type, _exp_is_array)            \
-        TEST(pfx, (_path), (_value), (_exp_type), (_exp_is_array), NULL,     \
-             NULL, LSTR_NULL_V)
+    TEST(                                                                    \
+        pfx, (_path), (_value), (_exp_type), (_exp_is_array), NULL, NULL,    \
+        LSTR_NULL_V                                                          \
+    )
 #define TEST_ST(pfx, _path, _value, _exp_type, _exp_is_array, st_pfx)        \
-        TEST(pfx, (_path), (_value), (_exp_type), (_exp_is_array),           \
-             &st_pfx##__s, NULL, LSTR_NULL_V)
+    TEST(                                                                    \
+        pfx, (_path), (_value), (_exp_type), (_exp_is_array), &st_pfx##__s,  \
+        NULL, LSTR_NULL_V                                                    \
+    )
 #define TEST_ENUM(pfx, _path, _value, _exp_is_array, en_pfx)                 \
-        TEST(pfx, (_path), (_value), IOP_T_ENUM, (_exp_is_array), NULL,      \
-             &en_pfx##__e, LSTR_NULL_V)
+    TEST(                                                                    \
+        pfx, (_path), (_value), IOP_T_ENUM, (_exp_is_array), NULL,           \
+        &en_pfx##__e, LSTR_NULL_V                                            \
+    )
 #define TEST_ERROR(pfx, _path, _value, _error)                               \
-        TEST(pfx, (_path), (_value), IOP_T_VOID, false, NULL, NULL,          \
-             LSTR(_error))
+    TEST(pfx, (_path), (_value), IOP_T_VOID, false, NULL, NULL, LSTR(_error))
 
-        TEST_ERROR(tstiop__my_struct_a, "", NULL,
-                   "cannot process empty field path");
+        TEST_ERROR(
+            tstiop__my_struct_a, "", NULL, "cannot process empty field path"
+        );
         TEST_SCALAR(tstiop__my_struct_a, "htab", NULL, IOP_T_U64, true);
         TEST_SCALAR(tstiop__my_struct_a, "htab[5]", NULL, IOP_T_U64, false);
         TEST_SCALAR(tstiop__my_struct_a, "htab[*]", NULL, IOP_T_U64, false);
-        TEST_ERROR(tstiop__my_struct_a, "htab[5*]", NULL,
-                   "cannot read index for field `htab': syntax error");
-        TEST_ST(tstiop__my_struct_a, "cls2", NULL, IOP_T_STRUCT, false,
-                tstiop__my_class2);
-        TEST_ST(tstiop__my_struct_f, "d", NULL, IOP_T_UNION, true,
-                tstiop__my_union_a);
-        TEST_ERROR(tstiop__my_struct_f, "d.ub", NULL,
-                   "cannot process field path `d.ub', field `d' "
-                   "is repeated in structure `tstiop.MyStructF'");
-        TEST_ERROR(tstiop__my_struct_f, "d[*].ub[0]", NULL,
-                   "got index but field `tstiop.MyUnionA:ub' "
-                   "is not repeated");
-        TEST_SCALAR(tstiop__my_struct_a, "cls2._class", NULL,
-                    IOP_T_STRING, false);
-        TEST_ERROR(tstiop__my_struct_a, "cls2._class.sub", NULL,
-                   "cannot fetch subfield of a typename");
-        TEST_ERROR(tstiop__my_struct_a, "lr._class", NULL,
-                   "cannot fetch typename of a non-class field");
-        TEST_ERROR(tstiop__my_struct_a, "lr._class.sub", NULL,
-                   "cannot fetch typename of a non-class field");
+        TEST_ERROR(
+            tstiop__my_struct_a, "htab[5*]", NULL,
+            "cannot read index for field `htab': syntax error"
+        );
+        TEST_ST(
+            tstiop__my_struct_a, "cls2", NULL, IOP_T_STRUCT, false,
+            tstiop__my_class2
+        );
+        TEST_ST(
+            tstiop__my_struct_f, "d", NULL, IOP_T_UNION, true,
+            tstiop__my_union_a
+        );
+        TEST_ERROR(
+            tstiop__my_struct_f, "d.ub", NULL,
+            "cannot process field path `d.ub', field `d' "
+            "is repeated in structure `tstiop.MyStructF'"
+        );
+        TEST_ERROR(
+            tstiop__my_struct_f, "d[*].ub[0]", NULL,
+            "got index but field `tstiop.MyUnionA:ub' "
+            "is not repeated"
+        );
+        TEST_SCALAR(
+            tstiop__my_struct_a, "cls2._class", NULL, IOP_T_STRING, false
+        );
+        TEST_ERROR(
+            tstiop__my_struct_a, "cls2._class.sub", NULL,
+            "cannot fetch subfield of a typename"
+        );
+        TEST_ERROR(
+            tstiop__my_struct_a, "lr._class", NULL,
+            "cannot fetch typename of a non-class field"
+        );
+        TEST_ERROR(
+            tstiop__my_struct_a, "lr._class.sub", NULL,
+            "cannot fetch typename of a non-class field"
+        );
         TEST_ENUM(tstiop__my_struct_a, "k", NULL, false, tstiop__my_enum_a);
-        TEST_ERROR(tstiop__my_struct_a_opt, "o.c", NULL,
-                   "cannot process field path `o.c', field `c' is unknown "
-                   "in structure `tstiop.MyStructB'");
+        TEST_ERROR(
+            tstiop__my_struct_a_opt, "o.c", NULL,
+            "cannot process field path `o.c', field `c' is unknown "
+            "in structure `tstiop.MyStructB'"
+        );
 
         iop_init(tstiop__my_struct_f, &msf);
         iop_init(tstiop__my_class3, &mc);
         msf.f = &mc.super.super;
 
         TEST_SCALAR(tstiop__my_struct_f, "f.int1", NULL, IOP_T_I32, false);
-        TEST_ERROR(tstiop__my_struct_f, "f.int2", NULL,
-                   "cannot process field path `f.int2', field `int2' is "
-                   "unknown in structure `tstiop.MyClass1'");
+        TEST_ERROR(
+            tstiop__my_struct_f, "f.int2", NULL,
+            "cannot process field path `f.int2', field `int2' is "
+            "unknown in structure `tstiop.MyClass1'"
+        );
         TEST_SCALAR(tstiop__my_struct_f, "f.int2", &msf, IOP_T_I32, false);
-        TEST_ERROR(tstiop__my_struct_f, "f.int4", &msf,
-                   "cannot process field path `f.int4', field `int4' is "
-                   "unknown in structure `tstiop.MyClass3'");
-        TEST_SCALAR(tstiop__my_struct_f, "f.<tstiop.MyClass2>int2", NULL,
-                    IOP_T_I32, false);
-        TEST_SCALAR(tstiop__my_struct_f, "f.<tstiop.MyClass2>int3", &msf,
-                    IOP_T_I32, false);
-        TEST_ERROR(tstiop__my_struct_f, "f.<tstiop.My", &msf,
-                   "unable to find ending of explicit cast");
-        TEST_ERROR(tstiop__my_struct_f, "c[0].<tstiop.MyClass2>int3", &msf,
-                   "explicit cast `tstiop.MyClass2' can not be used on "
-                   "type `tstiop.MyStructB` which is not a class");
-        TEST_ERROR(tstiop__my_struct_f, "f.<tstiop.MyClass1After>int1", &msf,
-                   "cannot find sub-class `tstiop.MyClass1After' of class "
-                   "`tstiop.MyClass1`");
-        TEST_ERROR(tstiop__my_struct_a, "cls2.<tstiop.MyClass2Bis>int2", NULL,
-                   "cannot find sub-class `tstiop.MyClass2Bis' of class "
-                   "`tstiop.MyClass2`");
-        TEST_ERROR(tstiop__my_struct_f, "f.<tstiop.MyClass2Bis>int3", &msf,
-                   "the path up to the field `int3` is not valid for the "
-                   "provided value: invalid type of object, expected a "
-                   "sub-class of `tstiop.MyClass2Bis`, got "
-                   "`tstiop.MyClass3`");
+        TEST_ERROR(
+            tstiop__my_struct_f, "f.int4", &msf,
+            "cannot process field path `f.int4', field `int4' is "
+            "unknown in structure `tstiop.MyClass3'"
+        );
+        TEST_SCALAR(
+            tstiop__my_struct_f, "f.<tstiop.MyClass2>int2", NULL, IOP_T_I32,
+            false
+        );
+        TEST_SCALAR(
+            tstiop__my_struct_f, "f.<tstiop.MyClass2>int3", &msf, IOP_T_I32,
+            false
+        );
+        TEST_ERROR(
+            tstiop__my_struct_f, "f.<tstiop.My", &msf,
+            "unable to find ending of explicit cast"
+        );
+        TEST_ERROR(
+            tstiop__my_struct_f, "c[0].<tstiop.MyClass2>int3", &msf,
+            "explicit cast `tstiop.MyClass2' can not be used on "
+            "type `tstiop.MyStructB` which is not a class"
+        );
+        TEST_ERROR(
+            tstiop__my_struct_f, "f.<tstiop.MyClass1After>int1", &msf,
+            "cannot find sub-class `tstiop.MyClass1After' of class "
+            "`tstiop.MyClass1`"
+        );
+        TEST_ERROR(
+            tstiop__my_struct_a, "cls2.<tstiop.MyClass2Bis>int2", NULL,
+            "cannot find sub-class `tstiop.MyClass2Bis' of class "
+            "`tstiop.MyClass2`"
+        );
+        TEST_ERROR(
+            tstiop__my_struct_f, "f.<tstiop.MyClass2Bis>int3", &msf,
+            "the path up to the field `int3` is not valid for the "
+            "provided value: invalid type of object, expected a "
+            "sub-class of `tstiop.MyClass2Bis`, got "
+            "`tstiop.MyClass3`"
+        );
 
         iop_init(tstiop__my_class2_bis, &mc2_bis);
         msf.e = T_IOP_ARRAY_NEW(tstiop__my_class1, 2);
         msf.e.tab[0] = &mc.super.super;
         msf.e.tab[1] = &mc2_bis.super;
 
-        TEST_ERROR(tstiop__my_struct_f, "e[0].int2", NULL,
-                   "cannot process field path `e[0].int2', field `int2' is "
-                   "unknown in structure `tstiop.MyClass1'");
+        TEST_ERROR(
+            tstiop__my_struct_f, "e[0].int2", NULL,
+            "cannot process field path `e[0].int2', field `int2' is "
+            "unknown in structure `tstiop.MyClass1'"
+        );
         TEST_SCALAR(tstiop__my_struct_f, "e[0].int2", &msf, IOP_T_I32, false);
-        TEST_ERROR(tstiop__my_struct_f, "e[*].int2", &msf,
-                   "the path up to the field `int2` is not valid for the "
-                   "provided value: cannot use wildcard indexing with "
-                   "dynamic class cast, use explicit class cast instead");
-        TEST_ERROR(tstiop__my_struct_f, "e[8].int2", &msf,
-                   "the path up to the field `int2` is not valid for the "
-                   "provided value: index 8 out of range for array of "
-                   "length 2");
-        TEST_SCALAR(tstiop__my_struct_f, "e[0].<tstiop.MyClass2>int2", NULL,
-                    IOP_T_I32, false);
-        TEST_SCALAR(tstiop__my_struct_f, "e[*].<tstiop.MyClass2Bis>int2",
-                    NULL, IOP_T_I32, false);
-        TEST_SCALAR(tstiop__my_struct_f, "e[*].<tstiop.MyClass2Bis>int2",
-                    &msf, IOP_T_I32, false);
-        TEST_SCALAR(tstiop__my_struct_f, "e[*].<tstiop.MyClass3>bool1",
-                    &msf, IOP_T_BOOL, false);
+        TEST_ERROR(
+            tstiop__my_struct_f, "e[*].int2", &msf,
+            "the path up to the field `int2` is not valid for the "
+            "provided value: cannot use wildcard indexing with "
+            "dynamic class cast, use explicit class cast instead"
+        );
+        TEST_ERROR(
+            tstiop__my_struct_f, "e[8].int2", &msf,
+            "the path up to the field `int2` is not valid for the "
+            "provided value: index 8 out of range for array of "
+            "length 2"
+        );
+        TEST_SCALAR(
+            tstiop__my_struct_f, "e[0].<tstiop.MyClass2>int2", NULL,
+            IOP_T_I32, false
+        );
+        TEST_SCALAR(
+            tstiop__my_struct_f, "e[*].<tstiop.MyClass2Bis>int2", NULL,
+            IOP_T_I32, false
+        );
+        TEST_SCALAR(
+            tstiop__my_struct_f, "e[*].<tstiop.MyClass2Bis>int2", &msf,
+            IOP_T_I32, false
+        );
+        TEST_SCALAR(
+            tstiop__my_struct_f, "e[*].<tstiop.MyClass3>bool1", &msf,
+            IOP_T_BOOL, false
+        );
 
         TEST_SCALAR(tstiop__my_class3, "int2", &mc, IOP_T_I32, false);
         TEST_SCALAR(tstiop__my_class1, "int2", &mc, IOP_T_I32, false);
-        TEST_ERROR(tstiop__my_class1, "int2", NULL,
-                   "cannot process field path `int2', field `int2' is "
-                   "unknown in structure `tstiop.MyClass1'");
-        TEST_SCALAR(tstiop__my_class1, "<tstiop.MyClass3>int2", NULL,
-                    IOP_T_I32, false);
+        TEST_ERROR(
+            tstiop__my_class1, "int2", NULL,
+            "cannot process field path `int2', field `int2' is "
+            "unknown in structure `tstiop.MyClass1'"
+        );
+        TEST_SCALAR(
+            tstiop__my_class1, "<tstiop.MyClass3>int2", NULL, IOP_T_I32, false
+        );
 
         iop_init(tstiop__my_class3, &mc2);
         mc.next_class = &mc2.super.super;
-        TEST_SCALAR(tstiop__my_struct_f, "e[0].nextClass.bool1", &msf,
-                    IOP_T_BOOL, false);
+        TEST_SCALAR(
+            tstiop__my_struct_f, "e[0].nextClass.bool1", &msf, IOP_T_BOOL,
+            false
+        );
 
 #undef TEST_SCALAR
 #undef TEST_ST
 #undef TEST_ENUM
 #undef TEST_ERROR
 #undef TEST
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
-    Z_TEST(iop_copy_inv_tab, "mp_iop_copy_desc_sz(): invalid tab pointer when len == 0") { /* {{{ */
+    Z_TEST(
+        iop_copy_inv_tab,
+        "mp_iop_copy_desc_sz(): invalid tab pointer when len == 0"
+    ) { /* {{{ */
         t_scope;
         lstr_t path_curr_v;
         lstr_t path_v3;
 
-        path_curr_v = t_lstr_fmt("%*pM/iop/zchk-tstiop-plugin" SO_FILEEXT,
-                                 LSTR_FMT_ARG(z_cmddir_g));
+        path_curr_v = t_lstr_fmt(
+            "%*pM/iop/zchk-tstiop-plugin" SO_FILEEXT, LSTR_FMT_ARG(z_cmddir_g)
+        );
 
-        path_v3 = t_lstr_fmt("%*pM/test-data/test_v3_centos-5u4/"
-                             "zchk-tstiop-plugin" SO_FILEEXT,
-                             LSTR_FMT_ARG(z_cmddir_g));
+        path_v3 = t_lstr_fmt(
+            "%*pM/test-data/test_v3_centos-5u4/"
+            "zchk-tstiop-plugin" SO_FILEEXT,
+            LSTR_FMT_ARG(z_cmddir_g)
+        );
 
         Z_HELPER_RUN(iop_check_retro_compat_copy_inv_tab(path_curr_v));
         Z_HELPER_RUN(iop_check_retro_compat_copy_inv_tab(path_v3));
-
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
-    Z_TEST(inheritance_basics, "test inheritance basic properties") { /* {{{ */
-#define CHECK_PARENT(_type, _class_id)  \
-        do {                                                                 \
-            const iop_class_attrs_t *attrs;                                  \
+    Z_TEST(inheritance_basics, "test inheritance basic properties") { /* {{{
+                                                                       */
+#define CHECK_PARENT(_type, _class_id)                                       \
+    do {                                                                     \
+        const iop_class_attrs_t *attrs;                                      \
                                                                              \
-            attrs = tstiop_inheritance__##_type##__s.class_attrs;            \
-            Z_ASSERT_P(attrs);                                               \
-            Z_ASSERT_EQ(attrs->class_id, _class_id);                         \
-            Z_ASSERT_NULL(attrs->parent);                                    \
-        } while (0)
+        attrs = tstiop_inheritance__##_type##__s.class_attrs;                \
+        Z_ASSERT_P(attrs);                                                   \
+        Z_ASSERT_EQ(attrs->class_id, _class_id);                             \
+        Z_ASSERT_NULL(attrs->parent);                                        \
+    } while (0)
 
-#define CHECK_CHILD(_type, _class_id, _parent)  \
-        do {                                                                 \
-            const iop_class_attrs_t *attrs;                                  \
+#define CHECK_CHILD(_type, _class_id, _parent)                               \
+    do {                                                                     \
+        const iop_class_attrs_t *attrs;                                      \
                                                                              \
-            attrs = tstiop_inheritance__##_type##__s.class_attrs;            \
-            Z_ASSERT_EQ(attrs->class_id, _class_id);                         \
-            Z_ASSERT(attrs->parent ==  &tstiop_inheritance__##_parent##__s); \
-        } while (0)
+        attrs = tstiop_inheritance__##_type##__s.class_attrs;                \
+        Z_ASSERT_EQ(attrs->class_id, _class_id);                             \
+        Z_ASSERT(attrs->parent == &tstiop_inheritance__##_parent##__s);      \
+    } while (0)
 
         CHECK_PARENT(a1, 0);
-        CHECK_CHILD(b1,  1, a1);
-        CHECK_CHILD(b2,  65535, a1);
-        CHECK_CHILD(c1,  3, b2);
-        CHECK_CHILD(c2,  4, b2);
+        CHECK_CHILD(b1, 1, a1);
+        CHECK_CHILD(b2, 65535, a1);
+        CHECK_CHILD(c1, 3, b2);
+        CHECK_CHILD(c2, 4, b2);
 
         CHECK_PARENT(a2, 0);
-        CHECK_CHILD(b3,  1, a2);
-        CHECK_CHILD(c3,  2, b3);
-        CHECK_CHILD(c4,  3, b3);
+        CHECK_CHILD(b3, 1, a2);
+        CHECK_CHILD(c3, 2, b3);
+        CHECK_CHILD(c4, 3, b3);
 
         CHECK_PARENT(a3, 0);
-        CHECK_CHILD(b4,  1, a3);
+        CHECK_CHILD(b4, 1, a3);
 #undef CHECK_PARENT
 #undef CHECK_CHILD
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
-    Z_TEST(inheritance_switch, "test IOP_(OBJ|CLASS)_SWITCH helpers") { /* {{{ */
+    Z_TEST(inheritance_switch, "test IOP_(OBJ|CLASS)_SWITCH helpers") { /* {{{
+                                                                         */
         tstiop_inheritance__c1__t c1;
         bool matched = false;
 
         iop_init(tstiop_inheritance__c1, &c1);
         Z_ASSERT_EQ(IOP_OBJ_CLASS_ID(&c1), 3);
-        IOP_OBJ_EXACT_SWITCH(&c1) {
-          IOP_OBJ_CASE_CONST(tstiop_inheritance__a1, &c1, a1) {
-            Z_ASSERT(false);
-          }
-          IOP_OBJ_CASE_CONST(tstiop_inheritance__b1, &c1, b1) {
-            Z_ASSERT(false);
-          }
-          IOP_OBJ_CASE_CONST(tstiop_inheritance__b2, &c1, b2) {
-            Z_ASSERT(false);
-          }
-          IOP_OBJ_CASE_CONST(tstiop_inheritance__c1, &c1, ok) {
-            Z_ASSERT_P(ok);
-            Z_ASSERT(!matched);
-            matched = true;
-          }
-          IOP_OBJ_CASE_CONST(tstiop_inheritance__c2, &c1, c2) {
-            Z_ASSERT(false);
-          }
-          IOP_OBJ_EXACT_DEFAULT() {
-            Z_ASSERT(false);
-          }
+        IOP_OBJ_EXACT_SWITCH(&c1)
+        {
+            IOP_OBJ_CASE_CONST(tstiop_inheritance__a1, &c1, a1)
+            {
+                Z_ASSERT(false);
+            }
+            IOP_OBJ_CASE_CONST(tstiop_inheritance__b1, &c1, b1)
+            {
+                Z_ASSERT(false);
+            }
+            IOP_OBJ_CASE_CONST(tstiop_inheritance__b2, &c1, b2)
+            {
+                Z_ASSERT(false);
+            }
+            IOP_OBJ_CASE_CONST(tstiop_inheritance__c1, &c1, ok)
+            {
+                Z_ASSERT_P(ok);
+                Z_ASSERT(!matched);
+                matched = true;
+            }
+            IOP_OBJ_CASE_CONST(tstiop_inheritance__c2, &c1, c2)
+            {
+                Z_ASSERT(false);
+            }
+            IOP_OBJ_EXACT_DEFAULT()
+            {
+                Z_ASSERT(false);
+            }
         }
         Z_ASSERT(matched);
 
         matched = false;
-        IOP_OBJ_EXACT_SWITCH(&c1) {
-          IOP_OBJ_CASE_CONST(tstiop_inheritance__a1, &c1, a1) {
-            Z_ASSERT(false);
-          }
-          IOP_OBJ_CASE_CONST(tstiop_inheritance__b1, &c1, b1) {
-            Z_ASSERT(false);
-          }
-          IOP_OBJ_CASE_CONST(tstiop_inheritance__b2, &c1, b2) {
-            Z_ASSERT(false);
-          }
-          IOP_OBJ_CASE_CONST(tstiop_inheritance__c2, &c1, c2) {
-            Z_ASSERT(false);
-          }
-          IOP_OBJ_EXACT_DEFAULT() {
-            Z_ASSERT(!matched);
-            matched = true;
-          }
+        IOP_OBJ_EXACT_SWITCH(&c1)
+        {
+            IOP_OBJ_CASE_CONST(tstiop_inheritance__a1, &c1, a1)
+            {
+                Z_ASSERT(false);
+            }
+            IOP_OBJ_CASE_CONST(tstiop_inheritance__b1, &c1, b1)
+            {
+                Z_ASSERT(false);
+            }
+            IOP_OBJ_CASE_CONST(tstiop_inheritance__b2, &c1, b2)
+            {
+                Z_ASSERT(false);
+            }
+            IOP_OBJ_CASE_CONST(tstiop_inheritance__c2, &c1, c2)
+            {
+                Z_ASSERT(false);
+            }
+            IOP_OBJ_EXACT_DEFAULT()
+            {
+                Z_ASSERT(!matched);
+                matched = true;
+            }
         }
         Z_ASSERT(matched);
 
         matched = false;
-        IOP_CLASS_EXACT_SWITCH(&tstiop_inheritance__c1__s) {
-          case IOP_CLASS_ID(tstiop_inheritance__a1):
+        IOP_CLASS_EXACT_SWITCH(&tstiop_inheritance__c1__s)
+        {
+        case IOP_CLASS_ID(tstiop_inheritance__a1):
             Z_ASSERT(false);
             break;
 
-          case IOP_CLASS_ID(tstiop_inheritance__b1):
+        case IOP_CLASS_ID(tstiop_inheritance__b1):
             Z_ASSERT(false);
             break;
 
-          case IOP_CLASS_ID(tstiop_inheritance__b2):
+        case IOP_CLASS_ID(tstiop_inheritance__b2):
             Z_ASSERT(false);
             break;
 
-          case IOP_CLASS_ID(tstiop_inheritance__c1):
+        case IOP_CLASS_ID(tstiop_inheritance__c1):
             matched = true;
             break;
 
-          case IOP_CLASS_ID(tstiop_inheritance__c2):
+        case IOP_CLASS_ID(tstiop_inheritance__c2):
             Z_ASSERT(false);
             break;
 
-          default:
+        default:
             Z_ASSERT(false);
             break;
         }
         Z_ASSERT(matched);
 
         matched = false;
-        IOP_OBJ_SWITCH(c1, &c1) {
-          IOP_OBJ_CASE_CONST(tstiop_inheritance__a1, &c1, a1) {
-            Z_ASSERT(false);
-          }
-          IOP_OBJ_CASE_CONST(tstiop_inheritance__b1, &c1, b1) {
-            Z_ASSERT(false);
-          }
-          IOP_OBJ_CASE_CONST(tstiop_inheritance__b2, &c1, b2) {
-            Z_ASSERT(false);
-          }
-          IOP_OBJ_CASE_CONST(tstiop_inheritance__c1, &c1, ok) {
-            Z_ASSERT_P(ok);
-            Z_ASSERT(!matched);
-            matched = true;
-          }
-          IOP_OBJ_CASE_CONST(tstiop_inheritance__c2, &c1, c2) {
-            Z_ASSERT(false);
-          }
-          IOP_OBJ_DEFAULT(c1) {
-            Z_ASSERT(false);
-          }
+        IOP_OBJ_SWITCH(c1, &c1)
+        {
+            IOP_OBJ_CASE_CONST(tstiop_inheritance__a1, &c1, a1)
+            {
+                Z_ASSERT(false);
+            }
+            IOP_OBJ_CASE_CONST(tstiop_inheritance__b1, &c1, b1)
+            {
+                Z_ASSERT(false);
+            }
+            IOP_OBJ_CASE_CONST(tstiop_inheritance__b2, &c1, b2)
+            {
+                Z_ASSERT(false);
+            }
+            IOP_OBJ_CASE_CONST(tstiop_inheritance__c1, &c1, ok)
+            {
+                Z_ASSERT_P(ok);
+                Z_ASSERT(!matched);
+                matched = true;
+            }
+            IOP_OBJ_CASE_CONST(tstiop_inheritance__c2, &c1, c2)
+            {
+                Z_ASSERT(false);
+            }
+            IOP_OBJ_DEFAULT(c1)
+            {
+                Z_ASSERT(false);
+            }
         }
         Z_ASSERT(matched);
 
         matched = false;
-        IOP_CLASS_SWITCH(c1, c1.__vptr) {
-          IOP_CLASS_CASE(tstiop_inheritance__a1) {
-            Z_ASSERT(false);
-          }
-          IOP_CLASS_CASE(tstiop_inheritance__b1) {
-            Z_ASSERT(false);
-          }
-          IOP_CLASS_CASE(tstiop_inheritance__b2) {
-            Z_ASSERT(false);
-          }
-          IOP_CLASS_CASE(tstiop_inheritance__c1) {
-            Z_ASSERT(!matched);
-            matched = true;
-          }
-          IOP_CLASS_CASE(tstiop_inheritance__c2) {
-            Z_ASSERT(false);
-          }
-          IOP_CLASS_DEFAULT(c1) {
-            Z_ASSERT(false);
-          }
+        IOP_CLASS_SWITCH(c1, c1.__vptr)
+        {
+            IOP_CLASS_CASE(tstiop_inheritance__a1)
+            {
+                Z_ASSERT(false);
+            }
+            IOP_CLASS_CASE(tstiop_inheritance__b1)
+            {
+                Z_ASSERT(false);
+            }
+            IOP_CLASS_CASE(tstiop_inheritance__b2)
+            {
+                Z_ASSERT(false);
+            }
+            IOP_CLASS_CASE(tstiop_inheritance__c1)
+            {
+                Z_ASSERT(!matched);
+                matched = true;
+            }
+            IOP_CLASS_CASE(tstiop_inheritance__c2)
+            {
+                Z_ASSERT(false);
+            }
+            IOP_CLASS_DEFAULT(c1)
+            {
+                Z_ASSERT(false);
+            }
         }
         Z_ASSERT(matched);
 
         matched = false;
-        IOP_OBJ_SWITCH(c1, &c1) {
-          IOP_OBJ_CASE_CONST(tstiop_inheritance__a1, &c1, a1) {
-            Z_ASSERT(false);
-          }
-          IOP_OBJ_CASE_CONST(tstiop_inheritance__b1, &c1, b1) {
-            Z_ASSERT(false);
-          }
-          IOP_OBJ_CASE_CONST(tstiop_inheritance__b2, &c1, b2) {
-            Z_ASSERT(b2);
-            Z_ASSERT(!matched);
-            matched = true;
-          }
-          IOP_OBJ_CASE_CONST(tstiop_inheritance__c2, &c1, c2) {
-            Z_ASSERT(false);
-          }
-          IOP_OBJ_DEFAULT(c1) {
-            Z_ASSERT(false);
-          }
+        IOP_OBJ_SWITCH(c1, &c1)
+        {
+            IOP_OBJ_CASE_CONST(tstiop_inheritance__a1, &c1, a1)
+            {
+                Z_ASSERT(false);
+            }
+            IOP_OBJ_CASE_CONST(tstiop_inheritance__b1, &c1, b1)
+            {
+                Z_ASSERT(false);
+            }
+            IOP_OBJ_CASE_CONST(tstiop_inheritance__b2, &c1, b2)
+            {
+                Z_ASSERT(b2);
+                Z_ASSERT(!matched);
+                matched = true;
+            }
+            IOP_OBJ_CASE_CONST(tstiop_inheritance__c2, &c1, c2)
+            {
+                Z_ASSERT(false);
+            }
+            IOP_OBJ_DEFAULT(c1)
+            {
+                Z_ASSERT(false);
+            }
         }
         Z_ASSERT(matched);
 
         matched = false;
-        IOP_OBJ_SWITCH(c1, &c1) {
-          IOP_OBJ_CASE_CONST(tstiop_inheritance__a1, &c1, a1) {
-            Z_ASSERT(a1);
-            Z_ASSERT(!matched);
-            matched = true;
-          }
-          IOP_OBJ_CASE_CONST(tstiop_inheritance__b1, &c1, b1) {
-            Z_ASSERT(false);
-          }
-          IOP_OBJ_CASE_CONST(tstiop_inheritance__c2, &c1, c2) {
-            Z_ASSERT(false);
-          }
-          IOP_OBJ_DEFAULT(c1) {
-            Z_ASSERT(false);
-          }
+        IOP_OBJ_SWITCH(c1, &c1)
+        {
+            IOP_OBJ_CASE_CONST(tstiop_inheritance__a1, &c1, a1)
+            {
+                Z_ASSERT(a1);
+                Z_ASSERT(!matched);
+                matched = true;
+            }
+            IOP_OBJ_CASE_CONST(tstiop_inheritance__b1, &c1, b1)
+            {
+                Z_ASSERT(false);
+            }
+            IOP_OBJ_CASE_CONST(tstiop_inheritance__c2, &c1, c2)
+            {
+                Z_ASSERT(false);
+            }
+            IOP_OBJ_DEFAULT(c1)
+            {
+                Z_ASSERT(false);
+            }
         }
         Z_ASSERT(matched);
 
         matched = false;
-        IOP_OBJ_SWITCH(c1, &c1) {
-          IOP_OBJ_CASE_CONST(tstiop_inheritance__b1, &c1, b1) {
-            Z_ASSERT(false);
-          }
-          IOP_OBJ_CASE_CONST(tstiop_inheritance__c2, &c1, c2) {
-            Z_ASSERT(false);
-          }
-          IOP_OBJ_DEFAULT(c1) {
-            Z_ASSERT(!matched);
-            matched = true;
-          }
+        IOP_OBJ_SWITCH(c1, &c1)
+        {
+            IOP_OBJ_CASE_CONST(tstiop_inheritance__b1, &c1, b1)
+            {
+                Z_ASSERT(false);
+            }
+            IOP_OBJ_CASE_CONST(tstiop_inheritance__c2, &c1, c2)
+            {
+                Z_ASSERT(false);
+            }
+            IOP_OBJ_DEFAULT(c1)
+            {
+                Z_ASSERT(!matched);
+                matched = true;
+            }
         }
         Z_ASSERT(matched);
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
     Z_TEST(inheritance_fields_init, "test fields initialization") { /* {{{ */
         {
@@ -5892,32 +6627,40 @@ Z_GROUP_EXPORT(iop)
             Z_ASSERT_EQ(c4.b, 5);
             Z_ASSERT_EQ(c4.c, false);
         }
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
     Z_TEST(inheritance_casts, "test inheritance casts") { /* {{{ */
-        tstiop_inheritance__c2__t  c2;
+        tstiop_inheritance__c2__t c2;
         tstiop_inheritance__c2__t *c2p;
         tstiop_inheritance__b2__t *b2p;
         uint8_t buf_b2p[20], buf_c2p[20];
 
-#define CHECK_IS_A(_type1, _type2, _res)  \
-        do {                                                                 \
-            tstiop_inheritance__##_type1##__t obj;                           \
+#define CHECK_IS_A(_type1, _type2, _res)                                     \
+    do {                                                                     \
+        tstiop_inheritance__##_type1##__t obj;                               \
                                                                              \
-            iop_init(tstiop_inheritance__##_type1, &obj);                    \
-            Z_ASSERT(iop_obj_is_a(&obj,                                      \
-                                  tstiop_inheritance__##_type2) == _res);    \
-            Z_ASSERT(iop_obj_dynvcast(tstiop_inheritance__##_type2, &obj)    \
-                     == (_res ? (void *)&obj : NULL));                       \
-            Z_ASSERT(iop_obj_dynccast(tstiop_inheritance__##_type2, &obj)    \
-                     == (_res ? (const void *)&obj : NULL));                 \
-            if (_res) {                                                      \
-                Z_ASSERT(iop_obj_vcast(tstiop_inheritance__##_type2, &obj)   \
-                         == (void *)&obj);                                   \
-                Z_ASSERT(iop_obj_ccast(tstiop_inheritance__##_type2, &obj)   \
-                         == (const void *)&obj);                             \
-            }                                                                \
-        } while (0)
+        iop_init(tstiop_inheritance__##_type1, &obj);                        \
+        Z_ASSERT(iop_obj_is_a(&obj, tstiop_inheritance__##_type2) == _res);  \
+        Z_ASSERT(                                                            \
+            iop_obj_dynvcast(tstiop_inheritance__##_type2, &obj) ==          \
+            (_res ? (void *)&obj : NULL)                                     \
+        );                                                                   \
+        Z_ASSERT(                                                            \
+            iop_obj_dynccast(tstiop_inheritance__##_type2, &obj) ==          \
+            (_res ? (const void *)&obj : NULL)                               \
+        );                                                                   \
+        if (_res) {                                                          \
+            Z_ASSERT(                                                        \
+                iop_obj_vcast(tstiop_inheritance__##_type2, &obj) ==         \
+                (void *)&obj                                                 \
+            );                                                               \
+            Z_ASSERT(                                                        \
+                iop_obj_ccast(tstiop_inheritance__##_type2, &obj) ==         \
+                (const void *)&obj                                           \
+            );                                                               \
+        }                                                                    \
+    } while (0)
 
         CHECK_IS_A(a1, a1, true);
         CHECK_IS_A(b1, a1, true);
@@ -5945,8 +6688,9 @@ Z_GROUP_EXPORT(iop)
         /* Cast it in B2, and change some values */
         b2p = iop_obj_vcast(tstiop_inheritance__b2, &c2);
         Z_ASSERT_IOPEQUAL(tstiop_inheritance__b2, b2p, &c2.super);
-        Z_HELPER_RUN(iop_std_test_struct(&tstiop_inheritance__b2__s, b2p,
-                                         "b2p"));
+        Z_HELPER_RUN(
+            iop_std_test_struct(&tstiop_inheritance__b2__s, b2p, "b2p")
+        );
         Z_ASSERT_EQ(b2p->a, 11111);
         Z_ASSERT_EQ(b2p->b, true);
         b2p->a = 22222;
@@ -5955,8 +6699,9 @@ Z_GROUP_EXPORT(iop)
         /* Re-cast it in C2, and check fields equality */
         c2p = iop_obj_vcast(tstiop_inheritance__c2, b2p);
         Z_ASSERT_IOPEQUAL(tstiop_inheritance__b2, b2p, &c2.super);
-        Z_HELPER_RUN(iop_std_test_struct(&tstiop_inheritance__c2__s, c2p,
-                                         "c2p"));
+        Z_HELPER_RUN(
+            iop_std_test_struct(&tstiop_inheritance__c2__s, c2p, "c2p")
+        );
         Z_ASSERT_EQ(c2p->a, 22222);
         Z_ASSERT_EQ(c2p->b, false);
         Z_ASSERT_EQ(c2p->c, 500);
@@ -5965,44 +6710,45 @@ Z_GROUP_EXPORT(iop)
         iop_hash_sha1(&tstiop_inheritance__b2__s, b2p, buf_b2p, 0);
         iop_hash_sha1(&tstiop_inheritance__c2__s, c2p, buf_c2p, 0);
         Z_ASSERT_EQUAL(buf_b2p, sizeof(buf_b2p), buf_c2p, sizeof(buf_c2p));
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
     Z_TEST(inheritance_static, "test static class members") { /* {{{ */
         const iop_value_t *cvar;
 
-#define CHECK_STATIC_STR(_type, _varname, _value)  \
-        do {                                                                 \
-            tstiop_inheritance__##_type##__t obj;                            \
+#define CHECK_STATIC_STR(_type, _varname, _value)                            \
+    do {                                                                     \
+        tstiop_inheritance__##_type##__t obj;                                \
                                                                              \
-            iop_init(tstiop_inheritance__##_type, &obj);                     \
-            cvar = iop_get_cvar_cst(&obj, _varname);                         \
-            Z_ASSERT_P(cvar);                                                \
-            Z_ASSERT_LSTREQUAL(cvar->s, LSTR(_value));                       \
-        } while (0)
+        iop_init(tstiop_inheritance__##_type, &obj);                         \
+        cvar = iop_get_cvar_cst(&obj, _varname);                             \
+        Z_ASSERT_P(cvar);                                                    \
+        Z_ASSERT_LSTREQUAL(cvar->s, LSTR(_value));                           \
+    } while (0)
 
-        CHECK_STATIC_STR(a1, "staticStr",  "a1");
-        CHECK_STATIC_STR(b1, "staticStr",  "a1");
-        CHECK_STATIC_STR(b2, "staticStr",  "a1");
-        CHECK_STATIC_STR(c1, "staticStr",  "a1");
-        CHECK_STATIC_STR(c2, "staticStr",  "c2");
+        CHECK_STATIC_STR(a1, "staticStr", "a1");
+        CHECK_STATIC_STR(b1, "staticStr", "a1");
+        CHECK_STATIC_STR(b2, "staticStr", "a1");
+        CHECK_STATIC_STR(c1, "staticStr", "a1");
+        CHECK_STATIC_STR(c2, "staticStr", "c2");
         CHECK_STATIC_STR(c2, "staticStr1", "staticStr1");
         CHECK_STATIC_STR(c2, "staticStr2", "staticStr2");
         CHECK_STATIC_STR(c2, "staticStr3", "staticStr3");
         CHECK_STATIC_STR(c2, "staticStr4", "staticStr4");
         CHECK_STATIC_STR(c2, "staticStr5", "staticStr5");
         CHECK_STATIC_STR(c2, "staticStr6", "staticStr6");
-        CHECK_STATIC_STR(c3, "staticStr",  "c3");
+        CHECK_STATIC_STR(c3, "staticStr", "c3");
 #undef CHECK_STATIC_STR
 
-#define CHECK_STATIC(_type, _varname, _field, _value)  \
-        do {                                                                 \
-            tstiop_inheritance__##_type##__t obj;                            \
+#define CHECK_STATIC(_type, _varname, _field, _value)                        \
+    do {                                                                     \
+        tstiop_inheritance__##_type##__t obj;                                \
                                                                              \
-            iop_init(tstiop_inheritance__##_type, &obj);                     \
-            cvar = iop_get_cvar_cst(&obj, _varname);                         \
-            Z_ASSERT_P(cvar);                                                \
-            Z_ASSERT_EQ(cvar->_field, _value);                               \
-        } while (0)
+        iop_init(tstiop_inheritance__##_type, &obj);                         \
+        cvar = iop_get_cvar_cst(&obj, _varname);                             \
+        Z_ASSERT_P(cvar);                                                    \
+        Z_ASSERT_EQ(cvar->_field, _value);                                   \
+    } while (0)
 
         CHECK_STATIC(a1, "staticEnum", i, MY_ENUM_A_B);
         CHECK_STATIC(b1, "staticInt", i, 12);
@@ -6018,13 +6764,13 @@ Z_GROUP_EXPORT(iop)
         CHECK_STATIC(c4, "staticDouble", d, 23.0);
 #undef CHECK_STATIC
 
-#define CHECK_STATIC_UNDEFINED(_type, _varname)  \
-        do {                                                                 \
-            tstiop_inheritance__##_type##__t obj;                            \
+#define CHECK_STATIC_UNDEFINED(_type, _varname)                              \
+    do {                                                                     \
+        tstiop_inheritance__##_type##__t obj;                                \
                                                                              \
-            iop_init(tstiop_inheritance__##_type, &obj);                     \
-            Z_ASSERT_NULL(iop_get_cvar_cst(&obj, _varname));                 \
-        } while (0)
+        iop_init(tstiop_inheritance__##_type, &obj);                         \
+        Z_ASSERT_NULL(iop_get_cvar_cst(&obj, _varname));                     \
+    } while (0)
 
         CHECK_STATIC_UNDEFINED(a1, "undefined");
         CHECK_STATIC_UNDEFINED(a1, "staticInt");
@@ -6054,26 +6800,34 @@ Z_GROUP_EXPORT(iop)
             Z_ASSERT_LSTREQUAL(cvar->s, LSTR("a1"));
             Z_ASSERT_NULL(iop_get_class_cvar_cst(&b1, "staticStr"));
         }
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
-    Z_TEST(inheritance_static_types, "test static class members types") { /* {{{ */
+    Z_TEST(
+        inheritance_static_types, "test static class members types"
+    ) { /* {{{ */
 #define CHECK_STATIC_TYPE(_cls_type, _field_name, _field_type)               \
-    Z_HELPER_RUN(z_check_static_field_type(&_cls_type##__s,                  \
-                                           LSTR(_field_name), (_field_type), \
-                                           #_field_type))
+    Z_HELPER_RUN(z_check_static_field_type(                                  \
+        &_cls_type##__s, LSTR(_field_name), (_field_type), #_field_type      \
+    ))
 
-    CHECK_STATIC_TYPE(tstiop_inheritance__a1, "staticStr",    IOP_T_STRING);
-    CHECK_STATIC_TYPE(tstiop_inheritance__a1, "staticEnum",   IOP_T_I64);
-    CHECK_STATIC_TYPE(tstiop_inheritance__b1, "staticInt",    IOP_T_I64);
-    CHECK_STATIC_TYPE(tstiop_inheritance__b2, "staticBool",   IOP_T_BOOL);
-    CHECK_STATIC_TYPE(tstiop_inheritance__c2, "staticStr",    IOP_T_STRING);
-    CHECK_STATIC_TYPE(tstiop_inheritance__b3, "staticDouble", IOP_T_DOUBLE);
-    CHECK_STATIC_TYPE(tstiop_inheritance__c4, "staticInt",    IOP_T_U64);
+        CHECK_STATIC_TYPE(tstiop_inheritance__a1, "staticStr", IOP_T_STRING);
+        CHECK_STATIC_TYPE(tstiop_inheritance__a1, "staticEnum", IOP_T_I64);
+        CHECK_STATIC_TYPE(tstiop_inheritance__b1, "staticInt", IOP_T_I64);
+        CHECK_STATIC_TYPE(tstiop_inheritance__b2, "staticBool", IOP_T_BOOL);
+        CHECK_STATIC_TYPE(tstiop_inheritance__c2, "staticStr", IOP_T_STRING);
+        CHECK_STATIC_TYPE(
+            tstiop_inheritance__b3, "staticDouble", IOP_T_DOUBLE
+        );
+        CHECK_STATIC_TYPE(tstiop_inheritance__c4, "staticInt", IOP_T_U64);
 
 #undef CHECK_STATIC_TYPE
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
-    Z_TEST(inheritance_equals, "test iop_equals/hash with inheritance") { /* {{{ */
+    Z_TEST(
+        inheritance_equals, "test iop_equals/hash with inheritance"
+    ) { /* {{{ */
         t_scope;
         tstiop_inheritance__c2__t c2_1_1, c2_1_2, c2_1_3;
         tstiop_inheritance__c2__t c2_2_1, c2_2_2, c2_2_3;
@@ -6100,32 +6854,44 @@ Z_GROUP_EXPORT(iop)
          * iop_equals/hash: packing/unpacking in binary/json/xml is also
          * tested.
          */
-#define CHECK_EQUALS(_type, _v1, _v2, _res)  \
-        do {                                                                 \
-            uint8_t buf1[20], buf2[20];                                      \
+#define CHECK_EQUALS(_type, _v1, _v2, _res)                                  \
+    do {                                                                     \
+        uint8_t buf1[20], buf2[20];                                          \
                                                                              \
-            Z_ASSERT(iop_equals_desc(&tstiop_inheritance__##_type##__s,      \
-                                     _v1, _v2) == _res);                     \
-            Z_ASSERT_EQ(!iop_cmp_desc(&tstiop_inheritance__##_type##__s,     \
-                                  _v1, _v2), _res);                          \
-            iop_hash_sha1(&tstiop_inheritance__##_type##__s, _v1, buf1, 0);  \
-            iop_hash_sha1(&tstiop_inheritance__##_type##__s, _v2, buf2, 0);  \
-            Z_ASSERT(lstr_equal(                                             \
+        Z_ASSERT(                                                            \
+            iop_equals_desc(&tstiop_inheritance__##_type##__s, _v1, _v2) ==  \
+            _res                                                             \
+        );                                                                   \
+        Z_ASSERT_EQ(                                                         \
+            !iop_cmp_desc(&tstiop_inheritance__##_type##__s, _v1, _v2), _res \
+        );                                                                   \
+        iop_hash_sha1(&tstiop_inheritance__##_type##__s, _v1, buf1, 0);      \
+        iop_hash_sha1(&tstiop_inheritance__##_type##__s, _v2, buf2, 0);      \
+        Z_ASSERT(                                                            \
+            lstr_equal(                                                      \
                 LSTR_INIT_V((const char *)buf1, sizeof(buf1)),               \
-                LSTR_INIT_V((const char *)buf2, sizeof(buf2))) == _res);     \
-            Z_HELPER_RUN(iop_std_test_struct(                                \
-                &tstiop_inheritance__##_type##__s, _v1, TOSTR(_v1)));        \
-            Z_HELPER_RUN(iop_std_test_struct(                                \
-                &tstiop_inheritance__##_type##__s, _v2, TOSTR(_v2)));        \
-            Z_HELPER_RUN(iop_json_test_struct(                               \
-                &tstiop_inheritance__##_type##__s, _v1, TOSTR(_v1)));        \
-            Z_HELPER_RUN(iop_json_test_struct(                               \
-                &tstiop_inheritance__##_type##__s, _v2, TOSTR(_v2)));        \
-            Z_HELPER_RUN(iop_xml_test_struct(                                \
-                &tstiop_inheritance__##_type##__s, _v1, TOSTR(_v1)));        \
-            Z_HELPER_RUN(iop_xml_test_struct(                                \
-                &tstiop_inheritance__##_type##__s, _v2, TOSTR(_v2)));        \
-        } while (0)
+                LSTR_INIT_V((const char *)buf2, sizeof(buf2))                \
+            ) == _res                                                        \
+        );                                                                   \
+        Z_HELPER_RUN(iop_std_test_struct(                                    \
+            &tstiop_inheritance__##_type##__s, _v1, TOSTR(_v1)               \
+        ));                                                                  \
+        Z_HELPER_RUN(iop_std_test_struct(                                    \
+            &tstiop_inheritance__##_type##__s, _v2, TOSTR(_v2)               \
+        ));                                                                  \
+        Z_HELPER_RUN(iop_json_test_struct(                                   \
+            &tstiop_inheritance__##_type##__s, _v1, TOSTR(_v1)               \
+        ));                                                                  \
+        Z_HELPER_RUN(iop_json_test_struct(                                   \
+            &tstiop_inheritance__##_type##__s, _v2, TOSTR(_v2)               \
+        ));                                                                  \
+        Z_HELPER_RUN(iop_xml_test_struct(                                    \
+            &tstiop_inheritance__##_type##__s, _v1, TOSTR(_v1)               \
+        ));                                                                  \
+        Z_HELPER_RUN(iop_xml_test_struct(                                    \
+            &tstiop_inheritance__##_type##__s, _v2, TOSTR(_v2)               \
+        ));                                                                  \
+    } while (0)
 
         /* ---- Tests with "simple" classes --- */
         CHECK_EQUALS(c2, &c2_1_1, &c2_2_1, true);
@@ -6222,8 +6988,8 @@ Z_GROUP_EXPORT(iop)
         c2_2_3.a = 5;
         CHECK_EQUALS(class_container, &cc_1, &cc_2, true);
 #undef CHECK_EQUALS
-
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
     Z_TEST(inheritance_json, "test json unpacking inheritance") { /* {{{ */
         /* These tests are meant to check json unpacking in some unusual
@@ -6239,43 +7005,46 @@ Z_GROUP_EXPORT(iop)
         tstiop_inheritance__a3__t *a3 = NULL;
         tstiop_inheritance__b4__t *b4 = NULL;
         tstiop_inheritance__c5__t *c5 = NULL;
-        tstiop_inheritance__class_container__t  *class_container  = NULL;
+        tstiop_inheritance__class_container__t *class_container = NULL;
         tstiop_inheritance__class_container2__t *class_container2 = NULL;
         SB_1k(err);
 
-#define CHECK_OK(_type, _filename)  \
-        do {                                                                 \
-            Z_ASSERT_N(t_iop_junpack_ptr_file(                               \
-                    iop_env_ctx,                                             \
-                    t_fmt("%*pM/iop/" _filename, LSTR_FMT_ARG(z_cmddir_g)),  \
-                    &tstiop_inheritance__##_type##__s,                       \
-                    (void **)&_type, 0, NULL, &err),                         \
-                "junpack failed: %s", err.data);                             \
-        } while (0)
+#define CHECK_OK(_type, _filename)                                           \
+    do {                                                                     \
+        Z_ASSERT_N(                                                          \
+            t_iop_junpack_ptr_file(                                          \
+                iop_env_ctx,                                                 \
+                t_fmt("%*pM/iop/" _filename, LSTR_FMT_ARG(z_cmddir_g)),      \
+                &tstiop_inheritance__##_type##__s, (void **)&_type, 0, NULL, \
+                &err                                                         \
+            ),                                                               \
+            "junpack failed: %s", err.data                                   \
+        );                                                                   \
+    } while (0)
 
         /* Test that fields can be in any order */
         CHECK_OK(c1, "tstiop_inheritance_valid1.json");
         Z_ASSERT(c1->__vptr == &tstiop_inheritance__c1__s);
-        Z_ASSERT_EQ(c1->a,   2);
+        Z_ASSERT_EQ(c1->a, 2);
         Z_ASSERT_EQ(c1->a2, 12);
-        Z_ASSERT_EQ(c1->b,  false);
-        Z_ASSERT_EQ(c1->c,  (uint32_t)5);
+        Z_ASSERT_EQ(c1->b, false);
+        Z_ASSERT_EQ(c1->c, (uint32_t)5);
 
         /* Test with missing optional fields */
         CHECK_OK(c1, "tstiop_inheritance_valid2.json");
         Z_ASSERT(c1->__vptr == &tstiop_inheritance__c1__s);
-        Z_ASSERT_EQ(c1->a,   1);
+        Z_ASSERT_EQ(c1->a, 1);
         Z_ASSERT_EQ(c1->a2, 12);
-        Z_ASSERT_EQ(c1->b,  true);
-        Z_ASSERT_EQ(c1->c,  (uint32_t)3);
+        Z_ASSERT_EQ(c1->b, true);
+        Z_ASSERT_EQ(c1->c, (uint32_t)3);
 
         /* Test that "_class" field can be missing */
         CHECK_OK(d1, "tstiop_inheritance_valid3.json");
         Z_ASSERT(d1->__vptr == &tstiop_inheritance__d1__s);
-        Z_ASSERT_EQ(d1->a,  -12);
+        Z_ASSERT_EQ(d1->a, -12);
         Z_ASSERT_EQ(d1->a2, -15);
-        Z_ASSERT_EQ(d1->b,  true);
-        Z_ASSERT_EQ(d1->c,  (uint32_t)153);
+        Z_ASSERT_EQ(d1->b, true);
+        Z_ASSERT_EQ(d1->c, (uint32_t)153);
 
         /* Test that missing mandatory class fields are OK if this class have
          * only optional fields.
@@ -6296,71 +7065,92 @@ Z_GROUP_EXPORT(iop)
         /* Test that "_class" field can be given using prefixed syntax */
         CHECK_OK(c1, "tstiop_inheritance_valid5.json");
         Z_ASSERT(c1->__vptr == &tstiop_inheritance__c1__s);
-        Z_ASSERT_EQ(c1->a,  -480);
+        Z_ASSERT_EQ(c1->a, -480);
         Z_ASSERT_EQ(c1->a2, -479);
-        Z_ASSERT_EQ(c1->b,  false);
-        Z_ASSERT_EQ(c1->c,  (uint32_t)478);
+        Z_ASSERT_EQ(c1->b, false);
+        Z_ASSERT_EQ(c1->c, (uint32_t)478);
 
-#define CHECK_FAIL(_type, _filename, _flags, _err)  \
-        do {                                                                 \
-            sb_reset(&err);                                                  \
-            Z_ASSERT_NEG(t_iop_junpack_ptr_file(                             \
-                    iop_env_ctx, t_fmt("%*pM/iop/" _filename,                \
-                    LSTR_FMT_ARG(z_cmddir_g)),                               \
-                    &tstiop_inheritance__##_type##__s,                       \
-                    (void **)&_type, _flags, NULL, &err));                   \
-            Z_ASSERT(strstr(err.data, _err), "%s", err.data);                \
-        } while (0)
+#define CHECK_FAIL(_type, _filename, _flags, _err)                           \
+    do {                                                                     \
+        sb_reset(&err);                                                      \
+        Z_ASSERT_NEG(t_iop_junpack_ptr_file(                                 \
+            iop_env_ctx,                                                     \
+            t_fmt("%*pM/iop/" _filename, LSTR_FMT_ARG(z_cmddir_g)),          \
+            &tstiop_inheritance__##_type##__s, (void **)&_type, _flags,      \
+            NULL, &err                                                       \
+        ));                                                                  \
+        Z_ASSERT(strstr(err.data, _err), "%s", err.data);                    \
+    } while (0)
 
         /* Test that when the "_class" is missing, the expected type is the
          * wanted one */
-        CHECK_FAIL(b2, "tstiop_inheritance_invalid1.json", 0,
-                   "expected field of struct tstiop_inheritance.B2, got "
-                   "`\"c\"'");
+        CHECK_FAIL(
+            b2, "tstiop_inheritance_invalid1.json", 0,
+            "expected field of struct tstiop_inheritance.B2, got "
+            "`\"c\"'"
+        );
 
         /* Test that the "_class" field is mandatory for abstract classes */
-        CHECK_FAIL(a3, "tstiop_inheritance_invalid1.json", 0,
-                   "expected `_class' field, got `}'");
+        CHECK_FAIL(
+            a3, "tstiop_inheritance_invalid1.json", 0,
+            "expected `_class' field, got `}'"
+        );
 
         /* Test with an unknown "_class" */
-        CHECK_FAIL(c1, "tstiop_inheritance_invalid2.json", 0,
-                   "expected a child of `tstiop_inheritance.C1'");
+        CHECK_FAIL(
+            c1, "tstiop_inheritance_invalid2.json", 0,
+            "expected a child of `tstiop_inheritance.C1'"
+        );
 
         /* Test with an incompatible "_class" */
-        CHECK_FAIL(c1, "tstiop_inheritance_invalid3.json", 0,
-                   "expected a child of `tstiop_inheritance.C1'");
+        CHECK_FAIL(
+            c1, "tstiop_inheritance_invalid3.json", 0,
+            "expected a child of `tstiop_inheritance.C1'"
+        );
 
         /* Test with a missing mandatory field */
-        CHECK_FAIL(c1, "tstiop_inheritance_invalid4.json", 0,
-                   "member `tstiop_inheritance.A1:a2' is missing");
-        CHECK_FAIL(class_container, "tstiop_inheritance_invalid5.json", 0,
-                   "member `tstiop_inheritance.ClassContainer:a1' is missing");
-        CHECK_FAIL(class_container, "tstiop_inheritance_invalid6.json", 0,
-                   "member `tstiop_inheritance.ClassContainer:a1' is missing");
+        CHECK_FAIL(
+            c1, "tstiop_inheritance_invalid4.json", 0,
+            "member `tstiop_inheritance.A1:a2' is missing"
+        );
+        CHECK_FAIL(
+            class_container, "tstiop_inheritance_invalid5.json", 0,
+            "member `tstiop_inheritance.ClassContainer:a1' is missing"
+        );
+        CHECK_FAIL(
+            class_container, "tstiop_inheritance_invalid6.json", 0,
+            "member `tstiop_inheritance.ClassContainer:a1' is missing"
+        );
 
         /* Unpacking of abstract classes is forbidden */
-        CHECK_FAIL(a3, "tstiop_inheritance_invalid7.json", 0,
-                   "expected a non-abstract class");
+        CHECK_FAIL(
+            a3, "tstiop_inheritance_invalid7.json", 0,
+            "expected a non-abstract class"
+        );
 
         /* Check that missing mandatory class fields, for classes having only
          * optional fields, is KO if this class is abstract (while it's ok if
          * it's not abstract, cf. test above).
          */
-        CHECK_FAIL(class_container2, "tstiop_inheritance_invalid8.json", 0,
-                   "member `tstiop_inheritance.ClassContainer2:a3' is "
-                   "missing");
+        CHECK_FAIL(
+            class_container2, "tstiop_inheritance_invalid8.json", 0,
+            "member `tstiop_inheritance.ClassContainer2:a3' is "
+            "missing"
+        );
 
         /* Check that private classes cannot be unpacked if ask so.
          */
         CHECK_OK(c5, "tstiop_inheritance_invalid9.json");
         Z_ASSERT(c5->__vptr == &tstiop_inheritance__c5__s);
-        CHECK_FAIL(c5, "tstiop_inheritance_invalid9.json",
-                   IOP_UNPACK_FORBID_PRIVATE,
-                   "a non-private child of `tstiop_inheritance.C5`");
+        CHECK_FAIL(
+            c5, "tstiop_inheritance_invalid9.json", IOP_UNPACK_FORBID_PRIVATE,
+            "a non-private child of `tstiop_inheritance.C5`"
+        );
 
 #undef CHECK_OK
 #undef CHECK_FAIL
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
     Z_TEST(inheritance_xml, "test inheritance and xml") { /* {{{ */
         /* These tests are meant to check XML unpacking in some unusual
@@ -6376,46 +7166,48 @@ Z_GROUP_EXPORT(iop)
         tstiop_inheritance__a3__t *a3 = NULL;
         tstiop_inheritance__c5__t *c5 = NULL;
 
-#define MAP(_filename)  \
-        do {                                                                 \
-            Z_ASSERT_N(lstr_init_from_file(&file,                            \
-                           t_fmt("%*pM/iop/" _filename,                      \
-                                 LSTR_FMT_ARG(z_cmddir_g)),                  \
-                           PROT_READ, MAP_SHARED));                          \
-        } while (0)
+#define MAP(_filename)                                                       \
+    do {                                                                     \
+        Z_ASSERT_N(lstr_init_from_file(                                      \
+            &file, t_fmt("%*pM/iop/" _filename, LSTR_FMT_ARG(z_cmddir_g)),   \
+            PROT_READ, MAP_SHARED                                            \
+        ));                                                                  \
+    } while (0)
 
-#define UNPACK_OK(_filename, _type)  \
-        do {                                                                 \
-            MAP(_filename);                                                  \
-            Z_ASSERT_N(xmlr_setup(&xmlr_g, file.s, file.len));               \
-            Z_ASSERT_N(t_iop_xunpack_ptr(                                    \
-                    xmlr_g, iop_env_ctx,                                     \
-                    &tstiop_inheritance__##_type##__s,                       \
-                    (void **)&_type),                                        \
-                    "XML unpacking failure: %s", xmlr_get_err());            \
-            lstr_wipe(&file);                                                \
-        } while (0)
+#define UNPACK_OK(_filename, _type)                                          \
+    do {                                                                     \
+        MAP(_filename);                                                      \
+        Z_ASSERT_N(xmlr_setup(&xmlr_g, file.s, file.len));                   \
+        Z_ASSERT_N(                                                          \
+            t_iop_xunpack_ptr(                                               \
+                xmlr_g, iop_env_ctx, &tstiop_inheritance__##_type##__s,      \
+                (void **)&_type                                              \
+            ),                                                               \
+            "XML unpacking failure: %s", xmlr_get_err()                      \
+        );                                                                   \
+        lstr_wipe(&file);                                                    \
+    } while (0)
 
-#define UNPACK_FAIL(_filename, _type, _flags, _err)  \
-        do {                                                                 \
-            MAP(_filename);                                                  \
-            Z_ASSERT_N(xmlr_setup(&xmlr_g, file.s, file.len));               \
-            Z_ASSERT_NEG(t_iop_xunpack_ptr_flags(                            \
-                    xmlr_g, iop_env_ctx,                                     \
-                    &tstiop_inheritance__##_type##__s,                       \
-                    (void **)&_type, _flags));                               \
-            Z_ASSERT(strstr(xmlr_get_err(), _err), "%s", xmlr_get_err());    \
-            lstr_wipe(&file);                                                \
-        } while (0)
+#define UNPACK_FAIL(_filename, _type, _flags, _err)                          \
+    do {                                                                     \
+        MAP(_filename);                                                      \
+        Z_ASSERT_N(xmlr_setup(&xmlr_g, file.s, file.len));                   \
+        Z_ASSERT_NEG(t_iop_xunpack_ptr_flags(                                \
+            xmlr_g, iop_env_ctx, &tstiop_inheritance__##_type##__s,          \
+            (void **)&_type, _flags                                          \
+        ));                                                                  \
+        Z_ASSERT(strstr(xmlr_get_err(), _err), "%s", xmlr_get_err());        \
+        lstr_wipe(&file);                                                    \
+    } while (0)
 
         /* Test that 'xsi:type' can be missing, if the packed object is of
          * the expected type. */
         UNPACK_OK("tstiop_inheritance_valid1.xml", c2);
         Z_ASSERT(c2->__vptr == &tstiop_inheritance__c2__s);
-        Z_ASSERT_EQ(c2->a,  15);
+        Z_ASSERT_EQ(c2->a, 15);
         Z_ASSERT_EQ(c2->a2, 16);
-        Z_ASSERT_EQ(c2->b,  false);
-        Z_ASSERT_EQ(c2->c,  18);
+        Z_ASSERT_EQ(c2->b, false);
+        Z_ASSERT_EQ(c2->c, 18);
 
         /* Test with missing optional fields */
         UNPACK_OK("tstiop_inheritance_valid2.xml", c3);
@@ -6432,145 +7224,200 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_EQ(c3->c, 6);
 
         /* Test with fields in bad order */
-        UNPACK_FAIL("tstiop_inheritance_invalid1.xml", c2, 0,
-                    "near /root/a: unknown tag <a>");
-        UNPACK_FAIL("tstiop_inheritance_invalid2.xml", c2, 0,
-                    "near /root/b: missing mandatory tag <a2>");
+        UNPACK_FAIL(
+            "tstiop_inheritance_invalid1.xml", c2, 0,
+            "near /root/a: unknown tag <a>"
+        );
+        UNPACK_FAIL(
+            "tstiop_inheritance_invalid2.xml", c2, 0,
+            "near /root/b: missing mandatory tag <a2>"
+        );
 
         /* Test with an unknown field */
-        UNPACK_FAIL("tstiop_inheritance_invalid3.xml", c2, 0,
-                    "near /root/toto: unknown tag <toto>");
+        UNPACK_FAIL(
+            "tstiop_inheritance_invalid3.xml", c2, 0,
+            "near /root/toto: unknown tag <toto>"
+        );
 
         /* Test with a missing mandatory field */
-        UNPACK_FAIL("tstiop_inheritance_invalid4.xml", c2, 0,
-                    "near /root: missing mandatory tag <a2>");
+        UNPACK_FAIL(
+            "tstiop_inheritance_invalid4.xml", c2, 0,
+            "near /root: missing mandatory tag <a2>"
+        );
 
         /* Test with an unknown/incompatible class */
-        UNPACK_FAIL("tstiop_inheritance_invalid5.xml", c2, 0,
-                    "near /root: class `tstiop_inheritance.Toto' not found");
-        UNPACK_FAIL("tstiop_inheritance_invalid6.xml", c2, 0,
-                    "near /root: class `tstiop_inheritance.C1' is not a "
-                    "child of `tstiop_inheritance.C2'");
-        UNPACK_FAIL("tstiop_inheritance_invalid7.xml", a3, 0,
-                    "near /root: class `tstiop_inheritance.A3' is an "
-                    "abstract class");
+        UNPACK_FAIL(
+            "tstiop_inheritance_invalid5.xml", c2, 0,
+            "near /root: class `tstiop_inheritance.Toto' not found"
+        );
+        UNPACK_FAIL(
+            "tstiop_inheritance_invalid6.xml", c2, 0,
+            "near /root: class `tstiop_inheritance.C1' is not a "
+            "child of `tstiop_inheritance.C2'"
+        );
+        UNPACK_FAIL(
+            "tstiop_inheritance_invalid7.xml", a3, 0,
+            "near /root: class `tstiop_inheritance.A3' is an "
+            "abstract class"
+        );
 
         /* 'xsi:type' is mandatory for abstract classes */
-        UNPACK_FAIL("tstiop_inheritance_invalid8.xml", a3, 0,
-                    "near /root: type attribute not found (mandatory for "
-                    "abstract classes)");
+        UNPACK_FAIL(
+            "tstiop_inheritance_invalid8.xml", a3, 0,
+            "near /root: type attribute not found (mandatory for "
+            "abstract classes)"
+        );
 
         /* Check that private classes cannot be unpacked if ask so.
          */
         UNPACK_OK("tstiop_inheritance_invalid9.xml", c5);
         Z_ASSERT(c5->__vptr == &tstiop_inheritance__c5__s);
-        UNPACK_FAIL("tstiop_inheritance_invalid9.xml", c5,
-                   IOP_UNPACK_FORBID_PRIVATE,
-                   "class `tstiop_inheritance.C5` is private");
+        UNPACK_FAIL(
+            "tstiop_inheritance_invalid9.xml", c5, IOP_UNPACK_FORBID_PRIVATE,
+            "class `tstiop_inheritance.C5` is private"
+        );
 
 #undef UNPACK_OK
 #undef UNPACK_FAIL
 #undef MAP
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
     Z_TEST(iop_references, "test iop references") { /* {{{ */
         t_scope;
         iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         SB_1k(err);
-        tstiop__my_referenced_struct__t rs = { .a = 666 };
+        tstiop__my_referenced_struct__t rs = {.a = 666};
         tstiop__my_referenced_union__t ru;
         tstiop__my_ref_union__t uu;
         tstiop__my_ref_union__t us;
-        tstiop__my_ref_struct__t s = {
-            .s = &rs,
-            .u = &ru
-        };
+        tstiop__my_ref_struct__t s = {.s = &rs, .u = &ru};
 
         uu = IOP_UNION(tstiop__my_ref_union, u, &ru);
         us = IOP_UNION(tstiop__my_ref_union, s, &rs);
         ru = IOP_UNION(tstiop__my_referenced_union, b, 42);
 
 #define XUNPACK_OK(_type, _str)                                              \
-        do {                                                                 \
-            void *_type = NULL;                                              \
+    do {                                                                     \
+        void *_type = NULL;                                                  \
                                                                              \
-            Z_ASSERT_N(xmlr_setup(&xmlr_g, _str, strlen(_str)));             \
-            Z_ASSERT_N(t_iop_xunpack_ptr(xmlr_g, iop_env_ctx,                \
-                                         &tstiop__##_type##__s, &_type),     \
-                       "XML unpacking failure: %s", xmlr_get_err());         \
-        } while (0)
+        Z_ASSERT_N(xmlr_setup(&xmlr_g, _str, strlen(_str)));                 \
+        Z_ASSERT_N(                                                          \
+            t_iop_xunpack_ptr(                                               \
+                xmlr_g, iop_env_ctx, &tstiop__##_type##__s, &_type           \
+            ),                                                               \
+            "XML unpacking failure: %s", xmlr_get_err()                      \
+        );                                                                   \
+    } while (0)
 
 #define XUNPACK_FAIL(_type, _str, _err)                                      \
-        do {                                                                 \
-            void *_type = NULL;                                              \
+    do {                                                                     \
+        void *_type = NULL;                                                  \
                                                                              \
-            Z_ASSERT_N(xmlr_setup(&xmlr_g, _str, strlen(_str)));             \
-            Z_ASSERT_NEG(t_iop_xunpack_ptr(xmlr_g, iop_env_ctx,              \
-                                           &tstiop__##_type##__s, &_type));  \
-            Z_ASSERT(strstr(xmlr_get_err(), _err), "%s", xmlr_get_err());    \
-        } while (0)
+        Z_ASSERT_N(xmlr_setup(&xmlr_g, _str, strlen(_str)));                 \
+        Z_ASSERT_NEG(t_iop_xunpack_ptr(                                      \
+            xmlr_g, iop_env_ctx, &tstiop__##_type##__s, &_type               \
+        ));                                                                  \
+        Z_ASSERT(strstr(xmlr_get_err(), _err), "%s", xmlr_get_err());        \
+    } while (0)
 
 #define JUNPACK_FAIL(_type, _str, _err)                                      \
-        do {                                                                 \
-            void *_type = NULL;                                              \
-            pstream_t ps = ps_initstr(_str);                                 \
+    do {                                                                     \
+        void *_type = NULL;                                                  \
+        pstream_t ps = ps_initstr(_str);                                     \
                                                                              \
-            sb_reset(&err);                                                  \
-            Z_ASSERT_NEG(t_iop_junpack_ptr_ps(iop_env_ctx, &ps,              \
-                                              &tstiop__##_type##__s,         \
-                                              &_type, 0, &err));             \
-            Z_ASSERT(strstr(err.data, _err), "%s", err.data);                \
-        } while (0)
+        sb_reset(&err);                                                      \
+        Z_ASSERT_NEG(t_iop_junpack_ptr_ps(                                   \
+            iop_env_ctx, &ps, &tstiop__##_type##__s, &_type, 0, &err         \
+        ));                                                                  \
+        Z_ASSERT(strstr(err.data, _err), "%s", err.data);                    \
+    } while (0)
 
         Z_HELPER_RUN(iop_std_test_struct(&tstiop__my_ref_struct__s, &s, "s"));
-        Z_HELPER_RUN(iop_json_test_struct(&tstiop__my_ref_struct__s, &s, "s"));
+        Z_HELPER_RUN(
+            iop_json_test_struct(&tstiop__my_ref_struct__s, &s, "s")
+        );
         Z_HELPER_RUN(iop_xml_test_struct(&tstiop__my_ref_struct__s, &s, "s"));
-        XUNPACK_OK(my_ref_struct,
-                   "<MyRefStruct><s><a>2</a></s><u><b>1</b></u></MyRefStruct>");
-        XUNPACK_FAIL(my_ref_struct,
-                     "<MyRefStruct><u><b>1</b></u></MyRefStruct>",
-                     "missing mandatory tag <s>");
-        XUNPACK_FAIL(my_ref_struct,
-                     "<MyRefStruct><u><b>1</b></u></MyRefStruct>",
-                     "missing mandatory tag <s>");
-        XUNPACK_FAIL(my_ref_struct,
-                     "<MyRefStruct><s></s></MyRefStruct>",
-                     "missing mandatory tag <a>");
-        Z_ASSERT_IOPJSONEQUAL(_G.iop_env, tstiop__my_ref_struct, &s,
-                              LSTR("{ u: { b: 42 }, s: { a: 666 } }"));
-        Z_ASSERT_IOPJSONEQUAL(_G.iop_env, tstiop__my_ref_struct, &s,
-                              LSTR("{ u.b: 42, s: { a: 666 } }"));
-        JUNPACK_FAIL(my_ref_struct, "{ u: { b: 1 } }",
-                     "member `tstiop.MyRefStruct:s' is missing");
-        JUNPACK_FAIL(my_ref_struct, "{ s: { a: 1 } }",
-                     "member `tstiop.MyRefStruct:u' is missing");
+        XUNPACK_OK(
+            my_ref_struct,
+            "<MyRefStruct><s><a>2</a></s><u><b>1</b></u></MyRefStruct>"
+        );
+        XUNPACK_FAIL(
+            my_ref_struct, "<MyRefStruct><u><b>1</b></u></MyRefStruct>",
+            "missing mandatory tag <s>"
+        );
+        XUNPACK_FAIL(
+            my_ref_struct, "<MyRefStruct><u><b>1</b></u></MyRefStruct>",
+            "missing mandatory tag <s>"
+        );
+        XUNPACK_FAIL(
+            my_ref_struct, "<MyRefStruct><s></s></MyRefStruct>",
+            "missing mandatory tag <a>"
+        );
+        Z_ASSERT_IOPJSONEQUAL(
+            _G.iop_env, tstiop__my_ref_struct, &s,
+            LSTR("{ u: { b: 42 }, s: { a: 666 } }")
+        );
+        Z_ASSERT_IOPJSONEQUAL(
+            _G.iop_env, tstiop__my_ref_struct, &s,
+            LSTR("{ u.b: 42, s: { a: 666 } }")
+        );
+        JUNPACK_FAIL(
+            my_ref_struct, "{ u: { b: 1 } }",
+            "member `tstiop.MyRefStruct:s' is missing"
+        );
+        JUNPACK_FAIL(
+            my_ref_struct, "{ s: { a: 1 } }",
+            "member `tstiop.MyRefStruct:u' is missing"
+        );
 
-        Z_HELPER_RUN(iop_std_test_struct(&tstiop__my_ref_union__s, &uu, "uu"));
-        Z_HELPER_RUN(iop_json_test_struct(&tstiop__my_ref_union__s, &uu, "uu"));
-        Z_HELPER_RUN(iop_xml_test_struct(&tstiop__my_ref_union__s, &uu, "uu"));
-        Z_HELPER_RUN(iop_std_test_struct(&tstiop__my_ref_union__s, &us, "us"));
-        Z_HELPER_RUN(iop_json_test_struct(&tstiop__my_ref_union__s, &us, "us"));
-        Z_HELPER_RUN(iop_xml_test_struct(&tstiop__my_ref_union__s, &us, "us"));
+        Z_HELPER_RUN(
+            iop_std_test_struct(&tstiop__my_ref_union__s, &uu, "uu")
+        );
+        Z_HELPER_RUN(
+            iop_json_test_struct(&tstiop__my_ref_union__s, &uu, "uu")
+        );
+        Z_HELPER_RUN(
+            iop_xml_test_struct(&tstiop__my_ref_union__s, &uu, "uu")
+        );
+        Z_HELPER_RUN(
+            iop_std_test_struct(&tstiop__my_ref_union__s, &us, "us")
+        );
+        Z_HELPER_RUN(
+            iop_json_test_struct(&tstiop__my_ref_union__s, &us, "us")
+        );
+        Z_HELPER_RUN(
+            iop_xml_test_struct(&tstiop__my_ref_union__s, &us, "us")
+        );
         XUNPACK_OK(my_ref_union, "<MyRefUnion><s><a>2</a></s></MyRefUnion>");
         XUNPACK_OK(my_ref_union, "<MyRefUnion><u><b>2</b></u></MyRefUnion>");
-        XUNPACK_FAIL(my_ref_union, "<MyRefUnion></MyRefUnion>",
-                     "node has no children");
-        XUNPACK_FAIL(my_ref_union, "<MyRefUnion><u></u></MyRefUnion>",
-                     "node has no children");
-        XUNPACK_FAIL(my_ref_union,
-                     "<MyRefUnion><s><a>2</a></s><u><b>1</b></u></MyRefUnion>",
-                     "closing tag expected");
-        Z_ASSERT_IOPJSONEQUAL(_G.iop_env, tstiop__my_ref_union, &uu,
-                              LSTR("{ u: { b: 42 } }"));
-        Z_ASSERT_IOPJSONEQUAL(_G.iop_env, tstiop__my_ref_union, &uu,
-                              LSTR("{ u.b: 42 }"));
-        Z_ASSERT_IOPJSONEQUAL(_G.iop_env, tstiop__my_ref_union, &us,
-                              LSTR("{ s: { a: 666 } }"));
+        XUNPACK_FAIL(
+            my_ref_union, "<MyRefUnion></MyRefUnion>", "node has no children"
+        );
+        XUNPACK_FAIL(
+            my_ref_union, "<MyRefUnion><u></u></MyRefUnion>",
+            "node has no children"
+        );
+        XUNPACK_FAIL(
+            my_ref_union,
+            "<MyRefUnion><s><a>2</a></s><u><b>1</b></u></MyRefUnion>",
+            "closing tag expected"
+        );
+        Z_ASSERT_IOPJSONEQUAL(
+            _G.iop_env, tstiop__my_ref_union, &uu, LSTR("{ u: { b: 42 } }")
+        );
+        Z_ASSERT_IOPJSONEQUAL(
+            _G.iop_env, tstiop__my_ref_union, &uu, LSTR("{ u.b: 42 }")
+        );
+        Z_ASSERT_IOPJSONEQUAL(
+            _G.iop_env, tstiop__my_ref_union, &us, LSTR("{ s: { a: 666 } }")
+        );
 
 #undef JUNPACK_FAIL
 #undef XUNPACK_OK
 #undef XUNPACK_FAIL
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
     Z_TEST(iop_get_field_len, "test iop_get_field_len") { /* {{{ */
         t_scope;
@@ -6602,17 +7449,23 @@ Z_GROUP_EXPORT(iop)
         byte *dst;
         pstream_t ps;
 
-        Z_ASSERT_P(st_sa = iop_env_ctx_get_struct(
-                iop_env_ctx, LSTR("tstiop.MyStructA")));
-        Z_ASSERT_P(st_cls2 = iop_env_ctx_get_struct(
-                iop_env_ctx, LSTR("tstiop.MyClass2")));
+        Z_ASSERT_P(
+            st_sa =
+                iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.MyStructA"))
+        );
+        Z_ASSERT_P(
+            st_cls2 =
+                iop_env_ctx_get_struct(iop_env_ctx, LSTR("tstiop.MyClass2"))
+        );
 
         t_qv_init(&szs, 1024);
         iop_init_desc(st_cls2, &cls2);
 
         /* packing */
-        Z_ASSERT_N((len = iop_bpack_size(st_sa, &sa, &szs)),
-                   "invalid structure size (%s)", st_sa->fullname.s);
+        Z_ASSERT_N(
+            (len = iop_bpack_size(st_sa, &sa, &szs)),
+            "invalid structure size (%s)", st_sa->fullname.s
+        );
         dst = t_new(byte, len);
         iop_bpack(dst, st_sa, &sa, szs.tab);
 
@@ -6621,9 +7474,12 @@ Z_GROUP_EXPORT(iop)
             Z_ASSERT_GT(len = iop_get_field_len(ps), 0);
             Z_ASSERT_N(ps_skip(&ps, len));
         }
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
-    Z_TEST(iop_struct_for_each_field, "test iop_struct_for_each_field") { /* {{{ */
+    Z_TEST(
+        iop_struct_for_each_field, "test iop_struct_for_each_field"
+    ) { /* {{{ */
         tstiop__my_class1__t cls1;
         tstiop__my_class2__t cls2;
         tstiop__my_class3__t cls3;
@@ -6633,34 +7489,34 @@ Z_GROUP_EXPORT(iop)
         iop_init(tstiop__my_class2, &cls2);
         iop_init(tstiop__my_class3, &cls3);
 
-#define TEST_FIELD(_f, _type, _name, _st, _class)                       \
-        do {                                                            \
-            Z_ASSERT_EQ((int)_f->type, IOP_T_##_type);                  \
-            Z_ASSERT_LSTREQUAL(_f->name, LSTR(_name));                  \
-            Z_ASSERT(_st == _class.__vptr);                             \
-        } while (0)
+#define TEST_FIELD(_f, _type, _name, _st, _class)                            \
+    do {                                                                     \
+        Z_ASSERT_EQ((int)_f->type, IOP_T_##_type);                           \
+        Z_ASSERT_LSTREQUAL(_f->name, LSTR(_name));                           \
+        Z_ASSERT(_st == _class.__vptr);                                      \
+    } while (0)
 
         iop_obj_for_each_field(f, st, &cls3) {
             switch (i) {
-              case 0:
+            case 0:
                 TEST_FIELD(f, I32, "int3", st, cls3);
                 break;
-              case 1:
+            case 1:
                 TEST_FIELD(f, BOOL, "bool1", st, cls3);
                 break;
-              case 2:
+            case 2:
                 TEST_FIELD(f, STRING, "string1", st, cls3);
                 break;
-              case 3:
+            case 3:
                 TEST_FIELD(f, STRUCT, "nextClass", st, cls3);
                 break;
-              case 4:
+            case 4:
                 TEST_FIELD(f, I32, "int2", st, cls2);
                 break;
-              case 5:
+            case 5:
                 TEST_FIELD(f, I32, "int1", st, cls1);
                 break;
-              default:
+            default:
                 Z_ASSERT(false);
             }
             i++;
@@ -6670,13 +7526,13 @@ Z_GROUP_EXPORT(iop)
         i = 0;
         iop_obj_for_each_field(f, st, &cls2) {
             switch (i) {
-              case 0:
+            case 0:
                 TEST_FIELD(f, I32, "int2", st, cls2);
                 break;
-              case 1:
+            case 1:
                 TEST_FIELD(f, I32, "int1", st, cls1);
                 break;
-              default:
+            default:
                 Z_ASSERT(false);
             }
             i++;
@@ -6702,33 +7558,33 @@ Z_GROUP_EXPORT(iop)
             }
 
             switch (i) {
-              case 0:
+            case 0:
                 TEST_FIELD(f, I32, "int3", st, cls3);
                 break;
-              case 1:
+            case 1:
                 TEST_FIELD(f, BOOL, "bool1", st, cls3);
                 break;
-              case 2:
+            case 2:
                 TEST_FIELD(f, STRING, "string1", st, cls3);
                 break;
-              case 3:
+            case 3:
                 TEST_FIELD(f, STRUCT, "nextClass", st, cls3);
                 break;
-              case 4:
+            case 4:
                 TEST_FIELD(f, I32, "int2", st, cls2);
                 break;
-              case 5:
+            case 5:
                 TEST_FIELD(f, I32, "int1", st, cls1);
                 break;
-              default:
+            default:
                 Z_ASSERT(false);
             }
             i++;
         }
 
 #undef TEST_FIELD
-
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
     Z_TEST(iop_get_field, "test iop_get_field function") { /* {{{ */
         iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
@@ -6750,10 +7606,10 @@ Z_GROUP_EXPORT(iop)
         int f_c_0_b_vals[] = {42, 16};
         int f_c_1_b_vals[] = {20, 56};
         tstiop__my_struct_b__t f_c_vals[] = {
-            {.a = OPT(12), .b = IOP_ARRAY(f_c_0_b_vals,
-                                          countof(f_c_0_b_vals))},
-            {.a = OPT_NONE, .b = IOP_ARRAY(f_c_1_b_vals,
-                                           countof(f_c_1_b_vals))},
+            {.a = OPT(12),
+             .b = IOP_ARRAY(f_c_0_b_vals, countof(f_c_0_b_vals))},
+            {.a = OPT_NONE,
+             .b = IOP_ARRAY(f_c_1_b_vals, countof(f_c_1_b_vals))},
         };
         tstiop__my_union_a__t f_d_vals[] = {
             IOP_UNION(tstiop__my_union_a, ua, 25),
@@ -6803,546 +7659,641 @@ Z_GROUP_EXPORT(iop)
         referenced_struct.a = 21;
         struct_ref.s = &referenced_struct;
         OPT_SET(struct_e.c.a, 42);
-        struct_a.htab = (iop_array_u64_t)IOP_ARRAY(htab_vals,
-                                                   countof(htab_vals));
+        struct_a.htab =
+            (iop_array_u64_t)IOP_ARRAY(htab_vals, countof(htab_vals));
         struct_f.a = (iop_array_lstr_t)IOP_ARRAY(f_a_vals, countof(f_a_vals));
         struct_f.b = (iop_array_lstr_t)IOP_ARRAY(f_b_vals, countof(f_b_vals));
-        struct_f.c = (IOP_ARRAY_T(tstiop__my_struct_b))
-                      IOP_ARRAY(f_c_vals, countof(f_c_vals));
-        struct_f.d = (IOP_ARRAY_T(tstiop__my_union_a))
-                      IOP_ARRAY(f_d_vals, countof(f_d_vals));
-        struct_f.e = (IOP_ARRAY_T(tstiop__my_class1))
-                      IOP_ARRAY(f_e_vals, countof(f_e_vals));
+        struct_f.c = (IOP_ARRAY_T(tstiop__my_struct_b))IOP_ARRAY(
+            f_c_vals, countof(f_c_vals)
+        );
+        struct_f.d = (IOP_ARRAY_T(tstiop__my_union_a))IOP_ARRAY(
+            f_d_vals, countof(f_d_vals)
+        );
+        struct_f.e = (IOP_ARRAY_T(tstiop__my_class1))IOP_ARRAY(
+            f_e_vals, countof(f_e_vals)
+        );
 
-        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR("unknown_field"), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR(""), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR("."), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR(".a"), NULL, NULL));
-        Z_ASSERT_P(iop_get_field_const(iop_env_ctx, &struct_a,
-                                       &tstiop__my_struct_a__s,
-                                       LSTR("l."), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR("l.."), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR("z[5]"), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR("htab[42]"), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR("htab[]"), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR("htab[]]"), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR("htab[a]"), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR("htab[0a]"), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR("htab[0]a"), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR("htab[-42]"), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_f,
-                                          &tstiop__my_struct_f__s,
-                                          LSTR("c.a"), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_f,
-                                          &tstiop__my_struct_f__s,
-                                          LSTR("e[0].int2"), NULL, NULL));
-        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &f_d_vals[0],
-                                          &tstiop__my_union_a__s,
-                                          LSTR("ub"), NULL, NULL));
+        Z_ASSERT_NULL(iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s,
+            LSTR("unknown_field"), NULL, NULL
+        ));
+        Z_ASSERT_NULL(iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s, LSTR(""), NULL,
+            NULL
+        ));
+        Z_ASSERT_NULL(iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s, LSTR("."), NULL,
+            NULL
+        ));
+        Z_ASSERT_NULL(iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s, LSTR(".a"), NULL,
+            NULL
+        ));
+        Z_ASSERT_P(iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s, LSTR("l."), NULL,
+            NULL
+        ));
+        Z_ASSERT_NULL(iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s, LSTR("l.."),
+            NULL, NULL
+        ));
+        Z_ASSERT_NULL(iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s, LSTR("z[5]"),
+            NULL, NULL
+        ));
+        Z_ASSERT_NULL(iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s, LSTR("htab[42]"),
+            NULL, NULL
+        ));
+        Z_ASSERT_NULL(iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s, LSTR("htab[]"),
+            NULL, NULL
+        ));
+        Z_ASSERT_NULL(iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s, LSTR("htab[]]"),
+            NULL, NULL
+        ));
+        Z_ASSERT_NULL(iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s, LSTR("htab[a]"),
+            NULL, NULL
+        ));
+        Z_ASSERT_NULL(iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s, LSTR("htab[0a]"),
+            NULL, NULL
+        ));
+        Z_ASSERT_NULL(iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s, LSTR("htab[0]a"),
+            NULL, NULL
+        ));
+        Z_ASSERT_NULL(iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s,
+            LSTR("htab[-42]"), NULL, NULL
+        ));
+        Z_ASSERT_NULL(iop_get_field_const(
+            iop_env_ctx, &struct_f, &tstiop__my_struct_f__s, LSTR("c.a"),
+            NULL, NULL
+        ));
+        Z_ASSERT_NULL(iop_get_field_const(
+            iop_env_ctx, &struct_f, &tstiop__my_struct_f__s,
+            LSTR("e[0].int2"), NULL, NULL
+        ));
+        Z_ASSERT_NULL(iop_get_field_const(
+            iop_env_ctx, &f_d_vals[0], &tstiop__my_union_a__s, LSTR("ub"),
+            NULL, NULL
+        ));
 
-        Z_ASSERT_P(iop_get_field_const(iop_env_ctx, &f_e_cls3,
-                                       &tstiop__my_class3__s,
-                                       LSTR("int3"), NULL, NULL));
-        Z_ASSERT_P(iop_get_field_const(iop_env_ctx, &f_e_cls3.super,
-                                       &tstiop__my_class2__s,
-                                       LSTR("int3"), NULL, NULL));
+        Z_ASSERT_P(iop_get_field_const(
+            iop_env_ctx, &f_e_cls3, &tstiop__my_class3__s, LSTR("int3"), NULL,
+            NULL
+        ));
+        Z_ASSERT_P(iop_get_field_const(
+            iop_env_ctx, &f_e_cls3.super, &tstiop__my_class2__s, LSTR("int3"),
+            NULL, NULL
+        ));
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_a,
-                                        &tstiop__my_struct_a__s,
-                                        LSTR("a"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s, LSTR("a"), &out,
+            &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_struct_a__s);
         Z_ASSERT_EQ(*(int *)out, struct_a.a);
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_a,
-                                        &tstiop__my_struct_a__s,
-                                        LSTR("l"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s, LSTR("l"), &out,
+            &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_struct_a__s);
         Z_ASSERT_IOPEQUAL(tstiop__my_union_a, out, &struct_a.l);
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_a,
-                                        &tstiop__my_struct_a__s,
-                                        LSTR("l.ua"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s, LSTR("l.ua"),
+            &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_union_a__s);
         Z_ASSERT_EQ(*(int *)out, struct_a.l.ua);
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_a,
-                                        &tstiop__my_struct_a__s,
-                                        LSTR("cls2"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s, LSTR("cls2"),
+            &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_struct_a__s);
-        Z_ASSERT_IOPEQUAL(tstiop__my_class2, *(tstiop__my_class2__t **)out,
-                          struct_a.cls2);
+        Z_ASSERT_IOPEQUAL(
+            tstiop__my_class2, *(tstiop__my_class2__t **)out, struct_a.cls2
+        );
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_a,
-                                        &tstiop__my_struct_a__s,
-                                        LSTR("cls2.int2"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s,
+            LSTR("cls2.int2"), &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_class2__s);
         Z_ASSERT_EQ(*(int *)out, struct_a.cls2->int2);
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_a,
-                                        &tstiop__my_struct_a__s,
-                                        LSTR("cls2.int1"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s,
+            LSTR("cls2.int1"), &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_class1__s);
         Z_ASSERT_EQ(*(int *)out, struct_a.cls2->int1);
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_a,
-                                        &tstiop__my_struct_a__s,
-                                        LSTR("cls2.bool1"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s,
+            LSTR("cls2.bool1"), &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_class3__s);
         Z_ASSERT_EQ(*(bool *)out, cls3.bool1);
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_a,
-                                        &tstiop__my_struct_a__s,
-                                        LSTR("j"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s, LSTR("j"), &out,
+            &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_struct_a__s);
         Z_ASSERT_LSTREQUAL(*(lstr_t *)out, struct_a.j);
 
-        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR("cls2.bool10"), NULL, NULL));
+        Z_ASSERT_NULL(iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s,
+            LSTR("cls2.bool10"), NULL, NULL
+        ));
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_e,
-                                        &tstiop__my_struct_e__s,
-                                        LSTR("c"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_e, &tstiop__my_struct_e__s, LSTR("c"), &out,
+            &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_struct_e__s);
         Z_ASSERT_IOPEQUAL(tstiop__my_struct_b, out, &struct_e.c);
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_e,
-                                        &tstiop__my_struct_e__s,
-                                        LSTR("c.a"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_e, &tstiop__my_struct_e__s, LSTR("c.a"),
+            &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_struct_b__s);
         Z_ASSERT_EQ(*(int *)out, OPT_VAL(struct_e.c.a));
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_b,
-                                        &tstiop__my_struct_b__s,
-                                        LSTR("a"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_b, &tstiop__my_struct_b__s, LSTR("a"), &out,
+            &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_struct_b__s);
         Z_ASSERT(OPT_ISSET(*(opt_i32_t *)out));
         Z_ASSERT_OPT_EQ(*(opt_i32_t *)out, struct_b.a);
 
-        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR("a.b"), NULL, NULL));
+        Z_ASSERT_NULL(iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s, LSTR("a.b"),
+            NULL, NULL
+        ));
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_a_opt,
-                                        &tstiop__my_struct_a_opt__s,
-                                        LSTR("l"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_a_opt, &tstiop__my_struct_a_opt__s,
+            LSTR("l"), &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_struct_a_opt__s);
-        Z_ASSERT_IOPEQUAL(tstiop__my_union_a, *(tstiop__my_union_a__t **)out,
-                          struct_a_opt.l);
+        Z_ASSERT_IOPEQUAL(
+            tstiop__my_union_a, *(tstiop__my_union_a__t **)out, struct_a_opt.l
+        );
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_a_opt,
-                                        &tstiop__my_struct_a_opt__s,
-                                        LSTR("l.ua"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_a_opt, &tstiop__my_struct_a_opt__s,
+            LSTR("l.ua"), &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_union_a__s);
         Z_ASSERT_EQ(*((int *)out), struct_a_opt.l->ua);
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_c,
-                                        &tstiop__my_struct_c__s,
-                                        LSTR("b.a"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_c, &tstiop__my_struct_c__s, LSTR("b.a"),
+            &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_struct_c__s);
         Z_ASSERT_EQ(*(int *)out, struct_c.b->a);
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_a,
-                                        &tstiop__my_struct_a__s,
-                                        LSTR("lr"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s, LSTR("lr"), &out,
+            &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_struct_a__s);
         Z_ASSERT_NULL(*((tstiop__my_union_a__t **)out));
 
-        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_a,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR("lr.ua"), &out, &out_st));
+        Z_ASSERT_NULL(iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s, LSTR("lr.ua"),
+            &out, &out_st
+        ));
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_ref,
-                                        &tstiop__my_ref_struct__s,
-                                        LSTR("s"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_ref, &tstiop__my_ref_struct__s, LSTR("s"),
+            &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_ref_struct__s);
-        Z_ASSERT_IOPEQUAL(tstiop__my_referenced_struct,
-                          *(tstiop__my_referenced_struct__t **)out,
-                          struct_ref.s);
+        Z_ASSERT_IOPEQUAL(
+            tstiop__my_referenced_struct,
+            *(tstiop__my_referenced_struct__t **)out, struct_ref.s
+        );
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_ref,
-                                        &tstiop__my_ref_struct__s,
-                                        LSTR("s.a"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_ref, &tstiop__my_ref_struct__s, LSTR("s.a"),
+            &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_referenced_struct__s);
         Z_ASSERT_EQ(*(int *)out, struct_ref.s->a);
 
-        Z_ASSERT_NULL(iop_get_field_const(iop_env_ctx, &struct_ref,
-                                          &tstiop__my_ref_struct__s,
-                                          LSTR("u.b"), &out, &out_st));
+        Z_ASSERT_NULL(iop_get_field_const(
+            iop_env_ctx, &struct_ref, &tstiop__my_ref_struct__s, LSTR("u.b"),
+            &out, &out_st
+        ));
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_c,
-                                        &tstiop__my_struct_c__s,
-                                        LSTR("b.b.a"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_c, &tstiop__my_struct_c__s, LSTR("b.b.a"),
+            &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_struct_c__s);
         Z_ASSERT_EQ(*(int *)out, struct_c.b->b->a);
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_a,
-                                        &tstiop__my_struct_a__s,
-                                        LSTR("htab[0]"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s, LSTR("htab[0]"),
+            &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_struct_a__s);
         Z_ASSERT_EQ(*(uint64_t *)out, struct_a.htab.tab[0]);
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_a,
-                                        &tstiop__my_struct_a__s,
-                                        LSTR("htab[1]"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s, LSTR("htab[1]"),
+            &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_struct_a__s);
         Z_ASSERT_EQ(*(uint64_t *)out, struct_a.htab.tab[1]);
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_a,
-                                        &tstiop__my_struct_a__s,
-                                        LSTR("htab[-1]"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s, LSTR("htab[-1]"),
+            &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_struct_a__s);
         Z_ASSERT(out == tab_last(&struct_a.htab));
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_a,
-                                        &tstiop__my_struct_a__s,
-                                        LSTR("htab"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_a, &tstiop__my_struct_a__s, LSTR("htab"),
+            &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_struct_a__s);
         Z_ASSERT_EQ(((iop_array_u64_t *)out)->len, countof(htab_vals));
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_f,
-                                        &tstiop__my_struct_f__s,
-                                        LSTR("a[1]"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_f, &tstiop__my_struct_f__s, LSTR("a[1]"),
+            &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT_LSTREQUAL(*(lstr_t *)out, struct_f.a.tab[1]);
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_f,
-                                        &tstiop__my_struct_f__s,
-                                        LSTR("b[1]"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_f, &tstiop__my_struct_f__s, LSTR("b[1]"),
+            &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_struct_f__s);
         Z_ASSERT_LSTREQUAL(*(lstr_t *)out, struct_f.b.tab[1]);
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_f,
-                                        &tstiop__my_struct_f__s,
-                                        LSTR("c[1].a"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_f, &tstiop__my_struct_f__s, LSTR("c[1].a"),
+            &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_struct_b__s);
-        Z_ASSERT_EQ(OPT_ISSET(*(opt_i32_t *)out),
-                    OPT_ISSET(struct_f.c.tab[1].a));
+        Z_ASSERT_EQ(
+            OPT_ISSET(*(opt_i32_t *)out), OPT_ISSET(struct_f.c.tab[1].a)
+        );
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_f,
-                                        &tstiop__my_struct_f__s,
-                                        LSTR("c[0].b[1]"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_f, &tstiop__my_struct_f__s,
+            LSTR("c[0].b[1]"), &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_struct_b__s);
         Z_ASSERT_EQ(*(int *)out, struct_f.c.tab[0].b.tab[1]);
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_f,
-                                        &tstiop__my_struct_f__s,
-                                        LSTR("d[0].ua"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_f, &tstiop__my_struct_f__s, LSTR("d[0].ua"),
+            &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_union_a__s);
-        Z_ASSERT_EQ(*(int *)out, *IOP_UNION_GET(tstiop__my_union_a,
-                                                &struct_f.d.tab[0], ua));
+        Z_ASSERT_EQ(
+            *(int *)out,
+            *IOP_UNION_GET(tstiop__my_union_a, &struct_f.d.tab[0], ua)
+        );
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_f,
-                                        &tstiop__my_struct_f__s,
-                                        LSTR("d[1].ub"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_f, &tstiop__my_struct_f__s, LSTR("d[1].ub"),
+            &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_union_a__s);
-        Z_ASSERT_EQ(*(int8_t *)out, *IOP_UNION_GET(tstiop__my_union_a,
-                                                   &struct_f.d.tab[1], ub));
+        Z_ASSERT_EQ(
+            *(int8_t *)out,
+            *IOP_UNION_GET(tstiop__my_union_a, &struct_f.d.tab[1], ub)
+        );
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_f,
-                                        &tstiop__my_struct_f__s,
-                                        LSTR("d[2].us"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_f, &tstiop__my_struct_f__s, LSTR("d[2].us"),
+            &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_union_a__s);
-        Z_ASSERT_LSTREQUAL(*(lstr_t *)out, *IOP_UNION_GET(tstiop__my_union_a,
-                                                          &struct_f.d.tab[2],
-                                                          us));
+        Z_ASSERT_LSTREQUAL(
+            *(lstr_t *)out,
+            *IOP_UNION_GET(tstiop__my_union_a, &struct_f.d.tab[2], us)
+        );
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_f,
-                                        &tstiop__my_struct_f__s,
-                                        LSTR("e[0].int1"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_f, &tstiop__my_struct_f__s,
+            LSTR("e[0].int1"), &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_class1__s);
         Z_ASSERT_EQ(*(int *)out, f_e_cls1.int1);
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_f,
-                                        &tstiop__my_struct_f__s,
-                                        LSTR("e[1].int1"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_f, &tstiop__my_struct_f__s,
+            LSTR("e[1].int1"), &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_class1__s);
         Z_ASSERT_EQ(*(int *)out, f_e_cls2.int1);
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_f,
-                                        &tstiop__my_struct_f__s,
-                                        LSTR("e[1].int2"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_f, &tstiop__my_struct_f__s,
+            LSTR("e[1].int2"), &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_class2__s);
         Z_ASSERT_EQ(*(int *)out, f_e_cls2.int2);
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_f,
-                                        &tstiop__my_struct_f__s,
-                                        LSTR("e[2].int1"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_f, &tstiop__my_struct_f__s,
+            LSTR("e[2].int1"), &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_class1__s);
         Z_ASSERT_EQ(*(int *)out, f_e_cls3.int1);
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_f,
-                                        &tstiop__my_struct_f__s,
-                                        LSTR("e[2].int2"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_f, &tstiop__my_struct_f__s,
+            LSTR("e[2].int2"), &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_class2__s);
         Z_ASSERT_EQ(*(int *)out, f_e_cls3.int2);
 
-        iop_field = iop_get_field_const(iop_env_ctx, &struct_f,
-                                        &tstiop__my_struct_f__s,
-                                        LSTR("e[2].bool1"), &out, &out_st);
+        iop_field = iop_get_field_const(
+            iop_env_ctx, &struct_f, &tstiop__my_struct_f__s,
+            LSTR("e[2].bool1"), &out, &out_st
+        );
         Z_ASSERT_P(iop_field);
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_class3__s);
         Z_ASSERT(out == &f_e_cls3.bool1);
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
-    Z_TEST(iop_struct_get_field, "test iop_struct_get_field function") { /* {{{ */
+    Z_TEST(
+        iop_struct_get_field, "test iop_struct_get_field function"
+    ) { /* {{{
+         */
         iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
 
         /* Error cases */
-        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR("unknown_field"), NULL, NULL));
-        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR(""), NULL, NULL));
-        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR("."), NULL, NULL));
-        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR(".a"), NULL, NULL));
-        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR("l.."), NULL, NULL));
-        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR("z[5]"), NULL, NULL));
-        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR("htab[]"), NULL, NULL));
-        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR("htab[]]"), NULL, NULL));
-        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR("htab[a]"), NULL, NULL));
-        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR("htab[0a]"), NULL, NULL));
-        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR("htab[0]a"), NULL, NULL));
-        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
-                                          &tstiop__my_struct_f__s,
-                                          LSTR("e[0].int2"), NULL, NULL));
+        Z_ASSERT_NEG(iop_struct_get_field(
+            iop_env_ctx, &tstiop__my_struct_a__s, LSTR("unknown_field"), NULL,
+            NULL
+        ));
+        Z_ASSERT_NEG(iop_struct_get_field(
+            iop_env_ctx, &tstiop__my_struct_a__s, LSTR(""), NULL, NULL
+        ));
+        Z_ASSERT_NEG(iop_struct_get_field(
+            iop_env_ctx, &tstiop__my_struct_a__s, LSTR("."), NULL, NULL
+        ));
+        Z_ASSERT_NEG(iop_struct_get_field(
+            iop_env_ctx, &tstiop__my_struct_a__s, LSTR(".a"), NULL, NULL
+        ));
+        Z_ASSERT_NEG(iop_struct_get_field(
+            iop_env_ctx, &tstiop__my_struct_a__s, LSTR("l.."), NULL, NULL
+        ));
+        Z_ASSERT_NEG(iop_struct_get_field(
+            iop_env_ctx, &tstiop__my_struct_a__s, LSTR("z[5]"), NULL, NULL
+        ));
+        Z_ASSERT_NEG(iop_struct_get_field(
+            iop_env_ctx, &tstiop__my_struct_a__s, LSTR("htab[]"), NULL, NULL
+        ));
+        Z_ASSERT_NEG(iop_struct_get_field(
+            iop_env_ctx, &tstiop__my_struct_a__s, LSTR("htab[]]"), NULL, NULL
+        ));
+        Z_ASSERT_NEG(iop_struct_get_field(
+            iop_env_ctx, &tstiop__my_struct_a__s, LSTR("htab[a]"), NULL, NULL
+        ));
+        Z_ASSERT_NEG(iop_struct_get_field(
+            iop_env_ctx, &tstiop__my_struct_a__s, LSTR("htab[0a]"), NULL, NULL
+        ));
+        Z_ASSERT_NEG(iop_struct_get_field(
+            iop_env_ctx, &tstiop__my_struct_a__s, LSTR("htab[0]a"), NULL, NULL
+        ));
+        Z_ASSERT_NEG(iop_struct_get_field(
+            iop_env_ctx, &tstiop__my_struct_f__s, LSTR("e[0].int2"), NULL,
+            NULL
+        ));
 
-        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx, &tstiop__my_class2__s,
-                                          LSTR("int3"), NULL, NULL));
+        Z_ASSERT_NEG(iop_struct_get_field(
+            iop_env_ctx, &tstiop__my_class2__s, LSTR("int3"), NULL, NULL
+        ));
 
-        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR("cls2.bool10"), NULL, NULL));
-        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR("cls2.int3"), NULL, NULL));
-        Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
-                                          &tstiop__my_struct_a__s,
-                                          LSTR("cls2.<MyClass2Priv>bool1"),
-                                          NULL, NULL));
+        Z_ASSERT_NEG(iop_struct_get_field(
+            iop_env_ctx, &tstiop__my_struct_a__s, LSTR("cls2.bool10"), NULL,
+            NULL
+        ));
+        Z_ASSERT_NEG(iop_struct_get_field(
+            iop_env_ctx, &tstiop__my_struct_a__s, LSTR("cls2.int3"), NULL,
+            NULL
+        ));
+        Z_ASSERT_NEG(iop_struct_get_field(
+            iop_env_ctx, &tstiop__my_struct_a__s,
+            LSTR("cls2.<MyClass2Priv>bool1"), NULL, NULL
+        ));
         /* Success cases */
 #define T_OK(_st, _path, ...)                                                \
-    Z_HELPER_RUN(                                                            \
-        z_test_iop_struct_get_field((_st), (_path),                          \
-                                    (z_iop_get_field_exp_t) { __VA_ARGS__  })\
-    )
-        T_OK(&tstiop__my_class3__s, "int3",
-             .field_st = &tstiop__my_class3__s,
-             .field_name = "int3",
-             .field_type = IOP_T_I32);
+    Z_HELPER_RUN(z_test_iop_struct_get_field(                                \
+        (_st), (_path), (z_iop_get_field_exp_t){__VA_ARGS__}                 \
+    ))
+        T_OK(
+            &tstiop__my_class3__s, "int3", .field_st = &tstiop__my_class3__s,
+            .field_name = "int3", .field_type = IOP_T_I32
+        );
 
-        T_OK(&tstiop__my_struct_a__s, "a",
-             .field_st = &tstiop__my_struct_a__s,
-             .field_name = "a",
-             .field_type = IOP_T_I32);
+        T_OK(
+            &tstiop__my_struct_a__s, "a", .field_st = &tstiop__my_struct_a__s,
+            .field_name = "a", .field_type = IOP_T_I32
+        );
 
-        T_OK(&tstiop__my_struct_a__s, "l",
-             .field_st = &tstiop__my_struct_a__s,
-             .field_name = "l",
-             .field_type = IOP_T_UNION);
+        T_OK(
+            &tstiop__my_struct_a__s, "l", .field_st = &tstiop__my_struct_a__s,
+            .field_name = "l", .field_type = IOP_T_UNION
+        );
 
         /* XXX: This is an edge case, it is valid but strange. */
-        T_OK(&tstiop__my_struct_a__s, "l.",
-             .field_st = &tstiop__my_struct_a__s,
-             .field_name = "l",
-             .field_type = IOP_T_UNION);
+        T_OK(
+            &tstiop__my_struct_a__s, "l.",
+            .field_st = &tstiop__my_struct_a__s, .field_name = "l",
+            .field_type = IOP_T_UNION
+        );
 
-        T_OK(&tstiop__my_struct_a__s, "l.ua",
-             .field_st = &tstiop__my_union_a__s,
-             .field_name = "ua",
-             .field_type = IOP_T_I32);
+        T_OK(
+            &tstiop__my_struct_a__s, "l.ua",
+            .field_st = &tstiop__my_union_a__s, .field_name = "ua",
+            .field_type = IOP_T_I32
+        );
 
-        T_OK(&tstiop__my_struct_a__s, "lr.ua",
-             .field_st = &tstiop__my_union_a__s,
-             .field_name = "ua",
-             .field_type = IOP_T_I32);
+        T_OK(
+            &tstiop__my_struct_a__s, "lr.ua",
+            .field_st = &tstiop__my_union_a__s, .field_name = "ua",
+            .field_type = IOP_T_I32
+        );
 
-        T_OK(&tstiop__my_struct_a__s, "h",
-             .field_st = &tstiop__my_struct_a__s,
-             .field_name = "h",
-             .field_type = IOP_T_U64);
+        T_OK(
+            &tstiop__my_struct_a__s, "h", .field_st = &tstiop__my_struct_a__s,
+            .field_name = "h", .field_type = IOP_T_U64
+        );
 
-        T_OK(&tstiop__my_struct_a__s, "h[42]",
-             .field_st = &tstiop__my_struct_a__s,
-             .field_name = "h",
-             .field_type = IOP_T_U64);
+        T_OK(
+            &tstiop__my_struct_a__s, "h[42]",
+            .field_st = &tstiop__my_struct_a__s, .field_name = "h",
+            .field_type = IOP_T_U64
+        );
 
-        T_OK(&tstiop__my_struct_a__s, "h[-42]",
-             .field_st = &tstiop__my_struct_a__s,
-             .field_name = "h",
-             .field_type = IOP_T_U64);
+        T_OK(
+            &tstiop__my_struct_a__s, "h[-42]",
+            .field_st = &tstiop__my_struct_a__s, .field_name = "h",
+            .field_type = IOP_T_U64
+        );
 
-        T_OK(&tstiop__my_union_a__s, "ub",
-             .field_st = &tstiop__my_union_a__s,
-             .field_name = "ub",
-             .field_type = IOP_T_I8);
+        T_OK(
+            &tstiop__my_union_a__s, "ub", .field_st = &tstiop__my_union_a__s,
+            .field_name = "ub", .field_type = IOP_T_I8
+        );
 
-        T_OK(&tstiop__my_struct_a__s, "cls2",
-             .field_st = &tstiop__my_struct_a__s,
-             .field_name = "cls2",
-             .field_type = IOP_T_STRUCT);
+        T_OK(
+            &tstiop__my_struct_a__s, "cls2",
+            .field_st = &tstiop__my_struct_a__s, .field_name = "cls2",
+            .field_type = IOP_T_STRUCT
+        );
 
-        T_OK(&tstiop__my_struct_a__s, "cls2.int2",
-             .field_st = &tstiop__my_class2__s,
-             .field_name = "int2",
-             .field_type = IOP_T_I32);
+        T_OK(
+            &tstiop__my_struct_a__s, "cls2.int2",
+            .field_st = &tstiop__my_class2__s, .field_name = "int2",
+            .field_type = IOP_T_I32
+        );
 
-        T_OK(&tstiop__my_struct_a__s, "cls2.int1",
-             .field_st = &tstiop__my_class1__s,
-             .field_name = "int1",
-             .field_type = IOP_T_I32);
+        T_OK(
+            &tstiop__my_struct_a__s, "cls2.int1",
+            .field_st = &tstiop__my_class1__s, .field_name = "int1",
+            .field_type = IOP_T_I32
+        );
 
-        T_OK(&tstiop__my_struct_a__s, "cls2.<tstiop.MyClass2>int1",
-             .field_st = &tstiop__my_class1__s,
-             .field_name = "int1",
-             .field_type = IOP_T_I32);
+        T_OK(
+            &tstiop__my_struct_a__s, "cls2.<tstiop.MyClass2>int1",
+            .field_st = &tstiop__my_class1__s, .field_name = "int1",
+            .field_type = IOP_T_I32
+        );
 
-        T_OK(&tstiop__my_struct_a__s, "cls2.<tstiop.MyClass3>bool1",
-             .field_st = &tstiop__my_class3__s,
-             .field_name = "bool1",
-             .field_type = IOP_T_BOOL);
+        T_OK(
+            &tstiop__my_struct_a__s, "cls2.<tstiop.MyClass3>bool1",
+            .field_st = &tstiop__my_class3__s, .field_name = "bool1",
+            .field_type = IOP_T_BOOL
+        );
 
-        T_OK(&tstiop__my_struct_a__s, "cls2.<tstiop.MyClass3>bool1",
-             .field_st = &tstiop__my_class3__s,
-             .field_name = "bool1",
-             .field_type = IOP_T_BOOL);
+        T_OK(
+            &tstiop__my_struct_a__s, "cls2.<tstiop.MyClass3>bool1",
+            .field_st = &tstiop__my_class3__s, .field_name = "bool1",
+            .field_type = IOP_T_BOOL
+        );
 
-        T_OK(&tstiop__my_struct_e__s, "c.a",
-             .field_st = &tstiop__my_struct_b__s,
-             .field_name = "a",
-             .field_type = IOP_T_I32);
+        T_OK(
+            &tstiop__my_struct_e__s, "c.a",
+            .field_st = &tstiop__my_struct_b__s, .field_name = "a",
+            .field_type = IOP_T_I32
+        );
 
-        T_OK(&tstiop__my_struct_a_opt__s, "l.ua",
-             .field_st = &tstiop__my_union_a__s,
-             .field_name = "ua",
-             .field_type = IOP_T_I32);
+        T_OK(
+            &tstiop__my_struct_a_opt__s, "l.ua",
+            .field_st = &tstiop__my_union_a__s, .field_name = "ua",
+            .field_type = IOP_T_I32
+        );
 
 #undef T_OK
-
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
-    Z_TEST(iop_get_field_values, "test iop_get_field_values function") { /* {{{ */
+    Z_TEST(
+        iop_get_field_values, "test iop_get_field_values function"
+    ) { /* {{{
+         */
         t_scope;
         tstiop__z_iop_get_field_values__t z_struct;
 
         iop_init(tstiop__z_iop_get_field_values, &z_struct);
 #define TEST(field_path, exp_ptr, exp_len, exp_is_array_of_pointers)         \
-        Z_HELPER_RUN(z_iop_get_field_values_check(                           \
-                &tstiop__z_iop_get_field_values__s, &z_struct, (field_path), \
-                (exp_ptr), (exp_len), (exp_is_array_of_pointers)));
+    Z_HELPER_RUN(z_iop_get_field_values_check(                               \
+        &tstiop__z_iop_get_field_values__s, &z_struct, (field_path),         \
+        (exp_ptr), (exp_len), (exp_is_array_of_pointers)                     \
+    ));
 
         TEST("integer", &z_struct.integer, 1, false);
         TEST("integerTab", z_struct.integer_tab.tab, 0, false);
@@ -7375,7 +8326,8 @@ Z_GROUP_EXPORT(iop)
         TEST("optVoid", NULL, 1, false);
 
 #undef TEST
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
     Z_TEST(iop_value_from_field, "test iop_value_from_field") { /* {{{ */
         iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
@@ -7389,11 +8341,10 @@ Z_GROUP_EXPORT(iop)
         st = &tstiop__my_struct_g__s;
 
 #define TEST_FIELD(_n, _type, _value_field, _u, _res)                        \
-        field = &st->fields[_n];                                             \
-        Z_ASSERT_N(iop_value_from_field((void *) &sg, field, &value));       \
-        Z_ASSERT_EQ((int)iop_value_field_from_type(field->type),             \
-                    _value_field);                                           \
-        Z_ASSERT_EQ(value._u, (_type) _res)
+    field = &st->fields[_n];                                                 \
+    Z_ASSERT_N(iop_value_from_field((void *)&sg, field, &value));            \
+    Z_ASSERT_EQ((int)iop_value_field_from_type(field->type), _value_field);  \
+    Z_ASSERT_EQ(value._u, (_type)_res)
 
         TEST_FIELD(0, int64_t, IOP_VALUE_I, i, -1);
         TEST_FIELD(1, uint64_t, IOP_VALUE_U, u, 2);
@@ -7403,7 +8354,7 @@ Z_GROUP_EXPORT(iop)
 #undef TEST_FIELD
 
         field = &st->fields[9];
-        Z_ASSERT_N(iop_value_from_field((void *) &sg, field, &value));
+        Z_ASSERT_N(iop_value_from_field((void *)&sg, field, &value));
         Z_ASSERT_LSTREQUAL(value.s, LSTR("fo\"o?cbaré©"));
 
         /* test to get struct */
@@ -7416,7 +8367,7 @@ Z_GROUP_EXPORT(iop)
             sk.j.cval = 2314;
             st = &tstiop__my_struct_k__s;
             field = &st->fields[0];
-            Z_ASSERT_N(iop_value_from_field((void *) &sk, field, &value));
+            Z_ASSERT_N(iop_value_from_field((void *)&sk, field, &value));
             sj = value.v;
             Z_ASSERT_EQ(sj->cval, 2314);
         }
@@ -7435,7 +8386,7 @@ Z_GROUP_EXPORT(iop)
 
             st = &tstiop__my_ref_struct__s;
             field = &st->fields[0];
-            Z_ASSERT_N(iop_value_from_field((void *) &ref_st, field, &value));
+            Z_ASSERT_N(iop_value_from_field((void *)&ref_st, field, &value));
             p = value.v;
             Z_ASSERT_EQ(p->a, 23);
         }
@@ -7454,26 +8405,32 @@ Z_GROUP_EXPORT(iop)
 
             field = &st->fields[0];
             Z_ASSERT_N(iop_value_from_field((void *)&s, field, &value));
-            Z_ASSERT_EQ((int)iop_value_field_from_type(field->type),
-                        IOP_VALUE_I);
+            Z_ASSERT_EQ(
+                (int)iop_value_field_from_type(field->type), IOP_VALUE_I
+            );
             Z_ASSERT_EQ(value.i, 42);
 
             iop_init(tstiop__my_struct_a_opt, &s);
-            Z_ASSERT_EQ(iop_value_from_field((void *)&s, field, &value),
-                        IOP_FIELD_NOT_SET);
+            Z_ASSERT_EQ(
+                iop_value_from_field((void *)&s, field, &value),
+                IOP_FIELD_NOT_SET
+            );
 
             /* string field */
             iop_init(tstiop__my_struct_a_opt, &s);
             s.j = LSTR("abc");
             field = &st->fields[9];
             Z_ASSERT_N(iop_value_from_field((void *)&s, field, &value));
-            Z_ASSERT_EQ((int)iop_value_field_from_type(field->type),
-                        IOP_VALUE_S);
+            Z_ASSERT_EQ(
+                (int)iop_value_field_from_type(field->type), IOP_VALUE_S
+            );
             Z_ASSERT_LSTREQUAL(value.s, LSTR("abc"));
 
             iop_init(tstiop__my_struct_a_opt, &s);
-            Z_ASSERT_EQ(iop_value_from_field((void *)&s, field, &value),
-                        IOP_FIELD_NOT_SET);
+            Z_ASSERT_EQ(
+                iop_value_from_field((void *)&s, field, &value),
+                IOP_FIELD_NOT_SET
+            );
 
             /* struct field */
             iop_init(tstiop__my_struct_a_opt, &s);
@@ -7482,14 +8439,17 @@ Z_GROUP_EXPORT(iop)
 
             field = &st->fields[15];
             Z_ASSERT_N(iop_value_from_field((void *)&s, field, &value));
-            Z_ASSERT_EQ((int)iop_value_field_from_type(field->type),
-                        IOP_VALUE_PTR);
+            Z_ASSERT_EQ(
+                (int)iop_value_field_from_type(field->type), IOP_VALUE_PTR
+            );
             Z_ASSERT_P(value.v);
             Z_ASSERT_EQ(OPT_VAL(((tstiop__my_struct_b__t *)value.v)->a), 42);
 
             iop_init(tstiop__my_struct_a_opt, &s);
-            Z_ASSERT_EQ(iop_value_from_field((void *)&s, field, &value),
-                        IOP_FIELD_NOT_SET);
+            Z_ASSERT_EQ(
+                iop_value_from_field((void *)&s, field, &value),
+                IOP_FIELD_NOT_SET
+            );
 
             /* class field */
             iop_init(tstiop__my_struct_a_opt, &s);
@@ -7498,14 +8458,17 @@ Z_GROUP_EXPORT(iop)
 
             field = &st->fields[16];
             Z_ASSERT_N(iop_value_from_field((void *)&s, field, &value));
-            Z_ASSERT_EQ((int)iop_value_field_from_type(field->type),
-                        IOP_VALUE_PTR);
+            Z_ASSERT_EQ(
+                (int)iop_value_field_from_type(field->type), IOP_VALUE_PTR
+            );
             Z_ASSERT_P(value.v);
             Z_ASSERT_EQ(((tstiop__my_class2__t *)value.v)->int2, 42);
 
             iop_init(tstiop__my_struct_a_opt, &s);
-            Z_ASSERT_EQ(iop_value_from_field((void *)&s, field, &value),
-                        IOP_FIELD_NOT_SET);
+            Z_ASSERT_EQ(
+                iop_value_from_field((void *)&s, field, &value),
+                IOP_FIELD_NOT_SET
+            );
 
             /* not handled array field */
             iop_init(tstiop__my_struct_b, &sb);
@@ -7515,12 +8478,16 @@ Z_GROUP_EXPORT(iop)
 
             st = &tstiop__my_struct_b__s;
             field = &st->fields[1];
-            Z_ASSERT_EQ(iop_value_from_field((void *)&s, field, &value),
-                        IOP_FIELD_ERROR);
+            Z_ASSERT_EQ(
+                iop_value_from_field((void *)&s, field, &value),
+                IOP_FIELD_ERROR
+            );
 
             iop_init(tstiop__my_struct_b, &sb);
-            Z_ASSERT_EQ(iop_value_from_field((void *)&s, field, &value),
-                        IOP_FIELD_ERROR);
+            Z_ASSERT_EQ(
+                iop_value_from_field((void *)&s, field, &value),
+                IOP_FIELD_ERROR
+            );
         }
 
         /* test with iop_get_field */
@@ -7538,40 +8505,48 @@ Z_GROUP_EXPORT(iop)
             struct_a.cls2 = &cls2;
             st = &tstiop__my_struct_a__s;
 
-            field = iop_get_field_const(iop_env_ctx, &struct_a, st, LSTR("a"),
-                                        &ptr, NULL);
+            field = iop_get_field_const(
+                iop_env_ctx, &struct_a, st, LSTR("a"), &ptr, NULL
+            );
             Z_ASSERT_P(field);
             ptr = (const byte *)ptr - field->data_offs;
             Z_ASSERT_N(iop_value_from_field(ptr, field, &value));
             Z_ASSERT_EQ(value.i, struct_a.a);
 
-            field = iop_get_field_const(iop_env_ctx, &struct_a, st,
-                                        LSTR("l.ua"), &ptr, NULL);
+            field = iop_get_field_const(
+                iop_env_ctx, &struct_a, st, LSTR("l.ua"), &ptr, NULL
+            );
             Z_ASSERT_P(field);
             ptr = (const byte *)ptr - field->data_offs;
             Z_ASSERT_N(iop_value_from_field(ptr, field, &value));
             Z_ASSERT_EQ(value.i, struct_a.l.ua);
 
-            field = iop_get_field_const(iop_env_ctx, &struct_a, st,
-                                        LSTR("lr"), &ptr, NULL);
+            field = iop_get_field_const(
+                iop_env_ctx, &struct_a, st, LSTR("lr"), &ptr, NULL
+            );
             Z_ASSERT_P(field);
             ptr = (const byte *)ptr - field->data_offs;
             Z_ASSERT_N(iop_value_from_field(ptr, field, &value));
-            Z_ASSERT_EQ(((tstiop__my_union_a__t *)value.p)->ua,
-                        struct_a.lr->ua);
+            Z_ASSERT_EQ(
+                ((tstiop__my_union_a__t *)value.p)->ua, struct_a.lr->ua
+            );
 
-            field = iop_get_field_const(iop_env_ctx, &struct_a, st,
-                                        LSTR("cls2"), &ptr, NULL);
+            field = iop_get_field_const(
+                iop_env_ctx, &struct_a, st, LSTR("cls2"), &ptr, NULL
+            );
             Z_ASSERT_P(field);
             ptr = (const byte *)ptr - field->data_offs;
             Z_ASSERT_N(iop_value_from_field(ptr, field, &value));
-            Z_ASSERT_EQ(((tstiop__my_class2__t *)value.p)->int1,
-                        struct_a.cls2->int1);
+            Z_ASSERT_EQ(
+                ((tstiop__my_class2__t *)value.p)->int1, struct_a.cls2->int1
+            );
         }
 
-        Z_ASSERT_EQ((int)iop_value_field_from_type(IOP_T_VOID),
-                    IOP_VALUE_NONE);
-    } Z_TEST_END
+        Z_ASSERT_EQ(
+            (int)iop_value_field_from_type(IOP_T_VOID), IOP_VALUE_NONE
+        );
+    }
+    Z_TEST_END
     /* }}} */
     Z_TEST(iop_value_to_field, "test iop_value_to_field") { /* {{{ */
         iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
@@ -7592,13 +8567,13 @@ Z_GROUP_EXPORT(iop)
         st = &tstiop__my_struct_g__s;
         field = &st->fields[0];
         value.i = 2314;
-        iop_value_to_field((void *) &sg, field, &value);
+        iop_value_to_field((void *)&sg, field, &value);
         Z_ASSERT_EQ(sg.a, 2314);
 
         /* test with optional int */
         st = &tstiop__my_struct_a_opt__s;
         field = &st->fields[0];
-        iop_value_to_field((void *) &saopt, field, &value);
+        iop_value_to_field((void *)&saopt, field, &value);
         Z_ASSERT(OPT_ISSET(saopt.a));
         Z_ASSERT_EQ(OPT_VAL(saopt.a), 2314);
 
@@ -7606,13 +8581,13 @@ Z_GROUP_EXPORT(iop)
         st = &tstiop__my_struct_g__s;
         field = &st->fields[9];
         value.s = LSTR("fo\"o?cbaré©");
-        iop_value_to_field((void *) &sg, field, &value);
+        iop_value_to_field((void *)&sg, field, &value);
         Z_ASSERT_LSTREQUAL(sg.j, LSTR("fo\"o?cbaré©"));
 
         /* test with optional string */
         st = &tstiop__my_struct_a_opt__s;
         field = &st->fields[9];
-        iop_value_to_field((void *) &saopt, field, &value);
+        iop_value_to_field((void *)&saopt, field, &value);
         Z_ASSERT_LSTREQUAL(saopt.j, LSTR("fo\"o?cbaré©"));
 
         /* test struct */
@@ -7620,7 +8595,7 @@ Z_GROUP_EXPORT(iop)
         value.p = &sj;
         st = &tstiop__my_struct_k__s;
         field = &st->fields[0];
-        iop_value_to_field((void *) &sk, field, &value);
+        iop_value_to_field((void *)&sk, field, &value);
         Z_ASSERT_EQ(sk.j.cval, 42);
 
         /* test to get reference */
@@ -7640,7 +8615,7 @@ Z_GROUP_EXPORT(iop)
 
             st = &tstiop__my_ref_struct__s;
             field = &st->fields[0];
-            iop_value_to_field((void *) &ref_st, field, &value);
+            iop_value_to_field((void *)&ref_st, field, &value);
             Z_ASSERT_EQ(ref_st.s->a, 23);
         }
 
@@ -7653,7 +8628,7 @@ Z_GROUP_EXPORT(iop)
             value.i = 42;
             st = &tstiop__my_struct_b__s;
             field = &st->fields[0];
-            iop_value_to_field((void *) &sb, field, &value);
+            iop_value_to_field((void *)&sb, field, &value);
             Z_ASSERT_EQ(*OPT_GET(&sb.a), 42);
         }
 
@@ -7688,38 +8663,43 @@ Z_GROUP_EXPORT(iop)
             st = &tstiop__my_struct_a__s;
 
             value.i = 42;
-            field = iop_get_field_const(iop_env_ctx, &struct_a, st, LSTR("a"),
-                                        &ptr, NULL);
+            field = iop_get_field_const(
+                iop_env_ctx, &struct_a, st, LSTR("a"), &ptr, NULL
+            );
             Z_ASSERT_P(field);
             ptr = (const byte *)ptr - field->data_offs;
             iop_value_to_field((void *)ptr, field, &value);
             Z_ASSERT_EQ(value.i, struct_a.a);
 
             value.i = 21;
-            field = iop_get_field_const(iop_env_ctx, &struct_a, st,
-                                        LSTR("l.ua"), &ptr, NULL);
+            field = iop_get_field_const(
+                iop_env_ctx, &struct_a, st, LSTR("l.ua"), &ptr, NULL
+            );
             Z_ASSERT_P(field);
             ptr = (const byte *)ptr - field->data_offs;
             iop_value_to_field((void *)ptr, field, &value);
             Z_ASSERT_EQ(value.i, struct_a.l.ua);
 
             value.p = &struct_a.l;
-            field = iop_get_field_const(iop_env_ctx, &struct_a, st,
-                                        LSTR("lr"), &ptr, NULL);
+            field = iop_get_field_const(
+                iop_env_ctx, &struct_a, st, LSTR("lr"), &ptr, NULL
+            );
             Z_ASSERT_P(field);
             ptr = (const byte *)ptr - field->data_offs;
             iop_value_to_field((void *)ptr, field, &value);
             Z_ASSERT_EQ(struct_a.l.ua, struct_a.lr->ua);
 
             value.p = &cls2;
-            field = iop_get_field_const(iop_env_ctx, &struct_a, st,
-                                        LSTR("cls2"), &ptr, NULL);
+            field = iop_get_field_const(
+                iop_env_ctx, &struct_a, st, LSTR("cls2"), &ptr, NULL
+            );
             Z_ASSERT_P(field);
             ptr = (const byte *)ptr - field->data_offs;
             iop_value_to_field((void *)ptr, field, &value);
             Z_ASSERT_EQ(cls2.int1, struct_a.cls2->int1);
         }
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
     Z_TEST(nr_47521, "test bug while unpacking json with bunpack") { /* {{{ */
         /* test that bunpack does not crash when trying to unpack json */
@@ -7732,165 +8712,213 @@ Z_GROUP_EXPORT(iop)
 
         iop_init(tstiop__my_struct_b, &b);
         Z_ASSERT_N(iop_sb_jpack(&sb, &tstiop__my_struct_b__s, &b, 0));
-        Z_ASSERT_NEG(t_iop_bunpack(iop_env_ctx, &LSTR_SB_V(&sb),
-                                   tstiop__my_struct_b, &b));
+        Z_ASSERT_NEG(t_iop_bunpack(
+            iop_env_ctx, &LSTR_SB_V(&sb), tstiop__my_struct_b, &b
+        ));
 
         iop_init(tstiop__my_class1, &c);
         Z_ASSERT_N(iop_sb_jpack(&sb, &tstiop__my_class1__s, &c, 0));
-        Z_ASSERT_NEG(iop_bunpack_ptr(t_pool(), iop_env_ctx,
-                                     &tstiop__my_class1__s,
-                                     (void **)&c_ptr, ps_initsb(&sb), false));
-    } Z_TEST_END;
+        Z_ASSERT_NEG(iop_bunpack_ptr(
+            t_pool(), iop_env_ctx, &tstiop__my_class1__s, (void **)&c_ptr,
+            ps_initsb(&sb), false
+        ));
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(iop_enum, "test iop enums") { /* {{{ */
         iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         bool found = false;
         const iop_enum_t *en;
 
-        Z_ASSERT_EQ(iop_enum_from_str(tstiop__my_enum_a, "A", -1, -1),
-                    MY_ENUM_A_A);
-        Z_ASSERT_EQ(iop_enum_from_str(tstiop__my_enum_a, "b", -1, -1),
-                    MY_ENUM_A_B);
-        Z_ASSERT_EQ(iop_enum_from_str(tstiop__my_enum_a, "c", -1, -1),
-                    MY_ENUM_A_C);
+        Z_ASSERT_EQ(
+            iop_enum_from_str(tstiop__my_enum_a, "A", -1, -1), MY_ENUM_A_A
+        );
+        Z_ASSERT_EQ(
+            iop_enum_from_str(tstiop__my_enum_a, "b", -1, -1), MY_ENUM_A_B
+        );
+        Z_ASSERT_EQ(
+            iop_enum_from_str(tstiop__my_enum_a, "c", -1, -1), MY_ENUM_A_C
+        );
 
-        Z_ASSERT_EQ(iop_enum_from_str2(tstiop__my_enum_a, "A", -1, &found),
-                    MY_ENUM_A_A);
-        Z_ASSERT_EQ(iop_enum_from_str2(tstiop__my_enum_a, "b", -1, &found),
-                    MY_ENUM_A_B);
-        Z_ASSERT_EQ(iop_enum_from_str2(tstiop__my_enum_a, "c", -1, &found),
-                    MY_ENUM_A_C);
+        Z_ASSERT_EQ(
+            iop_enum_from_str2(tstiop__my_enum_a, "A", -1, &found),
+            MY_ENUM_A_A
+        );
+        Z_ASSERT_EQ(
+            iop_enum_from_str2(tstiop__my_enum_a, "b", -1, &found),
+            MY_ENUM_A_B
+        );
+        Z_ASSERT_EQ(
+            iop_enum_from_str2(tstiop__my_enum_a, "c", -1, &found),
+            MY_ENUM_A_C
+        );
 
-        Z_ASSERT_EQ(iop_enum_from_lstr(tstiop__my_enum_a, LSTR("A"), &found),
-                    MY_ENUM_A_A);
-        Z_ASSERT_EQ(iop_enum_from_lstr(tstiop__my_enum_a, LSTR("b"), &found),
-                    MY_ENUM_A_B);
-        Z_ASSERT_EQ(iop_enum_from_lstr(tstiop__my_enum_a, LSTR("c"), &found),
-                    MY_ENUM_A_C);
+        Z_ASSERT_EQ(
+            iop_enum_from_lstr(tstiop__my_enum_a, LSTR("A"), &found),
+            MY_ENUM_A_A
+        );
+        Z_ASSERT_EQ(
+            iop_enum_from_lstr(tstiop__my_enum_a, LSTR("b"), &found),
+            MY_ENUM_A_B
+        );
+        Z_ASSERT_EQ(
+            iop_enum_from_lstr(tstiop__my_enum_a, LSTR("c"), &found),
+            MY_ENUM_A_C
+        );
 
-        Z_ASSERT_P(en = iop_env_ctx_get_enum(iop_env_ctx,
-                                             LSTR("tstiop.MyEnumA")));
+        Z_ASSERT_P(
+            en = iop_env_ctx_get_enum(iop_env_ctx, LSTR("tstiop.MyEnumA"))
+        );
         Z_ASSERT_LSTREQUAL(en->fullname, LSTR("tstiop.MyEnumA"));
         Z_ASSERT_LSTREQUAL(en->name, LSTR("MyEnumA"));
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
     Z_TEST(iop_enum_alias, "test iop enums aliases") { /* {{{ */
         Z_TEST_FLAGS("redmine_52799");
-        Z_ASSERT_EQ(iop_enum_from_str(tstiop__my_enum_a, "A_ALIAS", -1, -1),
-                    iop_enum_from_str(tstiop__my_enum_a, "A", -1, -1));
-        Z_ASSERT_EQ(iop_enum_from_str(tstiop__my_enum_a, "C_ALIAS_1", -1, -1),
-                    iop_enum_from_str(tstiop__my_enum_a, "C", -1, -1));
-        Z_ASSERT_EQ(iop_enum_from_str(tstiop__my_enum_a, "C_ALIAS_2", -1, -1),
-                    iop_enum_from_str(tstiop__my_enum_a, "C", -1, -1));
-        Z_ASSERT_EQ(iop_enum_from_str(tstiop__my_enum_a, "D_ALIAS", -1, -1),
-                    iop_enum_from_str(tstiop__my_enum_a, "D", -1, -1));
+        Z_ASSERT_EQ(
+            iop_enum_from_str(tstiop__my_enum_a, "A_ALIAS", -1, -1),
+            iop_enum_from_str(tstiop__my_enum_a, "A", -1, -1)
+        );
+        Z_ASSERT_EQ(
+            iop_enum_from_str(tstiop__my_enum_a, "C_ALIAS_1", -1, -1),
+            iop_enum_from_str(tstiop__my_enum_a, "C", -1, -1)
+        );
+        Z_ASSERT_EQ(
+            iop_enum_from_str(tstiop__my_enum_a, "C_ALIAS_2", -1, -1),
+            iop_enum_from_str(tstiop__my_enum_a, "C", -1, -1)
+        );
+        Z_ASSERT_EQ(
+            iop_enum_from_str(tstiop__my_enum_a, "D_ALIAS", -1, -1),
+            iop_enum_from_str(tstiop__my_enum_a, "D", -1, -1)
+        );
         Z_ASSERT_EQ(MY_ENUM_A_A_ALIAS, MY_ENUM_A_A);
         Z_ASSERT_EQ(MY_ENUM_A_C_ALIAS_1, MY_ENUM_A_C);
         Z_ASSERT_EQ(MY_ENUM_A_C_ALIAS_2, MY_ENUM_A_C);
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
     Z_TEST(iop_gen_attrs, "test iop generic attributes") { /* {{{ */
         iop_value_t value;
         iop_type_t type;
 
         /* enum */
-        Z_ASSERT_N(iop_enum_get_gen_attr(&tstiop__my_enum_a__e,
-                                         LSTR("test:gen1"), IOP_T_I8, NULL,
-                                         &value));
+        Z_ASSERT_N(iop_enum_get_gen_attr(
+            &tstiop__my_enum_a__e, LSTR("test:gen1"), IOP_T_I8, NULL, &value
+        ));
         Z_ASSERT_EQ(value.i, 1);
         /* wrong type */
-        Z_ASSERT_NEG(iop_enum_get_gen_attr(&tstiop__my_enum_a__e,
-                                           LSTR("test:gen1"), IOP_T_STRING,
-                                           &type, &value));
+        Z_ASSERT_NEG(iop_enum_get_gen_attr(
+            &tstiop__my_enum_a__e, LSTR("test:gen1"), IOP_T_STRING, &type,
+            &value
+        ));
         Z_ASSERT_EQ(type, (iop_type_t)IOP_T_I64);
-        Z_ASSERT_NEG(iop_enum_get_gen_attr(&tstiop__my_enum_a__e,
-                                           LSTR("test:gen2"), IOP_T_I8, NULL,
-                                           &value));
+        Z_ASSERT_NEG(iop_enum_get_gen_attr(
+            &tstiop__my_enum_a__e, LSTR("test:gen2"), IOP_T_I8, NULL, &value
+        ));
 
         /* enum values */
         Z_ASSERT_N(iop_enum_get_gen_attr_from_str(
             &tstiop__my_enum_a__e, LSTR("A"), LSTR("test:gen2"), IOP_T_DOUBLE,
-            NULL, &value));
+            NULL, &value
+        ));
         Z_ASSERT_EQ(value.d, 2.2);
         Z_ASSERT_N(iop_enum_get_gen_attr_from_str(
             &tstiop__my_enum_a__e, LSTR("a"), LSTR("test:gen2"), IOP_T_DOUBLE,
-            NULL, &value));
+            NULL, &value
+        ));
         Z_ASSERT_EQ(value.d, 2.2);
         Z_ASSERT_N(iop_enum_get_gen_attr_from_val(
             &tstiop__my_enum_a__e, 0, LSTR("test:gen2"), IOP_T_DOUBLE, NULL,
-            &value));
+            &value
+        ));
         Z_ASSERT_EQ(value.d, 2.2);
         /* wrong type */
-        Z_ASSERT_NEG(iop_enum_get_gen_attr_from_val(&tstiop__my_enum_a__e, 0,
-                                                    LSTR("test:gen2"),
-                                                    IOP_T_I64, &type, &value));
+        Z_ASSERT_NEG(iop_enum_get_gen_attr_from_val(
+            &tstiop__my_enum_a__e, 0, LSTR("test:gen2"), IOP_T_I64, &type,
+            &value
+        ));
         Z_ASSERT_EQ(type, (iop_type_t)IOP_T_DOUBLE);
 
         Z_ASSERT_NEG(iop_enum_get_gen_attr_from_str(
             &tstiop__my_enum_a__e, LSTR("b"), LSTR("test:gen2"), IOP_T_I8,
-            NULL, &value));
-        Z_ASSERT_NEG(iop_enum_get_gen_attr_from_val(&tstiop__my_enum_a__e, 1,
-                                                    LSTR("test:gen2"),
-                                                    IOP_T_I8, NULL, &value));
+            NULL, &value
+        ));
+        Z_ASSERT_NEG(iop_enum_get_gen_attr_from_val(
+            &tstiop__my_enum_a__e, 1, LSTR("test:gen2"), IOP_T_I8, NULL,
+            &value
+        ));
 
         /* struct */
-        Z_ASSERT_N(iop_struct_get_gen_attr(&tstiop__my_struct_a__s,
-                                           LSTR("test:gen3"), IOP_T_STRING,
-                                           NULL, &value));
+        Z_ASSERT_N(iop_struct_get_gen_attr(
+            &tstiop__my_struct_a__s, LSTR("test:gen3"), IOP_T_STRING, NULL,
+            &value
+        ));
         Z_ASSERT_LSTREQUAL(value.s, LSTR("3"));
         /* wrong type */
-        Z_ASSERT_NEG(iop_struct_get_gen_attr(&tstiop__my_struct_a__s,
-                                             LSTR("test:gen3"), IOP_T_I8,
-                                             &type, &value));
+        Z_ASSERT_NEG(iop_struct_get_gen_attr(
+            &tstiop__my_struct_a__s, LSTR("test:gen3"), IOP_T_I8, &type,
+            &value
+        ));
         Z_ASSERT_EQ(type, (iop_type_t)IOP_T_STRING);
-        Z_ASSERT_NEG(iop_struct_get_gen_attr(&tstiop__my_struct_a__s,
-                                             LSTR("test:gen1"), IOP_T_I8,
-                                             NULL, &value));
+        Z_ASSERT_NEG(iop_struct_get_gen_attr(
+            &tstiop__my_struct_a__s, LSTR("test:gen1"), IOP_T_I8, NULL, &value
+        ));
 
         /* struct field */
         Z_ASSERT_N(iop_field_by_name_get_gen_attr(
             &tstiop__my_struct_a__s, LSTR("a"), LSTR("test:gen4"), IOP_T_I16,
-            NULL, &value));
+            NULL, &value
+        ));
         Z_ASSERT_EQ(value.i, 4);
         Z_ASSERT_NEG(iop_field_by_name_get_gen_attr(
             &tstiop__my_struct_a__s, LSTR("a"), LSTR("test:gen1"), IOP_T_I32,
-            NULL, &value));
+            NULL, &value
+        ));
 
         /* parent class field */
         Z_ASSERT_N(iop_field_by_name_get_gen_attr(
             &tstiop__my_class3__s, LSTR("int1"), LSTR("test:gen1"), IOP_T_I16,
-            NULL, &value));
+            NULL, &value
+        ));
         Z_ASSERT_EQ(value.i, 1);
 
         /* iface */
-        Z_ASSERT_N(iop_iface_get_gen_attr(&tstiop__my_iface_a__if,
-                                          LSTR("test:gen5"), IOP_T_U8, NULL,
-                                          &value));
+        Z_ASSERT_N(iop_iface_get_gen_attr(
+            &tstiop__my_iface_a__if, LSTR("test:gen5"), IOP_T_U8, NULL, &value
+        ));
         Z_ASSERT_EQ(value.i, 5);
-        Z_ASSERT_NEG(iop_iface_get_gen_attr(&tstiop__my_iface_a__if,
-                                            LSTR("test:gen1"), IOP_T_U16,
-                                            NULL, &value));
+        Z_ASSERT_NEG(iop_iface_get_gen_attr(
+            &tstiop__my_iface_a__if, LSTR("test:gen1"), IOP_T_U16, NULL,
+            &value
+        ));
 
         /* rpc */
         Z_ASSERT_N(iop_rpc_get_gen_attr(
             &tstiop__my_iface_a__if, tstiop__my_iface_a__fun_a__rpc,
-            LSTR("test:gen6"), IOP_T_U32, NULL, &value));
+            LSTR("test:gen6"), IOP_T_U32, NULL, &value
+        ));
         Z_ASSERT_EQ(value.i, 6);
         Z_ASSERT_NEG(iop_rpc_get_gen_attr(
             &tstiop__my_iface_a__if, tstiop__my_iface_a__fun_a__rpc,
-            LSTR("test:gen1"), IOP_T_U64, NULL, &value));
+            LSTR("test:gen1"), IOP_T_U64, NULL, &value
+        ));
 
         /* json object */
-        Z_ASSERT_N(iop_struct_get_gen_attr(&tstiop__my_struct_a__s,
-                                           LSTR("test:json"), IOP_T_STRING,
-                                           NULL, &value));
-        Z_ASSERT_STREQUAL(value.s.s,
-            "{\"field\":{\"f1\":\"val1\",\"f2\":-1.00000000000000000e+02}}");
-    } Z_TEST_END
+        Z_ASSERT_N(iop_struct_get_gen_attr(
+            &tstiop__my_struct_a__s, LSTR("test:json"), IOP_T_STRING, NULL,
+            &value
+        ));
+        Z_ASSERT_STREQUAL(
+            value.s.s,
+            "{\"field\":{\"f1\":\"val1\",\"f2\":-1.00000000000000000e+02}}"
+        );
+    }
+    Z_TEST_END
     /* }}} */
     Z_TEST(iop_new, "test iop_new and sisters") { /* {{{ */
         t_scope;
-        tstiop__my_struct_g__t  g;
+        tstiop__my_struct_g__t g;
         tstiop__my_struct_g__t *gp;
 
         iop_init(tstiop__my_struct_g, &g);
@@ -7912,9 +8940,11 @@ Z_GROUP_EXPORT(iop)
 
         gp = t_iop_new(tstiop__my_struct_g);
         Z_ASSERT_IOPEQUAL(tstiop__my_struct_g, &g, gp);
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
-    Z_TEST(class_printf, "test %*pS in format string for IOP class") { /* {{{ */
+    Z_TEST(class_printf, "test %*pS in format string for IOP class") { /* {{{
+                                                                        */
         t_scope;
         SB_1k(ref);
         SB_1k(tst_sb);
@@ -7930,30 +8960,41 @@ Z_GROUP_EXPORT(iop)
         obj.int2 = -2;
         obj.bool1 = true;
 
-        iop_sb_jpack(&ref, &tstiop__my_class3__s, &obj,
-                     IOP_JPACK_NO_WHITESPACES | IOP_JPACK_NO_TRAILING_EOL);
+        iop_sb_jpack(
+            &ref, &tstiop__my_class3__s, &obj,
+            IOP_JPACK_NO_WHITESPACES | IOP_JPACK_NO_TRAILING_EOL
+        );
 
         sb_addf(&tst_sb, "%*pS", IOP_OBJ_FMT_ARG(&obj));
         Z_ASSERT_EQ(tst_sb.len, ref.len);
         Z_ASSERT_STREQUAL(tst_sb.data, ref.data);
 
-        Z_ASSERT_EQ(snprintf(buf, countof(buf), "%*pS", IOP_OBJ_FMT_ARG(&obj)),
-                    ref.len);
-        Z_ASSERT_LSTREQUAL(LSTR_INIT_V(buf, countof(buf) - 1),
-                           LSTR_INIT_V(ref.data, countof(buf) - 1));
+        Z_ASSERT_EQ(
+            snprintf(buf, countof(buf), "%*pS", IOP_OBJ_FMT_ARG(&obj)),
+            ref.len
+        );
+        Z_ASSERT_LSTREQUAL(
+            LSTR_INIT_V(buf, countof(buf) - 1),
+            LSTR_INIT_V(ref.data, countof(buf) - 1)
+        );
 
         path = t_fmt("%*pM/tst", LSTR_FMT_ARG(z_tmpdir_g));
         out = fopen(path, "w");
         Z_ASSERT_EQ(fprintf(out, "%*pS", IOP_OBJ_FMT_ARG(&obj)), ref.len);
         fclose(out);
 
-        Z_ASSERT_N(lstr_init_from_file(&file, path, PROT_READ, MAP_SHARED),
-                   "%m");
+        Z_ASSERT_N(
+            lstr_init_from_file(&file, path, PROT_READ, MAP_SHARED), "%m"
+        );
         Z_ASSERT_LSTREQUAL(file, LSTR_SB_V(&ref));
         lstr_wipe(&file);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
-    Z_TEST(struct_printf, "test %*pS in format string for IOP struct") { /* {{{ */
+    Z_TEST(
+        struct_printf, "test %*pS in format string for IOP struct"
+    ) { /* {{{
+         */
         t_scope;
         SB_1k(ref);
         SB_1k(tst_sb);
@@ -7981,29 +9022,42 @@ Z_GROUP_EXPORT(iop)
         iop_sb_jpack(&ref, &tstiop__my_struct_a__s, &st, compact_flags);
         sb_setf(&tst_sb, "%*pS", IOP_ST_FMT_ARG(tstiop__my_struct_a, &st));
         Z_ASSERT_EQ(tst_sb.len, ref.len);
-        sb_setf(&tst_sb, "%*pS",
-                IOP_ST_DESC_FMT_ARG_FLAGS(&tstiop__my_struct_a__s, &st,
-                                          compact_flags));
+        sb_setf(
+            &tst_sb, "%*pS",
+            IOP_ST_DESC_FMT_ARG_FLAGS(
+                &tstiop__my_struct_a__s, &st, compact_flags
+            )
+        );
         Z_ASSERT_EQ(tst_sb.len, ref.len);
         Z_ASSERT_STREQUAL(tst_sb.data, ref.data);
 
-        Z_ASSERT_EQ(snprintf(buf, countof(buf), "%*pS",
-                             IOP_ST_FMT_ARG(tstiop__my_struct_a, &st)),
-                    ref.len);
-        Z_ASSERT_LSTREQUAL(LSTR_INIT_V(buf, countof(buf) - 1),
-                           LSTR_INIT_V(ref.data, countof(buf) - 1));
+        Z_ASSERT_EQ(
+            snprintf(
+                buf, countof(buf), "%*pS",
+                IOP_ST_FMT_ARG(tstiop__my_struct_a, &st)
+            ),
+            ref.len
+        );
+        Z_ASSERT_LSTREQUAL(
+            LSTR_INIT_V(buf, countof(buf) - 1),
+            LSTR_INIT_V(ref.data, countof(buf) - 1)
+        );
 
         path = t_fmt("%*pM/tst", LSTR_FMT_ARG(z_tmpdir_g));
         out = fopen(path, "w");
-        Z_ASSERT_EQ(fprintf(out, "%*pS", IOP_ST_FMT_ARG(tstiop__my_struct_a,
-                                                        &st)), ref.len);
+        Z_ASSERT_EQ(
+            fprintf(out, "%*pS", IOP_ST_FMT_ARG(tstiop__my_struct_a, &st)),
+            ref.len
+        );
         fclose(out);
 
-        Z_ASSERT_N(lstr_init_from_file(&file, path, PROT_READ, MAP_SHARED),
-                   "%m");
+        Z_ASSERT_N(
+            lstr_init_from_file(&file, path, PROT_READ, MAP_SHARED), "%m"
+        );
         Z_ASSERT_LSTREQUAL(file, LSTR_SB_V(&ref));
         lstr_wipe(&file);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(enum_printf, "test %*pE in format string") { /* {{{ */
         struct {
@@ -8012,15 +9066,14 @@ Z_GROUP_EXPORT(iop)
             lstr_t res;
         } t[] = {
 #define T(_v, _base, _full)                                                  \
-            { _v, 0,                 LSTR(_base) },                          \
-            { _v, IOP_ENUM_FMT_FULL, LSTR(_full) }
+    {_v, 0, LSTR(_base)}, {_v, IOP_ENUM_FMT_FULL, LSTR(_full)}
 
-            T(MY_ENUM_D_FOO,     "FOO",     "FOO(0)"),
-            T(1,                 "1",       "<unknown>(1)"),
-            T(MY_ENUM_D_BAR,     "BAR",     "BAR(2)"),
-            T(3,                 "3",       "<unknown>(3)"),
+            T(MY_ENUM_D_FOO, "FOO", "FOO(0)"),
+            T(1, "1", "<unknown>(1)"),
+            T(MY_ENUM_D_BAR, "BAR", "BAR(2)"),
+            T(3, "3", "<unknown>(3)"),
             T(MY_ENUM_D_FOO_BAR, "FOO_BAR", "FOO_BAR(4)"),
-            T(5,                 "5",       "<unknown>(5)"),
+            T(5, "5", "<unknown>(5)"),
 #undef T
         };
 
@@ -8031,43 +9084,54 @@ Z_GROUP_EXPORT(iop)
             SB_1k(tst_sb);
             char *path;
 
-            sb_addf(&tst_sb, "%*pE", IOP_ENUM_FMT_ARG_FLAGS(tstiop__my_enum_d,
-                                                            t->v, t->flags));
+            sb_addf(
+                &tst_sb, "%*pE",
+                IOP_ENUM_FMT_ARG_FLAGS(tstiop__my_enum_d, t->v, t->flags)
+            );
             Z_ASSERT_LSTREQUAL(LSTR_SB_V(&tst_sb), t->res);
 
             path = t_fmt("%*pM/tst%d", LSTR_FMT_ARG(z_tmpdir_g), t->v);
             out = fopen(path, "w");
-            Z_ASSERT_EQ(fprintf(out, "%*pE",
-                                IOP_ENUM_FMT_ARG_FLAGS(tstiop__my_enum_d,
-                                                       t->v, t->flags)),
-                        t->res.len);
+            Z_ASSERT_EQ(
+                fprintf(
+                    out, "%*pE",
+                    IOP_ENUM_FMT_ARG_FLAGS(tstiop__my_enum_d, t->v, t->flags)
+                ),
+                t->res.len
+            );
             fclose(out);
 
-            Z_ASSERT_N(lstr_init_from_file(&file, path, PROT_READ,
-                                           MAP_SHARED), "%m");
+            Z_ASSERT_N(
+                lstr_init_from_file(&file, path, PROT_READ, MAP_SHARED), "%m"
+            );
             Z_ASSERT_LSTREQUAL(file, t->res);
             lstr_wipe(&file);
         }
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
-    Z_TEST(union_printf, "test %*pU in format string for IOP union types") { /* {{{ */
+    Z_TEST(
+        union_printf, "test %*pU in format string for IOP union types"
+    ) { /* {{{ */
         t_scope;
         tstiop__my_union_c__t uc;
 
         uc = IOP_UNION(tstiop__my_union_c, i_of_c, 42);
-        Z_ASSERT_STREQUAL(t_fmt("%*pU",
-                                IOP_UNION_FMT_ARG(tstiop__my_union_c, &uc)),
-                          "iOfC");
+        Z_ASSERT_STREQUAL(
+            t_fmt("%*pU", IOP_UNION_FMT_ARG(tstiop__my_union_c, &uc)), "iOfC"
+        );
         uc = IOP_UNION(tstiop__my_union_c, d_of_c, 0.1);
-        Z_ASSERT_STREQUAL(t_fmt("%*pU",
-                                IOP_UNION_FMT_ARG(tstiop__my_union_c, &uc)),
-                          "dOfC");
+        Z_ASSERT_STREQUAL(
+            t_fmt("%*pU", IOP_UNION_FMT_ARG(tstiop__my_union_c, &uc)), "dOfC"
+        );
 
         p_clear(&uc, 1);
-        Z_ASSERT_STREQUAL(t_fmt("%*pU",
-                                IOP_UNION_FMT_ARG(tstiop__my_union_c, &uc)),
-                          "<unknown>(0)");
-    } Z_TEST_END;
+        Z_ASSERT_STREQUAL(
+            t_fmt("%*pU", IOP_UNION_FMT_ARG(tstiop__my_union_c, &uc)),
+            "<unknown>(0)"
+        );
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(iop_set_opt_field, "test iop_set_opt_field function") { /* {{{ */
         tstiop__my_struct_a_opt__t obj;
@@ -8076,8 +9140,9 @@ Z_GROUP_EXPORT(iop)
         iop_init(tstiop__my_struct_a_opt, &obj);
 
         /* Field a (int) */
-        Z_ASSERT_N(iop_field_find_by_name(&tstiop__my_struct_a_opt__s,
-                                          LSTR("a"), NULL, &f));
+        Z_ASSERT_N(iop_field_find_by_name(
+            &tstiop__my_struct_a_opt__s, LSTR("a"), NULL, &f
+        ));
         obj.a.v = 10;
         Z_ASSERT(!OPT_ISSET(obj.a));
         iop_set_opt_field(&obj, f);
@@ -8085,8 +9150,9 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_EQ(obj.a.v, 10);
 
         /* Field b (uint) */
-        Z_ASSERT_N(iop_field_find_by_name(&tstiop__my_struct_a_opt__s,
-                                          LSTR("b"), NULL, &f));
+        Z_ASSERT_N(iop_field_find_by_name(
+            &tstiop__my_struct_a_opt__s, LSTR("b"), NULL, &f
+        ));
         obj.b.v = 11;
         Z_ASSERT(!OPT_ISSET(obj.b));
         iop_set_opt_field(&obj, f);
@@ -8094,8 +9160,9 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_EQ(obj.b.v, 11u);
 
         /* Field n (bool) */
-        Z_ASSERT_N(iop_field_find_by_name(&tstiop__my_struct_a_opt__s,
-                                          LSTR("n"), NULL, &f));
+        Z_ASSERT_N(iop_field_find_by_name(
+            &tstiop__my_struct_a_opt__s, LSTR("n"), NULL, &f
+        ));
         obj.n.v = true;
         Z_ASSERT(!OPT_ISSET(obj.n));
         iop_set_opt_field(&obj, f);
@@ -8103,19 +9170,21 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_EQ(obj.n.v, true);
 
         /* Field j (string) */
-        Z_ASSERT_N(iop_field_find_by_name(&tstiop__my_struct_a_opt__s,
-                                          LSTR("j"), NULL, &f));
+        Z_ASSERT_N(iop_field_find_by_name(
+            &tstiop__my_struct_a_opt__s, LSTR("j"), NULL, &f
+        ));
         Z_ASSERT(!obj.j.s);
         iop_set_opt_field(&obj, f);
         Z_ASSERT_LSTREQUAL(obj.j, LSTR_EMPTY_V);
         obj.j = LSTR("toto");
         iop_set_opt_field(&obj, f);
         Z_ASSERT_LSTREQUAL(obj.j, LSTR("toto"));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(iop_array_dup, "test the IOP_ARRAY_DUP macro") { /* {{{ */
         t_scope;
-        int32_t a[] = { 1, 2, 3 };
+        int32_t a[] = {1, 2, 3};
         iop_array_i32_t m = IOP_ARRAY(a, 3);
         iop_array_i32_t n;
 
@@ -8140,7 +9209,8 @@ Z_GROUP_EXPORT(iop)
         }
 
         p_delete(&n.tab);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(iop_array_new, "test the IOP_ARRAY_NEW* macros") { /* {{{ */
         t_scope;
@@ -8162,12 +9232,13 @@ Z_GROUP_EXPORT(iop)
         TEST(IOP_ARRAY_NEW_RAW, p_delete);
 
 #undef TEST
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(mp_iop_array, "test the *_IOP_ARRAY macros") { /* {{{ */
         t_scope;
-        tstiop__basic_struct__t st1 = { .i = 1 };
-        tstiop__basic_struct__t st2 = { .i = 2 };
+        tstiop__basic_struct__t st1 = {.i = 1};
+        tstiop__basic_struct__t st2 = {.i = 2};
         tstiop__basic_struct__array_t st_array;
 
         tstiop__basic_class__t cl1;
@@ -8200,7 +9271,8 @@ Z_GROUP_EXPORT(iop)
         tab_enumerate(pos, u, &u32_array) {
             Z_ASSERT_EQ(u, 10u + pos);
         }
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(dup_and_copy, "test duplication/copy functions") { /* {{{ */
         t_scope;
@@ -8210,19 +9282,24 @@ Z_GROUP_EXPORT(iop)
         tstiop__full_struct__t fs;
         const iop_struct_t *st = &tstiop__full_struct__s;
 
-        path = t_fmt("%*pM/samples/z-full-struct.json",
-                     LSTR_FMT_ARG(z_cmddir_g));
-        Z_ASSERT_N(t_iop_junpack_file(iop_env_ctx, path, st, &fs, 0, NULL,
-                                      &err),
-                   "%pL", &err);
-        Z_HELPER_RUN(z_test_dup_and_copy(st, &fs),
-                     "test failed for sample %s (type `%pL')", path,
-                     &st->fullname);
-        Z_HELPER_RUN(z_test_dup_and_copy(fs.required.o->__vptr,
-                                         fs.required.o),
-                     "test failed for class");
+        path = t_fmt(
+            "%*pM/samples/z-full-struct.json", LSTR_FMT_ARG(z_cmddir_g)
+        );
+        Z_ASSERT_N(
+            t_iop_junpack_file(iop_env_ctx, path, st, &fs, 0, NULL, &err),
+            "%pL", &err
+        );
+        Z_HELPER_RUN(
+            z_test_dup_and_copy(st, &fs),
+            "test failed for sample %s (type `%pL')", path, &st->fullname
+        );
+        Z_HELPER_RUN(
+            z_test_dup_and_copy(fs.required.o->__vptr, fs.required.o),
+            "test failed for class"
+        );
         Z_HELPER_RUN(z_test_macros_dup_copy(&fs));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(copy_protect, "test duplication/copy protection") { /* {{{ */
         t_scope;
@@ -8237,39 +9314,43 @@ Z_GROUP_EXPORT(iop)
 
         /* Copy test. */
         sz = 0;
-        mp_iop_copy_desc_flags_sz(NULL, &tstiop__two_strings__s,
-                                  (void **)&res, &st, IOP_COPY_ALLOC_SAFE,
-                                  &sz);
+        mp_iop_copy_desc_flags_sz(
+            NULL, &tstiop__two_strings__s, (void **)&res, &st,
+            IOP_COPY_ALLOC_SAFE, &sz
+        );
         Z_ASSERT_NULL(res);
         Z_ASSERT_EQ(sz, (size_t)0x80000030);
 
         /* Same with already allocated destination: the struct is deleted. */
         sz = 0;
         res = iop_new(tstiop__two_strings);
-        mp_iop_copy_desc_flags_sz(NULL, &tstiop__two_strings__s,
-                                  (void **)&res, &st, IOP_COPY_ALLOC_SAFE,
-                                  &sz);
+        mp_iop_copy_desc_flags_sz(
+            NULL, &tstiop__two_strings__s, (void **)&res, &st,
+            IOP_COPY_ALLOC_SAFE, &sz
+        );
         Z_ASSERT_NULL(res);
         Z_ASSERT_EQ(sz, (size_t)0x80000030);
 
         /* Duplication test. */
         sz = 0;
-        Z_ASSERT_NULL(mp_iop_dup_desc_flags_sz(NULL, &tstiop__two_strings__s,
-                                               &st, IOP_COPY_ALLOC_SAFE,
-                                               &sz));
+        Z_ASSERT_NULL(mp_iop_dup_desc_flags_sz(
+            NULL, &tstiop__two_strings__s, &st, IOP_COPY_ALLOC_SAFE, &sz
+        ));
         Z_ASSERT_EQ(sz, (size_t)0x80000030);
 
         /* We need to test with the flag NO_REALLOC as well so we can get a
          * full test coverage. */
         res = t_iop_new(tstiop__two_strings);
-        mp_iop_copy_desc_flags_sz(t_pool(), &tstiop__two_strings__s,
-                                  (void **)&res, &st,
-                                  IOP_COPY_ALLOC_SAFE | IOP_COPY_NO_REALLOC,
-                                  NULL);
+        mp_iop_copy_desc_flags_sz(
+            t_pool(), &tstiop__two_strings__s, (void **)&res, &st,
+            IOP_COPY_ALLOC_SAFE | IOP_COPY_NO_REALLOC, NULL
+        );
         Z_ASSERT_NULL(res);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
-    Z_TEST(nr_58558, "avoid leak when copying an IOP with no value") { /* {{{ */
+    Z_TEST(nr_58558, "avoid leak when copying an IOP with no value") { /* {{{
+                                                                        */
         tstiop__my_struct_c__t st;
         tstiop__my_struct_c__t *p;
 
@@ -8277,16 +9358,18 @@ Z_GROUP_EXPORT(iop)
         p = iop_dup(tstiop__my_struct_c, &st);
         iop_copy(tstiop__my_struct_c, &p, NULL);
         Z_ASSERT_NULL(p);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_field_is_pointed, "test the iop_field_is_pointed function") { /* {{{ */
+    Z_TEST(
+        iop_field_is_pointed, "test the iop_field_is_pointed function"
+    ) { /* {{{ */
         struct {
             const iop_struct_t *st;
             lstr_t field_name;
             bool is_pointed;
         } t[] = {
-#define TEST(pfx, field, res)                                                \
-            { &pfx##__s, LSTR(#field), res }
+#define TEST(pfx, field, res) {&pfx##__s, LSTR(#field), res}
 
             TEST(tstiop__my_struct_a, a, false),
             TEST(tstiop__my_struct_a, k, false),
@@ -8313,17 +9396,19 @@ Z_GROUP_EXPORT(iop)
         carray_for_each_ptr(test, t) {
             const iop_field_t *field;
 
-            Z_ASSERT_N(iop_field_find_by_name(test->st, test->field_name,
-                                              NULL, &field));
+            Z_ASSERT_N(iop_field_find_by_name(
+                test->st, test->field_name, NULL, &field
+            ));
             Z_ASSERT_EQ(test->is_pointed, iop_field_is_pointed(field));
         }
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(iop_field_print_defval, "") { /* {{{ */
         const iop_struct_t *st = &tstiop__my_struct_g__s;
 
-#define TEST(_st, _field, _exp) \
-        Z_HELPER_RUN(z_test_iop_field_print_defval((_st), #_field, _exp))
+#define TEST(_st, _field, _exp)                                              \
+    Z_HELPER_RUN(z_test_iop_field_print_defval((_st), #_field, _exp))
 
         TEST(st, a, "-1");
         TEST(st, b, "2");
@@ -8340,15 +9425,19 @@ Z_GROUP_EXPORT(iop)
         TEST(st, m, "true");
 
 #undef TEST
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
-    Z_TEST(iop_struct_check_backward_compat, "test iop_struct_check_backward_compat") { /* {{{ */
+    Z_TEST(
+        iop_struct_check_backward_compat,
+        "test iop_struct_check_backward_compat"
+    ) { /* {{{ */
         t_scope;
         const char *err;
-        tstiop_backward_compat__basic_union__t  basic_union;
+        tstiop_backward_compat__basic_union__t basic_union;
         tstiop_backward_compat__basic_struct__t basic_struct;
-        tstiop_backward_compat__basic_class__t  basic_class;
+        tstiop_backward_compat__basic_class__t basic_class;
         tstiop_backward_compat__struct_container1__t struct_container1;
         tstiop_backward_compat__parent_class_a__t *parent_class;
         tstiop_backward_compat__empty_struct__t empty_struct;
@@ -8359,8 +9448,9 @@ Z_GROUP_EXPORT(iop)
         basic_struct.a = 12;
         basic_struct.b = LSTR("string");
 
-        iop_init(tstiop_backward_compat__struct_container1,
-                 &struct_container1);
+        iop_init(
+            tstiop_backward_compat__struct_container1, &struct_container1
+        );
         struct_container1.s = basic_struct;
 
         iop_init(tstiop_backward_compat__basic_class, &basic_class);
@@ -8369,64 +9459,74 @@ Z_GROUP_EXPORT(iop)
 
         iop_init(tstiop_backward_compat__empty_struct, &empty_struct);
 
-#define T_OK(_type1, _obj1, _type2, _flags)  \
-        do {                                                                 \
-            const iop_struct_t *st1 = &tstiop_backward_compat__##_type1##__s;\
-            const iop_struct_t *st2 = &tstiop_backward_compat__##_type2##__s;\
-            tstiop_backward_compat__##_type1##__t *__obj1 = (_obj1);         \
+#define T_OK(_type1, _obj1, _type2, _flags)                                  \
+    do {                                                                     \
+        const iop_struct_t *st1 = &tstiop_backward_compat__##_type1##__s;    \
+        const iop_struct_t *st2 = &tstiop_backward_compat__##_type2##__s;    \
+        tstiop_backward_compat__##_type1##__t *__obj1 = (_obj1);             \
                                                                              \
-            Z_HELPER_RUN(iop_check_struct_backward_compat(st1, st2, _flags,  \
-                                                          NULL, __obj1));    \
-        } while (0)
+        Z_HELPER_RUN(                                                        \
+            iop_check_struct_backward_compat(st1, st2, _flags, NULL, __obj1) \
+        );                                                                   \
+    } while (0)
 
-#define T_OK_ALL(_type1, _obj1, _type2)  \
-        do {                                                                 \
-            T_OK(_type1, _obj1, _type2, IOP_COMPAT_BIN);                     \
-            T_OK(_type1, _obj1, _type2, IOP_COMPAT_JSON);                    \
-            T_OK(_type1, NULL,  _type2, IOP_COMPAT_ALL);                     \
-        } while (0)
+#define T_OK_ALL(_type1, _obj1, _type2)                                      \
+    do {                                                                     \
+        T_OK(_type1, _obj1, _type2, IOP_COMPAT_BIN);                         \
+        T_OK(_type1, _obj1, _type2, IOP_COMPAT_JSON);                        \
+        T_OK(_type1, NULL, _type2, IOP_COMPAT_ALL);                          \
+    } while (0)
 
-#define T_KO(_type1, _obj1, _type2, _flags, _err)  \
-        do {                                                                 \
-            const iop_struct_t *st1 = &tstiop_backward_compat__##_type1##__s;\
-            const iop_struct_t *st2 = &tstiop_backward_compat__##_type2##__s;\
-            tstiop_backward_compat__##_type1##__t *__obj1 = (_obj1);         \
+#define T_KO(_type1, _obj1, _type2, _flags, _err)                            \
+    do {                                                                     \
+        const iop_struct_t *st1 = &tstiop_backward_compat__##_type1##__s;    \
+        const iop_struct_t *st2 = &tstiop_backward_compat__##_type2##__s;    \
+        tstiop_backward_compat__##_type1##__t *__obj1 = (_obj1);             \
                                                                              \
-            Z_HELPER_RUN(iop_check_struct_backward_compat(st1, st2, _flags,  \
-                                                          _err, __obj1));    \
-        } while (0)
+        Z_HELPER_RUN(                                                        \
+            iop_check_struct_backward_compat(st1, st2, _flags, _err, __obj1) \
+        );                                                                   \
+    } while (0)
 
-#define T_KO_ALL(_type1, _obj1, _type2, _err)  \
-        do {                                                                 \
-            T_KO(_type1, _obj1, _type2, IOP_COMPAT_BIN,  _err);              \
-            T_KO(_type1, _obj1, _type2, IOP_COMPAT_JSON, _err);              \
-            T_KO(_type1,  NULL, _type2, IOP_COMPAT_ALL,  _err);              \
-        } while (0)
+#define T_KO_ALL(_type1, _obj1, _type2, _err)                                \
+    do {                                                                     \
+        T_KO(_type1, _obj1, _type2, IOP_COMPAT_BIN, _err);                   \
+        T_KO(_type1, _obj1, _type2, IOP_COMPAT_JSON, _err);                  \
+        T_KO(_type1, NULL, _type2, IOP_COMPAT_ALL, _err);                    \
+    } while (0)
 
-#define INDENT_LVL1  "\n  | "
-#define INDENT_LVL2  "\n  |   | "
-#define INDENT_LVL3  "\n  |   |   | "
-#define INDENT_LVL4  "\n  |   |   |   | "
+#define INDENT_LVL1 "\n  | "
+#define INDENT_LVL2 "\n  |   | "
+#define INDENT_LVL3 "\n  |   |   | "
+#define INDENT_LVL4 "\n  |   |   |   | "
 
         /* Struct to root when no fields are set is OK */
         T_OK_ALL(empty_struct, &empty_struct, empty_class);
 
         /* Basic struct to class transitions. */
-        T_KO_ALL(basic_struct, &basic_struct, basic_union,
-                 "was a struct and is now a union");
-        T_KO_ALL(basic_union, &basic_union, basic_struct,
-                 "was a union and is now a struct");
+        T_KO_ALL(
+            basic_struct, &basic_struct, basic_union,
+            "was a struct and is now a union"
+        );
+        T_KO_ALL(
+            basic_union, &basic_union, basic_struct,
+            "was a union and is now a struct"
+        );
 
         /* struct to abstract class is KO */
-        T_KO_ALL(basic_struct, &basic_struct, basic_abstract_class,
-                 "was a struct and is now an abstract class");
+        T_KO_ALL(
+            basic_struct, &basic_struct, basic_abstract_class,
+            "was a struct and is now an abstract class"
+        );
 
         /* Struct to root class is OK */
         T_OK_ALL(basic_struct, &basic_struct, basic_class);
 
         /* Struct to child class is OK for JSON only */
-        T_KO(basic_struct, &basic_struct, basic_class_child, IOP_COMPAT_BIN,
-             "was a struct and is now a child class");
+        T_KO(
+            basic_struct, &basic_struct, basic_class_child, IOP_COMPAT_BIN,
+            "was a struct and is now a child class"
+        );
 
         /* TODO: add checks for the JSON case
          *
@@ -8435,36 +9535,50 @@ Z_GROUP_EXPORT(iop)
          */
 
         /* Struct to root class with missing fields is KO */
-        T_KO(basic_struct, &basic_struct, basic_class_parent, IOP_COMPAT_BIN,
-             "field `a` -> `b`:\n  | incompatible types");
-        T_KO(basic_struct, &basic_struct, basic_class_parent, IOP_COMPAT_JSON,
-             "field `a` does not exist anymore");
+        T_KO(
+            basic_struct, &basic_struct, basic_class_parent, IOP_COMPAT_BIN,
+            "field `a` -> `b`:\n  | incompatible types"
+        );
+        T_KO(
+            basic_struct, &basic_struct, basic_class_parent, IOP_COMPAT_JSON,
+            "field `a` does not exist anymore"
+        );
 
-        T_KO(basic_class, &basic_class, basic_abstract_class, IOP_COMPAT_BIN,
-             "is an abstract class but was not abstract");
-        T_KO(basic_class, &basic_class, basic_abstract_class, IOP_COMPAT_JSON,
-             "is an abstract class but was not abstract\n"
-             "class fullname changed (`tstiop_backward_compat.BasicClass`"
-             " != `tstiop_backward_compat.BasicAbstractClass`)");
+        T_KO(
+            basic_class, &basic_class, basic_abstract_class, IOP_COMPAT_BIN,
+            "is an abstract class but was not abstract"
+        );
+        T_KO(
+            basic_class, &basic_class, basic_abstract_class, IOP_COMPAT_JSON,
+            "is an abstract class but was not abstract\n"
+            "class fullname changed (`tstiop_backward_compat.BasicClass`"
+            " != `tstiop_backward_compat.BasicAbstractClass`)"
+        );
         T_OK(basic_abstract_class, NULL, basic_class, IOP_COMPAT_BIN);
-        T_KO(basic_abstract_class, NULL, basic_class,
-             IOP_COMPAT_JSON, "class fullname changed "
-             "(`tstiop_backward_compat.BasicAbstractClass` != "
-             "`tstiop_backward_compat.BasicClass`)");
+        T_KO(
+            basic_abstract_class, NULL, basic_class, IOP_COMPAT_JSON,
+            "class fullname changed "
+            "(`tstiop_backward_compat.BasicAbstractClass` != "
+            "`tstiop_backward_compat.BasicClass`)"
+        );
 
-        T_OK_ALL(basic_union,          &basic_union,  basic_union);
-        T_OK_ALL(basic_struct,         &basic_struct, basic_struct);
-        T_OK_ALL(basic_class,          &basic_class,  basic_class);
-        T_OK_ALL(basic_abstract_class, NULL,          basic_abstract_class);
+        T_OK_ALL(basic_union, &basic_union, basic_union);
+        T_OK_ALL(basic_struct, &basic_struct, basic_struct);
+        T_OK_ALL(basic_class, &basic_class, basic_class);
+        T_OK_ALL(basic_abstract_class, NULL, basic_abstract_class);
 
         /* A field disappears. */
         T_OK(basic_struct, &basic_struct, disappeared_field, IOP_COMPAT_BIN);
-        T_KO(basic_struct, &basic_struct, disappeared_field, IOP_COMPAT_JSON,
-             "field `b` does not exist anymore");
+        T_KO(
+            basic_struct, &basic_struct, disappeared_field, IOP_COMPAT_JSON,
+            "field `b` does not exist anymore"
+        );
 
         /* A required field was added. */
-        T_KO_ALL(basic_struct, &basic_struct, new_required_field,
-                 "new field `c` must not be required");
+        T_KO_ALL(
+            basic_struct, &basic_struct, new_required_field,
+            "new field `c` must not be required"
+        );
 
         /* Optional/repeated/default/required void value fields added. */
         T_OK_ALL(basic_struct, &basic_struct, new_opt_field);
@@ -8475,45 +9589,58 @@ Z_GROUP_EXPORT(iop)
 
         /* Renamed field. */
         T_OK(basic_struct, &basic_struct, renamed_field, IOP_COMPAT_BIN);
-        T_KO(basic_struct, &basic_struct, renamed_field, IOP_COMPAT_JSON,
-             "new field `b2` must not be required\n"
-             "field `b` does not exist anymore");
+        T_KO(
+            basic_struct, &basic_struct, renamed_field, IOP_COMPAT_JSON,
+            "new field `b2` must not be required\n"
+            "field `b` does not exist anymore"
+        );
 
         /* Field tag changed. */
         T_OK(basic_struct, &basic_struct, tag_changed_field, IOP_COMPAT_JSON);
-        T_KO(basic_struct, &basic_struct, tag_changed_field, IOP_COMPAT_BIN,
-             "new field `b` must not be required");
+        T_KO(
+            basic_struct, &basic_struct, tag_changed_field, IOP_COMPAT_BIN,
+            "new field `b` must not be required"
+        );
 
-        T_KO(basic_struct, &basic_struct, renamed_and_tag_changed_field,
-             IOP_COMPAT_ALL,
-             "field `b` (1): name and tag lookups mismatch: "
-             "`b` (2) != `a` (1)\n"
-             "field `a` (2): name and tag lookups mismatch: "
-             "`a` (1) != `b` (2)"
-             );
+        T_KO(
+            basic_struct, &basic_struct, renamed_and_tag_changed_field,
+            IOP_COMPAT_ALL,
+            "field `b` (1): name and tag lookups mismatch: "
+            "`b` (2) != `a` (1)\n"
+            "field `a` (2): name and tag lookups mismatch: "
+            "`a` (1) != `b` (2)"
+        );
 
         /* Field changed of type in a binary-compatible way. */
-        T_OK(basic_struct, &basic_struct, field_compatible_type_bin,
-             IOP_COMPAT_BIN);
-        T_KO(basic_struct, &basic_struct, field_compatible_type_bin,
-             IOP_COMPAT_JSON, "field `b`:" INDENT_LVL1 "incompatible types");
+        T_OK(
+            basic_struct, &basic_struct, field_compatible_type_bin,
+            IOP_COMPAT_BIN
+        );
+        T_KO(
+            basic_struct, &basic_struct, field_compatible_type_bin,
+            IOP_COMPAT_JSON, "field `b`:" INDENT_LVL1 "incompatible types"
+        );
 
         /* A field was added in a union. */
         T_OK_ALL(basic_union, &basic_union, union1);
-        T_KO(basic_union, &basic_union, union2, IOP_COMPAT_BIN,
-             "field with tag 1 (`a`) does not exist anymore");
-        T_KO(basic_union, &basic_union, union2, IOP_COMPAT_JSON,
-             "field `a` does not exist anymore");
+        T_KO(
+            basic_union, &basic_union, union2, IOP_COMPAT_BIN,
+            "field with tag 1 (`a`) does not exist anymore"
+        );
+        T_KO(
+            basic_union, &basic_union, union2, IOP_COMPAT_JSON,
+            "field `a` does not exist anymore"
+        );
 
         /* Number types changes. */
         {
-            tstiop_backward_compat__number_struct__t  number_struct;
+            tstiop_backward_compat__number_struct__t number_struct;
             tstiop_backward_compat__number_struct2__t number_struct2;
 
             iop_init(tstiop_backward_compat__number_struct, &number_struct);
-            number_struct.b   = true;
-            number_struct.i8  = INT8_MAX;
-            number_struct.u8  = UINT8_MAX;
+            number_struct.b = true;
+            number_struct.i8 = INT8_MAX;
+            number_struct.u8 = UINT8_MAX;
             number_struct.i16 = INT16_MAX;
             number_struct.u16 = UINT16_MAX;
             number_struct.i32 = INT32_MAX;
@@ -8521,33 +9648,37 @@ Z_GROUP_EXPORT(iop)
             T_OK_ALL(number_struct, &number_struct, number_struct2);
 
             iop_init(tstiop_backward_compat__number_struct2, &number_struct2);
-            number_struct2.b   = INT8_MAX;
-            number_struct2.i8  = INT16_MAX;
-            number_struct2.u8  = INT16_MAX;
+            number_struct2.b = INT8_MAX;
+            number_struct2.i8 = INT16_MAX;
+            number_struct2.u8 = INT16_MAX;
             number_struct2.i16 = INT32_MAX;
             number_struct2.u16 = INT32_MAX;
             number_struct2.i32 = INT64_MAX;
             number_struct2.u32 = INT64_MAX;
-            T_KO_ALL(number_struct2, &number_struct2, number_struct,
-                     "field `b`:"   INDENT_LVL1 "incompatible types\n"
-                     "field `i8`:"  INDENT_LVL1 "incompatible types\n"
-                     "field `u8`:"  INDENT_LVL1 "incompatible types\n"
-                     "field `i16`:" INDENT_LVL1 "incompatible types\n"
-                     "field `u16`:" INDENT_LVL1 "incompatible types\n"
-                     "field `i32`:" INDENT_LVL1 "incompatible types\n"
-                     "field `u32`:" INDENT_LVL1 "incompatible types");
+            T_KO_ALL(
+                number_struct2, &number_struct2, number_struct,
+                "field `b`:" INDENT_LVL1 "incompatible types\n"
+                "field `i8`:" INDENT_LVL1 "incompatible types\n"
+                "field `u8`:" INDENT_LVL1 "incompatible types\n"
+                "field `i16`:" INDENT_LVL1 "incompatible types\n"
+                "field `u16`:" INDENT_LVL1 "incompatible types\n"
+                "field `i32`:" INDENT_LVL1 "incompatible types\n"
+                "field `u32`:" INDENT_LVL1 "incompatible types"
+            );
         }
 
         /* Class id change. */
-        T_KO(basic_class, &basic_class, class_id_changed, IOP_COMPAT_BIN,
-             "class id changed (0 != 1)");
+        T_KO(
+            basic_class, &basic_class, class_id_changed, IOP_COMPAT_BIN,
+            "class id changed (0 != 1)"
+        );
         /* XXX: This is authorized in json, but the test would fail because
          *      the fullname changes :-(. */
 
         /* Field repeated <-> not repeated. */
         {
             tstiop_backward_compat__field_repeated__t field_repeated;
-            bool a_arr[7] = { true, true, true, true, true, true, true };
+            bool a_arr[7] = {true, true, true, true, true, true, true};
 
             iop_init(tstiop_backward_compat__field_repeated, &field_repeated);
             field_repeated.a.tab = a_arr;
@@ -8555,12 +9686,15 @@ Z_GROUP_EXPORT(iop)
 
             /* Not repeated -> repeated. */
             T_OK(basic_struct, &basic_struct, field_repeated, IOP_COMPAT_BIN);
-            T_OK(basic_struct, &basic_struct, field_repeated, IOP_COMPAT_JSON);
+            T_OK(
+                basic_struct, &basic_struct, field_repeated, IOP_COMPAT_JSON
+            );
 
             /* Repeated -> not repeated. */
-            T_KO_ALL(field_repeated, &field_repeated, basic_struct,
-                     "field `a`:"
-                     INDENT_LVL1 "was repeated and is not anymore");
+            T_KO_ALL(
+                field_repeated, &field_repeated, basic_struct,
+                "field `a`:" INDENT_LVL1 "was repeated and is not anymore"
+            );
 
             /* Repeated -> not repeated void. */
             T_OK_ALL(field_repeated, &field_repeated, field_void);
@@ -8568,28 +9702,31 @@ Z_GROUP_EXPORT(iop)
 
         /* Fields repeated, different types */
         {
-#define T_REP_INIT(_type) \
-            do {                                                             \
-                iop_init(tstiop_backward_compat__##_type##_repeated,         \
-                         &(_type##_rep));                                    \
-                _type##_rep.el.tab = _type##_arr;                            \
-                _type##_rep.el.len = countof(_type##_arr);                   \
-            } while(0)
+#define T_REP_INIT(_type)                                                    \
+    do {                                                                     \
+        iop_init(                                                            \
+            tstiop_backward_compat__##_type##_repeated, &(_type##_rep)       \
+        );                                                                   \
+        _type##_rep.el.tab = _type##_arr;                                    \
+        _type##_rep.el.len = countof(_type##_arr);                           \
+    } while (0)
 
-#define T_REP_BIN_KO(_type, _type2) \
-            do {                                                             \
-                T_OK(_type##_repeated, &(_type##_rep), _type2##_repeated,    \
-                     IOP_COMPAT_JSON);                                       \
-                T_KO(_type##_repeated, &(_type##_rep), _type2##_repeated,    \
-                     IOP_COMPAT_BIN,                                         \
-                     "field `el`:" INDENT_LVL1 "incompatible types");        \
-            } while(0)
+#define T_REP_BIN_KO(_type, _type2)                                          \
+    do {                                                                     \
+        T_OK(                                                                \
+            _type##_repeated, &(_type##_rep), _type2##_repeated,             \
+            IOP_COMPAT_JSON                                                  \
+        );                                                                   \
+        T_KO(                                                                \
+            _type##_repeated, &(_type##_rep), _type2##_repeated,             \
+            IOP_COMPAT_BIN, "field `el`:" INDENT_LVL1 "incompatible types"   \
+        );                                                                   \
+    } while (0)
 
-#define T_REP_OK_ALL(_type, _type2) \
-            do {                                                             \
-                T_OK_ALL(_type##_repeated, &(_type##_rep),                   \
-                         _type2##_repeated);                                 \
-            } while(0)
+#define T_REP_OK_ALL(_type, _type2)                                          \
+    do {                                                                     \
+        T_OK_ALL(_type##_repeated, &(_type##_rep), _type2##_repeated);       \
+    } while (0)
 
             tstiop_backward_compat__bool_repeated__t bool_rep;
             tstiop_backward_compat__byte_repeated__t byte_rep;
@@ -8600,12 +9737,12 @@ Z_GROUP_EXPORT(iop)
             tstiop_backward_compat__uint_repeated__t uint_rep;
 
             bool bool_arr[7] = {true, true, true, true, true, true, true};
-            int8_t byte_arr[7]     = {1, 2, 3, 4, 5, 6, 7};
-            uint8_t ubyte_arr[7]   = {1, 2, 3, 4, 5, 6, 7};
-            int16_t short_arr[7]   = {1, 2, 3, 4, 5, 6, 7};
+            int8_t byte_arr[7] = {1, 2, 3, 4, 5, 6, 7};
+            uint8_t ubyte_arr[7] = {1, 2, 3, 4, 5, 6, 7};
+            int16_t short_arr[7] = {1, 2, 3, 4, 5, 6, 7};
             uint16_t ushort_arr[7] = {1, 2, 3, 4, 5, 6, 7};
-            int32_t int_arr[7]     = {1, 2, 3, 4, 5, 6, 7};
-            uint32_t uint_arr[7]   = {1, 2, 3, 4, 5, 6, 7};
+            int32_t int_arr[7] = {1, 2, 3, 4, 5, 6, 7};
+            uint32_t uint_arr[7] = {1, 2, 3, 4, 5, 6, 7};
 
             T_REP_INIT(bool);
             T_REP_OK_ALL(bool, byte);
@@ -8669,9 +9806,10 @@ Z_GROUP_EXPORT(iop)
             T_OK_ALL(basic_struct, &basic_struct, field_optional);
 
             /* Optional -> required. */
-            T_KO_ALL(field_optional, &field_optional, basic_struct,
-                     "field `a`:"
-                     INDENT_LVL1 "is required and was not before");
+            T_KO_ALL(
+                field_optional, &field_optional, basic_struct,
+                "field `a`:" INDENT_LVL1 "is required and was not before"
+            );
 
             /* Optional -> required void. */
             T_OK_ALL(field_optional, &field_optional, field_void);
@@ -8680,18 +9818,22 @@ Z_GROUP_EXPORT(iop)
             {
                 tstiop_backward_compat__opt_field_opt_struct__t opt_field;
 
-                iop_init(tstiop_backward_compat__opt_field_opt_struct,
-                         &opt_field);
+                iop_init(
+                    tstiop_backward_compat__opt_field_opt_struct, &opt_field
+                );
 
-                T_OK_ALL(opt_field_opt_struct, &opt_field,
-                         mandatory_field_opt_struct);
+                T_OK_ALL(
+                    opt_field_opt_struct, &opt_field,
+                    mandatory_field_opt_struct
+                );
             }
         }
 
         /* Field of type struct changed for an incompatible struct. */
-        T_KO_ALL(struct_container1, &struct_container1, struct_container2,
-                 "field `s`:"
-                 INDENT_LVL1 "new field `c` must not be required");
+        T_KO_ALL(
+            struct_container1, &struct_container1, struct_container2,
+            "field `s`:" INDENT_LVL1 "new field `c` must not be required"
+        );
 
         /* Infinite recursion in structure inclusion. */
         {
@@ -8719,55 +9861,70 @@ Z_GROUP_EXPORT(iop)
             iop_init(tstiop_backward_compat__struct_enum2, &enum_2);
             enum_2.en = ENUM2_VAL1;
 
-            iop_init(tstiop_backward_compat__struct_strict_enum1,
-                     &strict_enum_1);
+            iop_init(
+                tstiop_backward_compat__struct_strict_enum1, &strict_enum_1
+            );
             strict_enum_1.en = STRICT_ENUM1_VAL1;
 
-            iop_init(tstiop_backward_compat__struct_inverted_enum1,
-                     &inverted_enum_1);
+            iop_init(
+                tstiop_backward_compat__struct_inverted_enum1,
+                &inverted_enum_1
+            );
             inverted_enum_1.en = INVERTED_ENUM1_VAL1;
 
             /* Test enums are compatible with themselves. */
             T_OK_ALL(struct_enum1, &enum_1, struct_enum1);
             T_OK_ALL(struct_enum2, &enum_2, struct_enum2);
-            T_OK_ALL(struct_strict_enum1, &strict_enum_1,
-                     struct_strict_enum1);
+            T_OK_ALL(
+                struct_strict_enum1, &strict_enum_1, struct_strict_enum1
+            );
 
             /* Not strict -> strict is always forbidden. */
-            T_KO_ALL(struct_enum1, &enum_1, struct_strict_enum1,
-                     "field `en`:"
-                     INDENT_LVL1 "enum is strict and was not before");
+            T_KO_ALL(
+                struct_enum1, &enum_1, struct_strict_enum1,
+                "field `en`:" INDENT_LVL1 "enum is strict and was not before"
+            );
 
             /* A value disappears from an enum, this is always forbidden.
              * Note that this actually "works" in binary if the new enum is
              * not strict, but forbid this dangerous usage. */
-            T_KO(struct_enum1, NULL, struct_enum2, IOP_COMPAT_BIN,
-                 "field `en`:"
-                 INDENT_LVL1 "numeric value 2 does not exist anymore");
+            T_KO(
+                struct_enum1, NULL, struct_enum2, IOP_COMPAT_BIN,
+                "field `en`:" INDENT_LVL1
+                "numeric value 2 does not exist anymore"
+            );
             enum_1.en = 2;
-            T_KO(struct_enum1, &enum_1, struct_enum2, IOP_COMPAT_JSON,
-                 "field `en`:"
-                 INDENT_LVL1 "value `VAL2` does not exist anymore");
+            T_KO(
+                struct_enum1, &enum_1, struct_enum2, IOP_COMPAT_JSON,
+                "field `en`:" INDENT_LVL1
+                "value `VAL2` does not exist anymore"
+            );
 
             /* Inverting two enumeration values should be allowed in binary
              * and in json, but not when both binary and json compatibility
              * modes are required. */
-            T_OK(struct_enum1, &enum_1, struct_inverted_enum1,
-                 IOP_COMPAT_BIN);
-            T_OK(struct_enum1, &enum_1, struct_inverted_enum1,
-                 IOP_COMPAT_JSON);
-            T_KO(struct_enum1, NULL, struct_inverted_enum1,
-                 IOP_COMPAT_JSON | IOP_COMPAT_BIN,
-                 "field `en`:"
-                 INDENT_LVL1 "value `VAL1` (1): name and value lookups "
-                 "mismatch: `VAL1` (2) != `VAL2` (1)"
-                 INDENT_LVL1 "value `VAL2` (2): name and value lookups "
-                 "mismatch: `VAL2` (1) != `VAL1` (2)");
+            T_OK(
+                struct_enum1, &enum_1, struct_inverted_enum1, IOP_COMPAT_BIN
+            );
+            T_OK(
+                struct_enum1, &enum_1, struct_inverted_enum1, IOP_COMPAT_JSON
+            );
+            T_KO(
+                struct_enum1, NULL, struct_inverted_enum1,
+                IOP_COMPAT_JSON | IOP_COMPAT_BIN,
+                "field `en`:" INDENT_LVL1
+                "value `VAL1` (1): name and value lookups "
+                "mismatch: `VAL1` (2) != `VAL2` (1)" INDENT_LVL1
+                "value `VAL2` (2): name and value lookups "
+                "mismatch: `VAL2` (1) != `VAL1` (2)"
+            );
 
             /* Field conversion from enum to int. */
             T_OK(struct_enum1, &enum_1, struct_enum3, IOP_COMPAT_BIN);
-            T_KO(struct_enum1, &enum_1, struct_enum3, IOP_COMPAT_JSON,
-                 "field `en`:" INDENT_LVL1 "incompatible types");
+            T_KO(
+                struct_enum1, &enum_1, struct_enum3, IOP_COMPAT_JSON,
+                "field `en`:" INDENT_LVL1 "incompatible types"
+            );
         }
 
         /* Classes (these tests can only be done in binary and not in json
@@ -8783,24 +9940,31 @@ Z_GROUP_EXPORT(iop)
             child_class1.a = 10;
             child_class1.b = 20;
 
-            T_KO(child_class1, &child_class1, child_class2, IOP_COMPAT_BIN,
-                 "cannot find class with id 1 in the parents of "
-                 "`tstiop_backward_compat.ChildClass2`");
+            T_KO(
+                child_class1, &child_class1, child_class2, IOP_COMPAT_BIN,
+                "cannot find class with id 1 in the parents of "
+                "`tstiop_backward_compat.ChildClass2`"
+            );
 
-            T_KO(child_class1, &child_class1, child_class32, IOP_COMPAT_BIN,
-                 "class `tstiop_backward_compat.ChildClass31` was added in "
-                 "the parents with a required field `c`");
+            T_KO(
+                child_class1, &child_class1, child_class32, IOP_COMPAT_BIN,
+                "class `tstiop_backward_compat.ChildClass31` was added in "
+                "the parents with a required field `c`"
+            );
 
             T_OK(child_class1, &child_class1, child_class42, IOP_COMPAT_BIN);
 
-            T_KO(child_class1, &child_class1, child_class52, IOP_COMPAT_BIN,
-                 "parent `tstiop_backward_compat.ParentClass5`:"
-                 INDENT_LVL1 "field `a`:"
-                 INDENT_LVL2 "incompatible types");
+            T_KO(
+                child_class1, &child_class1, child_class52, IOP_COMPAT_BIN,
+                "parent `tstiop_backward_compat.ParentClass5`:" INDENT_LVL1
+                "field `a`:" INDENT_LVL2 "incompatible types"
+            );
 
-            T_KO(parent_class1, &parent_class1, child_class6, IOP_COMPAT_BIN,
-                 "class `tstiop_backward_compat.ParentClass6` was added in "
-                 "the parents with a required field `b`");
+            T_KO(
+                parent_class1, &parent_class1, child_class6, IOP_COMPAT_BIN,
+                "class `tstiop_backward_compat.ParentClass6` was added in "
+                "the parents with a required field `b`"
+            );
 
             T_OK(parent_class1, &parent_class1, child_class7, IOP_COMPAT_BIN);
         }
@@ -8808,70 +9972,85 @@ Z_GROUP_EXPORT(iop)
         /* Ignore backward incompatibilities */
         {
             /* Json backward incompatibilities ignored */
-            T_OK(basic_struct, NULL,
-                 new_required_field_json_ignored,
-                 IOP_COMPAT_JSON);
+            T_OK(
+                basic_struct, NULL, new_required_field_json_ignored,
+                IOP_COMPAT_JSON
+            );
 
-            T_KO(basic_struct, &basic_struct,
-                 new_required_field_json_ignored,
-                 IOP_COMPAT_BIN, "new field `c` must not be required");
+            T_KO(
+                basic_struct, &basic_struct, new_required_field_json_ignored,
+                IOP_COMPAT_BIN, "new field `c` must not be required"
+            );
 
-            T_KO(basic_struct, &basic_struct,
-                 new_required_field_json_ignored,
-                 IOP_COMPAT_ALL, "new field `c` must not be required");
+            T_KO(
+                basic_struct, &basic_struct, new_required_field_json_ignored,
+                IOP_COMPAT_ALL, "new field `c` must not be required"
+            );
 
             /* Bin backward incompatibilities ignored */
-            T_OK(basic_struct, NULL,
-                 new_required_field_bin_ignored,
-                 IOP_COMPAT_BIN);
+            T_OK(
+                basic_struct, NULL, new_required_field_bin_ignored,
+                IOP_COMPAT_BIN
+            );
 
-            T_KO(basic_struct, &basic_struct,
-                 new_required_field_bin_ignored,
-                 IOP_COMPAT_JSON, "new field `c` must not be required");
+            T_KO(
+                basic_struct, &basic_struct, new_required_field_bin_ignored,
+                IOP_COMPAT_JSON, "new field `c` must not be required"
+            );
 
-            T_KO(basic_struct, &basic_struct,
-                 new_required_field_bin_ignored,
-                 IOP_COMPAT_ALL, "new field `c` must not be required");
+            T_KO(
+                basic_struct, &basic_struct, new_required_field_bin_ignored,
+                IOP_COMPAT_ALL, "new field `c` must not be required"
+            );
 
             /* Json/Bin backward incompatibilities ignored */
             T_OK_ALL(basic_struct, NULL, new_required_field_ignored);
 
             /* Nested ignored struct: must throw errors unless the root
              * struct is flagged as ignored. */
-            T_OK(struct_container1, NULL,
-                 root_struct_json_ignored, IOP_COMPAT_JSON);
+            T_OK(
+                struct_container1, NULL, root_struct_json_ignored,
+                IOP_COMPAT_JSON
+            );
 
-            T_OK(struct_container1, NULL,
-                 root_struct_bin_ignored, IOP_COMPAT_BIN);
+            T_OK(
+                struct_container1, NULL, root_struct_bin_ignored,
+                IOP_COMPAT_BIN
+            );
 
             T_OK_ALL(struct_container1, NULL, root_struct_ignored);
 
-            T_KO_ALL(struct_container1, &struct_container1,
-                     root_struct,
-                     "field `s`:"
-                     INDENT_LVL1 "new field `c` must not be required");
+            T_KO_ALL(
+                struct_container1, &struct_container1, root_struct,
+                "field `s`:" INDENT_LVL1 "new field `c` must not be required"
+            );
         }
 
         /* Last optional field disappears. */
-        parent_class =
-            iop_obj_vcast(tstiop_backward_compat__parent_class_a,
-                          t_iop_new(tstiop_backward_compat__child_class_a));
+        parent_class = iop_obj_vcast(
+            tstiop_backward_compat__parent_class_a,
+            t_iop_new(tstiop_backward_compat__child_class_a)
+        );
         T_OK(parent_class_a, parent_class, parent_class_b, IOP_COMPAT_BIN);
 
         /* Adding a non-optional field whose type is an "optional" struct
          * is backward compatible. */
-        T_OK_ALL(basic_struct, &basic_struct,
-                 new_mandatory_field_optional);
+        T_OK_ALL(basic_struct, &basic_struct, new_mandatory_field_optional);
 
         /* Adding a non-optional field whose type is a "non-optional" struct
          * is not backward compatible. */
         err = "new field `c` must not be required";
-        T_KO_ALL(basic_struct, &basic_struct,
-                 new_mandatory_field_non_optional, err);
-        T_KO_ALL(basic_struct, &basic_struct,
-                 new_mandatory_field_non_optional2, err);
-        T_KO_ALL(basic_struct, &basic_struct,
-                 new_mandatory_field_non_optional3, err);
+        T_KO_ALL(
+            basic_struct, &basic_struct, new_mandatory_field_non_optional, err
+        );
+        T_KO_ALL(
+            basic_struct, &basic_struct, new_mandatory_field_non_optional2,
+            err
+        );
+        T_KO_ALL(
+            basic_struct, &basic_struct, new_mandatory_field_non_optional3,
+            err
+        );
 
         /* A required struct but with all optional fields is optional. If
          * added in a new parent class, it is backward compatible for the
@@ -8882,10 +10061,12 @@ Z_GROUP_EXPORT(iop)
 #undef T_OK_ALL
 #undef T_KO
 #undef T_KO_ALL
-
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_pkg_check_backward_compat, "test iop_pkg_check_backward_compat") { /* {{{ */
+    Z_TEST(
+        iop_pkg_check_backward_compat, "test iop_pkg_check_backward_compat"
+    ) { /* {{{ */
         SB_1k(err);
         iop_env_t *iop_env_old_ = NULL;
         iop_env_t *iop_env_new_ = NULL;
@@ -8894,29 +10075,29 @@ Z_GROUP_EXPORT(iop)
         iop_pkg_t **pkgp_old = NULL;
         iop_pkg_t **pkgp_new = NULL;
 
-#define T_OK(_pkg1, _pkg2, _flags)  \
-        Z_HELPER_RUN(iop_check_pkg_backward_compat(&_pkg1##__pkg,            \
-                                                   &_pkg2##__pkg,            \
-                                                   _flags, NULL))
+#define T_OK(_pkg1, _pkg2, _flags)                                           \
+    Z_HELPER_RUN(iop_check_pkg_backward_compat(                              \
+        &_pkg1##__pkg, &_pkg2##__pkg, _flags, NULL                           \
+    ))
 
-#define T_OK_ALL(_pkg1, _pkg2)  \
-        do {                                                                 \
-            T_OK(_pkg1, _pkg2, IOP_COMPAT_BIN);                              \
-            T_OK(_pkg1, _pkg2, IOP_COMPAT_JSON);                             \
-            T_OK(_pkg1, _pkg2, IOP_COMPAT_ALL);                              \
-        } while (0)
+#define T_OK_ALL(_pkg1, _pkg2)                                               \
+    do {                                                                     \
+        T_OK(_pkg1, _pkg2, IOP_COMPAT_BIN);                                  \
+        T_OK(_pkg1, _pkg2, IOP_COMPAT_JSON);                                 \
+        T_OK(_pkg1, _pkg2, IOP_COMPAT_ALL);                                  \
+    } while (0)
 
-#define T_KO(_pkg1, _pkg2, _flags, _err)  \
-        Z_HELPER_RUN(iop_check_pkg_backward_compat(&_pkg1##__pkg,            \
-                                                   &_pkg2##__pkg,            \
-                                                   _flags, (_err)))
+#define T_KO(_pkg1, _pkg2, _flags, _err)                                     \
+    Z_HELPER_RUN(iop_check_pkg_backward_compat(                              \
+        &_pkg1##__pkg, &_pkg2##__pkg, _flags, (_err)                         \
+    ))
 
-#define T_KO_ALL(_pkg1, _pkg2, _err)  \
-        do {                                                                 \
-            T_KO(_pkg1, _pkg2, IOP_COMPAT_BIN, _err);                        \
-            T_KO(_pkg1, _pkg2, IOP_COMPAT_JSON, _err);                       \
-            T_KO(_pkg1, _pkg2, IOP_COMPAT_ALL, _err);                        \
-        } while (0)
+#define T_KO_ALL(_pkg1, _pkg2, _err)                                         \
+    do {                                                                     \
+        T_KO(_pkg1, _pkg2, IOP_COMPAT_BIN, _err);                            \
+        T_KO(_pkg1, _pkg2, IOP_COMPAT_JSON, _err);                           \
+        T_KO(_pkg1, _pkg2, IOP_COMPAT_ALL, _err);                            \
+    } while (0)
 
         /* Test packages with themselves. */
         T_OK_ALL(tstiop, tstiop);
@@ -8926,140 +10107,166 @@ Z_GROUP_EXPORT(iop)
         T_OK_ALL(tstiop_backward_compat_mod, tstiop_backward_compat_mod);
 
         /* Deleted structure. */
-        T_KO_ALL(tstiop_backward_compat_deleted_struct_1,
-                 tstiop_backward_compat_deleted_struct_2,
-                 "pkg `tstiop_backward_compat_deleted_struct_2`:"
-                 INDENT_LVL1
-                 "struct `tstiop_backward_compat_deleted_struct_1.Struct2` "
-                 "does not exist anymore");
+        T_KO_ALL(
+            tstiop_backward_compat_deleted_struct_1,
+            tstiop_backward_compat_deleted_struct_2,
+            "pkg `tstiop_backward_compat_deleted_struct_2`:" INDENT_LVL1
+            "struct `tstiop_backward_compat_deleted_struct_1.Struct2` "
+            "does not exist anymore"
+        );
 
         /* Incompatible structures. */
-        T_KO(tstiop_backward_compat_incompatible_struct_1,
-             tstiop_backward_compat_incompatible_struct_2, IOP_COMPAT_BIN,
-             "pkg `tstiop_backward_compat_incompatible_struct_2`:"
-             INDENT_LVL1
-             "struct `tstiop_backward_compat_incompatible_struct_1.Struct1`:"
-             INDENT_LVL2
-             "new field `b` must not be required");
-        T_KO(tstiop_backward_compat_incompatible_struct_1,
-             tstiop_backward_compat_incompatible_struct_2, IOP_COMPAT_JSON,
-             "pkg `tstiop_backward_compat_incompatible_struct_2`:"
-             INDENT_LVL1
-             "struct `tstiop_backward_compat_incompatible_struct_1.Struct1`:"
-             INDENT_LVL2
-             "new field `b` must not be required"
-             INDENT_LVL1
-             "struct `tstiop_backward_compat_incompatible_struct_1.Struct2`:"
-             INDENT_LVL2
-             "new field `d` must not be required"
-             INDENT_LVL2
-             "field `c` does not exist anymore");
+        T_KO(
+            tstiop_backward_compat_incompatible_struct_1,
+            tstiop_backward_compat_incompatible_struct_2, IOP_COMPAT_BIN,
+            "pkg `tstiop_backward_compat_incompatible_struct_2`:" INDENT_LVL1
+            "struct "
+            "`tstiop_backward_compat_incompatible_struct_1.Struct1`"
+            ":" INDENT_LVL2 "new field `b` must not be required"
+        );
+        T_KO(
+            tstiop_backward_compat_incompatible_struct_1,
+            tstiop_backward_compat_incompatible_struct_2, IOP_COMPAT_JSON,
+            "pkg `tstiop_backward_compat_incompatible_struct_2`:" INDENT_LVL1
+            "struct "
+            "`tstiop_backward_compat_incompatible_struct_1.Struct1`"
+            ":" INDENT_LVL2 "new field `b` must not be required" INDENT_LVL1
+            "struct "
+            "`tstiop_backward_compat_incompatible_struct_1.Struct2`"
+            ":" INDENT_LVL2 "new field `d` must not be required" INDENT_LVL2
+            "field `c` does not exist anymore"
+        );
 
         /* Deleted interface. */
-        T_KO_ALL(tstiop_backward_compat_iface,
-                 tstiop_backward_compat_iface_deleted,
-                 "pkg `tstiop_backward_compat_iface_deleted`:"
-                 INDENT_LVL1
-                 "interface `tstiop_backward_compat_iface.Iface` does not "
-                 "exist anymore");
+        T_KO_ALL(
+            tstiop_backward_compat_iface,
+            tstiop_backward_compat_iface_deleted,
+            "pkg `tstiop_backward_compat_iface_deleted`:" INDENT_LVL1
+            "interface `tstiop_backward_compat_iface.Iface` does not "
+            "exist anymore"
+        );
 
-       /* Deleted RPC. */
- #define PREFIX  "pkg `tstiop_backward_compat_iface_deleted_rpc`:"           \
-                 INDENT_LVL1                                                 \
-                 "interface `tstiop_backward_compat_iface.Iface`:"           \
-                 INDENT_LVL2
-        T_KO(tstiop_backward_compat_iface,
-             tstiop_backward_compat_iface_deleted_rpc, IOP_COMPAT_BIN,
-             PREFIX "RPC with tag 2 (`rpc2`) does not exist anymore");
-        T_KO(tstiop_backward_compat_iface,
-             tstiop_backward_compat_iface_deleted_rpc, IOP_COMPAT_JSON,
-             PREFIX "RPC `rpc2` does not exist anymore");
+        /* Deleted RPC. */
+#define PREFIX                                                               \
+    "pkg `tstiop_backward_compat_iface_deleted_rpc`:" INDENT_LVL1            \
+    "interface `tstiop_backward_compat_iface.Iface`:" INDENT_LVL2
+        T_KO(
+            tstiop_backward_compat_iface,
+            tstiop_backward_compat_iface_deleted_rpc, IOP_COMPAT_BIN,
+            PREFIX "RPC with tag 2 (`rpc2`) does not exist anymore"
+        );
+        T_KO(
+            tstiop_backward_compat_iface,
+            tstiop_backward_compat_iface_deleted_rpc, IOP_COMPAT_JSON,
+            PREFIX "RPC `rpc2` does not exist anymore"
+        );
 #undef PREFIX
 
         /* test @(compat:ignore) on Interface */
-        T_OK_ALL(tstiop_backward_compat_iface,
-                 tstiop_backward_compat_iface_deleted_rpc_ignored);
+        T_OK_ALL(
+            tstiop_backward_compat_iface,
+            tstiop_backward_compat_iface_deleted_rpc_ignored
+        );
         /* test @(compat:ignoreJson) on Interface */
-        T_OK(tstiop_backward_compat_iface,
-             tstiop_backward_compat_iface_deleted_rpc_ignored_json,
-             IOP_COMPAT_JSON);
-        T_KO(tstiop_backward_compat_iface,
-             tstiop_backward_compat_iface_deleted_rpc_ignored_json,
-             IOP_COMPAT_BIN,
-             "pkg `tstiop_backward_compat_iface_deleted_rpc_ignored_json`:"
-             INDENT_LVL1 "interface `tstiop_backward_compat_iface.Iface`:"
-             INDENT_LVL2 "RPC with tag 2 (`rpc2`) does not exist anymore");
+        T_OK(
+            tstiop_backward_compat_iface,
+            tstiop_backward_compat_iface_deleted_rpc_ignored_json,
+            IOP_COMPAT_JSON
+        );
+        T_KO(
+            tstiop_backward_compat_iface,
+            tstiop_backward_compat_iface_deleted_rpc_ignored_json,
+            IOP_COMPAT_BIN,
+            "pkg "
+            "`tstiop_backward_compat_iface_deleted_rpc_ignored_json`"
+            ":" INDENT_LVL1
+            "interface `tstiop_backward_compat_iface.Iface`:" INDENT_LVL2
+            "RPC with tag 2 (`rpc2`) does not exist anymore"
+        );
         /* test @(compat:ignoreBin) on Interface */
-        T_OK(tstiop_backward_compat_iface,
-             tstiop_backward_compat_iface_deleted_rpc_ignored_bin,
-             IOP_COMPAT_BIN);
-        T_KO(tstiop_backward_compat_iface,
-             tstiop_backward_compat_iface_deleted_rpc_ignored_bin,
-             IOP_COMPAT_JSON,
-             "pkg `tstiop_backward_compat_iface_deleted_rpc_ignored_bin`:"
-             INDENT_LVL1 "interface `tstiop_backward_compat_iface.Iface`:"
-             INDENT_LVL2 "RPC `rpc2` does not exist anymore");
+        T_OK(
+            tstiop_backward_compat_iface,
+            tstiop_backward_compat_iface_deleted_rpc_ignored_bin,
+            IOP_COMPAT_BIN
+        );
+        T_KO(
+            tstiop_backward_compat_iface,
+            tstiop_backward_compat_iface_deleted_rpc_ignored_bin,
+            IOP_COMPAT_JSON,
+            "pkg "
+            "`tstiop_backward_compat_iface_deleted_rpc_ignored_bin`"
+            ":" INDENT_LVL1
+            "interface `tstiop_backward_compat_iface.Iface`:" INDENT_LVL2
+            "RPC `rpc2` does not exist anymore"
+        );
 
         /* Incompatible RPC changes. */
-        T_KO(tstiop_backward_compat_iface,
-             tstiop_backward_compat_iface_incompatible_rpc, IOP_COMPAT_JSON,
-             "pkg `tstiop_backward_compat_iface_incompatible_rpc`:"
-             INDENT_LVL1 "interface `tstiop_backward_compat_iface.Iface`:"
-             INDENT_LVL2 "RPC `rpc1` args:"
-             INDENT_LVL3 "new field `c` must not be required"
-             INDENT_LVL3 "field `b` does not exist anymore"
-             INDENT_LVL2 "RPC `rpc1` result:"
-             INDENT_LVL3 "field `res`:"
-             INDENT_LVL4 "incompatible types"
-             INDENT_LVL2 "RPC `rpc1` exn:"
-             INDENT_LVL3 "field `desc` does not exist anymore"
-             INDENT_LVL2 "RPC `rpc2` was async and is not anymore");
+        T_KO(
+            tstiop_backward_compat_iface,
+            tstiop_backward_compat_iface_incompatible_rpc, IOP_COMPAT_JSON,
+            "pkg `tstiop_backward_compat_iface_incompatible_rpc`:" INDENT_LVL1
+            "interface `tstiop_backward_compat_iface.Iface`:" INDENT_LVL2
+            "RPC `rpc1` args:" INDENT_LVL3
+            "new field `c` must not be required" INDENT_LVL3
+            "field `b` does not exist anymore" INDENT_LVL2
+            "RPC `rpc1` result:" INDENT_LVL3 "field `res`:" INDENT_LVL4
+            "incompatible types" INDENT_LVL2 "RPC `rpc1` exn:" INDENT_LVL3
+            "field `desc` does not exist anymore" INDENT_LVL2
+            "RPC `rpc2` was async and is not anymore"
+        );
         /* test @(compat:ignore) on RPC */
-        T_OK_ALL(tstiop_backward_compat_iface,
-                 tstiop_backward_compat_iface_incompatible_rpc_ignored);
+        T_OK_ALL(
+            tstiop_backward_compat_iface,
+            tstiop_backward_compat_iface_incompatible_rpc_ignored
+        );
         /* test @(compat:ignoreJson) on RPC */
-        T_KO(tstiop_backward_compat_iface,
-             tstiop_backward_compat_iface_incompatible_rpc_ignored_binjson,
-             IOP_COMPAT_JSON,
-             "pkg `tstiop_backward_compat_iface_"
-             "incompatible_rpc_ignored_binjson`:"
-             INDENT_LVL1 "interface `tstiop_backward_compat_iface.Iface`:"
-             INDENT_LVL2 "RPC `rpc1` args:"
-             INDENT_LVL3 "new field `c` must not be required"
-             INDENT_LVL3 "field `b` does not exist anymore"
-             INDENT_LVL2 "RPC `rpc1` result:"
-             INDENT_LVL3 "field `res`:"
-             INDENT_LVL4 "incompatible types"
-             INDENT_LVL2 "RPC `rpc1` exn:"
-             INDENT_LVL3 "field `desc` does not exist anymore");
+        T_KO(
+            tstiop_backward_compat_iface,
+            tstiop_backward_compat_iface_incompatible_rpc_ignored_binjson,
+            IOP_COMPAT_JSON,
+            "pkg `tstiop_backward_compat_iface_"
+            "incompatible_rpc_ignored_binjson`:" INDENT_LVL1
+            "interface `tstiop_backward_compat_iface.Iface`:" INDENT_LVL2
+            "RPC `rpc1` args:" INDENT_LVL3
+            "new field `c` must not be required" INDENT_LVL3
+            "field `b` does not exist anymore" INDENT_LVL2
+            "RPC `rpc1` result:" INDENT_LVL3 "field `res`:" INDENT_LVL4
+            "incompatible types" INDENT_LVL2 "RPC `rpc1` exn:" INDENT_LVL3
+            "field `desc` does not exist anymore"
+        );
         /* test @(compat:ignoreBin) on RPC */
-        T_KO(tstiop_backward_compat_iface,
-             tstiop_backward_compat_iface_incompatible_rpc_ignored_binjson,
-             IOP_COMPAT_BIN,
-             "pkg `tstiop_backward_compat_iface_"
-             "incompatible_rpc_ignored_binjson`:"
-             INDENT_LVL1 "interface `tstiop_backward_compat_iface.Iface`:"
-             INDENT_LVL2 "RPC `rpc2` was async and is not anymore");
+        T_KO(
+            tstiop_backward_compat_iface,
+            tstiop_backward_compat_iface_incompatible_rpc_ignored_binjson,
+            IOP_COMPAT_BIN,
+            "pkg `tstiop_backward_compat_iface_"
+            "incompatible_rpc_ignored_binjson`:" INDENT_LVL1
+            "interface `tstiop_backward_compat_iface.Iface`:" INDENT_LVL2
+            "RPC `rpc2` was async and is not anymore"
+        );
 
         /* Deleted module. */
-        T_KO_ALL(tstiop_backward_compat_mod,
-                 tstiop_backward_compat_mod_deleted,
-                 "pkg `tstiop_backward_compat_mod_deleted`:"
-                 INDENT_LVL1
-                 "module `tstiop_backward_compat_mod.Module` does not exist "
-                 "anymore");
+        T_KO_ALL(
+            tstiop_backward_compat_mod, tstiop_backward_compat_mod_deleted,
+            "pkg `tstiop_backward_compat_mod_deleted`:" INDENT_LVL1
+            "module `tstiop_backward_compat_mod.Module` does not exist "
+            "anymore"
+        );
 
         /* Deleted interface in a module. */
- #define PREFIX  "pkg `tstiop_backward_compat_mod_deleted_if`:"              \
-                 INDENT_LVL1                                                 \
-                 "module `tstiop_backward_compat_mod.Module`:"               \
-                 INDENT_LVL2
-        T_KO(tstiop_backward_compat_mod,
-             tstiop_backward_compat_mod_deleted_if, IOP_COMPAT_JSON,
-             PREFIX "interface `iface2` does not exist anymore");
-        T_KO(tstiop_backward_compat_mod,
-             tstiop_backward_compat_mod_deleted_if, IOP_COMPAT_BIN,
-             PREFIX "interface with tag 2 (`iface2`) does not exist anymore");
+#define PREFIX                                                               \
+    "pkg `tstiop_backward_compat_mod_deleted_if`:" INDENT_LVL1               \
+    "module `tstiop_backward_compat_mod.Module`:" INDENT_LVL2
+        T_KO(
+            tstiop_backward_compat_mod, tstiop_backward_compat_mod_deleted_if,
+            IOP_COMPAT_JSON,
+            PREFIX "interface `iface2` does not exist anymore"
+        );
+        T_KO(
+            tstiop_backward_compat_mod, tstiop_backward_compat_mod_deleted_if,
+            IOP_COMPAT_BIN,
+            PREFIX "interface with tag 2 (`iface2`) does not exist anymore"
+        );
 #undef PREFIX
 
         /* Typedefs. */
@@ -9071,30 +10278,42 @@ Z_GROUP_EXPORT(iop)
         iop_env_new_ = iop_env_new();
         Z_HELPER_RUN(z_dso_open(
             "iop/backward-compat/old/zchk-tstiop-backward-"
-            "compat-typedef-old" SO_FILEEXT, true, iop_env_old_, &dso_old));
+            "compat-typedef-old" SO_FILEEXT,
+            true, iop_env_old_, &dso_old
+        ));
         Z_HELPER_RUN(z_dso_open(
             "iop/backward-compat/new/zchk-tstiop-backward-"
-            "compat-typedef-new" SO_FILEEXT, true, iop_env_new_, &dso_new));
+            "compat-typedef-new" SO_FILEEXT,
+            true, iop_env_new_, &dso_new
+        ));
 
         pkgp_old = dlsym(dso_old->handle, "iop_packages");
         pkgp_new = dlsym(dso_new->handle, "iop_packages");
 
 #undef T_OK
-#define T_OK(_iop_env1, _pkg1, _iop_env2, _pkg2, _flags)  \
-        do {                                                                 \
-            iop_env_ctx_scope((_iop_env1), iop_env_ctx1);                    \
-            iop_env_ctx_scope((_iop_env2), iop_env_ctx2);                    \
+#define T_OK(_iop_env1, _pkg1, _iop_env2, _pkg2, _flags)                     \
+    do {                                                                     \
+        iop_env_ctx_scope((_iop_env1), iop_env_ctx1);                        \
+        iop_env_ctx_scope((_iop_env2), iop_env_ctx2);                        \
                                                                              \
-            sb_reset(&err);                                                  \
-            Z_ASSERT_N(iop_pkg_check_backward_compat(iop_env_ctx1, (_pkg1),  \
-                                                     iop_env_ctx2, (_pkg2),  \
-                                                     (_flags), &err),        \
-                       "%*pM", SB_FMT_ARG(&err));                            \
-        } while (0)
+        sb_reset(&err);                                                      \
+        Z_ASSERT_N(                                                          \
+            iop_pkg_check_backward_compat(                                   \
+                iop_env_ctx1, (_pkg1), iop_env_ctx2, (_pkg2), (_flags), &err \
+            ),                                                               \
+            "%*pM", SB_FMT_ARG(&err)                                         \
+        );                                                                   \
+    } while (0)
 
-        T_OK(iop_env_old_, *pkgp_old, iop_env_new_, *pkgp_new, IOP_COMPAT_BIN);
-        T_OK(iop_env_old_, *pkgp_old, iop_env_new_, *pkgp_new, IOP_COMPAT_JSON);
-        T_OK(iop_env_old_, *pkgp_old, iop_env_new_, *pkgp_new, IOP_COMPAT_ALL);
+        T_OK(
+            iop_env_old_, *pkgp_old, iop_env_new_, *pkgp_new, IOP_COMPAT_BIN
+        );
+        T_OK(
+            iop_env_old_, *pkgp_old, iop_env_new_, *pkgp_new, IOP_COMPAT_JSON
+        );
+        T_OK(
+            iop_env_old_, *pkgp_old, iop_env_new_, *pkgp_new, IOP_COMPAT_ALL
+        );
 
         iop_dso_close(&dso_old);
         iop_dso_close(&dso_new);
@@ -9105,29 +10324,39 @@ Z_GROUP_EXPORT(iop)
 #undef T_OK_ALL
 #undef T_KO
 #undef T_KO_ALL
-
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_get_class__typedef, "test iop_get_class with typedef") { /* {{{ */
+    Z_TEST(iop_get_class__typedef, "test iop_get_class with typedef") { /* {{{
+                                                                         */
         iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         const iop_struct_t *st = NULL;
 
-        Z_ASSERT_P(st = iop_get_class_by_fullname(
-            iop_env_ctx,
-            &tstiop_typedef__basic_class_child__s,
-            tstiop_typedef__basic_class_child__td.fullname));
-        Z_ASSERT_LSTREQUAL(st->fullname,
-            tstiop_backward_compat__basic_class_child__s.fullname);
-    } Z_TEST_END;
+        Z_ASSERT_P(
+            st = iop_get_class_by_fullname(
+                iop_env_ctx, &tstiop_typedef__basic_class_child__s,
+                tstiop_typedef__basic_class_child__td.fullname
+            )
+        );
+        Z_ASSERT_LSTREQUAL(
+            st->fullname,
+            tstiop_backward_compat__basic_class_child__s.fullname
+        );
+    }
+    Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_dso_find_enum__typedef, "test iop_dso_find_enum with typedef") { /* {{{ */
+    Z_TEST(
+        iop_dso_find_enum__typedef, "test iop_dso_find_enum with typedef"
+    ) { /* {{{ */
         iop_dso_t *dso = NULL;
         lstr_t en_name = LSTR("tstiop_backward_compat_typedef.MyEnumA");
         lstr_t en_exp = LSTR("tstiop_backward_compat_remote_typedef.MyEnumA");
 
         Z_HELPER_RUN(z_dso_open(
             "iop/backward-compat/new/zchk-tstiop-backward-"
-            "compat-typedef-new" SO_FILEEXT, true, _G.iop_env, &dso));
+            "compat-typedef-new" SO_FILEEXT,
+            true, _G.iop_env, &dso
+        ));
         Z_ASSERT_P(dso);
         {
             iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
@@ -9137,17 +10366,24 @@ Z_GROUP_EXPORT(iop)
             Z_ASSERT_LSTREQUAL(en->fullname, en_exp);
         }
         iop_dso_close(&dso);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_dso_find_type__typedef, "test iop_dso_find_type with typedef") { /* {{{ */
+    Z_TEST(
+        iop_dso_find_type__typedef, "test iop_dso_find_type with typedef"
+    ) { /* {{{ */
         iop_dso_t *dso = NULL;
         lstr_t st_name = LSTR("tstiop_backward_compat_typedef.MyClass2");
-        lstr_t st_exp = LSTR("tstiop_backward_compat_remote_typedef."
-                             "MovedMyClass2");
+        lstr_t st_exp = LSTR(
+            "tstiop_backward_compat_remote_typedef."
+            "MovedMyClass2"
+        );
 
         Z_HELPER_RUN(z_dso_open(
             "iop/backward-compat/new/zchk-tstiop-backward-"
-            "compat-typedef-new" SO_FILEEXT, true, _G.iop_env, &dso));
+            "compat-typedef-new" SO_FILEEXT,
+            true, _G.iop_env, &dso
+        ));
         Z_ASSERT_P(dso);
         {
             iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
@@ -9157,9 +10393,13 @@ Z_GROUP_EXPORT(iop)
             Z_ASSERT_LSTREQUAL(st->fullname, st_exp);
         }
         iop_dso_close(&dso);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_typedef_check_backward_compat, "test iop_typedef_check_backward_compat") { /* {{{ */
+    Z_TEST(
+        iop_typedef_check_backward_compat,
+        "test iop_typedef_check_backward_compat"
+    ) { /* {{{ */
         t_scope;
         tstiop_backward_compat__basic_struct__t basic_struct;
         tstiop_backward_compat__basic_union__t basic_union;
@@ -9173,35 +10413,38 @@ Z_GROUP_EXPORT(iop)
 
         basic_union = IOP_UNION(tstiop_backward_compat__basic_union, a, 12);
 
-        iop_init(tstiop_backward_compat__struct_container1,
-                 &struct_container1);
+        iop_init(
+            tstiop_backward_compat__struct_container1, &struct_container1
+        );
         struct_container1.s = basic_struct;
 
         iop_init(tstiop_backward_compat__basic_class, &basic_class);
         basic_class.a = 12;
         basic_class.b = LSTR("string");
 
-        iop_init(tstiop_backward_compat__basic_class_child,
-                 &basic_class_child);
+        iop_init(
+            tstiop_backward_compat__basic_class_child, &basic_class_child
+        );
         basic_class_child.a = 12;
         basic_class_child.b = LSTR("string");
 
 #define T_OK(_type, _obj1, _flags)                                           \
-        do {                                                                 \
-            const iop_struct_t *st = &tstiop_backward_compat__##_type##__s;  \
-            const iop_typedef_t *td = &tstiop_typedef__##_type##__td;        \
-            tstiop_backward_compat__##_type##__t *__obj1 = (_obj1);          \
+    do {                                                                     \
+        const iop_struct_t *st = &tstiop_backward_compat__##_type##__s;      \
+        const iop_typedef_t *td = &tstiop_typedef__##_type##__td;            \
+        tstiop_backward_compat__##_type##__t *__obj1 = (_obj1);              \
                                                                              \
-            Z_HELPER_RUN(iop_check_typedef_backward_compat(st, td, _flags,   \
-                                                           __obj1));         \
-        } while (0)
+        Z_HELPER_RUN(                                                        \
+            iop_check_typedef_backward_compat(st, td, _flags, __obj1)        \
+        );                                                                   \
+    } while (0)
 
-#define T_OK_ALL(_type, _obj1)  \
-        do {                                                                 \
-            T_OK(_type, _obj1, IOP_COMPAT_BIN);                              \
-            T_OK(_type, _obj1, IOP_COMPAT_JSON);                             \
-            T_OK(_type, NULL, IOP_COMPAT_ALL);                               \
-        } while (0)
+#define T_OK_ALL(_type, _obj1)                                               \
+    do {                                                                     \
+        T_OK(_type, _obj1, IOP_COMPAT_BIN);                                  \
+        T_OK(_type, _obj1, IOP_COMPAT_JSON);                                 \
+        T_OK(_type, NULL, IOP_COMPAT_ALL);                                   \
+    } while (0)
 
         /* Typedef alias from a struct in another package */
         T_OK_ALL(basic_struct, &basic_struct);
@@ -9220,29 +10463,29 @@ Z_GROUP_EXPORT(iop)
 
 #undef T_OK
 #undef T_OK_ALL
-
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(iop_struct_is_optional, "test iop_struct_is_optional") { /* {{{ */
         iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
 
         Z_ASSERT(iop_struct_is_optional(
-                    iop_env_ctx, &tstiop_backward_compat__abstract_class1__s,
-                    false));
+            iop_env_ctx, &tstiop_backward_compat__abstract_class1__s, false
+        ));
         Z_ASSERT(iop_struct_is_optional(
-                    iop_env_ctx, &tstiop_backward_compat__abstract_class1__s,
-                    true));
+            iop_env_ctx, &tstiop_backward_compat__abstract_class1__s, true
+        ));
         Z_ASSERT(!iop_struct_is_optional(
-                    iop_env_ctx, &tstiop_backward_compat__child_class41__s,
-                    true));
+            iop_env_ctx, &tstiop_backward_compat__child_class41__s, true
+        ));
         Z_ASSERT(iop_struct_is_optional(
-                    iop_env_ctx, &tstiop_backward_compat__child_class41__s,
-                    false));
+            iop_env_ctx, &tstiop_backward_compat__child_class41__s, false
+        ));
         Z_ASSERT(!iop_struct_is_optional(
-                    iop_env_ctx, &tstiop_backward_compat__child_class42__s,
-                    false));
-
-    } Z_TEST_END;
+            iop_env_ctx, &tstiop_backward_compat__child_class42__s, false
+        ));
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(iop_dso_external_refs, "test refs for external DSOs") { /* {{{ */
         iop_dso_t *dso;
@@ -9251,21 +10494,23 @@ Z_GROUP_EXPORT(iop)
         const iop_struct_t *my_struct_dso;
         const iop_field_t *field;
 
-        Z_HELPER_RUN(z_dso_open("iop/zchk-tstiop2-plugin" SO_FILEEXT, true,
-                                _G.iop_env, &dso));
+        Z_HELPER_RUN(z_dso_open(
+            "iop/zchk-tstiop2-plugin" SO_FILEEXT, true, _G.iop_env, &dso
+        ));
 
         /* Get the struct from the IOP environment */
         {
             iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
 
-            my_struct_env = iop_env_ctx_get_struct(iop_env_ctx,
-                                                   my_struct_name);
+            my_struct_env =
+                iop_env_ctx_get_struct(iop_env_ctx, my_struct_name);
         }
         Z_ASSERT_P(my_struct_env);
 
         /* Get the struct from the DSO */
-        my_struct_dso = qm_get_def_safe(iop_struct, &dso->struct_h,
-                                        &my_struct_name, NULL);
+        my_struct_dso = qm_get_def_safe(
+            iop_struct, &dso->struct_h, &my_struct_name, NULL
+        );
         Z_ASSERT_P(my_struct_dso);
 
         /* Check that we are using the correct from the DSO in the IOP
@@ -9273,18 +10518,24 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(my_struct_env == my_struct_dso);
 
         /* Get the field 'a' from the struct. */
-        Z_ASSERT_N(iop_field_find_by_name(my_struct_env, LSTR("a"), NULL,
-                                          &field));
+        Z_ASSERT_N(
+            iop_field_find_by_name(my_struct_env, LSTR("a"), NULL, &field)
+        );
 
         /* the two pointers to "tstiop.MyStructA" must be the same */
-        Z_ASSERT_LSTREQUAL(tstiop__my_struct_a__s.fullname,
-                           field->u1.st_desc->fullname);
+        Z_ASSERT_LSTREQUAL(
+            tstiop__my_struct_a__s.fullname, field->u1.st_desc->fullname
+        );
         Z_ASSERT(&tstiop__my_struct_a__s == field->u1.st_desc);
 
         iop_dso_close(&dso);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_dso_test_invalid_same_open, "test we cannot open two DSOs with the same packages") { /* {{{ */
+    Z_TEST(
+        iop_dso_test_invalid_same_open,
+        "test we cannot open two DSOs with the same packages"
+    ) { /* {{{ */
         /* test that loading two DSOs with the same packages results in an
          * error. */
         t_scope;
@@ -9296,7 +10547,9 @@ Z_GROUP_EXPORT(iop)
 
         /* build one dso, remove file */
         newpath = t_fmt("%*pM/1_%s", LSTR_FMT_ARG(z_tmpdir_g), sofile);
-        Z_ASSERT_N(filecopy(sopath, newpath), "%s -> %s: %m", sopath, newpath);
+        Z_ASSERT_N(
+            filecopy(sopath, newpath), "%s -> %s: %m", sopath, newpath
+        );
         Z_HELPER_RUN(z_dso_open(newpath, false, _G.iop_env, &dso));
         Z_ASSERT_N(unlink(newpath));
 
@@ -9305,14 +10558,15 @@ Z_GROUP_EXPORT(iop)
         newpath = t_fmt("%*pM/2_%s", LSTR_FMT_ARG(z_tmpdir_g), sofile);
         Z_ASSERT_N(filecopy(sopath, newpath));
         Z_ASSERT_NULL(iop_dso_open(_G.iop_env, newpath, &err));
-        Z_ASSERT_LSTREQUAL(LSTR_SB_V(&err), LSTR(
-            "package 'tstiop2' was already registered"
-        ));
+        Z_ASSERT_LSTREQUAL(
+            LSTR_SB_V(&err), LSTR("package 'tstiop2' was already registered")
+        );
         Z_ASSERT_N(unlink(newpath));
 
         /* clean-up the dso */
         iop_dso_close(&dso);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(iop_first_diff_desc, "test iop_first_diff_desc()") { /* {{{ */
         SB_1k(diff_desc);
@@ -9320,9 +10574,9 @@ Z_GROUP_EXPORT(iop)
         z_first_diff_st__t d2;
         z_first_diff_c1__t c1;
         z_first_diff_c2__t c2;
-        int tab1[] = { 1, 2, 3 };
-        int tab2[] = { 1 };
-        int tab3[] = { 1, 3, 3 };
+        int tab1[] = {1, 2, 3};
+        int tab2[] = {1};
+        int tab3[] = {1, 3, 3};
 
         iop_init(z_first_diff_st, &d1);
         d1.i = 42;
@@ -9330,80 +10584,102 @@ Z_GROUP_EXPORT(iop)
 
         d2 = d1;
 
-        Z_ASSERT_NEG(iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2,
-                                         &diff_desc), "diff_desc: %*pM",
-                     SB_FMT_ARG(&diff_desc));
+        Z_ASSERT_NEG(
+            iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2, &diff_desc),
+            "diff_desc: %*pM", SB_FMT_ARG(&diff_desc)
+        );
         d2.i = 41;
-        Z_ASSERT_N(iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2,
-                                       &diff_desc));
-        Z_ASSERT_STREQUAL(diff_desc.data,
-                          "field `i`: value differs (42 vs 41)");
+        Z_ASSERT_N(
+            iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2, &diff_desc)
+        );
+        Z_ASSERT_STREQUAL(
+            diff_desc.data, "field `i`: value differs (42 vs 41)"
+        );
 
         d2 = d1;
         d2.b = true;
-        Z_ASSERT_N(iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2,
-                                       &diff_desc));
-        Z_ASSERT_STREQUAL(diff_desc.data,
-                          "field `b`: value differs (false vs true)");
+        Z_ASSERT_N(
+            iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2, &diff_desc)
+        );
+        Z_ASSERT_STREQUAL(
+            diff_desc.data, "field `b`: value differs (false vs true)"
+        );
 
         d2 = d1;
         d1.s = LSTR("\n\"");
-        Z_ASSERT_N(iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2,
-                                       &diff_desc));
-        Z_ASSERT_STREQUAL(diff_desc.data,
-                          "field `s`: "
-                          "value differs (\"\\n\\\"\" vs \"toto\")");
-
+        Z_ASSERT_N(
+            iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2, &diff_desc)
+        );
+        Z_ASSERT_STREQUAL(
+            diff_desc.data, "field `s`: "
+                            "value differs (\"\\n\\\"\" vs \"toto\")"
+        );
 
         d2 = d1;
         OPT_SET(d1.opt_i, 666);
-        Z_ASSERT_N(iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2,
-                                       &diff_desc));
-        Z_ASSERT_STREQUAL(diff_desc.data,
-                          "field `optI`: field presence differs "
-                          "(field absent on second value)");
+        Z_ASSERT_N(
+            iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2, &diff_desc)
+        );
+        Z_ASSERT_STREQUAL(
+            diff_desc.data, "field `optI`: field presence differs "
+                            "(field absent on second value)"
+        );
         d2 = d1;
         d1.tab = (iop_array_i32_t)IOP_ARRAY(tab1, countof(tab1));
         d2 = d1;
-        Z_ASSERT_NEG(iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2,
-                                         &diff_desc), "diff_desc: %*pM",
-                     SB_FMT_ARG(&diff_desc));
+        Z_ASSERT_NEG(
+            iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2, &diff_desc),
+            "diff_desc: %*pM", SB_FMT_ARG(&diff_desc)
+        );
 
         d2.tab = (iop_array_i32_t)IOP_ARRAY(tab2, countof(tab2));
-        Z_ASSERT_N(iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2,
-                                       &diff_desc));
-        Z_ASSERT_STREQUAL(diff_desc.data,
-                          "field `tab[0]`: array length differs (3 vs 1)");
+        Z_ASSERT_N(
+            iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2, &diff_desc)
+        );
+        Z_ASSERT_STREQUAL(
+            diff_desc.data, "field `tab[0]`: array length differs (3 vs 1)"
+        );
 
         d2.tab = (iop_array_i32_t)IOP_ARRAY(tab3, countof(tab3));
-        Z_ASSERT_N(iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2,
-                                       &diff_desc));
-        Z_ASSERT_STREQUAL(diff_desc.data,
-                          "field `tab[1]`: value differs (2 vs 3)");
+        Z_ASSERT_N(
+            iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2, &diff_desc)
+        );
+        Z_ASSERT_STREQUAL(
+            diff_desc.data, "field `tab[1]`: value differs (2 vs 3)"
+        );
 
         iop_init(z_first_diff_c1, &c1);
         iop_init(z_first_diff_c2, &c2);
-        Z_ASSERT_N(iop_first_diff_desc(&z_first_diff_c0__s, &c1, &c2,
-                                       &diff_desc));
-        Z_ASSERT_STREQUAL(diff_desc.data, "class type differs "
-                          "(tstiop.FirstDiffC1 vs tstiop.FirstDiffC2)");
+        Z_ASSERT_N(
+            iop_first_diff_desc(&z_first_diff_c0__s, &c1, &c2, &diff_desc)
+        );
+        Z_ASSERT_STREQUAL(
+            diff_desc.data, "class type differs "
+                            "(tstiop.FirstDiffC1 vs tstiop.FirstDiffC2)"
+        );
 
         d2 = d1;
         d1.o = iop_obj_vcast(z_first_diff_c0, &c1);
         d2.o = iop_obj_vcast(z_first_diff_c0, &c2);
-        Z_ASSERT_N(iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2,
-                                       &diff_desc));
-        Z_ASSERT_STREQUAL(diff_desc.data, "field `o`: class type differs "
-                          "(tstiop.FirstDiffC1 vs tstiop.FirstDiffC2)");
+        Z_ASSERT_N(
+            iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2, &diff_desc)
+        );
+        Z_ASSERT_STREQUAL(
+            diff_desc.data, "field `o`: class type differs "
+                            "(tstiop.FirstDiffC1 vs tstiop.FirstDiffC2)"
+        );
 
         d2 = d1;
         OPT_SET(d1.e, FIRST_DIFF_ENUM_A);
         OPT_SET(d2.e, FIRST_DIFF_ENUM_C);
 
-        Z_ASSERT_N(iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2,
-                                       &diff_desc));
-        Z_ASSERT_STREQUAL(diff_desc.data, "field `e`: "
-                          "value differs (A(0) vs C(2))");
+        Z_ASSERT_N(
+            iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2, &diff_desc)
+        );
+        Z_ASSERT_STREQUAL(
+            diff_desc.data, "field `e`: "
+                            "value differs (A(0) vs C(2))"
+        );
 
         /* Doubles are compared with a tolerance: a one-ULP difference is
          * not reported as a diff. */
@@ -9411,17 +10687,21 @@ Z_GROUP_EXPORT(iop)
         d1.d = 1.0;
         d2 = d1;
         d2.d = nextafter(1.0, 2.0);
-        Z_ASSERT_NEG(iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2,
-                                         &diff_desc), "diff_desc: %*pM",
-                     SB_FMT_ARG(&diff_desc));
+        Z_ASSERT_NEG(
+            iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2, &diff_desc),
+            "diff_desc: %*pM", SB_FMT_ARG(&diff_desc)
+        );
 
         /* A larger difference is reported. */
         d2.d = 1.02;
-        Z_ASSERT_N(iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2,
-                                       &diff_desc));
-        Z_ASSERT_STREQUAL(diff_desc.data,
-                          "field `d`: value differs (1 vs 1.02)");
-    } Z_TEST_END;
+        Z_ASSERT_N(
+            iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2, &diff_desc)
+        );
+        Z_ASSERT_STREQUAL(
+            diff_desc.data, "field `d`: value differs (1 vs 1.02)"
+        );
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(iop_equals_strict, "test iop_equals_desc() vs strict") { /* {{{ */
         SB_1k(diff_desc);
@@ -9432,10 +10712,11 @@ Z_GROUP_EXPORT(iop)
          * (bitwise) comparison. The tolerance behaviour itself is covered by
          * the arithfloat/double_is_close test. */
         double eps = nextafter(1.0, 2.0);
-        double dtab1[] = { 1.0, 0.5, 0.25 };
-        double dtab2[] = { nextafter(1.0, 2.0), nextafter(0.5, 1.0),
-                           nextafter(0.25, 1.0) };
-        double dtab3[] = { 1.0, 0.52, 0.25 };
+        double dtab1[] = {1.0, 0.5, 0.25};
+        double dtab2[] = {
+            nextafter(1.0, 2.0), nextafter(0.5, 1.0), nextafter(0.25, 1.0)
+        };
+        double dtab3[] = {1.0, 0.52, 0.25};
 
         iop_init(z_first_diff_st, &s1);
         s1.d = 1.0;
@@ -9487,8 +10768,9 @@ Z_GROUP_EXPORT(iop)
         s2 = s1;
         Z_ASSERT(iop_equals_desc(&z_first_diff_st__s, &s1, &s2));
         Z_ASSERT(iop_equals_strict_desc(&z_first_diff_st__s, &s1, &s2));
-        Z_ASSERT_NEG(iop_first_diff_desc(&z_first_diff_st__s, &s1, &s2,
-                                         &diff_desc));
+        Z_ASSERT_NEG(
+            iop_first_diff_desc(&z_first_diff_st__s, &s1, &s2, &diff_desc)
+        );
 
         s2.d = -INFINITY;
         Z_ASSERT(!iop_equals_desc(&z_first_diff_st__s, &s1, &s2));
@@ -9504,9 +10786,13 @@ Z_GROUP_EXPORT(iop)
         s2.d = -0.0;
         Z_ASSERT(iop_equals_desc(&z_first_diff_st__s, &s1, &s2));
         Z_ASSERT(!iop_equals_strict_desc(&z_first_diff_st__s, &s1, &s2));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_nonreg_ioptag_union_unpack, "test iop_tag all bytes set (i32 vs u16)") { /* {{{ */
+    Z_TEST(
+        iop_nonreg_ioptag_union_unpack,
+        "test iop_tag all bytes set (i32 vs u16)"
+    ) { /* {{{ */
         t_scope;
         iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         tstiop__my_union_b__t dst;
@@ -9525,28 +10811,38 @@ Z_GROUP_EXPORT(iop)
 
         /* bunpack to struct (set to 0xFF) */
         memset(&dst, 0xFF, sizeof(tstiop__my_union_b__t));
-        ret = iop_bunpack(t_pool(), iop_env_ctx, &tstiop__my_union_b__s,
-                          &dst, ps_initlstr(&data), false);
+        ret = iop_bunpack(
+            t_pool(), iop_env_ctx, &tstiop__my_union_b__s, &dst,
+            ps_initlstr(&data), false
+        );
         Z_ASSERT_EQ(ret, 0);
         Z_ASSERT_EQ(src.iop_tag, dst.iop_tag);
 
         /* unpack json union with format ":" */
         memset(&dst, 0xFF, sizeof(tstiop__my_union_b__t));
-        ret = t_iop_junpack_ps(iop_env_ctx, &json1, &tstiop__my_union_b__s,
-                               &dst, 0, NULL);
+        ret = t_iop_junpack_ps(
+            iop_env_ctx, &json1, &tstiop__my_union_b__s, &dst, 0, NULL
+        );
         Z_ASSERT_EQ(ret, 0);
-        Z_ASSERT_EQ(dst.iop_tag, (IOP_UNION_TAG_T(tstiop__my_union_b))
-                    IOP_UNION_TAG(tstiop__my_union_b, bval));
+        Z_ASSERT_EQ(
+            dst.iop_tag, (IOP_UNION_TAG_T(tstiop__my_union_b))
+                             IOP_UNION_TAG(tstiop__my_union_b, bval)
+        );
 
         /* unpack json union with format "." */
         memset(&dst, 0xFF, sizeof(tstiop__my_union_b__t));
-        ret = t_iop_junpack_ps(iop_env_ctx, &json2, &tstiop__my_union_b__s,
-                               &dst, 0, NULL);
+        ret = t_iop_junpack_ps(
+            iop_env_ctx, &json2, &tstiop__my_union_b__s, &dst, 0, NULL
+        );
         Z_ASSERT_EQ(ret, 0);
-        Z_ASSERT_EQ(dst.iop_tag, (IOP_UNION_TAG_T(tstiop__my_union_b))
-                    IOP_UNION_TAG(tstiop__my_union_b, a));
-        Z_ASSERT_EQ(dst.a.iop_tag, (IOP_UNION_TAG_T(tstiop__my_union_a))
-                    IOP_UNION_TAG(tstiop__my_union_a, ua));
+        Z_ASSERT_EQ(
+            dst.iop_tag, (IOP_UNION_TAG_T(tstiop__my_union_b))
+                             IOP_UNION_TAG(tstiop__my_union_b, a)
+        );
+        Z_ASSERT_EQ(
+            dst.a.iop_tag, (IOP_UNION_TAG_T(tstiop__my_union_a))
+                               IOP_UNION_TAG(tstiop__my_union_a, ua)
+        );
 
         /* pack/unpack xml */
         sb_adds(&sb, IOP_XML_HEADER_FULL);
@@ -9554,11 +10850,13 @@ Z_GROUP_EXPORT(iop)
         sb_adds(&sb, IOP_XML_FOOTER);
         memset(&dst, 0xFF, sizeof(tstiop__my_union_b__t));
         Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
-        ret = iop_xunpack(xmlr_g, t_pool(), iop_env_ctx,
-                          &tstiop__my_union_b__s, &dst);
+        ret = iop_xunpack(
+            xmlr_g, t_pool(), iop_env_ctx, &tstiop__my_union_b__s, &dst
+        );
         Z_ASSERT_EQ(ret, 0);
         Z_ASSERT_EQ(src.iop_tag, dst.iop_tag);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(iop_void_union, "test iop void in union") { /* {{{ */
         t_scope;
@@ -9577,8 +10875,9 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_LSTREQUAL(LSTR_IMMED_V("\x82\x55"), data);
 
         /* check iop_copy for other field */
-        iop_std_test_struct(&tstiop_void_type__void_alone__s, &s,
-                                  "Union void (unselected)");
+        iop_std_test_struct(
+            &tstiop_void_type__void_alone__s, &s, "Union void (unselected)"
+        );
 
         /* pack with void field */
         IOP_UNION_SET_V(tstiop_void_type__void_alone, &s, field);
@@ -9586,48 +10885,55 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_LSTREQUAL(LSTR_IMMED_V("\x01\x00"), data);
 
         /* check unpacking void field */
-        ret = iop_bunpack(t_pool(), iop_env_ctx,
-                          &tstiop_void_type__void_alone__s,
-                          &dest, ps_initlstr(&data), false);
+        ret = iop_bunpack(
+            t_pool(), iop_env_ctx, &tstiop_void_type__void_alone__s, &dest,
+            ps_initlstr(&data), false
+        );
         Z_ASSERT_EQ(ret, 0);
         Z_ASSERT(IOP_UNION_IS(tstiop_void_type__void_alone, &s, field));
 
         /* check iop_copy for void field */
-        iop_std_test_struct(&tstiop_void_type__void_alone__s, &s,
-                                  "Union void (selected)");
+        iop_std_test_struct(
+            &tstiop_void_type__void_alone__s, &s, "Union void (selected)"
+        );
 
         /* test JSON */
-        iop_json_test_json(&tstiop_void_type__void_alone__s,
-                           "{ \"field\": null }\n", &s, "");
+        iop_json_test_json(
+            &tstiop_void_type__void_alone__s, "{ \"field\": null }\n", &s, ""
+        );
 
         s = IOP_UNION(tstiop_void_type__void_alone, other, 0x55);
-        iop_json_test_json(&tstiop_void_type__void_alone__s,
-                           "{ \"other\": 85 }\n", &s, "");
+        iop_json_test_json(
+            &tstiop_void_type__void_alone__s, "{ \"other\": 85 }\n", &s, ""
+        );
 
         /* test XML */
         IOP_UNION_SET_V(tstiop_void_type__void_alone, &s, field);
-        iop_xpack(&buff, &tstiop_void_type__void_alone__s, &s, false,
-                  false);
-        Z_ASSERT_LSTREQUAL(LSTR_IMMED_V("<field xsi:nil=\"true\"></field>"),
-                           LSTR_SB_V(&buff));
+        iop_xpack(&buff, &tstiop_void_type__void_alone__s, &s, false, false);
+        Z_ASSERT_LSTREQUAL(
+            LSTR_IMMED_V("<field xsi:nil=\"true\"></field>"), LSTR_SB_V(&buff)
+        );
 
         sb_reset(&buff);
         s = IOP_UNION(tstiop_void_type__void_alone, other, 0x55);
-        iop_xpack(&buff, &tstiop_void_type__void_alone__s, &s, false,
-                  false);
-        Z_ASSERT_LSTREQUAL(LSTR_IMMED_V("<other>85</other>"),
-                           LSTR_SB_V(&buff));
+        iop_xpack(&buff, &tstiop_void_type__void_alone__s, &s, false, false);
+        Z_ASSERT_LSTREQUAL(
+            LSTR_IMMED_V("<other>85</other>"), LSTR_SB_V(&buff)
+        );
 
         iop_xml_test_struct(&tstiop_void_type__void_alone__s, &s, "va");
 
         /* test WSDL */
         sb_reset(&buff);
-        iop_xwsdl(&buff, iop_env_ctx, tstiop_void_type__void_alone_mod__modp,
-                  NULL, "http://example.com/tstiop",
-                  "http://localhost:1080/iop/", false, true);
-    } Z_TEST_END;
+        iop_xwsdl(
+            &buff, iop_env_ctx, tstiop_void_type__void_alone_mod__modp, NULL,
+            "http://example.com/tstiop", "http://localhost:1080/iop/", false,
+            true
+        );
+    }
+    Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_void_optional, "test iop void, optional") {/* {{{ */
+    Z_TEST(iop_void_optional, "test iop void, optional") { /* {{{ */
         t_scope;
         iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         tstiop_void_type__void_optional__t s;
@@ -9645,15 +10951,17 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_LSTREQUAL(LSTR_IMMED_V("\x01\x00"), data);
 
         /* unpack enabled optional void */
-        ret = iop_bunpack(t_pool(), iop_env_ctx,
-                          &tstiop_void_type__void_optional__s,
-                          &dest, ps_initlstr(&data), false);
+        ret = iop_bunpack(
+            t_pool(), iop_env_ctx, &tstiop_void_type__void_optional__s, &dest,
+            ps_initlstr(&data), false
+        );
         Z_ASSERT_EQ(ret, 0);
         Z_ASSERT_EQ(dest.field, true);
 
         /* check iop_copy */
-        iop_std_test_struct(&tstiop_void_type__void_optional__s, &s,
-                                  "Optional void (enabled)");
+        iop_std_test_struct(
+            &tstiop_void_type__void_optional__s, &s, "Optional void (enabled)"
+        );
 
         /* pack with optional void disabled */
         s.field = false;
@@ -9661,54 +10969,66 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_LSTREQUAL(LSTR_IMMED_V(""), data);
 
         /* unpack disabled optional void */
-        ret = iop_bunpack(t_pool(), iop_env_ctx,
-                          &tstiop_void_type__void_optional__s,
-                          &dest, ps_initlstr(&data), false);
+        ret = iop_bunpack(
+            t_pool(), iop_env_ctx, &tstiop_void_type__void_optional__s, &dest,
+            ps_initlstr(&data), false
+        );
         Z_ASSERT_EQ(ret, 0);
         Z_ASSERT_EQ(dest.field, false);
 
         /* check iop_copy */
-        iop_std_test_struct(&tstiop_void_type__void_optional__s, &s,
-                                  "Optional void (disabled)");
+        iop_std_test_struct(
+            &tstiop_void_type__void_optional__s, &s,
+            "Optional void (disabled)"
+        );
 
         /* check hash different for set/unset optional void */
         s.field = false;
         iop_hash_sha1(&tstiop_void_type__void_optional__s, &s, buf1, 0);
         s.field = true;
         iop_hash_sha1(&tstiop_void_type__void_optional__s, &s, buf2, 0);
-        Z_ASSERT(memcmp(buf1, buf2, sizeof(buf1)),
-                 "Hashes should be different");
+        Z_ASSERT(
+            memcmp(buf1, buf2, sizeof(buf1)), "Hashes should be different"
+        );
 
         /* test JSON */
         s.field = true;
-        iop_json_test_json(&tstiop_void_type__void_optional__s,
-                           "{ \"field\": null }\n", &s, "");
+        iop_json_test_json(
+            &tstiop_void_type__void_optional__s, "{ \"field\": null }\n", &s,
+            ""
+        );
         s.field = false;
-        iop_json_test_json(&tstiop_void_type__void_optional__s,
-                           "{ }\n", &s, "");
+        iop_json_test_json(
+            &tstiop_void_type__void_optional__s, "{ }\n", &s, ""
+        );
 
         /* test XML */
         s.field = true;
-        iop_xpack(&buff, &tstiop_void_type__void_optional__s, &s, false,
-                  false);
-        Z_ASSERT_LSTREQUAL(LSTR_IMMED_V("<field xsi:nil=\"true\"></field>"),
-                           LSTR_SB_V(&buff));
+        iop_xpack(
+            &buff, &tstiop_void_type__void_optional__s, &s, false, false
+        );
+        Z_ASSERT_LSTREQUAL(
+            LSTR_IMMED_V("<field xsi:nil=\"true\"></field>"), LSTR_SB_V(&buff)
+        );
         iop_xml_test_struct(&tstiop_void_type__void_optional__s, &s, "va");
 
         sb_reset(&buff);
         s.field = false;
-        iop_xpack(&buff, &tstiop_void_type__void_optional__s, &s, false,
-                  false);
+        iop_xpack(
+            &buff, &tstiop_void_type__void_optional__s, &s, false, false
+        );
         Z_ASSERT_LSTREQUAL(LSTR_IMMED_V(""), LSTR_SB_V(&buff));
         iop_xml_test_struct(&tstiop_void_type__void_optional__s, &s, "va");
 
         /* test WSDL */
         sb_reset(&buff);
-        iop_xwsdl(&buff, iop_env_ctx,
-                  tstiop_void_type__void_optional_mod__modp, NULL,
-                  "http://example.com/tstiop",
-                  "http://localhost:1080/iop/", false, true);
-    } Z_TEST_END;
+        iop_xwsdl(
+            &buff, iop_env_ctx, tstiop_void_type__void_optional_mod__modp,
+            NULL, "http://example.com/tstiop", "http://localhost:1080/iop/",
+            false, true
+        );
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(iop_void_required, "test iop void, required") { /* {{{ */
         t_scope;
@@ -9730,18 +11050,24 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_LSTREQUAL(LSTR_IMMED_V(""), packed);
 
         /* check iop_copy */
-        iop_std_test_struct(&tstiop_void_type__void_required__s, &s,
-                                  "Required void");
+        iop_std_test_struct(
+            &tstiop_void_type__void_required__s, &s, "Required void"
+        );
 
-#define T_UNPACK_TO_VOID(type) \
-        do {                                                                 \
-            lstr_t data;                                                     \
-            data = t_iop_bpack_struct(                                       \
-                &tstiop_void_type__##type##_to_void__s, &s_##type);          \
-            Z_ASSERT_EQ(iop_bunpack(t_pool(), iop_env_ctx,                   \
-                                    &tstiop_void_type__void_required__s,     \
-                                    &s, ps_initlstr(&data), false), 0);      \
-        } while(0)
+#define T_UNPACK_TO_VOID(type)                                               \
+    do {                                                                     \
+        lstr_t data;                                                         \
+        data = t_iop_bpack_struct(                                           \
+            &tstiop_void_type__##type##_to_void__s, &s_##type                \
+        );                                                                   \
+        Z_ASSERT_EQ(                                                         \
+            iop_bunpack(                                                     \
+                t_pool(), iop_env_ctx, &tstiop_void_type__void_required__s,  \
+                &s, ps_initlstr(&data), false                                \
+            ),                                                               \
+            0                                                                \
+        );                                                                   \
+    } while (0)
 
         /* unpack integer wire type into void */
         iop_init(tstiop_void_type__int_to_void, &s_int);
@@ -9772,37 +11098,47 @@ Z_GROUP_EXPORT(iop)
 #undef T_UNPACK_TO_VOID
 
         /* test JSON */
-        iop_json_test_unpack(&tstiop_void_type__void_required__s,
-                             "{ field: 1 }", 0, true, "int to void");
-        iop_json_test_unpack(&tstiop_void_type__void_required__s,
-                             "{ field: [0, 1, 2] }", 0, true,
-                             "array to void");
-        iop_json_test_unpack(&tstiop_void_type__void_required__s,
-                             "{ field: { a: 1, b: 2 } }", 0, true,
-                             "struct to void");
-        iop_json_test_pack(&tstiop_void_type__void_required__s, &s,
-                           0, true, true, "{\n}\n");
+        iop_json_test_unpack(
+            &tstiop_void_type__void_required__s, "{ field: 1 }", 0, true,
+            "int to void"
+        );
+        iop_json_test_unpack(
+            &tstiop_void_type__void_required__s, "{ field: [0, 1, 2] }", 0,
+            true, "array to void"
+        );
+        iop_json_test_unpack(
+            &tstiop_void_type__void_required__s, "{ field: { a: 1, b: 2 } }",
+            0, true, "struct to void"
+        );
+        iop_json_test_pack(
+            &tstiop_void_type__void_required__s, &s, 0, true, true, "{\n}\n"
+        );
 
         /* test XML pack required void */
-        iop_xpack(&buff, &tstiop_void_type__void_required__s, &s, false,
-                  false);
+        iop_xpack(
+            &buff, &tstiop_void_type__void_required__s, &s, false, false
+        );
         Z_ASSERT_LSTREQUAL(LSTR_IMMED_V(""), LSTR_SB_V(&buff));
 
         /* test XML unpack to void */
-#define T_XUNPACK_TO_VOID(type) \
-        do {                                                                 \
-            SB(sb, 10);                                                      \
-            int ret;                                                         \
-            void *res = NULL;                                                \
-            sb_adds(&sb, IOP_XML_HEADER_FULL);                               \
-            iop_xpack(&sb, &tstiop_void_type__##type##_to_void__s, &s_##type,\
-                      false, false);                                         \
-            sb_adds(&sb, IOP_XML_FOOTER);                                    \
-            Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));                \
-            ret = iop_xunpack_ptr(xmlr_g, t_pool(), iop_env_ctx,            \
-                                  &tstiop_void_type__void_required__s, &res);\
-            Z_ASSERT_EQ(ret, 0);                                             \
-        } while(0)
+#define T_XUNPACK_TO_VOID(type)                                              \
+    do {                                                                     \
+        SB(sb, 10);                                                          \
+        int ret;                                                             \
+        void *res = NULL;                                                    \
+        sb_adds(&sb, IOP_XML_HEADER_FULL);                                   \
+        iop_xpack(                                                           \
+            &sb, &tstiop_void_type__##type##_to_void__s, &s_##type, false,   \
+            false                                                            \
+        );                                                                   \
+        sb_adds(&sb, IOP_XML_FOOTER);                                        \
+        Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));                    \
+        ret = iop_xunpack_ptr(                                               \
+            xmlr_g, t_pool(), iop_env_ctx,                                   \
+            &tstiop_void_type__void_required__s, &res                        \
+        );                                                                   \
+        Z_ASSERT_EQ(ret, 0);                                                 \
+    } while (0)
 
         T_XUNPACK_TO_VOID(int);
         T_XUNPACK_TO_VOID(struct);
@@ -9812,13 +11148,17 @@ Z_GROUP_EXPORT(iop)
 
         /* test WSDL */
         sb_reset(&buff);
-        iop_xwsdl(&buff, iop_env_ctx,
-                  tstiop_void_type__void_required_mod__modp, NULL,
-                  "http://example.com/tstiop",
-                  "http://localhost:1080/iop/", false, true);
-    } Z_TEST_END;
+        iop_xwsdl(
+            &buff, iop_env_ctx, tstiop_void_type__void_required_mod__modp,
+            NULL, "http://example.com/tstiop", "http://localhost:1080/iop/",
+            false, true
+        );
+    }
+    Z_TEST_END;
     /* }}} */
-    Z_TEST(json_empty_string, "parsing '' as JSON always returns an error") { /* {{{ */
+    Z_TEST(
+        json_empty_string, "parsing '' as JSON always returns an error"
+    ) { /* {{{ */
         iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         tstiop__my_union_a__t union_a;
         tstiop__my_class1__t class1;
@@ -9828,25 +11168,27 @@ Z_GROUP_EXPORT(iop)
         SB_1k(err);
 
         /* test for an union */
-        Z_ASSERT_NEG(t_iop_junpack_ps(iop_env_ctx, &json,
-                                      &tstiop__my_union_a__s, &union_a,
-                                      0, &err));
+        Z_ASSERT_NEG(t_iop_junpack_ps(
+            iop_env_ctx, &json, &tstiop__my_union_a__s, &union_a, 0, &err
+        ));
         Z_ASSERT_STREQUAL(err.data, error);
         sb_reset(&err);
 
         /* test for a class */
-        Z_ASSERT_NEG(t_iop_junpack_ps(iop_env_ctx, &json,
-                                      &tstiop__my_class1__s, &class1,
-                                      0, &err));
+        Z_ASSERT_NEG(t_iop_junpack_ps(
+            iop_env_ctx, &json, &tstiop__my_class1__s, &class1, 0, &err
+        ));
         Z_ASSERT_STREQUAL(err.data, error);
         sb_reset(&err);
 
         /* test for a struct with all optional fields */
-        Z_ASSERT_NEG(t_iop_junpack_ps(iop_env_ctx, &json,
-                                      &tstiop__my_struct_a_opt__s,
-                                      &struct_opt, 0, &err));
+        Z_ASSERT_NEG(t_iop_junpack_ps(
+            iop_env_ctx, &json, &tstiop__my_struct_a_opt__s, &struct_opt, 0,
+            &err
+        ));
         Z_ASSERT_STREQUAL(err.data, error);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(repeated_field_removal, "repeated field removal") { /* {{{ */
         t_scope;
@@ -9855,7 +11197,7 @@ Z_GROUP_EXPORT(iop)
         pstream_t data_ps;
         struct_with_repeated_field__t st;
         struct_without_repeated_field__t *out = NULL;
-        lstr_t tab[] = { LSTR_IMMED("toto"), LSTR_IMMED("foo") };
+        lstr_t tab[] = {LSTR_IMMED("toto"), LSTR_IMMED("foo")};
 
         Z_TEST_FLAGS("redmine_54728");
 
@@ -9868,14 +11210,19 @@ Z_GROUP_EXPORT(iop)
         data = t_iop_bpack_struct(&struct_with_repeated_field__s, &st);
         Z_ASSERT_P(data.s);
         data_ps = ps_initlstr(&data);
-        Z_ASSERT_N(iop_bunpack_ptr(t_pool(), iop_env_ctx,
-                                   &struct_without_repeated_field__s,
-                                   (void **)&out, data_ps, false),
-                   "unexpected backward incompatibility for repeated field "
-                   "removal: %s", iop_get_err());
+        Z_ASSERT_N(
+            iop_bunpack_ptr(
+                t_pool(), iop_env_ctx, &struct_without_repeated_field__s,
+                (void **)&out, data_ps, false
+            ),
+            "unexpected backward incompatibility for repeated field "
+            "removal: %s",
+            iop_get_err()
+        );
         Z_ASSERT_EQ(st.a, out->a);
         Z_ASSERT_EQ(st.c, out->c);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(iop_value_get_bpack_size, "iop_value_get_bpack_size") { /* {{{ */
         tstiop__get_bpack_sz_u__t u;
@@ -9886,9 +11233,10 @@ Z_GROUP_EXPORT(iop)
         st.b = LSTR("test");
 
 #define T(field, _v)                                                         \
-        u = IOP_UNION(tstiop__get_bpack_sz_u, field, _v);                    \
-        Z_HELPER_RUN(z_check_iop_value_get_bpack_size(&u, #field),           \
-                     #field "=" #_v);
+    u = IOP_UNION(tstiop__get_bpack_sz_u, field, _v);                        \
+    Z_HELPER_RUN(                                                            \
+        z_check_iop_value_get_bpack_size(&u, #field), #field "=" #_v         \
+    );
 
         T(i8, 45);
         T(u8, 240);
@@ -9907,21 +11255,29 @@ Z_GROUP_EXPORT(iop)
         T(st, st);
 
 #undef T
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(struct_packing, "check struct packing behavior") { /* {{{ */
         /* Check that a struct is properly packed. */
-        STATIC_ASSERT(sizeof(tstiop__struct_with_optional_object__t) ==
-                      2 * sizeof(int32_t) + sizeof(void *));
+        STATIC_ASSERT(
+            sizeof(tstiop__struct_with_optional_object__t) ==
+            2 * sizeof(int32_t) + sizeof(void *)
+        );
 
         /* Check consistency of struct packing between similar structs. */
-        STATIC_ASSERT(sizeof(tstiop__struct_with_mandatory_object__t) ==
-                      sizeof(tstiop__struct_with_optional_object__t));
-        STATIC_ASSERT(sizeof(tstiop__struct_with_mandatory_object__t) ==
-                      sizeof(tstiop__struct_with_typedef__t));
+        STATIC_ASSERT(
+            sizeof(tstiop__struct_with_mandatory_object__t) ==
+            sizeof(tstiop__struct_with_optional_object__t)
+        );
+        STATIC_ASSERT(
+            sizeof(tstiop__struct_with_mandatory_object__t) ==
+            sizeof(tstiop__struct_with_typedef__t)
+        );
 
         Z_ASSERT(true);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(int_types_helpers, "integer types sign/size helpers") { /* {{{ */
         struct {
@@ -9929,25 +11285,24 @@ Z_GROUP_EXPORT(iop)
             bool is_signed;
             size_t size;
         } int_types[] = {
-            { IOP_T_I8, true, 1 },
-            { IOP_T_U8, false, 1 },
-            { IOP_T_I16, true, 2 },
-            { IOP_T_U16, false, 2 },
-            { IOP_T_I32, true, 4 },
-            { IOP_T_U32, false, 4 },
-            { IOP_T_I64, true, 8 },
-            { IOP_T_U64, false, 8 },
+            {IOP_T_I8, true, 1},  {IOP_T_U8, false, 1},
+            {IOP_T_I16, true, 2}, {IOP_T_U16, false, 2},
+            {IOP_T_I32, true, 4}, {IOP_T_U32, false, 4},
+            {IOP_T_I64, true, 8}, {IOP_T_U64, false, 8},
         };
 
         carray_for_each_ptr(type, int_types) {
-            Z_ASSERT_EQ(iop_int_type_is_signed(type->type), type->is_signed,
-                        "wrong sign for type %s",
-                        iop_type_get_string_desc(type->type));
-            Z_ASSERT_EQ(iop_int_type_size(type->type), type->size,
-                        "wrong size for type %s",
-                        iop_type_get_string_desc(type->type));
+            Z_ASSERT_EQ(
+                iop_int_type_is_signed(type->type), type->is_signed,
+                "wrong sign for type %s", iop_type_get_string_desc(type->type)
+            );
+            Z_ASSERT_EQ(
+                iop_int_type_size(type->type), type->size,
+                "wrong size for type %s", iop_type_get_string_desc(type->type)
+            );
         }
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(wsdl, "test generation of WSDL") { /* {{{ */
         t_scope;
@@ -9955,21 +11310,26 @@ Z_GROUP_EXPORT(iop)
         SB_1k(buf);
         lstr_t expected;
 
-        Z_ASSERT_N(lstr_init_from_file(&expected,
-                                       t_fmt("%*pM/test-data/iop.wsdl",
-                                             LSTR_FMT_ARG(z_cmddir_g)),
-                                       PROT_READ, MAP_SHARED));
+        Z_ASSERT_N(lstr_init_from_file(
+            &expected,
+            t_fmt("%*pM/test-data/iop.wsdl", LSTR_FMT_ARG(z_cmddir_g)),
+            PROT_READ, MAP_SHARED
+        ));
 
-        iop_xwsdl(&buf, iop_env_ctx, &tstiop_wsdl__m__mod, NULL,
-                  "http://example.com/tstiop",
-                  "http://localhost:1080/iop/", false, true);
+        iop_xwsdl(
+            &buf, iop_env_ctx, &tstiop_wsdl__m__mod, NULL,
+            "http://example.com/tstiop", "http://localhost:1080/iop/", false,
+            true
+        );
 
         Z_ASSERT_LSTREQUAL(LSTR_SB_V(&buf), expected);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(iop_core_obj, "IOP core obj") { /* {{{ */
         Z_HELPER_RUN(test_iop_core_obj());
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
     Z_TEST(iop_init_union, "test IOP union init") { /* {{{ */
         tstiop__my_union_d__t u;
@@ -9985,7 +11345,8 @@ Z_GROUP_EXPORT(iop)
         iop_init_union(tstiop__my_union_d, &u, ug);
         Z_ASSERT_P(IOP_UNION_GET(tstiop__my_union_d, &u, ug));
         Z_ASSERT_EQ(u.ug.a, -1);
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
     Z_TEST(iop_st_array_for_each, "test iop_st_array_for_each") { /* {{{ */
         t_scope;
@@ -9994,10 +11355,10 @@ Z_GROUP_EXPORT(iop)
         tstiop__my_union_d__array_t u_array;
         tstiop__my_union_d__t *u_ptr;
 
-        obj_array = T_IOP_ARRAY(tstiop__my_class3,
-                                (tstiop__my_class3__t *)0x1,
-                                (tstiop__my_class3__t *)0x2,
-                                (tstiop__my_class3__t *)0x3);
+        obj_array = T_IOP_ARRAY(
+            tstiop__my_class3, (tstiop__my_class3__t *)0x1,
+            (tstiop__my_class3__t *)0x2, (tstiop__my_class3__t *)0x3
+        );
         obj_ptr = obj_array.tab;
         iop_tab_for_each(&tstiop__my_class3__s, ptr, &obj_array) {
             Z_ASSERT(ptr == *obj_ptr++);
@@ -10010,42 +11371,61 @@ Z_GROUP_EXPORT(iop)
             Z_ASSERT(ptr == u_ptr++);
         }
         Z_ASSERT(u_ptr == tab_last(&u_array) + 1);
-    } Z_TEST_END
+    }
+    Z_TEST_END
     /* }}} */
-    Z_TEST(bpack_error_unregistered_class, "unpacking an instance of an unregistered class") { /* {{{ */
+    Z_TEST(
+        bpack_error_unregistered_class,
+        "unpacking an instance of an unregistered class"
+    ) { /* {{{ */
         t_scope;
         iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         lstr_t bin;
         void *instance = NULL;
 
-        bin = t_iop_bpack_struct(&tstiop_not_registered_class__s,
-                                 t_iop_new(tstiop_not_registered_class));
-        Z_ASSERT_NEG(iop_bunpack_ptr(t_pool(), iop_env_ctx,
-                                     &tstiop_registered_class__s,
-                                     &instance, ps_initlstr(&bin), false));
-        Z_ASSERT_STREQUAL(iop_get_err(),
-                          "cannot find child 2 of class "
-                          "'tstiop.RegisteredClass'");
-    } Z_TEST_END;
+        bin = t_iop_bpack_struct(
+            &tstiop_not_registered_class__s,
+            t_iop_new(tstiop_not_registered_class)
+        );
+        Z_ASSERT_NEG(iop_bunpack_ptr(
+            t_pool(), iop_env_ctx, &tstiop_registered_class__s, &instance,
+            ps_initlstr(&bin), false
+        ));
+        Z_ASSERT_STREQUAL(
+            iop_get_err(), "cannot find child 2 of class "
+                           "'tstiop.RegisteredClass'"
+        );
+    }
+    Z_TEST_END;
     /* }}} */
-    Z_TEST(bpack_error_unexpected_class_type, "unpacking an instance of an unexpected class type") { /* {{{ */
+    Z_TEST(
+        bpack_error_unexpected_class_type,
+        "unpacking an instance of an unexpected class type"
+    ) { /* {{{ */
         t_scope;
         iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         lstr_t bin;
         void *instance = NULL;
 
-        bin = t_iop_bpack_struct(&tstiop__child_class_a__s,
-                                 t_iop_new(tstiop__child_class_a));
-        Z_ASSERT_NEG(iop_bunpack_ptr(t_pool(), iop_env_ctx,
-                                     &tstiop__child_class_b__s,
-                                     &instance, ps_initlstr(&bin), false));
-        Z_ASSERT_STREQUAL(iop_get_err(),
-                          "class 'tstiop.ChildClassA' (id 2) "
-                          "is not a child of 'tstiop.ChildClassB' (id 3) "
-                          "as expected");
-    } Z_TEST_END;
+        bin = t_iop_bpack_struct(
+            &tstiop__child_class_a__s, t_iop_new(tstiop__child_class_a)
+        );
+        Z_ASSERT_NEG(iop_bunpack_ptr(
+            t_pool(), iop_env_ctx, &tstiop__child_class_b__s, &instance,
+            ps_initlstr(&bin), false
+        ));
+        Z_ASSERT_STREQUAL(
+            iop_get_err(), "class 'tstiop.ChildClassA' (id 2) "
+                           "is not a child of 'tstiop.ChildClassB' (id 3) "
+                           "as expected"
+        );
+    }
+    Z_TEST_END;
     /* }}} */
-    Z_TEST(double_subnormal_packing, "test packing/unpacking of subnormal doubles") { /* {{{ */
+    Z_TEST(
+        double_subnormal_packing,
+        "test packing/unpacking of subnormal doubles"
+    ) { /* {{{ */
         /* The purpose of this test is to check that IOP packing/unpacking of
          * double subnormal values is both possible, and gives the same
          * result. */
@@ -10061,19 +11441,22 @@ Z_GROUP_EXPORT(iop)
 
         /* Test in json. */
         sb_reset(&buf);
-        Z_ASSERT_N(iop_sb_jpack(&buf, &tstiop__my_struct_a_opt__s,
-                                &my_struct_in, 0));
+        Z_ASSERT_N(
+            iop_sb_jpack(&buf, &tstiop__my_struct_a_opt__s, &my_struct_in, 0)
+        );
 
         my_struct_out = NULL;
         ps = ps_initsb(&buf);
-        Z_ASSERT_N(t_iop_junpack_ptr_ps(iop_env_ctx, &ps,
-                                        &tstiop__my_struct_a_opt__s,
-                                        (void **)&my_struct_out,
-                                        0, &err),
-                   "json unpacking failure: %*pM", SB_FMT_ARG(&err));
-        Z_ASSERT_IOPEQUAL(tstiop__my_struct_a_opt, my_struct_out,
-                          &my_struct_in);
-
+        Z_ASSERT_N(
+            t_iop_junpack_ptr_ps(
+                iop_env_ctx, &ps, &tstiop__my_struct_a_opt__s,
+                (void **)&my_struct_out, 0, &err
+            ),
+            "json unpacking failure: %*pM", SB_FMT_ARG(&err)
+        );
+        Z_ASSERT_IOPEQUAL(
+            tstiop__my_struct_a_opt, my_struct_out, &my_struct_in
+        );
 
         /* Test in XML. */
         sb_setf(&buf, IOP_XML_HEADER_FULL);
@@ -10082,41 +11465,49 @@ Z_GROUP_EXPORT(iop)
 
         my_struct_out = NULL;
         Z_ASSERT_N(xmlr_setup(&xmlr_g, buf.data, buf.len));
-        Z_ASSERT_N(t_iop_xunpack_ptr(xmlr_g, iop_env_ctx,
-                                     &tstiop__my_struct_a_opt__s,
-                                     (void **)&my_struct_out),
-                   "XML unpacking failure: %s", xmlr_get_err());
-        Z_ASSERT_IOPEQUAL(tstiop__my_struct_a_opt, my_struct_out,
-                          &my_struct_in);
-
+        Z_ASSERT_N(
+            t_iop_xunpack_ptr(
+                xmlr_g, iop_env_ctx, &tstiop__my_struct_a_opt__s,
+                (void **)&my_struct_out
+            ),
+            "XML unpacking failure: %s", xmlr_get_err()
+        );
+        Z_ASSERT_IOPEQUAL(
+            tstiop__my_struct_a_opt, my_struct_out, &my_struct_in
+        );
 
         /* Test in YAML. */
         sb_reset(&buf);
-        t_iop_sb_ypack(&buf, &tstiop__my_struct_a_opt__s, &my_struct_in,
-                       NULL);
+        t_iop_sb_ypack(
+            &buf, &tstiop__my_struct_a_opt__s, &my_struct_in, NULL
+        );
         my_struct_out = NULL;
         ps = ps_initsb(&buf);
-        Z_ASSERT_N(t_iop_yunpack_ptr_ps(iop_env_ctx, &ps,
-                                        &tstiop__my_struct_a_opt__s,
-                                        (void **)&my_struct_out,
-                                        0, NULL, &err),
-                   "YAML unpacking failure: %*pM", SB_FMT_ARG(&err));
-
-    } Z_TEST_END;
+        Z_ASSERT_N(
+            t_iop_yunpack_ptr_ps(
+                iop_env_ctx, &ps, &tstiop__my_struct_a_opt__s,
+                (void **)&my_struct_out, 0, NULL, &err
+            ),
+            "YAML unpacking failure: %*pM", SB_FMT_ARG(&err)
+        );
+    }
+    Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_check_package_examples, "test iop_check_rpc_example") { /* {{{ */
+    Z_TEST(iop_check_package_examples, "test iop_check_rpc_example") { /* {{{
+                                                                        */
         SB_1k(err);
         iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         const char *exp_err;
 
         /* Examples in tstiop_dox.iop should be valid. */
-        Z_ASSERT_N(iop_check_package_examples(iop_env_ctx, &tstiop_dox__pkg,
-                                              &err));
+        Z_ASSERT_N(
+            iop_check_package_examples(iop_env_ctx, &tstiop_dox__pkg, &err)
+        );
 
         /* tstiop_dox_invalid_example_struct should be detected as invalid */
         Z_ASSERT_NEG(iop_check_package_examples(
-                iop_env_ctx, &tstiop_dox_invalid_example_struct__pkg,
-                &err));
+            iop_env_ctx, &tstiop_dox_invalid_example_struct__pkg, &err
+        ));
         exp_err = "invalid example for "
                   "`tstiop_dox_invalid_example_struct.MyStruct`: "
                   "1:11: cannot parse number `\"not an integer\"'";
@@ -10125,38 +11516,45 @@ Z_GROUP_EXPORT(iop)
         /* tstiop_dox_invalid_example_rpc also */
         sb_reset(&err);
         Z_ASSERT_NEG(iop_check_package_examples(
-                iop_env_ctx, &tstiop_dox_invalid_example_rpc__pkg,
-                &err));
+            iop_env_ctx, &tstiop_dox_invalid_example_rpc__pkg, &err
+        ));
         exp_err = "invalid example for argument of RPC "
                   "`tstiop_dox_invalid_example_rpc.MyIface.funA`: "
                   "1:2: expected field of struct "
                   "tstiop_dox_invalid_example_rpc.MyStruct, "
                   "got `\"unknownField\"'";
         Z_ASSERT_STREQUAL(err.data, exp_err);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_static_field_get_gen_attr, "test class static field generic attribute getter") { /* {{{ */
+    Z_TEST(
+        iop_static_field_get_gen_attr,
+        "test class static field generic attribute getter"
+    ) { /* {{{ */
         tstiop__class_with_static__t st;
-        const iop_static_field_t * static_field;
+        const iop_static_field_t *static_field;
         iop_value_t iop_label;
 
         iop_init(tstiop__class_with_static, &st);
 
         static_field = iop_get_cvar_field_desc(st.__vptr, LSTR("type1"));
-        Z_ASSERT_P(static_field,
-                   "call to 'iop_get_cvar_field_desc()' failed");
+        Z_ASSERT_P(
+            static_field, "call to 'iop_get_cvar_field_desc()' failed"
+        );
         Z_ASSERT_LSTREQUAL(static_field->name, LSTR("type1"));
-        Z_ASSERT_EQ(static_field->value.i, (int64_t) 42);
+        Z_ASSERT_EQ(static_field->value.i, (int64_t)42);
 
-        Z_ASSERT_N(iop_static_field_get_gen_attr(st.__vptr, static_field,
-                                                 LSTR("test:gen1"),
-                                                 IOP_T_STRING, NULL,
-                                                 &iop_label));
+        Z_ASSERT_N(iop_static_field_get_gen_attr(
+            st.__vptr, static_field, LSTR("test:gen1"), IOP_T_STRING, NULL,
+            &iop_label
+        ));
         Z_ASSERT_LSTREQUAL(iop_label.s, LSTR("{\"test\":\"Dump attr\"}"));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
     /* }}} */
 
     iop_env_delete(&_G.iop_env);
-} Z_GROUP_END
+}
+Z_GROUP_END
 
 /* LCOV_EXCL_STOP */

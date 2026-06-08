@@ -30,44 +30,45 @@ Z_GROUP_EXPORT(endianess)
         uint64_t ul;
         uint128_t u128;
 
-#define DO_TEST(w, e, x)                                                    \
-        ({                                                                  \
-            void *v1 = data, *v2;                                           \
-            v2 = put_unaligned_##e##w(v1, x);                               \
-            put_unaligned_##e##w(v2, x);                                    \
-            Z_ASSERT_EQ(get_unaligned_##e##w(v1), x, "check 1 " #w #e);     \
-            Z_ASSERT_EQ(get_unaligned_##e##w(v2), x, "check 2 " #w #e);     \
-        })
+#define DO_TEST(w, e, x)                                                     \
+    ({                                                                       \
+        void *v1 = data, *v2;                                                \
+        v2 = put_unaligned_##e##w(v1, x);                                    \
+        put_unaligned_##e##w(v2, x);                                         \
+        Z_ASSERT_EQ(get_unaligned_##e##w(v1), x, "check 1 " #w #e);          \
+        Z_ASSERT_EQ(get_unaligned_##e##w(v2), x, "check 2 " #w #e);          \
+    })
         us = 0x0201;
         DO_TEST(16, cpu, us);
-        DO_TEST(16,  be, us);
-        DO_TEST(16,  le, us);
+        DO_TEST(16, be, us);
+        DO_TEST(16, le, us);
 
-        u  = 0x030201;
-        DO_TEST(24,  be, u);
-        DO_TEST(24,  le, u);
+        u = 0x030201;
+        DO_TEST(24, be, u);
+        DO_TEST(24, le, u);
 
-        u  = 0x04030201;
+        u = 0x04030201;
         DO_TEST(32, cpu, u);
-        DO_TEST(32,  be, u);
-        DO_TEST(32,  le, u);
+        DO_TEST(32, be, u);
+        DO_TEST(32, le, u);
 
         ul = 0x060504030201;
-        DO_TEST(48,  be, ul);
-        DO_TEST(48,  le, ul);
+        DO_TEST(48, be, ul);
+        DO_TEST(48, le, ul);
 
         ul = 0x0807060504030201;
         DO_TEST(64, cpu, ul);
-        DO_TEST(64,  be, ul);
-        DO_TEST(64,  le, ul);
+        DO_TEST(64, be, ul);
+        DO_TEST(64, le, ul);
 
         u128 = MAKE128(0xdeadbeef, UINT64_MAX);
         DO_TEST(128, cpu, u128);
-        DO_TEST(128,  be, u128);
-        DO_TEST(128,  le, u128);
+        DO_TEST(128, be, u128);
+        DO_TEST(128, le, u128);
 
 #undef DO_TEST
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(sb_add_ps_get) {
         SB_1k(sb);
@@ -77,51 +78,53 @@ Z_GROUP_EXPORT(endianess)
         uint128_t u128;
 
 #define DO_TEST(w, e, x)                                                     \
-        ({                                                                   \
-            pstream_t __ps;                                                  \
-            typeof(x) __x2 = 0;                                              \
+    ({                                                                       \
+        pstream_t __ps;                                                      \
+        typeof(x) __x2 = 0;                                                  \
                                                                              \
-            sb_reset(&sb);                                                   \
-            sb_add_##e##w(&sb, x);                                           \
-            Z_ASSERT_EQ(sb.len, w / 8, "check 1 " #w #e);                    \
+        sb_reset(&sb);                                                       \
+        sb_add_##e##w(&sb, x);                                               \
+        Z_ASSERT_EQ(sb.len, w / 8, "check 1 " #w #e);                        \
                                                                              \
-            __ps = ps_initsb(&sb);                                           \
-            Z_ASSERT_EQ(ps_get_##e##w(&__ps, &__x2), 0, "check 2 " #w #e);   \
+        __ps = ps_initsb(&sb);                                               \
+        Z_ASSERT_EQ(ps_get_##e##w(&__ps, &__x2), 0, "check 2 " #w #e);       \
                                                                              \
-            Z_ASSERT_EQ(x, __x2, "check 3 " #w #e);                          \
-        })
+        Z_ASSERT_EQ(x, __x2, "check 3 " #w #e);                              \
+    })
 
         us = 0x0201;
         DO_TEST(16, cpu, us);
-        DO_TEST(16,  be, us);
-        DO_TEST(16,  le, us);
+        DO_TEST(16, be, us);
+        DO_TEST(16, le, us);
 
-        u  = 0x030201;
-        DO_TEST(24,  be, u);
-        DO_TEST(24,  le, u);
+        u = 0x030201;
+        DO_TEST(24, be, u);
+        DO_TEST(24, le, u);
 
-        u  = 0x04030201;
+        u = 0x04030201;
         DO_TEST(32, cpu, u);
-        DO_TEST(32,  be, u);
-        DO_TEST(32,  le, u);
+        DO_TEST(32, be, u);
+        DO_TEST(32, le, u);
 
         ul = 0x060504030201;
-        DO_TEST(48,  be, ul);
-        DO_TEST(48,  le, ul);
+        DO_TEST(48, be, ul);
+        DO_TEST(48, le, ul);
 
         ul = 0x0807060504030201;
         DO_TEST(64, cpu, ul);
-        DO_TEST(64,  be, ul);
-        DO_TEST(64,  le, ul);
+        DO_TEST(64, be, ul);
+        DO_TEST(64, le, ul);
 
         u128 = MAKE128(0xdeadbeef, UINT64_MAX);
         DO_TEST(128, cpu, u128);
-        DO_TEST(128,  be, u128);
-        DO_TEST(128,  le, u128);
+        DO_TEST(128, be, u128);
+        DO_TEST(128, le, u128);
 
 #undef DO_TEST
-    } Z_TEST_END
-} Z_GROUP_END;
+    }
+    Z_TEST_END
+}
+Z_GROUP_END;
 
 static int bs_check_length(const bit_stream_t bs, size_t len)
 {
@@ -138,8 +141,8 @@ static int bs_check_length(const bit_stream_t bs, size_t len)
     Z_HELPER_END;
 }
 
-static int bs_check_bounds(const bit_stream_t bs, const byte data[128],
-                           int from, int to)
+static int
+bs_check_bounds(const bit_stream_t bs, const byte data[128], int from, int to)
 {
     const bit_stream_t bds = bs_init_ptroff(data, from, data, to);
 
@@ -162,11 +165,11 @@ Z_GROUP_EXPORT(bit_stream)
         832 896 960 1024
     */
 
-#define Z_CHECK_LENGTH(Stream, Len, ...)  \
-        Z_HELPER_RUN(bs_check_length(Stream, Len), ##__VA_ARGS__)
+#define Z_CHECK_LENGTH(Stream, Len, ...)                                     \
+    Z_HELPER_RUN(bs_check_length(Stream, Len), ##__VA_ARGS__)
 
-#define Z_CHECK_BOUNDS(Stream, From, To, ...)  \
-        Z_HELPER_RUN(bs_check_bounds(Stream, data, From, To), ##__VA_ARGS__)
+#define Z_CHECK_BOUNDS(Stream, From, To, ...)                                \
+    Z_HELPER_RUN(bs_check_bounds(Stream, data, From, To), ##__VA_ARGS__)
 
     /* Init {{{ */
 
@@ -203,8 +206,8 @@ Z_GROUP_EXPORT(bit_stream)
         Z_CHECK_LENGTH(bs_init_ptroff(data, 0, data, 128), 128);
         Z_CHECK_LENGTH(bs_init_ptroff(data, 19, data, 147), 128);
         Z_CHECK_LENGTH(bs_init_ptroff(data, 63, data, 191), 128);
-
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     /* Skips/shrink {{{ */
@@ -238,7 +241,8 @@ Z_GROUP_EXPORT(bit_stream)
 
         Z_ASSERT_EQ(bs_skip(&bs, 128), 128);
         Z_CHECK_BOUNDS(bs, 264, 1024);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(shrink) {
         bit_stream_t bs;
@@ -269,7 +273,8 @@ Z_GROUP_EXPORT(bit_stream)
 
         Z_ASSERT_EQ(bs_shrink(&bs, 128), 128);
         Z_CHECK_BOUNDS(bs, 0, 760);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(skip_upto) {
         bit_stream_t bs;
@@ -300,7 +305,8 @@ Z_GROUP_EXPORT(bit_stream)
 
         Z_ASSERT_EQ(bs_skip_upto(&bs, data, 264), 128);
         Z_CHECK_BOUNDS(bs, 264, 1024);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(clip_at) {
         bit_stream_t bs;
@@ -331,7 +337,8 @@ Z_GROUP_EXPORT(bit_stream)
 
         Z_ASSERT_N(bs_clip_at(&bs, data, 760));
         Z_CHECK_BOUNDS(bs, 0, 760);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     /* Extract {{{ */
@@ -377,8 +384,8 @@ Z_GROUP_EXPORT(bit_stream)
         Z_ASSERT_N(bs_extract_after(&bs, data, 264, &n));
         Z_CHECK_BOUNDS(bs, 136, 1024);
         Z_CHECK_BOUNDS(n, 264, 1024);
-    } Z_TEST_END;
-
+    }
+    Z_TEST_END;
 
     Z_TEST(get_bs_upto) {
         bit_stream_t bs;
@@ -417,7 +424,8 @@ Z_GROUP_EXPORT(bit_stream)
         Z_ASSERT_N(bs_get_bs_upto(&bs, data, 264, &n));
         Z_CHECK_BOUNDS(bs, 264, 1024);
         Z_CHECK_BOUNDS(n, 136, 264);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(get_bs) {
         bit_stream_t bs;
@@ -456,34 +464,38 @@ Z_GROUP_EXPORT(bit_stream)
         Z_ASSERT_N(bs_get_bs(&bs, 128, &n));
         Z_CHECK_BOUNDS(bs, 264, 1024);
         Z_CHECK_BOUNDS(n, 136, 264);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     /* Get bits {{{ */
 
-#define Z_ASSERT_BIT(Expr, Bit) do {                                         \
+#define Z_ASSERT_BIT(Expr, Bit)                                              \
+    do {                                                                     \
         int __bit = (Expr);                                                  \
         Z_ASSERT_N(__bit);                                                   \
         Z_ASSERT_EQ(!!__bit, !!(Bit));                                       \
     } while (0)
 
-#define Z_CHECK_BIT(bs, pos, Variant, Tst, Be)  do {                         \
+#define Z_CHECK_BIT(bs, pos, Variant, Tst, Be)                               \
+    do {                                                                     \
         Z_ASSERT_BIT(Variant##peek_bit(&bs), Tst(data, pos));                \
         for (int j = 0; j < MIN(65, 1024 - pos); j++) {                      \
             n = bs;                                                          \
-            Z_ASSERT_N(Variant##get_bits(&n,j, &res));                       \
+            Z_ASSERT_N(Variant##get_bits(&n, j, &res));                      \
             if (j != 64) {                                                   \
-                Z_ASSERT_EQ(res & BITMASK_GE(uint64_t, j), 0ul, "%d %d",     \
-                            pos, j);             \
+                Z_ASSERT_EQ(                                                 \
+                    res & BITMASK_GE(uint64_t, j), 0ul, "%d %d", pos, j      \
+                );                                                           \
             }                                                                \
             for (int k = 0; k < j; k++) {                                    \
                 if (Be) {                                                    \
-                    Z_ASSERT_EQ(!!TST_BIT(&res, j - k - 1),                  \
-                                !!Tst(data, pos + k),                        \
-                                "%d %d %d %jx", pos, j, k, res);             \
+                    Z_ASSERT_EQ(                                             \
+                        !!TST_BIT(&res, j - k - 1), !!Tst(data, pos + k),    \
+                        "%d %d %d %jx", pos, j, k, res                       \
+                    );                                                       \
                 } else {                                                     \
-                    Z_ASSERT_EQ(!!TST_BIT(&res, k),                          \
-                                !!Tst(data, pos + k));                       \
+                    Z_ASSERT_EQ(!!TST_BIT(&res, k), !!Tst(data, pos + k));   \
                 }                                                            \
             }                                                                \
         }                                                                    \
@@ -512,9 +524,11 @@ Z_GROUP_EXPORT(bit_stream)
         Z_ASSERT_NEG(bs_peek_bit(&bs));
         Z_ASSERT_NEG(bs_get_bit(&bs));
         Z_ASSERT_NEG(bs_get_bits(&bs, 1, &res));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
-#define TST_BE_BIT(d, pos)  ({                                               \
+#define TST_BE_BIT(d, pos)                                                   \
+    ({                                                                       \
         size_t __offset = (pos);                                             \
         __offset = (__offset & ~7ul) + 7 - (__offset % 8);                   \
         TST_BIT(d, __offset);                                                \
@@ -538,7 +552,8 @@ Z_GROUP_EXPORT(bit_stream)
         Z_ASSERT_NEG(bs_be_peek_bit(&bs));
         Z_ASSERT_NEG(bs_be_get_bit(&bs));
         Z_ASSERT_NEG(bs_be_get_bits(&bs, 1, &res));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     /* Scans {{{ */
@@ -576,7 +591,8 @@ Z_GROUP_EXPORT(bit_stream)
 
         Z_ASSERT_NEG(bs_skip_upto_bit(&bs, true, -1));
         Z_CHECK_BOUNDS(bs, 166, 1024);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(skip_after_bit) {
         bit_stream_t bs;
@@ -610,9 +626,11 @@ Z_GROUP_EXPORT(bit_stream)
 
         Z_ASSERT_EQ(bs_skip_after_bit(&bs, false, -1), 1);
         Z_CHECK_BOUNDS(bs, 6, 1024);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
-#define Z_CHECK_EXTRACTED(Stream, From, To, Bit)  do {                       \
+#define Z_CHECK_EXTRACTED(Stream, From, To, Bit)                             \
+    do {                                                                     \
         Z_CHECK_BOUNDS(Stream, From, To);                                    \
         for (int i = From; i < To; i++) {                                    \
             Z_ASSERT_BIT(bs_get_bit(&(Stream)), Bit);                        \
@@ -660,7 +678,8 @@ Z_GROUP_EXPORT(bit_stream)
 
         Z_ASSERT_NEG(bs_get_bs_bit(&bs, true, &n));
         Z_CHECK_BOUNDS(bs, 166, 1024);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(get_bs_bit_and_skip) {
         bit_stream_t bs;
@@ -699,8 +718,8 @@ Z_GROUP_EXPORT(bit_stream)
         Z_ASSERT_N(bs_get_bs_bit_and_skip(&bs, false, &n));
         Z_CHECK_EXTRACTED(n, 5, 5, true);
         Z_CHECK_BOUNDS(bs, 6, 1024);
-    } Z_TEST_END;
-
+    }
+    Z_TEST_END;
 
     Z_TEST(shrink_downto_bit) {
         bit_stream_t bs;
@@ -731,7 +750,8 @@ Z_GROUP_EXPORT(bit_stream)
 
         Z_ASSERT_NEG(bs_shrink_downto_bit(&bs, true, -1));
         Z_CHECK_BOUNDS(bs, 0, 3);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(shrink_before_bit) {
         bit_stream_t bs;
@@ -758,19 +778,23 @@ Z_GROUP_EXPORT(bit_stream)
         Z_ASSERT_EQ(bs_shrink_before_bit(&bs, true, -1), 858);
         Z_CHECK_BOUNDS(bs, 0, 165);
 
-        Z_ASSERT_EQ(bs_shrink_before_bit(&bs, false, -1), 1);;
+        Z_ASSERT_EQ(bs_shrink_before_bit(&bs, false, -1), 1);
+        ;
         Z_CHECK_BOUNDS(bs, 0, 164);
 
         Z_ASSERT_EQ(bs_shrink_before_bit(&bs, false, -1), 1);
         Z_CHECK_BOUNDS(bs, 0, 163);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
-} Z_GROUP_END;
+}
+Z_GROUP_END;
 
 /* {{{ parseopt */
 
-Z_GROUP_EXPORT(parseopt) {
+Z_GROUP_EXPORT(parseopt)
+{
     Z_TEST(parseopt_geti) {
         int i = 0;
 
@@ -781,7 +805,8 @@ Z_GROUP_EXPORT(parseopt) {
 
         Z_ASSERT_NEG(parseopt_geti("x", "ARG", &i));
         Z_ASSERT_NEG(parseopt_geti("12t", "ARG", &i));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(parseopt_getu) {
         unsigned u = 0;
@@ -791,8 +816,10 @@ Z_GROUP_EXPORT(parseopt) {
         Z_ASSERT_NEG(parseopt_getu("-4368", "ARG", &u));
         Z_ASSERT_NEG(parseopt_getu("x", "ARG", &u));
         Z_ASSERT_NEG(parseopt_getu("12t", "ARG", &u));
-    } Z_TEST_END;
-} Z_GROUP_END;
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END;
 
 /* }}} */
 /* {{{ core-macros.h */
@@ -807,7 +834,8 @@ typedef struct extra_lstr_tab_t {
     lstr_t tab[];
 } extra_lstr_tab_t;
 
-Z_GROUP_EXPORT(core_macros) {
+Z_GROUP_EXPORT(core_macros)
+{
     /* {{{ OPT */
 
     Z_TEST(opt) {
@@ -844,7 +872,8 @@ Z_GROUP_EXPORT(core_macros) {
         OPT_CLR(src);
         OPT_SET(src, OPT_DEFVAL(src, 1U));
         Z_ASSERT_EQ(OPT_VAL(src), 1U);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     /* {{{ carray_loops */
@@ -852,9 +881,7 @@ Z_GROUP_EXPORT(core_macros) {
     Z_TEST(carray_loops) {
         int i = 0;
         lstr_t strs[] = {
-            LSTR_IMMED("toto"),
-            LSTR_IMMED("1234567890"),
-            LSTR_IMMED("yop")
+            LSTR_IMMED("toto"), LSTR_IMMED("1234567890"), LSTR_IMMED("yop")
         };
 
         carray_for_each_pos(pos, strs) {
@@ -877,13 +904,14 @@ Z_GROUP_EXPORT(core_macros) {
             Z_ASSERT(s == &strs[i++]);
             s = NULL;
         }
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     /* {{{ tab_last */
 
     Z_TEST(tab_last) {
-        int ints[] = { 1, 2, 3, 4 };
+        int ints[] = {1, 2, 3, 4};
         struct {
             int *tab;
             int len;
@@ -893,13 +921,14 @@ Z_GROUP_EXPORT(core_macros) {
         };
 
         Z_ASSERT_EQ(*tab_last(&tab), 4);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     /* {{{ tab_for_each_pos */
 
     Z_TEST(tab_for_each_pos) {
-        int ints[] = { 1, 2, 3, 4 };
+        int ints[] = {1, 2, 3, 4};
         struct {
             int *tab;
             int len;
@@ -917,14 +946,15 @@ Z_GROUP_EXPORT(core_macros) {
         Z_ASSERT_EQ(out[1], ints[1]);
         Z_ASSERT_EQ(out[2], ints[2]);
         Z_ASSERT_EQ(out[3], ints[3]);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     /* {{{ tab_for_each_ptr */
 
     Z_TEST(tab_for_each_ptr) {
         t_scope;
-        const char *strs[] = { "toto", "abcdef", "42" };
+        const char *strs[] = {"toto", "abcdef", "42"};
         struct {
             const char **tab;
             int len;
@@ -945,8 +975,8 @@ Z_GROUP_EXPORT(core_macros) {
         Z_ASSERT(out[1] == &strs[1]);
         Z_ASSERT(out[2] == &strs[2]);
 
-        extra_tab = t_new_extra(extra_str_tab_t,
-                                countof(strs) * sizeof(strs[0]));
+        extra_tab =
+            t_new_extra(extra_str_tab_t, countof(strs) * sizeof(strs[0]));
         extra_tab->len = countof(strs);
         p_copy(extra_tab->tab, strs, countof(strs));
 
@@ -958,14 +988,15 @@ Z_GROUP_EXPORT(core_macros) {
         Z_ASSERT(out[0] == &extra_tab->tab[0]);
         Z_ASSERT(out[1] == &extra_tab->tab[1]);
         Z_ASSERT(out[2] == &extra_tab->tab[2]);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     /* {{{ tab_for_each_entry */
 
     Z_TEST(tab_for_each_entry) {
         t_scope;
-        lstr_t lstrs[] = { LSTR("string"), LSTR("int"), LSTR("double") };
+        lstr_t lstrs[] = {LSTR("string"), LSTR("int"), LSTR("double")};
         struct {
             lstr_t *tab;
             int len;
@@ -987,8 +1018,8 @@ Z_GROUP_EXPORT(core_macros) {
 
         p_clear(out, countof(out));
 
-        extra_tab = t_new_extra(extra_lstr_tab_t,
-                                countof(lstrs) * sizeof(lstrs[0]));
+        extra_tab =
+            t_new_extra(extra_lstr_tab_t, countof(lstrs) * sizeof(lstrs[0]));
         extra_tab->len = countof(lstrs);
         p_copy(extra_tab->tab, lstrs, countof(lstrs));
 
@@ -1000,13 +1031,14 @@ Z_GROUP_EXPORT(core_macros) {
         Z_ASSERT_LSTREQUAL(out[0], lstrs[0]);
         Z_ASSERT_LSTREQUAL(out[1], lstrs[1]);
         Z_ASSERT_LSTREQUAL(out[2], lstrs[2]);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     /* {{{ tab_enumerate_ptr */
 
     Z_TEST(tab_enumerate_ptr) {
-        const char *strs[] = { "toto", "abcdef", "42" };
+        const char *strs[] = {"toto", "abcdef", "42"};
         struct {
             const char **tab;
             int len;
@@ -1023,13 +1055,14 @@ Z_GROUP_EXPORT(core_macros) {
         Z_ASSERT(out[0] == &strs[0]);
         Z_ASSERT(out[1] == &strs[1]);
         Z_ASSERT(out[2] == &strs[2]);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     /* {{{ tab_enumerate */
 
     Z_TEST(tab_enumerate) {
-        lstr_t lstrs[] = { LSTR("string"), LSTR("int"), LSTR("double") };
+        lstr_t lstrs[] = {LSTR("string"), LSTR("int"), LSTR("double")};
         struct {
             lstr_t *tab;
             int len;
@@ -1046,13 +1079,14 @@ Z_GROUP_EXPORT(core_macros) {
         Z_ASSERT_LSTREQUAL(out[0], lstrs[0]);
         Z_ASSERT_LSTREQUAL(out[1], lstrs[1]);
         Z_ASSERT_LSTREQUAL(out[2], lstrs[2]);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     /* {{{ tab_swap */
 
     Z_TEST(tab_swap) {
-        int ints[] = { 1, 2, 3, 4 };
+        int ints[] = {1, 2, 3, 4};
         struct {
             int *tab;
             int len;
@@ -1066,7 +1100,8 @@ Z_GROUP_EXPORT(core_macros) {
         Z_ASSERT_EQ(ints[1], 3);
         Z_ASSERT_EQ(ints[2], 2);
         Z_ASSERT_EQ(ints[3], 4);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     /* {{{ unconst */
@@ -1077,19 +1112,18 @@ Z_GROUP_EXPORT(core_macros) {
 
         p = unconst_cast(int, &i);
         Z_ASSERT(p == &i);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
     /* {{{ defer */
 
     Z_TEST(defer, "defer") {
         __deferred qv_t(u32) qv;
-        uint32_t zero_tab[32] = { 0 };
+        uint32_t zero_tab[32] = {0};
 
         qv_init(&qv);
-        defer({
-            qv_wipe(&qv);
-        });
+        defer({ qv_wipe(&qv); });
 
         qv_extend(&qv, zero_tab, countof(zero_tab));
         Z_ASSERT_EQ(qv.len, countof(zero_tab));
@@ -1098,9 +1132,7 @@ Z_GROUP_EXPORT(core_macros) {
             __deferred int *alloc_in_scope;
 
             alloc_in_scope = p_new(int, 1);
-            defer({
-                p_delete(&alloc_in_scope);
-            });
+            defer({ p_delete(&alloc_in_scope); });
             *alloc_in_scope = 42;
 
             Z_ASSERT_EQ(*alloc_in_scope, 42);
@@ -1111,23 +1143,21 @@ Z_GROUP_EXPORT(core_macros) {
             __deferred int *multiple_defer2;
 
             multiple_defer1 = p_new(int, 1);
-            defer({
-                p_delete(&multiple_defer1);
-            });
+            defer({ p_delete(&multiple_defer1); });
             *multiple_defer1 = 42;
 
             multiple_defer2 = p_new(int, 1);
-            defer({
-                p_delete(&multiple_defer2);
-            });
+            defer({ p_delete(&multiple_defer2); });
             *multiple_defer2 = *multiple_defer1;
 
             Z_ASSERT_EQ(*multiple_defer2, 42);
         }
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     /* }}} */
-} Z_GROUP_END;
+}
+Z_GROUP_END;
 
 /* }}} */
 /* {{{ core-errors.h */
@@ -1139,8 +1169,9 @@ static void print_int(int fd, data_t data)
     dprintf(fd, "i = %d\n", i);
 }
 
-static int z_check_debug_file(const char *path, const char *func,
-                              const char *file, int line, int i)
+static int z_check_debug_file(
+    const char *path, const char *func, const char *file, int line, int i
+)
 {
     SB_1k(fbuf);
     SB_1k(exp);
@@ -1155,7 +1186,8 @@ static int z_check_debug_file(const char *path, const char *func,
     Z_HELPER_END;
 }
 
-Z_GROUP_EXPORT(core_errors) {
+Z_GROUP_EXPORT(core_errors)
+{
     Z_TEST(debug_stack) {
         t_scope;
         int i = 42;
@@ -1185,7 +1217,8 @@ Z_GROUP_EXPORT(core_errors) {
         i = 51;
         Z_ASSERT_N(_debug_stack_print(path));
         Z_HELPER_RUN(z_check_debug_file(path, __func__, __FILE__, line, i));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(expect_macros) {
         if (expect(true)) {
@@ -1194,8 +1227,10 @@ Z_GROUP_EXPORT(core_errors) {
         if (unexpected(false)) {
             Z_ASSERT(false);
         }
-    } Z_TEST_END;
-} Z_GROUP_END;
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END;
 
 /* }}} */
 

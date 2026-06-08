@@ -95,10 +95,10 @@ struct schema_object_t {
     lstr_t description;
     lstr_t example;
 
-    scalar_value_t * nullable defval;
+    scalar_value_t *nullable defval;
 
     /* for arrays */
-    schema_object_t * nullable items;
+    schema_object_t *nullable items;
 
     /* for object */
     qv_t(lstr) required;
@@ -113,8 +113,8 @@ struct schema_object_t {
     qv_t(lstr) enum_values;
 
     /* for number */
-    scalar_value_t * nullable minimum;
-    scalar_value_t * nullable maximum;
+    scalar_value_t *nullable minimum;
+    scalar_value_t *nullable maximum;
     bool _nullable;
 
     /* for strings */
@@ -129,9 +129,9 @@ struct schema_object_t {
 qvector_t(schema_object, schema_object_t);
 qh_kvec_t(schemas, lstr_t, qhash_lstr_hash, qhash_lstr_equal);
 
-static schema_object_t * nonnull
-add_schema_object(lstr_t name, openapi_type_t type,
-                  qv_t(schema_object) * nonnull schemas)
+static schema_object_t *nonnull add_schema_object(
+    lstr_t name, openapi_type_t type, qv_t(schema_object) *nonnull schemas
+)
 {
     schema_object_t *obj = qv_growlen0(schemas, 1);
 
@@ -177,10 +177,10 @@ typedef struct operation_object_t {
     json_request_object_t request;
 
     /* shortcut for responses.200 */
-    json_response_object_t * nullable ok_response;
+    json_response_object_t *nullable ok_response;
 
     /* shortcut for responses.500 */
-    json_response_object_t * nullable exn_response;
+    json_response_object_t *nullable exn_response;
 
     /* shortcut for responses.default */
     html_response_object_t default_response;
@@ -203,7 +203,7 @@ typedef struct components_object_t {
     qv_t(schema_object) schemas;
     qh_t(schemas) existing_schemas;
 
-    security_scheme_object_t * nullable security;
+    security_scheme_object_t *nullable security;
 } components_object_t;
 
 typedef struct info_object_t {
@@ -252,14 +252,14 @@ struct iop_openapi_t {
     /* whitelist of RPCs to expose, in the format "<iface_fullname>.<rpc>" */
     qm_t(whitelist) rpcs_whitelist;
 
-    const iop_mod_t * nullable module;
+    const iop_mod_t *nullable module;
 };
 
 /* }}} */
 /* {{{ Utils */
 
 static lstr_t
-t_iop_help_to_string(const iop_help_t * nonnull help, bool ignore_brief)
+t_iop_help_to_string(const iop_help_t *nonnull help, bool ignore_brief)
 {
     t_SB_1k(sb);
 
@@ -286,10 +286,10 @@ t_iop_help_to_string(const iop_help_t * nonnull help, bool ignore_brief)
 /* {{{ Schema object */
 /* {{{ Help */
 
-static void
-get_enum_help(const iop_enum_t * nonnull en,
-              const iop_help_t * nullable * nonnull help,
-              bool * nonnull is_v2)
+static void get_enum_help(
+    const iop_enum_t *nonnull en, const iop_help_t * nullable * nonnull help,
+    bool *nonnull is_v2
+)
 {
     *help = NULL;
 
@@ -301,24 +301,24 @@ get_enum_help(const iop_enum_t * nonnull en,
         const iop_enum_attr_t *attr = &en->en_attrs->attrs[k];
 
         switch (attr->type) {
-          case IOP_ENUM_ATTR_HELP:
+        case IOP_ENUM_ATTR_HELP:
             *help = attr->args[0].v.p;
             *is_v2 = false;
             return;
-          case IOP_ENUM_ATTR_HELP_V2:
+        case IOP_ENUM_ATTR_HELP_V2:
             *help = attr->args[0].v.p;
             *is_v2 = true;
             return;
-          default:
+        default:
             break;
         }
     }
 }
 
-static void
-get_struct_help(const iop_struct_t * nonnull st,
-                const iop_help_t * nullable * nonnull help,
-                bool * nonnull is_v2)
+static void get_struct_help(
+    const iop_struct_t *nonnull st,
+    const iop_help_t * nullable * nonnull help, bool *nonnull is_v2
+)
 {
     unsigned flags = st->flags;
 
@@ -332,22 +332,23 @@ get_struct_help(const iop_struct_t * nonnull st,
         const iop_struct_attr_t *attr = &st->st_attrs->attrs[k];
 
         switch (attr->type) {
-          case IOP_STRUCT_ATTR_HELP:
+        case IOP_STRUCT_ATTR_HELP:
             *help = attr->args[0].v.p;
             *is_v2 = false;
             return;
-          case IOP_STRUCT_ATTR_HELP_V2:
+        case IOP_STRUCT_ATTR_HELP_V2:
             *help = attr->args[0].v.p;
             *is_v2 = true;
             return;
-          default:
+        default:
             break;
         }
     }
 }
 
-static void t_add_struct_help(const iop_struct_t * nonnull st,
-                              schema_object_t * nonnull schema)
+static void t_add_struct_help(
+    const iop_struct_t *nonnull st, schema_object_t *nonnull schema
+)
 {
     const iop_help_t *help;
     bool is_v2 = false;
@@ -363,10 +364,10 @@ static void t_add_struct_help(const iop_struct_t * nonnull st,
     }
 }
 
-static void
-get_field_help(const iop_field_attrs_t * nullable attrs,
-               const iop_help_t * nullable * nonnull help,
-               bool * nonnull is_v2)
+static void get_field_help(
+    const iop_field_attrs_t *nullable attrs,
+    const iop_help_t * nullable * nonnull help, bool *nonnull is_v2
+)
 {
     *help = NULL;
 
@@ -378,24 +379,24 @@ get_field_help(const iop_field_attrs_t * nullable attrs,
         const iop_field_attr_t *attr = &attrs->attrs[k];
 
         switch (attr->type) {
-          case IOP_FIELD_ATTR_HELP:
+        case IOP_FIELD_ATTR_HELP:
             *help = attr->args[0].v.p;
             *is_v2 = false;
             return;
-          case IOP_FIELD_ATTR_HELP_V2:
+        case IOP_FIELD_ATTR_HELP_V2:
             *help = attr->args[0].v.p;
             *is_v2 = true;
             return;
-          default:
+        default:
             break;
         }
     }
 }
 
-static void
-get_mod_iface_help(const iop_mod_t * nonnull mod,
-                   const iop_iface_alias_t * nonnull alias,
-                   const iop_help_t * nullable * nonnull help)
+static void get_mod_iface_help(
+    const iop_mod_t *nonnull mod, const iop_iface_alias_t *nonnull alias,
+    const iop_help_t * nullable * nonnull help
+)
 {
     const iop_mod_iface_attrs_t *attrs;
 
@@ -409,21 +410,22 @@ get_mod_iface_help(const iop_mod_t * nonnull mod,
         const iop_mod_iface_attr_t *attr = &attrs->attrs[k];
 
         switch (attr->type) {
-          case IOP_MOD_IFACE_ATTR_HELP:
+        case IOP_MOD_IFACE_ATTR_HELP:
             *help = attr->args[0].v.p;
             return;
-          case IOP_MOD_IFACE_ATTR_HELP_V2:
+        case IOP_MOD_IFACE_ATTR_HELP_V2:
             *help = attr->args[0].v.p;
             return;
-          default:
+        default:
             break;
         }
     }
 }
 
-static void
-get_iface_help(const iop_iface_t * nonnull iface,
-               const iop_help_t * nullable * nonnull help)
+static void get_iface_help(
+    const iop_iface_t *nonnull iface,
+    const iop_help_t * nullable * nonnull help
+)
 {
     *help = NULL;
 
@@ -435,13 +437,13 @@ get_iface_help(const iop_iface_t * nonnull iface,
         const iop_iface_attr_t *attr = &iface->iface_attrs->attrs[k];
 
         switch (attr->type) {
-          case IOP_IFACE_ATTR_HELP:
+        case IOP_IFACE_ATTR_HELP:
             *help = attr->args[0].v.p;
             return;
-          case IOP_IFACE_ATTR_HELP_V2:
+        case IOP_IFACE_ATTR_HELP_V2:
             *help = attr->args[0].v.p;
             return;
-          default:
+        default:
             break;
         }
     }
@@ -450,10 +452,10 @@ get_iface_help(const iop_iface_t * nonnull iface,
 /* }}} */
 /* {{{ Enums */
 
-static void
-t_iop_enum_to_schema_object(const iop_enum_t *en,
-                            qh_t(schemas) *existing_schemas,
-                            qv_t(schema_object) *schemas)
+static void t_iop_enum_to_schema_object(
+    const iop_enum_t *en, qh_t(schemas) *existing_schemas,
+    qv_t(schema_object) *schemas
+)
 {
     schema_object_t *obj;
     const iop_help_t *help;
@@ -481,18 +483,16 @@ t_iop_enum_to_schema_object(const iop_enum_t *en,
 /* }}} */
 /* {{{ Struct */
 
-static void
-t_iop_struct_to_schema_object(const iop_env_ctx_t *iop_env_ctx,
-                              const iop_struct_t *st,
-                              qh_t(schemas) *existing_schemas,
-                              qv_t(schema_object) *schemas);
+static void t_iop_struct_to_schema_object(
+    const iop_env_ctx_t *iop_env_ctx, const iop_struct_t *st,
+    qh_t(schemas) *existing_schemas, qv_t(schema_object) *schemas
+);
 
-static void
-t_class_field_to_schema_object(const iop_env_ctx_t *iop_env_ctx,
-                               const iop_struct_t *class_desc,
-                               qh_t(schemas) *existing_schemas,
-                               qv_t(schema_object) *schemas,
-                               schema_object_t *out)
+static void t_class_field_to_schema_object(
+    const iop_env_ctx_t *iop_env_ctx, const iop_struct_t *class_desc,
+    qh_t(schemas) *existing_schemas, qv_t(schema_object) *schemas,
+    schema_object_t *out
+)
 {
     /* When using a class, it is not possible to point only to the class
      * schema directly, as any of the child is a valid response as well.
@@ -516,8 +516,7 @@ t_class_field_to_schema_object(const iop_env_ctx_t *iop_env_ctx,
     t_qv_init(&children, 0);
 
     /* add all children to the schemas, and build a list of them */
-    iop_for_each_registered_classes(iop_env_ctx,
-                                    ^(const iop_struct_t *st) {
+    iop_for_each_registered_classes(iop_env_ctx, ^(const iop_struct_t *st) {
         if (iop_class_is_a(st, class_desc) && !st->class_attrs->is_private &&
             !st->class_attrs->is_abstract)
         {
@@ -527,18 +526,19 @@ t_class_field_to_schema_object(const iop_env_ctx_t *iop_env_ctx,
         }
     });
 
-    qv_sort(iop_struct)(&children,
-            ^int (const iop_struct_t * const *st1,
-                  const iop_struct_t * const *st2)
-    {
-        return lstr_cmp((*st1)->fullname, (*st2)->fullname);
-    });
+    qv_sort(iop_struct)(
+        &children,
+        ^int(const iop_struct_t *const *st1, const iop_struct_t *const *st2) {
+            return lstr_cmp((*st1)->fullname, (*st2)->fullname);
+        }
+    );
 
     tab_for_each_entry(st, &children) {
         schema_object_t *obj;
 
-        t_iop_struct_to_schema_object(iop_env_ctx, st, existing_schemas,
-                                      schemas);
+        t_iop_struct_to_schema_object(
+            iop_env_ctx, st, existing_schemas, schemas
+        );
         obj = t_new(schema_object_t, 1);
         obj->type = TYPE_REF;
         obj->name = st->fullname;
@@ -546,8 +546,9 @@ t_class_field_to_schema_object(const iop_env_ctx_t *iop_env_ctx,
     }
 }
 
-static void t_schema_set_integer(schema_object_t *schema, openapi_type_t type,
-                                 int64_t min, int64_t max)
+static void t_schema_set_integer(
+    schema_object_t *schema, openapi_type_t type, int64_t min, int64_t max
+)
 {
     schema->type = type;
     schema->minimum = t_new(scalar_value_t, 1);
@@ -558,39 +559,45 @@ static void t_schema_set_integer(schema_object_t *schema, openapi_type_t type,
     schema->maximum->type = SCALAR_INT64;
 }
 
-static scalar_value_t *t_attr_get_value(const iop_field_attr_t *attr,
-                                        const iop_type_t type)
+static scalar_value_t *
+t_attr_get_value(const iop_field_attr_t *attr, const iop_type_t type)
 {
     scalar_value_t *val = t_new(scalar_value_t, 1);
 
     switch (type) {
-      case IOP_T_I8: case IOP_T_I16: case IOP_T_I32: case IOP_T_I64:
+    case IOP_T_I8:
+    case IOP_T_I16:
+    case IOP_T_I32:
+    case IOP_T_I64:
         val->i = attr->args[0].v.i64;
         val->type = SCALAR_INT64;
         return val;
 
-      case IOP_T_U8: case IOP_T_U16: case IOP_T_U32: case IOP_T_U64:
+    case IOP_T_U8:
+    case IOP_T_U16:
+    case IOP_T_U32:
+    case IOP_T_U64:
         val->u = (uint64_t)attr->args[0].v.i64;
         val->type = SCALAR_UINT64;
         return val;
 
-      case IOP_T_DOUBLE:
+    case IOP_T_DOUBLE:
         val->d = attr->args[0].v.d;
         val->type = SCALAR_DOUBLE;
         return val;
 
-      default:
+    default:
         break;
     }
 
-    assert (false);
+    assert(false);
     return NULL;
 }
 
-static bool
-t_apply_raw_field_constraints(const iop_field_attrs_t *attrs,
-                              const iop_field_t *field,
-                              schema_object_t *schema)
+static bool t_apply_raw_field_constraints(
+    const iop_field_attrs_t *attrs, const iop_field_t *field,
+    schema_object_t *schema
+)
 {
     bool did_update = false;
 
@@ -598,27 +605,27 @@ t_apply_raw_field_constraints(const iop_field_attrs_t *attrs,
         const iop_field_attr_t *attr = &attrs->attrs[i];
 
         switch (attr->type) {
-          case IOP_FIELD_MIN:
+        case IOP_FIELD_MIN:
             did_update = true;
             schema->minimum = t_attr_get_value(attr, field->type);
             break;
-          case IOP_FIELD_MAX:
+        case IOP_FIELD_MAX:
             did_update = true;
             schema->maximum = t_attr_get_value(attr, field->type);
             break;
-          case IOP_FIELD_MIN_LENGTH:
+        case IOP_FIELD_MIN_LENGTH:
             did_update = true;
             OPT_SET(schema->min_length, attr->args[0].v.i64);
             break;
-          case IOP_FIELD_MAX_LENGTH:
+        case IOP_FIELD_MAX_LENGTH:
             did_update = true;
             OPT_SET(schema->max_length, attr->args[0].v.i64);
             break;
-          case IOP_FIELD_PATTERN:
+        case IOP_FIELD_PATTERN:
             did_update = true;
             schema->pattern = attr->args[0].v.s;
             break;
-          default:
+        default:
             break;
         }
     }
@@ -626,17 +633,17 @@ t_apply_raw_field_constraints(const iop_field_attrs_t *attrs,
     if (TST_BIT(&attrs->flags, IOP_FIELD_NON_ZERO)) {
         /* only apply this constraint on unsigned integers, we have no
          * way of expressing it otherwise */
-        if (schema->minimum
-        &&  (schema->minimum->type == SCALAR_INT64
-          || schema->minimum->type == SCALAR_UINT64)
-        &&  schema->minimum->i == 0)
+        if (schema->minimum &&
+            (schema->minimum->type == SCALAR_INT64 ||
+             schema->minimum->type == SCALAR_UINT64) &&
+            schema->minimum->i == 0)
         {
             did_update = true;
             schema->minimum->i = 1;
         }
     }
-    if (TST_BIT(&attrs->flags, IOP_FIELD_NON_EMPTY)
-    &&  !OPT_ISSET(schema->min_length))
+    if (TST_BIT(&attrs->flags, IOP_FIELD_NON_EMPTY) &&
+        !OPT_ISSET(schema->min_length))
     {
         did_update = true;
         OPT_SET(schema->min_length, 1);
@@ -645,81 +652,87 @@ t_apply_raw_field_constraints(const iop_field_attrs_t *attrs,
     return did_update;
 }
 
-static void
-apply_array_field_constraints(const iop_field_attrs_t *attrs,
-                              const iop_field_t *field,
-                              schema_object_t *schema)
+static void apply_array_field_constraints(
+    const iop_field_attrs_t *attrs, const iop_field_t *field,
+    schema_object_t *schema
+)
 {
     for (int i = 0; i < attrs->attrs_len; i++) {
         const iop_field_attr_t *attr = &attrs->attrs[i];
 
         switch (attr->type) {
-          case IOP_FIELD_MIN_OCCURS:
+        case IOP_FIELD_MIN_OCCURS:
             OPT_SET(schema->min_items, attr->args[0].v.i64);
             break;
-          case IOP_FIELD_MAX_OCCURS:
+        case IOP_FIELD_MAX_OCCURS:
             OPT_SET(schema->max_items, attr->args[0].v.i64);
             break;
-          default:
+        default:
             break;
         }
     }
 }
 
-static scalar_value_t *
-t_get_iop_field_defval(const iop_field_t *desc)
+static scalar_value_t *t_get_iop_field_defval(const iop_field_t *desc)
 {
     scalar_value_t *val = t_new(scalar_value_t, 1);
 
     switch (desc->type) {
-      case IOP_T_I8: case IOP_T_I16: case IOP_T_I32: case IOP_T_I64:
+    case IOP_T_I8:
+    case IOP_T_I16:
+    case IOP_T_I32:
+    case IOP_T_I64:
         val->i = (int64_t)desc->u1.defval_u64;
         val->type = SCALAR_INT64;
         break;
 
-      case IOP_T_U8: case IOP_T_U16: case IOP_T_U32: case IOP_T_U64:
+    case IOP_T_U8:
+    case IOP_T_U16:
+    case IOP_T_U32:
+    case IOP_T_U64:
         val->u = desc->u1.defval_u64;
         val->type = SCALAR_UINT64;
         break;
 
-      case IOP_T_BOOL:
+    case IOP_T_BOOL:
         val->b = !!desc->u1.defval_u64;
         val->type = SCALAR_BOOL;
         break;
 
-      case IOP_T_DOUBLE:
+    case IOP_T_DOUBLE:
         val->d = desc->u1.defval_d;
         val->type = SCALAR_DOUBLE;
         break;
 
-      case IOP_T_DATA: case IOP_T_STRING: case IOP_T_XML:
+    case IOP_T_DATA:
+    case IOP_T_STRING:
+    case IOP_T_XML:
         val->s = LSTR_INIT_V(desc->u1.defval_data, desc->u0.defval_len);
         val->type = SCALAR_STRING;
         break;
 
-      case IOP_T_ENUM:
+    case IOP_T_ENUM:
         /* FIXME: use string repr, as we type ENUM as string in the
          * schema */
         val->i = desc->u0.defval_enum;
         val->type = SCALAR_INT64;
         break;
 
-      case IOP_T_VOID:
-      case IOP_T_UNION:
-      case IOP_T_STRUCT:
-        assert (false);
+    case IOP_T_VOID:
+    case IOP_T_UNION:
+    case IOP_T_STRUCT:
+        assert(false);
         return NULL;
     }
 
     return val;
 }
 
-static schema_object_t *
-t_iop_field_to_schema_object(const iop_env_ctx_t *iop_env_ctx,
-                             const iop_struct_t *st,
-                             const iop_field_t *desc,
-                             qh_t(schemas) *existing_schemas,
-                             qv_t(schema_object) *schemas)
+static schema_object_t *t_iop_field_to_schema_object(
+    const iop_env_ctx_t *iop_env_ctx, const iop_struct_t *st,
+    const iop_field_t *desc, qh_t(schemas) *existing_schemas,
+    qv_t(schema_object) *schemas
+)
 {
     const iop_field_attrs_t *attrs = iop_field_get_attrs(st, desc);
     schema_object_t *schema;
@@ -734,71 +747,75 @@ t_iop_field_to_schema_object(const iop_env_ctx_t *iop_env_ctx,
     schema = t_new(schema_object_t, 1);
 
     switch (desc->type) {
-      case IOP_T_I8:
+    case IOP_T_I8:
         t_schema_set_integer(schema, TYPE_INT32, INT8_MIN, INT8_MAX);
         break;
-      case IOP_T_U8:
+    case IOP_T_U8:
         t_schema_set_integer(schema, TYPE_UINT32, 0, UINT8_MAX);
         break;
-      case IOP_T_I16:
+    case IOP_T_I16:
         t_schema_set_integer(schema, TYPE_INT32, INT16_MIN, INT16_MAX);
         break;
-      case IOP_T_U16:
+    case IOP_T_U16:
         t_schema_set_integer(schema, TYPE_UINT32, 0, UINT16_MAX);
         break;
-      case IOP_T_I32:
+    case IOP_T_I32:
         schema->type = TYPE_INT32;
         break;
-      case IOP_T_U32:
+    case IOP_T_U32:
         schema->type = TYPE_UINT32;
         schema->minimum = t_new(scalar_value_t, 1);
         schema->minimum->u = 0;
         schema->minimum->type = SCALAR_UINT64;
         break;
-      case IOP_T_I64:
+    case IOP_T_I64:
         schema->type = TYPE_INT64;
         break;
-      case IOP_T_U64:
+    case IOP_T_U64:
         schema->type = TYPE_UINT64;
         schema->minimum = t_new(scalar_value_t, 1);
         schema->minimum->u = 0;
         schema->minimum->type = SCALAR_UINT64;
         break;
-      case IOP_T_BOOL:
+    case IOP_T_BOOL:
         schema->type = TYPE_BOOL;
         break;
-      case IOP_T_DOUBLE:
+    case IOP_T_DOUBLE:
         schema->type = TYPE_DOUBLE;
         break;
-      case IOP_T_VOID:
+    case IOP_T_VOID:
         schema->type = TYPE_BOOL;
         schema->_nullable = true;
         break;
-      case IOP_T_DATA:
+    case IOP_T_DATA:
         schema->type = TYPE_BYTE;
         break;
-      case IOP_T_STRING:
-      case IOP_T_XML:
+    case IOP_T_STRING:
+    case IOP_T_XML:
         schema->type = TYPE_STRING;
         break;
 
-      case IOP_T_ENUM:
-        t_iop_enum_to_schema_object(desc->u1.en_desc, existing_schemas,
-                                    schemas);
+    case IOP_T_ENUM:
+        t_iop_enum_to_schema_object(
+            desc->u1.en_desc, existing_schemas, schemas
+        );
         schema->type = TYPE_REF;
         schema->name = desc->u1.en_desc->fullname;
         break;
 
-      case IOP_T_UNION:
-      case IOP_T_STRUCT:
+    case IOP_T_UNION:
+    case IOP_T_STRUCT:
         if (iop_struct_is_class(desc->u1.st_desc)) {
             /* a class field needs to be expressed as a oneOf of all children.
              */
-            t_class_field_to_schema_object(iop_env_ctx, desc->u1.st_desc,
-                                           existing_schemas, schemas, schema);
+            t_class_field_to_schema_object(
+                iop_env_ctx, desc->u1.st_desc, existing_schemas, schemas,
+                schema
+            );
         } else {
-            t_iop_struct_to_schema_object(iop_env_ctx, desc->u1.st_desc,
-                                          existing_schemas, schemas);
+            t_iop_struct_to_schema_object(
+                iop_env_ctx, desc->u1.st_desc, existing_schemas, schemas
+            );
             schema->type = TYPE_REF;
             schema->name = desc->u1.st_desc->fullname;
         }
@@ -812,7 +829,7 @@ t_iop_field_to_schema_object(const iop_env_ctx_t *iop_env_ctx,
     }
 
     switch (desc->repeat) {
-      case IOP_R_REPEATED: {
+    case IOP_R_REPEATED: {
         schema_object_t *array_schema;
 
         array_schema = t_new(schema_object_t, 1);
@@ -823,12 +840,12 @@ t_iop_field_to_schema_object(const iop_env_ctx_t *iop_env_ctx,
         if (attrs) {
             apply_array_field_constraints(attrs, desc, schema);
         }
-      } break;
-      case IOP_R_DEFVAL:
+    } break;
+    case IOP_R_DEFVAL:
         has_update = true;
         schema->defval = t_get_iop_field_defval(desc);
         break;
-      default:
+    default:
         break;
     }
 
@@ -858,30 +875,30 @@ t_iop_field_to_schema_object(const iop_env_ctx_t *iop_env_ctx,
     return schema;
 }
 
-static bool field_is_required(const iop_env_ctx_t *iop_env_ctx,
-                              const iop_field_t *desc,
-                              const schema_object_t *schema)
+static bool field_is_required(
+    const iop_env_ctx_t *iop_env_ctx, const iop_field_t *desc,
+    const schema_object_t *schema
+)
 {
     switch (desc->repeat) {
-      case IOP_R_OPTIONAL:
-      case IOP_R_DEFVAL:
+    case IOP_R_OPTIONAL:
+    case IOP_R_DEFVAL:
         return false;
-      case IOP_R_REPEATED:
+    case IOP_R_REPEATED:
         return OPT_DEFVAL(schema->min_items, 0) > 0;
-      case IOP_R_REQUIRED:
-        return desc->type != IOP_T_STRUCT
-            || !iop_struct_is_optional(iop_env_ctx, desc->u1.st_desc, true);
+    case IOP_R_REQUIRED:
+        return desc->type != IOP_T_STRUCT ||
+               !iop_struct_is_optional(iop_env_ctx, desc->u1.st_desc, true);
     }
 
-    assert (false);
+    assert(false);
     return false;
 }
 
-static void
-t_iop_union_to_schema_object(const iop_env_ctx_t *iop_env_ctx,
-                             const iop_struct_t *st,
-                             qh_t(schemas) *existing_schemas,
-                             qv_t(schema_object) *schemas)
+static void t_iop_union_to_schema_object(
+    const iop_env_ctx_t *iop_env_ctx, const iop_struct_t *st,
+    qh_t(schemas) *existing_schemas, qv_t(schema_object) *schemas
+)
 {
     schema_object_t *obj;
     qv_t(schema_object_p) one_of;
@@ -893,10 +910,9 @@ t_iop_union_to_schema_object(const iop_env_ctx_t *iop_env_ctx,
         schema_object_t *field_schema;
         schema_prop_t *prop;
 
-        field_schema = t_iop_field_to_schema_object(iop_env_ctx, st,
-                                                    field_desc,
-                                                    existing_schemas,
-                                                    schemas);
+        field_schema = t_iop_field_to_schema_object(
+            iop_env_ctx, st, field_desc, existing_schemas, schemas
+        );
         if (!field_schema) {
             continue;
         }
@@ -921,11 +937,10 @@ t_iop_union_to_schema_object(const iop_env_ctx_t *iop_env_ctx,
     t_add_struct_help(st, obj);
 }
 
-static void
-t_iop_struct_to_schema_object(const iop_env_ctx_t *iop_env_ctx,
-                              const iop_struct_t *st,
-                              qh_t(schemas) *existing_schemas,
-                              qv_t(schema_object) *schemas)
+static void t_iop_struct_to_schema_object(
+    const iop_env_ctx_t *iop_env_ctx, const iop_struct_t *st,
+    qh_t(schemas) *existing_schemas, qv_t(schema_object) *schemas
+)
 {
     schema_object_t *obj;
 
@@ -934,13 +949,14 @@ t_iop_struct_to_schema_object(const iop_env_ctx_t *iop_env_ctx,
     }
 
     if (st->is_union) {
-        t_iop_union_to_schema_object(iop_env_ctx, st, existing_schemas,
-                                     schemas);
+        t_iop_union_to_schema_object(
+            iop_env_ctx, st, existing_schemas, schemas
+        );
         return;
     }
 
     /* we should never add private classes */
-    assert (!iop_struct_is_class(st) || !st->class_attrs->is_private);
+    assert(!iop_struct_is_class(st) || !st->class_attrs->is_private);
 
     obj = t_new(schema_object_t, 1);
     obj->type = TYPE_OBJECT;
@@ -964,10 +980,9 @@ t_iop_struct_to_schema_object(const iop_env_ctx_t *iop_env_ctx,
         schema_object_t *field_schema;
         schema_prop_t *prop;
 
-        field_schema = t_iop_field_to_schema_object(iop_env_ctx, st,
-                                                    field_desc,
-                                                    existing_schemas,
-                                                    schemas);
+        field_schema = t_iop_field_to_schema_object(
+            iop_env_ctx, st, field_desc, existing_schemas, schemas
+        );
         if (!field_schema) {
             continue;
         }
@@ -986,8 +1001,9 @@ t_iop_struct_to_schema_object(const iop_env_ctx_t *iop_env_ctx,
         schema_object_t *all;
         schema_object_t *parent;
 
-        t_iop_struct_to_schema_object(iop_env_ctx, parent_st,
-                                      existing_schemas, schemas);
+        t_iop_struct_to_schema_object(
+            iop_env_ctx, parent_st, existing_schemas, schemas
+        );
 
         /* the class is a allOf of first the parent, then the details of
          * the current struct */
@@ -1008,9 +1024,9 @@ t_iop_struct_to_schema_object(const iop_env_ctx_t *iop_env_ctx,
 /* }}} */
 /* {{{ Conversion to yaml */
 
-static void
-t_schema_object_to_yaml(const schema_object_t * nonnull obj,
-                        yaml_data_t * nonnull out);
+static void t_schema_object_to_yaml(
+    const schema_object_t *nonnull obj, yaml_data_t *nonnull out
+);
 
 static yaml_data_t t_strings_to_yaml_seq(const qv_t(lstr) *strings)
 {
@@ -1042,57 +1058,57 @@ static yaml_data_t t_schemas_to_yaml_seq(const qv_t(schema_object_p) *schemas)
     return data;
 }
 
-static void number_value_to_yaml_data(const scalar_value_t *val,
-                                      yaml_data_t *data)
+static void
+number_value_to_yaml_data(const scalar_value_t *val, yaml_data_t *data)
 {
     switch (val->type) {
-      case SCALAR_INT64:
+    case SCALAR_INT64:
         yaml_data_set_int(data, val->i);
         break;
-      case SCALAR_UINT64:
+    case SCALAR_UINT64:
         yaml_data_set_uint(data, val->u);
         break;
-      case SCALAR_DOUBLE:
+    case SCALAR_DOUBLE:
         yaml_data_set_double(data, val->d);
         break;
-      case SCALAR_STRING:
+    case SCALAR_STRING:
         yaml_data_set_string(data, val->s);
         break;
-      case SCALAR_BOOL:
+    case SCALAR_BOOL:
         yaml_data_set_bool(data, val->b);
         break;
     }
 }
 
-static void
-t_schema_object_to_yaml(const schema_object_t * nonnull obj,
-                        yaml_data_t * nonnull out)
+static void t_schema_object_to_yaml(
+    const schema_object_t *nonnull obj, yaml_data_t *nonnull out
+)
 {
     static lstr_t types[] = {
-        [TYPE_NONE]   = LSTR_NULL,
-        [TYPE_REF]    = LSTR_NULL,
-        [TYPE_ARRAY]  = LSTR_IMMED("array"),
+        [TYPE_NONE] = LSTR_NULL,
+        [TYPE_REF] = LSTR_NULL,
+        [TYPE_ARRAY] = LSTR_IMMED("array"),
         [TYPE_OBJECT] = LSTR_IMMED("object"),
         [TYPE_STRING] = LSTR_IMMED("string"),
-        [TYPE_BYTE]   = LSTR_IMMED("string"),
-        [TYPE_BOOL]   = LSTR_IMMED("boolean"),
+        [TYPE_BYTE] = LSTR_IMMED("string"),
+        [TYPE_BOOL] = LSTR_IMMED("boolean"),
         [TYPE_DOUBLE] = LSTR_IMMED("number"),
-        [TYPE_INT32]  = LSTR_IMMED("integer"),
-        [TYPE_INT64]  = LSTR_IMMED("integer"),
+        [TYPE_INT32] = LSTR_IMMED("integer"),
+        [TYPE_INT64] = LSTR_IMMED("integer"),
         [TYPE_UINT32] = LSTR_IMMED("integer"),
         [TYPE_UINT64] = LSTR_IMMED("integer"),
     };
     static lstr_t formats[] = {
-        [TYPE_NONE]   = LSTR_NULL,
-        [TYPE_REF]    = LSTR_NULL,
-        [TYPE_ARRAY]  = LSTR_NULL,
+        [TYPE_NONE] = LSTR_NULL,
+        [TYPE_REF] = LSTR_NULL,
+        [TYPE_ARRAY] = LSTR_NULL,
         [TYPE_OBJECT] = LSTR_NULL,
         [TYPE_STRING] = LSTR_NULL,
-        [TYPE_BYTE]   = LSTR_IMMED("byte"),
-        [TYPE_BOOL]   = LSTR_NULL,
+        [TYPE_BYTE] = LSTR_IMMED("byte"),
+        [TYPE_BOOL] = LSTR_NULL,
         [TYPE_DOUBLE] = LSTR_IMMED("double"),
-        [TYPE_INT32]  = LSTR_IMMED("int32"),
-        [TYPE_INT64]  = LSTR_IMMED("int64"),
+        [TYPE_INT32] = LSTR_IMMED("int32"),
+        [TYPE_INT64] = LSTR_IMMED("int64"),
         [TYPE_UINT32] = LSTR_IMMED("uint32"),
         [TYPE_UINT64] = LSTR_IMMED("uint64"),
     };
@@ -1101,8 +1117,9 @@ t_schema_object_to_yaml(const schema_object_t * nonnull obj,
     t_yaml_data_new_obj(out, 2);
 
     if (obj->type == TYPE_REF) {
-        yaml_data_set_string(&data, t_lstr_fmt("#/components/schemas/%pL",
-                                               &obj->name));
+        yaml_data_set_string(
+            &data, t_lstr_fmt("#/components/schemas/%pL", &obj->name)
+        );
         yaml_obj_add_field(out, LSTR("$ref"), data);
         return;
     }
@@ -1128,8 +1145,9 @@ t_schema_object_to_yaml(const schema_object_t * nonnull obj,
     }
 
     if (obj->required.len > 0) {
-        yaml_obj_add_field(out, LSTR("required"),
-                           t_strings_to_yaml_seq(&obj->required));
+        yaml_obj_add_field(
+            out, LSTR("required"), t_strings_to_yaml_seq(&obj->required)
+        );
     }
 
     if (obj->properties.len > 0) {
@@ -1144,13 +1162,15 @@ t_schema_object_to_yaml(const schema_object_t * nonnull obj,
     }
 
     if (obj->one_of.len > 0) {
-        yaml_obj_add_field(out, LSTR("oneOf"),
-                           t_schemas_to_yaml_seq(&obj->one_of));
+        yaml_obj_add_field(
+            out, LSTR("oneOf"), t_schemas_to_yaml_seq(&obj->one_of)
+        );
     }
 
     if (obj->all_of.len > 0) {
-        yaml_obj_add_field(out, LSTR("allOf"),
-                           t_schemas_to_yaml_seq(&obj->all_of));
+        yaml_obj_add_field(
+            out, LSTR("allOf"), t_schemas_to_yaml_seq(&obj->all_of)
+        );
     }
 
     if (obj->discriminator.s) {
@@ -1163,8 +1183,9 @@ t_schema_object_to_yaml(const schema_object_t * nonnull obj,
     }
 
     if (obj->enum_values.len > 0) {
-        yaml_obj_add_field(out, LSTR("enum"),
-                           t_strings_to_yaml_seq(&obj->enum_values));
+        yaml_obj_add_field(
+            out, LSTR("enum"), t_strings_to_yaml_seq(&obj->enum_values)
+        );
     }
 
     if (obj->defval) {
@@ -1216,16 +1237,15 @@ t_schema_object_to_yaml(const schema_object_t * nonnull obj,
         yaml_data_set_string(&data, obj->example);
         yaml_obj_add_field(out, LSTR("example"), data);
     }
-
 }
 
 /* }}} */
 /* }}} */
 /* {{{ Media object */
 
-static void
-t_json_media_object_to_yaml(const json_media_object_t * nonnull obj,
-                            yaml_data_t * nonnull out)
+static void t_json_media_object_to_yaml(
+    const json_media_object_t *nonnull obj, yaml_data_t *nonnull out
+)
 {
     yaml_data_t data;
 
@@ -1242,9 +1262,9 @@ t_json_media_object_to_yaml(const json_media_object_t * nonnull obj,
 /* }}} */
 /* {{{ Request object */
 
-static void
-t_json_request_object_to_yaml(const json_request_object_t * nonnull obj,
-                               yaml_data_t * nonnull out)
+static void t_json_request_object_to_yaml(
+    const json_request_object_t *nonnull obj, yaml_data_t *nonnull out
+)
 {
     yaml_data_t data;
     yaml_data_t content;
@@ -1268,9 +1288,9 @@ t_json_request_object_to_yaml(const json_request_object_t * nonnull obj,
 /* }}} */
 /* {{{ Response object */
 
-static void
-t_json_response_object_to_yaml(const json_response_object_t * nonnull obj,
-                               yaml_data_t * nonnull out)
+static void t_json_response_object_to_yaml(
+    const json_response_object_t *nonnull obj, yaml_data_t *nonnull out
+)
 {
     yaml_data_t data;
     yaml_data_t content;
@@ -1285,9 +1305,9 @@ t_json_response_object_to_yaml(const json_response_object_t * nonnull obj,
     yaml_obj_add_field(out, LSTR("content"), content);
 }
 
-static void
-t_html_response_object_to_yaml(const html_response_object_t * nonnull obj,
-                               yaml_data_t * nonnull out)
+static void t_html_response_object_to_yaml(
+    const html_response_object_t *nonnull obj, yaml_data_t *nonnull out
+)
 {
     yaml_data_t html_media;
     yaml_data_t data;
@@ -1314,9 +1334,9 @@ t_html_response_object_to_yaml(const html_response_object_t * nonnull obj,
 /* }}} */
 /* {{{ Operation object */
 
-static void
-t_operation_object_to_yaml(const operation_object_t * nonnull obj,
-                            yaml_data_t * nonnull out)
+static void t_operation_object_to_yaml(
+    const operation_object_t *nonnull obj, yaml_data_t *nonnull out
+)
 {
     yaml_data_t data;
     yaml_data_t response;
@@ -1363,12 +1383,13 @@ t_operation_object_to_yaml(const operation_object_t * nonnull obj,
     yaml_obj_add_field(out, LSTR("responses"), response);
 }
 
-static void
-get_rpc_help(const iop_rpc_t * nonnull rpc, const iop_iface_t * nonnull iface,
-             const iop_help_t **rpc_help, bool *rpc_help_is_v2,
-             const iop_help_t **arg_help, bool *arg_help_is_v2,
-             const iop_help_t **res_help, bool *res_help_is_v2,
-             const iop_help_t **exn_help, bool *exn_help_is_v2)
+static void get_rpc_help(
+    const iop_rpc_t *nonnull rpc, const iop_iface_t *nonnull iface,
+    const iop_help_t **rpc_help, bool *rpc_help_is_v2,
+    const iop_help_t **arg_help, bool *arg_help_is_v2,
+    const iop_help_t **res_help, bool *res_help_is_v2,
+    const iop_help_t **exn_help, bool *exn_help_is_v2
+)
 {
     const iop_rpc_attrs_t *attrs;
 
@@ -1386,51 +1407,50 @@ get_rpc_help(const iop_rpc_t * nonnull rpc, const iop_iface_t * nonnull iface,
         const iop_rpc_attr_t *attr = &attrs->attrs[k];
 
         switch (attr->type) {
-          case IOP_RPC_ATTR_HELP:
+        case IOP_RPC_ATTR_HELP:
             *rpc_help = attr->args[0].v.p;
             *rpc_help_is_v2 = false;
             break;
-          case IOP_RPC_ATTR_HELP_V2:
+        case IOP_RPC_ATTR_HELP_V2:
             *rpc_help = attr->args[0].v.p;
             *rpc_help_is_v2 = true;
             break;
-          case IOP_RPC_ATTR_ARG_HELP:
+        case IOP_RPC_ATTR_ARG_HELP:
             *arg_help = attr->args[0].v.p;
             *arg_help_is_v2 = false;
             break;
-          case IOP_RPC_ATTR_ARG_HELP_V2:
+        case IOP_RPC_ATTR_ARG_HELP_V2:
             *arg_help = attr->args[0].v.p;
             *arg_help_is_v2 = true;
             break;
-          case IOP_RPC_ATTR_RES_HELP:
+        case IOP_RPC_ATTR_RES_HELP:
             *res_help = attr->args[0].v.p;
             *res_help_is_v2 = false;
             break;
-          case IOP_RPC_ATTR_RES_HELP_V2:
+        case IOP_RPC_ATTR_RES_HELP_V2:
             *res_help = attr->args[0].v.p;
             *res_help_is_v2 = true;
             break;
-          case IOP_RPC_ATTR_EXN_HELP:
+        case IOP_RPC_ATTR_EXN_HELP:
             *exn_help = attr->args[0].v.p;
             *exn_help_is_v2 = false;
             break;
-          case IOP_RPC_ATTR_EXN_HELP_V2:
+        case IOP_RPC_ATTR_EXN_HELP_V2:
             *exn_help = attr->args[0].v.p;
             *exn_help_is_v2 = true;
             break;
-          default:
+        default:
             break;
         }
     }
 }
 
-static void
-t_iop_rpc_to_operation_object(const iop_env_ctx_t * nonnull iop_env_ctx,
-                              const iop_rpc_t * nonnull rpc,
-                              const iop_iface_alias_t * nonnull alias,
-                              qh_t(schemas) * nonnull existing_schemas,
-                              qv_t(schema_object) * nonnull schemas,
-                              operation_object_t * nonnull op)
+static void t_iop_rpc_to_operation_object(
+    const iop_env_ctx_t *nonnull iop_env_ctx, const iop_rpc_t *nonnull rpc,
+    const iop_iface_alias_t *nonnull alias,
+    qh_t(schemas) *nonnull existing_schemas,
+    qv_t(schema_object) *nonnull schemas, operation_object_t *nonnull op
+)
 {
     const iop_help_t *rpc_help;
     const iop_help_t *arg_help;
@@ -1445,9 +1465,11 @@ t_iop_rpc_to_operation_object(const iop_env_ctx_t * nonnull iop_env_ctx,
 
     op->tag = alias->name;
 
-    get_rpc_help(rpc, alias->iface, &rpc_help, &rpc_help_is_v2, &arg_help,
-                 &arg_help_is_v2, &res_help, &res_help_is_v2, &exn_help,
-                 &exn_help_is_v2);
+    get_rpc_help(
+        rpc, alias->iface, &rpc_help, &rpc_help_is_v2, &arg_help,
+        &arg_help_is_v2, &res_help, &res_help_is_v2, &exn_help,
+        &exn_help_is_v2
+    );
     if (rpc_help) {
         if (rpc_help->brief.s) {
             op->summary = rpc_help->brief;
@@ -1458,9 +1480,10 @@ t_iop_rpc_to_operation_object(const iop_env_ctx_t * nonnull iop_env_ctx,
     /* RPC that do not have any arguments still uses the "Void" type.
      * Calling an RPC always requires a JSON payload, even if it is only '{}',
      * so we still add the body content. */
-    assert (rpc->args);
-    t_iop_struct_to_schema_object(iop_env_ctx, rpc->args, existing_schemas,
-                                  schemas);
+    assert(rpc->args);
+    t_iop_struct_to_schema_object(
+        iop_env_ctx, rpc->args, existing_schemas, schemas
+    );
     op->request.json_content.schema.type = TYPE_REF;
     op->request.json_content.schema.name = rpc->args->fullname;
 
@@ -1474,15 +1497,16 @@ t_iop_rpc_to_operation_object(const iop_env_ctx_t * nonnull iop_env_ctx,
     /* async response means no success response */
     if (!rpc->async) {
         op->ok_response = t_new(json_response_object_t, 1);
-        t_iop_struct_to_schema_object(iop_env_ctx, rpc->result,
-                                      existing_schemas, schemas);
+        t_iop_struct_to_schema_object(
+            iop_env_ctx, rpc->result, existing_schemas, schemas
+        );
         op->ok_response->description = LSTR("RPC success");
         op->ok_response->json_content.schema.type = TYPE_REF;
         op->ok_response->json_content.schema.name = rpc->result->fullname;
 
         if (res_help) {
-            op->ok_response->description = t_iop_help_to_string(res_help,
-                                                                false);
+            op->ok_response->description =
+                t_iop_help_to_string(res_help, false);
             if (res_help_is_v2) {
                 op->ok_response->json_content.example = res_help->example;
             }
@@ -1491,15 +1515,16 @@ t_iop_rpc_to_operation_object(const iop_env_ctx_t * nonnull iop_env_ctx,
 
     if (rpc->exn != &iop__void__s) {
         op->exn_response = t_new(json_response_object_t, 1);
-        t_iop_struct_to_schema_object(iop_env_ctx, rpc->exn, existing_schemas,
-                                      schemas);
+        t_iop_struct_to_schema_object(
+            iop_env_ctx, rpc->exn, existing_schemas, schemas
+        );
         op->exn_response->description = LSTR("RPC error");
         op->exn_response->json_content.schema.type = TYPE_REF;
         op->exn_response->json_content.schema.name = rpc->exn->fullname;
 
         if (exn_help) {
-            op->exn_response->description = t_iop_help_to_string(exn_help,
-                                                                 false);
+            op->exn_response->description =
+                t_iop_help_to_string(exn_help, false);
             if (exn_help_is_v2) {
                 op->exn_response->json_content.example = exn_help->example;
             }
@@ -1519,9 +1544,9 @@ t_iop_rpc_to_operation_object(const iop_env_ctx_t * nonnull iop_env_ctx,
 /* }}} */
 /* {{{ Path item object */
 
-static void
-t_path_item_object_to_yaml(const path_item_object_t * nonnull obj,
-                           yaml_data_t * nonnull out)
+static void t_path_item_object_to_yaml(
+    const path_item_object_t *nonnull obj, yaml_data_t *nonnull out
+)
 {
     yaml_data_t data;
 
@@ -1531,7 +1556,7 @@ t_path_item_object_to_yaml(const path_item_object_t * nonnull obj,
 }
 
 static void
-t_paths_to_yaml(const qv_t(path) * nonnull paths, yaml_data_t * nonnull out)
+t_paths_to_yaml(const qv_t(path) *nonnull paths, yaml_data_t *nonnull out)
 {
     t_yaml_data_new_obj(out, paths->len);
     tab_for_each_ptr(path_item, paths) {
@@ -1542,10 +1567,10 @@ t_paths_to_yaml(const qv_t(path) * nonnull paths, yaml_data_t * nonnull out)
     }
 }
 
-static bool
-t_rpc_is_blacklisted(const iop_iface_t * nonnull iface,
-                     const iop_rpc_t * nonnull rpc,
-                     qm_t(whitelist) *nonnull rpcs_whitelist)
+static bool t_rpc_is_blacklisted(
+    const iop_iface_t *nonnull iface, const iop_rpc_t *nonnull rpc,
+    qm_t(whitelist) *nonnull rpcs_whitelist
+)
 {
     lstr_t fullname;
     int pos;
@@ -1566,10 +1591,10 @@ t_rpc_is_blacklisted(const iop_iface_t * nonnull iface,
     }
 }
 
-static bool
-t_iop_rpc_add(iop_openapi_t * nonnull oa,
-              const iop_rpc_t * nonnull rpc,
-              const iop_iface_alias_t * nonnull alias)
+static bool t_iop_rpc_add(
+    iop_openapi_t *nonnull oa, const iop_rpc_t *nonnull rpc,
+    const iop_iface_alias_t *nonnull alias
+)
 {
     path_item_object_t *obj;
 
@@ -1579,16 +1604,17 @@ t_iop_rpc_add(iop_openapi_t * nonnull oa,
 
     obj = qv_growlen0(&oa->paths, 1);
     obj->path = t_lstr_fmt("/%pL/%pL", &alias->name, &rpc->name);
-    t_iop_rpc_to_operation_object(oa->iop_env_ctx, rpc, alias,
-                                  &oa->components.existing_schemas,
-                                  &oa->components.schemas, &obj->post);
+    t_iop_rpc_to_operation_object(
+        oa->iop_env_ctx, rpc, alias, &oa->components.existing_schemas,
+        &oa->components.schemas, &obj->post
+    );
     return true;
 }
 
-static void
-t_iop_iface_alias_add(iop_openapi_t * nonnull oa,
-                      const iop_mod_t * nonnull mod,
-                      const iop_iface_alias_t * nonnull alias)
+static void t_iop_iface_alias_add(
+    iop_openapi_t *nonnull oa, const iop_mod_t *nonnull mod,
+    const iop_iface_alias_t *nonnull alias
+)
 {
     tag_object_t *tag;
     const iop_help_t *help;
@@ -1655,8 +1681,7 @@ t_iop_iface_alias_add(iop_openapi_t * nonnull oa,
 }
 
 static void
-t_iop_mod_add(iop_openapi_t * nonnull oa,
-              const iop_mod_t * nonnull mod)
+t_iop_mod_add(iop_openapi_t *nonnull oa, const iop_mod_t *nonnull mod)
 {
     for (int i = 0; i < mod->ifaces_len; i++) {
         t_iop_iface_alias_add(oa, mod, &mod->ifaces[i]);
@@ -1666,22 +1691,22 @@ t_iop_mod_add(iop_openapi_t * nonnull oa,
 /* }}} */
 /* {{{ Security scheme object */
 
-static void
-t_security_scheme_object_to_yaml(const security_scheme_object_t * nonnull obj,
-                          yaml_data_t * nonnull out)
+static void t_security_scheme_object_to_yaml(
+    const security_scheme_object_t *nonnull obj, yaml_data_t *nonnull out
+)
 {
     yaml_data_t data;
 
     switch (obj->type) {
-      case OPENAPI_SECURITY_BASIC_HTTP:
+    case OPENAPI_SECURITY_BASIC_HTTP:
         t_yaml_data_new_obj(out, 2);
         yaml_data_set_string(&data, LSTR("http"));
         yaml_obj_add_field(out, LSTR("type"), data);
         yaml_data_set_string(&data, LSTR("basic"));
         yaml_obj_add_field(out, LSTR("scheme"), data);
         break;
-      default:
-        assert (false);
+    default:
+        assert(false);
         break;
     }
 }
@@ -1695,9 +1720,9 @@ static void t_components_object_init(components_object_t *obj)
     t_qh_init(schemas, &obj->existing_schemas, 0);
 }
 
-static void
-t_components_object_to_yaml(const components_object_t * nonnull obj,
-                                  yaml_data_t * nonnull out)
+static void t_components_object_to_yaml(
+    const components_object_t *nonnull obj, yaml_data_t *nonnull out
+)
 {
     yaml_data_t data;
 
@@ -1725,8 +1750,9 @@ t_components_object_to_yaml(const components_object_t * nonnull obj,
 /* }}} */
 /* {{{ Info object */
 
-static void t_info_object_to_yaml(const info_object_t * nonnull info,
-                                  yaml_data_t * nonnull out)
+static void t_info_object_to_yaml(
+    const info_object_t *nonnull info, yaml_data_t *nonnull out
+)
 {
     yaml_data_t data;
 
@@ -1747,15 +1773,17 @@ static void t_info_object_to_yaml(const info_object_t * nonnull info,
 /* }}} */
 /* {{{ Server object */
 
-static void t_server_object_to_yaml(const server_object_t * nonnull obj,
-                                    yaml_data_t * nonnull out)
+static void t_server_object_to_yaml(
+    const server_object_t *nonnull obj, yaml_data_t *nonnull out
+)
 {
     yaml_data_t data;
 
     t_yaml_data_new_obj(out, 1);
 
-    yaml_data_set_string(&data, t_lstr_fmt("%pL/%pL", &obj->url,
-                                           &obj->route));
+    yaml_data_set_string(
+        &data, t_lstr_fmt("%pL/%pL", &obj->url, &obj->route)
+    );
     yaml_obj_add_field(out, LSTR("url"), data);
 
     if (obj->description.s) {
@@ -1767,8 +1795,9 @@ static void t_server_object_to_yaml(const server_object_t * nonnull obj,
 /* }}} */
 /* {{{ Tag object */
 
-static void t_tag_object_to_yaml(const tag_object_t * nonnull obj,
-                                 yaml_data_t * nonnull out)
+static void t_tag_object_to_yaml(
+    const tag_object_t *nonnull obj, yaml_data_t *nonnull out
+)
 {
     yaml_data_t data;
 
@@ -1786,10 +1815,10 @@ static void t_tag_object_to_yaml(const tag_object_t * nonnull obj,
 /* }}} */
 /* {{{ Public API */
 
-iop_openapi_t *t_new_iop_openapi(const iop_env_ctx_t *iop_env_ctx,
-                                 const lstr_t title,
-                                 const lstr_t version,
-                                 const iop_mod_t *module, const lstr_t route)
+iop_openapi_t *t_new_iop_openapi(
+    const iop_env_ctx_t *iop_env_ctx, const lstr_t title,
+    const lstr_t version, const iop_mod_t *module, const lstr_t route
+)
 {
     iop_openapi_t *oa = t_new(iop_openapi_t, 1);
 
@@ -1811,17 +1840,16 @@ iop_openapi_t *t_new_iop_openapi(const iop_env_ctx_t *iop_env_ctx,
     return oa;
 }
 
-void
-t_iop_openapi_set_description(iop_openapi_t * nonnull oa,
-                              const lstr_t description)
+void t_iop_openapi_set_description(
+    iop_openapi_t *nonnull oa, const lstr_t description
+)
 {
     oa->info.description = t_lstr_dup(description);
 }
 
-void
-t_iop_openapi_set_security(iop_openapi_t * nonnull oa,
-                           const lstr_t name,
-                           openapi_security_type_t type)
+void t_iop_openapi_set_security(
+    iop_openapi_t *nonnull oa, const lstr_t name, openapi_security_type_t type
+)
 {
     security_scheme_object_t *sec;
 
@@ -1836,9 +1864,10 @@ t_iop_openapi_set_security(iop_openapi_t * nonnull oa,
     oa->security = sec->name;
 }
 
-void t_iop_openapi_set_server(iop_openapi_t * nonnull oa,
-                              const lstr_t server_url,
-                              const lstr_t description)
+void t_iop_openapi_set_server(
+    iop_openapi_t *nonnull oa, const lstr_t server_url,
+    const lstr_t description
+)
 {
     oa->server.url = t_lstr_dup(server_url);
     if (description.s) {
@@ -1846,24 +1875,24 @@ void t_iop_openapi_set_server(iop_openapi_t * nonnull oa,
     }
 }
 
-void t_iop_openapi_whitelist_rpc(iop_openapi_t *openapi,
-                                 const lstr_t fullname)
+void t_iop_openapi_whitelist_rpc(
+    iop_openapi_t *openapi, const lstr_t fullname
+)
 {
     lstr_t name = t_lstr_dup(fullname);
 
     qm_add(whitelist, &openapi->rpcs_whitelist, &name, false);
 }
 
-void t_iop_openapi_add_struct(iop_openapi_t *openapi,
-                              const iop_struct_t *st)
+void t_iop_openapi_add_struct(iop_openapi_t *openapi, const iop_struct_t *st)
 {
-    t_iop_struct_to_schema_object(openapi->iop_env_ctx, st,
-                                  &openapi->components.existing_schemas,
-                                  &openapi->components.schemas);
+    t_iop_struct_to_schema_object(
+        openapi->iop_env_ctx, st, &openapi->components.existing_schemas,
+        &openapi->components.schemas
+    );
 }
 
-int t_iop_openapi_to_yaml(iop_openapi_t *openapi, yaml_data_t *out,
-                          sb_t *err)
+int t_iop_openapi_to_yaml(iop_openapi_t *openapi, yaml_data_t *out, sb_t *err)
 {
     yaml_data_t data;
     yaml_data_t seq;
@@ -1877,8 +1906,12 @@ int t_iop_openapi_to_yaml(iop_openapi_t *openapi, yaml_data_t *out,
      * a mistake, so print a log and return an error value. */
     qm_for_each_key_value(whitelist, name, used, &openapi->rpcs_whitelist) {
         if (!used) {
-            logger_error(&_G.logger, "RPC `%pL` was whitelisted but has "
-                         "not been exposed, it must be fixed", &name);
+            logger_error(
+                &_G.logger,
+                "RPC `%pL` was whitelisted but has "
+                "not been exposed, it must be fixed",
+                &name
+            );
             has_unused_whitelist = true;
         }
     }
@@ -1947,8 +1980,8 @@ static int iop_openapi_shutdown(void)
     return 0;
 }
 
-MODULE_BEGIN(iop_openapi)
+MODULE_DEFINE(iop_openapi) {
     MODULE_DEPENDS_ON(yaml);
-MODULE_END()
+}
 
 /* }}} */

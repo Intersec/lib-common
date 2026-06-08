@@ -56,8 +56,9 @@ static void z_http_el_wait(el_t ev, data_t data)
 
 #define el_wait_until(cond, timeout)                                         \
     do {                                                                     \
-        el_t __el_tmr = el_timer_register(timeout, EL_TIMER_LOWRES, 0,       \
-                                          &z_http_el_wait, NULL);            \
+        el_t __el_tmr = el_timer_register(                                   \
+            timeout, EL_TIMER_LOWRES, 0, &z_http_el_wait, NULL               \
+        );                                                                   \
                                                                              \
         _G.el_wait_timed_out = false;                                        \
         while (!((cond) || _G.el_wait_timed_out)) {                          \
@@ -110,8 +111,10 @@ static void z_http_hello_query_on_done(httpd_query_t *q)
     obj_retain(q);
 
     if (_G.response_time >= 0) {
-        el_timer_register(_G.response_time, 0, EL_TIMER_LOWRES,
-                          &z_http_hello_query_reply_async, q);
+        el_timer_register(
+            _G.response_time, 0, EL_TIMER_LOWRES,
+            &z_http_hello_query_reply_async, q
+        );
         return;
     }
 
@@ -119,9 +122,9 @@ static void z_http_hello_query_on_done(httpd_query_t *q)
     obj_release(&q);
 }
 
-static void
-z_http_hello_query_hook(httpd_trigger_t *tcb, struct httpd_query_t *q,
-                        const httpd_qinfo_t *qi)
+static void z_http_hello_query_hook(
+    httpd_trigger_t *tcb, struct httpd_query_t *q, const httpd_qinfo_t *qi
+)
 {
     q->on_done = z_http_hello_query_on_done;
     q->qinfo = httpd_qinfo_dup(qi);
@@ -137,9 +140,9 @@ static void z_http_post_query_on_done(httpd_query_t *q)
     httpd_reply_done(q);
 }
 
-static void
-z_http_post_query_hook(httpd_trigger_t *tcb, struct httpd_query_t *q,
-                       const httpd_qinfo_t *qi)
+static void z_http_post_query_hook(
+    httpd_trigger_t *tcb, struct httpd_query_t *q, const httpd_qinfo_t *qi
+)
 {
     q->on_done = z_http_post_query_on_done;
     q->qinfo = httpd_qinfo_dup(qi);
@@ -188,8 +191,9 @@ z_http_hello_query_on_done_client(httpc_query_t *q, httpc_status_t st)
     _G.query_status = st;
     _G.query_code = q->qinfo->code;
 
-    _G.query_has_clen = !!http_qhdr_find(q->qinfo->hdrs, q->qinfo->hdrs_len,
-                                         HTTP_WKHDR_CONTENT_LENGTH);
+    _G.query_has_clen = !!http_qhdr_find(
+        q->qinfo->hdrs, q->qinfo->hdrs_len, HTTP_WKHDR_CONTENT_LENGTH
+    );
 
     httpc_query_wipe(q);
 }
@@ -259,8 +263,7 @@ static int z_http_connect_client(unsigned max_queries)
     Z_HELPER_END;
 }
 
-static int
-z_http_do_simple_post(void)
+static int z_http_do_simple_post(void)
 {
     Z_HELPER_RUN(z_http_connect_client(1));
 
@@ -330,40 +333,49 @@ static void z_http_tests(http_mode_t http_mode)
 
     Z_TEST(no_query) {
         Z_HELPER_RUN(z_http_do_simple_query(false, 0, 0));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(simple_query) {
         Z_HELPER_RUN(z_http_do_simple_query(false, 0, 1));
 
         /* Repeat the query 10 times in a single run. */
         Z_HELPER_RUN(z_http_do_simple_query(false, 0, 10));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(simple_query_async, "simple query (async delayed 10 ms)") {
-        Z_HELPER_RUN(z_http_do_simple_query(true, 10,  1));
+        Z_HELPER_RUN(z_http_do_simple_query(true, 10, 1));
 
         /* Repeat the query 10 times in a single run. */
         Z_HELPER_RUN(z_http_do_simple_query(true, 10, 10));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(simple_query_async_no_delay, "simple_query (async no delay)") {
         Z_HELPER_RUN(z_http_do_simple_query(true, 0, 1));
 
         /* Repeat the query 10 times in a single run. */
         Z_HELPER_RUN(z_http_do_simple_query(true, 0, 10));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(simple_post) {
         Z_HELPER_RUN(z_http_do_simple_post());
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 }
 
-Z_GROUP_EXPORT(http) {
+Z_GROUP_EXPORT(http)
+{
     z_http_tests(HTTP_MODE_USE_HTTP1X_ONLY);
-} Z_GROUP_END;
+}
+Z_GROUP_END;
 
-Z_GROUP_EXPORT(http2) {
+Z_GROUP_EXPORT(http2)
+{
     z_http_tests(HTTP_MODE_USE_HTTP2_ONLY);
-} Z_GROUP_END;
+}
+Z_GROUP_END;
 
 /* }}} */

@@ -74,10 +74,10 @@ typedef struct ic_el_server_cb_cfg_t {
      * \return  The status of the reply. If the status is not IC_MSG_OK or
      *          IC_MSG_EXN, \p res and \p res_desc are ignored.
      */
-    ic_status__t (*nonnull t_on_rpc)(ic_el_server_t *server, ichannel_t *ic,
-                                     uint64_t slot, void *arg,
-                                     const ic__hdr__t *hdr, void **res,
-                                     const iop_struct_t **res_st);
+    ic_status__t (*nonnull t_on_rpc)(
+        ic_el_server_t *server, ichannel_t *ic, uint64_t slot, void *arg,
+        const ic__hdr__t *hdr, void **res, const iop_struct_t **res_st
+    );
 
     /** Callback called when a peer is connecting to the server.
      *
@@ -87,8 +87,9 @@ typedef struct ic_el_server_cb_cfg_t {
      * \param[in] server_uri  The URI the IC EL server is listening to.
      * \param[in] remote_addr The address of the peer.
      */
-    void (*nullable on_connect)(ic_el_server_t *server, lstr_t server_uri,
-                                lstr_t remote_addr);
+    void (*nullable on_connect)(
+        ic_el_server_t *server, lstr_t server_uri, lstr_t remote_addr
+    );
 
     /** Callback called when a peer is disconnecting from the server.
      *
@@ -98,8 +99,9 @@ typedef struct ic_el_server_cb_cfg_t {
      * \param[in] server_uri  The URI the IC EL server is listening to.
      * \param[in] remote_addr The address of the peer.
      */
-    void (*nullable on_disconnect)(ic_el_server_t *server,
-                                   lstr_t server_uri, lstr_t remote_addr);
+    void (*nullable on_disconnect)(
+        ic_el_server_t *server, lstr_t server_uri, lstr_t remote_addr
+    );
 } ic_el_server_cb_cfg_t;
 
 /** Create an IC EL Server.
@@ -108,9 +110,10 @@ typedef struct ic_el_server_cb_cfg_t {
  * \param[in] cb_cfg  The configuration of the callbacks of the IC server.
  * \return The new IC EL server.
  */
-ic_el_server_t * nonnull
-ic_el_server_create(const iop_env_t * nonnull iop_env,
-                    const ic_el_server_cb_cfg_t * nonnull cb_cfg);
+ic_el_server_t *nonnull ic_el_server_create(
+    const iop_env_t *nonnull iop_env,
+    const ic_el_server_cb_cfg_t *nonnull cb_cfg
+);
 
 /** Destroy an IC EL server.
  *
@@ -127,8 +130,7 @@ void ic_el_server_destroy(ic_el_server_t **server_ptr);
  * not thread-safe. You must protect the external object with an external
  * lock.
  */
-void ic_el_server_set_ext_obj(ic_el_server_t *server,
-                              void * nullable ext_obj);
+void ic_el_server_set_ext_obj(ic_el_server_t *server, void *nullable ext_obj);
 
 /** Get the IC EL server external object.
  *
@@ -136,7 +138,7 @@ void ic_el_server_set_ext_obj(ic_el_server_t *server,
  * not thread-safe. You must protect the external object with an external
  * lock.
  */
-void * nullable ic_el_server_get_ext_obj(ic_el_server_t *server);
+void *nullable ic_el_server_get_ext_obj(ic_el_server_t *server);
 
 /** Make the IC EL server start listening.
  *
@@ -160,9 +162,9 @@ int ic_el_server_listen(ic_el_server_t *server, lstr_t uri, sb_t *err);
  *         of the error.
  *         IC_EL_SYNC_SIGINT if a sigint occurred.
  */
-ic_el_sync_res_t
-ic_el_server_listen_block(ic_el_server_t *server, lstr_t uri, double timeout,
-                          sb_t *err);
+ic_el_sync_res_t ic_el_server_listen_block(
+    ic_el_server_t *server, lstr_t uri, double timeout, sb_t *err
+);
 
 /** Stop the IC EL server.
  *
@@ -182,8 +184,9 @@ ic_el_sync_res_t ic_el_server_stop(ic_el_server_t *server);
  * \param[in] rpc    The RPC to register.
  * \param[in] cmd    The command index of the RPC.
  */
-void ic_el_server_register_rpc(ic_el_server_t *server,
-                               const iop_rpc_t *rpc, uint32_t cmd);
+void ic_el_server_register_rpc(
+    ic_el_server_t *server, const iop_rpc_t *rpc, uint32_t cmd
+);
 
 /** Unregister an RPC from the IC EL server.
  *
@@ -238,11 +241,10 @@ typedef struct ic_el_client_cb_cfg_t {
  * \param[out] err            The error description in case of error.
  * \return The new IC EL client.
  */
-ic_el_client_t * nullable
-ic_el_client_create(const iop_env_t * nonnull iop_env,
-                    lstr_t uri, double no_act_timeout,
-                    const ic_el_client_cb_cfg_t * nonnull cb_cfg,
-                    sb_t *err);
+ic_el_client_t *nullable ic_el_client_create(
+    const iop_env_t *nonnull iop_env, lstr_t uri, double no_act_timeout,
+    const ic_el_client_cb_cfg_t *nonnull cb_cfg, sb_t *err
+);
 
 /** Destroy the IC EL client.
  *
@@ -257,8 +259,7 @@ void ic_el_client_destroy(ic_el_client_t **client_ptr);
  * not thread-safe. You must protect the external object with an external
  * lock.
  */
-void ic_el_client_set_ext_obj(ic_el_client_t *client,
-                              void * nullable ext_obj);
+void ic_el_client_set_ext_obj(ic_el_client_t *client, void *nullable ext_obj);
 
 /** Get the IC EL client external object.
  *
@@ -266,7 +267,7 @@ void ic_el_client_set_ext_obj(ic_el_client_t *client,
  * not thread-safe. You must protect the external object with an external
  * lock.
  */
-void * nullable ic_el_client_get_ext_obj(ic_el_client_t *client);
+void *nullable ic_el_client_get_ext_obj(ic_el_client_t *client);
 
 /** Synchronously connect the IC EL client.
  *
@@ -293,8 +294,9 @@ ic_el_client_sync_connect(ic_el_client_t *client, double timeout, sb_t *err);
  * \param[in] cb_arg The custom user variable passed to
  *                   \ref ic_el_client_async_connect.
  */
-typedef void (*ic_client_async_connect_f)(const sb_t *nullable err,
-                                          void *nullable cb_arg);
+typedef void (*ic_client_async_connect_f)(
+    const sb_t *nullable err, void *nullable cb_arg
+);
 
 /** Aynchronously connect the IC EL client.
  *
@@ -304,9 +306,10 @@ typedef void (*ic_client_async_connect_f)(const sb_t *nullable err,
  * \param[in]  cb      The callback to be called on result.
  * \param[in]  cb_arg  A custom user variable to be passed to the callback.
  */
-void ic_el_client_async_connect(ic_el_client_t *client, double timeout,
-                                ic_client_async_connect_f cb,
-                                void *nullable cb_arg);
+void ic_el_client_async_connect(
+    ic_el_client_t *client, double timeout, ic_client_async_connect_f cb,
+    void *nullable cb_arg
+);
 
 /** Disconnect the IC EL client.
  *
@@ -337,17 +340,16 @@ bool ic_el_client_is_connected(ic_el_client_t *client);
  *                     This value is allocated on the heap and *MUST* be freed
  *                     with p_delete().
  * \param[out] err     The error description in case of error.
- * \return IC_EL_SYNC_OK if the query has been run and returned. You must check
- *         if the query has been successful with \p status.
- *         IC_EL_SYNC_ERR if an error occured, \p err contains the description
- *         of the error.
+ * \return IC_EL_SYNC_OK if the query has been run and returned. You must
+ * check if the query has been successful with \p status. IC_EL_SYNC_ERR if an
+ * error occured, \p err contains the description of the error.
  *         IC_EL_SYNC_SIGINT if a sigint occurred during the query.
  */
-ic_el_sync_res_t
-ic_el_client_sync_call(ic_el_client_t *client, const iop_rpc_t *rpc,
-                       int32_t cmd, const ic__hdr__t *hdr, double timeout,
-                       const void *arg, ic_status__t *status, void **res,
-                       sb_t *err);
+ic_el_sync_res_t ic_el_client_sync_call(
+    ic_el_client_t *client, const iop_rpc_t *rpc, int32_t cmd,
+    const ic__hdr__t *hdr, double timeout, const void *arg,
+    ic_status__t *status, void **res, sb_t *err
+);
 
 /** The callback used when asynchronously call an RPC with the IC EL client.
  *
@@ -367,10 +369,10 @@ ic_el_client_sync_call(ic_el_client_t *client, const iop_rpc_t *rpc,
  * \param[in] cb_arg The custom user variable passed to
  *                   \ref ic_el_client_async_call.
  */
-typedef void (*ic_client_async_call_f)(const sb_t *nullable err,
-                                       ic_status__t status,
-                                       const void *nullable res,
-                                       void *nullable cb_arg);
+typedef void (*ic_client_async_call_f)(
+    const sb_t *nullable err, ic_status__t status, const void *nullable res,
+    void *nullable cb_arg
+);
 
 /** Asynchronously call an RPC with the IC EL client.
  *
@@ -384,11 +386,11 @@ typedef void (*ic_client_async_call_f)(const sb_t *nullable err,
  * \param[in]  cb      The callback to be called on result.
  * \param[in]  cb_arg  A custom user variable to be passed to the callback.
  */
-void ic_el_client_async_call(ic_el_client_t *client, const iop_rpc_t *rpc,
-                             int32_t cmd, const ic__hdr__t *hdr,
-                             double timeout, const void *arg,
-                             ic_client_async_call_f cb,
-                             void *nullable cb_arg);
+void ic_el_client_async_call(
+    ic_el_client_t *client, const iop_rpc_t *rpc, int32_t cmd,
+    const ic__hdr__t *hdr, double timeout, const void *arg,
+    ic_client_async_call_f cb, void *nullable cb_arg
+);
 
 /* }}} */
 /* {{{ Module init */

@@ -37,18 +37,17 @@ static struct {
     bool opt_qv_shuffle;
     bool opt_uint_qhash;
 } ztst_container_g = {
-#define _G  ztst_container_g
+#define _G ztst_container_g
     .logger = LOGGER_INIT_INHERITS(NULL, "ztst-container"),
 };
 
 /* {{{ ASCII insensitive qhash */
 
-
 /* Old hashing function kept for benchmark comparison.
  */
-static inline uint32_t
-qhash_lstr_ascii_ihash_old(const qhash_t * nullable qh,
-                           const lstr_t * nonnull ls)
+static inline uint32_t qhash_lstr_ascii_ihash_old(
+    const qhash_t *nullable qh, const lstr_t *nonnull ls
+)
 {
     t_scope;
     lstr_t tmp = t_lstr_ascii_tolower(*ls);
@@ -56,16 +55,17 @@ qhash_lstr_ascii_ihash_old(const qhash_t * nullable qh,
     return qhash_lstr_hash(qh, &tmp);
 }
 
-qh_kvec_t(ilstr_old, lstr_t, qhash_lstr_ascii_ihash_old,
-          qhash_lstr_ascii_iequal);
+qh_kvec_t(
+    ilstr_old, lstr_t, qhash_lstr_ascii_ihash_old, qhash_lstr_ascii_iequal
+);
 
 static void ztst_run_ascii_iqhash(void)
 {
 #define NB_WORDS 100000
 #define WORD_MAXLEN 100
     t_scope;
-    qh_t(lstr)      h_lstr;
-    qh_t(ilstr)     h_ilstr;
+    qh_t(lstr) h_lstr;
+    qh_t(ilstr) h_ilstr;
     qh_t(ilstr_old) h_ilstr_old;
     qv_t(lstr) strs;
 
@@ -76,8 +76,9 @@ static void ztst_run_ascii_iqhash(void)
 
     /* Make some random words */
     for (int i = 0; i < NB_WORDS; i++) {
-        lstr_t s = LSTR_INIT(t_new_raw(char, WORD_MAXLEN + 1),
-                             rand_range(1, WORD_MAXLEN));
+        lstr_t s = LSTR_INIT(
+            t_new_raw(char, WORD_MAXLEN + 1), rand_range(1, WORD_MAXLEN)
+        );
 
         for (int j = 0; j < s.len; j++) {
             s.v[j] = rand_range(32, 176);
@@ -87,7 +88,7 @@ static void ztst_run_ascii_iqhash(void)
         qv_append(&strs, s);
     }
 
-#define RUN_TEST(pfx) \
+#define RUN_TEST(pfx)                                                        \
     do {                                                                     \
         proctimerstat_t st;                                                  \
                                                                              \
@@ -95,17 +96,18 @@ static void ztst_run_ascii_iqhash(void)
         for (int i = 0; i < 1000; i++) {                                     \
             proctimer_t pt;                                                  \
                                                                              \
-            qh_clear(pfx, &h_ ## pfx);                                       \
+            qh_clear(pfx, &h_##pfx);                                         \
             proctimer_start(&pt);                                            \
             tab_for_each_ptr(s, &strs) {                                     \
-                qh_add(pfx, &h_ ## pfx, s);                                  \
+                qh_add(pfx, &h_##pfx, s);                                    \
             }                                                                \
             proctimer_stop(&pt);                                             \
             proctimerstat_addsample(&st, &pt);                               \
         }                                                                    \
-        logger_notice(&_G.logger, "%d (%d) words inserted in qh " #pfx       \
-                      " in %s", strs.len, qh_len(pfx, &h_ ## pfx),           \
-                      proctimerstat_report(&st, NULL));                      \
+        logger_notice(                                                       \
+            &_G.logger, "%d (%d) words inserted in qh " #pfx " in %s",       \
+            strs.len, qh_len(pfx, &h_##pfx), proctimerstat_report(&st, NULL) \
+        );                                                                   \
     } while (0)
 
     RUN_TEST(lstr);
@@ -141,7 +143,7 @@ static void ztst_run_qv_sort(void)
     proctimerstat_t st;
 
     /* Bench qv_sort with 4 and 8 bytes values. */
-#define BENCH_QV_SORT(_type)  \
+#define BENCH_QV_SORT(_type)                                                 \
     do {                                                                     \
         p_clear(&st, 1);                                                     \
         for (int i = 0; i < NB_TESTS; i++) {                                 \
@@ -159,9 +161,12 @@ static void ztst_run_qv_sort(void)
             proctimer_stop(&pt);                                             \
             proctimerstat_addsample(&st, &pt);                               \
         }                                                                    \
-        logger_notice(&_G.logger, "qv_sort on " TOSTR(_type) " vectors "     \
-                      "of %d elements: %s\n",                                \
-                      NB_ELEMS, proctimerstat_report(&st, NULL));            \
+        logger_notice(                                                       \
+            &_G.logger,                                                      \
+            "qv_sort on " TOSTR(_type) " vectors "                           \
+                                       "of %d elements: %s\n",               \
+            NB_ELEMS, proctimerstat_report(&st, NULL)                        \
+        );                                                                   \
     } while (0)
 
     BENCH_QV_SORT(i32);
@@ -169,7 +174,7 @@ static void ztst_run_qv_sort(void)
 #undef BENCH_QV_SORT
 
     /* Bench qv_qsort with 4 and 8 bytes values. */
-#define BENCH_QV_QSORT(_type)  \
+#define BENCH_QV_QSORT(_type)                                                \
     do {                                                                     \
         p_clear(&st, 1);                                                     \
         for (int i = 0; i < NB_TESTS; i++) {                                 \
@@ -187,9 +192,12 @@ static void ztst_run_qv_sort(void)
             proctimer_stop(&pt);                                             \
             proctimerstat_addsample(&st, &pt);                               \
         }                                                                    \
-        logger_notice(&_G.logger, "qv_qsort on " TOSTR(_type) " vectors of " \
-                      "%d elements: %s\n",                                   \
-                      NB_ELEMS, proctimerstat_report(&st, NULL));            \
+        logger_notice(                                                       \
+            &_G.logger,                                                      \
+            "qv_qsort on " TOSTR(_type) " vectors of "                       \
+                                        "%d elements: %s\n",                 \
+            NB_ELEMS, proctimerstat_report(&st, NULL)                        \
+        );                                                                   \
     } while (0)
 
     BENCH_QV_QSORT(i32);
@@ -210,7 +218,7 @@ static void ztst_run_qv_shuffle(void)
     proctimerstat_t st;
 
     /* Bench qv_shuffle with 4 and 8 bytes values. */
-#define BENCH_QV_SHUFFLE(_type)  \
+#define BENCH_QV_SHUFFLE(_type)                                              \
     do {                                                                     \
         p_clear(&st, 1);                                                     \
         for (int i = 0; i < NB_TESTS; i++) {                                 \
@@ -228,9 +236,11 @@ static void ztst_run_qv_shuffle(void)
             proctimer_stop(&pt);                                             \
             proctimerstat_addsample(&st, &pt);                               \
         }                                                                    \
-        logger_notice(&_G.logger, "qv_shuffle on " TOSTR(_type)              \
-                      " vectors of %d elements: %s\n",                       \
-                      NB_ELEMS, proctimerstat_report(&st, NULL));            \
+        logger_notice(                                                       \
+            &_G.logger,                                                      \
+            "qv_shuffle on " TOSTR(_type) " vectors of %d elements: %s\n",   \
+            NB_ELEMS, proctimerstat_report(&st, NULL)                        \
+        );                                                                   \
     } while (0)
 
     BENCH_QV_SHUFFLE(i32);
@@ -254,7 +264,7 @@ static void ztst_run_uint_qhash(void)
 
 #define STEP 150000
 
-#define RUN_TEST(name, qh) \
+#define RUN_TEST(name, qh)                                                   \
     do {                                                                     \
         proctimerstat_t st;                                                  \
         proctimer_t pt;                                                      \
@@ -273,8 +283,10 @@ static void ztst_run_uint_qhash(void)
             proctimer_stop(&pt);                                             \
             proctimerstat_addsample(&st, &pt);                               \
         }                                                                    \
-        logger_notice(&_G.logger, "%d values inserted in qh in %s",          \
-                      5 * STEP, proctimerstat_report(&st, NULL));            \
+        logger_notice(                                                       \
+            &_G.logger, "%d values inserted in qh in %s", 5 * STEP,          \
+            proctimerstat_report(&st, NULL)                                  \
+        );                                                                   \
     } while (0)
 
     logger_notice(&_G.logger, "u32 bench");
@@ -292,13 +304,15 @@ static void ztst_run_uint_qhash(void)
 
 static popt_t popts_g[] = {
     OPT_FLAG('h', "help", &_G.opt_help, "show this help"),
-    OPT_FLAG('a', "ascii-iqhash", &_G.opt_ascii_iqhash,
-             "run ASCII insensitive qhash tests"),
+    OPT_FLAG(
+        'a', "ascii-iqhash", &_G.opt_ascii_iqhash,
+        "run ASCII insensitive qhash tests"
+    ),
     OPT_FLAG('s', "qv-sort", &_G.opt_qv_sort, "run qv_sort/qv_qsort benches"),
-    OPT_FLAG('r', "qv-shuffle", &_G.opt_qv_shuffle,
-             "run qv_shuffle benches"),
-    OPT_FLAG('u', "uint-qhash", &_G.opt_uint_qhash,
-             "run UINT32/UINT64 qhash tests"),
+    OPT_FLAG('r', "qv-shuffle", &_G.opt_qv_shuffle, "run qv_shuffle benches"),
+    OPT_FLAG(
+        'u', "uint-qhash", &_G.opt_uint_qhash, "run UINT32/UINT64 qhash tests"
+    ),
     OPT_END(),
 };
 

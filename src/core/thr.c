@@ -37,9 +37,9 @@ struct thr_hooks thr_hooks_g = {
 
 static struct {
     pthread_once_t key_once;
-    pthread_key_t  key;
+    pthread_key_t key;
 } core_thread_g = {
-#define _G  core_thread_g
+#define _G core_thread_g
     .key_once = PTHREAD_ONCE_INIT,
 };
 
@@ -81,8 +81,8 @@ void thr_attach(void)
 static void *thr_hooks_wrapper(void *data)
 {
     void *(*fn)(void *) = ((void **)data)[0];
-    void   *arg         = ((void **)data)[1];
-    void   *ret;
+    void *arg = ((void **)data)[1];
+    void *ret;
 
     p_delete(&data);
     thr_attach();
@@ -91,20 +91,23 @@ static void *thr_hooks_wrapper(void *data)
     return ret;
 }
 
-int thr_create(pthread_t *restrict thread,
-               const pthread_attr_t *restrict attr,
-               void *(*fn)(void *), void *restrict arg)
+int thr_create(
+    pthread_t *restrict thread, const pthread_attr_t *restrict attr,
+    void *(*fn)(void *), void *restrict arg
+)
 {
     static typeof(pthread_create) *real_pthread_create;
     void **pair = p_new(void *, 2);
     int res;
 
 #if !defined(__has_asan) && !defined(__has_tsan)
-    if (unlikely(!real_pthread_create))
+    if (unlikely(!real_pthread_create)) {
         real_pthread_create = dlsym(RTLD_NEXT, "pthread_create");
+    }
 #else
-    if (unlikely(!real_pthread_create))
+    if (unlikely(!real_pthread_create)) {
         real_pthread_create = dlsym(RTLD_DEFAULT, "pthread_create");
+    }
 #endif
     pair[0] = fn;
     pair[1] = arg;
@@ -117,10 +120,10 @@ int thr_create(pthread_t *restrict thread,
 }
 
 #if !defined(__has_asan) && !defined(__has_tsan)
-__attribute__((visibility("default")))
-int pthread_create(pthread_t *restrict thread,
-                   const pthread_attr_t *restrict attr,
-                   void *(*fn)(void *), void *restrict arg)
+__attribute__((visibility("default"))) int pthread_create(
+    pthread_t *restrict thread, const pthread_attr_t *restrict attr,
+    void *(*fn)(void *), void *restrict arg
+)
 {
     return thr_create(thread, attr, fn, arg);
 }
@@ -150,11 +153,13 @@ _MODULE_ADD_DECLS(thr_hooks);
 void thr_hooks_register(void)
 {
     if (!thr_hooks_module_g) {
-        thr_hooks_module_g = module_implement(MODULE(thr_hooks),
-                                              &thr_hooks_initialize,
-                                              &thr_hooks_shutdown, NULL);
+        thr_hooks_module_g = module_implement(
+            MODULE(thr_hooks), &thr_hooks_initialize, &thr_hooks_shutdown,
+            NULL
+        );
         module_implement_method_void_no_custom_data(
             MODULE(thr_hooks), &at_fork_on_child_method,
-            &thr_hooks_atfork_in_child);
+            &thr_hooks_atfork_in_child
+        );
     }
 }

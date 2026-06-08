@@ -27,23 +27,24 @@
 #include "iop/ic.iop.h"
 
 #if __has_feature(nullability)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic error "-Wnullability-completeness"
-#if __has_warning("-Wnullability-completeness-on-arrays")
-#pragma GCC diagnostic ignored "-Wnullability-completeness-on-arrays"
-#endif
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic error "-Wnullability-completeness"
+#  if __has_warning("-Wnullability-completeness-on-arrays")
+#    pragma GCC diagnostic ignored "-Wnullability-completeness-on-arrays"
+#  endif
 #endif
 
-#define IC_SLOT_ERROR           (~UINT64_C(0))
-#define IC_SLOT_FOREIGN_MASK    BITMASK_GE(uint64_t, 62)
-#define IC_SLOT_FOREIGN_IC      (UINT64_C(0) << 62)
-#define IC_SLOT_FOREIGN_HTTP    (UINT64_C(1) << 62)
+#define IC_SLOT_ERROR (~UINT64_C(0))
+#define IC_SLOT_FOREIGN_MASK BITMASK_GE(uint64_t, 62)
+#define IC_SLOT_FOREIGN_IC (UINT64_C(0) << 62)
+#define IC_SLOT_FOREIGN_HTTP (UINT64_C(1) << 62)
 
-static ALWAYS_INLINE bool ic_slot_is_http(uint64_t slot) {
+static ALWAYS_INLINE bool ic_slot_is_http(uint64_t slot)
+{
     return (slot & IC_SLOT_FOREIGN_MASK) == IC_SLOT_FOREIGN_HTTP;
 }
 
-static inline const char * nonnull ic_status_to_string(ic_status__t s)
+static inline const char *nonnull ic_status_to_string(ic_status__t s)
 {
     return iop_enum_to_str(ic_status, s) ?: "UNKNOWN";
 }
@@ -51,15 +52,14 @@ static inline const char * nonnull ic_status_to_string(ic_status__t s)
 #include "iop/rpc-channel.h"
 #include "iop/rpc-http.h"
 
-
 /** \brief get the description of the currently unpacked RPC.
  *
  * This low-level function allows to retrieve the description of the currently
  * unpacked RPC. You are allowed to call it only inside of the callback of
  * a RPC implementation.
  */
-static inline const iop_rpc_t * nonnull
-__ic_get_current_rpc_desc(const ichannel_t * nullable ic, uint64_t slot)
+static inline const iop_rpc_t *nonnull
+__ic_get_current_rpc_desc(const ichannel_t *nullable ic, uint64_t slot)
 {
 #ifndef __cplusplus
     if (ic_slot_is_http(slot)) {
@@ -78,7 +78,7 @@ __ic_get_current_rpc_desc(const ichannel_t * nullable ic, uint64_t slot)
  * callback of a RPC implementation.
  */
 static inline int
-__ic_get_current_rpc_cmd(const ichannel_t * nullable ic, uint64_t slot)
+__ic_get_current_rpc_cmd(const ichannel_t *nullable ic, uint64_t slot)
 {
 #ifndef __cplusplus
     if (ic_slot_is_http(slot)) {
@@ -91,7 +91,7 @@ __ic_get_current_rpc_cmd(const ichannel_t * nullable ic, uint64_t slot)
 }
 
 #if __has_feature(nullability)
-#pragma GCC diagnostic pop
+#  pragma GCC diagnostic pop
 #endif
 
 #endif

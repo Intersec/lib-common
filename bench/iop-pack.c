@@ -21,7 +21,6 @@
 #include <lib-common/iop-yaml.h>
 #include <lib-common/zbenchmark.h>
 
-
 static iop_dso_t *z_dso_open(iop_env_t *iop_env, const char *dso_path)
 {
     t_scope;
@@ -38,8 +37,9 @@ static iop_dso_t *z_dso_open(iop_env_t *iop_env, const char *dso_path)
     path_extend(path, root_dir, "%s", dso_path);
     dso = iop_dso_open(iop_env, path, &err);
     if (dso == NULL) {
-        e_fatal("unable to load `%s`, TOOLS repo? (%*pM)",
-                path, SB_FMT_ARG(&err));
+        e_fatal(
+            "unable to load `%s`, TOOLS repo? (%*pM)", path, SB_FMT_ARG(&err)
+        );
     }
 
     return dso;
@@ -47,9 +47,9 @@ static iop_dso_t *z_dso_open(iop_env_t *iop_env, const char *dso_path)
 
 #include "../tests/iop/tstiop.iop.h"
 
-static void
-z_iop_pack_bench(zbenchmark_group_t *_zbenchmark_current_group,
-                 iop_env_t *iop_env)
+static void z_iop_pack_bench(
+    zbenchmark_group_t *_zbenchmark_current_group, iop_env_t *iop_env
+)
 {
 
     iop_env_ctx_scope(iop_env, iop_env_ctx);
@@ -104,74 +104,82 @@ z_iop_pack_bench(zbenchmark_group_t *_zbenchmark_current_group,
         int res = 0;
         SB_1k(out);
 
-        ZBENCH(jpack) {
-            ZBENCH_LOOP() {
-                sb_reset(&out);
+        ZBENCH(jpack){ZBENCH_LOOP(){sb_reset(&out);
 
-                ZBENCH_MEASURE() {
-                    res = iop_sb_jpack(&out, st_sa, &sa, IOP_JPACK_MINIMAL);
-                } ZBENCH_MEASURE_END
+        ZBENCH_MEASURE()
+        {
+            res = iop_sb_jpack(&out, st_sa, &sa, IOP_JPACK_MINIMAL);
+        }
+        ZBENCH_MEASURE_END
 
-                if (res < 0
-                /*|| !lstr_equal(LSTR(jpacked_sa), LSTR_SB_V(&out))*/)
-                {
-                    e_panic("KO");
-                }
-            } ZBENCH_LOOP_END
-        } ZBENCH_END
-
-        ZBENCH(junpack) {
-            ZBENCH_LOOP() {
-                t_scope;
-                pstream_t ps = ps_initsb(&out);
-                tstiop__my_struct_a__t *sa2 = NULL;
-
-                ZBENCH_MEASURE() {
-                    res = t_iop_junpack_ptr_ps(iop_env_ctx, &ps, st_sa,
-                                               (void **)&sa2, 0, NULL);
-                } ZBENCH_MEASURE_END
-
-                if (res < 0 || !iop_equals_desc(st_sa, &sa, sa2)) {
-                    e_panic("KO");
-                }
-            } ZBENCH_LOOP_END
-        } ZBENCH_END
+        if (res < 0
+            /*|| !lstr_equal(LSTR(jpacked_sa), LSTR_SB_V(&out))*/)
+        {
+            e_panic("KO");
+        }
     }
-    /* bin */
-    {
-        t_scope;
-        lstr_t out = LSTR_NULL;
-        int res = 0;
+    ZBENCH_LOOP_END
+}
+ZBENCH_END
 
-        ZBENCH(bpack) {
-            ZBENCH_LOOP() {
-                ZBENCH_MEASURE() {
-                    /* ast-grep-ignore */
-                    out = t_iop_bpack_struct(st_sa, &sa);
-                } ZBENCH_MEASURE_END
+ZBENCH(junpack){ZBENCH_LOOP(){t_scope;
+pstream_t ps = ps_initsb(&out);
+tstiop__my_struct_a__t *sa2 = NULL;
 
-                if (!out.s) {
-                    e_panic("KO");
-                }
-            } ZBENCH_LOOP_END
-        } ZBENCH_END
+ZBENCH_MEASURE()
+{
+    res =
+        t_iop_junpack_ptr_ps(iop_env_ctx, &ps, st_sa, (void **)&sa2, 0, NULL);
+}
+ZBENCH_MEASURE_END
 
-        ZBENCH(bpack) {
-            ZBENCH_LOOP() {
-                t_scope;
-                void *sa2 = NULL;
+if (res < 0 || !iop_equals_desc(st_sa, &sa, sa2)) {
+    e_panic("KO");
+}
+}
+ZBENCH_LOOP_END
+}
+ZBENCH_END
+}
+/* bin */
+{
+    t_scope;
+    lstr_t out = LSTR_NULL;
+    int res = 0;
 
-                ZBENCH_MEASURE() {
-                    res = iop_bunpack_ptr_flags(t_pool(), iop_env_ctx, st_sa,
-                                                &sa2, ps_initlstr(&out), 0);
-                } ZBENCH_MEASURE_END
+    ZBENCH(bpack){ZBENCH_LOOP(){ZBENCH_MEASURE(){
+        /* ast-grep-ignore */
+        out = t_iop_bpack_struct(st_sa, &sa);
+}
+ZBENCH_MEASURE_END
 
-                if (res < 0 || !iop_equals_desc(st_sa, &sa, sa2)) {
-                    e_panic("KO");
-                }
-            } ZBENCH_LOOP_END
-        } ZBENCH_END
-    }
+if (!out.s) {
+    e_panic("KO");
+}
+}
+ZBENCH_LOOP_END
+}
+ZBENCH_END
+
+ZBENCH(bpack){ZBENCH_LOOP(){t_scope;
+void *sa2 = NULL;
+
+ZBENCH_MEASURE()
+{
+    res = iop_bunpack_ptr_flags(
+        t_pool(), iop_env_ctx, st_sa, &sa2, ps_initlstr(&out), 0
+    );
+}
+ZBENCH_MEASURE_END
+
+if (res < 0 || !iop_equals_desc(st_sa, &sa, sa2)) {
+    e_panic("KO");
+}
+}
+ZBENCH_LOOP_END
+}
+ZBENCH_END
+}
 #if 0
     /* {{{ XML */
 
@@ -209,45 +217,49 @@ z_iop_pack_bench(zbenchmark_group_t *_zbenchmark_current_group,
     /* }}} */
 #endif
 
-    /* yaml */
+/* yaml */
+{
+    t_scope;
+    SB_1k(out);
+    int res = 0;
+
+    ZBENCH(ypack){ZBENCH_LOOP(){sb_reset(&out);
+
+    ZBENCH_MEASURE()
     {
-        t_scope;
-        SB_1k(out);
-        int res = 0;
-
-        ZBENCH(ypack) {
-            ZBENCH_LOOP() {
-                sb_reset(&out);
-
-                ZBENCH_MEASURE() {
-                    t_iop_sb_ypack(&out, st_sa, &sa, NULL);
-                } ZBENCH_MEASURE_END
-            } ZBENCH_LOOP_END
-        } ZBENCH_END
-
-        ZBENCH(yunpack) {
-            ZBENCH_LOOP() {
-                t_scope;
-                SB_1k(err);
-                void *sa2 = NULL;
-                pstream_t ps = ps_initsb(&out);
-
-                ZBENCH_MEASURE() {
-                    res = t_iop_yunpack_ptr_ps(iop_env_ctx, &ps, st_sa, &sa2,
-                                               0, NULL, &err);
-                } ZBENCH_MEASURE_END
-
-                /* FIXME pack/unpack of `.m = 3.14159265,` changes the value
-                 */
-                if (res < 0 /*|| !iop_equals_desc(st_sa, &sa, sa2)*/) {
-                    e_panic("KO");
-                }
-            } ZBENCH_LOOP_END
-        } ZBENCH_END
+        t_iop_sb_ypack(&out, st_sa, &sa, NULL);
     }
+    ZBENCH_MEASURE_END
+}
+ZBENCH_LOOP_END
+}
+ZBENCH_END
+
+ZBENCH(yunpack){ZBENCH_LOOP(){t_scope;
+SB_1k(err);
+void *sa2 = NULL;
+pstream_t ps = ps_initsb(&out);
+
+ZBENCH_MEASURE()
+{
+    res = t_iop_yunpack_ptr_ps(iop_env_ctx, &ps, st_sa, &sa2, 0, NULL, &err);
+}
+ZBENCH_MEASURE_END
+
+/* FIXME pack/unpack of `.m = 3.14159265,` changes the value
+ */
+if (res < 0 /*|| !iop_equals_desc(st_sa, &sa, sa2)*/) {
+    e_panic("KO");
+}
+}
+ZBENCH_LOOP_END
+}
+ZBENCH_END
+}
 }
 
-ZBENCH_GROUP_EXPORT(iop_pack) {
+ZBENCH_GROUP_EXPORT(iop_pack)
+{
     iop_env_t *iop_env;
     iop_dso_t *dso;
 
@@ -258,4 +270,5 @@ ZBENCH_GROUP_EXPORT(iop_pack) {
 
     iop_dso_close(&dso);
     iop_env_delete(&iop_env);
-} ZBENCH_GROUP_END
+}
+ZBENCH_GROUP_END

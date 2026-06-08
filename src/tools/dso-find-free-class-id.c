@@ -87,9 +87,10 @@ int main(int argc, char *argv[])
 
     argc = parseopt(argc, argv, popt_g, 0);
     if (argc != 3 || _G.help) {
-        makeusage(_G.help ? EX_OK : EX_USAGE, arg0,
-                  "<dso_path> <class_id_range> <class_name>",
-                  usage_g, popt_g);
+        makeusage(
+            _G.help ? EX_OK : EX_USAGE, arg0,
+            "<dso_path> <class_id_range> <class_name>", usage_g, popt_g
+        );
     }
 
     iop_env = iop_env_new();
@@ -106,8 +107,9 @@ int main(int argc, char *argv[])
             goto end;
         }
 
-        if (parse_class_id_range(NEXTARG(argc, argv),
-                                 &class_id_min, &class_id_max) < 0)
+        if (parse_class_id_range(
+                NEXTARG(argc, argv), &class_id_min, &class_id_max
+            ) < 0)
         {
             printf("invalid class id range\n");
             goto end;
@@ -130,13 +132,13 @@ int main(int argc, char *argv[])
             st = iop_get_class_by_id(iop_env_ctx, obj_st, i);
             if (st) {
                 if (!used_ids_hdr_printed) {
-                    printf("Used class ids in the family of `%s`:\n",
-                           fullname);
+                    printf(
+                        "Used class ids in the family of `%s`:\n", fullname
+                    );
                     used_ids_hdr_printed = true;
                 }
                 printf("    %d (`%*pM`)\n", i, LSTR_FMT_ARG(st->fullname));
-            } else
-            if (first_available_id < 0) {
+            } else if (first_available_id < 0) {
                 first_available_id = i;
             }
         }
@@ -146,15 +148,19 @@ int main(int argc, char *argv[])
         }
 
         if (first_available_id >= 0) {
-            printf("First available class id in the family of `%s` is %d\n",
-                   fullname, first_available_id);
+            printf(
+                "First available class id in the family of `%s` is %d\n",
+                fullname, first_available_id
+            );
         } else {
-            printf("No available class id found in the family of `%s`\n",
-                   fullname);
+            printf(
+                "No available class id found in the family of `%s`\n",
+                fullname
+            );
         }
     }
 
-  end:
+end:
     iop_dso_close(&dso);
     iop_env_delete(&iop_env);
     return first_available_id >= 0 ? 0 : EX_DATAERR;

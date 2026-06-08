@@ -46,7 +46,8 @@ Z_GROUP_EXPORT(bsr_bsf)
         Z_ASSERT_NEG(bsf(data, 0, 3, false));
 
         Z_ASSERT_EQ(bsf(&data[1], 3, 1013, false), 154);
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(bsf_0, "forward bit scan, scan of 0") {
         uint8_t data[128];
@@ -70,8 +71,8 @@ Z_GROUP_EXPORT(bsr_bsf)
         Z_ASSERT_NEG(bsf(data, 0, 3, true));
 
         Z_ASSERT_EQ(bsf(&data[1], 3, 1013, true), 154);
-    } Z_TEST_END;
-
+    }
+    Z_TEST_END;
 
     Z_TEST(bsr_1, "reverse bit scan") {
         uint8_t data[128];
@@ -108,7 +109,8 @@ Z_GROUP_EXPORT(bsr_bsf)
             SET_BIT(data, i);
         }
         Z_ASSERT_NEG(bsr(data + 8, 50, 40, false));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(bsr_0, "reverse bit scan, scan of 0") {
         uint8_t data[128];
@@ -133,13 +135,16 @@ Z_GROUP_EXPORT(bsr_bsf)
         Z_ASSERT_NEG(bsr(data, 0, 3, true));
 
         Z_ASSERT_EQ(bsr(&data[1], 3, 1013, true), 154);
-    } Z_TEST_END;
-} Z_GROUP_END;
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END;
 
 /* }}} */
 /* {{{ bit_reverse */
 
-Z_GROUP_EXPORT(bit_reverse) {
+Z_GROUP_EXPORT(bit_reverse)
+{
     Z_TEST(bit_reverse) {
         Z_ASSERT_EQ(bit_reverse16(0x3445), 0xa22c);
         Z_ASSERT_EQ(bit_reverse64(0xabc), 0x3d50000000000000ull);
@@ -152,17 +157,19 @@ Z_GROUP_EXPORT(bit_reverse) {
             }
             Z_ASSERT_EQ(__bit_reverse8[__bit_reverse8[i]], i);
         }
-    } Z_TEST_END;
-} Z_GROUP_END
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END
 
 /* }}} */
 /* {{{ membitcount */
 
 #ifdef __HAS_CPUID
-#pragma push_macro("__attr_leaf__")
-#undef __attr_leaf__
-#include <cpuid.h>
-#pragma pop_macro("__attr_leaf__")
+#  pragma push_macro("__attr_leaf__")
+#  undef __attr_leaf__
+#  include <cpuid.h>
+#  pragma pop_macro("__attr_leaf__")
 #endif
 
 static size_t membitcount_naive(const void *_p, size_t n)
@@ -179,15 +186,16 @@ static size_t membitcount_naive(const void *_p, size_t n)
 static int membitcount_check_small(size_t (*fn)(const void *, size_t))
 {
     static uint8_t v[64] = {
-        1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8,
-        1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8,
-        1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8,
-        1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8,
+        1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6,
+        7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4,
+        5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8,
     };
     for (int i = 0; i < countof(v); i++) {
         for (int j = i; j < countof(v); j++) {
-            Z_ASSERT_EQ(membitcount_naive(v + i, j - i), fn(v + i, j - i),
-                        "i:%d j:%d", i, j);
+            Z_ASSERT_EQ(
+                membitcount_naive(v + i, j - i), fn(v + i, j - i),
+                "i:%d j:%d", i, j
+            );
         }
     }
     Z_HELPER_END;
@@ -199,8 +207,9 @@ static int membitcount_check_rand(size_t (*fn)(const void *, size_t))
     t_scope;
     char *v = t_new_raw(char, N);
 
-    for (size_t i = 0; i < N; i++)
+    for (size_t i = 0; i < N; i++) {
         v[i] = i;
+    }
     for (size_t i = 0; i < 32; i++) {
         Z_ASSERT_EQ(membitcount_naive(v + i, N - i), fn(v + i, N - i));
     }
@@ -216,7 +225,8 @@ Z_GROUP_EXPORT(membitcount)
     Z_TEST(fast_c) {
         Z_HELPER_RUN(membitcount_check_rand(membitcount_c));
         Z_HELPER_RUN(membitcount_check_small(membitcount_c));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(ssse3) {
 #ifdef __HAS_CPUID
@@ -232,7 +242,8 @@ Z_GROUP_EXPORT(membitcount)
 #else
         Z_SKIP("neither amd64 nor i386 or unsupported compiler");
 #endif
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(popcnt) {
 #ifdef __HAS_CPUID
@@ -248,8 +259,10 @@ Z_GROUP_EXPORT(membitcount)
 #else
         Z_SKIP("neither amd64 nor i386 or unsupported compiler");
 #endif
-    } Z_TEST_END;
-} Z_GROUP_END
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END
 
 /* }}} */
 

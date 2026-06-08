@@ -19,7 +19,8 @@
 #include <lib-common/xmlpp.h>
 #include <lib-common/z.h>
 
-Z_GROUP_EXPORT(xmlpp) {
+Z_GROUP_EXPORT(xmlpp)
+{
     Z_TEST(xmlpp_tag_scope) {
         xmlpp_t pp;
         SB_8k(xml1);
@@ -34,15 +35,21 @@ Z_GROUP_EXPORT(xmlpp) {
         xmlpp_close(&pp);
 
         xmlpp_open_banner(&pp, &xml2);
-        xmlpp_tag_scope(&pp, "level1") {
-            xmlpp_tag_scope(&pp, "level2") {
+        xmlpp_tag_scope(&pp, "level1")
+        {
+            xmlpp_tag_scope(&pp, "level2")
+            {
                 xmlpp_putattr(&pp, "attr", "foo");
             }
         }
         xmlpp_close(&pp);
 
-        Z_ASSERT_STREQUAL(xml1.data, xml2.data,
-                          "xml created with xmlpp_opentag/xmlpp_closetag "
-                          "or xmlpp_tag_scope should be the same");
-    } Z_TEST_END;
-} Z_GROUP_END;
+        Z_ASSERT_STREQUAL(
+            xml1.data, xml2.data,
+            "xml created with xmlpp_opentag/xmlpp_closetag "
+            "or xmlpp_tag_scope should be the same"
+        );
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END;

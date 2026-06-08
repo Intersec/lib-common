@@ -19,18 +19,18 @@
 #ifndef IS_LIB_COMMON_CORE_H
 #define IS_LIB_COMMON_CORE_H
 
-#define LIB_COMMON_VERSION  "2028.0"
+#define LIB_COMMON_VERSION "2028.0"
 
 #if HAS_LIBCOMMON_REPOSITORY
-# define LIBCOMMON_PATH "lib-common/"
-# if HAS_PLATFORM_REPOSITORY
-#   define PLATFORM_PATH "platform/"
-# else
-#   define PLATFORM_PATH ""
-# endif
+#  define LIBCOMMON_PATH "lib-common/"
+#  if HAS_PLATFORM_REPOSITORY
+#    define PLATFORM_PATH "platform/"
+#  else
+#    define PLATFORM_PATH ""
+#  endif
 #else
-# define LIBCOMMON_PATH ""
-# define PLATFORM_PATH ""
+#  define LIBCOMMON_PATH ""
+#  define PLATFORM_PATH ""
 #endif
 
 #include <Block.h>
@@ -74,11 +74,11 @@
 #include "core/macros.h"
 
 #if __has_feature(nullability)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic error "-Wnullability-completeness"
-#if __has_warning("-Wnullability-completeness-on-arrays")
-#pragma GCC diagnostic ignored "-Wnullability-completeness-on-arrays"
-#endif
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic error "-Wnullability-completeness"
+#  if __has_warning("-Wnullability-completeness-on-arrays")
+#    pragma GCC diagnostic ignored "-Wnullability-completeness-on-arrays"
+#  endif
 #endif
 
 #ifdef __cplusplus
@@ -111,7 +111,7 @@ extern "C" {
 #include "core/module.h"
 
 #if __has_feature(nullability)
-#pragma GCC diagnostic pop
+#  pragma GCC diagnostic pop
 #endif
 
 #endif

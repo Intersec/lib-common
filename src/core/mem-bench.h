@@ -49,18 +49,18 @@ typedef struct mem_bench_t {
     uint32_t current_allocated;
 
     /* live summary printing */
-    logger_t  *logger;
+    logger_t *logger;
 
     /* leak destruction */
-    dlist_t    bench_list;
+    dlist_t bench_list;
 
     /* CSV dumping */
-    FILE      *file;
-    uint32_t   out_period;
-    uint32_t   out_counter;
+    FILE *file;
+    uint32_t out_period;
+    uint32_t out_counter;
 
     /* allocator type */
-    lstr_t   allocator_name;
+    lstr_t allocator_name;
 } mem_bench_t;
 
 /** Initialize mem_bench object.
@@ -82,8 +82,8 @@ mem_bench_t *mem_bench_init(mem_bench_t *sp, lstr_t type, uint32_t period);
  */
 void mem_bench_wipe(mem_bench_t *sp);
 
-__attr_unused__
-static inline mem_bench_t *mem_bench_new(lstr_t type, uint32_t period)
+__attr_unused__ static inline mem_bench_t *
+mem_bench_new(lstr_t type, uint32_t period)
 {
     return mem_bench_init(p_new_raw(mem_bench_t, 1), type, period);
 }
@@ -122,7 +122,7 @@ void mem_bench_print_csv(mem_bench_t *sp);
 void mem_bench_print_human(const mem_bench_t *sp, int flags);
 
 /** Flag for print_human : print current allocation status. */
-#define MEM_BENCH_PRINT_CURRENT  1
+#define MEM_BENCH_PRINT_CURRENT 1
 
 /** Require mem_bench module manually */
 void mem_bench_require(void);

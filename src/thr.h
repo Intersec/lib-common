@@ -35,7 +35,7 @@ extern struct thr_hooks {
 
 struct thr_ctor {
     dlist_t link;
-    void   (*cb)(void);
+    void (*cb)(void);
 };
 
 /** \brief declare a function to be run when a thread starts and exits.
@@ -56,20 +56,25 @@ struct thr_ctor {
  * \param[in]  init  name of the function to run at thread init.
  * \param[in]  init  name of the function to run at thread exit.
  */
-#define thr_hooks(init, exit) \
-    static __attribute__((constructor)) void PT_##fn##_exit(void) {          \
-        __builtin_choose_expr(__builtin_constant_p(init), (void)0, ({        \
-            static struct thr_ctor ctor = { .cb = (init) };                  \
-            if (ctor.cb) {                                                   \
-                dlist_add_tail(&thr_hooks_g.init_cbs, &ctor.link);           \
-            }                                                                \
-        }));                                                                 \
-        __builtin_choose_expr(__builtin_constant_p(exit), (void)0, ({        \
-            static struct thr_ctor ctor = { .cb = (exit) };                  \
-            if (ctor.cb) {                                                   \
-                dlist_add(&thr_hooks_g.exit_cbs, &ctor.link);                \
-            }                                                                \
-        }));                                                                 \
+#define thr_hooks(init, exit)                                                \
+    static __attribute__((constructor)) void PT_##fn##_exit(void)            \
+    {                                                                        \
+        __builtin_choose_expr(                                               \
+            __builtin_constant_p(init), (void)0, ({                          \
+                static struct thr_ctor ctor = {.cb = (init)};                \
+                if (ctor.cb) {                                               \
+                    dlist_add_tail(&thr_hooks_g.init_cbs, &ctor.link);       \
+                }                                                            \
+            })                                                               \
+        );                                                                   \
+        __builtin_choose_expr(                                               \
+            __builtin_constant_p(exit), (void)0, ({                          \
+                static struct thr_ctor ctor = {.cb = (exit)};                \
+                if (ctor.cb) {                                               \
+                    dlist_add(&thr_hooks_g.exit_cbs, &ctor.link);            \
+                }                                                            \
+            })                                                               \
+        );                                                                   \
     }
 
 void thr_hooks_register(void);
@@ -84,11 +89,11 @@ void thr_detach(void);
  */
 void pthread_force_use(void);
 
-
 #ifndef __cplusplus
-int thr_create(pthread_t *restrict thread,
-               const pthread_attr_t *restrict attr,
-               void *(*fn)(void *), void *restrict arg);
+int thr_create(
+    pthread_t *restrict thread, const pthread_attr_t *restrict attr,
+    void *(*fn)(void *), void *restrict arg
+);
 #endif
 
 MODULE_DECLARE(thr_hooks);

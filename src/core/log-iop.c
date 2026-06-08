@@ -18,26 +18,28 @@
 
 #include <lib-common/log-iop.h>
 
-__attr_unused__
-static void log_iop_static_checks(void)
+__attr_unused__ static void log_iop_static_checks(void)
 {
     /* This code statically checks that some assumptions done in log.c (which
      * cannot use LOG_LEVEL IOP enumeration) are correct. */
-    STATIC_ASSERT (LOG_LEVEL_ERR     == LOG_ERR);
-    STATIC_ASSERT (LOG_LEVEL_CRIT    == LOG_CRIT);
-    STATIC_ASSERT (LOG_LEVEL_DEFAULT == -2);
+    STATIC_ASSERT(LOG_LEVEL_ERR == LOG_ERR);
+    STATIC_ASSERT(LOG_LEVEL_CRIT == LOG_CRIT);
+    STATIC_ASSERT(LOG_LEVEL_DEFAULT == -2);
 }
 
 /* {{{ Configuration */
 
 void logger_configure(const core__log_configuration__t *conf)
 {
-    logger_set_level(LSTR_EMPTY_V, conf->root_level,
-                     LOG_MK_FLAGS(conf->force_all, conf->is_silent));
+    logger_set_level(
+        LSTR_EMPTY_V, conf->root_level,
+        LOG_MK_FLAGS(conf->force_all, conf->is_silent)
+    );
 
     tab_for_each_ptr(l, &conf->specific) {
-        logger_set_level(l->full_name, l->level,
-                         LOG_MK_FLAGS(l->force_all, l->is_silent));
+        logger_set_level(
+            l->full_name, l->level, LOG_MK_FLAGS(l->force_all, l->is_silent)
+        );
     }
 }
 
@@ -45,36 +47,44 @@ void IOP_RPC_IMPL(core__core, log, set_root_level)
 {
     unsigned flags = LOG_MK_FLAGS(arg->force_all, arg->is_silent);
 
-    ic_reply(ic, slot, core__core, log, set_root_level,
-             .level = logger_set_level(LSTR_EMPTY_V, arg->level, flags));
+    ic_reply(
+        ic, slot, core__core, log, set_root_level,
+        .level = logger_set_level(LSTR_EMPTY_V, arg->level, flags)
+    );
 }
 
 void IOP_RPC_IMPL(core__core, log, reset_root_level)
 {
-    ic_reply(ic, slot, core__core, log, reset_root_level,
-             .level = logger_reset_level(LSTR_EMPTY_V));
+    ic_reply(
+        ic, slot, core__core, log, reset_root_level,
+        .level = logger_reset_level(LSTR_EMPTY_V)
+    );
 }
 
 void IOP_RPC_IMPL(core__core, log, set_logger_level)
 {
     unsigned flags = LOG_MK_FLAGS(arg->force_all, arg->is_silent);
 
-    ic_reply(ic, slot, core__core, log, set_logger_level,
-             .level = logger_set_level(arg->full_name, arg->level, flags));
+    ic_reply(
+        ic, slot, core__core, log, set_logger_level,
+        .level = logger_set_level(arg->full_name, arg->level, flags)
+    );
 }
 
 void IOP_RPC_IMPL(core__core, log, reset_logger_level)
 {
-    ic_reply(ic, slot, core__core, log, reset_logger_level,
-             .level = logger_reset_level(arg->full_name));
+    ic_reply(
+        ic, slot, core__core, log, reset_logger_level,
+        .level = logger_reset_level(arg->full_name)
+    );
 }
 
 /* }}} */
 /* {{{ Accessors */
 
-static void
-get_configurations_recursive(logger_t *logger, lstr_t prefix,
-                             qv_t(logger_conf) *res)
+static void get_configurations_recursive(
+    logger_t *logger, lstr_t prefix, qv_t(logger_conf) *res
+)
 {
     core__logger_configuration__t conf;
 
@@ -120,8 +130,10 @@ void IOP_RPC_IMPL(core__core, log, list_loggers)
 
     logger_get_all_configurations(arg->prefix, &confs);
 
-    ic_reply(ic, slot, core__core, log, list_loggers,
-             .loggers = IOP_ARRAY_TAB(&confs));
+    ic_reply(
+        ic, slot, core__core, log, list_loggers,
+        .loggers = IOP_ARRAY_TAB(&confs)
+    );
 }
 
 /* }}} */

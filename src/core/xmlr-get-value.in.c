@@ -17,21 +17,21 @@
 /***************************************************************************/
 
 #ifndef PRE_ARGS_P
-#define PRE_ARGS_P
+#  define PRE_ARGS_P
 #endif
 
-__attr_flatten__
-int F(xmlr_get)(PRE_ARGS_P xml_reader_t xr, ARGS_P)
+__attr_flatten__ int F(xmlr_get)(PRE_ARGS_P xml_reader_t xr, ARGS_P)
 {
-    assert (xmlr_on_element(xr, false));
+    assert(xmlr_on_element(xr, false));
 
     if (xmlTextReaderIsEmptyElement(xr) == 1) {
         RETHROW(F(xmlr_val)(xr, NULL, ARGS));
         return xmlr_next_node(xr);
     }
 
-    if (RETHROW(xmlTextReaderRead(xr)) != 1)
+    if (RETHROW(xmlTextReaderRead(xr)) != 1) {
         return xmlr_fail(xr, "expecting text or closing element");
+    }
     RETHROW(xmlr_scan_node(xr, true));
     if (xmlTextReaderNodeType(xr) == XTYPE(TEXT)) {
         const char *s = (const char *)xmlTextReaderConstValue(xr);
@@ -41,8 +41,9 @@ int F(xmlr_get)(PRE_ARGS_P xml_reader_t xr, ARGS_P)
     } else {
         RETHROW(F(xmlr_val)(xr, NULL, ARGS));
     }
-    if (xmlTextReaderNodeType(xr) != XTYPE(END_ELEMENT))
+    if (xmlTextReaderNodeType(xr) != XTYPE(END_ELEMENT)) {
         return xmlr_fail(xr, "expecting closing tag");
+    }
 
     return xmlr_next_node(xr);
 }

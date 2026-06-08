@@ -36,7 +36,9 @@ __thread struct asn1_descs_t asn1_descs_g;
 static const char *asn1_type_name(enum obj_type type)
 {
     switch (type) {
-#define CASE(t)  case ASN1_OBJ_TYPE(t): return #t
+#  define CASE(t)                                                            \
+  case ASN1_OBJ_TYPE(t):                                                     \
+      return #t
         CASE(bool);
         CASE(int8_t);
         CASE(uint8_t);
@@ -47,7 +49,8 @@ static const char *asn1_type_name(enum obj_type type)
         CASE(int64_t);
         CASE(uint64_t);
         CASE(enum);
-        case ASN1_OBJ_TYPE(NULL): return "NULL";
+    case ASN1_OBJ_TYPE(NULL):
+        return "NULL";
         CASE(OPT_NULL);
         CASE(lstr_t);
         CASE(OPEN_TYPE);
@@ -58,7 +61,7 @@ static const char *asn1_type_name(enum obj_type type)
         CASE(CHOICE);
         CASE(UNTAGGED_CHOICE);
         CASE(SKIP);
-#undef CASE
+#  undef CASE
     }
     return NULL;
 }
@@ -66,33 +69,36 @@ static const char *asn1_type_name(enum obj_type type)
 static const char *asn1_mode_name(enum obj_mode mode)
 {
     switch (mode) {
-#define CASE(t)  case ASN1_OBJ_MODE(t): return #t
+#  define CASE(t)                                                            \
+  case ASN1_OBJ_MODE(t):                                                     \
+      return #t
         CASE(MANDATORY);
         CASE(SEQ_OF);
         CASE(OPTIONAL);
-#undef CASE
+#  undef CASE
     }
     return NULL;
 }
 
-static void e_trace_desc(int level, const char *txt,
-                        const asn1_desc_t *desc, int pos, int depth)
+static void e_trace_desc(
+    int level, const char *txt, const asn1_desc_t *desc, int pos, int depth
+)
 {
     const asn1_field_t *spec = &desc->fields.tab[pos];
-    bool disp_type_name = spec->type == ASN1_OBJ_TYPE(OPAQUE)
-                       || spec->type == ASN1_OBJ_TYPE(SEQUENCE)
-                       || spec->type == ASN1_OBJ_TYPE(CHOICE)
-                       || spec->type == ASN1_OBJ_TYPE(UNTAGGED_CHOICE);
+    bool disp_type_name = spec->type == ASN1_OBJ_TYPE(OPAQUE) ||
+                          spec->type == ASN1_OBJ_TYPE(SEQUENCE) ||
+                          spec->type == ASN1_OBJ_TYPE(CHOICE) ||
+                          spec->type == ASN1_OBJ_TYPE(UNTAGGED_CHOICE);
 
-    e_trace(3, "%s %*s(%d/%d) %s:%s%s%s:%s", txt,
-        (depth % 16) * 2, "",
-        pos + 1, desc->fields.len,
-        asn1_mode_name(spec->mode), asn1_type_name(spec->type),
-        disp_type_name ? ":" : "", disp_type_name ? spec->oc_t_name : "",
-        spec->name);
+    e_trace(
+        3, "%s %*s(%d/%d) %s:%s%s%s:%s", txt, (depth % 16) * 2, "", pos + 1,
+        desc->fields.len, asn1_mode_name(spec->mode),
+        asn1_type_name(spec->type), disp_type_name ? ":" : "",
+        disp_type_name ? spec->oc_t_name : "", spec->name
+    );
 }
 #else
-#   define e_trace_desc(...)
+#  define e_trace_desc(...)
 #endif
 
 const char *t_asn1_oid_print(lstr_t oid)
@@ -110,16 +116,19 @@ const char *t_asn1_oid_print(lstr_t oid)
         u -= 10 * d;
         d -= 10 * c;
 
-        if (c)
+        if (c) {
             *w++ = digits[c];
+        }
 
-        if (c || d)
+        if (c || d) {
             *w++ = digits[d];
+        }
 
         *w++ = digits[u];
 
-        if (i >= oid.len)
+        if (i >= oid.len) {
             break;
+        }
 
         *w++ = '.';
     }
@@ -132,10 +141,10 @@ const char *t_asn1_oid_print(lstr_t oid)
 static ALWAYS_INLINE bool asn1_field_is_tagged(const asn1_field_t *field)
 {
     switch (field->type) {
-      case ASN1_OBJ_TYPE(UNTAGGED_CHOICE):
-      case ASN1_OBJ_TYPE(OPEN_TYPE):
+    case ASN1_OBJ_TYPE(UNTAGGED_CHOICE):
+    case ASN1_OBJ_TYPE(OPEN_TYPE):
         return false;
-      default:
+    default:
         return true;
     }
 }
@@ -146,7 +155,7 @@ t_asn1_bstring_from_bf64(uint64_t bit_field, int min_bit_len)
     int len, bit_len;
     be64_t be;
 
-    assert (min_bit_len <= 64);
+    assert(min_bit_len <= 64);
     bit_len = bit_field ? bsr64(bit_field) + 1 : 0;
     bit_len = MAX(bit_len, min_bit_len);
     len = DIV_ROUND_UP(bit_len, 8);
@@ -172,15 +181,21 @@ void asn1_enum_info_reg_ext_defval(asn1_enum_info_t *info, int32_t defval)
     /* TODO use contains_i32 */
     tab_for_each_entry(v, &info->values) {
         if (defval == v) {
-            e_panic("cannot use %d as default value: "
-                    "already registered (root value)", defval);
+            e_panic(
+                "cannot use %d as default value: "
+                "already registered (root value)",
+                defval
+            );
         }
     }
     /* TODO use contains_i32 */
     tab_for_each_entry(v, &info->ext_values) {
         if (defval == v) {
-            e_panic("cannot use %d as default value: "
-                    "already registered (extended value)", defval);
+            e_panic(
+                "cannot use %d as default value: "
+                "already registered (extended value)",
+                defval
+            );
         }
     }
 
@@ -193,32 +208,39 @@ void asn1_enum_info_reg_ext_defval(asn1_enum_info_t *info, int32_t defval)
 
 const void *asn1_opt_field(const void *field, enum obj_type type)
 {
-     switch (type) {
-       case ASN1_OBJ_TYPE(bool):
-         return ((const opt_bool_t *)field)->has_field ? field : NULL;
-       case ASN1_OBJ_TYPE(int8_t): case ASN1_OBJ_TYPE(uint8_t):
-         return ((const opt_i8_t *)field)->has_field ? field : NULL;
-       case ASN1_OBJ_TYPE(int16_t): case ASN1_OBJ_TYPE(uint16_t):
-         return ((const opt_i16_t *)field)->has_field ? field : NULL;
-       case ASN1_OBJ_TYPE(int32_t): case ASN1_OBJ_TYPE(uint32_t):
-       case ASN1_OBJ_TYPE(enum):
-         return ((const opt_i32_t *)field)->has_field ? field : NULL;
-       case ASN1_OBJ_TYPE(int64_t): case ASN1_OBJ_TYPE(uint64_t):
-         return ((const opt_i64_t *)field)->has_field ? field : NULL;
-       case ASN1_OBJ_TYPE(NULL): /* Should not happen. */
-         return NULL;
-       case ASN1_OBJ_TYPE(OPT_NULL):
-         return *(const bool *)field ? field : NULL;
-       case ASN1_OBJ_TYPE(lstr_t):
-       case ASN1_OBJ_TYPE(OPEN_TYPE):   case ASN1_OBJ_TYPE(asn1_bit_string_t):
-         return ((const lstr_t *)field)->data ? field : NULL;
-       case ASN1_OBJ_TYPE(asn1_ext_t):
-         return ((const asn1_ext_t *)field)->data ? field : NULL;
-       case ASN1_OBJ_TYPE(OPAQUE): case ASN1_OBJ_TYPE(SEQUENCE):
-       case ASN1_OBJ_TYPE(CHOICE): case ASN1_OBJ_TYPE(UNTAGGED_CHOICE):
-         return field;
-       case ASN1_OBJ_TYPE(SKIP):
-         return NULL;
+    switch (type) {
+    case ASN1_OBJ_TYPE(bool):
+        return ((const opt_bool_t *)field)->has_field ? field : NULL;
+    case ASN1_OBJ_TYPE(int8_t):
+    case ASN1_OBJ_TYPE(uint8_t):
+        return ((const opt_i8_t *)field)->has_field ? field : NULL;
+    case ASN1_OBJ_TYPE(int16_t):
+    case ASN1_OBJ_TYPE(uint16_t):
+        return ((const opt_i16_t *)field)->has_field ? field : NULL;
+    case ASN1_OBJ_TYPE(int32_t):
+    case ASN1_OBJ_TYPE(uint32_t):
+    case ASN1_OBJ_TYPE(enum):
+        return ((const opt_i32_t *)field)->has_field ? field : NULL;
+    case ASN1_OBJ_TYPE(int64_t):
+    case ASN1_OBJ_TYPE(uint64_t):
+        return ((const opt_i64_t *)field)->has_field ? field : NULL;
+    case ASN1_OBJ_TYPE(NULL): /* Should not happen. */
+        return NULL;
+    case ASN1_OBJ_TYPE(OPT_NULL):
+        return *(const bool *)field ? field : NULL;
+    case ASN1_OBJ_TYPE(lstr_t):
+    case ASN1_OBJ_TYPE(OPEN_TYPE):
+    case ASN1_OBJ_TYPE(asn1_bit_string_t):
+        return ((const lstr_t *)field)->data ? field : NULL;
+    case ASN1_OBJ_TYPE(asn1_ext_t):
+        return ((const asn1_ext_t *)field)->data ? field : NULL;
+    case ASN1_OBJ_TYPE(OPAQUE):
+    case ASN1_OBJ_TYPE(SEQUENCE):
+    case ASN1_OBJ_TYPE(CHOICE):
+    case ASN1_OBJ_TYPE(UNTAGGED_CHOICE):
+        return field;
+    case ASN1_OBJ_TYPE(SKIP):
+        return NULL;
     }
     return NULL;
 }
@@ -238,7 +260,7 @@ static uint8_t *asn1_pack_bool(uint8_t *dst, bool b)
 static uint8_t *asn1_pack_int32(uint8_t *dst, int32_t i)
 {
     be32_t be32 = cpu_to_be32(i);
-    size_t len  = asn1_int32_size(i);
+    size_t len = asn1_int32_size(i);
 
     return mempcpy(dst, (char *)&be32 + 4 - len, len);
 }
@@ -292,7 +314,8 @@ static uint8_t *asn1_pack_data(uint8_t *dst, const lstr_t *data)
     return mempcpy(dst, data->data, data->len);
 }
 
-static uint8_t *asn1_pack_bit_string(uint8_t *dst, const asn1_bit_string_t *bs)
+static uint8_t *
+asn1_pack_bit_string(uint8_t *dst, const asn1_bit_string_t *bs)
 {
     /* TODO find an existing function that does the same thing */
     int32_t size = asn1_bit_string_size(bs) - 1;
@@ -306,130 +329,130 @@ static uint8_t *asn1_pack_bit_string(uint8_t *dst, const asn1_bit_string_t *bs)
 /* API serialization function   */
 /********************************/
 
-#define GET_CONST_PTR(st, typ, off)  \
-        ((const typ *)((const char *)(st) + (off)))
+#define GET_CONST_PTR(st, typ, off)                                          \
+    ((const typ *)((const char *)(st) + (off)))
 
 /**
  * Gets a const pointer on the data field
  * without having to know whether the data is pointed.
  */
-#define GET_DATA_P(st, field, typ) \
-    (field->pointed                                        \
-     ? *GET_CONST_PTR(st, typ *, field->offset)            \
-     :  GET_CONST_PTR(st, typ, field->offset))
+#define GET_DATA_P(st, field, typ)                                           \
+    (field->pointed ? *GET_CONST_PTR(st, typ *, field->offset)               \
+                    : GET_CONST_PTR(st, typ, field->offset))
 
 /**
  * Gets the const value of the data field
  * without having to know whether the data is pointed.
  */
-#define GET_DATA(st, field, typ) \
-    (field->pointed                                        \
-     ? **GET_CONST_PTR(st, typ *, field->offset)           \
-     :  *GET_CONST_PTR(st, typ, field->offset))
+#define GET_DATA(st, field, typ)                                             \
+    (field->pointed ? **GET_CONST_PTR(st, typ *, field->offset)              \
+                    : *GET_CONST_PTR(st, typ, field->offset))
 
-#define GET_VECTOR_DATA(st, field) \
+#define GET_VECTOR_DATA(st, field)                                           \
     GET_CONST_PTR(st, ASN1_VECTOR_OF(void), field->offset)->data
-#define GET_VECTOR_LEN(st, field) \
+#define GET_VECTOR_LEN(st, field)                                            \
     GET_CONST_PTR(st, ASN1_VECTOR_OF(void), field->offset)->len
 
 /* ----- SIZE PACKING - {{{ - */
-static int asn1_pack_size_rec(const void *st, const asn1_desc_t *desc,
-                              qv_t(i32) *stack);
+static int
+asn1_pack_size_rec(const void *st, const asn1_desc_t *desc, qv_t(i32) *stack);
 
-static int asn1_pack_value_size(const void *dt, const asn1_field_t *spec,
-                                qv_t(i32) *stack, int32_t *len)
+static int asn1_pack_value_size(
+    const void *dt, const asn1_field_t *spec, qv_t(i32) *stack, int32_t *len
+)
 {
     int32_t data_size;
 
     switch (spec->type) {
-      case ASN1_OBJ_TYPE(bool): case ASN1_OBJ_TYPE(int8_t):
+    case ASN1_OBJ_TYPE(bool):
+    case ASN1_OBJ_TYPE(int8_t):
         qv_append(stack, data_size = 1);
         break;
-      case ASN1_OBJ_TYPE(uint8_t):
+    case ASN1_OBJ_TYPE(uint8_t):
         data_size = asn1_int32_size(*(const uint8_t *)dt);
         qv_append(stack, data_size);
         break;
-      case ASN1_OBJ_TYPE(int16_t):
+    case ASN1_OBJ_TYPE(int16_t):
         data_size = asn1_int32_size(*(const int16_t *)dt);
         qv_append(stack, data_size);
         break;
-      case ASN1_OBJ_TYPE(uint16_t):
+    case ASN1_OBJ_TYPE(uint16_t):
         data_size = asn1_int32_size(*(const uint16_t *)dt);
         qv_append(stack, data_size);
         break;
-      case ASN1_OBJ_TYPE(int32_t):
+    case ASN1_OBJ_TYPE(int32_t):
         data_size = asn1_int32_size(*(const int32_t *)dt);
         qv_append(stack, data_size);
         break;
-      case ASN1_OBJ_TYPE(enum):
+    case ASN1_OBJ_TYPE(enum):
         data_size = asn1_int32_size(*(const int *)dt);
         qv_append(stack, data_size);
         break;
-      case ASN1_OBJ_TYPE(uint32_t):
+    case ASN1_OBJ_TYPE(uint32_t):
         data_size = asn1_uint32_size(*(const uint32_t *)dt);
         qv_append(stack, data_size);
         break;
-      case ASN1_OBJ_TYPE(int64_t):
+    case ASN1_OBJ_TYPE(int64_t):
         data_size = asn1_int64_size(*(const int64_t *)dt);
         qv_append(stack, data_size);
         break;
-      case ASN1_OBJ_TYPE(uint64_t):
+    case ASN1_OBJ_TYPE(uint64_t):
         data_size = asn1_uint64_size(*(const uint64_t *)dt);
         qv_append(stack, data_size);
         break;
-      case ASN1_OBJ_TYPE(NULL):
-      case ASN1_OBJ_TYPE(OPT_NULL):
+    case ASN1_OBJ_TYPE(NULL):
+    case ASN1_OBJ_TYPE(OPT_NULL):
         data_size = 0;
         qv_append(stack, 0);
         break;
-      case ASN1_OBJ_TYPE(lstr_t):
-      case ASN1_OBJ_TYPE(OPEN_TYPE):
+    case ASN1_OBJ_TYPE(lstr_t):
+    case ASN1_OBJ_TYPE(OPEN_TYPE):
         /* IF ASSERT: user maybe forgot to declare field as optional */
         if (!((lstr_t *)dt)->data) {
-           e_trace(0, "%s", spec->name);
+            e_trace(0, "%s", spec->name);
         }
-        assert (((lstr_t *)dt)->data);
+        assert(((lstr_t *)dt)->data);
         data_size = ((lstr_t *)dt)->len;
         qv_append(stack, data_size);
         break;
-      case ASN1_OBJ_TYPE(asn1_bit_string_t):
+    case ASN1_OBJ_TYPE(asn1_bit_string_t):
         /* IF ASSERT: user maybe forgot to declare field as optional */
-        assert (((asn1_bit_string_t *)dt)->data);
+        assert(((asn1_bit_string_t *)dt)->data);
         data_size = asn1_bit_string_size((asn1_bit_string_t *)dt);
         qv_append(stack, data_size);
         break;
-      case ASN1_OBJ_TYPE(SEQUENCE): case ASN1_OBJ_TYPE(CHOICE):
-      case ASN1_OBJ_TYPE(UNTAGGED_CHOICE):
-        {   /* In this case, length is known after but must be written before
-             * any contained field length, so we must keep a space in the
-             * stack. */
-            size_t len_pos = stack->len;
-            qv_append(stack, 0);
-            RETHROW(data_size = asn1_pack_size_rec(dt, spec->u.comp, stack));
-            stack->tab[len_pos] = data_size;
-        }
-        break;
-      case ASN1_OBJ_TYPE(asn1_ext_t):
-        {
-            size_t len_pos = stack->len;
-            qv_append(stack, 0);
-            RETHROW(data_size = asn1_pack_size_rec(
-                                    ((const asn1_ext_t *)dt)->data,
-                                    ((const asn1_ext_t *)dt)->desc,
-                                    stack));
-            stack->tab[len_pos] = data_size;
-        }
-        break;
-      case ASN1_OBJ_TYPE(OPAQUE):
+    case ASN1_OBJ_TYPE(SEQUENCE):
+    case ASN1_OBJ_TYPE(CHOICE):
+    case ASN1_OBJ_TYPE(
+        UNTAGGED_CHOICE
+    ): { /* In this case, length is known after but must be
+          * written before any contained field length, so
+          * we must keep a space in the stack. */
+        size_t len_pos = stack->len;
+        qv_append(stack, 0);
+        RETHROW(data_size = asn1_pack_size_rec(dt, spec->u.comp, stack));
+        stack->tab[len_pos] = data_size;
+    } break;
+    case ASN1_OBJ_TYPE(asn1_ext_t): {
+        size_t len_pos = stack->len;
+        qv_append(stack, 0);
+        RETHROW(
+            data_size = asn1_pack_size_rec(
+                ((const asn1_ext_t *)dt)->data,
+                ((const asn1_ext_t *)dt)->desc, stack
+            )
+        );
+        stack->tab[len_pos] = data_size;
+    } break;
+    case ASN1_OBJ_TYPE(OPAQUE):
         RETHROW(data_size = (*spec->u.opaque.pack_size)(dt));
         qv_append(stack, data_size);
         break;
-      case ASN1_OBJ_TYPE(SKIP):
-      default:
+    case ASN1_OBJ_TYPE(SKIP):
+    default:
         e_panic("should not happen");
         return -1;
     }
-
 
     if (unlikely(!asn1_field_is_tagged(spec))) {
         *len += data_size;
@@ -440,56 +463,57 @@ static int asn1_pack_value_size(const void *dt, const asn1_field_t *spec,
     return *len;
 }
 
-static int asn1_pack_field_size(const void *st, const asn1_field_t *spec,
-                                qv_t(i32) *stack, int32_t *len)
+static int asn1_pack_field_size(
+    const void *st, const asn1_field_t *spec, qv_t(i32) *stack, int32_t *len
+)
 {
     if (unlikely(spec->type == ASN1_OBJ_TYPE(SKIP))) {
         return 0;
     }
 
     switch (spec->mode) {
-      case ASN1_OBJ_MODE(MANDATORY):
+    case ASN1_OBJ_MODE(MANDATORY):
         /* IF ASSERT: user maybe forgot to declare field as optional */
-        assert (GET_DATA_P(st, spec, void));
-        RETHROW(asn1_pack_value_size(GET_DATA_P(st, spec, void),
-                                     spec, stack, len));
+        assert(GET_DATA_P(st, spec, void));
+        RETHROW(
+            asn1_pack_value_size(GET_DATA_P(st, spec, void), spec, stack, len)
+        );
         break;
-      case ASN1_OBJ_MODE(OPTIONAL):
-        {
-            const void *field = asn1_opt_field(GET_DATA_P(st, spec, uint8_t),
-                                             spec->type);
+    case ASN1_OBJ_MODE(OPTIONAL): {
+        const void *field =
+            asn1_opt_field(GET_DATA_P(st, spec, uint8_t), spec->type);
 
-            if (field) {
-                RETHROW(asn1_pack_value_size(field, spec, stack, len));
-            }
-            break;
-        }
-      case ASN1_OBJ_MODE(SEQ_OF):
-        {
-            const uint8_t *tab = (const uint8_t *)GET_VECTOR_DATA(st, spec);
-            int vec_len = GET_VECTOR_LEN(st, spec);
-
-            if (spec->pointed) {
-                for (int j = 0; j < vec_len; j++) {
-                    RETHROW(asn1_pack_value_size(((const void **)tab)[j],
-                                                 spec, stack, len));
-                }
-            } else {
-                for (int j = 0; j < vec_len; j++) {
-                    RETHROW(asn1_pack_value_size(tab + j * spec->size,
-                                                 spec, stack, len));
-                }
-            }
+        if (field) {
+            RETHROW(asn1_pack_value_size(field, spec, stack, len));
         }
         break;
+    }
+    case ASN1_OBJ_MODE(SEQ_OF): {
+        const uint8_t *tab = (const uint8_t *)GET_VECTOR_DATA(st, spec);
+        int vec_len = GET_VECTOR_LEN(st, spec);
+
+        if (spec->pointed) {
+            for (int j = 0; j < vec_len; j++) {
+                RETHROW(asn1_pack_value_size(
+                    ((const void **)tab)[j], spec, stack, len
+                ));
+            }
+        } else {
+            for (int j = 0; j < vec_len; j++) {
+                RETHROW(asn1_pack_value_size(
+                    tab + j * spec->size, spec, stack, len
+                ));
+            }
+        }
+    } break;
     }
 
     return 0;
 }
 
-static int asn1_pack_sequence_size(const void *st,
-                                   const asn1_desc_t *desc,
-                                   qv_t(i32) *stack)
+static int asn1_pack_sequence_size(
+    const void *st, const asn1_desc_t *desc, qv_t(i32) *stack
+)
 {
     int len = 0;
 
@@ -505,45 +529,47 @@ static int asn1_pack_sequence_size(const void *st,
 int __asn1_get_int(const void *st, const asn1_field_t *desc)
 {
     switch (desc->type) {
-#define CASE(type)                             \
-      case ASN1_OBJ_TYPE(type):                \
+#define CASE(type)                                                           \
+    case ASN1_OBJ_TYPE(type):                                                \
         return *GET_DATA_P(st, desc, type)
 
-      CASE(int8_t);
-      CASE(uint8_t);
-      CASE(int16_t);
-      CASE(uint16_t);
-      case ASN1_OBJ_TYPE(enum):
+        CASE(int8_t);
+        CASE(uint8_t);
+        CASE(int16_t);
+        CASE(uint16_t);
+    case ASN1_OBJ_TYPE(enum):
         /* FALLTHROUGH */
-      CASE(int32_t);
-      CASE(uint32_t);
-      CASE(int64_t);
-      CASE(uint64_t);
+        CASE(int32_t);
+        CASE(uint32_t);
+        CASE(int64_t);
+        CASE(uint64_t);
 
 #undef CASE
 
-      default:
-        e_assert(panic, false, "get_int: unexpected field type: %d",
-                 desc->type);
+    default:
+        e_assert(
+            panic, false, "get_int: unexpected field type: %d", desc->type
+        );
     }
 
     return 0;
 }
 
-static int asn1_pack_choice_size(const void *st, const asn1_desc_t *desc,
-                                 qv_t(i32) *stack)
-{   /* Could be way shorter but far more reader friendly this way */
+static int asn1_pack_choice_size(
+    const void *st, const asn1_desc_t *desc, qv_t(i32) *stack
+)
+{ /* Could be way shorter but far more reader friendly this way */
     int len = 0;
     const asn1_field_t *choice_spec;
     const asn1_field_t *selector_spec;
     int choice;
 
-    assert (desc->fields.len > 1);
+    assert(desc->fields.len > 1);
 
     selector_spec = &desc->fields.tab[0];
 
     choice = __asn1_get_int(st, selector_spec);
-    assert (choice > 0 && choice < desc->fields.len);
+    assert(choice > 0 && choice < desc->fields.len);
     choice_spec = &desc->fields.tab[choice];
 
     RETHROW(asn1_pack_field_size(st, choice_spec, stack, &len));
@@ -558,165 +584,170 @@ static int asn1_pack_choice_size(const void *st, const asn1_desc_t *desc,
  * \param[out]len    Message length.
  * \return           Obtained length or error code.
  */
-static int asn1_pack_size_rec(const void *st, const asn1_desc_t *desc,
-                              qv_t(i32) *stack)
+static int
+asn1_pack_size_rec(const void *st, const asn1_desc_t *desc, qv_t(i32) *stack)
 {
     switch (desc->type) {
-      case ASN1_CSTD_TYPE_SEQUENCE:
+    case ASN1_CSTD_TYPE_SEQUENCE:
         return asn1_pack_sequence_size(st, desc, stack);
-      case ASN1_CSTD_TYPE_CHOICE:
+    case ASN1_CSTD_TYPE_CHOICE:
         return asn1_pack_choice_size(st, desc, stack);
-      case ASN1_CSTD_TYPE_SET:
+    case ASN1_CSTD_TYPE_SET:
         e_panic("not supported yet");
         return -1;
-      default:
+    default:
         e_panic("should not happen");
         return -1;
     }
 }
 /* - }}} */
 /* ----- PROPER PACKING -{{{- */
-static uint8_t *asn1_pack_rec(uint8_t *dst, const void *st, const
-                              asn1_desc_t *desc, int32_t depth,
-                              qv_t(i32) *stack);
+static uint8_t *asn1_pack_rec(
+    uint8_t *dst, const void *st, const asn1_desc_t *desc, int32_t depth,
+    qv_t(i32) *stack
+);
 
 /**
  * \brief Serialize a single given field following specs.
  */
-static uint8_t *asn1_pack_value(uint8_t *dst, const void *dt,
-                                const asn1_field_t *spec, int32_t depth,
-                                qv_t(i32) *stack)
+static uint8_t *asn1_pack_value(
+    uint8_t *dst, const void *dt, const asn1_field_t *spec, int32_t depth,
+    qv_t(i32) *stack
+)
 {
     int32_t data_size = stack->tab[stack->len++];
 
     if (likely(asn1_field_is_tagged(spec))) {
-       dst = asn1_pack_tag(dst, spec->tag, spec->tag_len);
-       dst = asn1_pack_len(dst, data_size);
+        dst = asn1_pack_tag(dst, spec->tag, spec->tag_len);
+        dst = asn1_pack_len(dst, data_size);
     }
 
     switch (spec->type) {
-      case ASN1_OBJ_TYPE(bool):
+    case ASN1_OBJ_TYPE(bool):
         dst = asn1_pack_bool(dst, *(bool *)dt);
         e_trace(4, "value: %s", *(bool *)dt ? "true" : "false");
         break;
-      case ASN1_OBJ_TYPE(int8_t):
+    case ASN1_OBJ_TYPE(int8_t):
         *dst++ = *(int8_t *)dt;
         e_trace(4, "value: %d", *(int8_t *)dt);
         break;
-      case ASN1_OBJ_TYPE(uint8_t):
+    case ASN1_OBJ_TYPE(uint8_t):
         dst = asn1_pack_int32(dst, *(uint8_t *)dt);
         e_trace(4, "value: %u", *(uint8_t *)dt);
         break;
-      case ASN1_OBJ_TYPE(int16_t):
+    case ASN1_OBJ_TYPE(int16_t):
         dst = asn1_pack_int32(dst, *(int16_t *)dt);
         e_trace(4, "value: %d", *(int16_t *)dt);
         break;
-      case ASN1_OBJ_TYPE(uint16_t):
+    case ASN1_OBJ_TYPE(uint16_t):
         dst = asn1_pack_int32(dst, *(uint16_t *)dt);
         e_trace(4, "value: %u", *(uint16_t *)dt);
         break;
-      case ASN1_OBJ_TYPE(int32_t):
+    case ASN1_OBJ_TYPE(int32_t):
         dst = asn1_pack_int32(dst, *(int32_t *)dt);
         e_trace(4, "value: %d", *(int32_t *)dt);
         break;
-      case ASN1_OBJ_TYPE(enum):
+    case ASN1_OBJ_TYPE(enum):
         dst = asn1_pack_int32(dst, *(int32_t *)dt);
         e_trace(4, "value: %d", *(int32_t *)dt);
         break;
-      case ASN1_OBJ_TYPE(uint32_t):
+    case ASN1_OBJ_TYPE(uint32_t):
         dst = asn1_pack_uint32(dst, *(uint32_t *)dt);
         e_trace(4, "value: %u", *(uint32_t *)dt);
         break;
-      case ASN1_OBJ_TYPE(int64_t):
+    case ASN1_OBJ_TYPE(int64_t):
         dst = asn1_pack_int64(dst, *(int64_t *)dt);
         e_trace(4, "value: %jd", *(int64_t *)dt);
         break;
-      case ASN1_OBJ_TYPE(uint64_t):
+    case ASN1_OBJ_TYPE(uint64_t):
         dst = asn1_pack_uint64(dst, *(uint64_t *)dt);
         e_trace(4, "value: %ju", *(uint64_t *)dt);
         break;
-      case ASN1_OBJ_TYPE(NULL):
-      case ASN1_OBJ_TYPE(OPT_NULL):
+    case ASN1_OBJ_TYPE(NULL):
+    case ASN1_OBJ_TYPE(OPT_NULL):
         break;
-      case ASN1_OBJ_TYPE(lstr_t):
-      case ASN1_OBJ_TYPE(OPEN_TYPE):
+    case ASN1_OBJ_TYPE(lstr_t):
+    case ASN1_OBJ_TYPE(OPEN_TYPE):
         dst = asn1_pack_data(dst, (const lstr_t *)dt);
-        e_trace_hex(4, "value:", ((const lstr_t *)dt)->data,
-                    ((const lstr_t *)dt)->len);
+        e_trace_hex(
+            4, "value:", ((const lstr_t *)dt)->data, ((const lstr_t *)dt)->len
+        );
         break;
-      case ASN1_OBJ_TYPE(asn1_bit_string_t):
+    case ASN1_OBJ_TYPE(asn1_bit_string_t):
         dst = asn1_pack_bit_string(dst, (const asn1_bit_string_t *)dt);
         /* TODO print */
         break;
-      case ASN1_OBJ_TYPE(SEQUENCE): case ASN1_OBJ_TYPE(CHOICE):
-      case ASN1_OBJ_TYPE(UNTAGGED_CHOICE):
+    case ASN1_OBJ_TYPE(SEQUENCE):
+    case ASN1_OBJ_TYPE(CHOICE):
+    case ASN1_OBJ_TYPE(UNTAGGED_CHOICE):
         dst = asn1_pack_rec(dst, dt, spec->u.comp, depth + 1, stack);
         break;
-      case ASN1_OBJ_TYPE(asn1_ext_t):
-        dst = asn1_pack_rec(dst, ((const asn1_ext_t *)dt)->data,
-                            ((const asn1_ext_t *)dt)->desc, depth + 1,
-                            stack);
+    case ASN1_OBJ_TYPE(asn1_ext_t):
+        dst = asn1_pack_rec(
+            dst, ((const asn1_ext_t *)dt)->data,
+            ((const asn1_ext_t *)dt)->desc, depth + 1, stack
+        );
         break;
-      case ASN1_OBJ_TYPE(OPAQUE):
+    case ASN1_OBJ_TYPE(OPAQUE):
         dst = (*spec->u.opaque.pack)(dst, dt);
         break;
-      case ASN1_OBJ_TYPE(SKIP):
+    case ASN1_OBJ_TYPE(SKIP):
         break;
     }
 
     return dst;
 }
 
-static uint8_t *asn1_pack_field(uint8_t *dst, const void *st,
-                                const asn1_field_t *spec, int32_t depth,
-                                qv_t(i32) *stack)
+static uint8_t *asn1_pack_field(
+    uint8_t *dst, const void *st, const asn1_field_t *spec, int32_t depth,
+    qv_t(i32) *stack
+)
 {
     if (unlikely(spec->type == ASN1_OBJ_TYPE(SKIP))) {
         return dst;
     }
 
     switch (spec->mode) {
-      case ASN1_OBJ_MODE(MANDATORY):
-        dst = asn1_pack_value(dst, GET_DATA_P(st, spec, void),
-                              spec, depth, stack);
+    case ASN1_OBJ_MODE(MANDATORY):
+        dst = asn1_pack_value(
+            dst, GET_DATA_P(st, spec, void), spec, depth, stack
+        );
         break;
-      case ASN1_OBJ_MODE(OPTIONAL):
-        {
-            const void *field = asn1_opt_field(GET_DATA_P(st, spec, void),
-                                             spec->type);
+    case ASN1_OBJ_MODE(OPTIONAL): {
+        const void *field =
+            asn1_opt_field(GET_DATA_P(st, spec, void), spec->type);
 
-            if (field) {
-                dst = asn1_pack_value(dst, field, spec, depth, stack);
+        if (field) {
+            dst = asn1_pack_value(dst, field, spec, depth, stack);
+        }
+    } break;
+    case ASN1_OBJ_MODE(SEQ_OF): {
+        const uint8_t *tab = (const uint8_t *)GET_VECTOR_DATA(st, spec);
+        int vec_len = GET_VECTOR_LEN(st, spec);
+
+        if (spec->pointed) {
+            for (int j = 0; j < vec_len; j++) {
+                dst = asn1_pack_value(
+                    dst, ((const void **)tab)[j], spec, depth, stack
+                );
+            }
+        } else {
+            for (int j = 0; j < vec_len; j++) {
+                dst = asn1_pack_value(
+                    dst, tab + j * spec->size, spec, depth, stack
+                );
             }
         }
-        break;
-      case ASN1_OBJ_MODE(SEQ_OF):
-        {
-            const uint8_t *tab = (const uint8_t *)GET_VECTOR_DATA(st,
-                                                                  spec);
-            int vec_len = GET_VECTOR_LEN(st, spec);
-
-            if (spec->pointed) {
-                for (int j = 0; j < vec_len; j++) {
-                    dst = asn1_pack_value(dst, ((const void **)tab)[j],
-                                          spec, depth, stack);
-                }
-            } else {
-                for (int j = 0; j < vec_len; j++) {
-                    dst = asn1_pack_value(dst, tab + j * spec->size, spec,
-                                          depth, stack);
-                }
-            }
-        }
-        break;
+    } break;
     }
 
     return dst;
 }
 
-static uint8_t *asn1_pack_sequence(uint8_t *dst, const void *st,
-                                   const asn1_desc_t *desc, int32_t depth,
-                                   qv_t(i32) *stack)
+static uint8_t *asn1_pack_sequence(
+    uint8_t *dst, const void *st, const asn1_desc_t *desc, int32_t depth,
+    qv_t(i32) *stack
+)
 {
     for (int i = 0; i < desc->fields.len; i++) {
         const asn1_field_t *spec = &desc->fields.tab[i];
@@ -728,20 +759,21 @@ static uint8_t *asn1_pack_sequence(uint8_t *dst, const void *st,
     return dst;
 }
 
-static uint8_t *asn1_pack_choice(uint8_t *dst, const void *st,
-                                 const asn1_desc_t *desc, int32_t depth,
-                                 qv_t(i32) *stack)
-{   /* Could be way shorter but far more reader friendly this way */
+static uint8_t *asn1_pack_choice(
+    uint8_t *dst, const void *st, const asn1_desc_t *desc, int32_t depth,
+    qv_t(i32) *stack
+)
+{ /* Could be way shorter but far more reader friendly this way */
     const asn1_field_t *choice_spec;
     const asn1_field_t *selector_spec;
     int choice;
 
-    assert (desc->fields.len > 1);
+    assert(desc->fields.len > 1);
 
     selector_spec = &desc->fields.tab[0];
 
     choice = __asn1_get_int(st, selector_spec);
-    assert (choice > 0 && choice < desc->fields.len);
+    assert(choice > 0 && choice < desc->fields.len);
     choice_spec = &desc->fields.tab[choice];
 
     e_trace_desc(1, "serializing", desc, choice, depth);
@@ -755,18 +787,19 @@ static uint8_t *asn1_pack_choice(uint8_t *dst, const void *st,
  * \param[inout]desc Message specification.
  * \param[inout]dst Output dstfer on which data is written.
  */
-static uint8_t *asn1_pack_rec(uint8_t *dst, const void *st,
-                              const asn1_desc_t *desc, int32_t depth,
-                              qv_t(i32) *stack)
+static uint8_t *asn1_pack_rec(
+    uint8_t *dst, const void *st, const asn1_desc_t *desc, int32_t depth,
+    qv_t(i32) *stack
+)
 {
     switch (desc->type) {
-      case ASN1_CSTD_TYPE_SEQUENCE:
+    case ASN1_CSTD_TYPE_SEQUENCE:
         return asn1_pack_sequence(dst, st, desc, depth, stack);
-      case ASN1_CSTD_TYPE_CHOICE:
+    case ASN1_CSTD_TYPE_CHOICE:
         return asn1_pack_choice(dst, st, desc, depth, stack);
-      case ASN1_CSTD_TYPE_SET:
+    case ASN1_CSTD_TYPE_SET:
         e_panic("not supported yet");
-      default:
+    default:
         return dst;
     }
 }
@@ -778,18 +811,21 @@ void asn1_reg_field(asn1_desc_t *desc, asn1_field_t *field)
     if (desc->fields.len > 0 &&
         (field->mode == ASN1_OBJ_MODE(SEQ_OF) ||
          desc->fields.tab[desc->fields.len - 1].mode ==
-         ASN1_OBJ_MODE(SEQ_OF)))
+             ASN1_OBJ_MODE(SEQ_OF)))
     {
-        e_fatal("ASN.1 field %s should be explicitly "
-                "tagged as a sequence", field->name);
+        e_fatal(
+            "ASN.1 field %s should be explicitly tagged as a sequence",
+            field->name
+        );
     }
 
     if (desc->is_extended) {
-        if (desc->type == ASN1_CSTD_TYPE_SEQUENCE
-        &&  field->mode != ASN1_OBJ_MODE(OPTIONAL))
+        if (desc->type == ASN1_CSTD_TYPE_SEQUENCE &&
+            field->mode != ASN1_OBJ_MODE(OPTIONAL))
         {
-            e_fatal("ASN.1 extension field `%s` should be optional",
-                    field->name);
+            e_fatal(
+                "ASN.1 extension field `%s` should be optional", field->name
+            );
         }
 
         field->is_extension = true;
@@ -803,8 +839,9 @@ void asn1_reg_field(asn1_desc_t *desc, asn1_field_t *field)
     qv_append(&desc->fields, *field);
 }
 
-static void asn1_choice_desc_set_field(asn1_choice_desc_t *desc,
-                                       const asn1_field_t *field, uint8_t idx)
+static void asn1_choice_desc_set_field(
+    asn1_choice_desc_t *desc, const asn1_field_t *field, uint8_t idx
+)
 {
     if (field->type == ASN1_OBJ_TYPE(UNTAGGED_CHOICE)) {
         const asn1_desc_t *sub_choice_desc = field->u.comp;
@@ -821,9 +858,12 @@ static void asn1_choice_desc_set_field(asn1_choice_desc_t *desc,
     }
 
     if (desc->choice_table[field->tag]) {
-        e_error("[ASN.1] Field %s has the same tag (0x%2X) as another "
-                "field in a choice", field->name, field->tag);
-        assert (0);
+        e_error(
+            "[ASN.1] Field %s has the same tag (0x%2X) as another "
+            "field in a choice",
+            field->name, field->tag
+        );
+        assert(0);
     }
 
     desc->choice_table[field->tag] = idx;
@@ -849,15 +889,15 @@ static int asn1_find_choice(const asn1_choice_desc_t *desc, uint8_t tag)
     return (int)desc->choice_table[tag];
 }
 
-uint8_t *asn1_pack_(uint8_t *dst, const void *st, const asn1_desc_t *desc,
-                    qv_t(i32) *stack)
+uint8_t *asn1_pack_(
+    uint8_t *dst, const void *st, const asn1_desc_t *desc, qv_t(i32) *stack
+)
 {
     stack->len = 0;
     return asn1_pack_rec(dst, st, desc, 0, stack);
 }
 
-int asn1_pack_size_(const void *st, const asn1_desc_t *desc,
-                    qv_t(i32) *stack)
+int asn1_pack_size_(const void *st, const asn1_desc_t *desc, qv_t(i32) *stack)
 {
     stack->len = 0;
     return asn1_pack_size_rec(st, desc, stack);
@@ -871,58 +911,65 @@ int asn1_pack_size_(const void *st, const asn1_desc_t *desc,
 void *asn1_opt_field_w(void *field, enum obj_type type, bool has_field)
 {
     switch (type) {
-      case ASN1_OBJ_TYPE(bool):
+    case ASN1_OBJ_TYPE(bool):
         if (!(((opt_bool_t *)field)->has_field = has_field)) {
-           ((opt_bool_t *)field)->v = false;
+            ((opt_bool_t *)field)->v = false;
         }
         return (uint8_t *)field + offsetof(opt_bool_t, v);
-      case ASN1_OBJ_TYPE(int8_t): case ASN1_OBJ_TYPE(uint8_t):
+    case ASN1_OBJ_TYPE(int8_t):
+    case ASN1_OBJ_TYPE(uint8_t):
         if (!(((opt_i8_t *)field)->has_field = has_field)) {
             ((opt_i8_t *)field)->v = 0;
         }
         return (uint8_t *)field + offsetof(opt_i8_t, v);
-      case ASN1_OBJ_TYPE(int16_t): case ASN1_OBJ_TYPE(uint16_t):
+    case ASN1_OBJ_TYPE(int16_t):
+    case ASN1_OBJ_TYPE(uint16_t):
         if (!(((opt_i16_t *)field)->has_field = has_field)) {
             ((opt_i16_t *)field)->v = 0;
         }
         return (uint16_t *)field + offsetof(opt_i16_t, v);
-      case ASN1_OBJ_TYPE(int32_t): case ASN1_OBJ_TYPE(uint32_t):
-      case ASN1_OBJ_TYPE(enum):
+    case ASN1_OBJ_TYPE(int32_t):
+    case ASN1_OBJ_TYPE(uint32_t):
+    case ASN1_OBJ_TYPE(enum):
         if (!(((opt_i32_t *)field)->has_field = has_field)) {
             ((opt_i32_t *)field)->v = 0;
         }
         return (uint32_t *)field + offsetof(opt_i32_t, v);
-      case ASN1_OBJ_TYPE(int64_t): case ASN1_OBJ_TYPE(uint64_t):
+    case ASN1_OBJ_TYPE(int64_t):
+    case ASN1_OBJ_TYPE(uint64_t):
         if (!(((opt_i64_t *)field)->has_field = has_field)) {
             ((opt_i64_t *)field)->v = 0;
         }
         return (uint64_t *)field + offsetof(opt_i64_t, v);
-      case ASN1_OBJ_TYPE(NULL): /* Should not happen. */
+    case ASN1_OBJ_TYPE(NULL): /* Should not happen. */
         return NULL;
-      case ASN1_OBJ_TYPE(OPT_NULL):
+    case ASN1_OBJ_TYPE(OPT_NULL):
         *(bool *)field = has_field;
         return field;
-      case ASN1_OBJ_TYPE(lstr_t):
-      case ASN1_OBJ_TYPE(OPEN_TYPE):   case ASN1_OBJ_TYPE(asn1_bit_string_t):
+    case ASN1_OBJ_TYPE(lstr_t):
+    case ASN1_OBJ_TYPE(OPEN_TYPE):
+    case ASN1_OBJ_TYPE(asn1_bit_string_t):
         if (!has_field) {
             *(lstr_t *)field = LSTR_NULL_V;
         }
         return field;
-      case ASN1_OBJ_TYPE(asn1_ext_t):
+    case ASN1_OBJ_TYPE(asn1_ext_t):
         if (!has_field) {
             ((asn1_ext_t *)field)->has_value = false;
             ((asn1_ext_t *)field)->value = ps_initptr(NULL, NULL);
         }
         return field;
-      case ASN1_OBJ_TYPE(OPAQUE): case ASN1_OBJ_TYPE(SEQUENCE):
-      case ASN1_OBJ_TYPE(CHOICE): case ASN1_OBJ_TYPE(UNTAGGED_CHOICE):
+    case ASN1_OBJ_TYPE(OPAQUE):
+    case ASN1_OBJ_TYPE(SEQUENCE):
+    case ASN1_OBJ_TYPE(CHOICE):
+    case ASN1_OBJ_TYPE(UNTAGGED_CHOICE):
         if (!has_field) {
             *((void **)field) = NULL;
         }
         return *(void **)field;
-      case ASN1_OBJ_TYPE(SKIP):
+    case ASN1_OBJ_TYPE(SKIP):
         return NULL;
-      default:
+    default:
         e_panic("unexpected type");
     }
 }
@@ -930,27 +977,28 @@ void *asn1_opt_field_w(void *field, enum obj_type type, bool has_field)
 void __asn1_set_int(void *st, const asn1_field_t *desc, int v)
 {
     switch (desc->type) {
-#define CASE(type)                             \
-      case ASN1_OBJ_TYPE(type):                \
-        *GET_PTR(st, desc, type) = v;          \
+#define CASE(type)                                                           \
+    case ASN1_OBJ_TYPE(type):                                                \
+        *GET_PTR(st, desc, type) = v;                                        \
         break;
 
-      CASE(int8_t);
-      CASE(uint8_t);
-      CASE(int16_t);
-      CASE(uint16_t);
-      case ASN1_OBJ_TYPE(enum):
+        CASE(int8_t);
+        CASE(uint8_t);
+        CASE(int16_t);
+        CASE(uint16_t);
+    case ASN1_OBJ_TYPE(enum):
         /* FALLTHROUGH */
-      CASE(int32_t);
-      CASE(uint32_t);
-      CASE(int64_t);
-      CASE(uint64_t);
+        CASE(int32_t);
+        CASE(uint32_t);
+        CASE(int64_t);
+        CASE(uint64_t);
 
 #undef CASE
 
-      default:
-        e_assert(panic, false, "set_int: unexpected field type: %d",
-                 desc->type);
+    default:
+        e_assert(
+            panic, false, "set_int: unexpected field type: %d", desc->type
+        );
     }
 }
 
@@ -982,7 +1030,7 @@ static int asn1_skip_ber_tag(pstream_t *ps)
 int asn1_get_ber_field(pstream_t *ps, bool indef_father, pstream_t *sub_ps)
 {
     uint32_t data_size;
-    int n_eoc = indef_father ? 1: 0;
+    int n_eoc = indef_father ? 1 : 0;
 
     if (sub_ps) {
         sub_ps->b = ps->b;
@@ -1032,33 +1080,38 @@ int asn1_skip_field(pstream_t *ps)
     return asn1_get_ber_field(ps, false, NULL);
 }
 
-static int asn1_unpack_rec(pstream_t *ps, const asn1_desc_t *desc,
-                           mem_pool_t *mem_pool, int depth, void *st,
-                           bool copy, bool indef_len);
+static int asn1_unpack_rec(
+    pstream_t *ps, const asn1_desc_t *desc, mem_pool_t *mem_pool, int depth,
+    void *st, bool copy, bool indef_len
+);
 
-static int asn1_unpack_value(pstream_t *ps, const asn1_field_t *spec,
-                             mem_pool_t *mem_pool, int depth, void *dt,
-                             bool copy)
+static int asn1_unpack_value(
+    pstream_t *ps, const asn1_field_t *spec, mem_pool_t *mem_pool, int depth,
+    void *dt, bool copy
+)
 {
     uint32_t data_size;
     pstream_t field_ps;
     bool indef_len;
 
     switch (spec->type) {
-      case ASN1_OBJ_TYPE(SKIP):
+    case ASN1_OBJ_TYPE(SKIP):
         return asn1_get_ber_field(ps, false, NULL);
-      case ASN1_OBJ_TYPE(OPEN_TYPE):
+    case ASN1_OBJ_TYPE(OPEN_TYPE):
         RETHROW(asn1_get_ber_field(ps, false, &field_ps));
         data_size = ps_len(&field_ps);
         indef_len = false;
         break;
-      default:
+    default:
         RETHROW(ps_skip(ps, 1));
 
         if (!RETHROW(ber_decode_len32(ps, &data_size))) {
             if (ps_get_ps(ps, data_size, &field_ps) < 0) {
-                e_trace(1, "p-stream does not have enough bytes "
-                        "(got %zd needed %u)", ps_len(ps), data_size);
+                e_trace(
+                    1,
+                    "p-stream does not have enough bytes (got %zd needed %u)",
+                    ps_len(ps), data_size
+                );
                 return -1;
             }
 
@@ -1077,15 +1130,15 @@ static int asn1_unpack_value(pstream_t *ps, const asn1_field_t *spec,
     }
 
     switch (spec->type) {
-      case ASN1_OBJ_TYPE(bool):
+    case ASN1_OBJ_TYPE(bool):
         *(bool *)dt = (ps_getc(&field_ps) ? true : false);
         e_trace(4, "value: %s", *(bool *)dt ? "true" : "false");
         break;
-      case ASN1_OBJ_TYPE(int8_t):
+    case ASN1_OBJ_TYPE(int8_t):
         *(int8_t *)dt = ps_getc(&field_ps);
         e_trace(4, "value: %d", *(int8_t *)dt);
         break;
-      case ASN1_OBJ_TYPE(uint8_t):
+    case ASN1_OBJ_TYPE(uint8_t):
         if (unlikely(ps_len(&field_ps) == 2)) {
             if (*field_ps.b == 0x00) {
                 __ps_skip(&field_ps, 1);
@@ -1097,73 +1150,77 @@ static int asn1_unpack_value(pstream_t *ps, const asn1_field_t *spec,
         *(uint8_t *)dt = ps_getc(&field_ps);
         e_trace(4, "value: %u", *(uint8_t *)dt);
         break;
-      case ASN1_OBJ_TYPE(int16_t):
+    case ASN1_OBJ_TYPE(int16_t):
         RETHROW(ber_decode_int16(&field_ps, (int16_t *)dt));
         e_trace(4, "value: %d", *(int16_t *)dt);
         break;
-      case ASN1_OBJ_TYPE(uint16_t):
+    case ASN1_OBJ_TYPE(uint16_t):
         RETHROW(ber_decode_uint16(&field_ps, (uint16_t *)dt));
         e_trace(4, "value: %u", *(uint16_t *)dt);
         break;
-      case ASN1_OBJ_TYPE(int32_t): case ASN1_OBJ_TYPE(enum):
+    case ASN1_OBJ_TYPE(int32_t):
+    case ASN1_OBJ_TYPE(enum):
         RETHROW(ber_decode_int32(&field_ps, (int32_t *)dt));
         e_trace(4, "value: %d", *(int32_t *)dt);
         break;
-      case ASN1_OBJ_TYPE(uint32_t):
+    case ASN1_OBJ_TYPE(uint32_t):
         RETHROW(ber_decode_uint32(&field_ps, (uint32_t *)dt));
         e_trace(4, "value: %u", *(uint32_t *)dt);
         break;
-      case ASN1_OBJ_TYPE(int64_t):
+    case ASN1_OBJ_TYPE(int64_t):
         RETHROW(ber_decode_int64(&field_ps, (int64_t *)dt));
         e_trace(4, "value: %jd", *(int64_t *)dt);
         break;
-      case ASN1_OBJ_TYPE(uint64_t):
+    case ASN1_OBJ_TYPE(uint64_t):
         RETHROW(ber_decode_uint64(&field_ps, (uint64_t *)dt));
         e_trace(4, "value: %ju", *(uint64_t *)dt);
         break;
-      case ASN1_OBJ_TYPE(NULL):
-      case ASN1_OBJ_TYPE(OPT_NULL):
+    case ASN1_OBJ_TYPE(NULL):
+    case ASN1_OBJ_TYPE(OPT_NULL):
         break;
-      case ASN1_OBJ_TYPE(lstr_t):
-      case ASN1_OBJ_TYPE(OPEN_TYPE):
+    case ASN1_OBJ_TYPE(lstr_t):
+    case ASN1_OBJ_TYPE(OPEN_TYPE):
         *(lstr_t *)dt = LSTR_PS_V(&field_ps);
         if (copy) {
             mp_lstr_persists(mem_pool, (lstr_t *)dt);
         }
         e_trace_hex(4, "value:", field_ps.s, (int)ps_len(&field_ps));
         break;
-      case ASN1_OBJ_TYPE(asn1_bit_string_t):
+    case ASN1_OBJ_TYPE(asn1_bit_string_t):
         if (copy) {
-            ((asn1_bit_string_t *)dt)->data = mp_dup(mem_pool, field_ps.b + 1,
-                                                     ps_len(&field_ps) - 1);
+            ((asn1_bit_string_t *)dt)->data =
+                mp_dup(mem_pool, field_ps.b + 1, ps_len(&field_ps) - 1);
         } else {
             ((asn1_bit_string_t *)dt)->data = field_ps.b + 1;
         }
-        ((asn1_bit_string_t *)dt)->bit_len = 8 * (ps_len(&field_ps) - 1)
-                                           - field_ps.b[0];
+        ((asn1_bit_string_t *)dt)->bit_len =
+            8 * (ps_len(&field_ps) - 1) - field_ps.b[0];
         /* TODO print */
         break;
-      case ASN1_OBJ_TYPE(SEQUENCE): case ASN1_OBJ_TYPE(CHOICE):
-      case ASN1_OBJ_TYPE(UNTAGGED_CHOICE):
-        RETHROW(asn1_unpack_rec(&field_ps, spec->u.comp, mem_pool,
-                                depth + 1, dt, copy, indef_len));
+    case ASN1_OBJ_TYPE(SEQUENCE):
+    case ASN1_OBJ_TYPE(CHOICE):
+    case ASN1_OBJ_TYPE(UNTAGGED_CHOICE):
+        RETHROW(asn1_unpack_rec(
+            &field_ps, spec->u.comp, mem_pool, depth + 1, dt, copy, indef_len
+        ));
         break;
-      case ASN1_OBJ_TYPE(asn1_ext_t):
-        ((asn1_ext_t *)dt)->data      = NULL;
-        ((asn1_ext_t *)dt)->desc      = NULL;
+    case ASN1_OBJ_TYPE(asn1_ext_t):
+        ((asn1_ext_t *)dt)->data = NULL;
+        ((asn1_ext_t *)dt)->desc = NULL;
         ((asn1_ext_t *)dt)->has_value = true;
 
         if (indef_len) {
-            RETHROW(asn1_get_ber_field(&field_ps, true,
-                                    &((asn1_ext_t *)dt)->value));
+            RETHROW(asn1_get_ber_field(
+                &field_ps, true, &((asn1_ext_t *)dt)->value
+            ));
         } else {
             ((asn1_ext_t *)dt)->value = field_ps;
         }
         break;
-      case ASN1_OBJ_TYPE(OPAQUE):
+    case ASN1_OBJ_TYPE(OPAQUE):
         RETHROW((*spec->u.opaque.unpack)(&field_ps, mem_pool, dt));
         break;
-      case ASN1_OBJ_TYPE(SKIP):
+    case ASN1_OBJ_TYPE(SKIP):
         e_panic("should not happen");
         break;
     }
@@ -1195,15 +1252,16 @@ static int asn1_sequenceof_len(pstream_t ps, uint8_t tag)
     return len;
 }
 
-static void asn1_alloc_seq_of(void *st, int count, const asn1_field_t *field,
-                              mem_pool_t *mp)
+static void asn1_alloc_seq_of(
+    void *st, int count, const asn1_field_t *field, mem_pool_t *mp
+)
 {
     if (field->pointed) {
         asn1_void_array_t *array = GET_PTR(st, field, asn1_void_array_t);
         char *mem;
 
         array->data = mp_new_raw(mp, void *, count);
-        array->len  = count;
+        array->len = count;
 
         mem = mp_new_raw(mp, char, field->size * array->len);
         for (int i = 0; i < array->len; i++) {
@@ -1214,95 +1272,106 @@ static void asn1_alloc_seq_of(void *st, int count, const asn1_field_t *field,
         asn1_void_vector_t *vector = GET_PTR(st, field, asn1_void_vector_t);
 
         vector->data = mp_new_raw(mp, char, count * field->size);
-        vector->len  = count;
+        vector->len = count;
     }
 }
 
-static void *asn1_alloc_if_pointed(const asn1_field_t *spec,
-                                   mem_pool_t *mem_pool, void *st)
+static void *asn1_alloc_if_pointed(
+    const asn1_field_t *spec, mem_pool_t *mem_pool, void *st
+)
 {
     if (spec->pointed) {
-        return (*GET_PTR(st, spec, void *) =
-                mp_new_raw(mem_pool, char, spec->size));
+        return (
+            *GET_PTR(st, spec, void *) =
+                mp_new_raw(mem_pool, char, spec->size)
+        );
     }
 
     return GET_PTR(st, spec, void);
 }
 
-static int asn1_unpack_field(pstream_t *ps, const asn1_field_t *spec,
-                             mem_pool_t *mem_pool, int depth, void *st,
-                             bool copy, bool indef_len)
+static int asn1_unpack_field(
+    pstream_t *ps, const asn1_field_t *spec, mem_pool_t *mem_pool, int depth,
+    void *st, bool copy, bool indef_len
+)
 {
     switch (spec->mode) {
-      case ASN1_OBJ_MODE(MANDATORY):
-        if (!asn1_field_is_tagged(spec)
-        ||  (ps_has(ps, 1) && *ps->b == spec->tag))
+    case ASN1_OBJ_MODE(MANDATORY):
+        if (!asn1_field_is_tagged(spec) ||
+            (ps_has(ps, 1) && *ps->b == spec->tag))
         {
             void *value = asn1_alloc_if_pointed(spec, mem_pool, st);
 
-            RETHROW(asn1_unpack_value(ps, spec, mem_pool, depth, value,
-                                      copy));
+            RETHROW(
+                asn1_unpack_value(ps, spec, mem_pool, depth, value, copy)
+            );
         } else {
             if (ps_has(ps, 1)) {
-                e_trace(0, "mandatory value -- %s -- not found (got tag %x)",
-                        spec->name, *ps->b);
+                e_trace(
+                    0, "mandatory value -- %s -- not found (got tag %x)",
+                    spec->name, *ps->b
+                );
             } else {
-                e_trace(0, "mandatory value -- %s -- not found (input end)",
-                        spec->name);
+                e_trace(
+                    0, "mandatory value -- %s -- not found (input end)",
+                    spec->name
+                );
             }
             return -1;
         }
         break;
 
-      case ASN1_OBJ_MODE(OPTIONAL):
-        if (!ps_done(ps) && *ps->b
-        &&  (!asn1_field_is_tagged(spec) || *ps->b == spec->tag))
+    case ASN1_OBJ_MODE(OPTIONAL):
+        if (!ps_done(ps) && *ps->b &&
+            (!asn1_field_is_tagged(spec) || *ps->b == spec->tag))
         {
             void *value;
 
             asn1_alloc_if_pointed(spec, mem_pool, st);
-            value = asn1_opt_field_w(GET_PTR(st, spec, void), spec->type,
-                                     true);
-            RETHROW(asn1_unpack_value(ps, spec, mem_pool, depth, value,
-                                      copy));
+            value =
+                asn1_opt_field_w(GET_PTR(st, spec, void), spec->type, true);
+            RETHROW(
+                asn1_unpack_value(ps, spec, mem_pool, depth, value, copy)
+            );
         } else {
             asn1_opt_field_w(GET_PTR(st, spec, void), spec->type, false);
         }
         break;
-      case ASN1_OBJ_MODE(SEQ_OF):
-        {
-            int count;
+    case ASN1_OBJ_MODE(SEQ_OF): {
+        int count;
 
-            RETHROW(count = asn1_sequenceof_len(*ps, spec->tag));
+        RETHROW(count = asn1_sequenceof_len(*ps, spec->tag));
 
-            if (unlikely(!count)) {
-                p_clear(GET_PTR(st, spec, asn1_void_vector_t), 1);
-                break;
-            }
-
-            asn1_alloc_seq_of(st, count, spec, mem_pool);
-
-            for (int j = 0; j < count; j++) {
-                void *st_ptr;
-                if (spec->pointed) {
-                    st_ptr = GET_PTR(st, spec, asn1_void_array_t)->data[j];
-                } else {
-                    st_ptr = (char *)(GET_PTR(st, spec, asn1_void_vector_t)->data)
-                           + j * spec->size;
-                }
-
-                RETHROW(asn1_unpack_value(ps, spec, mem_pool, depth,
-                        st_ptr, copy));
-            }
+        if (unlikely(!count)) {
+            p_clear(GET_PTR(st, spec, asn1_void_vector_t), 1);
+            break;
         }
-        break;
+
+        asn1_alloc_seq_of(st, count, spec, mem_pool);
+
+        for (int j = 0; j < count; j++) {
+            void *st_ptr;
+            if (spec->pointed) {
+                st_ptr = GET_PTR(st, spec, asn1_void_array_t)->data[j];
+            } else {
+                st_ptr =
+                    (char *)(GET_PTR(st, spec, asn1_void_vector_t)->data) +
+                    j * spec->size;
+            }
+
+            RETHROW(
+                asn1_unpack_value(ps, spec, mem_pool, depth, st_ptr, copy)
+            );
+        }
+    } break;
     }
     return 0;
 }
 
-static int asn1_unpack_choice(pstream_t *ps, const asn1_desc_t *_desc,
-                              mem_pool_t *mem_pool, int depth, void *st,
-                              bool copy, bool indef_len)
+static int asn1_unpack_choice(
+    pstream_t *ps, const asn1_desc_t *_desc, mem_pool_t *mem_pool, int depth,
+    void *st, bool copy, bool indef_len
+)
 {
     const asn1_choice_desc_t *desc =
         container_of(_desc, asn1_choice_desc_t, desc);
@@ -1326,17 +1395,18 @@ static int asn1_unpack_choice(pstream_t *ps, const asn1_desc_t *_desc,
     spec = &desc->desc.fields.tab[choice];
     __asn1_set_int(st, selector_spec, choice);
     e_trace_desc(1, "unpacking", &desc->desc, choice, depth);
-    RETHROW(asn1_unpack_field(ps, spec, mem_pool, depth, st, copy,
-                              indef_len));
+    RETHROW(
+        asn1_unpack_field(ps, spec, mem_pool, depth, st, copy, indef_len)
+    );
 
     return 0;
 }
 
 /* ----- UNTAGGED CHOICE UNPACKER - {{{ - */
-static int
-asn1_unpack_u_choice_val(pstream_t *ps, const asn1_field_t *choice_spec,
-                         mem_pool_t *mem_pool, int depth, void *st,
-                         bool copy)
+static int asn1_unpack_u_choice_val(
+    pstream_t *ps, const asn1_field_t *choice_spec, mem_pool_t *mem_pool,
+    int depth, void *st, bool copy
+)
 {
     int choice;
     const asn1_choice_desc_t *choice_desc =
@@ -1344,16 +1414,14 @@ asn1_unpack_u_choice_val(pstream_t *ps, const asn1_field_t *choice_spec,
     const qv_t(asn1_field) *vec = &choice_desc->desc.fields;
     const asn1_field_t *selector_spec = &vec->tab[0];
 
-    if (ps_done(ps)
-    ||  !(choice = asn1_find_choice(choice_desc, *ps->b)))
-    {
+    if (ps_done(ps) || !(choice = asn1_find_choice(choice_desc, *ps->b))) {
         if (choice_spec->mode == ASN1_OBJ_MODE(MANDATORY)) {
             e_trace(1, "missing mandatory choice %s", choice_spec->name);
             return -1;
         } else {
             if (ps_done(ps)) {
                 e_trace(2, "end of stream");
-            }  else {
+            } else {
                 e_trace(2, "nothing found for tag %2x", *ps->b);
             }
             return 0;
@@ -1362,7 +1430,7 @@ asn1_unpack_u_choice_val(pstream_t *ps, const asn1_field_t *choice_spec,
 
     {
         const asn1_field_t *field = &vec->tab[choice];
-        void  *choice_st;
+        void *choice_st;
 
         choice_st = asn1_alloc_if_pointed(choice_spec, mem_pool, st);
         __asn1_set_int(choice_st, selector_spec, choice);
@@ -1370,34 +1438,33 @@ asn1_unpack_u_choice_val(pstream_t *ps, const asn1_field_t *choice_spec,
         e_trace_desc(1, "unpacking", &choice_desc->desc, choice, depth + 1);
 
         if (field->type == ASN1_OBJ_TYPE(UNTAGGED_CHOICE)) {
-            RETHROW(asn1_unpack_u_choice_val(ps, field, mem_pool, depth + 1,
-                                             choice_st, copy));
+            RETHROW(asn1_unpack_u_choice_val(
+                ps, field, mem_pool, depth + 1, choice_st, copy
+            ));
         } else {
-            void *value =
-                asn1_alloc_if_pointed(field, mem_pool, choice_st);
+            void *value = asn1_alloc_if_pointed(field, mem_pool, choice_st);
 
-            RETHROW(asn1_unpack_value(ps, field, mem_pool, depth + 1,
-                                      value, copy));
+            RETHROW(
+                asn1_unpack_value(ps, field, mem_pool, depth + 1, value, copy)
+            );
         }
     }
 
     return 1;
 }
 
-
-static int
-asn1_unpack_seq_of_u_choice(pstream_t *ps, const asn1_field_t *choice_spec,
-                            mem_pool_t *mem_pool, int depth, void *st,
-                            bool copy)
+static int asn1_unpack_seq_of_u_choice(
+    pstream_t *ps, const asn1_field_t *choice_spec, mem_pool_t *mem_pool,
+    int depth, void *st, bool copy
+)
 {
     int len;
-    pstream_t temp_ps =  *ps;
+    pstream_t temp_ps = *ps;
     const asn1_choice_desc_t *choice_desc =
         container_of(choice_spec->u.comp, asn1_choice_desc_t, desc);
 
-    for (len = 0;
-         !ps_done(&temp_ps)
-      && asn1_find_choice(choice_desc, ps_peekc(temp_ps));
+    for (len = 0; !ps_done(&temp_ps) &&
+                  asn1_find_choice(choice_desc, ps_peekc(temp_ps));
          len++)
     {
         if (asn1_get_ber_field(&temp_ps, false, NULL) < 0) {
@@ -1421,44 +1488,47 @@ asn1_unpack_seq_of_u_choice(pstream_t *ps, const asn1_field_t *choice_spec,
             choice_st = GET_PTR(st, choice_spec, asn1_void_array_t)->data[i];
         } else {
             choice_st =
-                (char *)(GET_PTR(st, choice_spec, asn1_void_vector_t)->data)
-              + i * choice_spec->size;
+                (char *)(GET_PTR(st, choice_spec, asn1_void_vector_t)->data) +
+                i * choice_spec->size;
         }
 
         *(int *)choice_st = choice;
         e_trace_desc(1, "unpacking", &choice_desc->desc, choice, depth + 1);
-        RETHROW(asn1_unpack_value(ps, spec, mem_pool, depth,
-                                  GET_PTR(choice_st, spec, void *),
-                                  copy));
+        RETHROW(asn1_unpack_value(
+            ps, spec, mem_pool, depth, GET_PTR(choice_st, spec, void *), copy
+        ));
     }
 
     return 0;
 }
 
-static int
-asn1_unpack_untagged_choice(pstream_t *ps, const asn1_field_t *choice_spec,
-                            mem_pool_t *mem_pool, int depth, void *st,
-                            bool copy)
+static int asn1_unpack_untagged_choice(
+    pstream_t *ps, const asn1_field_t *choice_spec, mem_pool_t *mem_pool,
+    int depth, void *st, bool copy
+)
 {
     switch (choice_spec->mode) {
-      case ASN1_OBJ_MODE(MANDATORY):
-        if (!RETHROW(asn1_unpack_u_choice_val(ps, choice_spec, mem_pool,
-                                              depth, st, copy)))
+    case ASN1_OBJ_MODE(MANDATORY):
+        if (!RETHROW(asn1_unpack_u_choice_val(
+                ps, choice_spec, mem_pool, depth, st, copy
+            )))
         {
             e_trace(1, "mandatory untagged choice absent");
             return -1;
         }
         break;
-      case ASN1_OBJ_MODE(OPTIONAL):
-        if (!RETHROW(asn1_unpack_u_choice_val(ps, choice_spec, mem_pool,
-                                              depth, st, copy)))
+    case ASN1_OBJ_MODE(OPTIONAL):
+        if (!RETHROW(asn1_unpack_u_choice_val(
+                ps, choice_spec, mem_pool, depth, st, copy
+            )))
         {
             *GET_PTR(st, choice_spec, void *) = NULL;
         }
         break;
-      case ASN1_OBJ_MODE(SEQ_OF):
-        RETHROW(asn1_unpack_seq_of_u_choice(ps, choice_spec, mem_pool,
-                                            depth, st, copy));
+    case ASN1_OBJ_MODE(SEQ_OF):
+        RETHROW(asn1_unpack_seq_of_u_choice(
+            ps, choice_spec, mem_pool, depth, st, copy
+        ));
         break;
     }
 
@@ -1466,43 +1536,49 @@ asn1_unpack_untagged_choice(pstream_t *ps, const asn1_field_t *choice_spec,
 }
 /* }}} */
 
-static int asn1_unpack_sequence(pstream_t *ps, const asn1_desc_t *desc,
-                                mem_pool_t *mem_pool, int depth, void *st,
-                                bool copy, bool indef_len)
+static int asn1_unpack_sequence(
+    pstream_t *ps, const asn1_desc_t *desc, mem_pool_t *mem_pool, int depth,
+    void *st, bool copy, bool indef_len
+)
 {
     for (int i = 0; i < desc->fields.len; i++) {
         const asn1_field_t *spec = &desc->fields.tab[i];
 
         e_trace_desc(1, "unpacking", desc, i, depth);
 
-        assert (spec->tag_len == 1);
+        assert(spec->tag_len == 1);
 
         if (unlikely(spec->type == ASN1_OBJ_TYPE(UNTAGGED_CHOICE))) {
-            RETHROW(asn1_unpack_untagged_choice(ps, spec, mem_pool, depth,
-                                                st, copy));
+            RETHROW(asn1_unpack_untagged_choice(
+                ps, spec, mem_pool, depth, st, copy
+            ));
         } else {
-            RETHROW(asn1_unpack_field(ps, spec, mem_pool, depth, st, copy,
-                                      indef_len));
+            RETHROW(asn1_unpack_field(
+                ps, spec, mem_pool, depth, st, copy, indef_len
+            ));
         }
     }
 
     return 0;
 }
 
-static int asn1_unpack_rec(pstream_t *ps, const asn1_desc_t *desc,
-                           mem_pool_t *mem_pool, int depth, void *st,
-                           bool copy, bool indef_len)
+static int asn1_unpack_rec(
+    pstream_t *ps, const asn1_desc_t *desc, mem_pool_t *mem_pool, int depth,
+    void *st, bool copy, bool indef_len
+)
 {
     switch (desc->type) {
-      case ASN1_CSTD_TYPE_SEQUENCE:
-        RETHROW(asn1_unpack_sequence(ps, desc, mem_pool, depth, st, copy,
-                                     indef_len));
+    case ASN1_CSTD_TYPE_SEQUENCE:
+        RETHROW(asn1_unpack_sequence(
+            ps, desc, mem_pool, depth, st, copy, indef_len
+        ));
         break;
-      case ASN1_CSTD_TYPE_CHOICE:
-        RETHROW(asn1_unpack_choice(ps, desc, mem_pool, depth, st, copy,
-                                   indef_len));
+    case ASN1_CSTD_TYPE_CHOICE:
+        RETHROW(
+            asn1_unpack_choice(ps, desc, mem_pool, depth, st, copy, indef_len)
+        );
         break;
-      case ASN1_CSTD_TYPE_SET:
+    case ASN1_CSTD_TYPE_SET:
         e_panic("not supported yet");
         break;
     }
@@ -1516,8 +1592,10 @@ static int asn1_unpack_rec(pstream_t *ps, const asn1_desc_t *desc,
  *  \param[in]    Mem pool for unallocated content.
  *  \param[out]   Pointer on output struct.
  */
-int asn1_unpack_(pstream_t *ps, const asn1_desc_t *desc,
-                 mem_pool_t *mem_pool, void *st, bool copy)
+int asn1_unpack_(
+    pstream_t *ps, const asn1_desc_t *desc, mem_pool_t *mem_pool, void *st,
+    bool copy
+)
 {
     return asn1_unpack_rec(ps, desc, mem_pool, 0, st, copy, false);
 }
@@ -1525,99 +1603,122 @@ int asn1_unpack_(pstream_t *ps, const asn1_desc_t *desc,
 
 Z_GROUP_EXPORT(asn1_packer)
 {
-#define T(pfx, v, exp, txt) \
-    ({  Z_ASSERT_EQ(asn1_pack_##pfx(buf, v) - buf, ssizeof(exp), txt);    \
-        Z_ASSERT_EQUAL(buf, asn1_##pfx##_size(v), exp, sizeof(exp), txt); })
+#define T(pfx, v, exp, txt)                                                  \
+    ({                                                                       \
+        Z_ASSERT_EQ(asn1_pack_##pfx(buf, v) - buf, ssizeof(exp), txt);       \
+        Z_ASSERT_EQUAL(buf, asn1_##pfx##_size(v), exp, sizeof(exp), txt);    \
+    })
 
     Z_TEST(i64) {
         uint8_t buf[BUFSIZ];
 
-        int64_t i1     = 0xffffffffffffffffLL;
-        uint8_t exp1[] = { 0xff };
-        int64_t i2     = 0xffffffffffffffLL;
-        uint8_t exp2[] = { 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
-        int64_t i3     = 0x8000000000000000LL;
-        uint8_t exp3[] = { 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+        int64_t i1 = 0xffffffffffffffffLL;
+        uint8_t exp1[] = {0xff};
+        int64_t i2 = 0xffffffffffffffLL;
+        uint8_t exp2[] = {0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+        int64_t i3 = 0x8000000000000000LL;
+        uint8_t exp3[] = {0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
         T(int64, i1, exp1, "-1");
         T(int64, i2, exp2, "2^56 - 1");
         T(int64, i3, exp3, "-0");
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(i32) {
         uint8_t buf[BUFSIZ];
 
-        int32_t i1     = 255;
-        uint8_t exp1[] = { 0x00, 0xff };
-        int32_t i2     = -255;
-        uint8_t exp2[] = { 0xff, 0x01 };
-        int32_t i3     = (1 << 16) - 1;
-        uint8_t exp3[] = { 0x00, 0xff, 0xff };
-        int32_t i4     = 0xffffffff;
-        uint8_t exp4[] = { 0xff };
+        int32_t i1 = 255;
+        uint8_t exp1[] = {0x00, 0xff};
+        int32_t i2 = -255;
+        uint8_t exp2[] = {0xff, 0x01};
+        int32_t i3 = (1 << 16) - 1;
+        uint8_t exp3[] = {0x00, 0xff, 0xff};
+        int32_t i4 = 0xffffffff;
+        uint8_t exp4[] = {0xff};
 
         T(int32, i1, exp1, "255");
         T(int32, i2, exp2, "-255");
         T(int32, i3, exp3, "2^16 - 1");
         T(int32, i4, exp4, "-1");
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(u32) {
         uint8_t buf[BUFSIZ];
 
-        uint32_t u1     = 255;
-        uint8_t  exp1[] = { 0x00, 0xff };
-        uint32_t u2     = 256;
-        uint8_t  exp2[] = { 0x01, 0x00 };
-        uint32_t u3     = (1 << 16) - 1;
-        uint8_t  exp3[] = { 0x00, 0xff, 0xff };
-        uint32_t u4     = 0xffffffff;
-        uint8_t  exp4[] = { 0x00, 0xff, 0xff, 0xff, 0xff };
+        uint32_t u1 = 255;
+        uint8_t exp1[] = {0x00, 0xff};
+        uint32_t u2 = 256;
+        uint8_t exp2[] = {0x01, 0x00};
+        uint32_t u3 = (1 << 16) - 1;
+        uint8_t exp3[] = {0x00, 0xff, 0xff};
+        uint32_t u4 = 0xffffffff;
+        uint8_t exp4[] = {0x00, 0xff, 0xff, 0xff, 0xff};
 
         T(uint32, u1, exp1, "255");
         T(uint32, u2, exp2, "256");
         T(uint32, u3, exp3, "2^16 - 1");
         T(uint32, u4, exp4, "MAX UINT32");
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(u64) {
         uint8_t buf[BUFSIZ];
 
-        uint64_t u1     = 0xffffffffffffffffULL;
-        uint8_t  exp1[] = { 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
-        uint64_t u2     = 0xffffffffffffffULL;
-        uint8_t  exp2[] = { 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
-        uint64_t u3     = 0x8000000000000000ULL;
-        uint8_t  exp3[] = { 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+        uint64_t u1 = 0xffffffffffffffffULL;
+        uint8_t exp1[] = {0x00, 0xff, 0xff, 0xff, 0xff,
+                          0xff, 0xff, 0xff, 0xff};
+        uint64_t u2 = 0xffffffffffffffULL;
+        uint8_t exp2[] = {0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+        uint64_t u3 = 0x8000000000000000ULL;
+        uint8_t exp3[] = {0x00, 0x80, 0x00, 0x00, 0x00,
+                          0x00, 0x00, 0x00, 0x00};
 
         T(uint64, u1, exp1, "MAX UINT64");
         T(uint64, u2, exp2, "2^56 - 1");
         T(uint64, u3, exp3, "2^63");
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
 #undef T
 
     Z_TEST(len) {
         uint8_t buf[BUFSIZ];
 
-        int32_t const l1     = 127;
-        uint8_t exp1[] = { 0x7f };
-        int32_t const l2     = 128;
-        uint8_t exp2[] = { 0x81, 0x80 };
+        int32_t const l1 = 127;
+        uint8_t exp1[] = {0x7f};
+        int32_t const l2 = 128;
+        uint8_t exp2[] = {0x81, 0x80};
 
-        Z_ASSERT_EQUAL(buf, asn1_pack_len(buf, l1) - buf, exp1, ssizeof(exp1));
-        Z_ASSERT_EQUAL(buf, asn1_pack_len(buf, l2) - buf, exp2, ssizeof(exp2));
-    } Z_TEST_END;
-} Z_GROUP_END;
+        Z_ASSERT_EQUAL(
+            buf, asn1_pack_len(buf, l1) - buf, exp1, ssizeof(exp1)
+        );
+        Z_ASSERT_EQUAL(
+            buf, asn1_pack_len(buf, l2) - buf, exp2, ssizeof(exp2)
+        );
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END;
 
 Z_GROUP_EXPORT(asn1_unpacker)
 {
     Z_TEST(skip_ber_tag) {
         pstream_t ps;
 
-        byte const tag_length1[] = { 0x56, };
-        byte const tag_length2[] = { 0xbf, 0x1f, };
-        byte const tag_length3[] = { 0xbf, 0x81, 0x1f, };
+        byte const tag_length1[] = {
+            0x56,
+        };
+        byte const tag_length2[] = {
+            0xbf,
+            0x1f,
+        };
+        byte const tag_length3[] = {
+            0xbf,
+            0x81,
+            0x1f,
+        };
 
         ps = ps_init(tag_length1, sizeof(tag_length1));
         Z_ASSERT_N(asn1_skip_ber_tag(&ps));
@@ -1638,5 +1739,7 @@ Z_GROUP_EXPORT(asn1_unpacker)
         /* Check truncated tag */
         ps = ps_init(tag_length3, sizeof(tag_length3) - 1);
         Z_ASSERT_NEG(asn1_skip_ber_tag(&ps));
-    } Z_TEST_END;
-} Z_GROUP_END;
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END;

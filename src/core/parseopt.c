@@ -25,7 +25,7 @@
 
 typedef struct popt_state_t {
     int flags;
-    char * const * pending_argv;
+    char *const *pending_argv;
     int pending_argc;
     char **left_argv;
     int left_argc;
@@ -46,8 +46,10 @@ opt_state_init(popt_state_t *st, int argc, char **argv, int flags)
 
 static inline int opt_state_end(popt_state_t *st)
 {
-    memmove(st->left_argv + st->left_argc, st->pending_argv,
-            st->pending_argc * sizeof(*st->pending_argv));
+    memmove(
+        st->left_argv + st->left_argc, st->pending_argv,
+        st->pending_argc * sizeof(*st->pending_argv)
+    );
     return st->left_argc + st->pending_argc;
 }
 
@@ -71,8 +73,7 @@ static int opterror(popt_t *opt, const char *reason, int flags)
 {
     if (flags & FLAG_SHORT) {
         e_error("option `%c' %s", opt->shrt, reason);
-    } else
-    if (flags & FLAG_UNSET) {
+    } else if (flags & FLAG_UNSET) {
         e_error("option `no-%s' %s", opt->lng, reason);
     } else {
         e_error("option `%s' %s", opt->lng, reason);
@@ -83,7 +84,8 @@ static int opterror(popt_t *opt, const char *reason, int flags)
 static int put_int_value(popt_t *opt, uint64_t v)
 {
     switch (opt->int_vsize) {
-#define CASE(_sc) case _sc / 8:                                              \
+#define CASE(_sc)                                                            \
+    case _sc / 8:                                                            \
         if (opt->kind == OPTION_UINT) {                                      \
             if (v <= UINT##_sc##_MAX) {                                      \
                 *(uint##_sc##_t *)opt->value = v;                            \
@@ -107,7 +109,8 @@ static int put_int_value(popt_t *opt, uint64_t v)
 
 #undef CASE
 
-      default: e_panic("should not happen");
+    default:
+        e_panic("should not happen");
     }
 
     return 0;
@@ -122,14 +125,14 @@ static int get_value(popt_state_t *st, popt_t *opt, int flags)
     switch (opt->kind) {
         const char *s;
 
-      case OPTION_FLAG:
+    case OPTION_FLAG:
         if (!(flags & FLAG_SHORT) && st->p) {
             return opterror(opt, "takes no value", flags);
         }
         put_int_value(opt, !(flags & FLAG_UNSET));
         return 0;
 
-      case OPTION_STR:
+    case OPTION_STR:
         if (flags & FLAG_UNSET) {
             *(const char **)opt->value = (const char *)opt->init;
         } else {
@@ -140,7 +143,7 @@ static int get_value(popt_state_t *st, popt_t *opt, int flags)
         }
         return 0;
 
-      case OPTION_CHAR:
+    case OPTION_CHAR:
         if (flags & FLAG_UNSET) {
             *(char *)opt->value = (char)opt->init;
         } else {
@@ -156,48 +159,47 @@ static int get_value(popt_state_t *st, popt_t *opt, int flags)
         }
         return 0;
 
-      case OPTION_INT:
-      case OPTION_UINT:
-      {
-          uint64_t v;
+    case OPTION_INT:
+    case OPTION_UINT: {
+        uint64_t v;
 
-          if (flags & FLAG_UNSET) {
-              v = opt->init;
-          } else {
-              if (!st->p && st->pending_argc < 2) {
-                  return opterror(opt, "requires a value", flags);
-              }
+        if (flags & FLAG_UNSET) {
+            v = opt->init;
+        } else {
+            if (!st->p && st->pending_argc < 2) {
+                return opterror(opt, "requires a value", flags);
+            }
 
-              errno = 0;
-              if (opt->kind == OPTION_UINT) {
-                  lstr_t value = lstr_ltrim(LSTR(opt_arg(st)));
+            errno = 0;
+            if (opt->kind == OPTION_UINT) {
+                lstr_t value = lstr_ltrim(LSTR(opt_arg(st)));
 
-                  if (lstr_startswithc(value, '-')) {
-                      /* -0 will return an error. */
-                      return opterror(opt, "expects a positive value", flags);
-                  }
-                  v = strtoull(value.s, &s, 10);
-              } else {
-                  v = strtoll(opt_arg(st), &s, 10);
-              }
-              if (*s || (errno && errno != ERANGE)) {
-                  return opterror(opt, "expects a numerical value", flags);
-              }
-          }
+                if (lstr_startswithc(value, '-')) {
+                    /* -0 will return an error. */
+                    return opterror(opt, "expects a positive value", flags);
+                }
+                v = strtoull(value.s, &s, 10);
+            } else {
+                v = strtoll(opt_arg(st), &s, 10);
+            }
+            if (*s || (errno && errno != ERANGE)) {
+                return opterror(opt, "expects a numerical value", flags);
+            }
+        }
 
-          if (errno == ERANGE || put_int_value(opt, v) < 0) {
-              return opterror(opt, "integer overflow", flags);
-          }
-      }
-      return 0;
+        if (errno == ERANGE || put_int_value(opt, v) < 0) {
+            return opterror(opt, "integer overflow", flags);
+        }
+    }
+        return 0;
 
-      case OPTION_VERSION:
+    case OPTION_VERSION:
         if (flags & FLAG_UNSET) {
             return opterror(opt, "takes no value", flags);
         }
         makeversion(EX_OK, opt->value, (void *)opt->init);
 
-      default:
+    default:
         e_panic("should not happen, programmer is a moron");
     }
 }
@@ -273,8 +275,10 @@ static int parse_long_opt(popt_state_t *st, char *arg, popt_t *opts)
     }
 }
 
-static int parse_param(const char *arg, const char *param_name,
-                       enum popt_kind kind, size_t int_vsize, void *val)
+static int parse_param(
+    const char *arg, const char *param_name, enum popt_kind kind,
+    size_t int_vsize, void *val
+)
 {
     popt_t opt;
     popt_state_t optst;
@@ -304,7 +308,8 @@ int parseopt_getu(const char *arg, const char *param_name, unsigned *val)
 static intptr_t get_int_init(popt_t *opt)
 {
     switch (opt->int_vsize) {
-#define CASE(_sc) case _sc / 8:                                              \
+#define CASE(_sc)                                                            \
+    case _sc / 8:                                                            \
         if (opt->kind == OPTION_UINT) {                                      \
             return *(uint##_sc##_t *)opt->value;                             \
         } else {                                                             \
@@ -319,7 +324,8 @@ static intptr_t get_int_init(popt_t *opt)
 
 #undef CASE
 
-      default: e_panic("should not happen");
+    default:
+        e_panic("should not happen");
     }
 
     return 0;
@@ -329,21 +335,21 @@ static void copyinits(popt_t *opts)
 {
     for (;;) {
         switch (opts->kind) {
-          case OPTION_INT:
-          case OPTION_UINT:
+        case OPTION_INT:
+        case OPTION_UINT:
             opts->init = get_int_init(opts);
             break;
-          case OPTION_STR:
+        case OPTION_STR:
             opts->init = (intptr_t)*(const char **)opts->value;
             break;
-          case OPTION_CHAR:
+        case OPTION_CHAR:
             opts->init = *(char *)opts->value;
             break;
-          case OPTION_FLAG:
-          case OPTION_GROUP:
-          case OPTION_VERSION:
+        case OPTION_FLAG:
+        case OPTION_GROUP:
+        case OPTION_VERSION:
             break;
-          case OPTION_END:
+        case OPTION_END:
             return;
         }
         opts++;
@@ -386,10 +392,12 @@ int parseopt(int argc, char **argv, popt_t *opts, int flags)
 }
 
 #define OPTS_WIDTH 20
-#define OPTS_GAP    2
+#define OPTS_GAP 2
 
-void makeusage(int ret, const char *arg0, const char *usage,
-               const char * const text[], popt_t *opts)
+void makeusage(
+    int ret, const char *arg0, const char *usage, const char *const text[],
+    popt_t *opts
+)
 {
     const char *p = strrchr(arg0, '/');
 
@@ -400,16 +408,18 @@ void makeusage(int ret, const char *arg0, const char *usage,
             printf("    %s\n", *text++);
         }
     }
-    if (opts->kind != OPTION_GROUP)
+    if (opts->kind != OPTION_GROUP) {
         putchar('\n');
+    }
     for (; opts->kind; opts++) {
         int pos = 4;
         pstream_t help;
 
         if (opts->kind == OPTION_GROUP) {
             putchar('\n');
-            if (*opts->help)
+            if (*opts->help) {
                 printf("%s\n", opts->help);
+            }
             continue;
         }
         printf("    ");
@@ -432,12 +442,15 @@ void makeusage(int ret, const char *arg0, const char *usage,
                 help = ps_init(NULL, 0);
             }
             if (pos <= OPTS_WIDTH) {
-                printf("%*s%*pM", OPTS_WIDTH + OPTS_GAP - pos, "",
-                       PS_FMT_ARG(&line));
+                printf(
+                    "%*s%*pM", OPTS_WIDTH + OPTS_GAP - pos, "",
+                    PS_FMT_ARG(&line)
+                );
                 pos = OPTS_WIDTH + 1;
             } else {
-                printf("\n%*s%*pM", OPTS_WIDTH + OPTS_GAP, "",
-                       PS_FMT_ARG(&line));
+                printf(
+                    "\n%*s%*pM", OPTS_WIDTH + OPTS_GAP, "", PS_FMT_ARG(&line)
+                );
             }
         }
         printf("\n");
@@ -448,9 +461,11 @@ void makeusage(int ret, const char *arg0, const char *usage,
 void makeversion(int ret, const char *name, const char *(*get_version)(void))
 {
     if (name && get_version) {
-        printf("Intersec %s\n"
-               "Revision: %s\n",
-               name, (*get_version)());
+        printf(
+            "Intersec %s\n"
+            "Revision: %s\n",
+            name, (*get_version)()
+        );
     } else {
         int main_versions_printed = 0;
 
@@ -458,10 +473,11 @@ void makeversion(int ret, const char *name, const char *(*get_version)(void))
             const core_version_t *version = &core_versions_g[i];
 
             if (version->is_main_version) {
-                printf("Intersec %s %s\n"
-                       "Revision: %s\n",
-                       version->name, version->version,
-                       version->git_revision);
+                printf(
+                    "Intersec %s %s\n"
+                    "Revision: %s\n",
+                    version->name, version->version, version->git_revision
+                );
                 main_versions_printed++;
             }
         }
@@ -472,9 +488,10 @@ void makeversion(int ret, const char *name, const char *(*get_version)(void))
             const core_version_t *version = &core_versions_g[i];
 
             if (!version->is_main_version) {
-                printf("%s %s (%s)\n",
-                       version->name, version->version,
-                       version->git_revision);
+                printf(
+                    "%s %s (%s)\n", version->name, version->version,
+                    version->git_revision
+                );
             }
         }
 
@@ -488,14 +505,17 @@ void makeversion(int ret, const char *name, const char *(*get_version)(void))
         }
     }
 
-    printf("\n"
-           "See http://www.intersec.com/ for more details about our\n"
-           "line of products for telecommunications operators\n");
+    printf(
+        "\n"
+        "See http://www.intersec.com/ for more details about our\n"
+        "line of products for telecommunications operators\n"
+    );
     exit(ret);
 }
 
-void opt_vec_extend(qv_t(popt) *nonnull vec,
-                    const popt_t *nonnull opts, int len)
+void opt_vec_extend(
+    qv_t(popt) *nonnull vec, const popt_t *nonnull opts, int len
+)
 {
     /* Get rid of the terminating OPT_END() if any. */
     if (vec->len && tab_last(vec)->kind == OPTION_END) {

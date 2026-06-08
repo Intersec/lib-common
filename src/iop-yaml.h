@@ -48,13 +48,12 @@ typedef struct iop_env_ctx_t iop_env_ctx_t;
  * \param[out] err         If the unpacking fails, this pointer is set to a
  *                         description of the error, allocated on the t_scope.
  */
-__must_check__
-int t_iop_yunpack_ps(
-    const iop_env_ctx_t * nonnull iop_env_ctx, pstream_t * nonnull ps,
-    const iop_struct_t * nonnull st,
-    void * nonnull out, unsigned flags,
+__must_check__ int t_iop_yunpack_ps(
+    const iop_env_ctx_t *nonnull iop_env_ctx, pstream_t *nonnull ps,
+    const iop_struct_t *nonnull st, void *nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
-    sb_t * nonnull out_err);
+    sb_t *nonnull out_err
+);
 
 /** Convert IOP-YAML to an IOP C structure using the t_pool().
  *
@@ -65,40 +64,33 @@ int t_iop_yunpack_ps(
  * because the size of a class is not known before unpacking it (this could be
  * a child).
  */
-__must_check__
-int t_iop_yunpack_ptr_ps(
-    const iop_env_ctx_t * nonnull iop_env_ctx, pstream_t * nonnull ps,
-    const iop_struct_t * nonnull st,
-    void * nullable * nonnull out, unsigned flags,
-    yaml__document_presentation__t * nonnull * nullable pres,
-    sb_t * nonnull out_err
+__must_check__ int t_iop_yunpack_ptr_ps(
+    const iop_env_ctx_t *nonnull iop_env_ctx, pstream_t *nonnull ps,
+    const iop_struct_t *nonnull st, void *nullable *nonnull out,
+    unsigned flags, yaml__document_presentation__t * nonnull * nullable pres,
+    sb_t *nonnull out_err
 );
 
 /** Convert a YAML file into an IOP C structure using the t_pool().
  *
  * See t_iop_junpack_ps.
  */
-__must_check__
-int t_iop_yunpack_file(
-    const iop_env_ctx_t * nonnull iop_env_ctx, const char * nonnull filename,
-    const iop_struct_t * nonnull st,
-    void * nonnull out, unsigned flags,
+__must_check__ int t_iop_yunpack_file(
+    const iop_env_ctx_t *nonnull iop_env_ctx, const char *nonnull filename,
+    const iop_struct_t *nonnull st, void *nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
-    sb_t * nonnull out_err
+    sb_t *nonnull out_err
 );
 
 /** Convert a YAML file into an IOP C structure using the t_pool().
  *
  * See t_iop_junpack_ptr_ps.
  */
-__must_check__
-int
-t_iop_yunpack_ptr_file(
-    const iop_env_ctx_t * nonnull iop_env_ctx, const char * nonnull filename,
-    const iop_struct_t * nonnull st,
-    void * nullable * nonnull out, unsigned flags,
-    yaml__document_presentation__t * nonnull * nullable pres,
-    sb_t * nonnull out_err
+__must_check__ int t_iop_yunpack_ptr_file(
+    const iop_env_ctx_t *nonnull iop_env_ctx, const char *nonnull filename,
+    const iop_struct_t *nonnull st, void *nullable *nonnull out,
+    unsigned flags, yaml__document_presentation__t * nonnull * nullable pres,
+    sb_t *nonnull out_err
 );
 
 /** Convert a YAML data into an IOP C structure using the t_pool().
@@ -107,25 +99,21 @@ t_iop_yunpack_ptr_file(
  * that is not the case, you should use the others t_iop_yunpack functions
  * instead.
  */
-__must_check__
-int
-t_iop_yunpack_yaml_data(const iop_env_ctx_t * nonnull iop_env_ctx,
-                        const yaml_data_t * nonnull data,
-                        const iop_struct_t * nonnull st,
-                        void * nonnull out, unsigned flags,
-                        sb_t * nonnull out_err);
+__must_check__ int t_iop_yunpack_yaml_data(
+    const iop_env_ctx_t *nonnull iop_env_ctx, const yaml_data_t *nonnull data,
+    const iop_struct_t *nonnull st, void *nonnull out, unsigned flags,
+    sb_t *nonnull out_err
+);
 
 /** Convert a YAML data into an IOP C structure using the t_pool().
  *
  * See t_iop_yunpack_yaml_data.
  */
-__must_check__
-int
-t_iop_yunpack_ptr_yaml_data(const iop_env_ctx_t * nonnull iop_env_ctx,
-                            const yaml_data_t * nonnull data,
-                            const iop_struct_t * nonnull st,
-                            void * nullable * nonnull out, unsigned flags,
-                            sb_t * nonnull out_err);
+__must_check__ int t_iop_yunpack_ptr_yaml_data(
+    const iop_env_ctx_t *nonnull iop_env_ctx, const yaml_data_t *nonnull data,
+    const iop_struct_t *nonnull st, void *nullable *nonnull out,
+    unsigned flags, sb_t *nonnull out_err
+);
 
 /* }}} */
 /* {{{ Generating YAML */
@@ -136,9 +124,9 @@ t_iop_yunpack_ptr_yaml_data(const iop_env_ctx_t * nonnull iop_env_ctx,
  * *DO NOT USE THIS*. Use iop_ypack instead.
  */
 void t_iop_sb_ypack_with_flags(
-    sb_t * nonnull sb, const iop_struct_t * nonnull st,
-    const void * nonnull value,
-    const yaml__document_presentation__t * nullable pres, unsigned flags
+    sb_t *nonnull sb, const iop_struct_t *nonnull st,
+    const void *nonnull value,
+    const yaml__document_presentation__t *nullable pres, unsigned flags
 );
 
 /** Pack an IOP C structure to IOP-YAML in a sb_t.
@@ -147,9 +135,11 @@ void t_iop_sb_ypack_with_flags(
  */
 /* XXX: this is t_ function as the sb may be t_ allocated, and this would
  * prevent declaring a new t_scope inside the function, which we need. */
-void t_iop_sb_ypack(sb_t * nonnull sb, const iop_struct_t * nonnull st,
-                    const void * nonnull value,
-                    const yaml__document_presentation__t * nullable pres);
+void t_iop_sb_ypack(
+    sb_t *nonnull sb, const iop_struct_t *nonnull st,
+    const void *nonnull value,
+    const yaml__document_presentation__t *nullable pres
+);
 
 /** Pack an IOP C structure in an IOP-YAML file.
  *
@@ -164,10 +154,11 @@ void t_iop_sb_ypack(sb_t * nonnull sb, const iop_struct_t * nonnull st,
  * \param[out] err        Buffer filled in case of error.
  */
 int iop_ypack_file(
-    const char * nonnull filename, mode_t file_mode,
-    const iop_struct_t * nonnull st, const void * nonnull value,
-    const yaml__document_presentation__t * nullable presentation,
-    sb_t * nonnull err);
+    const char *nonnull filename, mode_t file_mode,
+    const iop_struct_t *nonnull st, const void *nonnull value,
+    const yaml__document_presentation__t *nullable presentation,
+    sb_t *nonnull err
+);
 
 #define iop_ypack_file(filename, st, value, presentation, err)               \
     (iop_ypack_file)((filename), 0644, (st), (value), (presentation), (err))
@@ -180,15 +171,17 @@ int iop_ypack_file(
  * responsibility for whichever subset it picks here.
  */
 int iop_ypack_file_with_flags(
-    const char * nonnull filename, mode_t file_mode,
-    const iop_struct_t * nonnull st, const void * nonnull value,
-    const yaml__document_presentation__t * nullable presentation,
-    unsigned flags, sb_t * nonnull err);
+    const char *nonnull filename, mode_t file_mode,
+    const iop_struct_t *nonnull st, const void *nonnull value,
+    const yaml__document_presentation__t *nullable presentation,
+    unsigned flags, sb_t *nonnull err
+);
 
 /** Convert an IOP C structure into a YAML data AST. */
-void
-t_iop_to_yaml_data(const iop_struct_t * nonnull desc,
-                   const void * nonnull value, yaml_data_t * nonnull data);
+void t_iop_to_yaml_data(
+    const iop_struct_t *nonnull desc, const void *nonnull value,
+    yaml_data_t *nonnull data
+);
 
 /* }}} */
 /* {{{ Various helpers */
@@ -204,12 +197,10 @@ t_iop_to_yaml_data(const iop_struct_t * nonnull desc,
  * provided with \p st, the generated presentation will use proper includes:
  *   includeraw for strings, and include for the rest.
  */
-yaml__document_presentation__t *
-t_build_yaml_pres_from_json_subfiles(
-    const iop_env_ctx_t * nonnull iop_env_ctx,
-    const iop_json_subfile__array_t * nonnull subfiles,
-    const iop_struct_t * nullable st,
-    const void * nullable value
+yaml__document_presentation__t *t_build_yaml_pres_from_json_subfiles(
+    const iop_env_ctx_t *nonnull iop_env_ctx,
+    const iop_json_subfile__array_t *nonnull subfiles,
+    const iop_struct_t *nullable st, const void *nullable value
 );
 
 /** Extract the list of subfiles from a YAML presentation.
@@ -220,8 +211,9 @@ t_build_yaml_pres_from_json_subfiles(
  * \param[in]  pres      The YAML presentation.
  * \param[out] subfiles  The list of subfiles.
  */
-void t_yaml_pres_get_flat_subfiles(const yaml__document_presentation__t *pres,
-                                   qv_t(lstr) *subfiles);
+void t_yaml_pres_get_flat_subfiles(
+    const yaml__document_presentation__t *pres, qv_t(lstr) *subfiles
+);
 
 /* }}} */
 

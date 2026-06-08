@@ -31,16 +31,17 @@ static struct {
     bool help;
 } opts_g;
 
-static int yaml_pack_write_stdout(void * nullable priv,
-                                  const void * nonnull buf, int len,
-                                  sb_t *err)
+static int yaml_pack_write_stdout(
+    void *nullable priv, const void *nonnull buf, int len, sb_t *err
+)
 {
     return printf("%.*s", len, (const char *)buf);
 }
 
-static const iop_struct_t * nullable
-get_iop_type(const iop_env_ctx_t * nonnull iop_env_ctx, const lstr_t name,
-             sb_t * nonnull err)
+static const iop_struct_t *nullable get_iop_type(
+    const iop_env_ctx_t *nonnull iop_env_ctx, const lstr_t name,
+    sb_t *nonnull err
+)
 {
     const iop_struct_t *st;
 
@@ -62,9 +63,9 @@ static void delete_input_file(const char *filename)
     }
 }
 
-static qh_t(lstr) *
-t_get_repacked_yaml_pres_subfiles(const char *main_file,
-                                  const yaml__document_presentation__t *pres)
+static qh_t(lstr) *t_get_repacked_yaml_pres_subfiles(
+    const char *main_file, const yaml__document_presentation__t *pres
+)
 {
     qv_t(lstr) yaml_subfiles;
     qh_t(lstr) *res = t_qh_new(lstr, 16);
@@ -83,8 +84,9 @@ t_get_repacked_yaml_pres_subfiles(const char *main_file,
             char subfile_path[PATH_MAX];
             lstr_t subfile_lstr;
 
-            path_extend(subfile_path, main_file_dir, "%*pM",
-                        LSTR_FMT_ARG(subfile));
+            path_extend(
+                subfile_path, main_file_dir, "%*pM", LSTR_FMT_ARG(subfile)
+            );
             path_simplify(subfile_path);
 
             subfile_lstr = t_lstr_dups(subfile_path, -1);
@@ -95,17 +97,20 @@ t_get_repacked_yaml_pres_subfiles(const char *main_file,
     return res;
 }
 
-static int
-t_parse_yaml(yaml_parse_t *env, const iop_env_ctx_t * nonnull iop_env_ctx,
-             const iop_struct_t * nullable st,
-             yaml_data_t * nonnull data, sb_t * nonnull err)
+static int t_parse_yaml(
+    yaml_parse_t *env, const iop_env_ctx_t *nonnull iop_env_ctx,
+    const iop_struct_t *nullable st, yaml_data_t *nonnull data,
+    sb_t *nonnull err
+)
 {
     RETHROW(t_yaml_parse(env, data, err));
 
     if (!st) {
         if (!data->tag.s) {
-            sb_setf(err, "document should start with a tag equals to the "
-                    "fullname of the IOP type serialized");
+            sb_setf(
+                err, "document should start with a tag equals to the "
+                     "fullname of the IOP type serialized"
+            );
             return -1;
         }
         st = RETHROW_PN(get_iop_type(iop_env_ctx, data->tag, err));
@@ -114,17 +119,18 @@ t_parse_yaml(yaml_parse_t *env, const iop_env_ctx_t * nonnull iop_env_ctx,
     if (st) {
         void *out = NULL;
 
-        RETHROW(t_iop_yunpack_ptr_yaml_data(iop_env_ctx, data, st, &out, 0,
-                                            err));
+        RETHROW(
+            t_iop_yunpack_ptr_yaml_data(iop_env_ctx, data, st, &out, 0, err)
+        );
     }
 
     return 0;
 }
 
-static int
-pack_yaml(yaml_data_t * nonnull data,
-          const yaml__document_presentation__t * nullable pres,
-          sb_t * nonnull err)
+static int pack_yaml(
+    yaml_data_t *nonnull data,
+    const yaml__document_presentation__t *nullable pres, sb_t *nonnull err
+)
 {
     t_scope;
     yaml_pack_env_t *pack_env;
@@ -139,8 +145,7 @@ pack_yaml(yaml_data_t * nonnull data,
 
         iop_init(yaml__document_presentation, &empty_pres);
         t_yaml_pack_env_set_presentation(pack_env, &empty_pres);
-    } else
-    if (pres) {
+    } else if (pres) {
         t_yaml_pack_env_set_presentation(pack_env, pres);
     }
 
@@ -157,11 +162,11 @@ pack_yaml(yaml_data_t * nonnull data,
     return res;
 }
 
-static int
-repack_yaml(const iop_env_ctx_t * nonnull iop_env_ctx,
-            const char * nullable filename,
-            const iop_dso_t * nullable dso, const iop_struct_t * nullable st,
-            sb_t * nonnull err)
+static int repack_yaml(
+    const iop_env_ctx_t *nonnull iop_env_ctx, const char *nullable filename,
+    const iop_dso_t *nullable dso, const iop_struct_t *nullable st,
+    sb_t *nonnull err
+)
 {
     t_scope;
     yaml_parse_t *env;
@@ -197,16 +202,16 @@ repack_yaml(const iop_env_ctx_t * nonnull iop_env_ctx,
 
     res = pack_yaml(&data, NULL, err);
 
-  end:
+end:
     lstr_wipe(&file);
     yaml_parse_delete(&env);
     return res;
 }
 
-static int
-repack_json(const iop_env_ctx_t * nonnull iop_env_ctx,
-            const char * nullable filename,
-            const iop_struct_t * nonnull st, sb_t * nonnull err)
+static int repack_json(
+    const iop_env_ctx_t *nonnull iop_env_ctx, const char *nullable filename,
+    const iop_struct_t *nonnull st, sb_t *nonnull err
+)
 {
     t_scope;
     lstr_t file = LSTR_NULL_V;
@@ -221,8 +226,9 @@ repack_json(const iop_env_ctx_t * nonnull iop_env_ctx,
 
     /* Unpack json */
     if (filename) {
-        RETHROW(t_iop_junpack_ptr_file(iop_env_ctx, filename, st, &value, 0,
-                                       &subfiles, err));
+        RETHROW(t_iop_junpack_ptr_file(
+            iop_env_ctx, filename, st, &value, 0, &subfiles, err
+        ));
     } else {
         pstream_t ps;
 
@@ -240,8 +246,9 @@ repack_json(const iop_env_ctx_t * nonnull iop_env_ctx,
 
     /* Pack yaml */
     subfiles_array = IOP_TYPED_ARRAY_TAB(iop_json_subfile, &subfiles);
-    pres = t_build_yaml_pres_from_json_subfiles(iop_env_ctx, &subfiles_array,
-                                                st, value);
+    pres = t_build_yaml_pres_from_json_subfiles(
+        iop_env_ctx, &subfiles_array, st, value
+    );
 
     t_iop_to_yaml_data(st, value, &data);
     res = pack_yaml(&data, pres, err);
@@ -255,8 +262,8 @@ repack_json(const iop_env_ctx_t * nonnull iop_env_ctx,
         qh_t(lstr) *yaml_subfiles;
 
         path_dirname(json_dir, sizeof(json_dir), filename);
-        yaml_subfiles = t_get_repacked_yaml_pres_subfiles(opts_g.output_path,
-                                                          pres);
+        yaml_subfiles =
+            t_get_repacked_yaml_pres_subfiles(opts_g.output_path, pres);
 
         /* Delete the main json file */
         delete_input_file(filename);
@@ -267,8 +274,10 @@ repack_json(const iop_env_ctx_t * nonnull iop_env_ctx,
             char subfile_path[PATH_MAX];
             lstr_t subfile_lstr;
 
-            snprintf(subfile_path, sizeof(subfile_path), "%s/%*pM",
-                     json_dir, LSTR_FMT_ARG(subfile->file_path));
+            snprintf(
+                subfile_path, sizeof(subfile_path), "%s/%*pM", json_dir,
+                LSTR_FMT_ARG(subfile->file_path)
+            );
             path_simplify(subfile_path);
 
             subfile_lstr = LSTR(subfile_path);
@@ -278,22 +287,23 @@ repack_json(const iop_env_ctx_t * nonnull iop_env_ctx,
         }
     }
 
-  end:
+end:
     lstr_wipe(&file);
     return res;
 }
 
-static int
-parse_and_repack(const iop_env_t * nonnull iop_env,
-                 const char * nullable filename,
-                 const iop_dso_t * nullable dso, sb_t * nonnull err)
+static int parse_and_repack(
+    const iop_env_t *nonnull iop_env, const char *nullable filename,
+    const iop_dso_t *nullable dso, sb_t *nonnull err
+)
 {
     iop_env_ctx_scope(iop_env, iop_env_ctx);
     const iop_struct_t *st = NULL;
 
     if (opts_g.type_name) {
-        st = RETHROW_PN(get_iop_type(iop_env_ctx, LSTR(opts_g.type_name),
-                                     err));
+        st = RETHROW_PN(
+            get_iop_type(iop_env_ctx, LSTR(opts_g.type_name), err)
+        );
     }
 
     if (opts_g.json_input) {
@@ -343,7 +353,8 @@ static const char *description[] = {
     "# Convert an IOP-JSON input into a YAML document, and output it and ",
     "# all the included subfiles in a new directory, deleting the input ",
     "# file (and included subfiles)",
-    "$ yamlfmt -d iop.so -t pkg.MyStruct -j input.json --delete -o out/doc.yml",
+    "$ yamlfmt -d iop.so -t pkg.MyStruct -j input.json --delete -o "
+    "out/doc.yml",
     "",
     "# Output the raw AST of a YAML document",
     "$ yamlfmt --raw doc.yml",
@@ -362,12 +373,17 @@ int main(int argc, char **argv)
         OPT_STR('d', "dso", &opts_g.dso_path, "Path to IOP dso file"),
         OPT_FLAG('j', "json", &opts_g.json_input, "Unpack the input as JSON"),
         OPT_STR('t', "type", &opts_g.type_name, "Name of the IOP type"),
-        OPT_STR('o', "output", &opts_g.output_path,
-                "Path to the output file"),
-        OPT_FLAG('r', "raw", &opts_g.raw_mode,
-                 "Format without any presentation details."),
-        OPT_FLAG(0, "delete", &opts_g.delete_input_files,
-                 "Delete input files (if in JSON format only)."),
+        OPT_STR(
+            'o', "output", &opts_g.output_path, "Path to the output file"
+        ),
+        OPT_FLAG(
+            'r', "raw", &opts_g.raw_mode,
+            "Format without any presentation details."
+        ),
+        OPT_FLAG(
+            0, "delete", &opts_g.delete_input_files,
+            "Delete input files (if in JSON format only)."
+        ),
         OPT_END(),
     };
     SB_1k(err);
@@ -393,8 +409,9 @@ int main(int argc, char **argv)
     if (opts_g.dso_path) {
         dso = iop_dso_open(iop_env, opts_g.dso_path, &err);
         if (!dso) {
-            fprintf(stderr, "cannot open dso `%s`: %pL\n", opts_g.dso_path,
-                    &err);
+            fprintf(
+                stderr, "cannot open dso `%s`: %pL\n", opts_g.dso_path, &err
+            );
             ret = EXIT_FAILURE;
             goto end;
         }

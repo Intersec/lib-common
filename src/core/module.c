@@ -56,14 +56,14 @@ static void module_method_register_all_cb(void);
 /* {{{ modules */
 
 typedef enum module_state_t {
-    REGISTERED   = 0,
+    REGISTERED = 0,
 
-    AUTO_REQ     = 1 << 0, /* Initialized automatically */
-    MANU_REQ     = 1 << 1, /* Initialized manually */
+    AUTO_REQ = 1 << 0, /* Initialized automatically */
+    MANU_REQ = 1 << 1, /* Initialized manually */
 
     INITIALIZING = 1 << 2, /* In initialization */
-    SHUTTING     = 1 << 3, /* Shutting down */
-    FAIL_SHUT    = 1 << 4, /* Fail to shutdown */
+    SHUTTING = 1 << 3,     /* Shutting down */
+    FAIL_SHUT = 1 << 4,    /* Fail to shutdown */
 } module_state_t;
 
 qvector_t(module, module_t *);
@@ -98,7 +98,6 @@ static void module_wipe(module_t *module)
 }
 GENERIC_DELETE(module_t, module);
 
-
 qm_kptr_t(module, lstr_t, module_t *, qhash_lstr_hash, qhash_lstr_equal);
 qh_khptr_t(module, module_t);
 
@@ -107,14 +106,14 @@ qh_khptr_t(module, module_t);
 
 static struct module_g {
     logger_t logger;
-    qm_t(module)     modules;
+    qm_t(module) modules;
 
     qm_t(methods_impl) methods;
 
     /* Keep track if we are currently initializing a module */
     int in_initialization;
 
-    bool is_shutdown   : 1;
+    bool is_shutdown : 1;
     bool methods_dirty : 1;
 } module_g = {
 #define _G module_g
@@ -125,16 +124,16 @@ static struct module_g {
 
 /* {{{ Module Registry */
 
-static void
-set_require_type(module_t *module, module_t *required_by)
+static void set_require_type(module_t *module, module_t *required_by)
 {
     if (!required_by) {
         module->state = MANU_REQ;
         module->manu_req_count++;
     } else {
         qv_append(&module->required_by, required_by);
-        if (module->state != MANU_REQ)
+        if (module->state != MANU_REQ) {
             module->state = AUTO_REQ;
+        }
     }
 }
 
@@ -152,8 +151,9 @@ module_t *module_register(lstr_t name)
 
     pos = qm_reserve(module, &_G.modules, &name, 0);
     if (!expect(!(pos & QHASH_COLLISION))) {
-        logger_error(&_G.logger, "%*pM has already been registered",
-                     LSTR_FMT_ARG(name));
+        logger_error(
+            &_G.logger, "%*pM has already been registered", LSTR_FMT_ARG(name)
+        );
         return _G.modules.values[pos & ~QHASH_COLLISION];
     }
 
@@ -167,16 +167,16 @@ module_t *module_register(lstr_t name)
     return module;
 }
 
-module_t *module_implement(module_t *module,
-                           int (*constructor)(void *),
-                           int (*destructor)(void),
-                           module_t *dependency)
+module_t *module_implement(
+    module_t *module, int (*constructor)(void *), int (*destructor)(void),
+    module_t *dependency
+)
 {
     thr_assert_is_main_thread();
 
-    assert (!module->constructor);
+    assert(!module->constructor);
     module->constructor = constructor;
-    assert (!module->destructor);
+    assert(!module->destructor);
     module->destructor = destructor;
 
     if (dependency) {
@@ -186,8 +186,7 @@ module_t *module_implement(module_t *module,
     return module;
 }
 
-static bool
-module_has_dep(const module_t *module, const module_t *other)
+static bool module_has_dep(const module_t *module, const module_t *other)
 {
     tab_for_each_entry(dep, &module->depends_on) {
         if (other == dep) {
@@ -210,10 +209,10 @@ void module_add_dep(module_t *module, module_t *dep)
     qv_append(&module->depends_on, dep);
 }
 
-static int modules_topo_visit(qh_t(module) *temporary_mark,
-                              qh_t(module) *permanent_mark,
-                              qv_t(module) *ordered_modules,
-                              module_t *m, sb_t *err)
+static int modules_topo_visit(
+    qh_t(module) *temporary_mark, qh_t(module) *permanent_mark,
+    qv_t(module) *ordered_modules, module_t *m, sb_t *err
+)
 {
     if (qh_find(module, permanent_mark, m) >= 0) {
         return 0;
@@ -223,8 +222,9 @@ static int modules_topo_visit(qh_t(module) *temporary_mark,
         return -1;
     }
     tab_for_each_entry(dep, &m->depends_on) {
-        if (modules_topo_visit(temporary_mark, permanent_mark,
-                               ordered_modules, dep, err) < 0)
+        if (modules_topo_visit(
+                temporary_mark, permanent_mark, ordered_modules, dep, err
+            ) < 0)
         {
             sb_prependf(err, "-> %*pM", LSTR_FMT_ARG(m->name));
             return -1;
@@ -248,11 +248,12 @@ modules_topo_sort_rev(qm_t(module) *modules, qv_t(module) *sorted, sb_t *err)
     qm_for_each_pos(module, pos, &_G.modules) {
         module_t *m = _G.modules.values[pos];
 
-        if (qh_find(module, &temporary_mark, m) < 0
-        &&  qh_find(module, &permanent_mark, m) < 0)
+        if (qh_find(module, &temporary_mark, m) < 0 &&
+            qh_find(module, &permanent_mark, m) < 0)
         {
-            if (modules_topo_visit(&temporary_mark, &permanent_mark, sorted,
-                                   m, err) < 0)
+            if (modules_topo_visit(
+                    &temporary_mark, &permanent_mark, sorted, m, err
+                ) < 0)
             {
                 sb_prepends(err, "module dependency error: ");
                 ret = -1;
@@ -261,7 +262,7 @@ modules_topo_sort_rev(qm_t(module) *modules, qv_t(module) *sorted, sb_t *err)
         }
     }
 
-  end:
+end:
     qh_wipe(module, &temporary_mark);
     qh_wipe(module, &permanent_mark);
     return ret;
@@ -278,27 +279,28 @@ static void module_require_internal(module_t *module, module_t *required_by)
     thr_assert_is_main_thread();
 
     if (module->state == INITIALIZING) {
-        logger_fatal(&_G.logger,
-                     "`%*pM` has been recursively required %s%*pM",
-                     LSTR_FMT_ARG(module->name), required_by ? "by " : "",
-                     LSTR_FMT_ARG(required_by ? required_by->name
-                                              : LSTR_NULL_V));
+        logger_fatal(
+            &_G.logger, "`%*pM` has been recursively required %s%*pM",
+            LSTR_FMT_ARG(module->name), required_by ? "by " : "",
+            LSTR_FMT_ARG(required_by ? required_by->name : LSTR_NULL_V)
+        );
     }
     if (module->state == SHUTTING) {
-        logger_fatal(&_G.logger,
-                     "`%*pM` has been required %s%*pM while shutting down",
-                     LSTR_FMT_ARG(module->name), required_by ? "by " : "",
-                     LSTR_FMT_ARG(required_by ? required_by->name
-                                              : LSTR_NULL_V));
+        logger_fatal(
+            &_G.logger, "`%*pM` has been required %s%*pM while shutting down",
+            LSTR_FMT_ARG(module->name), required_by ? "by " : "",
+            LSTR_FMT_ARG(required_by ? required_by->name : LSTR_NULL_V)
+        );
     }
 
     _G.in_initialization++;
 
     if (!module_is_loaded(module)) {
-        logger_trace(&_G.logger, 1, "`%*pM` has been required %s%*pM",
-                     LSTR_FMT_ARG(module->name), required_by ? "by " : "",
-                     LSTR_FMT_ARG(required_by ? required_by->name
-                                              : LSTR_NULL_V));
+        logger_trace(
+            &_G.logger, 1, "`%*pM` has been required %s%*pM",
+            LSTR_FMT_ARG(module->name), required_by ? "by " : "",
+            LSTR_FMT_ARG(required_by ? required_by->name : LSTR_NULL_V)
+        );
     }
 
     if (module->state == AUTO_REQ || module->state == MANU_REQ) {
@@ -308,8 +310,10 @@ static void module_require_internal(module_t *module, module_t *required_by)
     }
 
     module->state = INITIALIZING;
-    logger_trace(&_G.logger, 1, "requiring `%*pM` dependencies",
-                 LSTR_FMT_ARG(module->name));
+    logger_trace(
+        &_G.logger, 1, "requiring `%*pM` dependencies",
+        LSTR_FMT_ARG(module->name)
+    );
 
     _G.methods_dirty = true;
 
@@ -317,12 +321,16 @@ static void module_require_internal(module_t *module, module_t *required_by)
         module_require_internal(dep, module);
     }
 
-    logger_trace(&_G.logger, 1, "calling `%*pM` constructor",
-                 LSTR_FMT_ARG(module->name));
+    logger_trace(
+        &_G.logger, 1, "calling `%*pM` constructor",
+        LSTR_FMT_ARG(module->name)
+    );
 
     if ((*module->constructor)(module->constructor_argument) < 0) {
-        logger_fatal(&_G.logger, "unable to initialize %*pM",
-                     LSTR_FMT_ARG(module->name));
+        logger_fatal(
+            &_G.logger, "unable to initialize %*pM",
+            LSTR_FMT_ARG(module->name)
+        );
     }
 
     set_require_type(module, required_by);
@@ -340,25 +348,32 @@ void module_provide(module_t *module, void *argument)
     thr_assert_is_main_thread();
 
     if (module->constructor_argument) {
-        logger_warning(&_G.logger, "argument for module '%*pM' has already "
-                       "been provided", LSTR_FMT_ARG(module->name));
+        logger_warning(
+            &_G.logger,
+            "argument for module '%*pM' has already "
+            "been provided",
+            LSTR_FMT_ARG(module->name)
+        );
     }
     module->constructor_argument = argument;
 }
 
-void * nullable module_get_arg(module_t * nonnull mod)
+void *nullable module_get_arg(module_t *nonnull mod)
 {
     return mod->constructor_argument;
 }
 
-__attr_nonnull__((1))
-static int module_shutdown(module_t *module);
+__attr_nonnull__((1)) static int module_shutdown(module_t *module);
 
 static int notify_shutdown(module_t *module, module_t *dependence)
 {
-    logger_trace(&_G.logger, 2, "module '%*pM' notify shutdown to '%*pM'"
-                 ": %d pending dependencies", LSTR_FMT_ARG(dependence->name),
-                 LSTR_FMT_ARG(module->name), module->required_by.len);
+    logger_trace(
+        &_G.logger, 2,
+        "module '%*pM' notify shutdown to '%*pM'"
+        ": %d pending dependencies",
+        LSTR_FMT_ARG(dependence->name), LSTR_FMT_ARG(module->name),
+        module->required_by.len
+    );
 
     tab_enumerate(pos, dep, &module->required_by) {
         if (dep == dependence) {
@@ -388,24 +403,26 @@ static int notify_shutdown(module_t *module, module_t *dependence)
  *
  *  @param mod The module to shutdown
  */
-__attr_nonnull__((1))
-static int module_shutdown(module_t *module)
+__attr_nonnull__((1)) static int module_shutdown(module_t *module)
 {
     int shut_dependent = 1;
     int shut_self;
 
-    assert (module->state == MANU_REQ || module->state == AUTO_REQ);
+    assert(module->state == MANU_REQ || module->state == AUTO_REQ);
 
     /* shutdown must be symmetric to require */
     module->manu_req_count = 0;
 
     module->state = SHUTTING;
-    logger_trace(&_G.logger, 1, "shutting down `%*pM`",
-                 LSTR_FMT_ARG(module->name));
+    logger_trace(
+        &_G.logger, 1, "shutting down `%*pM`", LSTR_FMT_ARG(module->name)
+    );
 
     if ((shut_self = (*module->destructor)()) < 0) {
-        logger_warning(&_G.logger, "unable to shutdown   %*pM",
-                       LSTR_FMT_ARG(module->name));
+        logger_warning(
+            &_G.logger, "unable to shutdown   %*pM",
+            LSTR_FMT_ARG(module->name)
+        );
         module->state = FAIL_SHUT;
     }
 
@@ -441,8 +458,10 @@ void module_release(module_t *module)
         /* You are trying to manually release a module that have been spawn
          * automatically (AUTO_REQ)
          */
-        logger_panic(&_G.logger, "unauthorized release for module '%*pM'",
-                     LSTR_FMT_ARG(module->name));
+        logger_panic(
+            &_G.logger, "unauthorized release for module '%*pM'",
+            LSTR_FMT_ARG(module->name)
+        );
         return;
     }
 
@@ -493,9 +512,11 @@ static void module_hard_shutdown(void)
 
             while (module->manu_req_count && !(module->state & FAIL_SHUT)) {
                 if (!warned) {
-                    logger_trace(&_G.logger, 1,
-                                 "%*pM was not released, forcing release",
-                                 LSTR_FMT_ARG(module->name));
+                    logger_trace(
+                        &_G.logger, 1,
+                        "%*pM was not released, forcing release",
+                        LSTR_FMT_ARG(module->name)
+                    );
                     warned = true;
                 }
                 module_release(module);
@@ -507,14 +528,13 @@ static void module_hard_shutdown(void)
     qm_for_each_pos(module, pos, &_G.modules) {
         module_t *module = _G.modules.values[pos];
 
-        assert (module->state == REGISTERED || module->state & FAIL_SHUT);
+        assert(module->state == REGISTERED || module->state & FAIL_SHUT);
     }
 }
 
 extern bool syslog_is_critical_g;
 
-__attribute__((destructor))
-static void _module_shutdown(void)
+__attribute__((destructor)) static void _module_shutdown(void)
 {
     if (_G.is_shutdown) {
         return;
@@ -539,8 +559,10 @@ void module_destroy_all(void)
 
 const bool module_method_no_custom_data_g = false;
 
-void module_implement_method(module_t *module, const module_method_t *method,
-                             const void *cb, void *custom_data)
+void module_implement_method(
+    module_t *module, const module_method_t *method, const void *cb,
+    void *custom_data
+)
 {
     uint32_t pos;
     module_method_cb_t meth_cb;
@@ -557,7 +579,7 @@ void module_implement_method(module_t *module, const module_method_t *method,
         _G.methods.values[pos] = m;
     }
 
-    meth_cb = (module_method_cb_t) {
+    meth_cb = (module_method_cb_t){
         .cb = cb,
         .custom_data = custom_data,
     };
@@ -587,7 +609,6 @@ void module_run_method(const module_method_t *method, data_t arg)
                 ((void (*)(void))meth_cb.cb)();
             } else {
                 ((void (*)(void *))meth_cb.cb)(meth_cb.custom_data);
-
             }
         }
         break;
@@ -598,7 +619,8 @@ void module_run_method(const module_method_t *method, data_t arg)
                 ((void (*)(int))meth_cb.cb)(arg.u32);
             } else {
                 ((void (*)(int, void *))meth_cb.cb)(
-                    arg.u32, meth_cb.custom_data);
+                    arg.u32, meth_cb.custom_data
+                );
             }
         }
         break;
@@ -610,7 +632,8 @@ void module_run_method(const module_method_t *method, data_t arg)
                 ((void (*)(data_t))meth_cb.cb)(arg);
             } else {
                 ((void (*)(data_t, void *))meth_cb.cb)(
-                    arg, meth_cb.custom_data);
+                    arg, meth_cb.custom_data
+                );
             }
         }
         break;
@@ -627,8 +650,8 @@ static void module_add_method(module_t *module, module_method_impl_t *method)
     }
 }
 
-static void module_method_register_cb(module_method_impl_t *method,
-                                      qv_t(module) *modules)
+static void
+module_method_register_cb(module_method_impl_t *method, qv_t(module) *modules)
 {
 
     if (method->params->order == MODULE_DEPS_BEFORE) {
@@ -637,8 +660,7 @@ static void module_method_register_cb(module_method_impl_t *method,
                 module_add_method(m, method);
             }
         }
-    } else
-    if (method->params->order == MODULE_DEPS_AFTER) {
+    } else if (method->params->order == MODULE_DEPS_AFTER) {
         tab_for_each_pos_rev(pos, modules) {
             module_t *m = modules->tab[pos];
 
@@ -677,7 +699,7 @@ MODULE_METHOD(INT, DEPS_BEFORE, on_term);
 
 void module_on_term(int signo)
 {
-    module_run_method(&on_term_method, (el_data_t){ .u32 = signo });
+    module_run_method(&on_term_method, (el_data_t){.u32 = signo});
 }
 
 MODULE_METHOD(VOID, DEPS_AFTER, at_fork_prepare);
@@ -731,9 +753,10 @@ void module_register_at_fork(void)
         IGNORE(posix_memalign(&data, 64, 1024));
         free(data);
 
-        pthread_atfork(module_at_fork_prepare,
-                       module_at_fork_on_parent,
-                       module_at_fork_on_child);
+        pthread_atfork(
+            module_at_fork_prepare, module_at_fork_on_parent,
+            module_at_fork_on_child
+        );
         at_fork_registered = true;
     }
 }
@@ -752,8 +775,7 @@ static void add_dependencies_to_qh(module_t *m, qh_t(module) *qh)
     }
 }
 
-int module_check_no_dependencies(module_t *tab[], int len,
-                                 lstr_t *collision)
+int module_check_no_dependencies(module_t *tab[], int len, lstr_t *collision)
 {
     t_scope;
     qh_t(module) dependencies;
@@ -784,11 +806,15 @@ void module_debug_dump_hierarchy(sb_t *modules, sb_t *dependencies)
     qm_for_each_pos(module, pos, &_G.modules) {
         module_t *module = _G.modules.values[pos];
 
-        sb_addf(modules, "%*pM;%d\n", LSTR_FMT_ARG(module->name),
-                module_is_loaded(module) ? 1 : 0);
+        sb_addf(
+            modules, "%*pM;%d\n", LSTR_FMT_ARG(module->name),
+            module_is_loaded(module) ? 1 : 0
+        );
         tab_for_each_entry(dep, &module->depends_on) {
-            sb_addf(dependencies, "%*pM;%*pM\n", LSTR_FMT_ARG(module->name),
-                    LSTR_FMT_ARG(dep->name));
+            sb_addf(
+                dependencies, "%*pM;%*pM\n", LSTR_FMT_ARG(module->name),
+                LSTR_FMT_ARG(dep->name)
+            );
         }
     }
 }

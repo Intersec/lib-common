@@ -43,8 +43,9 @@ qvector_t(sctp_conn, sctp_conn_t *);
  * If the connection succeed and the callback returns an error (<0) then the
  * connection will be closed.
  */
-typedef int (*sctp_on_connect_f)(sctp_conn_t * nonnull conn, bool success,
-                                 int err);
+typedef int (*sctp_on_connect_f)(
+    sctp_conn_t *nonnull conn, bool success, int err
+);
 
 /**
  * \brief Callback when the connection is closed, to clean context.
@@ -59,7 +60,7 @@ typedef int (*sctp_on_connect_f)(sctp_conn_t * nonnull conn, bool success,
  * endpoint disconnecting. In this case the connection will be cleaned and the
  * \fn sctp_conn_close() function does not need to be called.
  */
-typedef void (*sctp_on_disconnect_f)(sctp_conn_t * nonnull conn);
+typedef void (*sctp_on_disconnect_f)(sctp_conn_t *nonnull conn);
 
 /**
  * \brief Callback called when a message is received.
@@ -74,9 +75,9 @@ typedef void (*sctp_on_disconnect_f)(sctp_conn_t * nonnull conn);
  * application to batch multiple messages received at the same time. This last
  * call will not have data.
  */
-typedef int (*sctp_on_data_f)(sctp_conn_t * nonnull conn,
-                              const sb_t * nullable data,
-                              bool no_more_msgs);
+typedef int (*sctp_on_data_f)(
+    sctp_conn_t *nonnull conn, const sb_t *nullable data, bool no_more_msgs
+);
 
 /**
  * \brief Callback when a remote entity connects to the listening socket.
@@ -91,7 +92,7 @@ typedef int (*sctp_on_data_f)(sctp_conn_t * nonnull conn,
  * library and it's disconnection callback will be called. Otherwise the user
  * must call \fn sctp_conn_close().
  */
-typedef int (*sctp_on_accept_f)(sctp_conn_t * nonnull conn);
+typedef int (*sctp_on_accept_f)(sctp_conn_t *nonnull conn);
 
 typedef struct sctp_conn_t {
     /**
@@ -112,7 +113,7 @@ typedef struct sctp_conn_t {
     /**
      * \brief Logger associated to the connection.
      */
-    logger_t * nonnull logger;
+    logger_t *nonnull logger;
 
     /**
      * \brief Host name associated to the connections.
@@ -148,12 +149,12 @@ typedef struct sctp_conn_t {
  * \retval NULL in case of failure
  * \retval a pointer to a sctp_conn_t
  */
-sctp_conn_t * nullable
-sctp_listen(const lstr__array_t * nonnull addrs,
-            int port, size_t sndbuf, lstr_t entity_id, void * nullable priv,
-            sctp_on_accept_f nonnull on_accept_cb,
-            sctp_on_data_f nonnull on_data_cb,
-            sctp_on_disconnect_f nullable on_disconnect_cb);
+sctp_conn_t *nullable sctp_listen(
+    const lstr__array_t *nonnull addrs, int port, size_t sndbuf,
+    lstr_t entity_id, void *nullable priv,
+    sctp_on_accept_f nonnull on_accept_cb, sctp_on_data_f nonnull on_data_cb,
+    sctp_on_disconnect_f nullable on_disconnect_cb
+);
 
 /**
  * \brief Connect to an SCTP endpoint.
@@ -179,14 +180,13 @@ sctp_listen(const lstr__array_t * nonnull addrs,
  * \retval NULL in case of failure
  * \retval a pointer to a sctp_conn_t
  */
-sctp_conn_t * nullable
-sctp_connect(qv_t(lstr) source_addrs,
-             qv_t(lstr) dest_addrs,
-             uint16_t port, size_t sndbuf, lstr_t entity_id,
-             void * nullable priv,
-             sctp_on_connect_f nonnull on_connect_cb,
-             sctp_on_data_f nonnull on_data_cb,
-             sctp_on_disconnect_f nullable on_disconnect_cb);
+sctp_conn_t *nullable sctp_connect(
+    qv_t(lstr) source_addrs, qv_t(lstr) dest_addrs, uint16_t port,
+    size_t sndbuf, lstr_t entity_id, void *nullable priv,
+    sctp_on_connect_f nonnull on_connect_cb,
+    sctp_on_data_f nonnull on_data_cb,
+    sctp_on_disconnect_f nullable on_disconnect_cb
+);
 
 /**
  * \brief Enqueue a message to be sent.
@@ -198,8 +198,9 @@ sctp_connect(qv_t(lstr) source_addrs,
  * \param[in] payload  the message's content
  * \param[in] payload_protocol_id  defined in the protocol specification
  */
-void sctp_send_msg(sctp_conn_t * nonnull conn, lstr_t payload,
-                   uint32_t payload_protocol_id);
+void sctp_send_msg(
+    sctp_conn_t *nonnull conn, lstr_t payload, uint32_t payload_protocol_id
+);
 
 /**
  * \brief Close the connection.
@@ -215,4 +216,4 @@ void sctp_send_msg(sctp_conn_t * nonnull conn, lstr_t payload,
  */
 void sctp_conn_close(sctp_conn_t * nullable * nullable pconn);
 
-#endif  /* IS_SCTP_TOOLS_H */
+#endif /* IS_SCTP_TOOLS_H */

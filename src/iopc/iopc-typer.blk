@@ -52,18 +52,21 @@ pkg_provides_iface(iopc_pkg_t *pkg, const char *type, bool visible)
     return false;
 }
 
-static int iopc_field_resolve(iopc_pkg_t *pkg, iopc_field_t *field,
-                              iopc_struct_t *st);
-
 static int
-pkg_provides_struct(iopc_pkg_t *pkg, const char *type, bool visible,
-                    bool checking_field, iopc_struct_t **out)
+iopc_field_resolve(iopc_pkg_t *pkg, iopc_field_t *field, iopc_struct_t *st);
+
+static int pkg_provides_struct(
+    iopc_pkg_t *pkg, const char *type, bool visible, bool checking_field,
+    iopc_struct_t **out
+)
 {
     tab_for_each_entry(st, &pkg->structs) {
         if (IS_IOPC_SYMBOL_VISIBLE_AND_TYPE(st, type, visible)) {
             if (checking_field && iopc_is_snmp_st(st->type)) {
-                throw_loc("snmp objects cannot be used to define a field "
-                          "type",  st->loc);
+                throw_loc(
+                    "snmp objects cannot be used to define a field type",
+                    st->loc
+                );
             }
             *out = st;
             return 0;
@@ -74,9 +77,10 @@ pkg_provides_struct(iopc_pkg_t *pkg, const char *type, bool visible,
     return 0;
 }
 
-static bool
-pkg_provides_fields_for_param(iopc_pkg_t *pkg, iopc_field_t *field,
-                              const char *snmp_obj, const char *name)
+static bool pkg_provides_fields_for_param(
+    iopc_pkg_t *pkg, iopc_field_t *field, const char *snmp_obj,
+    const char *name
+)
 {
     tab_for_each_entry(st, &pkg->structs) {
         if (!strequal(st->name, snmp_obj)) {
@@ -131,18 +135,20 @@ pkg_provides_typedef(iopc_pkg_t *pkg, const char *type, bool visible)
 
 #undef IS_IOPC_SYMBOL_VISIBLE_AND_TYPE
 
-static int
-iopc_ifaces_find_n_check(iopc_pkg_t *pkg, iopc_field_t *iface)
+static int iopc_ifaces_find_n_check(iopc_pkg_t *pkg, iopc_field_t *iface)
 {
     bool found = false;
     iopc_pkg_t *t_pkg = iface->type_pkg;
     int res = 0;
 
     if (t_pkg) {
-        if (pkg_provides_iface(t_pkg, iface->type_name, false))
+        if (pkg_provides_iface(t_pkg, iface->type_name, false)) {
             return 0;
-        throw_loc("unable to find interface `%s` in pkg `%s`",
-                  iface->loc, iface->type_name, iopc_path_dot(t_pkg->name));
+        }
+        throw_loc(
+            "unable to find interface `%s` in pkg `%s`", iface->loc,
+            iface->type_name, iopc_path_dot(t_pkg->name)
+        );
     }
 
     if (pkg_provides_iface(pkg, iface->type_name, false)) {
@@ -151,16 +157,17 @@ iopc_ifaces_find_n_check(iopc_pkg_t *pkg, iopc_field_t *iface)
     }
 
     if (!found) {
-        throw_loc("unable to find any pkg providing interface `%s`",
-                  iface->loc, iface->type_name);
+        throw_loc(
+            "unable to find any pkg providing interface `%s`", iface->loc,
+            iface->type_name
+        );
     }
     iopc_path_delete(&iface->type_path);
     iface->type_path = iopc_path_retain(t_pkg->name);
     return res;
 }
 
-static int
-iopc_modules_find_n_check(iopc_pkg_t *pkg, iopc_extends_t *xt)
+static int iopc_modules_find_n_check(iopc_pkg_t *pkg, iopc_extends_t *xt)
 {
     iopc_pkg_t *t_pkg = xt->pkg;
     int res = 0;
@@ -170,8 +177,10 @@ iopc_modules_find_n_check(iopc_pkg_t *pkg, iopc_extends_t *xt)
         if (xt->st) {
             return 0;
         }
-        throw_loc("unable to find module `%s` in pkg `%s`",
-                  xt->loc, xt->name, iopc_path_dot(t_pkg->name));
+        throw_loc(
+            "unable to find module `%s` in pkg `%s`", xt->loc, xt->name,
+            iopc_path_dot(t_pkg->name)
+        );
     }
 
     xt->st = pkg_find_module(pkg, xt->name);
@@ -180,8 +189,9 @@ iopc_modules_find_n_check(iopc_pkg_t *pkg, iopc_extends_t *xt)
     }
 
     if (!xt->st) {
-        throw_loc("unable to find any pkg providing module `%s`",
-                  xt->loc, xt->name);
+        throw_loc(
+            "unable to find any pkg providing module `%s`", xt->loc, xt->name
+        );
     }
     iopc_path_delete(&xt->path);
     xt->path = iopc_path_retain(t_pkg->name);
@@ -196,26 +206,25 @@ static bool iopc_field_is_resolved(const iopc_field_t *f)
 static int
 iopc_apply_typedef(const iopc_field_t *tdef, iopc_field_t *f, bool f_is_tdef)
 {
-    assert (iopc_field_is_resolved(tdef));
+    assert(iopc_field_is_resolved(tdef));
 
-    f->kind       = tdef->kind;
-    if ((f->repeat != IOP_R_REQUIRED && f->repeat != IOP_R_DEFVAL)
-    &&  tdef->repeat != IOP_R_REQUIRED &&  f->repeat != tdef->repeat)
+    f->kind = tdef->kind;
+    if ((f->repeat != IOP_R_REQUIRED && f->repeat != IOP_R_DEFVAL) &&
+        tdef->repeat != IOP_R_REQUIRED && f->repeat != tdef->repeat)
     {
         throw_loc("cannot declare repeated optional fields", f->loc);
-    } else
-    if (tdef->repeat != IOP_R_REQUIRED) {
+    } else if (tdef->repeat != IOP_R_REQUIRED) {
         f->repeat = tdef->repeat;
     }
     p_delete(&f->type_name);
     iopc_path_delete(&f->type_path);
     f->type_pkg = NULL;
-    if (tdef->kind == IOP_T_STRUCT || tdef->kind == IOP_T_UNION
-    ||  tdef->kind == IOP_T_ENUM)
+    if (tdef->kind == IOP_T_STRUCT || tdef->kind == IOP_T_UNION ||
+        tdef->kind == IOP_T_ENUM)
     {
-        f->type_pkg   = tdef->type_pkg;
-        f->type_name  = p_strdup(tdef->type_name);
-        f->type_path  = iopc_path_retain(tdef->type_path);
+        f->type_pkg = tdef->type_pkg;
+        f->type_name = p_strdup(tdef->type_name);
+        f->type_path = iopc_path_retain(tdef->type_path);
 
         if (tdef->has_external_type) {
             f->has_external_type = tdef->has_external_type;
@@ -235,16 +244,17 @@ iopc_apply_typedef(const iopc_field_t *tdef, iopc_field_t *f, bool f_is_tdef)
     return 0;
 }
 
-static int iopc_types_find_n_check(iopc_pkg_t *pkg, iopc_field_t *f,
-                                   bool f_is_tdef);
+static int
+iopc_types_find_n_check(iopc_pkg_t *pkg, iopc_field_t *f, bool f_is_tdef);
 
-static int iopc_find_type_in_pkg(iopc_pkg_t *pkg, iopc_field_t *f,
-                                 const char *name, bool visible,
-                                 bool f_is_tdef, bool *found)
+static int iopc_find_type_in_pkg(
+    iopc_pkg_t *pkg, iopc_field_t *f, const char *name, bool visible,
+    bool f_is_tdef, bool *found
+)
 {
     iopc_struct_t *st;
-    iopc_enum_t   *en;
-    iopc_field_t  *tdef;
+    iopc_enum_t *en;
+    iopc_field_t *tdef;
 
     *found = true;
 
@@ -256,10 +266,10 @@ static int iopc_find_type_in_pkg(iopc_pkg_t *pkg, iopc_field_t *f,
         if (!f->found_pkg) {
             f->found_pkg = pkg;
         }
-        assert (!f->has_external_type);
+        assert(!f->has_external_type);
         f->struct_def = st;
-        f->kind = (st->type == STRUCT_TYPE_UNION) ? IOP_T_UNION :
-                  IOP_T_STRUCT;
+        f->kind =
+            (st->type == STRUCT_TYPE_UNION) ? IOP_T_UNION : IOP_T_STRUCT;
         return 0;
     }
 
@@ -278,8 +288,10 @@ static int iopc_find_type_in_pkg(iopc_pkg_t *pkg, iopc_field_t *f,
     if ((tdef = pkg_provides_typedef(pkg, name, visible))) {
         t_scope;
 
-        t_push_loc(f->loc, "in typedef for type `%s` in pkg `%s`",
-                   name, iopc_path_dot(pkg->name));
+        t_push_loc(
+            f->loc, "in typedef for type `%s` in pkg `%s`", name,
+            iopc_path_dot(pkg->name)
+        );
         RETHROW(iopc_types_find_n_check(pkg, tdef, true));
         pop_loc();
 
@@ -306,44 +318,53 @@ iopc_types_find_n_check(iopc_pkg_t *pkg, iopc_field_t *f, bool f_is_tdef)
     }
 
     if (f->resolving) {
-        throw_loc("recursive typedef for type `%s` in pkg `%s`",
-                  f->loc, f->type_name,
-                  iopc_path_dot(f->type_pkg ? f->type_pkg->name : pkg->name));
+        throw_loc(
+            "recursive typedef for type `%s` in pkg `%s`", f->loc,
+            f->type_name,
+            iopc_path_dot(f->type_pkg ? f->type_pkg->name : pkg->name)
+        );
     }
 
     f->resolving = true;
     if (f->type_pkg) {
-        RETHROW(iopc_find_type_in_pkg(f->type_pkg, f, f->type_name, false,
-                                      f_is_tdef, &found));
+        RETHROW(iopc_find_type_in_pkg(
+            f->type_pkg, f, f->type_name, false, f_is_tdef, &found
+        ));
         if (!found) {
-            throw_loc("unable to find type `%s` in pkg `%s`",
-                      f->loc, f->type_name, iopc_path_dot(f->type_pkg->name));
+            throw_loc(
+                "unable to find type `%s` in pkg `%s`", f->loc, f->type_name,
+                iopc_path_dot(f->type_pkg->name)
+            );
         }
         goto check_defval;
     }
 
     original_name = t_strdup(f->type_name);
-    RETHROW(iopc_find_type_in_pkg(pkg, f, original_name, false, f_is_tdef,
-                                  &found));
+    RETHROW(
+        iopc_find_type_in_pkg(pkg, f, original_name, false, f_is_tdef, &found)
+    );
 
     if (!iopc_field_is_resolved(f)) {
-        throw_loc("unable to find any pkg providing type `%s`",
-                  f->loc, original_name);
+        throw_loc(
+            "unable to find any pkg providing type `%s`", f->loc,
+            original_name
+        );
     }
     iopc_path_delete(&f->type_path);
     if (f->type_pkg) {
         f->type_path = iopc_path_retain(f->type_pkg->name);
     }
 
-  check_defval:
+check_defval:
     f->resolving = false;
     if (!f->struct_def) {
         return 0;
     }
 
     if (f->kind != IOP_T_ENUM && f->repeat == IOP_R_DEFVAL) {
-        throw_loc("default values aren't allowed for unions or structures",
-                  f->loc);
+        throw_loc(
+            "default values aren't allowed for unions or structures", f->loc
+        );
     }
     return iopc_check_field_attributes(f, f_is_tdef);
 }
@@ -356,30 +377,36 @@ static int iopc_check_snmp_field_kind(iopc_field_t *f)
     tab_for_each_entry(attr, &f->attrs) {
         if (attr->desc->id == IOPC_ATTR_SNMP_INDEX) {
             if (f->kind != IOP_T_U32 && f->kind != IOP_T_STRING) {
-                throw_loc("a snmp index should be declared with the 'uint' "
-                          "or 'string' type", f->loc);
+                throw_loc(
+                    "a snmp index should be declared with the 'uint' "
+                    "or 'string' type",
+                    f->loc
+                );
             }
             return 0;
         }
     }
 
     switch (f->kind) {
-      case IOP_T_ENUM:
-      case IOP_T_STRING:
-      case IOP_T_I8:
-      case IOP_T_I16:
-      case IOP_T_I32:
-      case IOP_T_BOOL:
+    case IOP_T_ENUM:
+    case IOP_T_STRING:
+    case IOP_T_I8:
+    case IOP_T_I16:
+    case IOP_T_I32:
+    case IOP_T_BOOL:
         return 0;
 
-      default:
-        throw_loc("only int/string/boolean/enum types are handled for "
-                  "snmp objects' fields", f->loc);
+    default:
+        throw_loc(
+            "only int/string/boolean/enum types are handled for "
+            "snmp objects' fields",
+            f->loc
+        );
     }
 }
 
-static int iopc_field_resolve(iopc_pkg_t *pkg, iopc_field_t *field,
-                              iopc_struct_t *st)
+static int
+iopc_field_resolve(iopc_pkg_t *pkg, iopc_field_t *field, iopc_struct_t *st)
 {
     t_scope;
 
@@ -391,9 +418,7 @@ static int iopc_field_resolve(iopc_pkg_t *pkg, iopc_field_t *field,
     if (pkg == field->type_pkg || !field->struct_def) {
         return 0;
     }
-    if (field->repeat == IOP_R_REPEATED
-    ||  field->repeat == IOP_R_OPTIONAL)
-    {
+    if (field->repeat == IOP_R_REPEATED || field->repeat == IOP_R_OPTIONAL) {
         iopc_pkg_t *fpkg = field->type_pkg;
 
         /* In a normal situation we avoid to resolve this field because we
@@ -406,24 +431,27 @@ static int iopc_field_resolve(iopc_pkg_t *pkg, iopc_field_t *field,
         return 0;
     }
     if (st) {
-        t_push_loc(field->loc, "in package %s, type %s, field %s needs package %s",
-                   iopc_path_dot(pkg->name), st->name, field->name,
-                   iopc_path_dot(field->type_path));
+        t_push_loc(
+            field->loc, "in package %s, type %s, field %s needs package %s",
+            iopc_path_dot(pkg->name), st->name, field->name,
+            iopc_path_dot(field->type_path)
+        );
     } else {
-        t_push_loc(field->loc, "in package %s, typedef %s needs package %s",
-                   iopc_path_dot(pkg->name), field->name,
-                   iopc_path_dot(field->type_path));
+        t_push_loc(
+            field->loc, "in package %s, typedef %s needs package %s",
+            iopc_path_dot(pkg->name), field->name,
+            iopc_path_dot(field->type_path)
+        );
     }
     RETHROW(iopc_t_resolve(field->type_pkg));
     pop_loc();
     return 0;
 }
 
-static int
-resolve_pkg_parent_and_params(iopc_extends_t *xt, iopc_pkg_t *pkg,
-                              iopc_struct_type_t type,
-                              const char *name, const char *type_obj,
-                              const char *action)
+static int resolve_pkg_parent_and_params(
+    iopc_extends_t *xt, iopc_pkg_t *pkg, iopc_struct_type_t type,
+    const char *name, const char *type_obj, const char *action
+)
 {
     t_scope;
     iopc_struct_t *st = NULL;
@@ -432,11 +460,12 @@ resolve_pkg_parent_and_params(iopc_extends_t *xt, iopc_pkg_t *pkg,
         xt->pkg = pkg;
         iopc_path_delete(&xt->path);
         xt->path = iopc_path_retain(pkg->name);
-    } else
-    if (xt->pkg != pkg) {
-        t_push_loc(xt->loc, "in package %s, %s  %s, needs package %s "
-                   "for %s", iopc_path_dot(pkg->name), type_obj, name,
-                   iopc_path_dot(xt->pkg->name), action);
+    } else if (xt->pkg != pkg) {
+        t_push_loc(
+            xt->loc, "in package %s, %s  %s, needs package %s for %s",
+            iopc_path_dot(pkg->name), type_obj, name,
+            iopc_path_dot(xt->pkg->name), action
+        );
         RETHROW(iopc_t_resolve(xt->pkg));
         pop_loc();
     }
@@ -464,23 +493,28 @@ resolve_pkg_parent_and_params(iopc_extends_t *xt, iopc_pkg_t *pkg,
     }
 
     if (!st) {
-        throw_loc("pkg `%s` does not provide %s `%s` when resolving %s of "
-                  "%s `%s`", xt->loc, iopc_path_dot(xt->pkg->name),
-                  iopc_struct_type_to_str(type), xt->name, action,
-                  type_obj, name);
+        throw_loc(
+            "pkg `%s` does not provide %s `%s` when resolving %s of %s `%s`",
+            xt->loc, iopc_path_dot(xt->pkg->name),
+            iopc_struct_type_to_str(type), xt->name, action, type_obj, name
+        );
     }
 
     if (!iopc_is_snmp_tbl(type) && st->type != type) {
-        throw_loc("parent object `%s` is not a %s", xt->loc,
-                  st->name, iopc_struct_type_to_str(type));
+        throw_loc(
+            "parent object `%s` is not a %s", xt->loc, st->name,
+            iopc_struct_type_to_str(type)
+        );
     }
     if (iopc_is_snmp_tbl(type) && !iopc_is_snmp_obj(st->type)) {
         throw_loc("parent object `%s` is not a snmpObj", xt->loc, st->name);
     }
     if (iopc_is_class(type) && st->is_local && xt->pkg != pkg) {
-        throw_loc("as the parent class `%s` of class `%s` is `local`, "
-                  "both classes need to be in the same package",
-                  xt->loc, st->name, name);
+        throw_loc(
+            "as the parent class `%s` of class `%s` is `local`, "
+            "both classes need to be in the same package",
+            xt->loc, st->name, name
+        );
     }
     xt->st = st;
     return 0;
@@ -495,8 +529,9 @@ static int resolve_snmp_iface_field(iopc_iface_t *iface, iopc_field_t *field)
     int field_pos = field->field_pos;
 
     if (!field->snmp_is_from_param) {
-        throw_loc("any field should be a snmpObj previously defined",
-                  field->loc);
+        throw_loc(
+            "any field should be a snmpObj previously defined", field->loc
+        );
     }
 
     tab_for_each_entry(attr, &iface->attrs) {
@@ -504,21 +539,28 @@ static int resolve_snmp_iface_field(iopc_iface_t *iface, iopc_field_t *field)
             continue;
         }
         tab_for_each_entry(from, &attr->snmp_params_from) {
-            found = pkg_provides_fields_for_param(from->pkg, field,
-                                                  from->name, field->name);
+            found = pkg_provides_fields_for_param(
+                from->pkg, field, from->name, field->name
+            );
             if (found && resolved) {
-                throw_loc("several snmpObjs given by the attribute "
-                          "snmpParamsFrom have a field with the same name "
-                          "`%s`", field->loc, field->name);
+                throw_loc(
+                    "several snmpObjs given by the attribute "
+                    "snmpParamsFrom have a field with the same name "
+                    "`%s`",
+                    field->loc, field->name
+                );
             }
             if (found) {
                 resolved = true;
             }
         }
         if (!resolved) {
-            throw_loc("when resolving snmpIface `%s`, field `%s` is not "
-                      "found in any of the snmpObjs given by the attribute "
-                      "snmpParamsFrom", field->loc, iface->name, field->name);
+            throw_loc(
+                "when resolving snmpIface `%s`, field `%s` is not "
+                "found in any of the snmpObjs given by the attribute "
+                "snmpParamsFrom",
+                field->loc, iface->name, field->name
+            );
         } else {
             /* Give back information on the field */
             field->loc = loc;
@@ -528,14 +570,16 @@ static int resolve_snmp_iface_field(iopc_iface_t *iface, iopc_field_t *field)
     return 0;
 }
 
-static int
-resolve_pkg_parent(iopc_extends_t *xt, iopc_pkg_t *pkg,
-                   iopc_struct_type_t type, const char *name)
+static int resolve_pkg_parent(
+    iopc_extends_t *xt, iopc_pkg_t *pkg, iopc_struct_type_t type,
+    const char *name
+)
 {
     const char *str = iopc_struct_type_to_str(type);
 
-    return resolve_pkg_parent_and_params(xt, pkg, type, name, str,
-                                         "inheritance");
+    return resolve_pkg_parent_and_params(
+        xt, pkg, type, name, str, "inheritance"
+    );
 }
 
 static int iopc_struct_resolve(iopc_pkg_t *pkg, iopc_struct_t *st)
@@ -545,7 +589,7 @@ static int iopc_struct_resolve(iopc_pkg_t *pkg, iopc_struct_t *st)
         t_scope;
         iopc_extends_t *xt = st->extends.tab[0];
 
-        assert (st->extends.len == 1);
+        assert(st->extends.len == 1);
         RETHROW(resolve_pkg_parent(xt, pkg, st->type, st->name));
     }
 
@@ -558,12 +602,14 @@ static int iopc_struct_resolve(iopc_pkg_t *pkg, iopc_struct_t *st)
 
         if (st->type == STRUCT_TYPE_UNION) {
             if (f->repeat == IOP_R_OPTIONAL) {
-                throw_loc("optional members are forbidden in union types",
-                          f->loc);
+                throw_loc(
+                    "optional members are forbidden in union types", f->loc
+                );
             }
             if (f->repeat == IOP_R_REPEATED) {
-                throw_loc("repeated members are forbidden in union types",
-                          f->loc);
+                throw_loc(
+                    "repeated members are forbidden in union types", f->loc
+                );
             }
         }
     }
@@ -583,14 +629,15 @@ static int iopc_snmp_iface_resolve(iopc_pkg_t *pkg, iopc_iface_t *iface)
     bool resolved = false;
 
     if (iface->extends.len != 1) {
-        throw_loc("a snmpIface should always have one and only parent",
-                  iface->loc);
+        throw_loc(
+            "a snmpIface should always have one and only parent", iface->loc
+        );
     }
     xt = iface->extends.tab[0];
 
-    RETHROW(resolve_pkg_parent_and_params(xt, pkg, STRUCT_TYPE_SNMP_OBJ,
-                                          iface->name,
-                                          "snmpIface", "inheritance"));
+    RETHROW(resolve_pkg_parent_and_params(
+        xt, pkg, STRUCT_TYPE_SNMP_OBJ, iface->name, "snmpIface", "inheritance"
+    ));
 
     /* Check params from */
     tab_for_each_entry(attr, &iface->attrs) {
@@ -600,10 +647,10 @@ static int iopc_snmp_iface_resolve(iopc_pkg_t *pkg, iopc_iface_t *iface)
         tab_for_each_pos(pos, &attr->snmp_params_from) {
             iopc_extends_t *xt_param = attr->snmp_params_from.tab[pos];
 
-            RETHROW(resolve_pkg_parent_and_params(xt_param, pkg,
-                                                  STRUCT_TYPE_SNMP_OBJ,
-                                                  iface->name, "snmpIface",
-                                                  "snmp params"));
+            RETHROW(resolve_pkg_parent_and_params(
+                xt_param, pkg, STRUCT_TYPE_SNMP_OBJ, iface->name, "snmpIface",
+                "snmp params"
+            ));
             resolved = true;
         }
     }
@@ -617,8 +664,10 @@ static int iopc_snmp_iface_resolve(iopc_pkg_t *pkg, iopc_iface_t *iface)
         fun->arg.anonymous_struct->contains_snmp_info = true;
         tab_for_each_entry(field, &fun->arg.anonymous_struct->fields) {
             if (!resolved) {
-                throw_loc("snmpIface should have an attribute snmpParamsFrom",
-                          iface->loc);
+                throw_loc(
+                    "snmpIface should have an attribute snmpParamsFrom",
+                    iface->loc
+                );
             }
             RETHROW(resolve_snmp_iface_field(iface, field));
         }
@@ -632,16 +681,19 @@ static int iopc_module_check_extends(iopc_struct_t *mod, iopc_extends_t *xt)
     tab_for_each_entry(f2, &xt->st->fields) {
         tab_for_each_entry(f, &mod->fields) {
             if (strequal(f->name, f2->name)) {
-                throw_loc("module %s cannot extend %s.%s, "
-                          "both define an interface %s",
-                          xt->loc, mod->name,
-                          iopc_path_dot(xt->pkg->name), xt->name, f->name);
+                throw_loc(
+                    "module %s cannot extend %s.%s, "
+                    "both define an interface %s",
+                    xt->loc, mod->name, iopc_path_dot(xt->pkg->name),
+                    xt->name, f->name
+                );
             }
             if (f->tag == f2->tag) {
-                throw_loc("module %s cannot extend %s.%s, "
-                          "both define a tag %d",
-                          xt->loc, mod->name,
-                          iopc_path_dot(xt->pkg->name), xt->name, f->tag);
+                throw_loc(
+                    "module %s cannot extend %s.%s, both define a tag %d",
+                    xt->loc, mod->name, iopc_path_dot(xt->pkg->name),
+                    xt->name, f->tag
+                );
             }
         }
         qv_append(&mod->fields, iopc_field_retain(f2));
@@ -656,26 +708,28 @@ static int iopc_struct_check_circular_dep(iopc_pkg_t *pkg, iopc_struct_t *st)
         return 0;
     }
     if (st->resolving) {
-        throw_loc("circular dependency",
-                  *tab_last(&iopc_g.loc_stack));
+        throw_loc("circular dependency", *tab_last(&iopc_g.loc_stack));
     }
 
     st->resolving = true;
     tab_for_each_entry(field, &st->fields) {
-        if (pkg != field->type_pkg
-        ||  (field->kind != IOP_T_STRUCT && field->kind != IOP_T_UNION)
-        ||  field->repeat == IOP_R_OPTIONAL
-        ||  field->repeat == IOP_R_REPEATED
-        ||  (field->is_ref && st->type == STRUCT_TYPE_UNION && st->fields.len > 1)
-        ||  (field->is_ref && field->kind != IOP_T_STRUCT)
-        ||  field->has_external_type)
+        if (pkg != field->type_pkg ||
+            (field->kind != IOP_T_STRUCT && field->kind != IOP_T_UNION) ||
+            field->repeat == IOP_R_OPTIONAL ||
+            field->repeat == IOP_R_REPEATED ||
+            (field->is_ref && st->type == STRUCT_TYPE_UNION &&
+             st->fields.len > 1) ||
+            (field->is_ref && field->kind != IOP_T_STRUCT) ||
+            field->has_external_type)
         {
             continue;
         } else {
             t_scope;
 
-            t_push_loc(field->loc, "in struct %s, field %s has type %s",
-                       st->name, field->name, field->type_name);
+            t_push_loc(
+                field->loc, "in struct %s, field %s has type %s", st->name,
+                field->name, field->type_name
+            );
             RETHROW(iopc_struct_check_circular_dep(pkg, field->struct_def));
             pop_loc();
         }
@@ -684,20 +738,21 @@ static int iopc_struct_check_circular_dep(iopc_pkg_t *pkg, iopc_struct_t *st)
     return 0;
 }
 
-qm_kptr_t(field_struct, char, iopc_struct_t *,
-          qhash_str_hash, qhash_str_equal);
+qm_kptr_t(
+    field_struct, char, iopc_struct_t *, qhash_str_hash, qhash_str_equal
+);
 
-static int
-iopc_struct_check_inheritance(iopc_struct_t *st, iopc_struct_t *parent_st,
-                              qm_t(field_struct) *fields,
-                              qm_t(id_class) *ids)
+static int iopc_struct_check_inheritance(
+    iopc_struct_t *st, iopc_struct_t *parent_st, qm_t(field_struct) *fields,
+    qm_t(id_class) *ids
+)
 {
     t_scope;
     iopc_struct_t *xt;
     const char *type;
 
-    assert (iopc_is_class(st->type) || iopc_is_snmp_st(st->type));
-    assert (iopc_is_snmp_tbl(st->type) || parent_st->type == st->type);
+    assert(iopc_is_class(st->type) || iopc_is_snmp_st(st->type));
+    assert(iopc_is_snmp_tbl(st->type) || parent_st->type == st->type);
 
     type = iopc_struct_type_to_str(st->type);
 
@@ -707,13 +762,16 @@ iopc_struct_check_inheritance(iopc_struct_t *st, iopc_struct_t *parent_st,
 
     /* Check field names unicity */
     tab_for_each_entry(field, &parent_st->fields) {
-        uint32_t pos = qm_put(field_struct, fields, field->name, parent_st, 0);
+        uint32_t pos =
+            qm_put(field_struct, fields, field->name, parent_st, 0);
 
         if (pos & QHASH_COLLISION) {
             parent_st = fields->values[pos ^ QHASH_COLLISION];
             clear_loc();
-            throw_loc("field name `%s` is also used in child `%s`",
-                      field->loc, field->name, parent_st->name);
+            throw_loc(
+                "field name `%s` is also used in child `%s`", field->loc,
+                field->name, parent_st->name
+            );
         }
     }
 
@@ -726,14 +784,19 @@ iopc_struct_check_inheritance(iopc_struct_t *st, iopc_struct_t *parent_st,
             if (strequal(master_field->name, field->name)) {
                 if (!field->defval_type) {
                     clear_loc();
-                    throw_loc("field `%s` already defined by parent `%s`",
-                              field->loc, field->name, parent_st->name);
+                    throw_loc(
+                        "field `%s` already defined by parent `%s`",
+                        field->loc, field->name, parent_st->name
+                    );
                 }
                 if (master_field->kind != field->kind) {
                     clear_loc();
-                    throw_loc("incompatible type for static field `%s`: "
-                              "should be `%s`", field->loc, field->name,
-                              iop_type_get_string_desc(master_field->kind));
+                    throw_loc(
+                        "incompatible type for static field `%s`: "
+                        "should be `%s`",
+                        field->loc, field->name,
+                        iop_type_get_string_desc(master_field->kind)
+                    );
                 }
                 break;
             }
@@ -741,7 +804,7 @@ iopc_struct_check_inheritance(iopc_struct_t *st, iopc_struct_t *parent_st,
     }
 
     /* Check class or snmpObj ids unicity */
-  check_ids:
+check_ids:
     if (!parent_st->resolved_inheritance) {
         qm_add(id_class, ids, parent_st->class_id, parent_st);
     }
@@ -751,21 +814,24 @@ iopc_struct_check_inheritance(iopc_struct_t *st, iopc_struct_t *parent_st,
             iopc_struct_t *st2 = ids->values[slot];
             uint32_t pos;
 
-            pos = qm_put(id_class, &parent_st->children_by_id,
-                           st2->class_id, st2, 0);
+            pos = qm_put(
+                id_class, &parent_st->children_by_id, st2->class_id, st2, 0
+            );
             if (pos & QHASH_COLLISION) {
                 parent_st =
                     parent_st->children_by_id.values[pos ^ QHASH_COLLISION];
                 clear_loc();
-                throw_loc("id %d is also used by class `%s`",
-                          st2->loc, st2->class_id, parent_st->name);
+                throw_loc(
+                    "id %d is also used by class `%s`", st2->loc,
+                    st2->class_id, parent_st->name
+                );
             }
         }
-        parent_st->resolved_inheritance  = true;
+        parent_st->resolved_inheritance = true;
         return 0;
     }
-    assert (parent_st->extends.len == 1);
-    assert (!qm_len(id_class, &parent_st->children_by_id));
+    assert(parent_st->extends.len == 1);
+    assert(!qm_len(id_class, &parent_st->children_by_id));
 
     if (parent_st->extends.tab[0]->is_snmp_root) {
         return 0;
@@ -774,13 +840,15 @@ iopc_struct_check_inheritance(iopc_struct_t *st, iopc_struct_t *parent_st,
     xt = parent_st->extends.tab[0]->st;
 
     /* Check for circular dependencies */
-    t_push_loc(parent_st->loc, "%s %s inherits from %s %s",
-               type, parent_st->name, type, xt->name);
+    t_push_loc(
+        parent_st->loc, "%s %s inherits from %s %s", type, parent_st->name,
+        type, xt->name
+    );
     RETHROW(iopc_struct_check_inheritance(st, xt, fields, ids));
     pop_loc();
 
     parent_st->resolving_inheritance = false;
-    parent_st->resolved_inheritance  = true;
+    parent_st->resolved_inheritance = true;
 
     return 0;
 }
@@ -805,7 +873,7 @@ static int iopc_struct_check_abstract_static_fields(const iopc_struct_t *st)
 
     qh_init_cached(str, &fields_seen);
     tab_for_each_entry(field, &st->static_fields) {
-        assert (field->defval_type);
+        assert(field->defval_type);
         qh_add(str, &fields_seen, field->name);
     }
 
@@ -813,16 +881,17 @@ static int iopc_struct_check_abstract_static_fields(const iopc_struct_t *st)
         tab_for_each_entry(field, &it_st->static_fields) {
             if (field->defval_type) {
                 qh_add(str, &fields_seen, field->name);
-            } else
-            if (qh_find(str, &fields_seen, field->name) < 0) {
+            } else if (qh_find(str, &fields_seen, field->name) < 0) {
                 clear_loc();
                 qh_wipe(str, &fields_seen);
-                throw_loc("class `%s` must define a static field named "
-                          "`%s`", st->loc, st->name, field->name);
+                throw_loc(
+                    "class `%s` must define a static field named `%s`",
+                    st->loc, st->name, field->name
+                );
             }
         }
-    } while (it_st->extends.len && (it_st = it_st->extends.tab[0]->st)
-         &&  it_st->is_abstract);
+    } while (it_st->extends.len && (it_st = it_st->extends.tab[0]->st) &&
+             it_st->is_abstract);
 
     qh_wipe(str, &fields_seen);
     return 0;
@@ -834,8 +903,7 @@ static int iopc_t_resolve(iopc_pkg_t *pkg)
         return 0;
     }
     if (pkg->t_resolving) {
-        throw_loc("circular dependency",
-                  *tab_last(&iopc_g.loc_stack));
+        throw_loc("circular dependency", *tab_last(&iopc_g.loc_stack));
     }
 
     pkg->t_resolving = true;
@@ -890,16 +958,18 @@ static int iopc_t_resolve(iopc_pkg_t *pkg)
     return 0;
 }
 
-static int iopc_i_resolve_fun_struct(iopc_pkg_t *pkg, iopc_iface_t *iface,
-                                     iopc_fun_struct_t *fun_st)
+static int iopc_i_resolve_fun_struct(
+    iopc_pkg_t *pkg, iopc_iface_t *iface, iopc_fun_struct_t *fun_st
+)
 {
     if (!iopc_fun_struct_is_void(fun_st)) {
         if (fun_st->is_anonymous) {
             RETHROW(iopc_struct_resolve(pkg, fun_st->anonymous_struct));
             fun_st->anonymous_struct->iface = iface;
         } else {
-            RETHROW(iopc_types_find_n_check(pkg, fun_st->existing_struct,
-                                            false));
+            RETHROW(
+                iopc_types_find_n_check(pkg, fun_st->existing_struct, false)
+            );
         }
     }
 
@@ -912,8 +982,7 @@ static int iopc_i_resolve(iopc_pkg_t *pkg)
         return 0;
     }
     if (pkg->i_resolving) {
-        throw_loc("circular dependency",
-                  *tab_last(&iopc_g.loc_stack));
+        throw_loc("circular dependency", *tab_last(&iopc_g.loc_stack));
     }
 
     pkg->i_resolving = true;
@@ -931,10 +1000,12 @@ static int iopc_i_resolve(iopc_pkg_t *pkg)
                 continue;
             } else {
                 t_scope;
-                t_push_loc(iface->loc,
-                           "in package %s, module %s, iface %s needs package %s",
-                           iopc_path_dot(pkg->name), mod->name, iface->name,
-                           iopc_path_dot(iface->type_path));
+                t_push_loc(
+                    iface->loc,
+                    "in package %s, module %s, iface %s needs package %s",
+                    iopc_path_dot(pkg->name), mod->name, iface->name,
+                    iopc_path_dot(iface->type_path)
+                );
                 RETHROW(iopc_resolve(iface->type_pkg));
                 pop_loc();
             }
@@ -943,10 +1014,11 @@ static int iopc_i_resolve(iopc_pkg_t *pkg)
             RETHROW(iopc_modules_find_n_check(pkg, xt));
             if (xt->pkg != pkg) {
                 t_scope;
-                t_push_loc(xt->loc,
-                           "in package %s, module %s, needs package %s",
-                           iopc_path_dot(pkg->name), xt->name,
-                           iopc_path_dot(xt->path));
+                t_push_loc(
+                    xt->loc, "in package %s, module %s, needs package %s",
+                    iopc_path_dot(pkg->name), xt->name,
+                    iopc_path_dot(xt->path)
+                );
                 if (xt->pkg->i_resolving || xt->pkg->t_resolving) {
                     throw_loc("circular dependency", xt->loc);
                 }
@@ -958,7 +1030,7 @@ static int iopc_i_resolve(iopc_pkg_t *pkg)
     }
 
     pkg->i_resolving = false;
-    pkg->i_resolved  = true;
+    pkg->i_resolved = true;
     return 0;
 }
 
@@ -988,14 +1060,14 @@ static int check_defval_enum_allow(iopc_field_t *f, iopc_attr_t *attr)
             if (attr->desc->id == IOPC_ATTR_ALLOW) {
                 return 0;
             }
-            throw_loc("invalid default value on enum field: %jd",
-                      f->loc, i64);
+            throw_loc(
+                "invalid default value on enum field: %jd", f->loc, i64
+            );
         }
     }
 
     if (attr->desc->id == IOPC_ATTR_ALLOW) {
-        throw_loc("invalid default value on enum field: %jd", f->loc,
-                  i64);
+        throw_loc("invalid default value on enum field: %jd", f->loc, i64);
     }
     return 0;
 }
@@ -1008,28 +1080,34 @@ static int check_defval_int(iopc_field_t *f)
 
     RETHROW(iopc_field_get_signed(f, &is_signed));
     if (f->defval_type != IOPC_DEFVAL_INTEGER) {
-        throw_loc("invalid default value on integer field (wrong type)",
-                  f->loc);
+        throw_loc(
+            "invalid default value on integer field (wrong type)", f->loc
+        );
     }
     if (!is_signed && f->defval_is_signed) {
-        throw_loc("invalid default value on unsigned integer field: %jd",
-                  f->loc, i64);
+        throw_loc(
+            "invalid default value on unsigned integer field: %jd", f->loc,
+            i64
+        );
     }
     if (is_signed && i64 > iop_type_to_max(f->kind).i64) {
-        throw_loc("invalid default value on %s field: %jd",
-                  f->loc, iop_type_get_string_desc(f->kind),  i64);
-    } else
-    if (!is_signed && u64 > iop_type_to_max(f->kind).u64) {
-        throw_loc("invalid default value on %s field: %ju",
-                  f->loc, iop_type_get_string_desc(f->kind),  u64);
+        throw_loc(
+            "invalid default value on %s field: %jd", f->loc,
+            iop_type_get_string_desc(f->kind), i64
+        );
+    } else if (!is_signed && u64 > iop_type_to_max(f->kind).u64) {
+        throw_loc(
+            "invalid default value on %s field: %ju", f->loc,
+            iop_type_get_string_desc(f->kind), u64
+        );
     }
 
     if (f->kind == IOP_T_ENUM) {
         bool strict = false;
 
         tab_for_each_entry(attr, &f->attrs) {
-            if (attr->desc->id == IOPC_ATTR_ALLOW
-            ||  attr->desc->id == IOPC_ATTR_DISALLOW)
+            if (attr->desc->id == IOPC_ATTR_ALLOW ||
+                attr->desc->id == IOPC_ATTR_DISALLOW)
             {
                 RETHROW(check_defval_enum_allow(f, attr));
             }
@@ -1049,47 +1127,56 @@ static int check_defval_int(iopc_field_t *f)
                 return 0;
             }
         }
-        throw_loc("invalid default value on strict enum field: %jd", f->loc,
-                  i64);
+        throw_loc(
+            "invalid default value on strict enum field: %jd", f->loc, i64
+        );
         return 0;
     }
     tab_for_each_entry(attr, &f->attrs) {
         int64_t val;
 
         switch (attr->desc->id) {
-          case IOPC_ATTR_MAX:
+        case IOPC_ATTR_MAX:
             val = IOPC_ATTR_GET_ARG_V(int64_t, &attr->args.tab[0]);
             if (is_signed && i64 > val) {
-                throw_loc("invalid default value, "
-                          "violation of @max constraint: %jd > %jd", f->loc,
-                          i64, val);
-            } else
-            if (!is_signed && u64 > (uint64_t)val) {
-                throw_loc("invalid default value, "
-                          "violation of @max constraint: %ju > %ju", f->loc,
-                          u64, val);
+                throw_loc(
+                    "invalid default value, "
+                    "violation of @max constraint: %jd > %jd",
+                    f->loc, i64, val
+                );
+            } else if (!is_signed && u64 > (uint64_t)val) {
+                throw_loc(
+                    "invalid default value, "
+                    "violation of @max constraint: %ju > %ju",
+                    f->loc, u64, val
+                );
             }
             break;
-          case IOPC_ATTR_MIN:
+        case IOPC_ATTR_MIN:
             val = IOPC_ATTR_GET_ARG_V(int64_t, &attr->args.tab[0]);
             if (is_signed && i64 < val) {
-                throw_loc("invalid default value, "
-                          "violation of @min constraint: %jd < %jd", f->loc,
-                          i64, val);
-            } else
-            if (!is_signed && u64 < (uint64_t)val) {
-                throw_loc("invalid default value, "
-                          "violation of @min constraint: %ju < %ju", f->loc,
-                          u64, val);
+                throw_loc(
+                    "invalid default value, "
+                    "violation of @min constraint: %jd < %jd",
+                    f->loc, i64, val
+                );
+            } else if (!is_signed && u64 < (uint64_t)val) {
+                throw_loc(
+                    "invalid default value, "
+                    "violation of @min constraint: %ju < %ju",
+                    f->loc, u64, val
+                );
             }
             break;
-          case IOPC_ATTR_NON_ZERO:
+        case IOPC_ATTR_NON_ZERO:
             if (!i64) {
-                throw_loc("invalid default value, "
-                          "violation of @nonZero constraint", f->loc);
+                throw_loc(
+                    "invalid default value, violation of @nonZero constraint",
+                    f->loc
+                );
             }
             break;
-          default:
+        default:
             break;
         }
     }
@@ -1099,10 +1186,8 @@ static int check_defval_int(iopc_field_t *f)
 static int check_defval_double(iopc_field_t *f)
 {
     if (f->defval_type == IOPC_DEFVAL_STRING) {
-        throw_loc("string default value on double field",
-                  f->loc);
-    } else
-    if (f->defval_type == IOPC_DEFVAL_INTEGER) {
+        throw_loc("string default value on double field", f->loc);
+    } else if (f->defval_type == IOPC_DEFVAL_INTEGER) {
         f->defval.d = f->defval.u64;
     }
 
@@ -1110,29 +1195,35 @@ static int check_defval_double(iopc_field_t *f)
         double val;
 
         switch (attr->desc->id) {
-          case IOPC_ATTR_MAX:
+        case IOPC_ATTR_MAX:
             val = IOPC_ATTR_GET_ARG_V(double, &attr->args.tab[0]);
             if (f->defval.d > val) {
-                throw_loc("invalid default value, "
-                          "violation of @max constraint: %f > %f", f->loc,
-                          f->defval.d, val);
+                throw_loc(
+                    "invalid default value, "
+                    "violation of @max constraint: %f > %f",
+                    f->loc, f->defval.d, val
+                );
             }
             break;
-          case IOPC_ATTR_MIN:
+        case IOPC_ATTR_MIN:
             val = IOPC_ATTR_GET_ARG_V(double, &attr->args.tab[0]);
             if (f->defval.d < val) {
-                throw_loc("invalid default value, "
-                          "violation of @min constraint: %f < %f", f->loc,
-                          f->defval.d, val);
+                throw_loc(
+                    "invalid default value, "
+                    "violation of @min constraint: %f < %f",
+                    f->loc, f->defval.d, val
+                );
             }
             break;
-          case IOPC_ATTR_NON_ZERO:
+        case IOPC_ATTR_NON_ZERO:
             if (!f->defval.d) {
-                throw_loc("invalid default value, "
-                          "violation of @nonZero constraint", f->loc);
+                throw_loc(
+                    "invalid default value, violation of @nonZero constraint",
+                    f->loc
+                );
             }
             break;
-          default:
+        default:
             break;
         }
     }
@@ -1144,8 +1235,7 @@ static int check_defval_string(iopc_field_t *f)
     int len;
 
     if (f->defval_type != IOPC_DEFVAL_STRING) {
-        throw_loc("invalid default value on string field",
-                  f->loc);
+        throw_loc("invalid default value on string field", f->loc);
     }
     len = strlen(f->defval.ptr);
 
@@ -1153,29 +1243,36 @@ static int check_defval_string(iopc_field_t *f)
         int64_t val;
 
         switch (attr->desc->id) {
-          case IOPC_ATTR_MAX_LENGTH:
+        case IOPC_ATTR_MAX_LENGTH:
             val = IOPC_ATTR_GET_ARG_V(int64_t, &attr->args.tab[0]);
             if (len > val) {
-                throw_loc("invalid default value, "
-                          "violation of @maxLength constraint: %d > %jd",
-                          f->loc, len, val);
+                throw_loc(
+                    "invalid default value, "
+                    "violation of @maxLength constraint: %d > %jd",
+                    f->loc, len, val
+                );
             }
             break;
-          case IOPC_ATTR_MIN_LENGTH:
+        case IOPC_ATTR_MIN_LENGTH:
             val = IOPC_ATTR_GET_ARG_V(int64_t, &attr->args.tab[0]);
             if (len < val) {
-                throw_loc("invalid default value, "
-                          "violation of @minLength constraint: %d < %jd",
-                          f->loc, len, val);
+                throw_loc(
+                    "invalid default value, "
+                    "violation of @minLength constraint: %d < %jd",
+                    f->loc, len, val
+                );
             }
             break;
-          case IOPC_ATTR_NON_EMPTY:
+        case IOPC_ATTR_NON_EMPTY:
             if (!len) {
-                throw_loc("invalid default value, "
-                          "violation of @nonEmpty constraint", f->loc);
+                throw_loc(
+                    "invalid default value, "
+                    "violation of @nonEmpty constraint",
+                    f->loc
+                );
             }
             break;
-          default:
+        default:
             break;
         }
     }
@@ -1191,8 +1288,8 @@ static int check_attr(const iopc_field_t *f)
     uint64_t u64;
 
     tab_for_each_entry(attr, &f->attrs) {
-        if (attr->desc->id != IOPC_ATTR_MAX
-        &&  attr->desc->id != IOPC_ATTR_MIN)
+        if (attr->desc->id != IOPC_ATTR_MAX &&
+            attr->desc->id != IOPC_ATTR_MIN)
         {
             continue;
         }
@@ -1203,23 +1300,27 @@ static int check_attr(const iopc_field_t *f)
             /* Double types have no constraints on their min/max */
             continue;
         }
-        if ((is_signed && i64 < iop_type_to_min(f->kind).i64)
-        ||  (!is_signed && i64 < 0 && f->kind != IOP_T_U64))
+        if ((is_signed && i64 < iop_type_to_min(f->kind).i64) ||
+            (!is_signed && i64 < 0 && f->kind != IOP_T_U64))
         {
-            throw_loc("attribute %*pM is lower than minimum value of "
-                      "type %s (%ld < %ld)",
-                      f->loc, LSTR_FMT_ARG(attr->desc->name),
-                      iop_type_get_string_desc(f->kind), i64,
-                      iop_type_to_min(f->kind).i64);
+            throw_loc(
+                "attribute %*pM is lower than minimum value of "
+                "type %s (%ld < %ld)",
+                f->loc, LSTR_FMT_ARG(attr->desc->name),
+                iop_type_get_string_desc(f->kind), i64,
+                iop_type_to_min(f->kind).i64
+            );
         }
-        if ((is_signed && i64 > iop_type_to_max(f->kind).i64)
-        ||  (!is_signed && u64 > iop_type_to_max(f->kind).u64))
+        if ((is_signed && i64 > iop_type_to_max(f->kind).i64) ||
+            (!is_signed && u64 > iop_type_to_max(f->kind).u64))
         {
-            throw_loc("attribute %*pM is larger than maximum value of "
-                      "type %s (%lu > %lu)",
-                      f->loc, LSTR_FMT_ARG(attr->desc->name),
-                      iop_type_get_string_desc(f->kind), u64,
-                      iop_type_to_max(f->kind).u64);
+            throw_loc(
+                "attribute %*pM is larger than maximum value of "
+                "type %s (%lu > %lu)",
+                f->loc, LSTR_FMT_ARG(attr->desc->name),
+                iop_type_get_string_desc(f->kind), u64,
+                iop_type_to_max(f->kind).u64
+            );
         }
     }
 
@@ -1267,14 +1368,18 @@ int iopc_resolve_second_pass(iopc_pkg_t *pkg)
         tab_for_each_entry(f, &st->fields) {
             if (f->is_ref) {
                 if (f->repeat != IOP_R_REQUIRED) {
-                    throw_loc("only mandatory fields can be references",
-                              f->loc);
+                    throw_loc(
+                        "only mandatory fields can be references", f->loc
+                    );
                 }
-                if ((f->kind != IOP_T_STRUCT && f->kind != IOP_T_UNION)
-                ||  iopc_field_type_is_class(f))
+                if ((f->kind != IOP_T_STRUCT && f->kind != IOP_T_UNION) ||
+                    iopc_field_type_is_class(f))
                 {
-                    throw_loc("references can only be applied to structures "
-                              "or unions", f->loc);
+                    throw_loc(
+                        "references can only be applied to structures "
+                        "or unions",
+                        f->loc
+                    );
                 }
             }
 
@@ -1282,22 +1387,22 @@ int iopc_resolve_second_pass(iopc_pkg_t *pkg)
 
             if (f->repeat == IOP_R_DEFVAL) {
                 switch (f->kind) {
-                  case IOP_T_ENUM:
-                  case IOP_T_I8 ... IOP_T_U64:
-                  case IOP_T_BOOL:
+                case IOP_T_ENUM:
+                case IOP_T_I8 ... IOP_T_U64:
+                case IOP_T_BOOL:
                     RETHROW(check_defval_int(f));
                     break;
-                  case IOP_T_DOUBLE:
+                case IOP_T_DOUBLE:
                     RETHROW(check_defval_double(f));
                     break;
 
-                  case IOP_T_STRING:
-                  case IOP_T_DATA:
-                  case IOP_T_XML:
+                case IOP_T_STRING:
+                case IOP_T_DATA:
+                case IOP_T_XML:
                     RETHROW(check_defval_string(f));
                     break;
 
-                  default:
+                default:
                     e_panic("should not happen");
                     break;
                 }
@@ -1311,25 +1416,25 @@ qm_kvec_t(uid, lstr_t, iopc_struct_t *, qhash_lstr_hash, qhash_lstr_equal);
 
 static void iopc_dump_attrs_sig(sb_t *sb, qv_t(iopc_attr) *attrs)
 {
-    assert (attrs->len < 255);
+    assert(attrs->len < 255);
     sb_addc(sb, attrs->len); /*< start of attributes */
     tab_for_each_entry(attr, attrs) {
         sb_addc(sb, attr->desc->id);
         tab_for_each_ptr(arg, &attr->args) {
             put_unaligned_le64(sb_growlen(sb, 8), (intptr_t)arg->desc);
             switch (arg->type) {
-              case ITOK_STRING:
-              case ITOK_IDENT:
+            case ITOK_STRING:
+            case ITOK_IDENT:
                 sb_add(sb, arg->v.s.s, arg->v.s.len);
                 sb_addc(sb, '\0');
                 break;
 
-              case ITOK_DOUBLE:
+            case ITOK_DOUBLE:
                 put_unaligned_double_le(sb_growlen(sb, 8), arg->v.d);
                 break;
 
-              case ITOK_INTEGER:
-              default:
+            case ITOK_INTEGER:
+            default:
                 put_unaligned_le64(sb_growlen(sb, 8), arg->v.i64);
                 break;
             }
@@ -1362,23 +1467,23 @@ static void iopc_dump_fields_sig(sb_t *sb, qv_t(iopc_field) *fields)
         /* Handles defval */
         if (f->repeat == IOP_R_DEFVAL) {
             switch (f->kind) {
-              case IOP_T_ENUM:
-              case IOP_T_I8 ... IOP_T_U64:
-              case IOP_T_BOOL:
+            case IOP_T_ENUM:
+            case IOP_T_I8 ... IOP_T_U64:
+            case IOP_T_BOOL:
                 put_unaligned_le64(sb_growlen(sb, 8), f->defval.u64);
                 break;
-              case IOP_T_DOUBLE:
+            case IOP_T_DOUBLE:
                 put_unaligned_double_le(sb_growlen(sb, 8), f->defval.d);
                 break;
 
-              case IOP_T_STRING:
-              case IOP_T_DATA:
-              case IOP_T_XML:
+            case IOP_T_STRING:
+            case IOP_T_DATA:
+            case IOP_T_XML:
                 sb_adds(sb, f->defval.ptr);
                 sb_addc(sb, '\0');
                 break;
 
-              default:
+            default:
                 e_panic("should not happen");
                 break;
             }
@@ -1412,11 +1517,11 @@ static lstr_t iopc_struct_sig(iopc_struct_t *st)
         /* Dump fields */
         t_qv_init(&tab, st->fields.len);
         qv_extend_tab(&tab, &st->fields);
-        qv_sort(iopc_field)(&tab,
-            ^int (iopc_field_t * const *f1, iopc_field_t * const *f2)
-        {
-            return (*f1)->tag - (*f2)->tag;
-        });
+        qv_sort(iopc_field)(
+            &tab, ^int(iopc_field_t *const *f1, iopc_field_t *const *f2) {
+                return (*f1)->tag - (*f2)->tag;
+            }
+        );
         iopc_dump_fields_sig(&sb, &tab);
 
         /* Dump static fields, even abstract ones, because of comments */
@@ -1424,11 +1529,11 @@ static lstr_t iopc_struct_sig(iopc_struct_t *st)
         tab_for_each_entry(field, &st->static_fields) {
             qv_append(&tab, field);
         }
-        qv_sort(iopc_field)(&tab,
-            ^int (iopc_field_t * const *f1, iopc_field_t * const *f2)
-        {
-            return strcmp((*f1)->name, (*f2)->name);
-        });
+        qv_sort(iopc_field)(
+            &tab, ^int(iopc_field_t *const *f1, iopc_field_t *const *f2) {
+                return strcmp((*f1)->name, (*f2)->name);
+            }
+        );
         iopc_dump_fields_sig(&sb, &tab);
 
         if (st->type == STRUCT_TYPE_CLASS && st->extends.len) {
@@ -1453,8 +1558,9 @@ static void iopc_type_fold_one(qm_t(uid) *h, iopc_struct_t *st)
         pos ^= QHASH_COLLISION;
 
         st2 = h->values[pos];
-        if (st == st2 || st->same_as)
+        if (st == st2 || st->same_as) {
             return;
+        }
 
         st->same_as = st2;
     }
@@ -1470,11 +1576,11 @@ void iopc_types_fold(iopc_pkg_t *pkg)
 
     tab_for_each_entry(iface, &pkg->ifaces) {
 
-        qv_sort(iopc_fun)(&iface->funs,
-                          ^int (iopc_fun_t * const *f1,
-                                iopc_fun_t * const *f2) {
-                              return (*f1)->tag - (*f2)->tag;
-                          });
+        qv_sort(iopc_fun)(
+            &iface->funs, ^int(iopc_fun_t *const *f1, iopc_fun_t *const *f2) {
+                return (*f1)->tag - (*f2)->tag;
+            }
+        );
 
         tab_for_each_entry(fun, &iface->funs) {
             if (fun->arg.is_anonymous && fun->arg.anonymous_struct) {
@@ -1495,8 +1601,9 @@ void iopc_types_fold(iopc_pkg_t *pkg)
 static void
 iopc_add_depends(iopc_pkg_t *ref, iopc_pkg_t *pkg, qv_t(iopc_pkg) *deps)
 {
-    if (pkg && pkg != ref)
+    if (pkg && pkg != ref) {
         qv_append(deps, pkg);
+    }
 }
 
 static void
@@ -1507,26 +1614,21 @@ get_structs_depends(iopc_pkg_t *pkg, qv_t(iopc_pkg) *deps, iopc_struct_t *st)
     }
 }
 
-static bool
-field_is_pointer(iopc_field_t *field)
+static bool field_is_pointer(iopc_field_t *field)
 {
-    if (field->repeat != IOP_R_REPEATED
-    &&  field->repeat != IOP_R_OPTIONAL)
-    {
+    if (field->repeat != IOP_R_REPEATED && field->repeat != IOP_R_OPTIONAL) {
         return false;
     }
-    if (field->kind != IOP_T_UNION
-    &&  field->kind != IOP_T_STRUCT)
-    {
+    if (field->kind != IOP_T_UNION && field->kind != IOP_T_STRUCT) {
         return false;
     }
     return true;
 }
 
-static void
-get_structs_t_depends(iopc_pkg_t *pkg, qv_t(iopc_pkg) *t_deps,
-                      qv_t(iopc_pkg) *t_weak_deps, iopc_struct_t *st,
-                      unsigned flags)
+static void get_structs_t_depends(
+    iopc_pkg_t *pkg, qv_t(iopc_pkg) *t_deps, qv_t(iopc_pkg) *t_weak_deps,
+    iopc_struct_t *st, unsigned flags
+)
 {
     tab_for_each_entry(field, &st->fields) {
         if (field_is_pointer(field)) {
@@ -1543,7 +1645,7 @@ get_structs_t_depends(iopc_pkg_t *pkg, qv_t(iopc_pkg) *t_deps,
         /* XXX As the attribute of all the class ancestors are copied to the
          * associated C struct, we've got a direct dependency on all ancestors
          * packages. */
-        assert (st->extends.len == 1);
+        assert(st->extends.len == 1);
         parent = st->extends.tab[0];
         iopc_add_depends(pkg, parent->pkg, t_deps);
         st = parent->st;
@@ -1554,12 +1656,12 @@ get_structs_t_depends(iopc_pkg_t *pkg, qv_t(iopc_pkg) *t_deps,
     }
 }
 
-static void
-get_ifaces_t_depends(iopc_pkg_t *pkg, qv_t(iopc_pkg) *t_deps,
-                     iopc_iface_t *iface)
+static void get_ifaces_t_depends(
+    iopc_pkg_t *pkg, qv_t(iopc_pkg) *t_deps, iopc_iface_t *iface
+)
 {
     if (iface->extends.len) {
-        assert (iface->extends.len == 1);
+        assert(iface->extends.len == 1);
         if (iface->extends.tab[0]->is_snmp_root) {
             return;
         }
@@ -1570,25 +1672,32 @@ get_ifaces_t_depends(iopc_pkg_t *pkg, qv_t(iopc_pkg) *t_deps,
 
 void iopc_depends_uniquify(qv_t(iopc_pkg) *deps)
 {
-    qv_sort(iopc_pkg)(deps, ^int (iopc_pkg_t * const *p1,
-                                  iopc_pkg_t * const *p2) {
-        return CMP((intptr_t)*p1, (intptr_t)*p2);
-    });
-    qv_uniq(iopc_pkg)(deps, ^int (iopc_pkg_t * const *p1,
-                                  iopc_pkg_t * const *p2) {
-        return CMP((intptr_t)*p1, (intptr_t)*p2);
-    }, NULL);
+    qv_sort(iopc_pkg)(
+        deps, ^int(iopc_pkg_t *const *p1, iopc_pkg_t *const *p2) {
+            return CMP((intptr_t)*p1, (intptr_t)*p2);
+        }
+    );
+    qv_uniq(iopc_pkg)(
+        deps,
+        ^int(iopc_pkg_t *const *p1, iopc_pkg_t *const *p2) {
+            return CMP((intptr_t)*p1, (intptr_t)*p2);
+        },
+        NULL
+    );
 
     /* XXX sort packages by name to sort in the same way on each computer */
-    qv_sort(iopc_pkg)(deps, ^int (iopc_pkg_t * const *p1,
-                                  iopc_pkg_t * const *p2) {
-        return strcmp(iopc_path_dot((*p1)->name), iopc_path_dot((*p2)->name));
-    });
+    qv_sort(iopc_pkg)(
+        deps, ^int(iopc_pkg_t *const *p1, iopc_pkg_t *const *p2) {
+            return strcmp(
+                iopc_path_dot((*p1)->name), iopc_path_dot((*p2)->name)
+            );
+        }
+    );
 }
 
-static void iopc_fun_struct_get_deps(iopc_pkg_t *pkg,
-                                     iopc_fun_struct_t *fun_st,
-                                     qv_t(iopc_pkg) *i_deps)
+static void iopc_fun_struct_get_deps(
+    iopc_pkg_t *pkg, iopc_fun_struct_t *fun_st, qv_t(iopc_pkg) *i_deps
+)
 {
     if (!iopc_fun_struct_is_void(fun_st)) {
         if (fun_st->is_anonymous) {
@@ -1599,17 +1708,18 @@ static void iopc_fun_struct_get_deps(iopc_pkg_t *pkg,
     }
 }
 
-void iopc_pkg_get_deps(iopc_pkg_t *pkg, unsigned flags,
-                       qv_t(iopc_pkg) *t_deps, qv_t(iopc_pkg) *t_weak_deps,
-                       qv_t(iopc_pkg) *i_deps)
+void iopc_pkg_get_deps(
+    iopc_pkg_t *pkg, unsigned flags, qv_t(iopc_pkg) *t_deps,
+    qv_t(iopc_pkg) *t_weak_deps, qv_t(iopc_pkg) *i_deps
+)
 {
     tab_for_each_entry(td, &pkg->typedefs) {
         iopc_add_depends(pkg, td->type_pkg, t_deps);
     }
 
     tab_for_each_entry(st, &pkg->structs) {
-        if (!(flags & IOPC_PKG_GET_DEPS_INCLUDE_SNMP)
-        &&  iopc_is_snmp_st(st->type))
+        if (!(flags & IOPC_PKG_GET_DEPS_INCLUDE_SNMP) &&
+            iopc_is_snmp_st(st->type))
         {
             continue;
         }
@@ -1617,8 +1727,8 @@ void iopc_pkg_get_deps(iopc_pkg_t *pkg, unsigned flags,
     }
 
     tab_for_each_entry(iface, &pkg->ifaces) {
-        if (!(flags & IOPC_PKG_GET_DEPS_INCLUDE_SNMP)
-        &&  iopc_is_snmp_iface(iface->type))
+        if (!(flags & IOPC_PKG_GET_DEPS_INCLUDE_SNMP) &&
+            iopc_is_snmp_iface(iface->type))
         {
             continue;
         }
@@ -1628,18 +1738,16 @@ void iopc_pkg_get_deps(iopc_pkg_t *pkg, unsigned flags,
 
         tab_for_each_entry(fun, &iface->funs) {
             iopc_fun_struct_get_deps(pkg, &fun->arg, i_deps);
-            if (!iopc_fun_struct_is_void(&fun->arg)
-            &&  iopc_is_snmp_iface(iface->type))
+            if (!iopc_fun_struct_is_void(&fun->arg) &&
+                iopc_is_snmp_iface(iface->type))
             {
                 assert(fun->arg.is_anonymous);
 
                 /* If snmpIface add dependencies necessary for the fun
                  * fields */
-                tab_for_each_entry(field,
-                                   &fun->arg.anonymous_struct->fields)
+                tab_for_each_entry(field, &fun->arg.anonymous_struct->fields)
                 {
-                    iopc_add_depends(pkg, field->parents.tab[0]->pkg,
-                                     t_deps);
+                    iopc_add_depends(pkg, field->parents.tab[0]->pkg, t_deps);
                 }
             }
             iopc_fun_struct_get_deps(pkg, &fun->res, i_deps);
@@ -1682,8 +1790,8 @@ static int iopc_shutdown(void)
     return 0;
 }
 
-MODULE_BEGIN(iopc)
+MODULE_DEFINE(iopc) {
     MODULE_DEPENDS_ON(iopc_lang_c);
-MODULE_END()
+}
 
 /* }}} */

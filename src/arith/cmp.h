@@ -19,19 +19,32 @@
 #if !defined(IS_LIB_COMMON_ARITH_H) || defined(IS_LIB_COMMON_ARITH_CMP_H)
 #  error "you must include arith.h instead"
 #else
-#define IS_LIB_COMMON_ARITH_CMP_H
+#  define IS_LIB_COMMON_ARITH_CMP_H
 
-static inline int min_int(int a, int b)          { return MIN(a, b); }
-static inline int max_int(int a, int b)          { return MAX(a, b); }
-static inline int clamp_int(int a, int m, int M) { return CLIP(a, m, M); }
-
-static inline void maximize(int * nonnull pi, int val) {
-    if (*pi < val)
-        *pi = val;
+static inline int min_int(int a, int b)
+{
+    return MIN(a, b);
 }
-static inline void minimize(int * nonnull pi, int val) {
-    if (*pi > val)
+static inline int max_int(int a, int b)
+{
+    return MAX(a, b);
+}
+static inline int clamp_int(int a, int m, int M)
+{
+    return CLIP(a, m, M);
+}
+
+static inline void maximize(int *nonnull pi, int val)
+{
+    if (*pi < val) {
         *pi = val;
+    }
+}
+static inline void minimize(int *nonnull pi, int val)
+{
+    if (*pi > val) {
+        *pi = val;
+    }
 }
 
 #endif

@@ -106,44 +106,44 @@
  * \ref qhat_set (or \ref qhat_set_path).
  */
 
-#define QHAT_SHIFT   10UL
-#define QHAT_COUNT   (1UL << QHAT_SHIFT)
-#define QHAT_MASK    (QHAT_COUNT - 1)
-#define QHAT_SIZE    (4UL << QHAT_SHIFT)
-#define QHAT_ROOTS   (1 << (bitsizeof(uint32_t) % QHAT_SHIFT))
+#define QHAT_SHIFT 10UL
+#define QHAT_COUNT (1UL << QHAT_SHIFT)
+#define QHAT_MASK (QHAT_COUNT - 1)
+#define QHAT_SIZE (4UL << QHAT_SHIFT)
+#define QHAT_ROOTS (1 << (bitsizeof(uint32_t) % QHAT_SHIFT))
 
-#define QHAT_DEPTH_MAX    3
+#define QHAT_DEPTH_MAX 3
 
 typedef union qhat_node_t {
     struct {
-        unsigned page    :30;
-        unsigned leaf    :1;
-        unsigned compact :1;
+        unsigned page : 30;
+        unsigned leaf : 1;
+        unsigned compact : 1;
     };
     uint32_t value;
 } qhat_node_t;
-#define QHAT_NULL_NODE  (qhat_node_t){ .value = 0 }
+#define QHAT_NULL_NODE (qhat_node_t){.value = 0}
 
 typedef struct qhat_root_t {
     /* Signature */
-#define QPS_TRIE_SIG_12  "QPS_trie/v01.02"
-#define QPS_TRIE_SIG     QPS_TRIE_SIG_12
-    uint8_t     sig[16];
+#define QPS_TRIE_SIG_12 "QPS_trie/v01.02"
+#define QPS_TRIE_SIG QPS_TRIE_SIG_12
+    uint8_t sig[16];
 
     /* Trie description */
-    uint32_t    value_len;
-    bool        is_nullable : 1;
-    bool        do_stats : 1;
+    uint32_t value_len;
+    bool is_nullable : 1;
+    bool do_stats : 1;
     qhat_node_t nodes[QHAT_ROOTS];
 
     /* Statistics */
-    uint16_t    node_count;
-    uint32_t    compact_count;
-    uint32_t    flat_count;
+    uint16_t node_count;
+    uint32_t compact_count;
+    uint32_t flat_count;
 
-    uint32_t    entry_count;
-    uint32_t    key_stored_count;
-    uint32_t    zero_stored_count;
+    uint32_t entry_count;
+    uint32_t key_stored_count;
+    uint32_t zero_stored_count;
 
     /* Null bitmap */
     qps_handle_t bitmap;
@@ -170,13 +170,13 @@ typedef union qhat_gen_t {
 } qhat_gen_t;
 
 typedef struct qhat_t {
-    qps_t       *qps;
+    qps_t *qps;
     qps_bitmap_t bitmap;
-    qhat_gen_t   gen;
+    qhat_gen_t gen;
 
     union {
         qhat_root_t *root;
-        qps_hptr_t   root_cache;
+        qps_hptr_t root_cache;
     };
     const struct qhat_desc_t *desc;
 
@@ -184,30 +184,30 @@ typedef struct qhat_t {
 } qhat_t;
 
 typedef struct qhat_path_t {
-    qhat_t     *hat;
-    uint32_t    key;
+    qhat_t *hat;
+    uint32_t key;
 
-    int         depth;
-    qhat_gen_t  gen;
+    int depth;
+    qhat_gen_t gen;
 
     qhat_node_t path[QHAT_DEPTH_MAX];
 } qhat_path_t;
 
 typedef const void *(*qhat_getter_f)(qhat_path_t *path);
 typedef void *(*qhat_setter_f)(qhat_path_t *path);
-typedef void  (*qhat_setter0_f)(qhat_path_t *path, void *ptr);
-typedef bool  (*qhat_remover_f)(qhat_path_t *path, void *ptr);
+typedef void (*qhat_setter0_f)(qhat_path_t *path, void *ptr);
+typedef bool (*qhat_remover_f)(qhat_path_t *path, void *ptr);
 
 typedef struct qhat_desc_t {
-    uint8_t  value_len;
-    uint8_t  value_len_log;
-    uint8_t  root_node_count;
+    uint8_t value_len;
+    uint8_t value_len_log;
+    uint8_t root_node_count;
 
-    uint8_t  leaf_index_bits;
+    uint8_t leaf_index_bits;
     uint32_t leaf_index_mask;
 
-    uint8_t  pages_per_flat;
-    uint8_t  pages_per_compact;
+    uint8_t pages_per_flat;
+    uint8_t pages_per_compact;
 
     uint16_t leaves_per_compact;
     uint16_t leaves_per_flat;
@@ -215,8 +215,8 @@ typedef struct qhat_desc_t {
     uint16_t split_compact_threshold;
 
     /* VTable */
-    qhat_getter_f  getf;
-    qhat_setter_f  setf;
+    qhat_getter_f getf;
+    qhat_setter_f setf;
     qhat_setter0_f set0f;
     qhat_remover_f removef;
 
@@ -229,19 +229,19 @@ typedef struct qhat_128_t {
     uint64_t l;
     uint64_t h;
 } qhat_128_t;
-extern qhat_128_t  qhat_default_zero_g;
+extern qhat_128_t qhat_default_zero_g;
 
-#define QHAT_PATH_NODE(Path)  (Path)->path[(Path)->depth]
+#define QHAT_PATH_NODE(Path) (Path)->path[(Path)->depth]
 
 typedef struct qhat_compacthdr_t {
-    uint32_t  count;
-    uint16_t  parent_left;
-    uint16_t  parent_right;
-    uint32_t  keys[];
+    uint32_t count;
+    uint16_t parent_left;
+    uint16_t parent_right;
+    uint32_t keys[];
 } qhat_compacthdr_t;
 
-qps_handle_t qhat_create(qps_t *qps, uint32_t value_len, bool is_nullable)
-    __attr_leaf__;
+qps_handle_t
+qhat_create(qps_t *qps, uint32_t value_len, bool is_nullable) __attr_leaf__;
 void qhat_init(qhat_t *hat, qps_t *qps, qps_handle_t handle);
 void qhat_destroy(qhat_t *hat) __attr_leaf__;
 void qhat_clear(qhat_t *hat) __attr_leaf__;
@@ -250,15 +250,15 @@ void qhat_clear(qhat_t *hat) __attr_leaf__;
  * \{
  */
 
-static ALWAYS_INLINE
-void qhat_path_init(qhat_path_t *path, qhat_t *hat, uint32_t row)
+static ALWAYS_INLINE void
+qhat_path_init(qhat_path_t *path, qhat_t *hat, uint32_t row)
 {
 #ifdef __cplusplus
     p_clear(path, 1);
     path->key = row;
     path->hat = hat;
 #else
-    *path = (qhat_path_t){ .hat = hat, .key = row };
+    *path = (qhat_path_t){.hat = hat, .key = row};
 #endif
 }
 
@@ -304,8 +304,7 @@ static ALWAYS_INLINE void qhat_path_touch(qhat_path_t *path)
  *                 the key was not present in the trie)
  * \return true if the key was present before removal.
  */
-static ALWAYS_INLINE
-bool qhat_remove_path(qhat_path_t *path, void *ptr)
+static ALWAYS_INLINE bool qhat_remove_path(qhat_path_t *path, void *ptr)
 {
     bool removed;
 
@@ -318,8 +317,7 @@ bool qhat_remove_path(qhat_path_t *path, void *ptr)
  *
  * \see qhat_remove_path
  */
-static ALWAYS_INLINE
-bool qhat_remove(qhat_t *hat, uint32_t row, void *ptr)
+static ALWAYS_INLINE bool qhat_remove(qhat_t *hat, uint32_t row, void *ptr)
 {
     qhat_path_t path;
 
@@ -344,8 +342,7 @@ bool qhat_remove(qhat_t *hat, uint32_t row, void *ptr)
  * \param[in,out] path Already resolved path to the key in the trie.
  * \return A pointer to the slot associated to the key in the trie.
  */
-static ALWAYS_INLINE
-void *qhat_set_path(qhat_path_t *path)
+static ALWAYS_INLINE void *qhat_set_path(qhat_path_t *path)
 {
     void *value_ptr;
 
@@ -358,8 +355,7 @@ void *qhat_set_path(qhat_path_t *path)
  *
  * \see qhat_set_path
  */
-static ALWAYS_INLINE
-void *qhat_set(qhat_t *hat, uint32_t row)
+static ALWAYS_INLINE void *qhat_set(qhat_t *hat, uint32_t row)
 {
     qhat_path_t path;
 
@@ -375,20 +371,17 @@ void *qhat_set(qhat_t *hat, uint32_t row)
  * \param[in,out] path Already resolved path to the key in the trie.
  * \param[out] ptr If not null, filled with previous value of the entry.
  */
-static ALWAYS_INLINE
-void qhat_set0_path(qhat_path_t *path, void *ptr)
+static ALWAYS_INLINE void qhat_set0_path(qhat_path_t *path, void *ptr)
 {
     (*path->hat->desc->set0f)(path, ptr);
     qhat_path_touch(path);
 }
 
-
 /** Clear an entry.
  *
  * \see qhat_set0_path
  */
-static ALWAYS_INLINE
-void qhat_set0(qhat_t *hat, uint32_t row, void *ptr)
+static ALWAYS_INLINE void qhat_set0(qhat_t *hat, uint32_t row, void *ptr)
 {
     qhat_path_t path;
 
@@ -402,8 +395,7 @@ void qhat_set0(qhat_t *hat, uint32_t row, void *ptr)
  * \return A pointer to the slot storing the value associated to the path,
  *         NULL if no slot has been allocated.
  */
-static ALWAYS_INLINE
-const void *qhat_get_path(qhat_path_t *path)
+static ALWAYS_INLINE const void *qhat_get_path(qhat_path_t *path)
 {
     return (*path->hat->desc->getf)(path);
 }
@@ -412,8 +404,7 @@ const void *qhat_get_path(qhat_path_t *path)
  *
  * \see qhat_get_path
  */
-static ALWAYS_INLINE
-const void *qhat_get(qhat_t *hat, uint32_t row)
+static ALWAYS_INLINE const void *qhat_get(qhat_t *hat, uint32_t row)
 {
     qhat_path_t path;
 
@@ -423,8 +414,7 @@ const void *qhat_get(qhat_t *hat, uint32_t row)
 
 /** Check if an entry is NULL.
  */
-static ALWAYS_INLINE
-bool qhat_is_null(qhat_t *hat, uint32_t key)
+static ALWAYS_INLINE bool qhat_is_null(qhat_t *hat, uint32_t key)
 {
     /* Check if the at is nullable without having to deref hat->root for
      * non-nullable tries.
@@ -484,13 +474,15 @@ typedef enum qhat_check_flags_t {
  *
  * \return A negative value if a critical error is detected.
  */
-int qhat_check_consistency_flags(qhat_t *hat, int flags,
-                                 bool *nullable is_suboptimal) __attr_leaf__;
+int qhat_check_consistency_flags(
+    qhat_t *hat, int flags, bool *nullable is_suboptimal
+) __attr_leaf__;
 
 /** Same as running \p qhat_check_consistency_flags with flag
  * \p QHAT_CHECK_CONTENT. */
-int qhat_check_consistency(qhat_t *hat, bool *nullable is_suboptimal)
-    __attr_leaf__;
+int qhat_check_consistency(
+    qhat_t *hat, bool *nullable is_suboptimal
+) __attr_leaf__;
 
 /** Remove stored zeros from the trie.
  */
@@ -501,82 +493,82 @@ void qhat_fix_stored0(qhat_t *hat) __attr_leaf__;
  */
 typedef uint8_t qhat_8_t;
 typedef struct qhat_compact8_t {
-    uint32_t  count;
-    uint16_t  parent_left;
-    uint16_t  parent_right;
-    uint32_t  keys[8 * (QHAT_COUNT / 5) + 4];
-    uint8_t   values[8 * (QHAT_COUNT / 5) + 4];
-    uint8_t   padding[4];
+    uint32_t count;
+    uint16_t parent_left;
+    uint16_t parent_right;
+    uint32_t keys[8 * (QHAT_COUNT / 5) + 4];
+    uint8_t values[8 * (QHAT_COUNT / 5) + 4];
+    uint8_t padding[4];
 } qhat_compact8_t;
 
 typedef uint16_t qhat_16_t;
 typedef struct qhat_compact16_t {
-    uint32_t  count;
-    uint16_t  parent_left;
-    uint16_t  parent_right;
-    uint32_t  keys[4 * (QHAT_COUNT / 3) - 1];
-    uint16_t  values[4 * (QHAT_COUNT / 3) - 1];
-    uint8_t   padding[4];
+    uint32_t count;
+    uint16_t parent_left;
+    uint16_t parent_right;
+    uint32_t keys[4 * (QHAT_COUNT / 3) - 1];
+    uint16_t values[4 * (QHAT_COUNT / 3) - 1];
+    uint8_t padding[4];
 } qhat_compact16_t;
 
 typedef uint32_t qhat_32_t;
 typedef struct qhat_compact32_t {
-    uint32_t  count;
-    uint16_t  parent_left;
-    uint16_t  parent_right;
-    uint32_t  keys[QHAT_COUNT - 1];
-    uint32_t  values[QHAT_COUNT - 1];
+    uint32_t count;
+    uint16_t parent_left;
+    uint16_t parent_right;
+    uint32_t keys[QHAT_COUNT - 1];
+    uint32_t values[QHAT_COUNT - 1];
 } qhat_compact32_t;
 
 typedef uint64_t qhat_64_t;
 typedef struct qhat_compact64_t {
-    uint32_t  count;
-    uint16_t  parent_left;
-    uint16_t  parent_right;
-    uint32_t  keys[QHAT_COUNT - 1];
-    uint8_t   padding[4];
-    uint64_t  values[QHAT_COUNT - 1];
+    uint32_t count;
+    uint16_t parent_left;
+    uint16_t parent_right;
+    uint32_t keys[QHAT_COUNT - 1];
+    uint8_t padding[4];
+    uint64_t values[QHAT_COUNT - 1];
 } qhat_compact64_t;
 
 typedef struct qhat_compact128_t {
-    uint32_t    count;
-    uint16_t    parent_left;
-    uint16_t    parent_right;
-    uint32_t    keys[QHAT_COUNT - 1];
-    uint8_t     padding[4];
-    qhat_128_t  values[QHAT_COUNT - 1];
-    uint8_t     padding2[8];
+    uint32_t count;
+    uint16_t parent_left;
+    uint16_t parent_right;
+    uint32_t keys[QHAT_COUNT - 1];
+    uint8_t padding[4];
+    qhat_128_t values[QHAT_COUNT - 1];
+    uint8_t padding2[8];
 } qhat_compact128_t;
 
 typedef union qhat_node_const_memory_t {
-    const void        *raw;
-    const uint8_t     *u8;
-    const uint16_t    *u16;
-    const uint32_t    *u32;
-    const uint64_t    *u64;
-    const qhat_128_t  *u128;
+    const void *raw;
+    const uint8_t *u8;
+    const uint16_t *u16;
+    const uint32_t *u32;
+    const uint64_t *u64;
+    const qhat_128_t *u128;
     const qhat_node_t *nodes;
     const qhat_compacthdr_t *compact;
-    const qhat_compact8_t   *compact8;
-    const qhat_compact16_t  *compact16;
-    const qhat_compact32_t  *compact32;
-    const qhat_compact64_t  *compact64;
+    const qhat_compact8_t *compact8;
+    const qhat_compact16_t *compact16;
+    const qhat_compact32_t *compact32;
+    const qhat_compact64_t *compact64;
     const qhat_compact128_t *compact128;
 } qhat_node_const_memory_t;
 
 typedef union qhat_node_memory_t {
-    void        *raw;
-    uint8_t     *u8;
-    uint16_t    *u16;
-    uint32_t    *u32;
-    uint64_t    *u64;
-    qhat_128_t  *u128;
+    void *raw;
+    uint8_t *u8;
+    uint16_t *u16;
+    uint32_t *u32;
+    uint64_t *u64;
+    qhat_128_t *u128;
     qhat_node_t *nodes;
     qhat_compacthdr_t *compact;
-    qhat_compact8_t   *compact8;
-    qhat_compact16_t  *compact16;
-    qhat_compact32_t  *compact32;
-    qhat_compact64_t  *compact64;
+    qhat_compact8_t *compact8;
+    qhat_compact16_t *compact16;
+    qhat_compact32_t *compact32;
+    qhat_compact64_t *compact64;
     qhat_compact128_t *compact128;
     qhat_node_const_memory_t cst;
 } qhat_node_memory_t;
@@ -587,12 +579,12 @@ typedef struct qhat_tree_enumerator_t {
     /* The layout of this part must be the same as qhat_enumerator_t {{{ */
     /** Current key.
      */
-    uint32_t    key;
-    bool        end;
-    bool        is_nullable;
+    uint32_t key;
+    bool end;
+    bool is_nullable;
 
-    uint8_t     value_len;
-    bool        compact;
+    uint8_t value_len;
+    bool compact;
 
     /* }}} */
 
@@ -631,15 +623,18 @@ typedef struct qhat_tree_enumerator_t {
 
 qhat_tree_enumerator_t
 qhat_get_tree_enumerator_at(qhat_t *hat, uint32_t key) __attr_leaf__;
-void qhat_tree_enumerator_refresh_path(qhat_tree_enumerator_t *en)
-    __attr_leaf__;
-void qhat_tree_enumerator_dispatch_up(qhat_tree_enumerator_t *en,
-                                      uint32_t key, uint32_t new_key)
-    __attr_leaf__;
-void qhat_tree_enumerator_find(qhat_tree_enumerator_t *en,
-                               uint32_t key) __attr_leaf__;
-void qhat_tree_enumerator_find_node(qhat_tree_enumerator_t *en,
-                                    uint32_t key) __attr_leaf__;
+void qhat_tree_enumerator_refresh_path(
+    qhat_tree_enumerator_t *en
+) __attr_leaf__;
+void qhat_tree_enumerator_dispatch_up(
+    qhat_tree_enumerator_t *en, uint32_t key, uint32_t new_key
+) __attr_leaf__;
+void qhat_tree_enumerator_find(
+    qhat_tree_enumerator_t *en, uint32_t key
+) __attr_leaf__;
+void qhat_tree_enumerator_find_node(
+    qhat_tree_enumerator_t *en, uint32_t key
+) __attr_leaf__;
 
 const void *
 qhat_tree_enumerator_get_value_unsafe(const qhat_tree_enumerator_t *en);
@@ -650,17 +645,18 @@ qhat_tree_enumerator_get_value(qhat_tree_enumerator_t *en, bool safe);
 uint32_t qhat_tree_enumerator_next(qhat_tree_enumerator_t *en, bool safe);
 
 /* Similar to 'qhat_enumerator_go_to()' but only apply to the trie. */
-void qhat_tree_enumerator_go_to(qhat_tree_enumerator_t *en, uint32_t key,
-                                bool safe);
+void qhat_tree_enumerator_go_to(
+    qhat_tree_enumerator_t *en, uint32_t key, bool safe
+);
 
-static ALWAYS_INLINE
-qhat_tree_enumerator_t qhat_get_tree_enumerator(qhat_t *hat)
+static ALWAYS_INLINE qhat_tree_enumerator_t
+qhat_get_tree_enumerator(qhat_t *hat)
 {
     return qhat_get_tree_enumerator_at(hat, 0);
 }
 
-static ALWAYS_INLINE
-bool qhat_tree_enumerator_is_sync(const qhat_tree_enumerator_t *en)
+static ALWAYS_INLINE bool
+qhat_tree_enumerator_is_sync(const qhat_tree_enumerator_t *en)
 {
     return qhat_path_is_sync(&en->path);
 }
@@ -720,7 +716,7 @@ static ALWAYS_INLINE bool qhat_enumerator_is_sync(const qhat_enumerator_t *en)
 {
     if (en->is_nullable) {
         return qps_bitmap_enumerator_is_sync(&en->bitmap) &&
-            qhat_tree_enumerator_is_sync(&en->nu_trie);
+               qhat_tree_enumerator_is_sync(&en->nu_trie);
     }
     return qhat_tree_enumerator_is_sync(&en->nn_trie);
 }
@@ -772,8 +768,7 @@ const void *qhat_enumerator_get_value_safe(qhat_enumerator_t *en);
 /** Get the 'qhat_path_t' associated to the current key. */
 qhat_path_t qhat_enumerator_get_path(const qhat_enumerator_t *en);
 
-static ALWAYS_INLINE
-qhat_t *qhat_enumerator_get_hat(qhat_enumerator_t *en)
+static ALWAYS_INLINE qhat_t *qhat_enumerator_get_hat(qhat_enumerator_t *en)
 {
     if (en->is_nullable) {
         return en->nu_trie.path.hat;
@@ -783,24 +778,20 @@ qhat_t *qhat_enumerator_get_hat(qhat_enumerator_t *en)
 }
 
 #define qhat_for_each_safe(en, hat)                                          \
-    for (qhat_enumerator_t en = qhat_get_enumerator(hat);                    \
-         !en.end;                                                            \
+    for (qhat_enumerator_t en = qhat_get_enumerator(hat); !en.end;           \
          qhat_enumerator_next(&en, true))
 
 #define qhat_for_each_limit_safe(en, hat, from, to)                          \
     for (qhat_enumerator_t en = qhat_get_enumerator_at(hat, from);           \
-         !en.end && en.key < (to);                                           \
-         qhat_enumerator_next(&en, true))
+         !en.end && en.key < (to); qhat_enumerator_next(&en, true))
 
 #define qhat_for_each_unsafe(en, hat)                                        \
-    for (qhat_enumerator_t en = qhat_get_enumerator(hat);                    \
-         !en.end;                                                            \
+    for (qhat_enumerator_t en = qhat_get_enumerator(hat); !en.end;           \
          qhat_enumerator_next(&en, false))
 
 #define qhat_for_each_limit_unsafe(en, hat, from, to)                        \
     for (qhat_enumerator_t en = qhat_get_enumerator_at(hat, from);           \
-         !en.end && en.key < (to);                                           \
-         qhat_enumerator_next(&en, false))
+         !en.end && en.key < (to); qhat_enumerator_next(&en, false))
 
 #define qhat_for_each qhat_for_each_safe
 
@@ -808,12 +799,11 @@ qhat_t *qhat_enumerator_get_hat(qhat_enumerator_t *en)
 /* Debugging tools
  */
 
-#define QHAT_PRINT_VALUES  1U
-#define QHAT_PRINT_KEYS    2U
-__attr_cold__
-void qhat_debug_print(qhat_t *hat, uint32_t flags);
-__attr_cold__
-void qhat_debug_print_stream(qhat_t *hat, uint32_t flags, FILE *stream);
+#define QHAT_PRINT_VALUES 1U
+#define QHAT_PRINT_KEYS 2U
+__attr_cold__ void qhat_debug_print(qhat_t *hat, uint32_t flags);
+__attr_cold__ void
+qhat_debug_print_stream(qhat_t *hat, uint32_t flags, FILE *stream);
 
 void qhat_get_qps_roots(qhat_t *hat, qps_roots_t *roots) __attr_leaf__;
 

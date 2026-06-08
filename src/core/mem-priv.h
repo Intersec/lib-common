@@ -33,12 +33,14 @@
  *
  * \param[in,out] logger Logger to use for the warning.
  */
-void mem_pool_list_clean(dlist_t *list, const char *pool_type,
-                         spinlock_t *lock, logger_t *logger);
+void mem_pool_list_clean(
+    dlist_t *list, const char *pool_type, spinlock_t *lock, logger_t *logger
+);
 
-static inline void mem_pool_set(mem_pool_t *mp, const char *name,
-                                dlist_t *all_pools_list, spinlock_t *lock,
-                                const mem_pool_t *base, unsigned flags)
+static inline void mem_pool_set(
+    mem_pool_t *mp, const char *name, dlist_t *all_pools_list,
+    spinlock_t *lock, const mem_pool_t *base, unsigned flags
+)
 {
     *mp = *base;
 

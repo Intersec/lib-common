@@ -19,10 +19,10 @@
 #if !defined(IS_LIB_COMMON_IOP_RPC_H) || defined(IS_LIB_COMMON_IOP_RPC_HTTP_H)
 #  error "you must include <lib-common/iop-rpc.h> instead"
 #else
-#define IS_LIB_COMMON_IOP_RPC_HTTP_H
-#ifndef __cplusplus
+#  define IS_LIB_COMMON_IOP_RPC_HTTP_H
+#  ifndef __cplusplus
 
-#include <lib-common/iop-json.h>
+#    include <lib-common/iop-json.h>
 
 /*
  * RPC-HTTP: a library for wrapping and exposing IoP RPCs as HTTP-based API
@@ -61,158 +61,166 @@
 /**************************************************************************/
 
 typedef struct ichttp_cb_t {
-    int              refcnt;
-    int32_t          cmd;
-    ic_cb_entry_t    e;
-    const iop_rpc_t * nonnull fun;
-    lstr_t           name;
-    lstr_t           name_uri;
-    lstr_t           name_res;
-    lstr_t           name_exn;
+    int refcnt;
+    int32_t cmd;
+    ic_cb_entry_t e;
+    const iop_rpc_t *nonnull fun;
+    lstr_t name;
+    lstr_t name_uri;
+    lstr_t name_res;
+    lstr_t name_exn;
 } ichttp_cb_t;
 GENERIC_INIT(ichttp_cb_t, ichttp_cb);
-void ichttp_cb_wipe(ichttp_cb_t * nonnull rpc);
+void ichttp_cb_wipe(ichttp_cb_t *nonnull rpc);
 DO_REFCNT(ichttp_cb_t, ichttp_cb);
 
-#define ICHTTP_QUERY_FIELDS(pfx)                                             \
-    HTTPD_QUERY_FIELDS(pfx);                                                 \
-    ichttp_cb_t * nonnull cbe;                                               \
-    iop_env_ctx_guard_t iop_env_ctx_guard;                                   \
-    ic__hdr__t * nullable ic_hdr;                                            \
-    size_t iop_res_size;                                                     \
-    bool   json;                                                             \
-    bool   iop_answered
+#    define ICHTTP_QUERY_FIELDS(pfx)                                         \
+        HTTPD_QUERY_FIELDS(pfx);                                             \
+        ichttp_cb_t *nonnull cbe;                                            \
+        iop_env_ctx_guard_t iop_env_ctx_guard;                               \
+        ic__hdr__t *nullable ic_hdr;                                         \
+        size_t iop_res_size;                                                 \
+        bool json;                                                           \
+        bool iop_answered
 
-#define ICHTTP_QUERY_METHODS(type_t) \
-    HTTPD_QUERY_METHODS(type_t)
+#    define ICHTTP_QUERY_METHODS(type_t) HTTPD_QUERY_METHODS(type_t)
 
-OBJ_CLASS(ichttp_query, httpd_query,
-          ICHTTP_QUERY_FIELDS, ICHTTP_QUERY_METHODS);
-
+OBJ_CLASS(
+    ichttp_query, httpd_query, ICHTTP_QUERY_FIELDS, ICHTTP_QUERY_METHODS
+);
 
 /**************************************************************************/
 /* HTTP Triggers                                                          */
 /**************************************************************************/
 
-qm_kvec_t(ichttp_cbs, lstr_t, ichttp_cb_t * nonnull,
-          qhash_lstr_hash, qhash_lstr_equal);
+qm_kvec_t(
+    ichttp_cbs, lstr_t, ichttp_cb_t *nonnull, qhash_lstr_hash,
+    qhash_lstr_equal
+);
 
 typedef struct httpd_trigger__ic_t {
-    const iop_env_t         * nonnull iop_env;
-    httpd_trigger_t          cb;
-    unsigned                 query_max_size;
-    const char              * nonnull schema;
-    const char              * nullable auth_kind;
-    const iop_iface_alias_t * nonnull mod;
-    qm_t(ichttp_cbs)         impl;
-    unsigned                 xpack_flags;
-    unsigned                 jpack_flags;
-    unsigned                 unpack_flags;
+    const iop_env_t *nonnull iop_env;
+    httpd_trigger_t cb;
+    unsigned query_max_size;
+    const char *nonnull schema;
+    const char *nullable auth_kind;
+    const iop_iface_alias_t *nonnull mod;
+    qm_t(ichttp_cbs) impl;
+    unsigned xpack_flags;
+    unsigned jpack_flags;
+    unsigned unpack_flags;
 
     /** Callback to manually process the query.
      *
      * It is called just before the pre-hook.
      * If it returns an error, the callback must call `httpd_reject()`.
      */
-    int (* nullable on_query_done)(
-        const struct httpd_trigger__ic_t * nonnull tcb,
-        ichttp_query_t * nonnull iq);
+    int (*nullable on_query_done)(
+        const struct httpd_trigger__ic_t *nonnull tcb,
+        ichttp_query_t *nonnull iq
+    );
 
     /** Callback to add HTTP headers on reply.
      *
      * It is called just before closing the headers.
      */
-    void (* nullable on_reply_http_headers)(
-        const struct httpd_trigger__ic_t * nonnull tcb,
-        ichttp_query_t * nonnull iq, http_code_t res_code);
+    void (*nullable on_reply_http_headers)(
+        const struct httpd_trigger__ic_t *nonnull tcb,
+        ichttp_query_t *nonnull iq, http_code_t res_code
+    );
 
     /** Callback just before sending the reply. */
-    void (* nullable on_reply)(
-        const struct httpd_trigger__ic_t * nonnull tcb,
-        const ichttp_query_t * nonnull iq, size_t res_size,
-        http_code_t res_code);
+    void (*nullable on_reply)(
+        const struct httpd_trigger__ic_t *nonnull tcb,
+        const ichttp_query_t *nonnull iq, size_t res_size,
+        http_code_t res_code
+    );
 } httpd_trigger__ic_t;
 
 /* compat for qrrd */
-#define ichttp_trigger_cb_t    httpd_trigger__ic_t
-#define httpd_trigger__ichttp  httpd_trigger__ic_new
-
+#    define ichttp_trigger_cb_t httpd_trigger__ic_t
+#    define httpd_trigger__ichttp httpd_trigger__ic_new
 
 /**************************************************************************/
 /* APIs                                                                   */
 /**************************************************************************/
 
-httpd_trigger__ic_t * nonnull
-httpd_trigger__ic_new(const iop_env_t * nonnull iop_env,
-                      const iop_mod_t * nonnull mod,
-                      const char * nonnull schema,
-                      unsigned szmax);
+httpd_trigger__ic_t *nonnull httpd_trigger__ic_new(
+    const iop_env_t *nonnull iop_env, const iop_mod_t *nonnull mod,
+    const char *nonnull schema, unsigned szmax
+);
 
 /* helper for public interface: reject private fields in queries, and skip
  * private fields in answers */
-static inline
-void httpd_trigger__ic_set_public(httpd_trigger__ic_t * nonnull tcb)
+static inline void
+httpd_trigger__ic_set_public(httpd_trigger__ic_t *nonnull tcb)
 {
     tcb->unpack_flags |= IOP_UNPACK_FORBID_PRIVATE;
-    tcb->xpack_flags  |= IOP_XPACK_SKIP_PRIVATE;
-    tcb->jpack_flags  |= IOP_JPACK_SKIP_PRIVATE;
+    tcb->xpack_flags |= IOP_XPACK_SKIP_PRIVATE;
+    tcb->jpack_flags |= IOP_JPACK_SKIP_PRIVATE;
 }
 
 /** \brief internal do not use directly, or know what you're doing. */
-static inline ichttp_query_t * nonnull ichttp_slot_to_query(uint64_t slot)
+static inline ichttp_query_t *nonnull ichttp_slot_to_query(uint64_t slot)
 {
-    assert (ic_slot_is_http(slot));
+    assert(ic_slot_is_http(slot));
     return (ichttp_query_t *)((uintptr_t)slot << 2);
 }
 
 /** \brief internal do not use directly, or know what you're doing. */
-static inline uint64_t ichttp_query_to_slot(ichttp_query_t * nonnull iq)
+static inline uint64_t ichttp_query_to_slot(ichttp_query_t *nonnull iq)
 {
     return IC_SLOT_FOREIGN_HTTP | ((uintptr_t)iq >> 2);
 }
 
 /** \brief internal do not use directly, or know what you're doing. */
-void __ichttp_reply(uint64_t slot, int cmd, const iop_struct_t * nonnull,
-                    const void * nonnull);
+void __ichttp_reply(
+    uint64_t slot, int cmd, const iop_struct_t *nonnull, const void *nonnull
+);
 /** \brief internal do not use directly, or know what you're doing. */
-void __ichttp_proxify(uint64_t slot, int cmd, const void * nonnull data,
-                      int dlen);
+void __ichttp_proxify(
+    uint64_t slot, int cmd, const void *nonnull data, int dlen
+);
 /** \brief internal do not use directly, or know what you're doing. */
-void __ichttp_reply_err(uint64_t slot, int err,
-                        const lstr_t * nullable err_str);
+void __ichttp_reply_err(
+    uint64_t slot, int err, const lstr_t *nullable err_str
+);
 /** \brief internal do not use directly, or know what you're doing. */
-void __ichttp_reply_soap_err(uint64_t slot, bool serverfault,
-                             const lstr_t * nullable err);
+void __ichttp_reply_soap_err(
+    uint64_t slot, bool serverfault, const lstr_t *nullable err
+);
 /** \brief internal do not use directly, or know what you're doing. */
-void __ichttp_forward_reply(ichannel_t * nullable pxy_ic, uint64_t slot,
-                            int cmd, const void * nullable res,
-                            const void * nullable exn);
+void __ichttp_forward_reply(
+    ichannel_t *nullable pxy_ic, uint64_t slot, int cmd,
+    const void *nullable res, const void *nullable exn
+);
 
-#define __ichttp_reply_soap_err_cst(slot, serverfault, err) \
-    __ichttp_reply_soap_err(slot, serverfault, &LSTR_IMMED_V(err))
-
-/** \brief internal do not use directly, or know what you're doing. */
-int __t_ichttp_query_on_done_stage1(httpd_query_t * nonnull q,
-                                    ichttp_cb_t * nullable * nonnull cbe,
-                                    void * nullable * nonnull value,
-                                    bool * nonnull soap);
-/** \brief internal do not use directly, or know what you're doing. */
-void __t_ichttp_query_on_done_stage2(httpd_query_t * nonnull q,
-                                     ichttp_cb_t * nonnull cbe,
-                                     void * nullable value);
+#    define __ichttp_reply_soap_err_cst(slot, serverfault, err)              \
+        __ichttp_reply_soap_err(slot, serverfault, &LSTR_IMMED_V(err))
 
 /** \brief internal do not use directly, or know what you're doing. */
-ichttp_cb_t * nonnull
-__ichttp_register(httpd_trigger__ic_t * nonnull tcb,
-                  const iop_iface_alias_t * nonnull alias,
-                  const iop_rpc_t * nonnull fun, int32_t cmd,
-                  const ic_cb_entry_t * nonnull entry);
+int __t_ichttp_query_on_done_stage1(
+    httpd_query_t *nonnull q, ichttp_cb_t * nullable * nonnull cbe,
+    void *nullable *nonnull value, bool *nonnull soap
+);
+/** \brief internal do not use directly, or know what you're doing. */
+void __t_ichttp_query_on_done_stage2(
+    httpd_query_t *nonnull q, ichttp_cb_t *nonnull cbe, void *nullable value
+);
 
 /** \brief internal do not use directly, or know what you're doing. */
-#define ___ichttp_register(tcb, _mod, _if, _rpc, _cb)                        \
-    __ichttp_register(tcb, _mod##__##_if##__alias,                           \
-                      IOP_RPC(_mod, _if, _rpc),                              \
-                      IOP_RPC_CMD(_mod, _if, _rpc), _cb)
+ichttp_cb_t *nonnull __ichttp_register(
+    httpd_trigger__ic_t *nonnull tcb, const iop_iface_alias_t *nonnull alias,
+    const iop_rpc_t *nonnull fun, int32_t cmd,
+    const ic_cb_entry_t *nonnull entry
+);
+
+/** \brief internal do not use directly, or know what you're doing. */
+#    define ___ichttp_register(tcb, _mod, _if, _rpc, _cb)                    \
+        __ichttp_register(                                                   \
+            tcb, _mod##__##_if##__alias, IOP_RPC(_mod, _if, _rpc),           \
+            IOP_RPC_CMD(_mod, _if, _rpc), _cb                                \
+        )
 
 /** \brief register a local callback for an rpc on the given http iop trigger.
  * \param[in]  tcb
@@ -238,62 +246,74 @@ __ichttp_register(httpd_trigger__ic_t * nonnull tcb,
  * \param[in]  _pre_arg   argument we want to pass to pre_hook
  * \param[in]  _post_arg  argument we want to pass to post_hook
  */
-#define ichttp_register_pre_post_hook_(tcb, _mod, _if, _rpc, _cb, _pre_cb,   \
-                                       _post_cb,  _pre_arg, _post_arg)       \
-    do {                                                                     \
-        void (*__cb)(IOP_RPC_IMPL_ARGS(_mod, _if, _rpc)) = _cb;              \
-        ic_cb_entry_t __cb_e = {                                             \
-            .cb_type = IC_CB_NORMAL,                                         \
-            .rpc = IOP_RPC(_mod, _if, _rpc),                                 \
-            .t_pre_hook = _pre_cb,                                           \
-            .post_hook = _post_cb,                                           \
-            .pre_hook_args = _pre_arg,                                       \
-            .post_hook_args = _post_arg,                                     \
-            .u = { .cb = {                                                   \
-                .cb  = (void *)__cb,                                         \
-            } },                                                             \
-        };                                                                   \
+#    define ichttp_register_pre_post_hook_(                                  \
+        tcb, _mod, _if, _rpc, _cb, _pre_cb, _post_cb, _pre_arg, _post_arg    \
+    )                                                                        \
+        do {                                                                 \
+            void (*__cb)(IOP_RPC_IMPL_ARGS(_mod, _if, _rpc)) = _cb;          \
+            ic_cb_entry_t __cb_e = {                                         \
+                .cb_type = IC_CB_NORMAL,                                     \
+                .rpc = IOP_RPC(_mod, _if, _rpc),                             \
+                .t_pre_hook = _pre_cb,                                       \
+                .post_hook = _post_cb,                                       \
+                .pre_hook_args = _pre_arg,                                   \
+                .post_hook_args = _post_arg,                                 \
+                .u = {                                                       \
+                    .cb = {                                                  \
+                        .cb = (void *)__cb,                                  \
+                    }                                                        \
+                },                                                           \
+            };                                                               \
                                                                              \
-        ___ichttp_register(tcb, _mod, _if, _rpc, &__cb_e);                   \
-    } while (0)
+            ___ichttp_register(tcb, _mod, _if, _rpc, &__cb_e);               \
+        } while (0)
 
 /** \brief same as #ichttp_register_pre_post_hook_ but _pre and _post args
  *    will be transform into data_t ptr.
  */
-#define ichttp_register_pre_post_hook_p_(tcb, _mod, _if, _rpc, _cb, _pre_cb, \
-                                         _post_cb,  _pre_arg, _post_arg)     \
-    ichttp_register_pre_post_hook_(tcb, _mod, _if, _rpc, _cb,                \
-                                   _pre_cb, _post_cb,                        \
-                                   { .ptr = _pre_arg }, { .ptr = _post_arg })
+#    define ichttp_register_pre_post_hook_p_(                                \
+        tcb, _mod, _if, _rpc, _cb, _pre_cb, _post_cb, _pre_arg, _post_arg    \
+    )                                                                        \
+        ichttp_register_pre_post_hook_(                                      \
+            tcb, _mod, _if, _rpc, _cb, _pre_cb, _post_cb, {.ptr = _pre_arg}, \
+            {.ptr = _post_arg}                                               \
+        )
 
 /** \brief same as #ichttp_register_pre_post_hook_ but auto-computes the
  *    rpc name.
  */
-#define ichttp_register_pre_post_hook(tcb, _m, _i, _r, _pre_cb, _post_cb,    \
-                                      _pre_arg, _post_arg)                   \
-    ichttp_register_pre_post_hook_(tcb, _m, _i, _r,                          \
-                                   IOP_RPC_NAME(_m, _i, _r, impl),           \
-                                   _pre_cb, _post_cb, _pre_arg, _post_arg)
+#    define ichttp_register_pre_post_hook(                                   \
+        tcb, _m, _i, _r, _pre_cb, _post_cb, _pre_arg, _post_arg              \
+    )                                                                        \
+        ichttp_register_pre_post_hook_(                                      \
+            tcb, _m, _i, _r, IOP_RPC_NAME(_m, _i, _r, impl), _pre_cb,        \
+            _post_cb, _pre_arg, _post_arg                                    \
+        )
 
 /** \brief same as #ichttp_register_pre_post_hook_p_ but auto-computes the
  *    rpc name.
  */
-#define ichttp_register_pre_post_hook_p(tcb, _m, _i, _r, _pre_cb, _post_cb,  \
-                                        _pre_arg, _post_arg)                 \
-    ichttp_register_pre_post_hook(tcb, _m, _i, _r, _pre_cb, _post_cb,        \
-                                  { .ptr = _pre_arg }, { .ptr = _post_arg })
+#    define ichttp_register_pre_post_hook_p(                                 \
+        tcb, _m, _i, _r, _pre_cb, _post_cb, _pre_arg, _post_arg              \
+    )                                                                        \
+        ichttp_register_pre_post_hook(                                       \
+            tcb, _m, _i, _r, _pre_cb, _post_cb, {.ptr = _pre_arg},           \
+            {.ptr = _post_arg}                                               \
+        )
 
 /** \brief same as #ichttp_register_pre_post_hook_ but doesn't register
  *    pre/post hooks.
  */
-#define ichttp_register_(tcb, _mod, _if, _rpc, _cb)                          \
-    ichttp_register_pre_post_hook_p_(tcb, _mod, _if, _rpc, _cb,              \
-                                     NULL, NULL, NULL, NULL)
+#    define ichttp_register_(tcb, _mod, _if, _rpc, _cb)                      \
+        ichttp_register_pre_post_hook_p_(                                    \
+            tcb, _mod, _if, _rpc, _cb, NULL, NULL, NULL, NULL                \
+        )
 
 /** \brief same as #ichttp_register_ but auto-computes the rpc name. */
-#define ichttp_register(tcb, _mod, _if, _rpc)                                \
-    ichttp_register_(tcb, _mod, _if, _rpc,                                   \
-                     IOP_RPC_NAME(_mod, _if, _rpc, impl))
+#    define ichttp_register(tcb, _mod, _if, _rpc)                            \
+        ichttp_register_(                                                    \
+            tcb, _mod, _if, _rpc, IOP_RPC_NAME(_mod, _if, _rpc, impl)        \
+        )
 
 /** \brief register a proxy for an rpc on the given http iop trigger.
  * \see #ic_register_proxy_hdr_pre_post_hook
@@ -314,33 +334,35 @@ __ichttp_register(httpd_trigger__ic_t * nonnull tcb,
  * \param[in]  _pre_arg   argument we want to pass to pre_hook
  * \param[in]  _post_arg  argument we want to pass to post_hook
  */
-#define ichttp_register_proxy_hdr_pre_post_hook(tcb, _mod, _if, _rpc, ic,    \
-                                                hdr, _pre_cb, _post_cb,      \
-                                                _pre_arg, _post_arg)         \
-    do {                                                                     \
-        ic_cb_entry_t __cb_e = {                                             \
-            .cb_type = IC_CB_PROXY_P,                                        \
-            .rpc = IOP_RPC(_mod, _if, _rpc),                                 \
-            .t_pre_hook = _pre_cb,                                           \
-            .post_hook = _post_cb,                                           \
-            .pre_hook_args = _pre_arg,                                       \
-            .post_hook_args = _post_arg,                                     \
-            .u = { .proxy_p = { .ic_p = ic, .hdr_p = hdr } },                \
-        };                                                                   \
+#    define ichttp_register_proxy_hdr_pre_post_hook(                         \
+        tcb, _mod, _if, _rpc, ic, hdr, _pre_cb, _post_cb, _pre_arg,          \
+        _post_arg                                                            \
+    )                                                                        \
+        do {                                                                 \
+            ic_cb_entry_t __cb_e = {                                         \
+                .cb_type = IC_CB_PROXY_P,                                    \
+                .rpc = IOP_RPC(_mod, _if, _rpc),                             \
+                .t_pre_hook = _pre_cb,                                       \
+                .post_hook = _post_cb,                                       \
+                .pre_hook_args = _pre_arg,                                   \
+                .post_hook_args = _post_arg,                                 \
+                .u = {.proxy_p = {.ic_p = ic, .hdr_p = hdr}},                \
+            };                                                               \
                                                                              \
-        ___ichttp_register(tcb, _mod, _if, _rpc, &__cb_e);                   \
-    } while (0)
+            ___ichttp_register(tcb, _mod, _if, _rpc, &__cb_e);               \
+        } while (0)
 
 /** \brief same as #ichttp_register_proxy_hdr_pre_post_hook but auto-computes
  *     the rpc name.
  */
-#define ichttp_register_proxy_hdr_pre_post_hook_p(tcb, _mod, _if, _rpc, ic,  \
-                                                  hdr, _pre_cb, _post_cb,    \
-                                                  _pre_arg, _post_arg)       \
-    ichttp_register_proxy_hdr_pre_post_hook(tcb, _mod, _if, _rpc, ic,        \
-                                            hdr, _pre_cb, _post_cb,          \
-                                            { .ptr = _pre_arg },             \
-                                            { .ptr = _post_arg })
+#    define ichttp_register_proxy_hdr_pre_post_hook_p(                       \
+        tcb, _mod, _if, _rpc, ic, hdr, _pre_cb, _post_cb, _pre_arg,          \
+        _post_arg                                                            \
+    )                                                                        \
+        ichttp_register_proxy_hdr_pre_post_hook(                             \
+            tcb, _mod, _if, _rpc, ic, hdr, _pre_cb, _post_cb,                \
+            {.ptr = _pre_arg}, {.ptr = _post_arg}                            \
+        )
 
 /** \brief register a proxy for an rpc on the given http iop trigger.
  * \see #ic_register_proxy_hdr_pre_post_hook
@@ -360,23 +382,25 @@ __ichttp_register(httpd_trigger__ic_t * nonnull tcb,
  * \param[in]  _pre_arg   argument we want to pass to pre_hook
  * \param[in]  _post_arg  argument we want to pass to post_hook
  */
-#define ichttp_register_proxy_pre_post_hook(tcb, _mod, _if, _rpc, ic,        \
-                                            _pre_cb, _post_cb,               \
-                                            _pre_arg, _post_arg)             \
-    ichttp_register_proxy_hdr_pre_post_hook(tcb, _mod, _if, _rpc, ic, NULL,  \
-                                            _pre_cb, _post_cb,               \
-                                            _pre_arg, _post_arg)
+#    define ichttp_register_proxy_pre_post_hook(                             \
+        tcb, _mod, _if, _rpc, ic, _pre_cb, _post_cb, _pre_arg, _post_arg     \
+    )                                                                        \
+        ichttp_register_proxy_hdr_pre_post_hook(                             \
+            tcb, _mod, _if, _rpc, ic, NULL, _pre_cb, _post_cb, _pre_arg,     \
+            _post_arg                                                        \
+        )
 
 /** \brief same as #ichttp_register_proxy_pre_post_hook but auto-computes
  *     the rpc name.
  */
-#define ichttp_register_proxy_pre_post_hook_p(tcb, _mod, _if, _rpc, ic,      \
-                                              hdr, _pre_cb, _post_cb,        \
-                                              _pre_arg, _post_arg)           \
-    ichttp_register_proxy_pre_post_hook(tcb, _mod, _if, _rpc, ic,            \
-                                        hdr, _pre_cb, _post_cb,              \
-                                        { .ptr = _pre_arg },                 \
-                                        { .ptr = _post_arg })
+#    define ichttp_register_proxy_pre_post_hook_p(                           \
+        tcb, _mod, _if, _rpc, ic, hdr, _pre_cb, _post_cb, _pre_arg,          \
+        _post_arg                                                            \
+    )                                                                        \
+        ichttp_register_proxy_pre_post_hook(                                 \
+            tcb, _mod, _if, _rpc, ic, hdr, _pre_cb, _post_cb,                \
+            {.ptr = _pre_arg}, {.ptr = _post_arg}                            \
+        )
 
 /** \brief register a proxy for an rpc on the given http iop trigger.
  * \see #ic_register_proxy_hdr
@@ -389,9 +413,10 @@ __ichttp_register(httpd_trigger__ic_t * nonnull tcb,
  *   the #ichannel_t to unconditionnaly forward the incoming RPCs to.
  * \param[in]  hdr    the #ic__hdr__t header to force when proxifying.
  */
-#define ichttp_register_proxy_hdr(tcb, _mod, _if, _rpc, ic, hdr)             \
-    ichttp_register_proxy_hdr_pre_post_hook_p(tcb, _mod, _if, _rpc, ic, hdr, \
-                                              NULL, NULL, NULL, NULL)
+#    define ichttp_register_proxy_hdr(tcb, _mod, _if, _rpc, ic, hdr)         \
+        ichttp_register_proxy_hdr_pre_post_hook_p(                           \
+            tcb, _mod, _if, _rpc, ic, hdr, NULL, NULL, NULL, NULL            \
+        )
 /** \brief register a proxy for an rpc on the given http iop trigger.
  * \see #ic_register_proxy
  * \param[in]  tcb
@@ -402,8 +427,8 @@ __ichttp_register(httpd_trigger__ic_t * nonnull tcb,
  * \param[in]  ic
  *   the #ichannel_t to unconditionnaly forward the incoming RPCs to.
  */
-#define ichttp_register_proxy(tcb, _mod, _if, _rpc, ic) \
-    ichttp_register_proxy_hdr(tcb, _mod, _if, _rpc, ic, NULL)
+#    define ichttp_register_proxy(tcb, _mod, _if, _rpc, ic)                  \
+        ichttp_register_proxy_hdr(tcb, _mod, _if, _rpc, ic, NULL)
 
 /** \brief register a pointed proxy for an rpc on the given http iop trigger.
  * \see #ic_register_proxy_hdr_p
@@ -430,33 +455,34 @@ __ichttp_register(httpd_trigger__ic_t * nonnull tcb,
  * \param[in]  _pre_arg   argument we want to pass to pre_hook
  * \param[in]  _post_arg  argument we want to pass to post_hook
  */
-#define ichttp_register_proxy_hdr_p_pre_post_hook(tcb, _mod, _if, _rpc, ic,  \
-                                                  hdr, _pre_cb, _post_cb,    \
-                                                  _pre_arg, _post_arg)       \
-    do {                                                                     \
-        ic_cb_entry_t __cb_e = {                                             \
-            .cb_type = IC_CB_PROXY_PP,                                       \
-            .rpc = IOP_RPC(_mod, _if, _rpc),                                 \
-            .t_pre_hook = _pre_cb,                                           \
-            .post_hook = _post_cb,                                           \
-            .pre_hook_args = _pre_arg,                                       \
-            .post_hook_args = _post_arg,                                     \
-            .u = { .proxy_pp = { .ic_pp = ic, .hdr_pp = hdr } },             \
-        };                                                                   \
+#    define ichttp_register_proxy_hdr_p_pre_post_hook(                       \
+        tcb, _mod, _if, _rpc, ic, hdr, _pre_cb, _post_cb, _pre_arg,          \
+        _post_arg                                                            \
+    )                                                                        \
+        do {                                                                 \
+            ic_cb_entry_t __cb_e = {                                         \
+                .cb_type = IC_CB_PROXY_PP,                                   \
+                .rpc = IOP_RPC(_mod, _if, _rpc),                             \
+                .t_pre_hook = _pre_cb,                                       \
+                .post_hook = _post_cb,                                       \
+                .pre_hook_args = _pre_arg,                                   \
+                .post_hook_args = _post_arg,                                 \
+                .u = {.proxy_pp = {.ic_pp = ic, .hdr_pp = hdr}},             \
+            };                                                               \
                                                                              \
-        ___ichttp_register(tcb, _mod, _if, _rpc, &__cb_e);                   \
-    } while (0)
+            ___ichttp_register(tcb, _mod, _if, _rpc, &__cb_e);               \
+        } while (0)
 /** \brief same as #ichttp_register_pre_post_hook_ but _pre and _post args
  *    will be transform into data_t ptr.
  */
-#define ichttp_register_proxy_hdr_p_pre_post_hook_p(tcb, _mod, _if, _rpc,    \
-                                                    ic, hdr,                 \
-                                                    _pre_cb, _post_cb,       \
-                                                    _pre_arg, _post_arg)     \
-    ichttp_register_proxy_hdr_p_pre_post_hook(tcb, _mod, _if, _rpc, ic,      \
-                                              hdr, _pre_cb, _post_cb,        \
-                                              { .ptr = _pre_arg },           \
-                                              { .ptr = _post_arg })
+#    define ichttp_register_proxy_hdr_p_pre_post_hook_p(                     \
+        tcb, _mod, _if, _rpc, ic, hdr, _pre_cb, _post_cb, _pre_arg,          \
+        _post_arg                                                            \
+    )                                                                        \
+        ichttp_register_proxy_hdr_p_pre_post_hook(                           \
+            tcb, _mod, _if, _rpc, ic, hdr, _pre_cb, _post_cb,                \
+            {.ptr = _pre_arg}, {.ptr = _post_arg}                            \
+        )
 /** \brief register a pointed proxy for an rpc on the given http iop trigger.
  * \see #ic_register_proxy_hdr_p
  * \param[in]  tcb
@@ -470,9 +496,10 @@ __ichttp_register(httpd_trigger__ic_t * nonnull tcb,
  *   proxified to the pointed #ichannel_t.
  * \param[in]  hdr    the #ic__hdr__t header to force when proxifying.
  */
-#define ichttp_register_proxy_hdr_p(tcb, _mod, _if, _rpc, ic, hdr)           \
-    ichttp_register_proxy_hdr_p_pre_post_hook_p(tcb, _mod, _if, _rpc, ic,    \
-                                                hdr, NULL, NULL, NULL, NULL)
+#    define ichttp_register_proxy_hdr_p(tcb, _mod, _if, _rpc, ic, hdr)       \
+        ichttp_register_proxy_hdr_p_pre_post_hook_p(                         \
+            tcb, _mod, _if, _rpc, ic, hdr, NULL, NULL, NULL, NULL            \
+        )
 /** \brief register a pointed proxy for an rpc on the given http iop trigger.
  * \see #ic_register_proxy_p
  * \param[in]  tcb
@@ -485,8 +512,8 @@ __ichttp_register(httpd_trigger__ic_t * nonnull tcb,
  *   request is rejected with an #IC_MSG_PROXY_ERROR status, else it's
  *   proxified to the pointed #ichannel_t.
  */
-#define ichttp_register_proxy_p(tcb, _mod, _if, _rpc, ic) \
-    ichttp_register_proxy_hdr_p(tcb, _mod, _if, _rpc, ic, NULL)
+#    define ichttp_register_proxy_p(tcb, _mod, _if, _rpc, ic)                \
+        ichttp_register_proxy_hdr_p(tcb, _mod, _if, _rpc, ic, NULL)
 
 /** \brief register a dynamic proxy for an rpc on the given http iop trigger.
  * \see #ic_register_dynproxy
@@ -512,36 +539,40 @@ __ichttp_register(httpd_trigger__ic_t * nonnull tcb,
  * \param[in]  _pre_arg   argument we want to pass to pre_hook
  * \param[in]  _post_arg  argument we want to pass to post_hook
  */
-#define ichttp_register_dynproxy_pre_post_hook(tcb, _mod, _if, _rpc, cb,     \
-                                               priv_, _pre_cb, _post_cb,     \
-                                               _pre_arg, _post_arg)          \
-    do {                                                                     \
-        ic_cb_entry_t __cb_e = {                                             \
-            .cb_type = IC_CB_DYNAMIC_PROXY,                                  \
-            .rpc = IOP_RPC(_mod, _if, _rpc),                                 \
-            .t_pre_hook = _pre_cb,                                           \
-            .post_hook = _post_cb,                                           \
-            .pre_hook_args = _pre_arg,                                       \
-            .post_hook_args = _post_arg,                                     \
-            .u = { .dynproxy = {                                             \
-                .get_ic = cb,                                                \
-                .priv   = priv_,                                             \
-            } },                                                             \
-        };                                                                   \
+#    define ichttp_register_dynproxy_pre_post_hook(                          \
+        tcb, _mod, _if, _rpc, cb, priv_, _pre_cb, _post_cb, _pre_arg,        \
+        _post_arg                                                            \
+    )                                                                        \
+        do {                                                                 \
+            ic_cb_entry_t __cb_e = {                                         \
+                .cb_type = IC_CB_DYNAMIC_PROXY,                              \
+                .rpc = IOP_RPC(_mod, _if, _rpc),                             \
+                .t_pre_hook = _pre_cb,                                       \
+                .post_hook = _post_cb,                                       \
+                .pre_hook_args = _pre_arg,                                   \
+                .post_hook_args = _post_arg,                                 \
+                .u = {                                                       \
+                    .dynproxy = {                                            \
+                        .get_ic = cb,                                        \
+                        .priv = priv_,                                       \
+                    }                                                        \
+                },                                                           \
+            };                                                               \
                                                                              \
-        ___ichttp_register(tcb, _mod, _if, _rpc, &__cb_e);                   \
-    } while (0)
+            ___ichttp_register(tcb, _mod, _if, _rpc, &__cb_e);               \
+        } while (0)
 
 /** \brief same as #ichttp_register_dynproxy_pre_post_hook but _pre and _post
  *    args will be transform into data_t ptr.
  */
-#define ichttp_register_dynproxy_pre_post_hook_p(tcb, _mod, _if, _rpc, cb,   \
-                                                 priv_, _pre_cb, _post_cb,   \
-                                                 _pre_arg, _post_arg)        \
-    ichttp_register_dynproxy_pre_post_hook(tcb, _mod, _if, _rpc, cb,         \
-                                           priv_, _pre_cb, _post_cb,         \
-                                           { .ptr = _pre_arg },              \
-                                           { .ptr = _post_arg })
+#    define ichttp_register_dynproxy_pre_post_hook_p(                        \
+        tcb, _mod, _if, _rpc, cb, priv_, _pre_cb, _post_cb, _pre_arg,        \
+        _post_arg                                                            \
+    )                                                                        \
+        ichttp_register_dynproxy_pre_post_hook(                              \
+            tcb, _mod, _if, _rpc, cb, priv_, _pre_cb, _post_cb,              \
+            {.ptr = _pre_arg}, {.ptr = _post_arg}                            \
+        )
 
 /** \brief register a dynamic proxy for an rpc on the given http iop trigger.
  * \see #ic_register_dynproxy
@@ -559,9 +590,10 @@ __ichttp_register(httpd_trigger__ic_t * nonnull tcb,
  * \param[in]  _priv
  *   an opaque pointer passed to the callback each time it's called.
  */
-#define ichttp_register_dynproxy(tcb, _mod, _if, _rpc, cb, priv_)            \
-    ichttp_register_dynproxy_pre_post_hook_p(tcb, _mod, _if, _rpc, cb,       \
-                                             priv_, NULL, NULL, NULL, NULL)
+#    define ichttp_register_dynproxy(tcb, _mod, _if, _rpc, cb, priv_)        \
+        ichttp_register_dynproxy_pre_post_hook_p(                            \
+            tcb, _mod, _if, _rpc, cb, priv_, NULL, NULL, NULL, NULL          \
+        )
 /** when called in HTTPD status hook, get the query error context if some */
 lstr_t ichttp_err_ctx_get(void);
 /** set the error context */
@@ -572,10 +604,10 @@ void __ichttp_err_ctx_clear(void);
 /* }}} */
 /* {{{ Client-side rpc-http */
 
-#if __has_feature(nullability)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wnullability-completeness"
-#endif
+#    if __has_feature(nullability)
+#      pragma GCC diagnostic push
+#      pragma GCC diagnostic ignored "-Wnullability-completeness"
+#    endif
 
 /* {{{ HTTP channel */
 
@@ -592,9 +624,10 @@ typedef OPT_OF(http_code_t) opt_http_code_t;
  * \param[in] exn       The exception thrown by the RPC (only set if status
  *                      is IC_MSG_EXN).
  */
-typedef void (*http_iop_cb_f)(http_iop_msg_t *msg, ic_status__t status,
-                              opt_http_code_t http_code, void * nullable res,
-                              void * nullable exn);
+typedef void (*http_iop_cb_f)(
+    http_iop_msg_t *msg, ic_status__t status, opt_http_code_t http_code,
+    void *nullable res, void *nullable exn
+);
 
 struct http_iop_msg_t {
     /** HTTP query used by the RPC call. */
@@ -670,7 +703,8 @@ qvector_t(http_iop_channel_remote, http_iop_channel_remote_t *);
 
 /** Callback called when a connection to a remote cannot be established. */
 typedef void (*http_iop_on_connection_error_f)(
-    http_iop_channel_remote_t *remote, int errnum);
+    http_iop_channel_remote_t *remote, int errnum
+);
 
 /** Callback called when a connection of the channel is ready. */
 typedef void (*http_iop_on_ready_f)(http_iop_channel_t *);
@@ -679,7 +713,7 @@ struct http_iop_channel_t {
     lstr_t name;
 
     qv_t(http_iop_channel_remote) remotes;
-    const iop_env_t * nonnull iop_env;
+    const iop_env_t *nonnull iop_env;
 
     /** Query authentication.
      *
@@ -692,13 +726,13 @@ struct http_iop_channel_t {
     lstr_t password;
 
     uint32_t response_max_size;
-    bool     encode_url;
+    bool encode_url;
 
     http_iop_on_connection_error_f nullable on_connection_error_cb;
-    http_iop_on_ready_f            nullable on_ready_cb;
+    http_iop_on_ready_f nullable on_ready_cb;
 
     uint32_t connection_timeout_msec;
-    el_t     queries_conn_timeout_el;
+    el_t queries_conn_timeout_el;
 
     void *priv;
 
@@ -710,10 +744,10 @@ struct http_iop_channel_t {
      */
     htlist_t queries_waiting_conn;
 
-#ifndef NDEBUG
+#    ifndef NDEBUG
     /* Guard for usage of HTTP IOP channel when the channel is being wiped. */
     bool wipe_guard;
-#endif /* NDEBUG */
+#    endif /* NDEBUG */
 };
 
 typedef struct http_iop_channel_cfg_t {
@@ -731,10 +765,10 @@ typedef struct http_iop_channel_cfg_t {
     iop_array_lstr_t urls;
 
     /** The IOP environment. */
-    const iop_env_t * nonnull iop_env;
+    const iop_env_t *nonnull iop_env;
 
     /** IOP HTTP client configuration. */
-    const core__httpc_cfg__t * nonnull iop_cfg;
+    const core__httpc_cfg__t *nonnull iop_cfg;
 
     /** Maximum number of allowed connections.
      *
@@ -783,7 +817,7 @@ typedef struct http_iop_channel_cfg_t {
     http_iop_on_ready_f nullable on_ready_cb;
 
     /** User defined data associated with this channel. */
-    void * nullable priv;
+    void *nullable priv;
 } http_iop_channel_cfg_t;
 
 /** Create an HTTP channel.
@@ -798,8 +832,8 @@ typedef struct http_iop_channel_cfg_t {
  *
  * \return 0 on success, a negative value on error.
  */
-http_iop_channel_t *http_iop_channel_create(const http_iop_channel_cfg_t *cfg,
-                                            sb_t *err);
+http_iop_channel_t *
+http_iop_channel_create(const http_iop_channel_cfg_t *cfg, sb_t *err);
 
 /** Delete an HTTP channel.
  *
@@ -852,14 +886,14 @@ http_iop_channel_from_msg(http_iop_msg_t *msg)
 
 http_iop_msg_t *http_iop_msg_new(int len);
 
-#define http_iop_msg_p(_t, _v)                                               \
-    ({                                                                       \
+#    define http_iop_msg_p(_t, _v)                                           \
+        ({                                                                   \
         http_iop_msg_t *_query = http_iop_msg_new(sizeof(_t));               \
                                                                              \
         *acast(_t, _query->priv) = *(_v);                                    \
         _query;                                                              \
-    })
-#define http_iop_msg(_t, ...)  http_iop_msg_p(_t, (&(_t){ __VA_ARGS__ }))
+        })
+#    define http_iop_msg(_t, ...) http_iop_msg_p(_t, (&(_t){__VA_ARGS__}))
 
 /* }}} */
 
@@ -872,10 +906,11 @@ http_iop_msg_t *http_iop_msg_new(int len);
  * \param[in]  msg        the #http_query_msg_t to fill.
  * \param[in]  query_data the IOP query args.
  */
-void http_iop_query_(http_iop_channel_t *channel, http_iop_msg_t *msg,
-                     void *query_data);
+void http_iop_query_(
+    http_iop_channel_t *channel, http_iop_msg_t *msg, void *query_data
+);
 
-#define IOP_RPC_S(_mod, _if, _rpc, what)  _mod##__##_if(_rpc##_##what##__s)
+#    define IOP_RPC_S(_mod, _if, _rpc, what) _mod##__##_if(_rpc##_##what##__s)
 
 /** \brief builds the argument list of the HTTP reply callback of an rpc.
  *
@@ -884,11 +919,11 @@ void http_iop_query_(http_iop_channel_t *channel, http_iop_msg_t *msg,
  * \param[in]  _mod name of the package+module of the RPC
  * \param[in]  _if  name of the interface of the RPC
  * \param[in]  _rpc name of the rpc
-*/
-#define IOP_HTTP_RPC_CB_ARGS(_mod, _if, _rpc)                                \
-    http_iop_msg_t *msg, ic_status__t status, opt_http_code_t http_code,     \
-    IOP_RPC_T(_mod, _if, _rpc, res) * nullable res,                          \
-    IOP_RPC_T(_mod, _if, _rpc, exn) * nullable exn
+ */
+#    define IOP_HTTP_RPC_CB_ARGS(_mod, _if, _rpc)                            \
+        http_iop_msg_t *msg, ic_status__t status, opt_http_code_t http_code, \
+            IOP_RPC_T(_mod, _if, _rpc, res) * nullable res,                  \
+            IOP_RPC_T(_mod, _if, _rpc, exn) * nullable exn
 
 /** \brief builds an HTTP RPC Callback prototype.
  *
@@ -898,8 +933,10 @@ void http_iop_query_(http_iop_channel_t *channel, http_iop_msg_t *msg,
  * \param[in]  _if  name of the interface of the RPC
  * \param[in]  _rpc name of the rpc
  */
-#define IOP_HTTP_RPC_CB(_mod, _if, _rpc)                                     \
-    IOP_RPC_NAME(_mod, _if, _rpc, cb)(IOP_HTTP_RPC_CB_ARGS(_mod, _if, _rpc))
+#    define IOP_HTTP_RPC_CB(_mod, _if, _rpc)                                 \
+        IOP_RPC_NAME(_mod, _if, _rpc, cb)(                                   \
+            IOP_HTTP_RPC_CB_ARGS(_mod, _if, _rpc)                            \
+        )
 
 /** \brief helper to send a query to a given http channel.
  *
@@ -912,22 +949,25 @@ void http_iop_query_(http_iop_channel_t *channel, http_iop_msg_t *msg,
  * \param[in]  ...
  *   the initializers of the value on the form <tt>.field = value</tt>
  */
-#define http_iop_query_cb(_http_channel, _msg, _cb, _mod, _if, _rpc, ...)    \
-    do {                                                                     \
-        IOP_RPC_T(_mod, _if, _rpc, args)  _args;                             \
-        http_iop_msg_t *__msg = (_msg);                                      \
-        void (*__cb)(IOP_HTTP_RPC_CB_ARGS(_mod, _if, _rpc)) = (_cb);         \
+#    define http_iop_query_cb(                                               \
+        _http_channel, _msg, _cb, _mod, _if, _rpc, ...                       \
+    )                                                                        \
+        do {                                                                 \
+            IOP_RPC_T(_mod, _if, _rpc, args) _args;                          \
+            http_iop_msg_t *__msg = (_msg);                                  \
+            void (*__cb)(IOP_HTTP_RPC_CB_ARGS(_mod, _if, _rpc)) = (_cb);     \
                                                                              \
-        __msg->cb = (http_iop_cb_f)__cb;                                     \
-        __msg->iface_alias = _mod##__##_if##__alias;                         \
-        __msg->rpc = IOP_RPC(_mod, _if, _rpc);                               \
-        assert(__msg->rpc);                                                  \
+            __msg->cb = (http_iop_cb_f)__cb;                                 \
+            __msg->iface_alias = _mod##__##_if##__alias;                     \
+            __msg->rpc = IOP_RPC(_mod, _if, _rpc);                           \
+            assert(__msg->rpc);                                              \
                                                                              \
-        _args = (IOP_RPC_T(_mod, _if, _rpc, args)){ __VA_ARGS__ };           \
-        http_iop_query_((_http_channel), __msg, &_args);                     \
-   } while (0)
+            _args = (IOP_RPC_T(_mod, _if, _rpc, args)){__VA_ARGS__};         \
+            http_iop_query_((_http_channel), __msg, &_args);                 \
+        } while (0)
 
-/** \brief helper to send a query to a given http channel, computes callback name..
+/** \brief helper to send a query to a given http channel, computes callback
+ * name..
  *
  * \param[in]  _ic    the #http_iop_channel_t to send the query to.
  * \param[in]  _msg   the #http_query_msg_t to fill.
@@ -937,18 +977,19 @@ void http_iop_query_(http_iop_channel_t *channel, http_iop_msg_t *msg,
  * \param[in]  ...
  *   the initializers of the value on the form <tt>.field = value</tt>
  */
-#define http_iop_query(_http_channel, _msg, _mod, _if, _rpc, ...)            \
-    http_iop_query_cb((_http_channel), (_msg),                               \
-                      IOP_RPC_NAME(_mod, _if, _rpc, cb), _mod,               \
-                      _if, _rpc, __VA_ARGS__)
+#    define http_iop_query(_http_channel, _msg, _mod, _if, _rpc, ...)        \
+        http_iop_query_cb(                                                   \
+            (_http_channel), (_msg), IOP_RPC_NAME(_mod, _if, _rpc, cb),      \
+            _mod, _if, _rpc, __VA_ARGS__                                     \
+        )
 
 /* }}} */
 
-#if __has_feature(nullability)
-#pragma GCC diagnostic pop
-#endif
+#    if __has_feature(nullability)
+#      pragma GCC diagnostic pop
+#    endif
 
 /* }}} */
 
-#endif
+#  endif
 #endif
