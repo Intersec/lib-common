@@ -716,9 +716,8 @@ Z_GROUP_EXPORT(iop_rpc)
                    SB_FMT_ARG(&err));
 
         {
-            const iop_env_ctx_t *iop_env_ctx;
+            iop_env_ctx_scope(iop_env, iop_env_ctx);
 
-            iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
             mod = iop_env_ctx_get_mod(iop_env_ctx, LSTR("tstiop.T"));
             Z_ASSERT_P(mod, "module tstiop.T not registered by the DSO");
         }

@@ -77,10 +77,9 @@ int main(int argc, char **argv)
     iop_env = iop_env_new();
     if (_G.wsdl) {
         SB_8k(sb);
+        iop_env_ctx_scope(iop_env, iop_env_ctx);
         int ret;
-        const iop_env_ctx_t *iop_env_ctx;
 
-        iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
         iop_xwsdl(&sb, iop_env_ctx, &tstiop__t__mod, NULL, SCHEMA,
                   "http://localhost:1080/iop/", false, true);
         ret = xwrite(STDOUT_FILENO, sb.data, sb.len);

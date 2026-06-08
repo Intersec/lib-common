@@ -1565,7 +1565,7 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
                       const ic_msg_t * nullable unpacked_msg)
 {
     t_scope;
-    const iop_env_ctx_t *iop_env_ctx;
+    iop_env_ctx_scope(ic->iop_env, iop_env_ctx);
     const ic_cb_entry_t *e;
     const iop_struct_t *st;
     ic__hdr__t *hdr = NULL;
@@ -1578,8 +1578,6 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
     ic_msg_t *tmp;
     int pos;
     void *value = NULL;
-
-    iop_env_ctx_acquire_scoped(ic->iop_env, iop_env_ctx);
 
     pos = likely(ic->impl) ? qm_find_safe(ic_cbs, ic->impl, cmd) : -1;
     if (unlikely(pos < 0)) {

@@ -81,13 +81,11 @@ z_iop_get_field_values_check(const iop_struct_t *st_desc, const void *st_ptr,
                              const char *fpath, const void *exp_values,
                              int exp_len, bool exp_is_array_of_pointers)
 {
-    const iop_env_ctx_t *iop_env_ctx;
+    iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
     const iop_field_t *fdesc;
     const void *values;
     int len;
     bool is_array_of_pointers;
-
-    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
     fdesc = iop_get_field_const(iop_env_ctx, st_ptr, st_desc, LSTR(fpath),
                                 NULL, NULL);
@@ -444,13 +442,11 @@ static int _z_check_field_path_compile(
     lstr_t exp_error)
 {
     t_scope;
+    iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
     SB_1k(err);
-    const iop_env_ctx_t *iop_env_ctx;
     iop_full_type_t type;
     bool is_array;
     int res;
-
-    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
     if (value) {
         res = iop_obj_get_field_type(iop_env_ctx, st, value, path, &type,
@@ -550,11 +546,9 @@ static int z_iop_filter_check_filter(const char *field, unsigned flags,
                                      void *exp_objs, int exp_objs_len)
 {
     t_scope;
+    iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
     SB_1k(err);
-    const iop_env_ctx_t *iop_env_ctx;
     void *values_ptrs;
-
-    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
     values_ptrs = t_z_create_values_ptr_from_values(values, values_len,
                                                     value_size);
@@ -599,11 +593,9 @@ static int t_z_iop_filter_add_bitmap(const char *field, unsigned flags,
                                      void *tst_objs, int tst_objs_len,
                                      byte **bitmap)
 {
+    iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
     SB_1k(err);
-    const iop_env_ctx_t *iop_env_ctx;
     void *values_ptrs;
-
-    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
     values_ptrs = t_z_create_values_ptr_from_values(values, values_len,
                                                     value_size);
@@ -656,10 +648,8 @@ static int z_iop_filter_check_opt(const char *field, bool must_be_set,
                                   int tst_objs_len, void *exp_objs,
                                   int exp_objs_len)
 {
+    iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
     SB_1k(err);
-    const iop_env_ctx_t *iop_env_ctx;
-
-    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
     Z_ASSERT_N(iop_filter_opt(iop_env_ctx, obj_st, tst_objs, &tst_objs_len,
                               LSTR(field), must_be_set, &err),
@@ -714,11 +704,9 @@ static int z_test_iop_struct_get_field(const iop_struct_t *st,
                                        const char *path,
                                        z_iop_get_field_exp_t exp)
 {
-    const iop_env_ctx_t *iop_env_ctx;
+    iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
     const iop_struct_t *found_st = NULL;
     const iop_field_t *found_fdesc = NULL;
-
-    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
     Z_ASSERT_N(iop_struct_get_field(iop_env_ctx, st, LSTR(path), &found_st,
                                     &found_fdesc),
@@ -752,15 +740,13 @@ static int iop_xml_test_struct(const iop_struct_t *st, void *v,
                                const char *info)
 {
     t_scope;
-    const iop_env_ctx_t *iop_env_ctx;
+    iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
     int len;
     lstr_t s;
     uint8_t buf1[20], buf2[20];
     void *res = NULL;
     int ret;
     sb_t sb;
-
-    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
     /* XXX: Use a small t_sb here to force a realloc during (un)packing and
      *      detect possible illegal usage of the t_pool in the (un)packing
@@ -811,11 +797,9 @@ static int iop_xml_test_struct_invalid(const iop_struct_t *st, void *v,
                                        const char *info)
 {
     t_scope;
-    const iop_env_ctx_t *iop_env_ctx;
+    iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
     void *res = NULL;
     sb_t sb;
-
-    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
     /* XXX: Use a small t_sb here to force a realloc during (un)packing and
      *      detect possible illegal usage of the t_pool in the (un)packing
@@ -846,13 +830,13 @@ static int iop_xml_test_struct_invalid(const iop_struct_t *st, void *v,
 static int iop_json_test_struct(const iop_struct_t *st, void *v,
                                 const char *info)
 {
-    const iop_env_ctx_t *iop_env_ctx;
+    t_scope;
+    iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
     iop_json_lex_t jll;
     pstream_t ps;
     int strict = 0;
     uint8_t buf1[20], buf2[20];
 
-    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
     iop_jlex_init(t_pool(), iop_env_ctx, &jll);
     jll.flags = IOP_UNPACK_IGNORE_UNKNOWN;
 
@@ -901,12 +885,12 @@ static int iop_json_test_struct(const iop_struct_t *st, void *v,
 static int iop_json_test_struct_invalid(const iop_struct_t *st, void *v,
                                         const char *info)
 {
-    const iop_env_ctx_t *iop_env_ctx;
+    t_scope;
+    iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
     iop_json_lex_t jll;
     pstream_t ps;
     int strict = 0;
 
-    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
     iop_jlex_init(t_pool(), iop_env_ctx, &jll);
     jll.flags = IOP_UNPACK_IGNORE_UNKNOWN;
 
@@ -946,7 +930,7 @@ static int iop_json_test_json(const iop_struct_t *st, const char *json,
                               const void *expected, const char *info)
 {
     t_scope;
-    const iop_env_ctx_t *iop_env_ctx;
+    iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
     const char *path;
     iop_json_lex_t jll;
     pstream_t ps;
@@ -954,8 +938,6 @@ static int iop_json_test_json(const iop_struct_t *st, const char *json,
     int ret;
     uint8_t buf1[20], buf2[20];
     sb_t sb;
-
-    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
     /* XXX: Use a small t_sb here to force a realloc during (un)packing and
      *      detect possible illegal usage of the t_pool in the (un)packing
@@ -1006,14 +988,12 @@ static int iop_json_test_unpack(const iop_struct_t *st, const char *json,
                                 int flags, bool valid, const char *info)
 {
     t_scope;
-    const iop_env_ctx_t *iop_env_ctx;
+    iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
     iop_json_lex_t jll;
     pstream_t ps;
     void *res = NULL;
     int ret;
     sb_t sb;
-
-    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
     /* XXX: Use a small t_sb here to force a realloc during (un)packing and
      *      detect possible illegal usage of the t_pool in the (un)packing
@@ -1048,11 +1028,9 @@ static int iop_json_test_pack(const iop_struct_t *st, const void *value,
                               bool must_be_equal, const char *expected)
 {
     t_scope;
-    const iop_env_ctx_t *iop_env_ctx;
+    iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
     t_SB_1k(sb);
     void *unpacked = NULL;
-
-    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
     Z_ASSERT_N(iop_sb_jpack(&sb, st, value, flags));
     Z_ASSERT_STREQUAL(sb.data, expected);
@@ -1113,15 +1091,13 @@ static int iop_std_test_struct_flags(const iop_struct_t *st, void *v,
                                      const unsigned flags, const char *info)
 {
     t_scope;
-    const iop_env_ctx_t *iop_env_ctx;
+    iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
     int ret;
     void *res = NULL;
     uint8_t buf1[20], buf2[20];
     qv_t(i32) szs, szs2;
     int len, len2;
     byte *dst, *dst2;
-
-    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
     /* XXX: Use a small t_qv here to force a realloc during (un)packing and
      *      detect possible illegal usage of the t_pool in the (un)packing
@@ -1215,13 +1191,11 @@ static int iop_std_test_struct_invalid(const iop_struct_t *st, void *v,
                                        const char *info, const char *err)
 {
     t_scope;
-    const iop_env_ctx_t *iop_env_ctx;
+    iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
     void *res = NULL;
     qv_t(i32) szs;
     int len, ret;
     byte *dst;
-
-    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
     /* packing with strict flag should fail */
     Z_ASSERT_DATAEQUAL(t_iop_bpack_struct_flags(st, v, IOP_BPACK_STRICT),
@@ -1271,95 +1245,96 @@ static int iop_check_retro_compat_roptimized(lstr_t path)
 
     iop_env_t *iop_env;
     iop_dso_t *dso;
-    const iop_env_ctx_t *iop_env_ctx;
     unsigned seed = (unsigned)time(NULL);
 
     iop_env = iop_env_new();
     dso = iop_dso_open(iop_env, path.s, &err);
 
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
-
-    Z_ASSERT_P(dso, "unable to load zchk-tstiop-plugin: %*pM",
-               SB_FMT_ARG(&err));
-
-    Z_ASSERT_P(st = iop_env_ctx_get_struct(iop_env_ctx,
-                                           LSTR("tstiop.Repeated")));
-
-    /* initialize my arrays */
     {
-        const int sz = 256;
+        iop_env_ctx_scope(iop_env, iop_env_ctx);
 
-        i8  = t_new_raw(int8_t, sz);
-        u8  = t_new_raw(uint8_t, sz);
-        i16 = t_new_raw(int16_t, sz);
-        u16 = t_new_raw(uint16_t, sz);
-        b   = t_new_raw(bool, sz);
-        i32 = t_new_raw(int32_t, sz);
+        Z_ASSERT_P(dso, "unable to load zchk-tstiop-plugin: %*pM",
+                   SB_FMT_ARG(&err));
 
-        for (int i = 0; i < sz; i++) {
-            i8[i]  = (int8_t)i;
-            u8[i]  = (uint8_t)i;
-            i16[i] = (int16_t)i;
-            u16[i] = (uint16_t)i;
-            b[i]   = (bool)i;
-            i32[i] = i;
+        Z_ASSERT_P(st = iop_env_ctx_get_struct(iop_env_ctx,
+                                               LSTR("tstiop.Repeated")));
+
+        /* initialize my arrays */
+        {
+            const int sz = 256;
+
+            i8  = t_new_raw(int8_t, sz);
+            u8  = t_new_raw(uint8_t, sz);
+            i16 = t_new_raw(int16_t, sz);
+            u16 = t_new_raw(uint16_t, sz);
+            b   = t_new_raw(bool, sz);
+            i32 = t_new_raw(int32_t, sz);
+
+            for (int i = 0; i < sz; i++) {
+                i8[i]  = (int8_t)i;
+                u8[i]  = (uint8_t)i;
+                i16[i] = (int16_t)i;
+                u16[i] = (uint16_t)i;
+                b[i]   = (bool)i;
+                i32[i] = i;
+            }
         }
-    }
 
-    /* do some tests… */
+        /* do some tests… */
 #define SET(dst, f, _len)  ({ dst.f.tab = f; dst.f.len = (_len); })
 #define SET_RAND(dst, f)   ({ dst.f.tab = f; dst.f.len = (rand() % 256); })
-    iop_init_desc(st, &sr);
-    SET(sr, i8, 13);
-    Z_HELPER_RUN(iop_std_test_struct(st, &sr,  "sr1"));
-
-    iop_init_desc(st, &sr);
-    SET(sr, i8, 13);
-    SET(sr, i32, 4);
-    Z_HELPER_RUN(iop_std_test_struct(st, &sr,  "sr2"));
-
-    srand(seed);
-    e_trace(1, "rand seed: %u", seed);
-    for (int i = 0; i < 256; i++ ) {
         iop_init_desc(st, &sr);
-        SET_RAND(sr, i8);
-        SET_RAND(sr, u8);
-        SET_RAND(sr, i16);
-        SET_RAND(sr, u16);
-        SET_RAND(sr, b);
-        SET_RAND(sr, i32);
-        SET(sr, s, rand() % (countof(s) + 1));
-        Z_HELPER_RUN(iop_std_test_struct(st, &sr,  "sr_rand"));
-    }
-    /* Check the retro-compatibility */
-    {
-        lstr_t file_map;
-        pstream_t ps;
+        SET(sr, i8, 13);
+        Z_HELPER_RUN(iop_std_test_struct(st, &sr,  "sr1"));
 
-        /* map the file */
-        path = t_lstr_cat(z_cmddir_g,
-                          LSTR("samples/repeated.ibp"));
-        Z_ASSERT_N(lstr_init_from_file(&file_map, path.s,
-                                       PROT_READ, MAP_SHARED));
+        iop_init_desc(st, &sr);
+        SET(sr, i8, 13);
+        SET(sr, i32, 4);
+        Z_HELPER_RUN(iop_std_test_struct(st, &sr,  "sr2"));
 
-        /* check the data */
-        ps = ps_initlstr(&file_map);
-        while (ps_len(&ps) > 0) {
-            t_scope;
-            uint32_t dlen = 0;
-            tstiop__repeated__t sr_res;
-
-            Z_ASSERT_N(ps_get_cpu32(&ps, &dlen));
-            Z_ASSERT(ps_has(&ps, dlen));
-
+        srand(seed);
+        e_trace(1, "rand seed: %u", seed);
+        for (int i = 0; i < 256; i++ ) {
             iop_init_desc(st, &sr);
-            Z_ASSERT_N(iop_bunpack(t_pool(), iop_env_ctx, st, &sr_res,
-                                   __ps_get_ps(&ps, dlen), false),
-                       "IOP unpacking error (%s) at offset %zu",
-                       st->fullname.s, ps.b - (byte *)file_map.data);
+            SET_RAND(sr, i8);
+            SET_RAND(sr, u8);
+            SET_RAND(sr, i16);
+            SET_RAND(sr, u16);
+            SET_RAND(sr, b);
+            SET_RAND(sr, i32);
+            SET(sr, s, rand() % (countof(s) + 1));
+            Z_HELPER_RUN(iop_std_test_struct(st, &sr,  "sr_rand"));
         }
+        /* Check the retro-compatibility */
+        {
+            lstr_t file_map;
+            pstream_t ps;
 
-        lstr_wipe(&file_map);
+            /* map the file */
+            path = t_lstr_cat(z_cmddir_g,
+                              LSTR("samples/repeated.ibp"));
+            Z_ASSERT_N(lstr_init_from_file(&file_map, path.s,
+                                           PROT_READ, MAP_SHARED));
+
+            /* check the data */
+            ps = ps_initlstr(&file_map);
+            while (ps_len(&ps) > 0) {
+                t_scope;
+                uint32_t dlen = 0;
+                tstiop__repeated__t sr_res;
+
+                Z_ASSERT_N(ps_get_cpu32(&ps, &dlen));
+                Z_ASSERT(ps_has(&ps, dlen));
+
+                iop_init_desc(st, &sr);
+                Z_ASSERT_N(iop_bunpack(t_pool(), iop_env_ctx, st, &sr_res,
+                                       __ps_get_ps(&ps, dlen), false),
+                           "IOP unpacking error (%s) at offset %zu",
+                           st->fullname.s, ps.b - (byte *)file_map.data);
+            }
+
+            lstr_wipe(&file_map);
+        }
     }
 
     iop_dso_close(&dso);
@@ -1376,28 +1351,29 @@ static int iop_check_retro_compat_copy_inv_tab(lstr_t path)
     iop_env_t *iop_env;
     iop_dso_t *dso;
     const iop_struct_t *st_sb;
-    const iop_env_ctx_t *iop_env_ctx;
 
     iop_env = iop_env_new();
     dso = iop_dso_open(iop_env, path.s, &err);
 
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+    {
+        iop_env_ctx_scope(iop_env, iop_env_ctx);
 
-    Z_ASSERT_P(dso, "unable to load zchk-tstiop-plugin: %*pM",
-               SB_FMT_ARG(&err));
+        Z_ASSERT_P(dso, "unable to load zchk-tstiop-plugin: %*pM",
+                   SB_FMT_ARG(&err));
 
-    Z_ASSERT_P(st_sb = iop_env_ctx_get_struct(iop_env_ctx,
-                                              LSTR("tstiop.MyStructB")));
+        Z_ASSERT_P(st_sb = iop_env_ctx_get_struct(iop_env_ctx,
+                                                  LSTR("tstiop.MyStructB")));
 
-    iop_init_desc(st_sb, &sb);
-    sb.b.tab = (void *)0x42;
-    sb.b.len = 0;
+        iop_init_desc(st_sb, &sb);
+        sb.b.tab = (void *)0x42;
+        sb.b.len = 0;
 
-    sb_dup = mp_iop_dup_desc_sz(NULL, st_sb, &sb, NULL);
-    Z_ASSERT_NULL(sb_dup->b.tab);
-    Z_ASSERT_ZERO(sb_dup->b.len);
+        sb_dup = mp_iop_dup_desc_sz(NULL, st_sb, &sb, NULL);
+        Z_ASSERT_NULL(sb_dup->b.tab);
+        Z_ASSERT_ZERO(sb_dup->b.len);
 
-    p_delete(&sb_dup);
+        p_delete(&sb_dup);
+    }
 
     iop_dso_close(&dso);
     iop_env_delete(&iop_env);
@@ -1418,14 +1394,12 @@ iop_check_json_include_packing(const iop_struct_t *st, const void *val,
                                const char *exp_err)
 {
     t_scope;
-    const iop_env_ctx_t *iop_env_ctx;
+    iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
     static int packing_cnt;
     const char *dir;
     const char *path;
     SB_1k(err);
     int res;
-
-    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
     dir = t_fmt("%*pM/packing-%d", LSTR_FMT_ARG(z_tmpdir_g), packing_cnt++);
     mkdir_p(dir, 0755);
@@ -1489,11 +1463,9 @@ iop_check_struct_backward_compat(const iop_struct_t *st1,
                                  const void *obj1)
 {
     t_scope;
+    iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
     SB_1k(err);
-    const iop_env_ctx_t *iop_env_ctx;
     const char *ctx;
-
-    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
     ctx = t_fmt("check_backward_compat from %*pM to %*pM",
                 LSTR_FMT_ARG(st1->fullname), LSTR_FMT_ARG(st2->fullname));
@@ -1558,11 +1530,9 @@ static int iop_check_typedef_backward_compat(const iop_struct_t *st,
                                              unsigned flags, const void *obj1)
 {
     t_scope;
+    iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
     SB_1k(err);
-    const iop_env_ctx_t *iop_env_ctx;
     const char *ctx;
-
-    iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
     ctx = t_fmt("check_backward_compat from %*pM to %*pM",
                 LSTR_FMT_ARG(td->fullname), LSTR_FMT_ARG(st->fullname));
@@ -1619,11 +1589,8 @@ static int iop_check_pkg_backward_compat(const iop_pkg_t *pkg1,
 
     /* Check the package backward compat */
     {
-        const iop_env_ctx_t *iop_env_ctx1;
-        const iop_env_ctx_t *iop_env_ctx2;
-
-        iop_env_ctx_acquire_scoped(iop_env1, iop_env_ctx1);
-        iop_env_ctx_acquire_scoped(iop_env2, iop_env_ctx2);
+        iop_env_ctx_scope(iop_env1, iop_env_ctx1);
+        iop_env_ctx_scope(iop_env2, iop_env_ctx2);
 
         res = iop_pkg_check_backward_compat(iop_env_ctx1, pkg1,
                                             iop_env_ctx2, pkg2, flags, &err);
@@ -1704,25 +1671,25 @@ Z_GROUP_EXPORT(iop)
 
     Z_TEST(dso_open, "test whether iop_dso_open works and loads stuff") { /* {{{ */
         t_scope;
-
         SB_1k(err);
         iop_dso_t *dso;
-        const iop_struct_t *st;
-        const iop_env_ctx_t *iop_env_ctx;
         lstr_t path = t_lstr_cat(z_cmddir_g,
                                  LSTR("zchk-iop-plugin"SO_FILEEXT));
 
         dso = iop_dso_open(_G.iop_env, path.s, &err);
 
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
-
         Z_ASSERT(dso, "%*pM", SB_FMT_ARG(&err));
         Z_ASSERT_N(qm_find(iop_struct, &dso->struct_h,
                            &LSTR_IMMED_V("ic.Hdr")));
 
-        Z_ASSERT_P(st = iop_env_ctx_get_struct(iop_env_ctx,
-                                               LSTR("ic.SimpleHdr")));
-        Z_ASSERT(st != &ic__simple_hdr__s);
+        {
+            iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
+            const iop_struct_t *st;
+
+            Z_ASSERT_P(st = iop_env_ctx_get_struct(iop_env_ctx,
+                                                   LSTR("ic.SimpleHdr")));
+            Z_ASSERT(st != &ic__simple_hdr__s);
+        }
 
         Z_ASSERT_EQ(dso->ic_user_version.current_version, 42U);
         Z_ASSERT_P(dso->ic_user_version.check_cb);
@@ -1751,7 +1718,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(hash_sha1, "test whether iop_hash_sha1 is stable wrt ABI change") { /* {{{ */
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         int  i_10 = 10, i_11 = 11;
         long j_10 = 10;
 
@@ -1778,12 +1745,10 @@ Z_GROUP_EXPORT(iop)
 
         uint8_t buf1[20], buf2[20];
 
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
-
         Z_ASSERT_P(stv1 = iop_env_ctx_get_struct(iop_env_ctx,
-                                             LSTR("tstiop.HashV1")));
+                                                 LSTR("tstiop.HashV1")));
         Z_ASSERT_P(stv2 = iop_env_ctx_get_struct(iop_env_ctx,
-                                             LSTR("tstiop.HashV2")));
+                                                 LSTR("tstiop.HashV2")));
 
         iop_hash_sha1(stv1, &v1, buf1, 0);
         iop_hash_sha1(stv2, &v2, buf2, 0);
@@ -2171,7 +2136,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(soap, "test IOP SOAP (un)packer") { /* {{{ */
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         int32_t val[] = {15, 30, 45};
 
         tstiop__my_struct_e__t se = {
@@ -2229,8 +2194,6 @@ Z_GROUP_EXPORT(iop)
 
         const iop_struct_t *st_se, *st_sa, *st_sf, *st_cs, *st_sa_opt;
         const iop_struct_t *st_cls2;
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         Z_ASSERT_P(st_se = iop_env_ctx_get_struct(
             iop_env_ctx, LSTR("tstiop.MyStructE")));
@@ -2441,7 +2404,8 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(json, "test IOP JSon (un)packer") { /* {{{ */
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
+
         /* {{{ Variable declarations */
 
         SB_1k(err);
@@ -2736,8 +2700,6 @@ Z_GROUP_EXPORT(iop)
                                   "}";
         const char json_uc_p1[] = "{ d_of_c: 3.141592653589793238462643383 }";
 
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
-
         /* }}} */
 
         Z_ASSERT_P(st_sa = iop_env_ctx_get_struct(
@@ -2988,11 +2950,9 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(json_unicode_surrogates, "test JSON Unicode surrogate pairs") { /* {{{ */
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         const iop_struct_t *st_string;
         SB_1k(sb);
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         st_string = iop_env_ctx_get_struct(iop_env_ctx,
                                        LSTR("tstiop.StringTest"));
@@ -3266,7 +3226,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(json_file_include, "test file inclusion in IOP JSon (un)packer") { /* {{{ */
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         SB_1k(err);
         const char *exp_err;
         qv_t(iop_json_subfile) sub_files;
@@ -3279,8 +3239,6 @@ Z_GROUP_EXPORT(iop)
         tstiop__my_ref_struct__t   obj_ref;
         tstiop__my_struct_c__t     obj_recursion;
         tstiop__my_struct_m__t     obj_first_field;
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         /* {{{ Unpacker tests */
 
@@ -3596,7 +3554,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(json_typedef, "test typedef in IOP Json (un)packer") { /* {{{ */
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         SB_1k(err);
         tstiop__struct_with_mandatory_object__t mandatory_object;
         tstiop__struct_with_typedef__t with_typedef;
@@ -3618,8 +3576,6 @@ Z_GROUP_EXPORT(iop)
         tstiop_typedef__local_number_struct__t list4[] = { { .u32 = 4 },
             { .u32 = 3 }, { .u32 = 2 }, { .u32 = 1 } };
         tstiop_typedef__array_test__t arrays_typedef;
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         /* {{{ Unpacker tests */
 
@@ -3728,7 +3684,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(std, "test IOP std (un)packer") { /* {{{ */
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         tstiop__my_class2__t cls2;
 
         tstiop__my_union_a__t un = IOP_UNION(tstiop__my_union_a, ua, 1);
@@ -3780,8 +3736,6 @@ Z_GROUP_EXPORT(iop)
         };
 
         const iop_struct_t *st_sa, *st_sa_opt, *st_se, *st_cls2;
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         Z_ASSERT_P(st_sa = iop_env_ctx_get_struct(
                 iop_env_ctx, LSTR("tstiop.MyStructA")));
@@ -3854,15 +3808,13 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(defval, "test IOP std: do not pack default values") { /* {{{ */
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         tstiop__my_struct_g__t sg;
         const iop_struct_t *st_sg;
         qv_t(i32) szs;
         int len;
         lstr_t s;
         const unsigned flags = IOP_BPACK_SKIP_DEFVAL;
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         Z_ASSERT_P(st_sg = iop_env_ctx_get_struct(
                 iop_env_ctx, LSTR("tstiop.MyStructG")));
@@ -3911,13 +3863,11 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(private, "test private attribute with binary packing") { /* {{{ */
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         void *out = NULL;
         tstiop_inheritance__c5__t c5;
         lstr_t bpacked;
         qv_t(i32) szs;
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         iop_init(tstiop_inheritance__c5, &c5);
         bpacked = t_iop_bpack_struct(&tstiop_inheritance__c5__s, &c5);
@@ -3937,7 +3887,6 @@ Z_GROUP_EXPORT(iop)
     } Z_TEST_END;
     /* }}} */
     Z_TEST(equals_and_cmp, "test iop_equals()/iop_cmp()") { /* {{{ */
-        const iop_env_ctx_t *iop_env_ctx;
 
 #define CHECK_IOP_GT(st, lhs, rhs, ...)                                      \
     Z_HELPER_RUN(z_assert_iop_gt_desc((st), (lhs), (rhs)), ##__VA_ARGS__)
@@ -3949,7 +3898,7 @@ Z_GROUP_EXPORT(iop)
     Z_HELPER_RUN(z_assert_iop_eq_desc((st), (lhs), (rhs)), ##__VA_ARGS__)
 
         t_scope;
-
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         tstiop__my_struct_g__t sg_a, sg_b;
         tstiop__my_struct_a_opt__t sa_opt_a, sa_opt_b;
         tstiop__my_union_a__t ua_a, ua_b;
@@ -3957,8 +3906,6 @@ Z_GROUP_EXPORT(iop)
         tstiop__void__t v_a, v_b;
 
         const iop_struct_t *st_sg, *st_sa_opt, *st_ua, *st_sr;
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         Z_ASSERT_P(st_sg = iop_env_ctx_get_struct(
                 iop_env_ctx, LSTR("tstiop.MyStructG")));
@@ -4138,7 +4085,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(strict_enum, "test IOP strict enum (un)packing") { /* {{{ */
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         tstiop__my_enum_b__t bvals[] = {
             MY_ENUM_B_A, MY_ENUM_B_B, MY_ENUM_B_C
         };
@@ -4182,8 +4129,6 @@ Z_GROUP_EXPORT(iop)
 
         const iop_struct_t *st_sl;
 
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
-
         Z_ASSERT_P(st_sl = iop_env_ctx_get_struct(
                 iop_env_ctx, LSTR("tstiop.MyStructL")));
 
@@ -4211,7 +4156,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(constraints, "test IOP constraints") { /* {{{ */
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         tstiop__constraint_u__t u;
         tstiop__constraint_s__t s, s1, s2;
         tstiop_inheritance__c1__t c;
@@ -4236,8 +4181,6 @@ Z_GROUP_EXPORT(iop)
         int64_t i64tab[] = { INT64_MIN, INT64_MAX, 3, 4, 5, 6 };
 
         const iop_struct_t *st_s, *st_u, *st_c;
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         Z_ASSERT_P(st_s = iop_env_ctx_get_struct(
                 iop_env_ctx, LSTR("tstiop.ConstraintS")));
@@ -4387,7 +4330,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(iop_sort, "test IOP structures/unions sorting") { /* {{{ */
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         qv_t(my_struct_a) vec;
         tstiop__my_union_a__t un[5];
         tstiop__my_struct_a__t a;
@@ -4401,8 +4344,6 @@ Z_GROUP_EXPORT(iop)
         qv_t(my_class2) cls2_vec;
         qv_t(my_struct_f) fvec;
         tstiop__my_struct_f__t *fst;
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         qv_init(&vec);
         iop_init(tstiop__my_struct_a, &a);
@@ -4907,7 +4848,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(iop_msort, "test IOP structures/unions multi sorting") { /* {{{ */
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         qv_t(my_struct_a) original;
         qv_t(my_struct_a) sorted;
         qv_t(iop_sort) params;
@@ -4920,8 +4861,6 @@ Z_GROUP_EXPORT(iop)
         uint64_t htab2[] = {
             42, 64,
         };
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         t_qv_init(&original, 3);
         t_qv_init(&sorted, 3);
@@ -5008,7 +4947,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(iop_msort_class_array, "test IOP multi sorting on a class array") { /* {{{ */
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         qv_t(my_struct_f) original;
         qv_t(my_struct_f) sorted;
         qv_t(iop_sort) params;
@@ -5017,8 +4956,6 @@ Z_GROUP_EXPORT(iop)
         tstiop__my_class1__t *class1_1;
         tstiop__my_class3__t *class3_2;
         tstiop__my_class1__t *class1_2;
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         t_qv_init(&original, 3);
         t_qv_init(&sorted, 3);
@@ -6295,7 +6232,7 @@ Z_GROUP_EXPORT(iop)
          * our packer) is already stressed by the other tests.
          */
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         tstiop_inheritance__c1__t *c1 = NULL;
         tstiop_inheritance__d1__t *d1 = NULL;
         tstiop_inheritance__b2__t *b2 = NULL;
@@ -6305,8 +6242,6 @@ Z_GROUP_EXPORT(iop)
         tstiop_inheritance__class_container__t  *class_container  = NULL;
         tstiop_inheritance__class_container2__t *class_container2 = NULL;
         SB_1k(err);
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
 #define CHECK_OK(_type, _filename)  \
         do {                                                                 \
@@ -6434,14 +6369,12 @@ Z_GROUP_EXPORT(iop)
          * our packer) is already stressed by the other tests.
          */
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         lstr_t file;
         tstiop_inheritance__c2__t *c2 = NULL;
         tstiop_inheritance__c3__t *c3 = NULL;
         tstiop_inheritance__a3__t *a3 = NULL;
         tstiop_inheritance__c5__t *c5 = NULL;
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
 #define MAP(_filename)  \
         do {                                                                 \
@@ -6542,7 +6475,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(iop_references, "test iop references") { /* {{{ */
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         SB_1k(err);
         tstiop__my_referenced_struct__t rs = { .a = 666 };
         tstiop__my_referenced_union__t ru;
@@ -6552,8 +6485,6 @@ Z_GROUP_EXPORT(iop)
             .s = &rs,
             .u = &ru
         };
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         uu = IOP_UNION(tstiop__my_ref_union, u, &ru);
         us = IOP_UNION(tstiop__my_ref_union, s, &rs);
@@ -6643,7 +6574,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(iop_get_field_len, "test iop_get_field_len") { /* {{{ */
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         tstiop__my_class2__t cls2;
         tstiop__my_union_a__t ua = IOP_UNION(tstiop__my_union_a, ua, 1);
         tstiop__my_struct_a__t sa = {
@@ -6670,8 +6601,6 @@ Z_GROUP_EXPORT(iop)
         int len;
         byte *dst;
         pstream_t ps;
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         Z_ASSERT_P(st_sa = iop_env_ctx_get_struct(
                 iop_env_ctx, LSTR("tstiop.MyStructA")));
@@ -6802,7 +6731,7 @@ Z_GROUP_EXPORT(iop)
     } Z_TEST_END
     /* }}} */
     Z_TEST(iop_get_field, "test iop_get_field function") { /* {{{ */
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         tstiop__my_struct_a__t struct_a;
         tstiop__my_struct_b__t struct_b;
         tstiop__my_struct_c__t struct_c;
@@ -6835,8 +6764,6 @@ Z_GROUP_EXPORT(iop)
         tstiop__my_class2__t f_e_cls2;
         tstiop__my_class3__t f_e_cls3;
         tstiop__my_class1__t *f_e_vals[3];
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         iop_init(tstiop__my_class1, &f_e_cls1);
         iop_init(tstiop__my_class2, &f_e_cls2);
@@ -7253,9 +7180,7 @@ Z_GROUP_EXPORT(iop)
     } Z_TEST_END
     /* }}} */
     Z_TEST(iop_struct_get_field, "test iop_struct_get_field function") { /* {{{ */
-        const iop_env_ctx_t *iop_env_ctx;
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
 
         /* Error cases */
         Z_ASSERT_NEG(iop_struct_get_field(iop_env_ctx,
@@ -7453,13 +7378,11 @@ Z_GROUP_EXPORT(iop)
     } Z_TEST_END
     /* }}} */
     Z_TEST(iop_value_from_field, "test iop_value_from_field") { /* {{{ */
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         tstiop__my_struct_g__t sg;
         const iop_struct_t *st;
         const iop_field_t *field;
         iop_value_t value;
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         iop_init(tstiop__my_struct_g, &sg);
 
@@ -7651,7 +7574,7 @@ Z_GROUP_EXPORT(iop)
     } Z_TEST_END
     /* }}} */
     Z_TEST(iop_value_to_field, "test iop_value_to_field") { /* {{{ */
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         tstiop__my_struct_g__t sg;
         tstiop__my_struct_k__t sk;
         tstiop__my_struct_j__t sj;
@@ -7659,8 +7582,6 @@ Z_GROUP_EXPORT(iop)
         const iop_struct_t *st;
         const iop_field_t *field;
         iop_value_t value;
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         iop_init(tstiop__my_struct_g, &sg);
         iop_init(tstiop__my_struct_k, &sk);
@@ -7801,15 +7722,13 @@ Z_GROUP_EXPORT(iop)
     } Z_TEST_END
     /* }}} */
     Z_TEST(nr_47521, "test bug while unpacking json with bunpack") { /* {{{ */
-        const iop_env_ctx_t *iop_env_ctx;
         /* test that bunpack does not crash when trying to unpack json */
         t_scope;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         SB_1k(sb);
         tstiop__my_struct_b__t b;
         tstiop__my_class1__t c;
         tstiop__my_class1__t *c_ptr = NULL;
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         iop_init(tstiop__my_struct_b, &b);
         Z_ASSERT_N(iop_sb_jpack(&sb, &tstiop__my_struct_b__s, &b, 0));
@@ -7824,11 +7743,9 @@ Z_GROUP_EXPORT(iop)
     } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_enum, "test iop enums") { /* {{{ */
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         bool found = false;
         const iop_enum_t *en;
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         Z_ASSERT_EQ(iop_enum_from_str(tstiop__my_enum_a, "A", -1, -1),
                     MY_ENUM_A_A);
@@ -8287,13 +8204,11 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(dup_and_copy, "test duplication/copy functions") { /* {{{ */
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         SB_1k(err);
         const char *path;
         tstiop__full_struct__t fs;
         const iop_struct_t *st = &tstiop__full_struct__s;
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         path = t_fmt("%*pM/samples/z-full-struct.json",
                      LSTR_FMT_ARG(z_cmddir_g));
@@ -9167,12 +9082,10 @@ Z_GROUP_EXPORT(iop)
 #undef T_OK
 #define T_OK(_iop_env1, _pkg1, _iop_env2, _pkg2, _flags)  \
         do {                                                                 \
-            const iop_env_ctx_t *iop_env_ctx1;                               \
-            const iop_env_ctx_t *iop_env_ctx2;                               \
+            iop_env_ctx_scope((_iop_env1), iop_env_ctx1);                    \
+            iop_env_ctx_scope((_iop_env2), iop_env_ctx2);                    \
                                                                              \
             sb_reset(&err);                                                  \
-            iop_env_ctx_acquire_scoped((_iop_env1), iop_env_ctx1);           \
-            iop_env_ctx_acquire_scoped((_iop_env2), iop_env_ctx2);           \
             Z_ASSERT_N(iop_pkg_check_backward_compat(iop_env_ctx1, (_pkg1),  \
                                                      iop_env_ctx2, (_pkg2),  \
                                                      (_flags), &err),        \
@@ -9196,10 +9109,8 @@ Z_GROUP_EXPORT(iop)
     } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_get_class__typedef, "test iop_get_class with typedef") { /* {{{ */
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         const iop_struct_t *st = NULL;
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         Z_ASSERT_P(st = iop_get_class_by_fullname(
             iop_env_ctx,
@@ -9210,7 +9121,6 @@ Z_GROUP_EXPORT(iop)
     } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_dso_find_enum__typedef, "test iop_dso_find_enum with typedef") { /* {{{ */
-        const iop_enum_t *en = NULL;
         iop_dso_t *dso = NULL;
         lstr_t en_name = LSTR("tstiop_backward_compat_typedef.MyEnumA");
         lstr_t en_exp = LSTR("tstiop_backward_compat_remote_typedef.MyEnumA");
@@ -9220,9 +9130,8 @@ Z_GROUP_EXPORT(iop)
             "compat-typedef-new" SO_FILEEXT, true, _G.iop_env, &dso));
         Z_ASSERT_P(dso);
         {
-            const iop_env_ctx_t *iop_env_ctx;
-
-            iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+            iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
+            const iop_enum_t *en = NULL;
 
             Z_ASSERT_P(en = iop_env_ctx_get_enum(iop_env_ctx, en_name));
             Z_ASSERT_LSTREQUAL(en->fullname, en_exp);
@@ -9231,7 +9140,6 @@ Z_GROUP_EXPORT(iop)
     } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_dso_find_type__typedef, "test iop_dso_find_type with typedef") { /* {{{ */
-        const iop_struct_t *st = NULL;
         iop_dso_t *dso = NULL;
         lstr_t st_name = LSTR("tstiop_backward_compat_typedef.MyClass2");
         lstr_t st_exp = LSTR("tstiop_backward_compat_remote_typedef."
@@ -9242,9 +9150,8 @@ Z_GROUP_EXPORT(iop)
             "compat-typedef-new" SO_FILEEXT, true, _G.iop_env, &dso));
         Z_ASSERT_P(dso);
         {
-            const iop_env_ctx_t *iop_env_ctx;
-
-            iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+            iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
+            const iop_struct_t *st = NULL;
 
             Z_ASSERT_P(st = iop_env_ctx_get_struct(iop_env_ctx, st_name));
             Z_ASSERT_LSTREQUAL(st->fullname, st_exp);
@@ -9317,10 +9224,7 @@ Z_GROUP_EXPORT(iop)
     } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_struct_is_optional, "test iop_struct_is_optional") { /* {{{ */
-
-        const iop_env_ctx_t *iop_env_ctx;
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
 
         Z_ASSERT(iop_struct_is_optional(
                     iop_env_ctx, &tstiop_backward_compat__abstract_class1__s,
@@ -9352,9 +9256,7 @@ Z_GROUP_EXPORT(iop)
 
         /* Get the struct from the IOP environment */
         {
-            const iop_env_ctx_t *iop_env_ctx;
-
-            iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
+            iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
 
             my_struct_env = iop_env_ctx_get_struct(iop_env_ctx,
                                                    my_struct_name);
@@ -9505,7 +9407,8 @@ Z_GROUP_EXPORT(iop)
     } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_nonreg_ioptag_union_unpack, "test iop_tag all bytes set (i32 vs u16)") { /* {{{ */
-        const iop_env_ctx_t *iop_env_ctx;
+        t_scope;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         tstiop__my_union_b__t dst;
         tstiop__my_union_b__t src;
         int32_t *i;
@@ -9514,9 +9417,6 @@ Z_GROUP_EXPORT(iop)
         pstream_t json1 = ps_initstr("{ bval: 1234 }");
         pstream_t json2 = ps_initstr("{ a.ua: 1234 }");
         SB_1k(sb);
-        t_scope;
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         iop_init(tstiop__my_union_b, &src);
         i = IOP_UNION_SET(tstiop__my_union_b, &src, bval);
@@ -9562,14 +9462,12 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(iop_void_union, "test iop void in union") { /* {{{ */
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         tstiop_void_type__void_alone__t s;
         lstr_t data;
         int ret;
         tstiop_void_type__void_alone__t dest;
         SB(buff, 100);
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         iop_init(tstiop_void_type__void_alone, &s);
 
@@ -9631,15 +9529,13 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(iop_void_optional, "test iop void, optional") {/* {{{ */
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         tstiop_void_type__void_optional__t s;
         tstiop_void_type__void_optional__t dest;
         lstr_t data;
         int ret;
         byte buf1[20], buf2[20];
         SB(buff, 100);
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         iop_init(tstiop_void_type__void_optional, &s);
 
@@ -9716,7 +9612,7 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(iop_void_required, "test iop void, required") { /* {{{ */
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         int8_t data1[5] = {0, 1, 2, 3, 4};
         int32_t data2[5] = {0, 1, 2, 3, 4};
         tstiop_void_type__void_required__t s;
@@ -9727,8 +9623,6 @@ Z_GROUP_EXPORT(iop)
         tstiop_void_type__double_to_void__t s_double;
         lstr_t packed;
         SB(buff, 10);
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         /* pack required void (skipped) */
         iop_init(tstiop_void_type__void_required, &s);
@@ -9825,15 +9719,13 @@ Z_GROUP_EXPORT(iop)
     } Z_TEST_END;
     /* }}} */
     Z_TEST(json_empty_string, "parsing '' as JSON always returns an error") { /* {{{ */
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         tstiop__my_union_a__t union_a;
         tstiop__my_class1__t class1;
         tstiop__my_struct_a_opt__t struct_opt;
         pstream_t json = ps_initstr("");
         const char *error = "1:1: there is nothing to read";
         SB_1k(err);
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         /* test for an union */
         Z_ASSERT_NEG(t_iop_junpack_ps(iop_env_ctx, &json,
@@ -9858,14 +9750,12 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(repeated_field_removal, "repeated field removal") { /* {{{ */
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         lstr_t data;
         pstream_t data_ps;
         struct_with_repeated_field__t st;
         struct_without_repeated_field__t *out = NULL;
         lstr_t tab[] = { LSTR_IMMED("toto"), LSTR_IMMED("foo") };
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         Z_TEST_FLAGS("redmine_54728");
 
@@ -9961,11 +9851,9 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(wsdl, "test generation of WSDL") { /* {{{ */
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         SB_1k(buf);
         lstr_t expected;
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         Z_ASSERT_N(lstr_init_from_file(&expected,
                                        t_fmt("%*pM/test-data/iop.wsdl",
@@ -10026,11 +9914,9 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(bpack_error_unregistered_class, "unpacking an instance of an unregistered class") { /* {{{ */
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         lstr_t bin;
         void *instance = NULL;
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         bin = t_iop_bpack_struct(&tstiop_not_registered_class__s,
                                  t_iop_new(tstiop_not_registered_class));
@@ -10044,11 +9930,9 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(bpack_error_unexpected_class_type, "unpacking an instance of an unexpected class type") { /* {{{ */
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         lstr_t bin;
         void *instance = NULL;
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         bin = t_iop_bpack_struct(&tstiop__child_class_a__s,
                                  t_iop_new(tstiop__child_class_a));
@@ -10066,7 +9950,7 @@ Z_GROUP_EXPORT(iop)
          * double subnormal values is both possible, and gives the same
          * result. */
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         SB_1k(buf);
         SB_1k(err);
         pstream_t ps;
@@ -10074,8 +9958,6 @@ Z_GROUP_EXPORT(iop)
             .m = OPT(4.68120573995851602e-310),
         };
         tstiop__my_struct_a_opt__t *my_struct_out;
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         /* Test in json. */
         sb_reset(&buf);
@@ -10123,11 +10005,9 @@ Z_GROUP_EXPORT(iop)
     } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_check_package_examples, "test iop_check_rpc_example") { /* {{{ */
-        const iop_env_ctx_t *iop_env_ctx;
         SB_1k(err);
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         const char *exp_err;
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         /* Examples in tstiop_dox.iop should be valid. */
         Z_ASSERT_N(iop_check_package_examples(iop_env_ctx, &tstiop_dox__pkg,

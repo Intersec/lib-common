@@ -787,12 +787,11 @@ bool _z_assert_iopjsonequal(const char *file, int lno,
 {
     t_scope;
     SB_1k(err);
+    iop_env_ctx_scope(iop_env, iop_env_ctx);
     pstream_t ps = ps_initlstr(&json);
     void *data = NULL;
-    const iop_env_ctx_t *iop_env_ctx;
     IN_TEST;
 
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
     if (t_iop_junpack_ptr_ps(iop_env_ctx, &ps, st, &data, 0, &err) < 0) {
         SB_1k(sb);
 

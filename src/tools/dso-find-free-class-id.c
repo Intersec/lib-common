@@ -82,14 +82,8 @@ int main(int argc, char *argv[])
 {
     iop_env_t *iop_env;
     iop_dso_t *dso;
-    const iop_env_ctx_t *iop_env_ctx;
     const char *arg0 = NEXTARG(argc, argv);
-    int class_id_min;
-    int class_id_max;
     int first_available_id = -1;
-    const char *fullname;
-    const iop_struct_t *obj_st;
-    bool used_ids_hdr_printed = false;
 
     argc = parseopt(argc, argv, popt_g, 0);
     if (argc != 3 || _G.help) {
@@ -100,57 +94,64 @@ int main(int argc, char *argv[])
 
     iop_env = iop_env_new();
     dso = open_dso(iop_env, NEXTARG(argc, argv));
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
-
-    if (!dso) {
-        goto end;
-    }
-
-    if (parse_class_id_range(NEXTARG(argc, argv),
-                             &class_id_min, &class_id_max) < 0)
     {
-        printf("invalid class id range\n");
-        goto end;
-    }
+        iop_env_ctx_scope(iop_env, iop_env_ctx);
+        int class_id_min;
+        int class_id_max;
+        const char *fullname;
+        const iop_struct_t *obj_st;
+        bool used_ids_hdr_printed = false;
 
-    fullname = NEXTARG(argc, argv);
-    obj_st = iop_env_ctx_get_struct(iop_env_ctx, LSTR(fullname));
-    if (!obj_st) {
-        printf("cannot find IOP struct object `%s`\n", fullname);
-        goto end;
-    }
-    if (!iop_struct_is_class(obj_st)) {
-        printf("IOP object `%s` is not a class\n", fullname);
-        goto end;
-    }
-
-    for (int i = class_id_min; i <= class_id_max; i++) {
-        const iop_struct_t *st;
-
-        st = iop_get_class_by_id(iop_env_ctx, obj_st, i);
-        if (st) {
-            if (!used_ids_hdr_printed) {
-                printf("Used class ids in the family of `%s`:\n",
-                       fullname);
-                used_ids_hdr_printed = true;
-            }
-            printf("    %d (`%*pM`)\n", i, LSTR_FMT_ARG(st->fullname));
-        } else
-        if (first_available_id < 0) {
-            first_available_id = i;
+        if (!dso) {
+            goto end;
         }
-    }
 
-    if (used_ids_hdr_printed) {
-        printf("\n\n");
-    }
+        if (parse_class_id_range(NEXTARG(argc, argv),
+                                 &class_id_min, &class_id_max) < 0)
+        {
+            printf("invalid class id range\n");
+            goto end;
+        }
 
-    if (first_available_id >= 0) {
-        printf("First available class id in the family of `%s` is %d\n",
-               fullname, first_available_id);
-    } else {
-        printf("No available class id found in the family of `%s`\n",
-               fullname);
+        fullname = NEXTARG(argc, argv);
+        obj_st = iop_env_ctx_get_struct(iop_env_ctx, LSTR(fullname));
+        if (!obj_st) {
+            printf("cannot find IOP struct object `%s`\n", fullname);
+            goto end;
+        }
+        if (!iop_struct_is_class(obj_st)) {
+            printf("IOP object `%s` is not a class\n", fullname);
+            goto end;
+        }
+
+        for (int i = class_id_min; i <= class_id_max; i++) {
+            const iop_struct_t *st;
+
+            st = iop_get_class_by_id(iop_env_ctx, obj_st, i);
+            if (st) {
+                if (!used_ids_hdr_printed) {
+                    printf("Used class ids in the family of `%s`:\n",
+                           fullname);
+                    used_ids_hdr_printed = true;
+                }
+                printf("    %d (`%*pM`)\n", i, LSTR_FMT_ARG(st->fullname));
+            } else
+            if (first_available_id < 0) {
+                first_available_id = i;
+            }
+        }
+
+        if (used_ids_hdr_printed) {
+            printf("\n\n");
+        }
+
+        if (first_available_id >= 0) {
+            printf("First available class id in the family of `%s` is %d\n",
+                   fullname, first_available_id);
+        } else {
+            printf("No available class id found in the family of `%s`\n",
+                   fullname);
+        }
     }
 
   end:

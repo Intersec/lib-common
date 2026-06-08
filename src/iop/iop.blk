@@ -7154,9 +7154,8 @@ iop_env_ctx_get_pkg(const iop_env_ctx_t * nonnull iop_env_ctx,
 iop_dso_t *iop_dso_get_from_pkg(const iop_env_t *iop_env,
                                 const iop_pkg_t *pkg)
 {
-    const iop_env_ctx_t *iop_env_ctx;
+    iop_env_ctx_scope(iop_env, iop_env_ctx);
 
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
     return qm_get_def_safe(iop_dso_by_pkg, &iop_env_ctx->dso_by_pkg, pkg,
                            NULL);
 }

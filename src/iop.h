@@ -195,7 +195,7 @@ typedef struct iop_env_ctx_guard_t {
  * The returned guard keeps the underlying context alive even if the
  * writer swaps a new one in concurrently. Must be paired with exactly
  * one call to \ref iop_env_ctx_release. Prefer the
- * \ref iop_env_ctx_acquire_scoped macro below.
+ * \ref iop_env_ctx_scope macro below.
  */
 iop_env_ctx_guard_t
 iop_env_ctx_acquire(const iop_env_t * nonnull iop_env);
@@ -226,27 +226,26 @@ iop_env_ctx_release_cleanup(iop_env_ctx_guard_t * nonnull guardp)
     }
 }
 
-/** Scoped acquire of the IOP env's current context into an existing pointer.
+/** Scoped acquire of the IOP env's current context.
  *
- * Acquires a refcounted ctx snapshot of \p env and stores it into \p name,
- * which must already be declared by the caller as `const iop_env_ctx_t *`.
+ * Acquires a refcounted ctx snapshot of \p env and declares \p name as a
+ * `const iop_env_ctx_t *` pointing to it. The snapshot is released
+ * automatically when \p name goes out of scope.
  *
  * Usage:
  * \code
- * const iop_env_ctx_t *iop_env_ctx;
- *
- * iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+ * iop_env_ctx_scope(iop_env, iop_env_ctx);
  * if (qm_find(iop_struct, &iop_env_ctx->struct_by_fullname, &name) < 0) {
  *     return NULL;
  * }
  * return ...;
  * \endcode
  */
-#define iop_env_ctx_acquire_scoped(env, name)                                \
+#define iop_env_ctx_scope(env, name)                                         \
     iop_env_ctx_guard_t PFX_LINE_SFX(__guard, name)                          \
         __attribute__((cleanup(iop_env_ctx_release_cleanup)))                \
         = iop_env_ctx_acquire(env);                                          \
-    name = PFX_LINE_SFX(__guard, name).ctx
+    const iop_env_ctx_t * nonnull name = PFX_LINE_SFX(__guard, name).ctx
 
 /** Set the DSO LMID of the IOP environment.
  *
@@ -273,7 +272,7 @@ iop_env_get_ic_user_version(const iop_env_t * nonnull iop_env);
 /* Lookup IOP types in a context snapshot.
  *
  * Acquire a snapshot via \ref iop_env_ctx_acquire (typically through the
- * \ref iop_env_ctx_acquire_scoped macro) and call these on the snapshot.
+ * \ref iop_env_ctx_scope macro) and call these on the snapshot.
  *
  * Holding a ctx across multiple lookups gives a stable view of the IOP
  * environment even if a writer installs a new ctx mid-flight, which is
@@ -885,7 +884,7 @@ typedef struct iop_field_path_t iop_field_path_t;
  * \param[in] mp          The memory pool on which the allocation will be
  *                        done. Can be NULL to use malloc.
  * \param[in] iop_env_ctx Snapshot of the IOP environment to compile against.
- *                        Pin one via \ref iop_env_ctx_acquire_scoped.
+ *                        Pin one via \ref iop_env_ctx_scope.
  * \param[in] st          The structure type of the values containing the
  *                        fields.
  * \param[in] path    Full path to the field. Can contain:

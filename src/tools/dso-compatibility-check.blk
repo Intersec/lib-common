@@ -75,8 +75,6 @@ int main(int argc, char *argv[])
     lstr_t mode;
     const char *arg0 = NEXTARG(argc, argv);
     qv_t(lstr) sorted_pkg_names;
-    const iop_env_ctx_t *iop_env_ctx_old;
-    const iop_env_ctx_t *iop_env_ctx;
 
     if (!argc) {
         makeusage(EX_USAGE, arg0, "", usage, popt);
@@ -123,28 +121,30 @@ int main(int argc, char *argv[])
     }
     qv_sort(lstr)(&sorted_pkg_names, core_lstr_cmp);
 
-    iop_env_ctx_acquire_scoped(iop_env_old, iop_env_ctx_old);
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
+    {
+        iop_env_ctx_scope(iop_env_old, iop_env_ctx_old);
+        iop_env_ctx_scope(iop_env, iop_env_ctx);
 
-    tab_for_each_entry(name, &sorted_pkg_names) {
-        const iop_pkg_t *pkg_old;
-        const iop_pkg_t *pkg;
+        tab_for_each_entry(name, &sorted_pkg_names) {
+            const iop_pkg_t *pkg_old;
+            const iop_pkg_t *pkg;
 
-        pkg_old = qm_get(iop_pkg, &dso_old->pkg_h, &name);
+            pkg_old = qm_get(iop_pkg, &dso_old->pkg_h, &name);
 
-        pkg = qm_get_def(iop_pkg, &dso->pkg_h, &name, NULL);
-        if (!pkg) {
-            fprintf(stderr, "package `%*pM` is not in the new dso\n",
-                    LSTR_FMT_ARG(name));
-            continue;
-        }
+            pkg = qm_get_def(iop_pkg, &dso->pkg_h, &name, NULL);
+            if (!pkg) {
+                fprintf(stderr, "package `%*pM` is not in the new dso\n",
+                        LSTR_FMT_ARG(name));
+                continue;
+            }
 
-        if (iop_pkg_check_backward_compat_ctx(iop_env_ctx_old, pkg_old,
-                                              iop_env_ctx, pkg, ctx, flags,
-                                              &err) < 0)
-        {
-            fprintf(stderr, "%*pM\n", SB_FMT_ARG(&err));
-            sb_reset(&err);
+            if (iop_pkg_check_backward_compat_ctx(iop_env_ctx_old, pkg_old,
+                                                  iop_env_ctx, pkg, ctx,
+                                                  flags, &err) < 0)
+            {
+                fprintf(stderr, "%*pM\n", SB_FMT_ARG(&err));
+                sb_reset(&err);
+            }
         }
     }
 

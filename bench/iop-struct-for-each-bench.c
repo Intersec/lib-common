@@ -111,10 +111,6 @@ static void run_loops(const iop_struct_t *st, int nb_loops, bool new_way)
 int main(int argc, char **argv)
 {
     iop_env_t *iop_env;
-    const iop_env_ctx_t *iop_env_ctx;
-    int nb_loops;
-    const iop_struct_t *st;
-    bool new_way;
 
     if (argc <= 3) {
         fprintf(stderr, "usage: %s st_name nb_loops (0|1)\n", argv[0]);
@@ -123,16 +119,24 @@ int main(int argc, char **argv)
 
     iop_env = iop_env_new();
     IOP_REGISTER_PACKAGES(iop_env, &tstiop__pkg);
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
-    st = iop_env_ctx_get_struct(iop_env_ctx, LSTR(argv[1]));
-    if (!st) {
-        fprintf(stderr, "unknown IOP struct/union/class: `%s'\n", argv[1]);
-        exit(EXIT_FAILURE);
-    }
 
-    nb_loops = atoi(argv[2]);
-    new_way = atoi(argv[3]);
-    run_loops(st, nb_loops, new_way);
+    {
+        iop_env_ctx_scope(iop_env, iop_env_ctx);
+        const iop_struct_t *st;
+        int nb_loops;
+        bool new_way;
+
+        st = iop_env_ctx_get_struct(iop_env_ctx, LSTR(argv[1]));
+        if (!st) {
+            fprintf(stderr, "unknown IOP struct/union/class: `%s'\n",
+                    argv[1]);
+            exit(EXIT_FAILURE);
+        }
+
+        nb_loops = atoi(argv[2]);
+        new_way = atoi(argv[3]);
+        run_loops(st, nb_loops, new_way);
+    }
 
     iop_env_delete(&iop_env);
     return 0;

@@ -87,11 +87,9 @@ static int t_z_load_iop_for_each_json(const iop_env_t *iop_env,
                                       tstiop__z_iop_for_each__t **z_struct)
 {
     SB_1k(errb);
+    iop_env_ctx_scope(iop_env, iop_env_ctx);
     tstiop__z_iop_for_each__t *res = NULL;
     const char *path = t_fmt("%ssamples/z-iop-for-each.json", z_cmddir_g.s);
-    const iop_env_ctx_t *iop_env_ctx;
-
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
     Z_ASSERT_N(t_iop_junpack_ptr_file(iop_env_ctx, path,
                                       &tstiop__z_iop_for_each__s,
@@ -410,13 +408,11 @@ qvector_t(tstiop_struct, tstiop__struct__t);
 static int z_test_iop_field_path_htab(const iop_env_t *iop_env)
 {
     t_scope;
+    iop_env_ctx_scope(iop_env, iop_env_ctx);
     SB_1k(err);
     qv_t(u64) *values;
     tstiop__my_struct_a__t sta;
     const iop_field_path_t *fp;
-    const iop_env_ctx_t *iop_env_ctx;
-
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
     iop_init(tstiop__my_struct_a, &sta);
     sta.htab = T_IOP_ARRAY(u64, 2, 42, 51);
@@ -442,6 +438,7 @@ static int z_test_iop_field_path_htab(const iop_env_t *iop_env)
 static int z_test_iop_field_path_structs_last_fields(const iop_env_t *iop_env)
 {
     t_scope;
+    iop_env_ctx_scope(iop_env, iop_env_ctx);
     SB_1k(err);
     tstiop__package__t pkg;
     qv_t(tstiop_struct) structs;
@@ -450,9 +447,6 @@ static int z_test_iop_field_path_structs_last_fields(const iop_env_t *iop_env)
     qv_t(i32) *lengths;
     const iop_field_path_t *fp;
     const char *expected[] = { "tata", "c", "42" };
-    const iop_env_ctx_t *iop_env_ctx;
-
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
     t_qv_init(&structs, 0);
 
@@ -511,6 +505,7 @@ static int z_test_iop_field_path_structs_last_fields(const iop_env_t *iop_env)
 static int z_test_iop_field_path_class_wildcards(const iop_env_t *iop_env)
 {
     t_scope;
+    iop_env_ctx_scope(iop_env, iop_env_ctx);
     SB_1k(err);
     tstiop__my_struct_f__t msf;
     tstiop__my_class1__t mc1;
@@ -519,9 +514,6 @@ static int z_test_iop_field_path_class_wildcards(const iop_env_t *iop_env)
     tstiop__my_class2_bis__t mc2_bis;
     qv_t(cvoid) *values_ptr;
     const iop_field_path_t *fp;
-    const iop_env_ctx_t *iop_env_ctx;
-
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
     /* Init objects */
     iop_init(tstiop__my_struct_f, &msf);

@@ -143,12 +143,11 @@ static int
 generate_openapi(const iop_env_t *iop_env, const iop_mod_t * nonnull module)
 {
     t_scope;
+    SB_1k(err);
+    iop_env_ctx_scope(iop_env, iop_env_ctx);
     iop_openapi_t *oa;
     yaml_data_t yaml;
     yaml_pack_env_t *env;
-    SB_1k(err);
-    const iop_env_ctx_t *iop_env_ctx;
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
     oa = t_new_iop_openapi(iop_env_ctx, LSTR(opts_g.title),
                            LSTR(opts_g.version), module, LSTR(opts_g.route));

@@ -288,10 +288,8 @@ parse_and_repack(const iop_env_t * nonnull iop_env,
                  const char * nullable filename,
                  const iop_dso_t * nullable dso, sb_t * nonnull err)
 {
+    iop_env_ctx_scope(iop_env, iop_env_ctx);
     const iop_struct_t *st = NULL;
-    const iop_env_ctx_t *iop_env_ctx;
-
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
     if (opts_g.type_name) {
         st = RETHROW_PN(get_iop_type(iop_env_ctx, LSTR(opts_g.type_name),

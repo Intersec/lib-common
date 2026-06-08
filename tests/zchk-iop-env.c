@@ -60,9 +60,8 @@ static int z_dso_open(const char *dso_path, bool in_cmddir,
 
 static int z_iop_env_is_empty(const iop_env_t *iop_env)
 {
-    const iop_env_ctx_t *ctx;
+    iop_env_ctx_scope(iop_env, ctx);
 
-    iop_env_ctx_acquire_scoped(iop_env, ctx);
     Z_ASSERT_EQ(qm_len(iop_class_by_id, &ctx->classes_by_id), 0);
     Z_ASSERT_EQ(qm_len(iop_dso_by_pkg, &ctx->dso_by_pkg), 0);
     Z_ASSERT_EQ(qm_len(iop_env_struct, &ctx->struct_by_fullname), 0);
@@ -90,7 +89,6 @@ static void *z_iop_stress_reader_loop(void *arg)
     z_iop_stress_ctx_t *sc = arg;
 
     for (int i = 0; i < Z_IOP_STRESS_READER_ITERS; i++) {
-        const iop_env_ctx_t *ctx;
         lstr_t key = LSTR_IMMED_V("tstiop.MyClass1");
 
         /* Pin a *fresh* snapshot every iteration: this also exercises the
@@ -99,7 +97,7 @@ static void *z_iop_stress_reader_loop(void *arg)
          * and drops the references it owns on the DSOs it maps -- here, on a
          * worker thread, concurrently with the writer's register/unregister.
          */
-        iop_env_ctx_acquire_scoped(sc->iop_env, ctx);
+        iop_env_ctx_scope(sc->iop_env, ctx);
 
         /* `tstiop.MyClass1` may or may not be present depending on the
          * writer's current state; both outcomes are fine, we only care
@@ -128,7 +126,7 @@ Z_GROUP_EXPORT(iop_env)
                           &tstiop_typedef__pkg);
 
     Z_TEST(getter, "environment object getters") { /* {{{ */
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         lstr_t name;
         const iop_struct_t *st;
         const iop_struct_t *cls;
@@ -137,8 +135,6 @@ Z_GROUP_EXPORT(iop_env)
         const iop_iface_t *iface;
         const iop_mod_t *mod;
         const iop_pkg_t *pkg;
-
-        iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
 
         /* Struct */
         name = tstiop__my_struct_a__s.fullname;
@@ -236,12 +232,6 @@ Z_GROUP_EXPORT(iop_env)
         iop_dso_t *dso_tstiop;
         iop_dso_t *dso_backward_old;
         iop_dso_t *dso_backward_new;
-        const iop_struct_t *st1;
-        const iop_struct_t *st2;
-        const iop_env_ctx_t *iop_env_ctx;
-        const iop_env_ctx_t *ctx_tstiop;
-        const iop_env_ctx_t *ctx_backward_old;
-        const iop_env_ctx_t *ctx_backward_new;
 
         /* Create the test envionments */
         iop_env_tstiop = iop_env_new();
@@ -262,13 +252,13 @@ Z_GROUP_EXPORT(iop_env)
             &dso_backward_new));
 
         {
+            const iop_struct_t *st1;
+            const iop_struct_t *st2;
             /* Pin a ctx snapshot of each env now that the DSOs are loaded. */
-            iop_env_ctx_acquire_scoped(_G.iop_env, iop_env_ctx);
-            iop_env_ctx_acquire_scoped(iop_env_tstiop, ctx_tstiop);
-            iop_env_ctx_acquire_scoped(iop_env_backward_old,
-                                       ctx_backward_old);
-            iop_env_ctx_acquire_scoped(iop_env_backward_new,
-                                       ctx_backward_new);
+            iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
+            iop_env_ctx_scope(iop_env_tstiop, ctx_tstiop);
+            iop_env_ctx_scope(iop_env_backward_old, ctx_backward_old);
+            iop_env_ctx_scope(iop_env_backward_new, ctx_backward_new);
 
             /* Check IOP obj between global zchk env and tstiop DSO env */
             st1 = iop_env_ctx_get_struct(iop_env_ctx,

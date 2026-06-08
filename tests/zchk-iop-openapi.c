@@ -73,10 +73,8 @@ Z_GROUP_EXPORT(iop_openapi)
 
     Z_TEST(doc, "test the whole doc generation") {
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(iop_env, iop_env_ctx);
         iop_openapi_t *oa;
-
-        iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
         oa = t_new_iop_openapi(iop_env_ctx, LSTR("zoomin"), LSTR("0.2.3"),
                                NULL, LSTR("tes"));
@@ -90,10 +88,8 @@ Z_GROUP_EXPORT(iop_openapi)
 
     Z_TEST(iop_struct, "test the schema generation of IOP structs") {
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(iop_env, iop_env_ctx);
         iop_openapi_t *oa;
-
-        iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
         /* simple, no dependencies */
         oa = t_new_iop_openapi(iop_env_ctx, LSTR("structs"), LSTR("2.3.1"),
@@ -140,12 +136,10 @@ Z_GROUP_EXPORT(iop_openapi)
 
     Z_TEST(iop_mod, "test paths generation of IOP modules") {
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        SB_1k(err);
+        iop_env_ctx_scope(iop_env, iop_env_ctx);
         iop_openapi_t *oa;
         yaml_data_t data;
-        SB_1k(err);
-
-        iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
         /* check that it also generates schemas */
         oa = t_new_iop_openapi(iop_env_ctx, LSTR("yay"), LSTR("0.0.1"),
@@ -180,10 +174,8 @@ Z_GROUP_EXPORT(iop_openapi)
 
     Z_TEST(dox, "test inclusion of comments documentation") {
         t_scope;
-        const iop_env_ctx_t *iop_env_ctx;
+        iop_env_ctx_scope(iop_env, iop_env_ctx);
         iop_openapi_t *oa;
-
-        iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
         oa = t_new_iop_openapi(iop_env_ctx, LSTR("tstdox"), LSTR("1.0.1"),
                                tstiop_dox__my_module__modp,

@@ -57,10 +57,8 @@ static int t_package_load(iop_pkg_t **pkg, const iop_env_t *iop_env,
 {
     iop_env_ctx_scope(iop_env, iop_env_ctx);
     SB_1k(err);
-    const iop_env_ctx_t *iop_env_ctx;
     const iop__package__t *pkg_desc;
 
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
     pkg_desc = t_load_package_from_file(file, iop_env, &err);
     Z_ASSERT_P(pkg_desc, "%s: %pL", file, &err);
     *pkg = mp_iopsq_build_pkg(t_pool(), iop_env_ctx, pkg_desc, NULL, &err);
@@ -408,13 +406,11 @@ Z_GROUP_EXPORT(iopsq) {
         t_scope;
         iop_env_ctx_scope(iop_env, iop_env_ctx);
         SB_1k(err);
-        const iop_env_ctx_t *iop_env_ctx;
         iop__package__t *pkg_desc;
         const iop__structure__t *st_desc;
         const iop_struct_t *st;
         iopsq_iop_struct_t st_mp;
 
-        iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
         pkg_desc = t_load_package_from_file("single-struct.json", iop_env,
                                             &err);
         Z_ASSERT_P(pkg_desc, "%pL", &err);
@@ -444,7 +440,6 @@ Z_GROUP_EXPORT(iopsq) {
         t_scope;
         iop_env_ctx_scope(iop_env, iop_env_ctx);
         SB_1k(err);
-        const iop_env_ctx_t *iop_env_ctx;
         const iop__package__t *pkg_desc;
         const char *errors[] = {
             /* TODO Detect the bad type name instead. */
@@ -504,7 +499,6 @@ Z_GROUP_EXPORT(iopsq) {
         };
         const char **exp_error = errors;
 
-        iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
         pkg_desc = t_load_package_from_file("error-misc.json", iop_env,
                                             &err);
         Z_ASSERT_P(pkg_desc, "%pL", &err);
@@ -528,10 +522,8 @@ Z_GROUP_EXPORT(iopsq) {
         t_scope;
         iop_env_ctx_scope(iop_env, iop_env_ctx);
         SB_1k(err);
-        const iop_env_ctx_t *iop_env_ctx;
         const iop__package__t *pkg_desc;
 
-        iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
         pkg_desc = t_load_package_from_file("error-duplicated-name.json",
                                             iop_env, &err);
         Z_ASSERT_P(pkg_desc, "%pL", &err);
