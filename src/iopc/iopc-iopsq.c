@@ -105,13 +105,10 @@ static void __iopsq_type_table_wipe(iopsq_type_table_t *table)
 DO_DELETE(iopsq_type_table_t, __iopsq_type_table);
 
 /** Fill an iopsq type from an iop_full_type_t. */
-static int iopsq_fill_type(const iop_env_t *iop_env,
+static int iopsq_fill_type(const iop_env_ctx_t *iop_env_ctx,
                            const iop_full_type_t *ftype, iop__type__t *type)
 {
     lstr_t typename;
-    const iop_env_ctx_t *iop_env_ctx;
-
-    iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
 
     if (iop_type_to_iop(ftype->type, type) >= 0) {
         return 0;
@@ -142,11 +139,11 @@ static int iopsq_fill_type(const iop_env_t *iop_env,
 }
 
 void iopsq_type_table_fill_type(iopsq_type_table_t *table,
-                                const iop_env_t *iop_env,
+                                const iop_env_ctx_t *iop_env_ctx,
                                 const iop_full_type_t *ftype,
                                 iop__type__t *type)
 {
-    if (iopsq_fill_type(iop_env, ftype, type) < 0) {
+    if (iopsq_fill_type(iop_env_ctx, ftype, type) < 0) {
         uint32_t pos;
 
         /* The type is unknown and has probably been built by the user.
@@ -228,7 +225,8 @@ static iop_type_t iop_type_from_iop(const iop__type__t *iop_type)
 }
 
 static int
-iopc_field_set_typename(iopc_field_t *nonnull f, const iop_env_t *iop_env,
+iopc_field_set_typename(iopc_field_t *nonnull f,
+                        const iop_env_ctx_t *nonnull iop_env_ctx,
                         lstr_t typename, sb_t *nonnull err)
 {
     f->kind = iop_get_type(typename);
@@ -239,9 +237,7 @@ iopc_field_set_typename(iopc_field_t *nonnull f, const iop_env_t *iop_env,
              * proper type name. */
             const iop_struct_t *st;
             const iop_enum_t *en;
-            const iop_env_ctx_t *iop_env_ctx;
 
-            iop_env_ctx_acquire_scoped(iop_env, iop_env_ctx);
             if ((st = iop_env_ctx_get_struct(iop_env_ctx, typename))) {
                 f->external_st = st;
                 f->kind = st->is_union ? IOP_T_UNION : IOP_T_STRUCT;
@@ -264,7 +260,7 @@ iopc_field_set_typename(iopc_field_t *nonnull f, const iop_env_t *iop_env,
 
 static int
 iopc_field_set_type(iopc_field_t *nonnull f,
-                    const iop_env_t *nonnull iop_env,
+                    const iop_env_ctx_t *nonnull iop_env_ctx,
                     const iop__type__t *nonnull type,
                     const iopsq_type_table_t *nullable type_table,
                     sb_t *nonnull err)
@@ -284,7 +280,7 @@ iopc_field_set_type(iopc_field_t *nonnull f,
 
     IOP_UNION_SWITCH(type) {
       IOP_UNION_CASE(iop__type, type, type_name, typename) {
-        if (iopc_field_set_typename(f, iop_env, typename, err) < 0) {
+        if (iopc_field_set_typename(f, iop_env_ctx, typename, err) < 0) {
             return -1;
         }
       }
@@ -363,7 +359,7 @@ iopc_field_set_opt_info(iopc_field_t *nonnull f,
 }
 
 static iopc_field_t *
-iopc_field_load(const iop_env_t *nonnull iop_env,
+iopc_field_load(const iop_env_ctx_t *nonnull iop_env_ctx,
                 const iop__field__t *nonnull field_desc,
                 const qv_t(iopc_field) *fields,
                 const iopsq_type_table_t *nullable type_table,
@@ -399,7 +395,7 @@ iopc_field_load(const iop_env_t *nonnull iop_env,
         }
     }
 
-    if (iopc_field_set_type(f, iop_env, &field_desc->type, type_table,
+    if (iopc_field_set_type(f, iop_env_ctx, &field_desc->type, type_table,
                             err) < 0)
     {
         goto error;
@@ -457,7 +453,7 @@ iop_structure_get_type_and_fields(const iop__structure__t *desc,
 }
 
 static iopc_struct_t *
-iopc_struct_load(const iop_env_t *nonnull iop_env,
+iopc_struct_load(const iop_env_ctx_t *nonnull iop_env_ctx,
                  const iop__structure__t *nonnull st_desc,
                  const iopsq_type_table_t *nullable type_table,
                  sb_t *nonnull err)
@@ -473,7 +469,7 @@ iopc_struct_load(const iop_env_t *nonnull iop_env,
     tab_for_each_ptr(field_desc, &fields) {
         iopc_field_t *f;
 
-        if (!(f = iopc_field_load(iop_env, field_desc, &st->fields,
+        if (!(f = iopc_field_load(iop_env_ctx, field_desc, &st->fields,
                                   type_table, err)))
         {
             iopc_struct_delete(&st);
@@ -551,7 +547,7 @@ static const char *pkg_elem_type_to_str(const iop__package_elem__t *elem)
 }
 
 static iopc_pkg_t *
-iopc_pkg_load_from_iop(const iop_env_t *nonnull iop_env,
+iopc_pkg_load_from_iop(const iop_env_ctx_t *nonnull iop_env_ctx,
                        const iop__package__t *nonnull pkg_desc,
                        const iopsq_type_table_t *nullable type_table,
                        sb_t *nonnull err)
@@ -585,7 +581,8 @@ iopc_pkg_load_from_iop(const iop_env_t *nonnull iop_env,
           IOP_OBJ_CASE(iop__structure, elem, st_desc) {
               iopc_struct_t *st;
 
-              if (!(st = iopc_struct_load(iop_env, st_desc, type_table, err)))
+              if (!(st = iopc_struct_load(iop_env_ctx, st_desc, type_table,
+                                          err)))
               {
                   sb_prependf(err, "cannot load `%pL': ", &elem->name);
                   goto error;
@@ -632,7 +629,7 @@ iopc_pkg_load_from_iop(const iop_env_t *nonnull iop_env,
 /* {{{ IOP² API */
 
 iop_pkg_t *mp_iopsq_build_pkg(mem_pool_t *nonnull mp,
-                              const iop_env_t *nonnull iop_env,
+                              const iop_env_ctx_t *nonnull iop_env_ctx,
                               const iop__package__t *nonnull pkg_desc,
                               const iopsq_type_table_t *nullable type_table,
                               sb_t *nonnull err)
@@ -645,7 +642,7 @@ iop_pkg_t *mp_iopsq_build_pkg(mem_pool_t *nonnull mp,
         return NULL;
     }
 
-    if (!(iopc_pkg = iopc_pkg_load_from_iop(iop_env, pkg_desc, type_table,
+    if (!(iopc_pkg = iopc_pkg_load_from_iop(iop_env_ctx, pkg_desc, type_table,
                                             err))) {
         sb_prependf(err, "invalid package `%pL': ", &pkg_desc->name);
         return NULL;
@@ -678,7 +675,7 @@ iop_pkg_t *mp_iopsq_build_pkg(mem_pool_t *nonnull mp,
 
 iop_pkg_t *
 mp_iopsq_build_mono_element_pkg(mem_pool_t *nonnull mp,
-                                const iop_env_t *nonnull iop_env,
+                                const iop_env_ctx_t *nonnull iop_env_ctx,
                                 const iop__package_elem__t *nonnull elem,
                                 const iopsq_type_table_t *nullable type_table,
                                 sb_t *nonnull err)
@@ -690,19 +687,19 @@ mp_iopsq_build_mono_element_pkg(mem_pool_t *nonnull mp,
     pkg_desc.name = LSTR("user_package");
     pkg_desc.elems = IOP_TYPED_ARRAY(iop__package_elem, &_elem, 1);
 
-    return mp_iopsq_build_pkg(mp, iop_env, &pkg_desc, type_table, err);
+    return mp_iopsq_build_pkg(mp, iop_env_ctx, &pkg_desc, type_table, err);
 }
 
 const iop_struct_t *
 mp_iopsq_build_struct(mem_pool_t *nonnull mp,
-                      const iop_env_t *nonnull iop_env,
+                      const iop_env_ctx_t *nonnull iop_env_ctx,
                       const iop__structure__t *nonnull iop_desc,
                       const iopsq_type_table_t *nullable type_table,
                       sb_t *nonnull err)
 {
     iop_pkg_t *pkg;
 
-    pkg = RETHROW_P(mp_iopsq_build_mono_element_pkg(mp, iop_env,
+    pkg = RETHROW_P(mp_iopsq_build_mono_element_pkg(mp, iop_env_ctx,
                                                     &iop_desc->super,
                                                     type_table, err));
 
@@ -711,7 +708,7 @@ mp_iopsq_build_struct(mem_pool_t *nonnull mp,
 
 __must_check__
 int iopsq_iop_struct_build(iopsq_iop_struct_t *nonnull st,
-                           const iop_env_t *nonnull iop_env,
+                           const iop_env_ctx_t *nonnull iop_env_ctx,
                            const iopsq__structure__t *nonnull iop_desc,
                            const iopsq_type_table_t *nullable type_table,
                            sb_t *nonnull err)
@@ -720,7 +717,7 @@ int iopsq_iop_struct_build(iopsq_iop_struct_t *nonnull st,
 
     st->mp = mem_ring_new("iop_struct_mp_build", PAGE_SIZE);
     mem_ring_newframe(st->mp);
-    st->st = mp_iopsq_build_struct(st->mp, iop_env, iop_desc, type_table,
+    st->st = mp_iopsq_build_struct(st->mp, iop_env_ctx, iop_desc, type_table,
                                    err);
     st->release_cookie = mem_ring_seal(st->mp);
 
