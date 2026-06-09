@@ -35,3 +35,4 @@ libcommon-core = { path = "../libcommon-core" }
 waf-cargo-build = { path = "../waf-cargo-build" }
 tokio.workspace = true
 paste.workspace = true
+arc-swap.workspace = true

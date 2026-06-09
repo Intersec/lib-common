@@ -58,6 +58,9 @@ quote = "1.0"
 # Used by modules
 paste = "1.0.15"
 
+# Lock-free atomic Arc swap for fast thread-safe container.
+arc-swap = "1.8.0"
+
 # Used by waf-cargo-build for IOP code generation
 prettyplease = "0.2"
 

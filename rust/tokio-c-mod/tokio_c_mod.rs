@@ -19,8 +19,8 @@
 //! Infrastructure for creating tokio threads able to communicate with C event loop.
 //!
 //! This provides a `TokioCMod` exposed to C with [`c_module!`] as
-//! `tokio_c_module`. A global [`OnceLock`] stores the tokio runtime's [`Handle`]
-//! allowing us to run a thread with a custom [`Future`] object.
+//! `tokio_c_module`. A global [`ArcSwapOption`] stores the tokio runtime's
+//! [`Handle`] allowing us to run a thread with a custom [`Future`] object.
 //!
 //! # Overview
 //!
@@ -61,11 +61,12 @@
 //! module_release(tokio_get_module());
 //! ```
 
+use arc_swap::ArcSwapOption;
 use libcommon_core::bindings::{on_term_method, thr_get_module};
 use libcommon_core::{c_module, thr};
 use std::future::Future;
 use std::os::raw::{c_int, c_void};
-use std::sync::OnceLock;
+use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 use tokio::runtime::{Builder, Handle};
 use tokio::sync::oneshot::{self, Sender};
@@ -73,8 +74,14 @@ use tokio::task::JoinHandle as TokioJoinHandle;
 
 // {{{ TokioCMod
 
-/// Global variable to store Tokio C Module runtime.
-static TOKIO_RUNTIME: OnceLock<Handle> = OnceLock::new();
+/// Global variable to store the Tokio C Module runtime handle.
+///
+/// An [`ArcSwapOption`] so the handle can be cleared on shutdown and set
+/// again on a later initialization: the module can be loaded and unloaded
+/// several times (mostly in tests). Readers in [`spawn`] take their own
+/// `Arc`, so a concurrent shutdown storing `None` cannot free a handle still
+/// in use.
+static TOKIO_RUNTIME: ArcSwapOption<Handle> = ArcSwapOption::const_empty();
 
 /// Structure to build a tokio c module.
 ///
@@ -96,6 +103,11 @@ struct TokioCMod {
 ///
 /// Returns a [`tokio::task::JoinHandle`] for the spawned future.
 ///
+/// # Panics
+///
+/// Panics if the `tokio_c_module` is not loaded, as there is no runtime to
+/// spawn the future on. Require the module before calling [`spawn`].
+///
 /// # Example
 ///
 /// ```
@@ -113,7 +125,11 @@ where
     F: Future + Send + 'static,
     F::Output: Send + 'static,
 {
-    TOKIO_RUNTIME.wait().spawn(future)
+    let runtime_opt = TOKIO_RUNTIME.load();
+    let runtime = runtime_opt
+        .as_ref()
+        .expect("tokio_c_module is not initialized");
+    runtime.spawn(future)
 }
 
 // }}}
@@ -147,9 +163,7 @@ fn tokio_c_mod_initialize(ctx: &mut TokioCMod, _arg: *mut c_void) {
     let handle = runtime_recv
         .blocking_recv()
         .expect("tokio thread stopped before sending its runtime handle");
-    TOKIO_RUNTIME
-        .set(handle)
-        .expect("TOKIO_RUNTIME already set");
+    TOKIO_RUNTIME.store(Some(Arc::new(handle)));
 }
 
 /// Send a signal to terminate the tokio c mod thread.
@@ -168,11 +182,8 @@ fn tokio_c_mod_shutdown(ctx: &mut TokioCMod) {
     send_shutdown(ctx);
     if let Some(thread) = ctx.tokio_thr.take() {
         thread.join().expect("tokio thread panicked");
-        unsafe {
-            let p = (&raw const TOKIO_RUNTIME).cast_mut();
-            (*p).take();
-        }
     }
+    TOKIO_RUNTIME.store(None);
 }
 
 // `tokio_c_module` module builder. See `module.rs` for further documentation
