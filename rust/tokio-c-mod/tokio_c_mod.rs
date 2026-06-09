@@ -123,6 +123,9 @@ where
 fn tokio_c_mod_initialize(ctx: &mut TokioCMod, _arg: *mut c_void) {
     // Oneshot because tokio_c_mod must be reinitialized after shutdown, not reused.
     let (shutdown_send, shutdown_recv) = oneshot::channel();
+    // Oneshot to hand the runtime handle back so we can wait for the tokio
+    // thread to have built its runtime before returning.
+    let (runtime_send, runtime_recv) = oneshot::channel();
     ctx.shutdown_send = Some(shutdown_send);
     ctx.tokio_thr = Some(thread::spawn(move || {
         let runtime = Builder::new_multi_thread()
@@ -131,12 +134,22 @@ fn tokio_c_mod_initialize(ctx: &mut TokioCMod, _arg: *mut c_void) {
             .on_thread_stop(thr::detach)
             .build()
             .expect("failed to build tokio runtime");
-        TOKIO_RUNTIME
-            .set(runtime.handle().clone())
-            .expect("TOKIO_RUNTIME already set");
+        runtime_send
+            .send(runtime.handle().clone())
+            .expect("tokio runtime handle receiver dropped");
 
         let _unused = runtime.block_on(shutdown_recv);
     }));
+
+    // Wait for the tokio thread to have built its runtime. blocking_recv() is
+    // safe here: initialize() runs on the main C thread, outside any tokio
+    // runtime.
+    let handle = runtime_recv
+        .blocking_recv()
+        .expect("tokio thread stopped before sending its runtime handle");
+    TOKIO_RUNTIME
+        .set(handle)
+        .expect("TOKIO_RUNTIME already set");
 }
 
 /// Send a signal to terminate the tokio c mod thread.
