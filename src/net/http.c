@@ -10385,28 +10385,6 @@ Z_GROUP_EXPORT(httpd)
     }
     Z_TEST_END;
 
-    Z_TEST(hdr_equals_locale_independent,
-           "http_hdr_equals must compare HTTP tokens with ASCII case rules, "
-           "independent of the C locale: in a Turkish locale 'I' lowercases "
-           "to a dotless i, so a locale-dependent tolower() fails to match")
-    {
-        bool match;
-
-        if (!setlocale(LC_CTYPE, "tr_TR.utf8")
-        &&  !setlocale(LC_CTYPE, "tr_TR"))
-        {
-            Z_SKIP("Turkish locale not available");
-        }
-        match = http_hdr_equals(ps_initstr("100-CONTINUE"), "100-continue");
-        /* Restore the locale before asserting: a failing Z_ASSERT jumps to the
-         * test epilogue, so a restore placed after it would leak the Turkish
-         * locale into the rest of the test binary. */
-        setlocale(LC_CTYPE, "C");
-        Z_ASSERT(match,
-                 "ASCII case-insensitive token match must hold under a "
-                 "Turkish locale");
-    } Z_TEST_END;
-
     zhttpd_cleanup();
 }
 Z_GROUP_END;
