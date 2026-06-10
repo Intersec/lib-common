@@ -19,8 +19,7 @@
 //! Infrastructure to run functions that need `callback` in `main C event loop`
 //!
 //! This provides a `run_callback` function. `run_callback` launches a function
-//! in the `main C event loop` and then awaits its termination to return the result
-//! or the produced error.
+//! in the `main C event loop` and then awaits its termination to return the result.
 //!
 //! # Example
 //!
@@ -57,7 +56,7 @@
 //!        let blocker = ElBlocker(unsafe { el_blocker_register() });
 //!
 //!        tokio_c_mod::spawn(async move {
-//!            run_callback(run_timer).await.expect("run_callback did not complete");
+//!            run_callback(run_timer).await;
 //!
 //!            main_c_queue_schedule(move || {
 //!                let mut blocker = blocker;
@@ -76,8 +75,48 @@
 //! ```
 
 use libcommon_core::thr::main_c_queue_schedule;
-use tokio::sync::oneshot::{self, error::RecvError};
+use std::{
+    pin::Pin,
+    sync::{Arc, Mutex},
+    task::{Context, Poll, Waker},
+};
 
+// {{{ Structure
+
+struct Callback<T>
+where
+    T: Send + 'static,
+{
+    result: Option<T>,
+    waker: Option<Waker>,
+}
+
+struct CallbackFut<T>
+where
+    T: Send + 'static,
+{
+    callback: Arc<Mutex<Callback<T>>>,
+}
+
+impl<T> Future for CallbackFut<T>
+where
+    T: Send + 'static,
+{
+    type Output = T;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let mut callback = self.callback.lock().expect("couldn't lock");
+
+        if let Some(result) = callback.result.take() {
+            return Poll::Ready(result);
+        }
+
+        callback.waker = Some(cx.waker().clone());
+        Poll::Pending
+    }
+}
+
+// }}}
 // {{{ run_callback
 
 /// Run the input function in `main C event loop` and await its result
@@ -88,26 +127,42 @@ use tokio::sync::oneshot::{self, error::RecvError};
 ///
 /// # Returns
 ///
-/// Return `Ok(T)` holding the value the completion callback was invoked with.
+/// Return `T` holding the value the completion callback was invoked with.
 ///
-/// # Errors
+/// # Limitations
 ///
-/// Returns [`RecvError`] if `run_fun` drops the completion callback without
-/// invoking it, since the channel's sender half is then dropped.
-pub async fn run_callback<F, T>(run_fun: F) -> Result<T, RecvError>
+/// The completion callback is expected to always be invoked. If `run_fun`
+/// drops it without invoking it, the future will never resolve. That error
+/// case is not supported for now; the caller must guarantee the callback
+/// eventually runs.
+///
+/// # Panics
+///
+/// Panics if the internal mutex protecting the callback state is poisoned,
+/// which only happens if another thread panics while holding the lock.
+pub async fn run_callback<F, T>(run_fun: F) -> T
 where
     F: FnOnce(Box<dyn FnOnce(T) + Send>) + Send + 'static,
     T: Send + 'static,
 {
-    let (send, recv) = oneshot::channel::<T>();
+    let callback = Arc::new(Mutex::new(Callback {
+        result: None,
+        waker: None,
+    }));
+
+    let fun_callback = Arc::clone(&callback);
     let fun = move |res: T| {
-        let _unused: Result<(), T> = send.send(res);
+        let mut callback = fun_callback.lock().expect("couldn't lock");
+        callback.result = Some(res);
+        if let Some(waker) = callback.waker.take() {
+            waker.wake();
+        }
     };
     let fun_box = Box::new(fun);
 
     main_c_queue_schedule(move || run_fun(fun_box));
 
-    recv.await
+    CallbackFut { callback }.await
 }
 
 // }}}
@@ -151,9 +206,7 @@ mod tests {
         let blocker = ElBlocker(unsafe { el_blocker_register() });
 
         tokio_c_mod::spawn(async move {
-            run_callback(run_timer)
-                .await
-                .expect("run_callback did not complete");
+            run_callback(run_timer).await;
 
             main_c_queue_schedule(move || {
                 let mut blocker = blocker;

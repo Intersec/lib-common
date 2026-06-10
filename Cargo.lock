@@ -465,7 +465,6 @@ name = "run-callback"
 version = "0.0.0"
 dependencies = [
  "libcommon-core",
- "tokio",
  "tokio-c-mod",
  "waf-cargo-build",
 ]
