@@ -316,13 +316,27 @@ void lstr_transfer_sb(lstr_t *dst, sb_t *sb, bool keep_pool)
 /* }}} */
 /* {{{ Comparisons */
 
+/* ASCII-only case folding. The lstr_ascii_* helpers must not depend on the
+ * process locale: the C library tolower()/toupper() are locale-dependent
+ * (e.g. a Turkish locale does not map 'I' to 'i'), which would break the
+ * ASCII case-insensitive contract these functions promise. */
+static inline int ascii_tolower(int c)
+{
+    return (c >= 'A' && c <= 'Z') ? (c | 0x20) : c;
+}
+
+static inline int ascii_toupper(int c)
+{
+    return (c >= 'a' && c <= 'z') ? (c & ~0x20) : c;
+}
+
 int lstr_ascii_icmp(const lstr_t s1, const lstr_t s2)
 {
     int min = MIN(s1.len, s2.len);
 
     for (int i = 0; i < min; i++) {
-        int a = tolower((unsigned char)s1.s[i]);
-        int b = tolower((unsigned char)s2.s[i]);
+        int a = ascii_tolower((unsigned char)s1.s[i]);
+        int b = ascii_tolower((unsigned char)s2.s[i]);
 
         if (a != b) {
             return CMP(a, b);
@@ -338,8 +352,8 @@ bool lstr_ascii_iequal(const lstr_t s1, const lstr_t s2)
         return false;
     }
     for (int i = 0; i < s1.len; i++) {
-        if (tolower((unsigned char)s1.s[i]) !=
-            tolower((unsigned char)s2.s[i]))
+        if (ascii_tolower((unsigned char)s1.s[i]) !=
+            ascii_tolower((unsigned char)s2.s[i]))
         {
             return false;
         }
@@ -439,14 +453,14 @@ lstr_t lstr_utf8_truncate(lstr_t s, int char_len)
 void lstr_ascii_tolower(lstr_t *s)
 {
     for (int i = 0; i < s->len; i++) {
-        s->v[i] = tolower((unsigned char)s->v[i]);
+        s->v[i] = ascii_tolower((unsigned char)s->v[i]);
     }
 }
 
 void lstr_ascii_toupper(lstr_t *s)
 {
     for (int i = 0; i < s->len; i++) {
-        s->v[i] = toupper((unsigned char)s->v[i]);
+        s->v[i] = ascii_toupper((unsigned char)s->v[i]);
     }
 }
 
