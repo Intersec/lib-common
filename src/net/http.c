@@ -10385,6 +10385,29 @@ Z_GROUP_EXPORT(httpd)
     }
     Z_TEST_END;
 
+    Z_TEST(path_decoded_nul,
+           "a percent-encoded NUL (%00) in the path must be rejected, not "
+           "decoded verbatim: a NUL truncates the path when used as a C "
+           "string and bypasses suffix checks")
+    {
+        /* /zchk%00.txt decodes to \"/zchk\\0.txt\"; read as a C string it is
+         * truncated to \"/zchk\" (which matches the trigger). The request
+         * must be rejected (400) rather than silently served as /zchk. */
+        lstr_t query = LSTR(
+            "GET /zchk%00.txt HTTP/1.1\r\n"
+            "Host: 127.0.0.1\r\n"
+            "\r\n");
+
+        Z_HELPER_RUN(zhttpd_setup(&query, 0));
+
+        Z_ASSERT(lstr_startswith(LSTR_SB_V(&zhttpd_g.read_buf),
+                                 LSTR("HTTP/1.1 400")));
+        Z_ASSERT(!lstr_endswith(LSTR_SB_V(&zhttpd_g.read_buf),
+                                LSTR("ZHTTPD OK")));
+
+        zhttpd_cleanup();
+    } Z_TEST_END;
+
     zhttpd_cleanup();
 }
 Z_GROUP_END;
