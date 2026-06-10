@@ -486,6 +486,11 @@ struct httpd_qinfo_t {
     http_method_t method;
     uint16_t http_version;
     uint16_t hdrs_len;
+    /* Parsed Content-Length, or -1 when absent. Already validated by the
+     * request parser (never negative or out-of-range), so callers such as
+     * httpd_bufferize() can use it directly instead of re-parsing the
+     * header value. Kept before #host so httpd_qinfo_dup() copies it. */
+    int content_length;
 
     pstream_t host;
     pstream_t prefix;
