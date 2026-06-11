@@ -12,6 +12,7 @@
 /ztst-qps
 /ztst-qpscheck
 /ztst-sort
+/ztst-term-colors
 
 test-data/snmp/*.iop.h
 test-data/snmp/*.iop.c

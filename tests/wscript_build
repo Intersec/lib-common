@@ -131,6 +131,12 @@ ctx.program(
 ctx.program(target='ztst-lzo', source='ztst-lzo.c', use='libcommon')
 
 ctx.program(
+    target='ztst-term-colors',
+    source='ztst-term-colors.c',
+    use='libcommon',
+)
+
+ctx.program(
     target='ztst-qps',
     features='c cprogram',
     source='ztst-qps.blk',
