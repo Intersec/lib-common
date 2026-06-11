@@ -2031,27 +2031,33 @@ void qhat_tree_enumerator_refresh_path(qhat_tree_enumerator_t *en)
         bool __cond = (Cond);                                                \
                                                                              \
         if (unlikely(!__cond)) {                                             \
-            sb_setf(ctx->err,                                                \
-                    "qhat content error: condition " #Cond " unmet, " Fmt,   \
-                    ##__VA_ARGS__);                                          \
-            qps_dissect_notify_qhat_err(ctx, QPS_ANOMALY_QHAT_ISSUE);        \
+            sb_setf(                                                         \
+                ctx->err,                                                    \
+                "qhat content error: condition " #Cond " unmet, " Fmt,       \
+                ##__VA_ARGS__                                                \
+            );                                                               \
+            qps_dissect_notify_qhat_err(                                     \
+                ctx, QPS_ANOMALY_QHAT_ISSUE, Adr_inside_qps                  \
+            );                                                               \
             return;                                                          \
         }                                                                    \
     } while (0)
 
-#define QHAT_DISSECT_SUBOPTIMAL(Cond)                                        \
+#define QHAT_DISSECT_SUBOPTIMAL(Cond, Adr_inside_qps)                        \
     do {                                                                     \
         bool __cond = (Cond);                                                \
                                                                              \
         if (unlikely(!__cond)) {                                             \
-            qps_dissect_notify_qhat_err(ctx,                                 \
-                                        QPS_ANOMALY_QHAT_NODE_SUBOPTIMAL);   \
+            qps_dissect_notify_qhat_err(                                     \
+                ctx, QPS_ANOMALY_QHAT_NODE_SUBOPTIMAL, Adr_inside_qps        \
+            );                                                               \
         }                                                                    \
     } while (0)
 
-static void qhat_dissect_flat_node(qps_dissect_ctx_t *ctx, qhat_t *hat,
-                                   uint32_t from, uint32_t to,
-                                   qhat_node_memory_t memory)
+static void qhat_dissect_flat_node(
+    qps_dissect_ctx_t *ctx, qhat_t *hat, uint32_t from, uint32_t to,
+    qhat_node_memory_t memory
+)
 {
     bool non_null = false;
 
@@ -2066,38 +2072,47 @@ static void qhat_dissect_flat_node(qps_dissect_ctx_t *ctx, qhat_t *hat,
         QHAT_VALUE_LEN_SWITCH(hat, memory, CASE);
 #undef CASE
     }
-    QHAT_DISSECT_SUBOPTIMAL(non_null);
+    QHAT_DISSECT_SUBOPTIMAL(non_null, memory.raw);
 }
 
-static void qhat_dissect_compact_node(qps_dissect_ctx_t *ctx, qhat_t *hat,
-                                      uint32_t from, uint32_t to,
-                                      qhat_node_memory_t memory)
+static void qhat_dissect_compact_node(
+    qps_dissect_ctx_t *ctx, qhat_t *hat, uint32_t from, uint32_t to,
+    qhat_node_memory_t memory
+)
 {
     int64_t prev_key = -1;
 
-    QHAT_DISSECT_SUBOPTIMAL(memory.compact->count > 0);
+    QHAT_DISSECT_SUBOPTIMAL(memory.compact->count > 0, memory.raw);
     if (memory.compact->count == 0) {
         return;
     }
 
-    QHAT_DISSECT_NODE(memory.compact->count <= hat->desc->leaves_per_compact,
-                      memory.raw, "compact overflow: %u > %u",
-                      memory.compact->count, hat->desc->leaves_per_compact);
+    QHAT_DISSECT_NODE(
+        memory.compact->count <= hat->desc->leaves_per_compact, memory.raw,
+        "compact overflow: %u > %u", memory.compact->count,
+        hat->desc->leaves_per_compact
+    );
 
     for (uint32_t i = 0; i < memory.compact->count; i++) {
         uint32_t *k = &memory.compact->keys[i];
 
-        QHAT_DISSECT_NODE(*k > prev_key, k,
-                          "bad key order: [%d]%jx >= "
-                          "[%d]%x",
-                          i - 1, prev_key, i, *k);
-        QHAT_DISSECT_NODE(from <= *k && *k <= to, k,
-                          "key [%d]%u "
-                          "out of range [%x, %x]",
-                          i, *k, from, to);
+        QHAT_DISSECT_NODE(
+            *k > prev_key, k,
+            "bad key order: [%d]%jx >= "
+            "[%d]%x",
+            i - 1, prev_key, i, *k
+        );
+        QHAT_DISSECT_NODE(
+            from <= *k && *k <= to, k,
+            "key [%d]%u "
+            "out of range [%x, %x]",
+            i, *k, from, to
+        );
 
 #define CASE(Size, Compact, Flat)                                            \
-    QHAT_DISSECT_SUBOPTIMAL(!IS_ZERO(Size, Compact->values[i]));
+    QHAT_DISSECT_SUBOPTIMAL(                                                 \
+        !IS_ZERO(Size, Compact->values[i]), &Compact->values[i]              \
+    );
 
         QHAT_VALUE_LEN_SWITCH(hat, memory, CASE);
 #undef CASE
@@ -2105,13 +2120,15 @@ static void qhat_dissect_compact_node(qps_dissect_ctx_t *ctx, qhat_t *hat,
     }
 }
 
-static void qhat_dissect_node(qps_dissect_ctx_t *ctx, qhat_t *hat,
-                              uint32_t key, uint32_t depth,
-                              qhat_node_memory_t memory, int c);
+static void qhat_dissect_node(
+    qps_dissect_ctx_t *ctx, qhat_t *hat, uint32_t key, uint32_t depth,
+    qhat_node_memory_t memory, int c
+);
 
-static void qhat_dissect_child_node(qps_dissect_ctx_t *ctx, qhat_t *hat,
-                                    uint32_t key, uint32_t from, uint32_t to,
-                                    uint32_t depth, qhat_node_t *node)
+static void qhat_dissect_child_node(
+    qps_dissect_ctx_t *ctx, qhat_t *hat, uint32_t key, uint32_t from,
+    uint32_t to, uint32_t depth, qhat_node_t *node
+)
 {
     qhat_node_memory_t memory;
     uint32_t key_from;
@@ -2140,14 +2157,20 @@ static void qhat_dissect_child_node(qps_dissect_ctx_t *ctx, qhat_t *hat,
         QHAT_VALUE_LEN_SWITCH(hat, memory, CASE);
 #undef CASE
 
-        QHAT_DISSECT_NODE(page_sz == exp_size, memory.raw,
-                          "bad page size "
-                          "for compact %zu != %zu",
-                          page_sz, exp_size);
-        QHAT_DISSECT_NODE(memory.compact->parent_left == from, memory.raw,
-                          "%u != %u", memory.compact->parent_left, from);
-        QHAT_DISSECT_NODE(memory.compact->parent_right == to, memory.raw,
-                          "%u != %u", memory.compact->parent_right, to);
+        QHAT_DISSECT_NODE(
+            page_sz == exp_size, memory.raw,
+            "bad page size "
+            "for compact %zu != %zu",
+            page_sz, exp_size
+        );
+        QHAT_DISSECT_NODE(
+            memory.compact->parent_left == from, memory.raw, "%u != %u",
+            memory.compact->parent_left, from
+        );
+        QHAT_DISSECT_NODE(
+            memory.compact->parent_right == to, memory.raw, "%u != %u",
+            memory.compact->parent_right, to
+        );
 
         qhat_dissect_compact_node(ctx, hat, key_from, key_to, memory);
     } else if (node->leaf) {
@@ -2155,31 +2178,39 @@ static void qhat_dissect_child_node(qps_dissect_ctx_t *ctx, qhat_t *hat,
 
         exp_size =
             hat->desc->value_len * hat->desc->leaves_per_flat / QHAT_SIZE;
-        QHAT_DISSECT_NODE(page_sz == exp_size, memory.raw,
-                          "bad page size "
-                          "for flat %zu != %zu",
-                          page_sz, exp_size);
-        QHAT_DISSECT_NODE(to == from + 1, memory.raw, "to=%x, from=%x", to,
-                          from);
+        QHAT_DISSECT_NODE(
+            page_sz == exp_size, memory.raw,
+            "bad page size "
+            "for flat %zu != %zu",
+            page_sz, exp_size
+        );
+        QHAT_DISSECT_NODE(
+            to == from + 1, memory.raw, "to=%x, from=%x", to, from
+        );
 
         qhat_dissect_flat_node(ctx, hat, key_from, key_to, memory);
     } else {
-        QHAT_DISSECT_NODE(page_sz == 1, memory.raw,
-                          "bad page size for node, "
-                          "%zu != 1",
-                          page_sz);
-        QHAT_DISSECT_NODE(to == from + 1, memory.raw, "to=%x, from=%x", to,
-                          from);
-        QHAT_DISSECT_NODE(depth < QHAT_DEPTH_MAX, memory.raw, "depth=%u",
-                          depth);
+        QHAT_DISSECT_NODE(
+            page_sz == 1, memory.raw,
+            "bad page size for node, "
+            "%zu != 1",
+            page_sz
+        );
+        QHAT_DISSECT_NODE(
+            to == from + 1, memory.raw, "to=%x, from=%x", to, from
+        );
+        QHAT_DISSECT_NODE(
+            depth < QHAT_DEPTH_MAX, memory.raw, "depth=%u", depth
+        );
 
         qhat_dissect_node(ctx, hat, key_from, depth + 1, memory, QHAT_COUNT);
     }
 }
 
-static void qhat_dissect_node(qps_dissect_ctx_t *ctx, qhat_t *hat,
-                              uint32_t key, uint32_t depth,
-                              qhat_node_memory_t memory, int c)
+static void qhat_dissect_node(
+    qps_dissect_ctx_t *ctx, qhat_t *hat, uint32_t key, uint32_t depth,
+    qhat_node_memory_t memory, int c
+)
 {
     bool non_null = false;
     qhat_node_t *previous = NULL;
@@ -2206,7 +2237,7 @@ static void qhat_dissect_node(qps_dissect_ctx_t *ctx, qhat_t *hat,
     }
 
     if (c == QHAT_COUNT) {
-        QHAT_DISSECT_SUBOPTIMAL(non_null);
+        QHAT_DISSECT_SUBOPTIMAL(non_null, memory.raw);
     }
 }
 
@@ -2239,23 +2270,33 @@ void qhat_dissect(qps_dissect_ctx_t *ctx, qhat_t *hat)
     qps_hptr_init(ctx->qps, cache->handle, cache);
     if (memcmp(QPS_TRIE_SIG, hat->root->sig, sizeof(QPS_TRIE_SIG))) {
         /* Invalid signature found for qhat? */
-        sb_setf(ctx->err, "invalid qhat signature found, hex is: \"%*pX\"",
-                (int)sizeof(hat->root->sig), hat->root->sig);
-        qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_INVALID_H_REF_CONTENT,
-                                      &cache->handle);
+        sb_setf(
+            ctx->err, "invalid qhat signature found, hex is: \"%*pX\"",
+            (int)sizeof(hat->root->sig), hat->root->sig
+        );
+        qps_dissect_notify_handle_err(
+            ctx, QPS_ANOMALY_INVALID_H_REF_CONTENT, &cache->handle,
+            cache->data
+        );
         return;
-    } else if (hat->root->value_len > 16 ||
-               bitcount32(hat->root->value_len) != 1)
+    } else if (
+        hat->root->value_len > 16 || bitcount32(hat->root->value_len) != 1
+    )
     {
-        sb_setf(ctx->err, "invalid \"value_len\" field for qhat (%u)",
-                hat->root->value_len);
-        qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_INVALID_H_REF_CONTENT,
-                                      &cache->handle);
+        sb_setf(
+            ctx->err, "invalid \"value_len\" field for qhat (%u)",
+            hat->root->value_len
+        );
+        qps_dissect_notify_handle_err(
+            ctx, QPS_ANOMALY_INVALID_H_REF_CONTENT, &cache->handle,
+            cache->data
+        );
         return;
     }
 
-    hat->desc = &qhat_descs_g[bsr32(hat->root->value_len) << 1 |
-                              hat->root->is_nullable];
+    hat->desc =
+        &qhat_descs_g
+            [bsr32(hat->root->value_len) << 1 | hat->root->is_nullable];
 
     memory.nodes = hat->root->nodes;
     node_count = hat->desc->root_node_count;

@@ -25,6 +25,7 @@
 #include <lib-common/thr.h>
 #include <lib-common/el.h>
 #include <lib-common/bit-buf.h>
+#include <lib-common/container-qhash.h>
 
 /* define this flag to 1 to allow valgrind/asan to potentially detect incorect
  * QPS API usage (WARNING: the QPS spool storage format is not compatible with
@@ -221,7 +222,8 @@ typedef struct qps_map_hdr_t {
 #define QPS_META_SIG "QPS_meta/v01.00"
 #define QPS_MAP_PG_SIG "QPS_page/v01.00"
 #define QPS_MAP_MEM_SIG "QPS_tlsf/v01.00"
-    uint8_t sig[16];
+#define QPS_MAP_SIG_SIZE (16)
+    uint8_t sig[QPS_MAP_SIG_SIZE];
     uint32_t mapno;
     uint32_t generation;
     uint32_t allocated;
@@ -434,9 +436,11 @@ static ALWAYS_INLINE qps_map_t *qps_map_of(const void *ptr)
     return cast(qps_map_t *, cast(uintptr_t, ptr) & ~QPS_MAP_MASK);
 }
 
+#define QPS_MAP_IS_PG_FROM_SIGNATURE(x) ((x)->sig[4] == 'p')
+
 static ALWAYS_INLINE bool qps_map_is_pg(const qps_map_t *map)
 {
-    return map->hdr.sig[4] == 'p';
+    return QPS_MAP_IS_PG_FROM_SIGNATURE(&map->hdr);
 }
 
 static ALWAYS_INLINE bool qps_is_ro(const qps_t *qps, const qps_map_t *map)
@@ -479,8 +483,8 @@ static ALWAYS_INLINE void *qps_w_deref(qps_t *qps, qps_handle_t id, void *ptr)
     return qps_is_ro(qps, qps_map_of(ptr)) ? qps_w_deref_(qps, id, ptr) : ptr;
 }
 
-static ALWAYS_INLINE bool qps_handle_is_in_range(const qps_t *qps,
-                                                 qps_handle_t h)
+static ALWAYS_INLINE bool
+qps_handle_is_in_range(const qps_t *qps, qps_handle_t h)
 {
     return h && h < qps->handles_max;
 }
@@ -620,9 +624,73 @@ typedef enum qps_anomaly_t {
     QPS_ANOMALY_H_REF_UNKNOWN,
 } qps_anomaly_t;
 
+typedef enum qps_dissect_blk_type_t {
+    QPS_DISSECT_BLK_SEEN = 0,
+    QPS_DISSECT_BLK_USED,
+    QPS_DISSECT_BLK_FREE,
+    QPS_DISSECT_BLK_TYPES,
+} qps_dissect_blk_type_t;
+
+#define QPS_DISSECT_MAX_FAULTY_BLKS (10)
+
+/* Store number of errors (uint32_t) for a dedicated block in map */
+qm_k32_t(faulty_blk, uint32_t);
+
+typedef struct qps_dissect_map_stat_t {
+
+    uint8_t sig[QPS_MAP_SIG_SIZE];
+    uint32_t generation;
+
+    uint32_t errors;
+
+    struct {
+        struct {
+            uint32_t cnt;
+            uint32_t sz_in_bytes;
+        } type[QPS_DISSECT_BLK_TYPES];
+
+        qm_t(faulty_blk) fault_map;
+    } blks;
+} qps_dissect_map_stat_t;
+
+static ALWAYS_INLINE qps_dissect_map_stat_t *
+qps_dissect_map_stat_init(qps_dissect_map_stat_t *map_stat, qps_map_t *map)
+{
+    p_clear(map_stat, 1);
+    qm_init(faulty_blk, &map_stat->blks.fault_map);
+
+    /* Init field directly taken from initial qps map */
+    map_stat->generation = map->hdr.generation;
+    memcpy(map_stat->sig, map->hdr.sig, QPS_MAP_SIG_SIZE);
+
+    return map_stat;
+}
+
+static ALWAYS_INLINE qps_dissect_map_stat_t *
+qps_dissect_map_stat_new(qps_map_t *map)
+{
+    return qps_dissect_map_stat_init(p_new(qps_dissect_map_stat_t, 1), map);
+}
+
+static ALWAYS_INLINE void
+qps_dissect_map_stat_wipe(qps_dissect_map_stat_t *map_stat)
+{
+    qm_wipe(faulty_blk, &map_stat->blks.fault_map);
+}
+
+GENERIC_DELETE(qps_dissect_map_stat_t, qps_dissect_map_stat);
+
+qvector_t(qps_dissect_map_stat, qps_dissect_map_stat_t *);
+
 typedef struct qps_dissect_stats_t {
+    uint32_t qps_generation;
+
     uint64_t nbr_free_handles;
     uint64_t nbr_seen_handles;
+
+    uint32_t errors;
+
+    qv_t(qps_dissect_map_stat) map_stat;
 } qps_dissect_stats_t;
 
 typedef struct qps_dissect_owner_mgmt_t {
@@ -666,6 +734,7 @@ typedef struct qps_notify_anomaly_t {
     qps_anomaly_t type;
     lstr_t details;
     lstr_t owner;
+    const void *adr_inside_qps;
     union {
         void *ptr;
         qps_handle_t *handle;
@@ -679,16 +748,18 @@ typedef struct qps_notify_anomaly_t {
 
 typedef void(BLOCK_CARET on_notify_anomaly_b)(qps_notify_anomaly_t *anomaly);
 
-qps_dissect_ctx_t *qps_dissect_ctx_init(qps_dissect_ctx_t *ctx, qps_t *qps,
-                                        sb_t *err, int flags);
+qps_dissect_ctx_t *qps_dissect_ctx_init(
+    qps_dissect_ctx_t *ctx, qps_t *qps, sb_t *err, int flags
+);
 
 __attribute__((malloc)) qps_dissect_ctx_t *
 qps_dissect_ctx_new(qps_t *qps, sb_t *err, int flags);
 
 /** Register (or replace) the notify callback block on a dissect context.
  * The block is copied and released on wipe. */
-void qps_dissect_register_on_notify_blk(qps_dissect_ctx_t *ctx,
-                                        on_notify_anomaly_b blk);
+void qps_dissect_register_on_notify_blk(
+    qps_dissect_ctx_t *ctx, on_notify_anomaly_b blk
+);
 
 void qps_dissect_ctx_wipe(qps_dissect_ctx_t *ctx);
 GENERIC_DELETE(qps_dissect_ctx_t, qps_dissect_ctx);
@@ -748,14 +819,16 @@ int qps_dissect_used_handle(qps_dissect_ctx_t *ctx, qps_handle_t h);
  * Any anomaly is notified through the block callback, registered during
  * dissect context creation.
  */
-int qps_dissect_check_handle_size(qps_dissect_ctx_t *ctx, qps_handle_t h,
-                                  size_t minimum_size);
+int qps_dissect_check_handle_size(
+    qps_dissect_ctx_t *ctx, qps_handle_t h, size_t minimum_size
+);
 
 /* }}} */
 /* {{{ qps dissect functions for page analysis */
 
-int qps_dissect_page(qps_dissect_ctx_t *ctx, qps_pg_t pg,
-                     void *adr_inside_qps);
+int qps_dissect_page(
+    qps_dissect_ctx_t *ctx, qps_pg_t pg, void *adr_inside_qps
+);
 
 /* }}} */
 /* {{{ QPS dissect notify function and helpers */
@@ -766,61 +839,81 @@ int qps_dissect_page(qps_dissect_ctx_t *ctx, qps_pg_t pg,
 void qps_dissect_notify_(qps_dissect_ctx_t *ctx, qps_notify_anomaly_t *item);
 
 /** Format generic anomaly item and send it through the block callback (if
- * registered).
+ * registered). Update also some general/map statistics.
  */
-#define qps_dissect_notify_err(_ctx, _type, _owner, _item_field, _ptr)       \
+#define qps_dissect_notify_err(                                              \
+    _ctx, _type, _owner, _item_field, _ptr, _adr_inside_qps                  \
+)                                                                            \
     ({                                                                       \
-        qps_notify_anomaly_t __value = {.type = (_type),                     \
-                                        .details = LSTR_SB_V(_ctx->err),     \
-                                        .owner = _owner,                     \
-                                        {._item_field = (_ptr)}};            \
+        qps_notify_anomaly_t __value = {                                     \
+            .type = (_type),                                                 \
+            .details = LSTR_SB_V(_ctx->err),                                 \
+            .owner = _owner,                                                 \
+            .adr_inside_qps = _adr_inside_qps,                               \
+            {._item_field = (_ptr)}                                          \
+        };                                                                   \
         qps_dissect_notify_(_ctx, &__value);                                 \
+        qps_dissect_update_stats_on_err_(_ctx, &__value);                    \
         sb_reset(_ctx->err);                                                 \
     })
 
 /** Format and notify anomalies related to handles referenced multiple times
- * (in the same map or within different maps).
+ * (in the same map or within different maps). The faulty location inside QPS
+ * (_adr_inside_qps) is forwarded so it can be tracked in per-map statistics.
  */
-#define qps_dissect_notify_handle_unicity_err(_ctx, _type, _qps_ptrs)        \
-    qps_dissect_notify_err(_ctx, _type, LSTR_SB_V(&_ctx->owner.owner_path),  \
-                           qps_entries, _qps_ptrs)
+#define qps_dissect_notify_tlsf_err(_ctx, _type, _tlsf_ptr, _adr_inside_qps) \
+    qps_dissect_notify_err(                                                  \
+        _ctx, _type, LSTR_SB_V(&_ctx->owner.owner_path), qps_entries,        \
+        _tlsf_ptr, _adr_inside_qps                                           \
+    )
 
 /** Format and notify anomalies dedicated to map integrity issues (like
  *  invalid metadata or flags issues around the management of blocks in these
  *  maps).
  */
-#define qps_dissect_notify_map_err(_ctx, _type, ...)                         \
+#define qps_dissect_notify_map_err(_ctx, _type, _adr_inside_qps, ...)        \
     do {                                                                     \
         sb_setf(_ctx->err, ##__VA_ARGS__);                                   \
-        qps_dissect_notify_err(_ctx, _type,                                  \
-                               LSTR_SB_V(&_ctx->owner.owner_path), ptr,     \
-                               NULL);                                        \
+        qps_dissect_notify_err(                                              \
+            _ctx, _type, LSTR_SB_V(&_ctx->owner.owner_path), ptr, NULL,      \
+            _adr_inside_qps                                                  \
+        );                                                                   \
     } while (0)
 
 /** Format and notify anomalies dedicated to ownership analysis of qps
  *  objects.
  */
-#define qps_dissect_notify_meta_err(_ctx, _type, _owner, _meta_ptr)          \
-    qps_dissect_notify_err(_ctx, _type, _owner, meta, _meta_ptr)
+#define qps_dissect_notify_meta_err(                                         \
+    _ctx, _type, _owner, _meta_ptr, _adr_inside_qps                          \
+)                                                                            \
+    qps_dissect_notify_err(                                                  \
+        _ctx, _type, _owner, meta, _meta_ptr, _adr_inside_qps                \
+    )
 
 /** Format and notify anomalies dedicated to handles (except handle unicity
  *  check).
  */
-#define qps_dissect_notify_handle_err(_ctx, _type, _h_ptr)                   \
-    qps_dissect_notify_err(_ctx, _type, LSTR_SB_V(&_ctx->owner.owner_path),  \
-                           handle, _h_ptr)
+#define qps_dissect_notify_handle_err(_ctx, _type, _h_ptr, _adr_inside_qps)  \
+    qps_dissect_notify_err(                                                  \
+        _ctx, _type, LSTR_SB_V(&_ctx->owner.owner_path), handle, _h_ptr,     \
+        _adr_inside_qps                                                      \
+    )
 
 /** Format and notify anomalies dedicated to QPS pages. */
-#define qps_dissect_notify_page_err(_ctx, _type, _pg_ptr)                    \
-    qps_dissect_notify_err(_ctx, _type, LSTR_SB_V(&_ctx->owner.owner_path),  \
-                           page, _pg_ptr)
+#define qps_dissect_notify_page_err(_ctx, _type, _pg_ptr, _adr_inside_qps)   \
+    qps_dissect_notify_err(                                                  \
+        _ctx, _type, LSTR_SB_V(&_ctx->owner.owner_path), page, _pg_ptr,      \
+        _adr_inside_qps                                                      \
+    )
 
 /** Format and notify anomalies dedicated to qhat objects stored in QPS (non
  *  optimal node or all kind of integrity issues which could come from a QPS
  *  corruption). */
-#define qps_dissect_notify_qhat_err(_ctx, _type)                             \
-    qps_dissect_notify_err(_ctx, _type, LSTR_SB_V(&_ctx->owner.owner_path),  \
-                           ptr, NULL)
+#define qps_dissect_notify_qhat_err(_ctx, _type, _adr_inside_qps)            \
+    qps_dissect_notify_err(                                                  \
+        _ctx, _type, LSTR_SB_V(&_ctx->owner.owner_path), ptr, NULL,          \
+        _adr_inside_qps                                                      \
+    )
 
 /* }}} */
 /* {{{ qps dissect functions for owner management of qps objects */
@@ -849,8 +942,10 @@ qps_dissect_restore_owner_ctx(qps_dissect_owner_mgmt_t **ctx)
         int saved = (*ctx)->saved_owner_ctx.tab[idx];
 
         qv_clip(&(*ctx)->clip_owner_stack, saved);
-        sb_clip(&(*ctx)->owner_path,
-                saved ? (*ctx)->clip_owner_stack.tab[saved - 1] : 0);
+        sb_clip(
+            &(*ctx)->owner_path,
+            saved ? (*ctx)->clip_owner_stack.tab[saved - 1] : 0
+        );
         qv_remove_last(&(*ctx)->saved_owner_ctx);
     }
 }
@@ -873,8 +968,10 @@ void qps_dissect_remove_last_owner(qps_dissect_ctx_t *ctx);
     qps_dissect_owner_mgmt_t *PFX_LINE(owner_ctx_)                           \
         __attribute__((unused, cleanup(qps_dissect_restore_owner_ctx))) =    \
             &((_main_ctx)->owner);                                           \
-    qv_append(&(_main_ctx)->owner.saved_owner_ctx,                           \
-              (_main_ctx)->owner.clip_owner_stack.len)
+    qv_append(                                                               \
+        &(_main_ctx)->owner.saved_owner_ctx,                                 \
+        (_main_ctx)->owner.clip_owner_stack.len                              \
+    )
 
 /** Helper to add temporarily a subowner in a scope (and restore the parent
  *  owner when leaving it). */
@@ -913,8 +1010,9 @@ void qps_dissect_register_used_handle(qps_dissect_ctx_t *ctx, qps_handle_t h);
  *  Must be called after registering owner with
  *  qps_dissect_register_owner_ref().
  */
-void qps_dissect_register_used_handle_from_ref(qps_dissect_ctx_t *ctx,
-                                               lstr_t *owner, qps_handle_t h);
+void qps_dissect_register_used_handle_from_ref(
+    qps_dissect_ctx_t *ctx, lstr_t *owner, qps_handle_t h
+);
 
 /** Function which registers an entry point for QPS pages (one or several)
  *  from an external reference (like a QKV DB). Current owner associated to
@@ -928,6 +1026,24 @@ void qps_dissect_register_used_page(qps_dissect_ctx_t *ctx, qps_pg_t page);
  *  qps_dissect_register_used_handle_from_ref().
  */
 lstr_t *qps_dissect_register_owner_ref(qps_dissect_ctx_t *ctx);
+
+/* }}} */
+/* {{{ QPS dissect functions for statistics */
+
+/** Function called each time a QPS anomaly occurs in current dissection. It
+ *  updates general and map statistics, so we can have a good overview at the
+ *  end of dissection of where problems are located and if they are
+ *  concentrated on specific QPS objects or not.
+ */
+void qps_dissect_update_stats_on_err_(
+    qps_dissect_ctx_t *ctx, qps_notify_anomaly_t *item
+);
+
+/** Function which provides some stats at the end of the dissection like
+ *  percentage of blocks used/analyzed/freed per map in QPS, number of errors
+ *  triggered per map and in general, ...
+ */
+void qps_dissect_compute_and_print_stats(qps_dissect_ctx_t *ctx);
 
 /* }}} */
 /* }}} */

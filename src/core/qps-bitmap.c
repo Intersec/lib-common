@@ -462,20 +462,25 @@ void qps_bitmap_dissect(qps_dissect_ctx_t *ctx, qps_bitmap_t *map)
 {
     qps_dissect_save_owner_ctx(ctx);
     if (qps_dissect_used_handle(ctx, map->root_cache.handle) < 0 ||
-        qps_dissect_check_handle_size(ctx, map->root_cache.handle,
-                                      sizeof(qps_bitmap_root_t)) < 0)
+        qps_dissect_check_handle_size(
+            ctx, map->root_cache.handle, sizeof(qps_bitmap_root_t)
+        ) < 0)
     {
         return;
     }
     qps_hptr_init(ctx->qps, map->root_cache.handle, &map->root_cache);
 
     if (!strequal(QPS_BITMAP_SIG, (const char *)map->root->sig)) {
-        sb_setf(ctx->err,
-                "invalid qps_bitmap signature found, hex is: \""
-                "%*pX\"",
-                (int)sizeof(map->root->sig), map->root->sig);
-        qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_INVALID_H_REF_CONTENT,
-                                      &map->root_cache.handle);
+        sb_setf(
+            ctx->err,
+            "invalid qps_bitmap signature found, hex is: \""
+            "%*pX\"",
+            (int)sizeof(map->root->sig), map->root->sig
+        );
+        qps_dissect_notify_handle_err(
+            ctx, QPS_ANOMALY_INVALID_H_REF_CONTENT, &map->root_cache.handle,
+            map->root_cache.data
+        );
         return;
     }
 
@@ -500,8 +505,9 @@ void qps_bitmap_dissect(qps_dissect_ctx_t *ctx, qps_bitmap_t *map)
             if (!d_node->node) {
                 continue;
             } else {
-                qps_dissect_save_and_add_owner_ctx(ctx, "nodes[%d]",
-                                                   node_idx);
+                qps_dissect_save_and_add_owner_ctx(
+                    ctx, "nodes[%d]", node_idx
+                );
                 qps_dissect_page(ctx, d_node->node, d_node);
             }
         }

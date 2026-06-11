@@ -3649,6 +3649,21 @@ qps_dissect_ctx_t *qps_dissect_ctx_init(qps_dissect_ctx_t *ctx, qps_t *qps,
         CLR_BIT(ctx->h_processing.data, QPS_HANDLE_NULL);
     }
 
+    qv_init(&ctx->stats.map_stat);
+    tab_for_each_pos(pos, &ctx->qps->maps) {
+        qps_map_t *src_map = ctx->qps->maps.tab[pos];
+
+        qv_growlen0(&ctx->stats.map_stat, 1);
+        if (!src_map) {
+            continue;
+        }
+
+        /* Create and initialize data form original map. */
+        ctx->stats.map_stat.tab[pos] = qps_dissect_map_stat_new(src_map);
+    }
+
+    ctx->stats.qps_generation = ctx->qps->generation;
+
     return ctx;
 }
 
@@ -3664,6 +3679,7 @@ void qps_dissect_ctx_wipe(qps_dissect_ctx_t *ctx)
     qv_wipe(&ctx->owner.clip_owner_stack);
     qv_wipe(&ctx->owner.saved_owner_ctx);
     bb_wipe(&ctx->h_processing);
+    qv_deep_wipe(&ctx->stats.map_stat, qps_dissect_map_stat_delete);
     qps_dissect_ctx_priv_delete(&ctx->priv);
 }
 
@@ -3676,6 +3692,34 @@ void qps_dissect_notify_(qps_dissect_ctx_t *ctx, qps_notify_anomaly_t *item)
     if (ctx->priv->on_notify_blk) {
         ctx->priv->on_notify_blk(item);
     }
+}
+
+/* }}} */
+/* {{{ QPS dissect: helpers for general and QPS map statistics */
+
+static ALWAYS_INLINE qps_dissect_map_stat_t *
+qps_dissect_get_map_stat_from_id(qps_dissect_ctx_t *ctx, uint32_t mapno)
+{
+    assert(ctx->stats.map_stat.len > (int)mapno &&
+           ctx->stats.map_stat.tab[mapno]);
+
+    return ctx->stats.map_stat.tab[mapno];
+}
+
+static ALWAYS_INLINE qps_dissect_map_stat_t *
+qps_dissect_get_map_stat_from_h(qps_dissect_ctx_t *ctx, qps_handle_t h)
+{
+    qps_map_t *qps_map = qps_map_of(qps_handle_deref(ctx->qps, h));
+
+    return qps_dissect_get_map_stat_from_id(ctx, qps_map->hdr.mapno);
+}
+
+static ALWAYS_INLINE void
+qps_dissect_update_map_stats(qps_dissect_map_stat_t *st,
+                             qps_dissect_blk_type_t type_blk, uint32_t sz)
+{
+    st->blks.type[type_blk].cnt++;
+    st->blks.type[type_blk].sz_in_bytes += sz;
 }
 
 /* }}} */
@@ -3780,7 +3824,7 @@ qps_dissect_object_check_properties(qps_dissect_ctx_t *ctx, qps_object_t *obj,
                 "handle %u",
                 LSTR_FMT_ARG(*owner), obj->handle);
         qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_DANGLING_H_REF,
-                                      &obj->handle);
+                                      &obj->handle, NULL);
     }
 }
 
@@ -3790,6 +3834,7 @@ static void qps_dissect_object_usage(qps_dissect_ctx_t *ctx, qps_object_t obj,
 {
     uint64_t pos;
     qps_object_meta_t *meta;
+    qps_dissect_map_stat_t *st;
 
     qps_dissect_get_object_usage(ctx, &obj, &pos, &meta);
     qps_dissect_object_record_owner(meta, owner_is_ref, owner);
@@ -3798,9 +3843,14 @@ static void qps_dissect_object_usage(qps_dissect_ctx_t *ctx, qps_object_t obj,
     if (!obj_in_map || meta->obj_in_map) {
         return;
     }
+    st =
+        obj.is_handle
+            ? qps_dissect_get_map_stat_from_h(ctx, obj.handle)
+            : qps_dissect_get_map_stat_from_id(ctx, QPS_PG_MAP_IDX(obj.page));
 
     meta->obj_in_map = obj_in_map;
     meta->size = size;
+    qps_dissect_update_map_stats(st, QPS_DISSECT_BLK_SEEN, size);
 }
 
 static void qps_dissect_register_dangling_ref(qps_dissect_ctx_t *ctx,
@@ -3912,7 +3962,8 @@ static int qps_dissect_handle(qps_dissect_ctx_t *ctx, qps_handle_t h,
     }
 
     if (notify) {
-        qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_INVALID_H_REF_PTR, &h);
+        qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_INVALID_H_REF_PTR, &h,
+                                      hptr);
     }
     return -1;
 }
@@ -3925,6 +3976,7 @@ int qps_dissect_used_handle(qps_dissect_ctx_t *ctx, qps_handle_t h)
     uint32_t flags;
     qps_handle_t handle_hdr;
     size_t tlsf_sz = 0;
+    const void *adr_inside_qps = NULL;
 
     if (qps_handle_check_range(ctx->qps, h, ctx->err) < 0) {
         goto notify_err;
@@ -3960,6 +4012,7 @@ int qps_dissect_used_handle(qps_dissect_ctx_t *ctx, qps_handle_t h)
 
         flags = hdr->flags;
         handle_hdr = hdr->handle;
+        adr_inside_qps = &map[QPS_PG_IDX(hptr->pgno)];
     } else {
         void *h_data =
             (uint8_t *)qps_pg_deref(ctx->qps, hptr->pgno) + hptr->addr;
@@ -3968,6 +4021,7 @@ int qps_dissect_used_handle(qps_dissect_ctx_t *ctx, qps_handle_t h)
         tlsf_sz = qps_m_blk_size(blk);
         flags = blk->flags;
         handle_hdr = blk->handle;
+        adr_inside_qps = blk->data;
     }
 
     if (flags & QPS_BLK_FREE) {
@@ -3993,7 +4047,7 @@ int qps_dissect_used_handle(qps_dissect_ctx_t *ctx, qps_handle_t h)
     return 0;
 
 notify_err:
-    qps_dissect_notify_handle_err(ctx, type_err, &h);
+    qps_dissect_notify_handle_err(ctx, type_err, &h, adr_inside_qps);
     return -1;
 }
 
@@ -4011,8 +4065,8 @@ int qps_dissect_check_handle_size(qps_dissect_ctx_t *ctx, qps_handle_t h,
                 "invalid size for handle %d (%zu below minimum size"
                 " of %zu)",
                 h, bsz, minimum_size);
-        qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_INVALID_H_REF_SIZE,
-                                      &h);
+        qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_INVALID_H_REF_SIZE, &h,
+                                      adr_inside_qps);
         return -1;
     }
     return 0;
@@ -4040,19 +4094,20 @@ static void qps_dissect_get_handle_free_list(qps_dissect_ctx_t *ctx)
                     "list of handles",
                     free_handle);
             qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_INVALID_H_REF,
-                                          &free_handle);
+                                          &free_handle, NULL);
             return;
         }
         if (!qps_dissect_is_handle_used(ctx, free_handle)) {
             /* Already referenced as a free handle, there is an issue in the
              * handle free list.
              */
+            hptr = qps_handle_slot(ctx->qps, free_handle);
             sb_setf(ctx->err,
                     "unexpected circular chained list for list of "
                     "free handles, starting at id %u",
                     free_handle);
             qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_CIRCULAR_FREE_LIST,
-                                          &free_handle);
+                                          &free_handle, hptr);
             return;
         }
         hptr = qps_handle_slot(ctx->qps, free_handle);
@@ -4062,7 +4117,7 @@ static void qps_dissect_get_handle_free_list(qps_dissect_ctx_t *ctx)
                     "found " QPS_PG_FMT ")",
                     free_handle, QPS_PG_ARG(hptr->pgno));
             qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_INVALID_H_REF_PTR,
-                                          &free_handle);
+                                          &free_handle, hptr);
         }
 
         qps_dissect_set_handle_freed(ctx, free_handle);
@@ -4192,10 +4247,11 @@ static void qps_dissect_pg_map_handles(qps_dissect_ctx_t *ctx, qps_map_t *map,
     uint32_t mapno = map->hdr.mapno;
     uint32_t nbr_pg = 0;
     const uint32_t first_pg = QPS_PG(mapno, 1);
+    qps_dissect_map_stat_t *st = qps_dissect_get_map_stat_from_id(ctx, mapno);
 
     /* Execute the basic check routine on this QPS page map. */
     if (qps_pg_check_map_hdrs(ctx->qps, mapno, false) < 0) {
-        qps_dissect_notify_map_err(ctx, QPS_ANOMALY_MAP_INTEGRITY_FAILED,
+        qps_dissect_notify_map_err(ctx, QPS_ANOMALY_MAP_INTEGRITY_FAILED, map,
                                    "check on map integrity failed");
     }
 
@@ -4215,15 +4271,18 @@ static void qps_dissect_pg_map_handles(qps_dissect_ctx_t *ctx, qps_map_t *map,
             /* A null block size never advances the loop (pg += nbr_pg), so a
              * corrupted page map would spin forever here. Report it and stop
              * walking this map. */
-            qps_dissect_notify_map_err(ctx, QPS_ANOMALY_MAP_INTEGRITY_FAILED,
-                                       "null block size for page " QPS_PG_FMT,
-                                       QPS_PG_ARG(pg));
+            qps_dissect_notify_map_err(
+                ctx, QPS_ANOMALY_MAP_INTEGRITY_FAILED, &map[QPS_PG_IDX(pg)],
+                "null block size for page " QPS_PG_FMT, QPS_PG_ARG(pg));
             break;
         }
 
         if (pg_hdr->flags & QPS_BLK_FREE) {
+            qps_dissect_update_map_stats(st, QPS_DISSECT_BLK_FREE, sz);
             continue;
         }
+
+        qps_dissect_update_map_stats(st, QPS_DISSECT_BLK_USED, sz);
 
         /* This page in QPS page map is currently the entry point of one or
          * several used pages. Check if this memory is allocated for a handle.
@@ -4235,7 +4294,7 @@ static void qps_dissect_pg_map_handles(qps_dissect_ctx_t *ctx, qps_map_t *map,
                         "used pg " QPS_PG_FMT,
                         h, QPS_PG_ARG(pg));
                 qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_INVALID_H_REF,
-                                              &h);
+                                              &h, &map[QPS_PG_IDX(pg)].data);
                 continue;
             }
             if (qps_dissect_is_handle_used(ctx, h)) {
@@ -4250,7 +4309,7 @@ static void qps_dissect_pg_map_handles(qps_dissect_ctx_t *ctx, qps_map_t *map,
                         " id %u (found in pg " QPS_PG_FMT ")",
                         h, QPS_PG_ARG(pg));
                 qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_DANGLING_H_REF,
-                                              &h);
+                                              &h, &map[QPS_PG_IDX(pg)].data);
                 continue;
             }
         }
@@ -4287,6 +4346,7 @@ static void qps_dissect_tlsf_map_handles(qps_dissect_ctx_t *ctx,
     qps_mhdr_t *blk;
     qps_mhdr_t *blk_end;
     uint32_t mapno = map->hdr.mapno;
+    qps_dissect_map_stat_t *st = qps_dissect_get_map_stat_from_id(ctx, mapno);
     size_t nbr_m_blk_map = 0; /* First memory block in map not counted. */
     size_t bsz = 0;
 
@@ -4298,7 +4358,7 @@ static void qps_dissect_tlsf_map_handles(qps_dissect_ctx_t *ctx,
     }
 
     if (qps_m_check_map(ctx->qps, map, false) < 0) {
-        qps_dissect_notify_map_err(ctx, QPS_ANOMALY_MAP_INTEGRITY_FAILED,
+        qps_dissect_notify_map_err(ctx, QPS_ANOMALY_MAP_INTEGRITY_FAILED, map,
                                    "check on map integrity failed");
     }
 
@@ -4320,15 +4380,19 @@ static void qps_dissect_tlsf_map_handles(qps_dissect_ctx_t *ctx,
              * corrupted TLSF map would spin forever here. Report it and stop
              * walking this map. */
             qps_dissect_notify_map_err(ctx, QPS_ANOMALY_MAP_INTEGRITY_FAILED,
-                                       "null block size in "
-                                       "tlsf map %u at block index %zu",
+                                       blk,
+                                       "null block size "
+                                       "in tlsf map %u at block index %zu",
                                        mapno, nbr_m_blk_map);
             break;
         }
 
         if (blk->flags & QPS_BLK_FREE) {
+            qps_dissect_update_map_stats(st, QPS_DISSECT_BLK_FREE, bsz);
             continue;
         }
+
+        qps_dissect_update_map_stats(st, QPS_DISSECT_BLK_USED, bsz);
 
         /* Process used block in TLSF map. Each block must have a reference to
          * a valid handle id if this handle is stored with a map generation
@@ -4343,13 +4407,14 @@ static void qps_dissect_tlsf_map_handles(qps_dissect_ctx_t *ctx,
                     "(found in tlsf map %u at block index %zu, %zu bytes)",
                     map->hdr.mapno, nbr_m_blk_map, bsz);
             qps_dissect_notify_handle_err(
-                ctx, QPS_ANOMALY_INVALID_H_REF_HEADER, &h);
+                ctx, QPS_ANOMALY_INVALID_H_REF_HEADER, &h, blk->data);
         } else if (qps_handle_check_range(ctx->qps, h, ctx->err) < 0) {
             sb_setf(ctx->err,
                     "referencing an invalid handle id (%u) in "
                     "used block (tlsf map %u at block index %zu)",
                     h, mapno, nbr_m_blk_map);
-            qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_INVALID_H_REF, &h);
+            qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_INVALID_H_REF, &h,
+                                          blk->data);
         } else if (qps_dissect_is_handle_used(ctx, blk->handle)) {
             /* Flag this handle as used and record associated data. */
             qps_dissect_add_handle_info(h, qps_encode(blk->data), h_map,
@@ -4362,8 +4427,8 @@ static void qps_dissect_tlsf_map_handles(qps_dissect_ctx_t *ctx,
                     "id %u (found in tlsf map %u at block index %zu, %zu "
                     "bytes)",
                     h, map->hdr.mapno, nbr_m_blk_map, bsz);
-            qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_DANGLING_H_REF,
-                                          &h);
+            qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_DANGLING_H_REF, &h,
+                                          blk->data);
         }
     }
 }
@@ -4399,7 +4464,8 @@ static void qps_dissect_check_handle_unicity(qps_dissect_ctx_t *ctx,
         sb_setf(ctx->err,
                 "handle id %u references an invalid page (" QPS_PTR_FMT ")",
                 h, QPS_PTR_ARG((*h_ref)));
-        qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_INVALID_H_REF_PTR, &h);
+        qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_INVALID_H_REF_PTR, &h,
+                                      h_ref);
         return;
     }
     map_ref = ctx->qps->maps.tab[QPS_PG_MAP_IDX(h_ref->pgno)];
@@ -4453,7 +4519,7 @@ static void qps_dissect_check_handle_unicity(qps_dissect_ctx_t *ctx,
         sb_addf(ctx->err, "\n\t\twrong entry at " QPS_PTR_FMT,
                 QPS_PTR_ARG(entry));
     }
-    qps_dissect_notify_handle_unicity_err(ctx, type, &bad_h_ptrs);
+    qps_dissect_notify_tlsf_err(ctx, type, &bad_h_ptrs, h_ref);
 }
 
 void qps_dissect_maps_and_handles(qps_dissect_ctx_t *ctx)
@@ -4523,7 +4589,7 @@ int qps_dissect_page(qps_dissect_ctx_t *ctx, qps_pg_t pg,
 {
     if (qps_pg_check_range(ctx->qps, pg, ctx->err) < 0) {
         qps_dissect_notify_page_err(ctx, QPS_ANOMALY_INVALID_QPS_PAGE_REF,
-                                    &pg);
+                                    &pg, adr_inside_qps);
         return -1;
     }
     if (qps_dissect_usage_enabled(ctx)) {
@@ -4603,8 +4669,12 @@ static void qps_dissect_check_object_usage(qps_dissect_ctx_t *ctx,
 
     if (res) {
         t_scope;
+        void *ptr;
+
+        ptr = obj->is_handle ? qps_handle_deref(ctx->qps, obj->handle)
+                             : qps_pg_deref(ctx->qps, obj->page);
         qps_dissect_notify_meta_err(
-            ctx, type_item, t_qps_dissect_get_meta_owners(meta), meta);
+            ctx, type_item, t_qps_dissect_get_meta_owners(meta), meta, ptr);
     }
 
     /* If handle has been proceed and has at least one owner, it means
@@ -4655,7 +4725,8 @@ static void qps_dissect_track_lost_handles(qps_dissect_ctx_t *ctx)
                 "unknown handle %d, pointing at " QPS_PTR_FMT ", "
                 "size=%lu",
                 h, QPS_PTR_ARG(*val), sz_obj);
-        qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_H_REF_UNKNOWN, &h);
+        qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_H_REF_UNKNOWN, &h,
+                                      ptr);
     }
 
     qm_wipe(handle_id, &h_map);
@@ -4693,6 +4764,171 @@ void qps_dissect_process_object_usage(qps_dissect_ctx_t *ctx)
     }
 
     qps_dissect_track_lost_handles(ctx);
+}
+
+/* }}} */
+/* {{{ QPS dissect: functions for statistics */
+
+static void qps_dissect_sort_and_print_faults(qps_dissect_ctx_t *ctx,
+                                              qm_t(faulty_blk) *fault_map,
+                                              bool is_pg_map)
+{
+    t_scope;
+    qv_t(u32) blk_pos;
+    const char *const content = is_pg_map ? "page" : "tlsf ptr";
+    const int faulty_len = fault_map->hdr.len;
+    const char *const trunc =
+        faulty_len == QPS_DISSECT_MAX_FAULTY_BLKS ? " (truncated)" : "";
+
+    t_qv_init(&blk_pos, faulty_len);
+    logger_info(&_G.logger, "\t%d faulty %s(s)%s:", faulty_len, content,
+                trunc);
+
+    qm_for_each_pos(faulty_blk, pos, fault_map) {
+        qv_append(&blk_pos, pos);
+    }
+
+    qv_sort(u32)(&blk_pos, ^int(const uint32_t *pos1, const uint32_t *pos2) {
+        return CMP(fault_map->keys[*pos1], fault_map->keys[*pos2]);
+    });
+
+    tab_for_each_entry(e, &blk_pos) {
+        logger_info(&_G.logger, "\t\t%s 0x%08x -> %u error(s)", content,
+                    fault_map->keys[e], fault_map->values[e]);
+    }
+}
+
+static void qps_dissect_print_general_stats(qps_dissect_ctx_t *ctx,
+                                            qps_dissect_stats_t *stats)
+{
+    size_t total = ctx->qps->handles_max ? ctx->qps->handles_max - 1 : 0;
+    size_t total_used = total - stats->nbr_free_handles;
+
+    /* General statistics */
+    logger_info(&_G.logger, "general statistics:");
+    logger_info(&_G.logger, "\tnumber of maps: %d", stats->map_stat.len);
+    logger_info(&_G.logger, "\tqps generation: %d", stats->qps_generation);
+    logger_info(&_G.logger, "\terrors found  : %u", stats->errors);
+
+    if (!total) {
+        logger_info(&_G.logger, "\tno handle recorded ???");
+        return;
+    }
+
+    if (qps_dissect_usage_enabled(ctx)) {
+        logger_info(&_G.logger, "\thandles seen  : %zu (%.1f %%)",
+                    stats->nbr_seen_handles,
+                    stats->nbr_seen_handles * 100.0 / (double)total);
+    }
+    logger_info(&_G.logger, "\thandles used  : %zu (%.1f %%)", total_used,
+                total_used * 100.0 / (double)total);
+    logger_info(&_G.logger, "\thandles freed : %zu (%.1f %%)",
+                stats->nbr_free_handles,
+                stats->nbr_free_handles * 100.0 / (double)total);
+}
+
+void qps_dissect_update_stats_on_err_(qps_dissect_ctx_t *ctx,
+                                      qps_notify_anomaly_t *item)
+{
+    ctx->stats.errors++;
+    if (item->adr_inside_qps) {
+        qps_map_t *map = qps_map_of(item->adr_inside_qps);
+        qps_dissect_map_stat_t *stat_map;
+        uint32_t blk_loc;
+        int pos;
+
+        /* Check address mask stored in faulty_blks vector fit in current map
+         * mask for TLSF maps. */
+        STATIC_ASSERT(UINT32_MAX >= QPS_MAP_SIZE);
+
+        stat_map = qps_dissect_get_map_stat_from_id(ctx, map->hdr.mapno);
+        stat_map->errors++;
+        if (stat_map->blks.fault_map.hdr.len >= QPS_DISSECT_MAX_FAULTY_BLKS ||
+            item->adr_inside_qps == map)
+        {
+            /* We are referencing the map itself and not an object in it, or
+             * we have trigerred the threshold of faulty values a map can
+             * store (to avoid potential out of memory by the tool itself). */
+            return;
+        }
+
+        if (qps_map_is_pg(map)) {
+            blk_loc = QPS_PG_IDX(qps_pg_of(item->adr_inside_qps));
+        } else {
+            blk_loc = (uint32_t)cast(uintptr_t, item->adr_inside_qps) &
+                      QPS_MAP_MASK;
+        }
+
+        pos = qm_reserve(faulty_blk, &stat_map->blks.fault_map, blk_loc, 0);
+        if (pos & QHASH_COLLISION) {
+            stat_map->blks.fault_map.values[pos ^ QHASH_COLLISION]++;
+        } else {
+            stat_map->blks.fault_map.values[pos] = 1;
+        }
+    }
+}
+
+void qps_dissect_compute_and_print_stats(qps_dissect_ctx_t *ctx)
+{
+    static const lstr_t blk_str[QPS_DISSECT_BLK_TYPES] = {
+        [QPS_DISSECT_BLK_SEEN] = LSTR_IMMED("analyzed "),
+        [QPS_DISSECT_BLK_USED] = LSTR_IMMED("used     "),
+        [QPS_DISSECT_BLK_FREE] = LSTR_IMMED("freed    "),
+    };
+    qps_dissect_stats_t *stats = &ctx->stats;
+
+    /* General statistics. */
+    qps_dissect_print_general_stats(ctx, stats);
+
+    /* Statistics per map. */
+    tab_for_each_pos(pos, &stats->map_stat) {
+        qps_dissect_map_stat_t *entry = stats->map_stat.tab[pos];
+        bool is_pg_map;
+        uint32_t b_map_sz;
+        int delta_generation;
+        lstr_t sig;
+
+        if (!entry) {
+            continue;
+        }
+
+        /* Retrieve and compute some data before output, so we can flag some
+         * issues. */
+        sig = LSTR_INIT_V((const char *)entry->sig, QPS_MAP_SIG_SIZE);
+        b_map_sz = entry->blks.type[QPS_DISSECT_BLK_USED].sz_in_bytes +
+                   entry->blks.type[QPS_DISSECT_BLK_FREE].sz_in_bytes;
+        delta_generation = entry->generation - ctx->qps->generation;
+        is_pg_map = QPS_MAP_IS_PG_FROM_SIGNATURE(entry);
+
+        assert(b_map_sz);
+        logger_info(&_G.logger, "map index %02d (%s)", pos,
+                    entry->errors != 0 ? "INVALID" : "valid");
+        logger_info(&_G.logger, "\tgeneration\t\t: %u (%d)",
+                    entry->generation, delta_generation);
+        logger_info(&_G.logger, "\tsignature\t\t: %*pM", LSTR_FMT_ARG(sig));
+        logger_info(&_G.logger, "\terrors\t\t\t: %u", entry->errors);
+
+        for (int i = 0; i < QPS_DISSECT_BLK_TYPES; i++) {
+            const uint32_t b_sz = entry->blks.type[i].sz_in_bytes;
+            const uint32_t b_cnt = entry->blks.type[i].cnt;
+
+            if (i == QPS_DISSECT_BLK_SEEN && !qps_dissect_usage_enabled(ctx))
+            {
+                continue;
+            }
+
+            logger_info(&_G.logger,
+                        "\tblock(s) %*pM\t: %u (size: %u / "
+                        "%.1f %%)",
+                        LSTR_FMT_ARG(blk_str[i]), b_cnt, b_sz,
+                        b_sz * 100.0 / (double)b_map_sz);
+        }
+
+        if (entry->blks.fault_map.hdr.len) {
+            qps_dissect_sort_and_print_faults(ctx, &entry->blks.fault_map,
+                                              is_pg_map);
+        }
+    }
 }
 
 /* }}} */
