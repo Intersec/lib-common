@@ -9,8 +9,10 @@
 **** xref:spec/structs-unions-enums.adoc[Structs, unions and enums]
 **** xref:spec/classes.adoc[Classes and inheritance]
 **** xref:spec/attributes.adoc[Attributes and constraints]
+**** xref:spec/interfaces-modules.adoc[Interfaces, RPCs and modules]
+**** xref:spec/snmp.adoc[SNMP extensions]
+**** xref:spec/doc-comments.adoc[Documentation comments]
 ** Legacy pages
-*** xref:base.adoc[IOP Basics]
 *** xref:wire-format.adoc[Wire format]
 *** xref:inheritance.adoc[Class inheritance]
 *** xref:library-c.adoc[C library]

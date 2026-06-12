@@ -1,6 +1,7 @@
 = Types and fields
 :toc:
 :numbered:
+:page-aliases: base.adoc
 
 == Primitive types
 

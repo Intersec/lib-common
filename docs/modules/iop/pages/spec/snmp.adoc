@@ -1,0 +1,144 @@
+= SNMP extensions
+:toc:
+:numbered:
+
+IOP includes dedicated constructs to describe an SNMP instrumentation:
+*SNMP objects* (groups of scalar variables), *SNMP tables* and *SNMP
+interfaces* (notifications/traps). They are part of the language — a
+conforming parser must accept them — and they map onto MIB concepts; the
+generation of actual MIB files is implementation territory
+(xref:../impl/generators.adoc[Part II]).
+
+== Common shape
+
+The three constructs share the class-like declaration syntax, with an
+*OID* in place of the class id and a mandatory parent:
+
+----
+snmpObj   <Name> : <oid> : <Parent> { <field>* };
+snmpTbl   <Name> : <oid> : <Parent> { <field>* };
+snmpIface <Name> : <oid> : <Parent> { <notification>* };
+----
+
+* The parent is mandatory (`snmpObj/snmpTbl 'X' needs a snmpObj
+  parent`, `snmpIface 'X' needs a snmpObj parent`) and may be qualified
+  (`pkg.Obj`). The root of the hierarchy is the built-in parent name
+  *`Intersec`*, which is not a declared type; only `snmpObj` and
+  `snmpTbl` declarations may use it directly — a `snmpIface`'s parent
+  must be a declared `snmpObj` (`pkg 'X' does not provide snmpObj
+  'Intersec' when resolving inheritance of snmpIface 'Y'`).
+* Single inheritance only.
+* OID ranges: 1–65535 for `snmpObj` and `snmpTbl`, 0–65535 for
+  `snmpIface` (`id is too small (must be >= 1)` / `id is too large
+  (must be <= 65535)`).
+* *Documentation briefs are mandatory* — they become the `DESCRIPTION`
+  clauses of the generated MIB: every `snmpObj`/`snmpTbl` field needs
+  one (`field 'a' needs a brief that would be used as a description in
+  the generated MIB`), every `snmpTbl` declaration needs one, and every
+  notification needs one (`notification 'notif' needs a brief…`). See
+  xref:../spec/doc-comments.adoc[Documentation comments].
+* `@deprecated` is allowed on all three declaration kinds.
+
+== SNMP objects
+
+[source,java]
+----
+/** Statistics about the frobnicator. */
+snmpObj Stats : 42 : Intersec {
+    /** Number of active connections. */
+1:  int activeConnections;
+
+    /** Name of the current leader. */
+2:  string leaderName;
+};
+----
+
+Field rules:
+
+* allowed field types: integer types up to 32 bits, `bool`, `string`,
+  and enums — 64-bit integers and `double` are rejected (`only
+  int/string/boolean/enum types are handled for snmp objects' fields`);
+* fields follow normal tag rules;
+* an SNMP object cannot itself be used as a field type elsewhere (`snmp
+  objects cannot be used to define a field type`); the hierarchy exists
+  only to structure the OID tree.
+
+== SNMP tables
+
+A `snmpTbl` describes a table of conceptual rows. Its parent must be a
+`snmpObj`. At least one field must be marked as an *index* with
+`@snmpIndex`, and indexes must be of type `uint` or `string`:
+
+[source,java]
+----
+/** Connection table. */
+snmpTbl Connections : 1 : Stats {
+    /** Connection identifier. */
+    @snmpIndex
+1:  uint connId;
+
+    /** Remote host. */
+2:  string remoteHost;
+};
+----
+
+* `@snmpIndex` outside a `snmpTbl` is an error (`field '<x>' does not
+  support @snmpIndex attribute`);
+* an index of another type is `a snmp index should be declared with the
+  'uint' or 'string' type`;
+* a table without any index is `each snmp table must contain at least
+  one field that has attribute @snmpIndex of type 'uint' or 'string'`.
+
+== SNMP interfaces (notifications)
+
+A `snmpIface` declares notifications (traps). Notification parameters
+are not declared inline: they *refer by name* to fields of `snmpObj`
+declarations marked `@snmpParam`, listed in the interface's
+`@snmpParamsFrom` attribute:
+
+[source,java]
+----
+/** Parameters available to notifications. */
+@snmpParam
+snmpObj Params : 80 : Intersec {
+    /** Description. */
+1:  int a;
+
+    /** Description. */
+2:  string b;
+};
+
+/** Notifications of the frobnicator. */
+@snmpParamsFrom(Params)
+snmpIface Notifications : 81 : Stats {
+    /** Frobnication started. */
+    started
+        in (a, b);
+
+    /** Frobnication finished (no parameters). */
+    finished;
+};
+----
+
+Rules:
+
+* a notification has the shape `[<tag>:] <name> [in ( <paramName>, … )]
+  ;` — the `in` list contains *names only* (no types), and may be empty
+  (`in ()`) or absent;
+* the argument list must be anonymous: a named type is `snmpIface RPC
+  argument must be anonymous. example 'in (a, b, c);'`;
+* `out` and `throw` are forbidden (`snmpIface cannot out and/or
+  throw`), as are `void` and `null` (`void is not supported by snmpIface
+  RPCs`);
+* every parameter name must resolve to exactly one field among the
+  `@snmpParamsFrom` objects: a missing attribute is `snmpIface should
+  have an attribute snmpParamsFrom`; an unknown name is `field 'x' is
+  not found in any of the snmpObjs given by the attribute
+  snmpParamsFrom`; a name found in several objects is `several snmpObjs
+  given by the attribute snmpParamsFrom have a field with the same name
+  'x'`;
+* `@snmpParamsFrom` arguments must name resolvable `snmpObj`
+  declarations (`pkg 'X' does not provide snmpObj 'Y' when resolving
+  snmp params of snmpIface 'Z'`); a malformed dotted argument is
+  `invalid snmpParamsFrom '<arg>'`;
+* a `snmpIface` has exactly one parent.

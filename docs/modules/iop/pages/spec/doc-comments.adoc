@@ -1,0 +1,170 @@
+= Documentation comments
+:toc:
+:numbered:
+
+IOP supports doxygen-style documentation comments. They are part of the
+language: a conforming compiler must parse them, attach them to the
+right elements, and preserve them — they feed generated code
+(C headers, TypeScript), WSDL, OpenAPI and MIB outputs, and they are
+*mandatory* on SNMP constructs (a missing brief is an error, `field
+'<x>' needs a brief…` / `notification '<x>' needs a brief…`;
+xref:../spec/snmp.adoc[SNMP extensions]).
+
+== Comment forms and attachment
+
+There are eight introducer forms, in two families:
+
+[cols="2,2,3"]
+|===
+| Block forms | Line forms | Documents
+
+| `/\**` and `/*!` | `///` and `//!` | the *following* element (front
+  comment)
+| `/\**<` and `/*!<` | `///<` and `//!<` | the *preceding* element (back
+  comment)
+|===
+
+A block form ends at the first `+*/+`; reaching end of file first is an
+error (`unterminated doxygen comment`). A line form ends at the end of
+line.
+Leading `+*+` gutters of block comments are stripped. A run of four or
+more slashes (`////…`) is a plain comment, not documentation.
+
+NOTE: The language accepts both families, but Intersec's coding rules
+forbid the line comment forms (`///`, `//!`, `///<`, `//!<`); use the
+block forms.
+
+[source,java]
+----
+/** Front comment for the enum. */
+enum MyEnum {
+    ///< back comment... attached to MyEnum itself (no previous value)
+    VAL_A,
+    VAL_B,  ///< back comment for VAL_B
+    VAL_C,  //!< also a back comment for VAL_C
+};
+----
+
+Documentation comments can be attached to:
+
+* type declarations (struct, union, class, enum, typedef, interface,
+  module, SNMP objects);
+* fields and static fields;
+* enum values;
+* RPCs;
+* module members;
+* the `in`/`out`/`throw` payload clauses of an RPC (the comment is
+  placed immediately before or after the clause), and the individual
+  fields of inline payloads:
+
+[source,java]
+----
+interface MyIface {
+    /** front comment... */
+    funD /**< ...and back comment, both for funD */
+        /** comment for the result payload */
+        out (int b) /**< also for the result payload */
+        ;
+};
+----
+
+== Text structure
+
+Within a comment, text is organized in paragraphs separated by blank
+lines:
+
+* the first paragraph is the *brief* description;
+* subsequent unmarked paragraphs and the `@details` section form the
+  *detailed* description;
+* a keyword introduced by `@` or `\` starts a new section. Recognized
+  keywords are `@brief`, `@details`, `@warning`, `@example` and
+  `@param`. An unrecognized keyword (e.g. `\word`) is kept as plain
+  text;
+* inline markers such as `\p` and `\ref` are preserved verbatim in the
+  text (renderers may interpret them).
+
+[source,java]
+----
+/** Brief for MyEnumA.
+ *
+ *  Details for MyEnumA, first paragraph.
+ *
+ *  @warning a warning section.
+ */
+enum MyEnumA {
+    VAL_A,
+};
+----
+
+== Documenting RPC parameters
+
+Inside an RPC's documentation comment, `@param` documents individual
+payload fields; using it on any other element is an error (`unrelated
+doxygen keyword`). The direction — exactly one of `in`, `out`, `throw`
+— is given in brackets:
+
+----
+@param[in]    <name> <description…>
+@param[out]   <name> <description…>
+@param[throw] <name> <description…>
+----
+
+An empty direction list, several directions (`@param[in,out]`) or an
+unknown direction are errors (`doxygen param direction not specified`,
+`more than one doxygen param direction`, `unsupported doxygen param
+direction`).
+
+[source,java]
+----
+interface MyIfaceA {
+    /** Brief for funA.
+     *
+     *  @details detailed description of funA.
+     *
+     *  @param[in]   aParam  description of aParam,
+     *                       continued on the next line
+     *  @param[out]  c       description of the result field c
+     *  @param[throw] code   description of the exception field code
+     *
+     *  @warning a warning about funA.
+     */
+    funA
+        in    (int aParam)
+        out   (int c)
+        throw (int code);
+};
+----
+
+Rules:
+
+* the parameter name must exist in the corresponding payload (`doxygen
+  unrelated 'in' argument '<x>' for RPC '<f>'`); the check applies to
+  inline anonymous payloads — when the clause references a named type,
+  the fields of that type are documented on the type itself;
+* a newline or end-of-file inside the `[…]` direction list is an error
+  (`unterminated doxygen param`); other malformed direction lists are
+  reported as a warning (`doxygen param syntax error`);
+* repeating `@param` for the same name appends additional paragraphs to
+  its description, but naming the same field twice within a single
+  `@param` argument list is an error (`doxygen duplicated '<dir>'
+  argument '<x>'`).
+
+== Example payloads
+
+On an RPC payload clause, `@example` provides a sample value, written as
+the *body* of a JSON object (the braces are implicit):
+
+[source,java]
+----
+interface MyIfaceA {
+    funAa
+        /** @example "aParam": 1,
+         *           "b": { "fieldA": 11 }
+         */
+        in (int aParam, MyStructAa b)
+        out void;
+};
+----
+
+The example must be valid JSON (`invalid identifier when parsing json
+value`).

@@ -1,0 +1,172 @@
+= Interfaces, RPCs and modules
+:toc:
+:numbered:
+
+Data types describe values; *interfaces* and *modules* describe
+communications. An interface declares a set of RPCs (remote procedure
+calls); a module instantiates a set of interfaces — it is the unit a
+server implements.
+
+== Interfaces
+
+----
+interface <Name> {
+    <rpc>*
+};
+----
+
+The interface name follows type-name rules (uppercase first letter).
+Plain interfaces do not support inheritance. Two RPCs of one interface
+cannot share a name (`a function 'X' already exists`) or a tag (`tag <n>
+is used twice`).
+
+== RPC declarations
+
+----
+[<tag>:] <name>
+    [ in    ( <field>, … ) | in    <TypeRef> | in    void              ]
+    [ out   ( <field>, … ) | out   <TypeRef> | out   void  | out null  ]
+    [ throw ( <field>, … ) | throw <TypeRef> | throw void              ]
+;
+----
+
+[source,java]
+----
+struct MyExn {
+    int    code;
+    string desc;
+};
+
+interface MyIface {
+    createUser
+        in    (string login, string password, int? age)
+        out   (int id)
+        throw MyExn;
+};
+----
+
+* The RPC name starts with a lowercase letter and contains no
+  underscore.
+* The clauses appear in this fixed order: `in`, then `out`, then
+  `throw`; each is optional subject to the rules below.
+* Each clause's payload takes one of three forms:
+** an *inline anonymous struct* `( … )`: regular field declarations
+   (xref:../spec/types.adoc#_field_declarations[same syntax as struct fields],
+   including tags, cardinalities, attributes) but separated by *commas*
+   instead of semicolons;
+** a *named type*: a (possibly qualified) struct or union — anything
+   else is `a structure (or a union) type was expected here`. When
+   several RPCs share the same payload shape, prefer a named type;
+** `void`: an explicitly empty payload.
+* An omitted `in` clause is equivalent to `in void`.
+* A xref:../spec/doc-comments.adoc[documentation comment] on the RPC may
+  reference its `in` parameters by name; referencing one that does not
+  exist is an error (`doxygen unrelated 'in' argument '<x>' for RPC
+  '<f>'`).
+* `out null` declares an *asynchronous* RPC: no answer is ever sent, not
+  even an empty one — the call is fire-and-forget. Because nothing comes
+  back, an async RPC cannot have a `throw` clause (`async functions
+  cannot throw`). By contrast `out void` does send an (empty) reply, and
+  is the only way for the caller to learn that the call succeeded.
+* At least one of `out` or `throw` must be present (`no 'out' nor
+  'throw' for function 'X'`); with `throw` alone, `out void` is implied.
+
+[source,java]
+----
+interface MyIface2 {
+    /* no exception */
+    createUser2
+        in    (string login, string password, int? age)
+        out   (int id);
+
+    /* no output parameter: "out void" is implied by throw */
+    createUser3
+        in    (string login, string password, int? age)
+        throw MyExn;
+
+    /* asynchronous: no reply at all */
+    logEvent
+        in  (string msg)
+        out null;
+};
+----
+
+=== RPC tags
+
+Like fields, every RPC has a tag identifying it in the binary protocol:
+implicit numbering from 1, optional explicit `N:` prefix resetting the
+counter, range 1–32767, uniqueness within the interface.
+
+=== RPC aliases
+
+`@alias(name, …)` declares additional names under which the RPC is
+callable:
+
+[source,java]
+----
+interface MyIfaceC {
+    @alias(funA2)
+    funA in (int i) out void;
+};
+----
+
+== Modules
+
+----
+module <Name> [ : <ParentModule>, … ] {
+    [<tag>:] <InterfaceRef> <name> ;
+    …
+};
+----
+
+[source,java]
+----
+interface MyIfaceA { funA in (int i) out void; };
+interface MyIfaceB { funB in (int j) out void; };
+
+module MyMod {
+    MyIfaceA a;
+    MyIfaceB b;
+};
+----
+
+* Each member instantiates an interface under a member name (lowercase
+  first letter, no underscore) and a *tag* (implicit numbering from 1,
+  optional explicit `N:` prefix, range 1–32767). The tag identifies the
+  interface instance in the binary protocol.
+* Member names and tags must be unique within the module.
+* The referenced interfaces — and, for an inheriting module, its parent
+  modules — must resolve (`unable to find any pkg providing
+  interface/module 'X'`).
+
+=== Module inheritance
+
+A module may inherit from one or more parent modules; it then exposes
+the union of its own and its parents' interface instances. A module with
+parents may have an empty body (`module M : Parent;`).
+
+The constraint is that interface member *names* and *tags* must not
+collide across the whole inheritance closure: `module X cannot extend
+Y.Z, both define an interface <name>` / `…both define a tag <n>`. The
+practical convention is to start each base module's tags at a distinct
+offset:
+
+[source,java]
+----
+module MyModA {
+512:
+    MyIfaceA a1;
+    MyIfaceA a2;
+};
+
+module MyModB {
+1024:
+    MyIfaceB b1;
+    MyIfaceB b2;
+};
+
+module MyModC : MyModA, MyModB {
+1:  MyIfaceA c1;
+2:  MyIfaceB c2;
+};
+----
