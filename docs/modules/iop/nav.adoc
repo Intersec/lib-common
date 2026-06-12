@@ -15,7 +15,11 @@
 *** Serialization formats
 **** xref:spec/wire-format.adoc[Binary wire format]
 *** xref:spec/compatibility.adoc[Backward-compatibility rules]
+** Reference implementation
+*** xref:impl/iopc.adoc[The iopc compiler]
+*** xref:impl/iopc-backends.adoc[iopc backends: C, JSON, TypeScript]
+*** xref:impl/c-mapping.adoc[C language mapping]
+*** xref:impl/c-runtime.adoc[C runtime library]
 ** Legacy pages
 *** xref:wire-format.adoc[Wire format]
-*** xref:inheritance.adoc[Class inheritance]
 *** xref:library-c.adoc[C library]

@@ -1,0 +1,192 @@
+= C runtime library
+:toc:
+:numbered:
+:page-aliases: library-c.adoc
+
+The IOP C runtime (`lib-common/iop.h` and friends) operates on the
+generated types of the xref:../impl/c-mapping.adoc[C language mapping] through
+their *descriptors* — the reflection data emitted in `<pkg>.iop.c`.
+
+== Runtime descriptors
+
+Every construct has a runtime description (defined in
+`lib-common/iop/internals.h`):
+
+* `iop_struct_t` — structs, unions and classes: fullname, field array
+  (`iop_field_t`: name, tag, type, cardinality, offset, default value),
+  tag-range index for binary lookup, flags (union? class? constraints?),
+  attributes, and for classes an `iop_class_attrs_t` (parent pointer,
+  class id, static fields, abstract/private bits);
+* `iop_enum_t` — names, values, ranges, strictness, aliases;
+* `iop_iface_t` / `iop_rpc_t` / `iop_mod_t` — interfaces, RPCs
+  (argument/result/exception struct descriptors, tag, async flag),
+  modules;
+* `iop_pkg_t` — the package: arrays of the above plus package
+  dependencies.
+
+These descriptors drive every generic operation: packing, equality,
+introspection… The generated descriptor for type `Foo` of package
+`test` is `test__foo__s` (`__e` for enums).
+
+== IOP environment
+
+Descriptors that must be resolved by fullname or by class id — every
+class, and any type looked up by name — are registered in an *IOP
+environment*, `iop_env_t`:
+
+[source,c]
+----
+iop_env_t *iop_env = iop_env_new();
+
+IOP_REGISTER_PACKAGES(iop_env, &test__pkg);
+/* … use the environment … */
+iop_env_delete(&iop_env);
+----
+
+`IOP_REGISTER_PACKAGES()` (or `iop_register_packages(env, pkgs, n)`)
+must be called for packages containing classes before any class is
+(un)packed; it also performs the cross-package class-id collision
+checks. The environment is reference-counted (`iop_env_retain()`).
+
+`iop_env_t` itself is *not* thread-safe: registration and its refcount
+are main-thread-only. The thread-safe unit is a *context snapshot*,
+`iop_env_ctx_t` — an immutable, atomically reference-counted view of the
+registered objects. Acquire one with the `iop_env_ctx_scope` macro (or
+`iop_env_ctx_acquire()` / `iop_env_ctx_release()`) and share it across
+threads for read-only operations; it stays valid even if the main thread
+registers or unregisters packages concurrently:
+
+[source,c]
+----
+iop_env_ctx_scope(iop_env, ctx);      /* ctx released at scope exit */
+----
+
+The snapshot storage is backed by a lock-free `ArcSwap` implemented in
+Rust (`libcommon-iop-arcswap`, see
+xref:../impl/bindings.adoc[Language bindings]).
+
+Packing never needs the environment. Unpacking (class resolution) and
+by-name lookups do: the convenience macros take the `iop_env`, the
+low-level functions take a context snapshot.
+
+== Binary packing and unpacking
+
+[source,c]
+----
+t_scope;
+test__my_struct__t foo = { .a = 42, .b = LSTR_IMMED("foo") };
+lstr_t out = t_iop_bpack(test, my_struct, &foo);
+----
+
+[source,c]
+----
+t_scope;
+test__my_struct__t foo;
+lstr_t input = <packed data>;
+
+if (t_iop_bunpack(iop_env, &input, test, my_struct, &foo) < 0) {
+    /* error handling */
+}
+----
+
+Lower-level entry points take descriptors explicitly:
+`iop_bpack_size()` + `iop_bpack()` (two-phase packing into a
+caller-provided buffer), `mp_iop_bpack_struct_flags()` (one call,
+allocator-based), `iop_bunpack_flags()`, `iop_bunpack_multi()` (stream
+of concatenated structures).
+
+Classes must be unpacked through the `_ptr` variants, which take a
+*double pointer* and allocate the concrete type:
+
+[source,c]
+----
+test__a1__t *obj = NULL;
+iop_env_ctx_scope(iop_env, ctx);
+iop_bunpack_ptr(t_pool(), ctx, &test__a1__s, (void **)&obj, input, false);
+----
+
+Packing flags: `IOP_BPACK_SKIP_DEFVAL` (omit fields equal to their
+default), `IOP_BPACK_STRICT` (check constraints while packing),
+`IOP_BPACK_SKIP_PRIVATE` (omit `@private` fields). Unpacking flags:
+`IOP_UNPACK_COPY_STRINGS` (copy instead of pointing into the input
+buffer), `IOP_UNPACK_FORBID_PRIVATE` (reject input setting `@private`
+fields).
+
+== Text formats
+
+JSON (`lib-common/iop-json.h`)::
+  `t_iop_junpack_ps()` / `t_iop_junpack_file()` (and `_ptr` variants
+  for classes), `iop_jpack()` / `t_iop_sb_jpack()`. Pack flags select
+  compact/pretty output, private-field skipping, etc.; unpack flags
+  include `IOP_UNPACK_IGNORE_UNKNOWN`. Detailed format:
+  xref:../spec/json.adoc[JSON representation].
+YAML (`lib-common/iop-yaml.h`)::
+  `t_iop_yunpack_ps()` / `t_iop_yunpack_file()`, `t_iop_ypack()` /
+  `iop_ypack_file()`; *presentation data*
+  (`yaml__document_presentation__t`) captures comments/formatting and
+  the `!include` graph so that a re-pack round-trips the document.
+  Detailed format: xref:../spec/yaml.adoc[YAML representation].
+XML (`lib-common/iop/xml.h`)::
+  `iop_xunpack_flags()` (within an open `xml_reader_t`),
+  `iop_xpack_flags()`; flags include `IOP_XPACK_VERBOSE` (xsi:types),
+  `IOP_XPACK_LITERAL_ENUMS`, `IOP_XPACK_SKIP_PRIVATE`. Detailed
+  format: xref:../spec/xml.adoc[XML and SOAP representation].
+
+Like binary unpacking, every text unpacker needs the
+<<_iop_environment,IOP environment>> to resolve classes and named
+types — the JSON entry points take an `iop_env`, the YAML/XML ones a
+context snapshot (`iop_env_ctx_t`). Constraint violations and unpack
+errors are reported through `iop_get_err()` / `iop_get_err_lstr()`.
+
+== Generic object helpers
+
+All take a descriptor (or use the `pkg, type` convenience macros):
+
+* `iop_init(pkg__type, &v)` — set defaults (and `__vptr` for classes);
+  `iop_new()` / `t_iop_new()` / `r_iop_new()` allocate + init;
+* `iop_dup()` / `iop_copy()` — deep duplication (into a new allocation
+  / an existing object), with `mp_`/`t_`/`r_` allocator variants and
+  flags for shallow/multi-allocation copies;
+* `iop_equals()` — deep equality, polymorphism-aware;
+* `iop_hash_sha1()` and friends — stable hashing;
+* `iop_sort()` / `iop_multisort()` — sort repeated fields by *field
+  path*; `iop_filter()` / `iop_filter_bitmap()` — filter arrays on
+  expressed conditions;
+* `iop_for_each_field()` / `iop_for_each_st()` / `iop_for_each_obj()` —
+  recursive traversal callbacks (with `_fast` variants without path
+  tracking);
+* field paths: `iop_field_path_compile()` + `iop_field_path_get_type()`
+  / `iop_field_path_for_each_value()` — compiled accessors supporting
+  `a.b`, `arr[0]`, `arr[-1]`, `arr[*].f`, `arr.len`, `obj._class` and
+  explicit class casts;
+* introspection: `iop_field_find_by_name()`, `iop_get_field()`,
+  `iop_value_from_field()`, generic-attribute getters
+  (`iop_field_get_gen_attr()`, `iop_rpc_get_gen_attr()`, …), RPC/iface
+  lookup by tag (`iop_mod_find_iface()`, `iop_iface_find_rpc()`).
+
+== Constraint checking
+
+Constraints (xref:../spec/attributes.adoc[attributes]) are checked
+automatically at unpacking time, whatever the input format — an invalid
+RPC query makes the server reply `IC_MSG_INVALID`. At packing time it
+is up to the developer:
+
+[source,c]
+----
+int iop_check_constraints(const iop_struct_t *desc, const void *val);
+/* or the generated shortcut */
+int pfx##__check(pfx##__t *v);
+----
+
+== Backward-compatibility checking
+
+`iop_struct_check_backward_compat()` and
+`iop_pkg_check_backward_compat()` implement the rules of
+xref:../spec/compatibility.adoc[Backward compatibility], with flags
+`IOP_COMPAT_BIN`, `IOP_COMPAT_JSON`, `IOP_COMPAT_ALL`. The
+`dso-compatibility-check` tool compares two IOP
+xref:../impl/dso-iopsq.adoc[DSOs]:
+
+----
+dso-compatibility-check -o old.so -n new.so -m ALL
+----

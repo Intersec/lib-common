@@ -1,6 +1,7 @@
 = Classes and inheritance
 :toc:
 :numbered:
+:page-aliases: inheritance.adoc
 
 == Concepts
 

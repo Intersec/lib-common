@@ -1,0 +1,178 @@
+= iopc backends: C, JSON, TypeScript, Python stubs
+:toc:
+:numbered:
+
+`iopc -l <langs>` selects one or more code generators. This page
+documents what each emits. The C type mapping itself is on a dedicated
+page (xref:../impl/c-mapping.adoc[C language mapping]).
+
+== C backend (`-l c`)
+
+Four files per package (user code includes only `<pkg>.iop.h`):
+
+`<pkg>-tdef.iop.h`::
+  The forward-declaration header: full C `enum` definitions (with
+  `_count`/`_min`/`_max` macros and alias constants), forward `typedef
+  struct pkg__name__t …` plus array/optional typedefs for every type.
+  Other packages include it for *weak* dependencies — this is what
+  breaks cross-package cycles.
+`<pkg>-t.iop.h`::
+  The data-layout header: the actual `struct` definitions (fields
+  possibly reordered to reduce padding unless `@noReorder`), class id
+  macros, union tag enums and accessor macros, and the `EXPORT`
+  declarations of the type descriptors (`…__s`, `…__e`). Includes the
+  `-tdef.iop.h` of weak dependencies and the `-t.iop.h` of strong
+  ones.
+`<pkg>.iop.h`::
+  The interface header: RPC argument/result/exception struct types,
+  per-RPC tag/async macros, interface (`…__if`) and module (`…__mod`)
+  descriptors, typedef descriptors and the package descriptor
+  (`pkg__pkg`).
+`<pkg>.iop.c`::
+  The reflection data: field tables, default values, constraint check
+  functions, attribute tables, class tables, RPC/interface/module
+  descriptors and the `iop_pkg_t` with its dependency list.
+
+`--c-resolve-includes` replaces package-path includes
+(`#include "a/b/c-t.iop.h"`) with *relative* includes computed in the
+source tree (`#include "../../other/pkg.iop.h"`); it is incompatible
+with an output directory.
+
+== JSON backend (`-l json`)
+
+Emits a machine-readable description of the package — the input format
+consumed by the TypeScript/Backbone runtime and other tooling. One
+tab-indented JSON object per package:
+
+[source,json]
+----
+{
+    "name": "pkg",
+    "help": { "brief": "…", "details": "…" },
+    "objects": [ … ],
+    "interfaces": [ … ],
+    "modules": [ … ]
+}
+----
+
+* `objects` lists, in order: enums, then structs/unions/classes, then
+  typedefs, then the anonymous RPC argument/result/exception structs
+  (named `pkg.Iface.funArgs`/`…Res`/`…Exn`).
+* Cross-package references appear inline as fully-qualified names
+  (`"other.pkg.Type"`); there is no dependency list.
+* Every object carries `name`, `fullName`, a `type` discriminant
+  (`"enum"`, `"struct"`, `"union"`, `"class"`, `"typedef"`,
+  `"snmpObj"`, `"snmpTbl"`, `"snmpIface"`), and optionally `help`
+  (keys `brief`, `details`, `warning`, plus `example` as raw JSON) and
+  `genAttrs` (object keyed by generic-attribute name, values
+  `{"type": "string"|"int"|"double"|"boolean"|"object", "value": …}`).
+
+Per kind:
+
+Enums::
+  `values` — object keyed by value name with `value` (int), optional
+  `aliases` (array) and `genAttrs`; `valuesHelp` for documented
+  values; `constraints: {"strict": true}` for `@strict`. The C
+  `@prefix` is *not* exported.
+Structs/unions/classes::
+  `fields` — object keyed by field name; each field has `type` (scalar
+  name — note `"boolean"`, `"number"` for double, `"data"` for bytes —
+  or a fully-qualified type name), at most one of `default`, `optional:
+  true`, `repeated: true` (mandatory fields carry none; 64-bit defaults
+  beyond 2^53^ are emitted as strings), optional `help`, `constraints`
+  (keys `min`, `max`, `minOccurs`, `maxOccurs`, `minLength`,
+  `maxLength`, `length`, `cdata`, `nonEmpty`, `nonZero`, `pattern`,
+  `allow`/`disallow` arrays), `genAttrs`, `private: true`,
+  `deprecated: true`. *Field tags are not emitted.* Classes add
+  `parent`, `isAbstract`, `private`, and `statics` (object of static
+  fields with their `default`); the numeric class id is *not* emitted.
+Typedefs::
+  a `typedef` key holding the aliased type, plus `constraints` and
+  `genAttrs`.
+Interfaces::
+  `rpcs` — object keyed by RPC name; each RPC has optional `in`,
+  `out`, `throw` (omitted when `void`; either an anonymous-struct
+  fullname or an existing type name, with `inHelp`/`outHelp`/
+  `throwHelp` carrying the referenced type's doc), `async: true` for
+  `out null`, `help`, `genAttrs`.
+Modules::
+  optional `parent` *array* (multiple inheritance) and `interfaces`
+  keyed by instance name with `type` and `help`; members inherited
+  from parents are not repeated.
+
+Private elements are *included* and flagged `private: true`, not
+skipped.
+
+== TypeScript backend (`-l typescript`)
+
+Generates an ES module per package:
+
+* dependencies are imported as `import * as a__b__c from
+  "iop/a/b/c.iop";` and referenced as `a__b__c.Type`;
+* *enums* become three aliases: `Foo_Int` (numeric literal union),
+  `Foo_Str` (name literal union) and `Foo = Foo_Str`;
+* *structs/classes* become `export interface Foo { … }`; classes
+  `extend` their parent and root classes carry a `_class: string`
+  discriminant. Scalars map to `number` (`long`/`ulong`: `number |
+  string`), `boolean`, `string`, `null` for void; optional fields get
+  `?`; repeated fields are `Array<T>`;
+* *unions* become `export type U = { a: T1 } | { b: T2 }` plus
+  `U_Pairs` (`{kind, value}` form) and `U_Keys`;
+* *interfaces/RPCs* are grouped under `export namespace interfaces`:
+  per RPC, `funArgs`/`funRes`/`funExn` types and a `funIcQuery`
+  call-signature type — an `icQuery`-style call `(rpc, args, options?)
+  => JQueryDeferred<funRes>`; each interface aggregates its RPCs into a
+  combined `IcQuery` type;
+* only typedefs pointing at *another* package are emitted, as type
+  re-exports.
+
+The module also imports the JSON backend output (`import JSON from
+'json/<pkg>.iop.json'`) and generates Backbone model classes
+(`Foo_Model extends StructModel/ClassModel/UnionModel`, `Foo_Collection
+extends IopCollection`) with registration calls; models expose the
+`icQuery` fields wiring their RPCs to the runtime. This is *always*
+emitted — the former `--typescript-enable-backbone` opt-in no longer
+exists. `@typescriptNoCollection` suppresses the collection class for a
+type; `@forceFieldName` names are emitted verbatim.
+
+== Python stub backend (`-l pystub`)
+
+Emits *PEP 484 type stubs* (`.pyi`) that give a static type checker
+(mypy, pyright, …) full knowledge of the classes
+xref:../impl/bindings.adoc[IOPy] materialises at runtime — the runtime keeps
+building them dynamically; these stubs only describe them.
+
+One file per package, all written flat into `--pystub-output-path`
+(no directory hierarchy). The module name joins the package-path
+components with `_` and appends `_iop` (package `foo.bar` →
+`foo_bar__iop.pyi`). Every declaration is decorated
+`@typing.type_check_only`; the file imports the hand-written base stub
+`iopy` (`src/iopy/iopy.pyi`), which defines `iopy.Struct`,
+`iopy.Union`, `iopy.Enum`, `iopy.RPC`, the channel classes and helpers
+such as `IcKwargs`.
+
+Per kind:
+
+Enums::
+  `class Foo(iopy.Enum): ...`.
+Structs/classes::
+  `class Foo(iopy.Struct)` (a child class extends its parent class
+  instead). Fields become annotated attributes — scalars map to `int`
+  (all integer widths), `float` (double), `bool`, `str` (string/xml),
+  `bytes` (data); an enum field is a `str` (the value name); `void` is
+  `typing.Any`. Optional fields are `iopy.IopOptField[T]`, repeated
+  fields `list[T]`. Alongside the class, `TypedDict`s describe the
+  field mappings — a strict `Foo_DictType` (the `to_dict()` output) and
+  a wide `Foo_ParamDictType` (constructor kwargs, where optionals also
+  accept `None`) — and `Foo_ParamType` unions the class with those
+  dicts. `__init__` and `to_dict()` get typed `@typing.overload`s.
+Unions::
+  `class Foo(iopy.Union)` with a per-member `TypedDict` and overloaded
+  `__init__`, plus a `Foo_UnambiguousType` alias listing the member
+  value types that identify a member without ambiguity.
+Interfaces/modules/RPCs::
+  each RPC yields `Foo_Arg`/`Foo_Res`/`Foo_Exn` types and an
+  `iopy.RPC[...]` subclass with typed synchronous and `async` call
+  overloads merging the argument dict with `iopy.IcKwargs`; interfaces,
+  modules, the channel and the package become the correspondingly typed
+  classes.

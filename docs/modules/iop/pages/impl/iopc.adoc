@@ -1,0 +1,68 @@
+= The iopc compiler
+:toc:
+:numbered:
+
+`iopc` is the reference IOP compiler. It parses and validates `.iop`
+packages (per Part I of this documentation) and generates code for the
+selected language backends.
+
+In practice you never invoke `iopc` by hand: the build system (waf in
+lib-common-based projects) discovers every `.iop` file, calls `iopc`
+with the right options, and regenerates the outputs on change. This page
+therefore describes *what* the compiler does rather than cataloguing its
+command-line flags, which are an implementation detail of that
+integration and change over time. The authoritative list is `iopc
+--help`.
+
+== Behavior
+
+`iopc` compiles one IOP file per invocation (plus, transitively, the
+packages it references, which are loaded for resolution but not
+regenerated). On success it exits with status 0; on error it prints
+`<file>:<line>:<col>: error: <message>` diagnostics on stderr and exits
+non-zero.
+
+The knobs the build system relies on are:
+
+* an *include path* for resolving referenced packages;
+* an *output directory* under which generated files are written (per
+  backend; without one, files land next to the source `.iop`);
+* the list of *backends* to run — `c`, `json`, `typescript` (see
+  xref:../impl/iopc-backends.adoc[Backends]); with none selected, nothing is
+  generated;
+* an authorized *class-id range* for the compiled package, letting a
+  project partition ids across packages (ids outside the range are
+  rejected — see xref:../spec/classes.adoc[Classes]);
+* a *dependency-list* output listing every `.iop` file the compilation
+  read, so the build system knows when to re-run `iopc`.
+
+== Outputs and naming
+
+For an input package `a.b.c` (file `a/b/c.iop`):
+
+[cols="2,3,3"]
+|===
+| Backend | Files | Location under an output dir
+
+| C | `c.iop.c`, `c.iop.h`, `c-t.iop.h`, `c-tdef.iop.h` (see
+  xref:../impl/c-mapping.adoc[C language mapping]) | *flat* (basename only)
+| JSON | `c.iop.json` (see xref:../impl/iopc-backends.adoc[Backends]) |
+  mirrors the package hierarchy (`a/b/c.iop.json`)
+| TypeScript | `c.iop.ts` | mirrors the package hierarchy
+|===
+
+Generated files are written read-only (mode 0444).
+
+== Warnings
+
+`iopc` is strict by default: most questionable constructs are errors,
+documented in the specification pages. The named warning categories can
+be silenced per element with the
+xref:../spec/attributes.adoc[`@nowarn`] attribute (category `keyword`).
+An extra-warnings mode enables additional informational messages.
+
+== Build-system integration
+
+In lib-common-based projects, the build system drives `iopc`
+automatically for every `.iop` file it knows; generated files must not
+be committed (lib-common itself is the bootstrap exception).
