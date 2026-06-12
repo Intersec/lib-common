@@ -2327,8 +2327,8 @@ Z_GROUP_EXPORT(str)
         lstr_t lower;
         lstr_t upper;
 
-        if (!setlocale(LC_CTYPE, "tr_TR.utf8")
-        &&  !setlocale(LC_CTYPE, "tr_TR"))
+        if (!setlocale(LC_CTYPE, "tr_TR.utf8") &&
+            !setlocale(LC_CTYPE, "tr_TR"))
         {
             Z_SKIP("Turkish locale not available");
         }
@@ -2336,15 +2336,16 @@ Z_GROUP_EXPORT(str)
         icmp = lstr_ascii_icmp(LSTR_IMMED_V("INDEX"), LSTR_IMMED_V("index"));
         lower = t_lstr_ascii_tolower(LSTR_IMMED_V("MIX"));
         upper = t_lstr_ascii_toupper(LSTR_IMMED_V("mix"));
-        /* Restore the locale before asserting: a failing Z_ASSERT jumps to the
-         * test epilogue, so a restore placed after it would leak the Turkish
-         * locale into the rest of the test binary. */
+        /* Restore the locale before asserting: a failing Z_ASSERT jumps to
+         * the test epilogue, so a restore placed after it would leak the
+         * Turkish locale into the rest of the test binary. */
         setlocale(LC_CTYPE, "C");
         Z_ASSERT(iequal);
         Z_ASSERT_ZERO(icmp);
         Z_ASSERT(lstr_equal(lower, LSTR_IMMED_V("mix")));
         Z_ASSERT(lstr_equal(upper, LSTR_IMMED_V("MIX")));
-    } Z_TEST_END;
+    }
+    Z_TEST_END;
 
     Z_TEST(lstr_to_int) {
         t_scope;

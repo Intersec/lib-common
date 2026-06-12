@@ -20,9 +20,11 @@
  *
  * It prints, for every color/modifier the API can express, a rendered swatch
  * followed by the literal escape sequence that produced it, so the actual
- * rendering can be eyed in any terminal (xterm, the Linux console, PuTTY, ...).
+ * rendering can be eyed in any terminal (xterm, the Linux console, PuTTY,
+ * ...).
  *
- * Build: produces the 'ztst-term-colors' binary; just run it with no argument.
+ * Build: produces the 'ztst-term-colors' binary; just run it with no
+ * argument.
  */
 
 #include <lib-common/core.h>
@@ -34,43 +36,37 @@ typedef struct color_sample_t {
 } color_sample_t;
 
 /* Stringify the macro expression alongside its expanded escape code. */
-#define ENTRY(macro)  { #macro, macro }
+#define ENTRY(macro) {#macro, macro}
 
-static void print_section(const char *title, const color_sample_t *samples,
-                          int len)
+static void
+print_section(const char *title, const color_sample_t *samples, int len)
 {
     printf("\n== %s ==\n", title);
     for (int i = 0; i < len; i++) {
-        printf("  \e[%sm The quick brown fox \e[0m  %-44s \\e[%sm\n",
-               samples[i].code, samples[i].label, samples[i].code);
+        printf(
+            "  \e[%sm The quick brown fox \e[0m  %-44s \\e[%sm\n",
+            samples[i].code, samples[i].label, samples[i].code
+        );
     }
 }
 
-#define PRINT_SECTION(title, arr)  print_section(title, arr, countof(arr))
+#define PRINT_SECTION(title, arr) print_section(title, arr, countof(arr))
 
 /* {{{ Base colors */
 
 static color_sample_t const foreground_g[] = {
-    ENTRY(TERM_COLOR_BLACK),
-    ENTRY(TERM_COLOR_RED),
-    ENTRY(TERM_COLOR_GREEN),
-    ENTRY(TERM_COLOR_YELLOW),
-    ENTRY(TERM_COLOR_BLUE),
-    ENTRY(TERM_COLOR_PURPLE),
-    ENTRY(TERM_COLOR_CYAN),
-    ENTRY(TERM_COLOR_WHITE),
+    ENTRY(TERM_COLOR_BLACK),   ENTRY(TERM_COLOR_RED),
+    ENTRY(TERM_COLOR_GREEN),   ENTRY(TERM_COLOR_YELLOW),
+    ENTRY(TERM_COLOR_BLUE),    ENTRY(TERM_COLOR_PURPLE),
+    ENTRY(TERM_COLOR_CYAN),    ENTRY(TERM_COLOR_WHITE),
     ENTRY(TERM_COLOR_DEFAULT),
 };
 
 static color_sample_t const background_g[] = {
-    ENTRY(TERM_COLOR_BLACK_BG),
-    ENTRY(TERM_COLOR_RED_BG),
-    ENTRY(TERM_COLOR_GREEN_BG),
-    ENTRY(TERM_COLOR_YELLOW_BG),
-    ENTRY(TERM_COLOR_BLUE_BG),
-    ENTRY(TERM_COLOR_PURPLE_BG),
-    ENTRY(TERM_COLOR_CYAN_BG),
-    ENTRY(TERM_COLOR_WHITE_BG),
+    ENTRY(TERM_COLOR_BLACK_BG),   ENTRY(TERM_COLOR_RED_BG),
+    ENTRY(TERM_COLOR_GREEN_BG),   ENTRY(TERM_COLOR_YELLOW_BG),
+    ENTRY(TERM_COLOR_BLUE_BG),    ENTRY(TERM_COLOR_PURPLE_BG),
+    ENTRY(TERM_COLOR_CYAN_BG),    ENTRY(TERM_COLOR_WHITE_BG),
     ENTRY(TERM_COLOR_DEFAULT_BG),
 };
 
@@ -78,14 +74,10 @@ static color_sample_t const background_g[] = {
 /* {{{ Bright colors (the dedicated 90-97 / 100-107 codes) */
 
 static color_sample_t const bright_foreground_g[] = {
-    ENTRY(TERM_COLOR_BRIGHTER(BLACK)),
-    ENTRY(TERM_COLOR_BRIGHTER(RED)),
-    ENTRY(TERM_COLOR_BRIGHTER(GREEN)),
-    ENTRY(TERM_COLOR_BRIGHTER(YELLOW)),
-    ENTRY(TERM_COLOR_BRIGHTER(BLUE)),
-    ENTRY(TERM_COLOR_BRIGHTER(PURPLE)),
-    ENTRY(TERM_COLOR_BRIGHTER(CYAN)),
-    ENTRY(TERM_COLOR_BRIGHTER(WHITE)),
+    ENTRY(TERM_COLOR_BRIGHTER(BLACK)), ENTRY(TERM_COLOR_BRIGHTER(RED)),
+    ENTRY(TERM_COLOR_BRIGHTER(GREEN)), ENTRY(TERM_COLOR_BRIGHTER(YELLOW)),
+    ENTRY(TERM_COLOR_BRIGHTER(BLUE)),  ENTRY(TERM_COLOR_BRIGHTER(PURPLE)),
+    ENTRY(TERM_COLOR_BRIGHTER(CYAN)),  ENTRY(TERM_COLOR_BRIGHTER(WHITE)),
 };
 
 static color_sample_t const bright_background_g[] = {
@@ -113,20 +105,51 @@ static color_sample_t const modifiers_g[] = {
     ENTRY(TERM_COLOR_STRIKETHROUGH(TERM_COLOR_PURPLE)),
 };
 
+/* For each hue: bold (heavier weight), bright (distinct color), and bold +
+ * bright combined. The combined form is what the logger uses: it renders
+ * identically to the old bold-only code on legacy terminals (which promote
+ * bold to bright) while giving a true bright color on modern terminals. */
+static color_sample_t const bold_bright_combo_g[] = {
+    ENTRY(TERM_COLOR_BOLD(TERM_COLOR_RED)),
+    ENTRY(TERM_COLOR_BRIGHTER(RED)),
+    ENTRY(TERM_COLOR_BOLD(TERM_COLOR_BRIGHTER(RED))),
+    ENTRY(TERM_COLOR_BOLD(TERM_COLOR_GREEN)),
+    ENTRY(TERM_COLOR_BRIGHTER(GREEN)),
+    ENTRY(TERM_COLOR_BOLD(TERM_COLOR_BRIGHTER(GREEN))),
+    ENTRY(TERM_COLOR_BOLD(TERM_COLOR_BLUE)),
+    ENTRY(TERM_COLOR_BRIGHTER(BLUE)),
+    ENTRY(TERM_COLOR_BOLD(TERM_COLOR_BRIGHTER(BLUE))),
+};
+
 /* }}} */
 /* {{{ Logger severity combinations */
 
-/* These mirror the LOG_COLOR_* definitions of core/log.c, so the sampler shows
- * exactly what the logger emits for each level. */
+/* These mirror the LOG_COLOR_* definitions of core/log.c, so the sampler
+ * shows exactly what the logger emits for each level. */
 static color_sample_t const log_levels_g[] = {
-    { "LOG_COLOR_FUNCTION",    TERM_COLOR_YELLOW },
-    { "LOG_COLOR_LOGGER_NAME", TERM_COLOR_BOLD(TERM_COLOR_BRIGHTER(BLACK)) },
-    { "LOG_COLOR_DEBUG",       TERM_COLOR_ITALIC(TERM_COLOR_DEFAULT) },
-    { "LOG_COLOR_WARNING",     TERM_COLOR_BOLD(TERM_COLOR_BRIGHTER(YELLOW)) },
-    { "LOG_COLOR_ERROR",       TERM_COLOR_BOLD(TERM_COLOR_BRIGHTER(RED)) },
-    { "LOG_COLOR_CRIT",
-      TERM_COLOR_BOLD(TERM_COLOR_COMBINE(TERM_COLOR_RED_BG,
-                                         TERM_COLOR_BRIGHTER(WHITE))) },
+    {"LOG_COLOR_FUNCTION", TERM_COLOR_YELLOW},
+    {"LOG_COLOR_LOGGER_NAME", TERM_COLOR_BOLD(TERM_COLOR_BRIGHTER(BLACK))},
+    {"LOG_COLOR_DEBUG", TERM_COLOR_ITALIC(TERM_COLOR_DEFAULT)},
+    {"LOG_COLOR_WARNING", TERM_COLOR_BOLD(TERM_COLOR_BRIGHTER(YELLOW))},
+    {"LOG_COLOR_ERROR", TERM_COLOR_BOLD(TERM_COLOR_BRIGHTER(RED))},
+    {"LOG_COLOR_CRIT", TERM_COLOR_BOLD(TERM_COLOR_COMBINE(
+                           TERM_COLOR_RED_BG, TERM_COLOR_BRIGHTER(WHITE)
+                       ))},
+};
+
+/* Old (bold white on red bg, "1;41;37") vs new (bold + bright white on the
+ * same red bg, "1;41;97") rendering of LOG_COLOR_CRIT. Both keep the bold
+ * attribute, so on a legacy terminal that promotes bold to bright they look
+ * identical; the new one additionally renders bright on modern terminals. */
+static color_sample_t const crit_compare_g[] = {
+    {"CRIT old: 1;41;37 (bold white on red bg)",
+     TERM_COLOR_BOLD(
+         TERM_COLOR_COMBINE(TERM_COLOR_RED_BG, TERM_COLOR_WHITE)
+     )},
+    {"CRIT new: 1;41;97 (bold+bright white on red bg)",
+     TERM_COLOR_BOLD(
+         TERM_COLOR_COMBINE(TERM_COLOR_RED_BG, TERM_COLOR_BRIGHTER(WHITE))
+     )},
 };
 
 /* }}} */
@@ -134,7 +157,9 @@ static color_sample_t const log_levels_g[] = {
 int main(void)
 {
     if (!is_fancy_fd(STDOUT_FILENO)) {
-        printf("note: stdout is not a fancy terminal; escapes shown anyway\n");
+        printf(
+            "note: stdout is not a fancy terminal; escapes shown anyway\n"
+        );
     }
 
     PRINT_SECTION("foreground colors", foreground_g);
@@ -142,7 +167,9 @@ int main(void)
     PRINT_SECTION("bright foreground colors", bright_foreground_g);
     PRINT_SECTION("bright background colors", bright_background_g);
     PRINT_SECTION("modifiers", modifiers_g);
+    PRINT_SECTION("bold vs bright vs bold+bright", bold_bright_combo_g);
     PRINT_SECTION("logger severity levels", log_levels_g);
+    PRINT_SECTION("LOG_COLOR_CRIT: old vs new", crit_compare_g);
 
     printf("\n");
     return 0;
