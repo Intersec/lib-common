@@ -55,6 +55,11 @@
 # define TTK_Struct TagTypeKind::Struct
 #endif /* CLANG_VERSION_MAJOR >= 18 */
 
+#if CLANG_VERSION_MAJOR < 14
+/* Renamed in clang 14. */
+# define isAsciiIdentifierContinue isIdentifierBody
+#endif /* CLANG_VERSION_MAJOR < 14 */
+
 using namespace clang;
 using llvm::utostr;
 
@@ -186,6 +191,7 @@ namespace {
     void CheckFunctionPointerDecl(QualType funcType, NamedDecl *ND);
     Stmt *RewriteStatement(Stmt *S, CompoundStmt *CS);
     void RewriteBlockLiteralFunctionDecl(FunctionDecl *FD);
+    SourceLocation getFullTypeSpecStartLoc(const DeclaratorDecl *D);
     void RewriteByRefString(std::string &ResultStr,
                             const std::string &Name,
                             ValueDecl *VD, bool def = false);
@@ -796,6 +802,52 @@ void RewriteBlocks::CheckFunctionPointerDecl(QualType funcType, NamedDecl *ND) {
     RewriteBlocksInFunctionProtoType(PT->getPointeeType(), ND);
 }
 
+// Like getTypeSpecStartLoc(), but backs the location up over a leading
+// 'const'/'volatile' so that the whole type-specifier sits after it.
+//
+// getTypeSpecStartLoc() returns the location of the type *name*: a leading
+// cv-qualifier written in the decl-specifier-seq sits in front of it (a
+// QualifiedTypeLoc does not record where its qualifier keyword was written).
+// The block rewriter inserts the synthesized declarations at that location
+// and treats the source text in front of it as their prefix, so a leading
+// qualifier ends up both kept in the borrowed prefix and re-emitted through
+// getAsString() -- duplicating it in the forward declaration ('static const
+// const T *') and stranding it onto the following synthesized struct.
+SourceLocation
+RewriteBlocks::getFullTypeSpecStartLoc(const DeclaratorDecl *D) {
+  static const StringRef Quals[] = { "const", "volatile" };
+  SourceLocation Loc = D->getTypeSpecStartLoc();
+
+  if (Loc.isInvalid())
+    return Loc;
+
+  const char *const base = SM->getCharacterData(Loc);
+  const char *cur = base;
+  bool moved;
+
+  do {
+    const char *p = cur;
+
+    moved = false;
+    while (p > MainFileStart && isWhitespace(p[-1]))
+      p--;
+    for (StringRef kw : Quals) {
+      ptrdiff_t len = kw.size();
+
+      if (p - MainFileStart >= len && StringRef(p - len, len) == kw &&
+          (p - len == MainFileStart ||
+           !isAsciiIdentifierContinue(*(p - len - 1))))
+      {
+        cur = p - len;
+        moved = true;
+        break;
+      }
+    }
+  } while (moved);
+
+  return Loc.getLocWithOffset(cur - base);
+}
+
 void RewriteBlocks::RewriteBlockLiteralFunctionDecl(FunctionDecl *FD) {
   // If the function already has an explicit forward declaration in the source,
   // synthesizing another prototype here would emit a redundant declaration
@@ -808,7 +860,7 @@ void RewriteBlocks::RewriteBlockLiteralFunctionDecl(FunctionDecl *FD) {
   // storage-class specifier from the definition.
   if (FD->getPreviousDecl()) {
     SourceLocation Begin = FD->getBeginLoc();
-    SourceLocation TypeLoc = FD->getTypeSpecStartLoc();
+    SourceLocation TypeLoc = getFullTypeSpecStartLoc(FD);
 
     if (Begin != TypeLoc) {
       const char *beginBuf = SM->getCharacterData(Begin);
@@ -819,7 +871,7 @@ void RewriteBlocks::RewriteBlockLiteralFunctionDecl(FunctionDecl *FD) {
     CurFunctionDeclToDeclareForBlock = 0;
     return;
   }
-  SourceLocation FunLocStart = FD->getTypeSpecStartLoc();
+  SourceLocation FunLocStart = getFullTypeSpecStartLoc(FD);
   const FunctionType *funcType = FD->getType()->getAs<FunctionType>();
   const FunctionProtoType *proto = dyn_cast<FunctionProtoType>(funcType);
   if (!proto)
@@ -1026,7 +1078,7 @@ void RewriteBlocks::RewriteByRefVar(VarDecl *ND) {
   ByrefType += "};\n";
   // Insert this type in global scope. It is needed by helper function.
   SourceLocation FunLocStart;
-  FunLocStart = CurFunctionDef->getTypeSpecStartLoc();
+  FunLocStart = getFullTypeSpecStartLoc(CurFunctionDef);
   InsertText(FunLocStart, ByrefType);
 
   if (HasCopyAndDispose) {
@@ -1979,7 +2031,7 @@ Stmt *RewriteBlocks::SynthesizeBlockCall(CallExpr *Exp, const Expr *BlockExp) {
 
 void RewriteBlocks::InsertBlockLiteralsWithinFunction(FunctionDecl *FD)
 {
-  SourceLocation FunLocStart = FD->getTypeSpecStartLoc();
+  SourceLocation FunLocStart = getFullTypeSpecStartLoc(FD);
   StringRef FuncName = FD->getName();
 
   SynthesizeBlockLiterals(FunLocStart, FuncName);

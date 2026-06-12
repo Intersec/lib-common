@@ -1,0 +1,97 @@
+/***************************************************************************/
+/*                                                                         */
+/* Copyright 2026 INTERSEC SA                                              */
+/*                                                                         */
+/* Licensed under the Apache License, Version 2.0 (the "License");         */
+/* you may not use this file except in compliance with the License.        */
+/* You may obtain a copy of the License at                                 */
+/*                                                                         */
+/*     http://www.apache.org/licenses/LICENSE-2.0                          */
+/*                                                                         */
+/* Unless required by applicable law or agreed to in writing, software     */
+/* distributed under the License is distributed on an "AS IS" BASIS,       */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*/
+/* See the License for the specific language governing permissions and     */
+/* limitations under the License.                                          */
+/*                                                                         */
+/***************************************************************************/
+
+#include <lib-common/z.h>
+
+/* {{{ Block functions with a cv-qualified return type */
+
+/* These functions exercise clang-rewrite-blocks' handling of a leading
+ * `const`/`volatile` on the return type of a block-using function.
+ *
+ * The rewriter inserts everything it synthesizes (the function's forward
+ * declaration, the block-impl structs) at the type-spec location. That
+ * location points at the type *name*, so a leading cv-qualifier sits in
+ * front of it and must be backed up over (getFullTypeSpecStartLoc());
+ * otherwise the qualifier is duplicated ('static const const T *'),
+ * stranded onto a synthesized struct, or silently dropped from the
+ * definition.
+ *
+ * The point of these functions is mostly that they still *compile* (and
+ * keep their `const`) once rewritten: a dropped or duplicated qualifier
+ * makes the definition's type disagree with its declaration, which gcc
+ * rejects with a "conflicting types" error. */
+
+typedef struct blk_foo_t {
+    int x;
+} blk_foo_t;
+
+static blk_foo_t blk_foo_g = {.x = 42};
+
+/* static + const return, no prior prototype: the rewriter synthesizes a
+ * forward declaration just before the definition. A duplicated `const`
+ * makes that prototype conflict with the definition. */
+static const blk_foo_t *z_blk_get_foo_static(int x)
+{
+    int (^blk)(void) = ^int(void) {
+        return x;
+    };
+
+    return blk() ? &blk_foo_g : NULL;
+}
+
+/* static + const return, *with* a prior prototype: the synthesized forward
+ * declaration is skipped and only the `static` keyword is stripped (the
+ * `const` must be kept). */
+static const blk_foo_t *z_blk_get_foo_static_fwd(int x);
+
+static const blk_foo_t *z_blk_get_foo_static_fwd(int x)
+{
+    int (^blk)(void) = ^int(void) {
+        return x;
+    };
+
+    return blk() ? &blk_foo_g : NULL;
+}
+
+/* non-static + const return: block helpers are hoisted in front of the
+ * definition. Non-static functions must be prototyped (-Wmissing-prototypes),
+ * so a dropped `const` conflicts with this declaration. */
+const blk_foo_t *z_blk_get_foo_extern(int x);
+
+const blk_foo_t *z_blk_get_foo_extern(int x)
+{
+    int (^blk)(void) = ^int(void) {
+        return x;
+    };
+
+    return blk() ? &blk_foo_g : NULL;
+}
+
+Z_GROUP_EXPORT(blk_rewrite)
+{
+    Z_TEST(cv_qualified_return, "block functions with a const return type") {
+        Z_ASSERT(z_blk_get_foo_static(1) == &blk_foo_g);
+        Z_ASSERT(z_blk_get_foo_static_fwd(1) == &blk_foo_g);
+        Z_ASSERT(z_blk_get_foo_extern(1) == &blk_foo_g);
+        Z_ASSERT_NULL(z_blk_get_foo_static(0));
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END
+
+/* }}} */
