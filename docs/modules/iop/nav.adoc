@@ -14,6 +14,7 @@
 **** xref:spec/doc-comments.adoc[Documentation comments]
 *** Serialization formats
 **** xref:spec/wire-format.adoc[Binary wire format]
+*** xref:spec/compatibility.adoc[Backward-compatibility rules]
 ** Legacy pages
 *** xref:wire-format.adoc[Wire format]
 *** xref:inheritance.adoc[Class inheritance]

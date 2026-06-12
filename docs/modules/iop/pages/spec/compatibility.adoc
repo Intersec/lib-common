@@ -1,0 +1,331 @@
+= Backward-compatibility rules
+:toc:
+:numbered:
+
+IOP is designed so that independently deployed producers and consumers
+keep interoperating while the `.iop` definitions evolve. This page is
+the normative list of which changes are compatible and which are
+breaking — the ruleset a compatibility checker implements, and the
+contract `.iop` authors rely on.
+
+== Compatibility model
+
+The question asked throughout this page is:
+
+> Can data produced with the *old* definition still be decoded with the
+> *new* definition?
+
+A change is compatible when the answer is yes for every possible old
+value. Compatibility is checked per *format family* — there are two of
+them — because the formats identify things differently:
+
+Binary (`BIN`)::
+  Identity is structural: field *tags*, class *ids*, enum *numeric
+  values*. Names are irrelevant.
+JSON/YAML/XML (`JSON`)::
+  Identity is nominal: field/RPC/interface *names*, class *fullnames*,
+  enum *value names*. This one family covers all the name-based text
+  formats — JSON, YAML and XML; the reference checker labels it `JSON`.
+
+When both format families are checked together, an additional *cross-
+consistency* rule applies: where both a name match and a tag/value match
+exist, they must designate the same entity ("name and tag lookups
+mismatch", "name and value lookups mismatch") — otherwise binary and
+text decoders would disagree on the meaning of old data.
+
+NOTE: There is no XML-specific checking code; XML is validated by the
+same nominal (name-based) rules as JSON and YAML.
+
+A checker compares whole packages: every struct, union, class,
+interface and module of the old package must still exist under the
+same name in the new one (removal or rename is a break in both format
+families — see <<_renaming_or_moving_types>> for the typedef escape,
+which applies to structs/unions/classes only). Package-level *enums*
+and *typedefs* are not existence-checked as such; enum changes are
+detected where an enum is referenced by a checked field.
+
+== Rules for fields
+
+=== Type changes
+
+The allowed type changes follow conversion tables. Base rule: every
+type may stay itself, and (with the repeated-field exception below)
+every type may become `void` — the idiomatic way to retire a field
+while keeping its tag reserved.
+
+*Numeric widenings* — a smaller integer type may grow into a larger one,
+in both format families. The checker accepts the widening whatever the
+*sign* of the target type, but that is not always value-preserving (see
+the caution), so the safe widenings are the same-sign ones and
+unsigned→signed:
+
+[cols="1,3"]
+|===
+| Old type | May become
+
+| `bool` | any integer type
+| `byte`, `ubyte` | `short`, `ushort`, `int`, `uint`, `long`, `ulong`
+| `short`, `ushort` | `int`, `uint`, `long`, `ulong`
+| `int`, `uint` | `long`, `ulong`
+| `long`, `ulong`, `double` | — (nothing but itself and `void`)
+|===
+
+CAUTION: Widening a *signed* type into an *unsigned* one passes the
+checker but does not round-trip a negative old value: it fails to decode
+into `ushort`/`uint` (the value is out of range) or is silently
+reinterpreted as a large positive number in `ulong`. Widening an
+*unsigned* type into a wider *signed* one is always safe, since the old
+range always fits. Keep the sign whenever possible.
+
+*Binary-only* conversions (forbidden in the JSON/YAML/XML family, where
+the textual representations differ):
+
+* `enum` → `int`, `long` or `ulong` (an enum travels as its numeric
+  value in binary, as its name in JSON/YAML/XML);
+* `string` ↔ `bytes` ↔ `xml` (all three are NUL-terminated blocks in
+  binary; their JSON/YAML/XML representations differ).
+
+*Struct/union/enum-typed fields*: the old and new type must be of the
+same kind (struct→struct, enum→enum…), and the two definitions are then
+checked recursively (recursion through self-referencing types is safe —
+a checker must memoize visited pairs).
+
+=== Repeated fields: the small-scalar exception
+
+When *both* the old and the new field are repeated, the binary rules
+tighten for the element types that use the
+xref:../spec/wire-format.adoc#optimized-arrays[optimized raw-array encoding]
+(`bool`, `byte`, `ubyte`, `short`, `ushort`): the element size is part
+of the wire format, so:
+
+* `byte[]`, `ubyte[]`, `short[]`, `ushort[]` may not change element
+  type *at all* in binary while the field stays repeated;
+* `bool[]` may only become `byte[]` or `ubyte[]` (same element size);
+* `int[]`/`uint[]` → `long[]`/`ulong[]` remains allowed (32-bit arrays
+  are encoded element-wise).
+
+NOTE: These freezes only apply while the field *stays* repeated. Retiring
+one of these fields the usual way — changing it to a *non-repeated*
+`void` (dropping the `[]`) — is always allowed and decodes correctly, as
+the whole packed array block is dropped on read.
+
+The JSON/YAML/XML family does not have this exception: all numeric
+widenings remain valid for repeated fields.
+
+=== Cardinality changes
+
+[cols="3,1,3"]
+|===
+| Change | Verdict | Notes
+
+| mandatory → optional / with-default / repeated | OK |
+| optional / with-default → mandatory | *break* | unless the new type
+  is `void`, or an _optional struct_ — one that decodes from nothing
+  (defined below)
+| repeated → non-repeated | *break* | unless the new type is `void`
+| non-repeated → repeated | OK | an old single value decodes as a
+  one-element array
+| changing the default *value* (keeping `=`) | OK | default values are
+  not part of the compatibility contract. What old data then decodes to
+  depends on the packing flags: a field omitted because it equalled the
+  old default (only when packed with skip-default-values) reads back as
+  the new default; a field packed explicitly keeps its written value
+|===
+
+An *optional struct* is a struct (or non-abstract class — its
+ancestors, abstract or not, are included in the test) none of whose
+fields is mandatory with a type other than `void` or an optional
+struct — i.e. a struct that decodes successfully from nothing.
+
+=== Renaming and retagging
+
+[cols="3,1,1"]
+|===
+| Change | BIN | JSON/YAML/XML
+
+| rename a field, keep its tag | OK | *break*
+| change a field's tag, keep its name | *break* for mandatory fields
+  (equivalent to removing it and adding a new mandatory one); OK for
+  optional/defaulted/repeated | OK
+| rename *and* retag so the name match and the tag match designate
+  different fields | 2*| *break* when both format families are checked
+  (cross-consistency)
+|===
+
+CAUTION: When both format families are checked *together*, the reference
+checker additionally reports any vanished tag of a struct as a binary
+break ("field with tag N does not exist anymore") — so retagging even
+an optional/defaulted/repeated field fails a combined check, although
+it passes the binary-only and JSON/YAML/XML-only checks taken
+separately.
+
+== Rules for structs and unions
+
+* *Removing a field*: from a *struct or class* — OK in binary (decoders
+  skip unknown tags), *break* in JSON/YAML/XML ("field `x` does not
+  exist anymore"). From a *union* — break in both format families.
++
+Even the binary case holds only if the *following fields keep their
+tags*: delete the field but tag the survivors explicitly, otherwise the
+implicit tags shift and break. The recommended alternative is to retire
+the field as a `void` rather than remove it — the tag stays reserved and
+it stays compatible in both families (see <<_authoring_guidelines>>).
+* *Adding a field*: OK if the new field is optional, repeated,
+  defaulted, `void`, a member of a union, or a mandatory field whose
+  type is an optional struct. Adding any other mandatory field is a
+  break ("new field `x` must not be required").
+* *Kind transitions*:
+** struct ↔ union: break;
+** class → struct: break;
+** struct → *parentless, non-abstract class*: OK (the binary decoder
+   accepts the old plain-struct encoding);
+** struct → abstract class or child class: break;
+** non-abstract class → abstract: break; abstract → non-abstract: OK.
+* Shuffling field declaration order while keeping names and tags: OK
+  (matching is by tag/name, never by position; `@noReorder` plays no
+  role here). Note that raw XML/SOAP consumers may still be
+  order-sensitive on the wire, which is outside the checker's scope.
+
+== Rules for enums
+
+* Making a non-strict enum `@strict`: *break* (old data may carry
+  undeclared values). Strict → non-strict: OK.
+* Removing a numeric value: *break in binary* (deliberately, even for
+  non-strict enums). The JSON/YAML/XML family only detects the
+  disappearance of the *name*: changing a value's number while keeping
+  its name passes a JSON/YAML/XML-only check.
+* Removing or renaming a value *name*: break in JSON/YAML/XML — unless
+  the old name survives as an `@alias` of some value (name matching is
+  case-insensitive and includes aliases).
+* Swapping the names/values of two members so that the name lookup and
+  the value lookup disagree: break under cross-consistency.
+* Adding new values: OK.
+
+== Rules for classes
+
+* Changing a *class id*: break in binary.
+* Changing a class *fullname* (renaming or moving it): break in
+  JSON/YAML/XML — unless the old fullname still resolves to the class
+  through a typedef (<<_renaming_or_moving_types>>).
+* Gaining `abstract`: break. Losing it: OK.
+* *Parent chain*: every old ancestor must still be found in the new
+  chain — matched by class id in binary, by fullname in JSON/YAML/XML
+  (the JSON/YAML/XML match is waived when every ancestor on both sides
+  carries no fields). Classes *newly inserted* into the chain (including
+  above a previously parentless class) must contain no mandatory field
+  other than optional-struct typed ones (note: unlike the new-field
+  rule, the inserted-parent check grants *no* exemption to mandatory
+  `void` fields). The matched ancestor pair is then checked recursively
+  like a struct.
+* Checking a class does not implicitly check its descendants — a
+  package-level check is needed to cover a whole hierarchy.
+
+== Rules for interfaces, RPCs and modules
+
+* Removing an RPC from an interface: break (by tag in binary, by name
+  in JSON/YAML/XML). Renaming an RPC: break in JSON/YAML/XML only.
+  Retagging: break in binary only. Adding an RPC: OK.
+* Changing an RPC's `in`/`out`/`throw` payload: checked with the struct
+  rules above.
+* Toggling an RPC between synchronous and asynchronous (`out null`):
+  break in *both directions*.
+* Removing an interface instance from a module, or renaming/retagging
+  it: break (name in JSON/YAML/XML, tag in binary). The module check is
+  shallow: the interfaces themselves are checked through the
+  package-level interface list.
+* Removing an interface or a module from a package: break.
+* *SNMP carve-outs*: when both the old and new interface are SNMP
+  interfaces, the checker skips them entirely, and enum-typed SNMP
+  trap parameters without a resolved enum description are skipped in
+  field checks.
+
+== Renaming or moving types
+
+Renaming a type, or moving it to another package, breaks the
+JSON/YAML/XML family (and the package-level existence check). The
+supported escape is a *typedef left at the old location*:
+
+[source,java]
+----
+package pkgA;
+
+/* MyStruct moved to pkgB */
+typedef pkgB.MyStruct MyStruct;
+----
+
+A checker must accept a typedef with the old name resolving to the
+moved type as satisfying the existence and fullname rules. Old JSON,
+YAML and XML documents naming `pkgA.MyStruct` remain decodable.
+
+Two caveats: the escape exists for *structs, unions and classes* only
+(not interfaces or modules), and when checking compiled
+xref:../impl/dso-iopsq.adoc[DSOs], it requires the new DSO to be
+recent enough to carry typedef tables.
+
+[#_escape_hatches]
+== Escape hatches
+
+Three boolean xref:../spec/attributes.adoc#_generic_attributes[generic
+attributes], read on the *new* definition, disable checks:
+
+[cols="2,3"]
+|===
+| Attribute | Effect
+
+| `@(compat:ignore, true)` | disables all compatibility checks for the
+  element
+| `@(compat:ignoreJson, true)` | disables the JSON/YAML/XML-family
+  checks only
+| `@(compat:ignoreBin, true)` | disables the binary checks only
+|===
+
+They may be placed on *structs/unions/classes*, on *interfaces* (which
+also covers their RPCs), and on individual *RPCs* — not on fields,
+enums or modules. On a type they take effect when that type is the
+*root* of a check (e.g. checked from the package level); they are *not*
+honored when the type is reached through the recursion from another,
+non-ignored type.
+
+== Authoring guidelines
+
+The rules above condense into habits:
+
+* *always preserve existing tags*, even implicit ones. When removing a
+  field, either explicitly tag the surrounding fields (and ideally the
+  whole struct), or — preferred — keep the field, change its type to
+  `void` and mark it `@deprecated`:
++
+[source,java]
+----
+struct Foo {
+    int    foo;
+    @deprecated
+    void   b;   /* removed in v2 (was: string, tag 2) */
+    bool   c;
+    double? d;  /* added in v2 */
+};
+----
+* *never add a mandatory member* to an existing type, and never make an
+  optional member mandatory; new fields are optional, repeated or
+  defaulted;
+* *do not change field types*, outside the widenings listed above;
+* *avoid renaming* fields, types, enum values and RPCs — it breaks
+  every name-based format; use typedefs and `@alias` when renaming is
+  unavoidable;
+* in one sentence: compatible changes are — adding an optional /
+  defaulted / repeated field, adding a union member, adding an enum
+  value, adding an RPC, widening an integer type, relaxing
+  `mandatory` to `optional`, turning a struct into a master class, and
+  retiring fields as `void`.
+
+== Checking
+
+Verifying these rules by hand is error-prone; implementations should
+provide a checker that compares two versions of a package set and
+reports every violation with the rule it breaks (in the reference
+implementation: `iop_struct_check_backward_compat`,
+`iop_pkg_check_backward_compat` and the `dso-compatibility-check` tool
+— see xref:../impl/c-runtime.adoc[Part II]). A useful checker property,
+used by the reference test suite: for every verdict, actually encoding
+a value with the old definition and decoding it with the new one agrees
+with the verdict.
