@@ -845,8 +845,8 @@ int log_make_fancy_prefix(lstr_t progname, int pid, char fancy[static 64])
         TERM_COLOR_PURPLE,
         TERM_COLOR_CYAN,
         TERM_COLOR_DEFAULT,
-        TERM_COLOR_BRIGHTER(TERM_COLOR_GREEN),
-        TERM_COLOR_BRIGHTER(TERM_COLOR_BLUE),
+        TERM_COLOR_BOLD(TERM_COLOR_BRIGHTER(GREEN)),
+        TERM_COLOR_BOLD(TERM_COLOR_BRIGHTER(BLUE)),
     };
     char buf_progname[64];
     uint32_t hash;
@@ -878,15 +878,22 @@ static void log_add_timestamp(sb_t *sb)
 
 #define LOG_COLOR_FUNCTION TERM_COLOR_YELLOW
 
-#define LOG_COLOR_LOGGER_NAME TERM_COLOR_BRIGHTER(TERM_COLOR_BLACK)
+#define LOG_COLOR_LOGGER_NAME TERM_COLOR_BOLD(TERM_COLOR_BRIGHTER(BLACK))
 
 #define LOG_COLOR_DEBUG TERM_COLOR_ITALIC(TERM_COLOR_DEFAULT)
-#define LOG_COLOR_WARNING TERM_COLOR_BRIGHTER(TERM_COLOR_YELLOW)
-#define LOG_COLOR_ERROR TERM_COLOR_BRIGHTER(TERM_COLOR_RED)
+#define LOG_COLOR_WARNING TERM_COLOR_BOLD(TERM_COLOR_BRIGHTER(YELLOW))
+#define LOG_COLOR_ERROR TERM_COLOR_BOLD(TERM_COLOR_BRIGHTER(RED))
 
+/* Keep both the bold attribute and the bright color: the bold preserves the
+ * exact rendering on legacy terminals (PuTTY, ...) that already promote bold
+ * to a brighter color, while the bright code gives the intended color on
+ * modern terminals where bold only changes the font weight. The background
+ * stays the standard (non-bright) red for legibility where bright backgrounds
+ * are weak.
+ */
 #define LOG_COLOR_CRIT                                                       \
-    TERM_COLOR_BRIGHTER(                                                     \
-        TERM_COLOR_COMBINE(TERM_COLOR_RED_BG, TERM_COLOR_WHITE)              \
+    TERM_COLOR_BOLD(                                                         \
+        TERM_COLOR_COMBINE(TERM_COLOR_RED_BG, TERM_COLOR_BRIGHTER(WHITE))    \
     )
 
 __attr_printf__(2, 0) static void log_stderr_fancy_handler(

@@ -963,8 +963,8 @@ Z_GROUP_EXPORT(log)
         TEST("shark", 1975, "\e[35m     shark[1975]\e[0m: ");
         TEST("elephant", 1941, "\e[36m  elephant[1941]\e[0m: ");
         TEST("lion", 1994, "\e[39m      lion[1994]\e[0m: ");
-        TEST("kangaroo", 2017, "\e[1;32m  kangaroo[2017]\e[0m: ");
-        TEST("ant", 1998, "\e[1;34m       ant[1998]\e[0m: ");
+        TEST("kangaroo", 2017, "\e[1;92m  kangaroo[2017]\e[0m: ");
+        TEST("ant", 1998, "\e[1;94m       ant[1998]\e[0m: ");
 
 #undef TEST
     }

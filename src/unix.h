@@ -386,8 +386,8 @@ __attr_nonnull__((1)) static inline int p_close(int *nonnull hdp)
 
 #define TERM_COLOR_COMBINE(c1, c2) c1 TERM_COLOR_SEP c2
 
-/* Modifiers. */
-#define TERM_COLOR_BRIGHTER(color) TERM_COLOR_COMBINE("1", color)
+/* Modifiers: SGR attributes prepended to a color string. */
+#define TERM_COLOR_BOLD(color) TERM_COLOR_COMBINE("1", color)
 #define TERM_COLOR_DIM(color) TERM_COLOR_COMBINE("2", color)
 #define TERM_COLOR_ITALIC(color) TERM_COLOR_COMBINE("3", color)
 #define TERM_COLOR_UNDERLINED(color) TERM_COLOR_COMBINE("4", color)
@@ -407,6 +407,17 @@ __attr_nonnull__((1)) static inline int p_close(int *nonnull hdp)
 #define TERM_COLOR_WHITE "37"
 #define TERM_COLOR_DEFAULT "39"
 
+/* Bright (intense) foreground colors (aixterm extension, SGR 90-97).
+ * There is no bright "default". */
+#define TERM_COLOR_BRIGHT_BLACK "90" /* renders as grey */
+#define TERM_COLOR_BRIGHT_RED "91"
+#define TERM_COLOR_BRIGHT_GREEN "92"
+#define TERM_COLOR_BRIGHT_YELLOW "93"
+#define TERM_COLOR_BRIGHT_BLUE "94"
+#define TERM_COLOR_BRIGHT_PURPLE "95"
+#define TERM_COLOR_BRIGHT_CYAN "96"
+#define TERM_COLOR_BRIGHT_WHITE "97"
+
 /* Background colors. */
 #define TERM_COLOR_BLACK_BG "40"
 #define TERM_COLOR_RED_BG "41"
@@ -418,14 +429,36 @@ __attr_nonnull__((1)) static inline int p_close(int *nonnull hdp)
 #define TERM_COLOR_WHITE_BG "47"
 #define TERM_COLOR_DEFAULT_BG "49"
 
+/* Bright (intense) background colors (SGR 100-107).
+ * There is no bright "default" background. */
+#define TERM_COLOR_BRIGHT_BLACK_BG "100"
+#define TERM_COLOR_BRIGHT_RED_BG "101"
+#define TERM_COLOR_BRIGHT_GREEN_BG "102"
+#define TERM_COLOR_BRIGHT_YELLOW_BG "103"
+#define TERM_COLOR_BRIGHT_BLUE_BG "104"
+#define TERM_COLOR_BRIGHT_PURPLE_BG "105"
+#define TERM_COLOR_BRIGHT_CYAN_BG "106"
+#define TERM_COLOR_BRIGHT_WHITE_BG "107"
+
+/* Select the bright variant of a base color by NAME.
+ *
+ * \example TERM_COLOR_BRIGHTER(GREEN)  -> TERM_COLOR_BRIGHT_GREEN  -> "92"
+ * \example TERM_COLOR_BRIGHTER(RED_BG) -> TERM_COLOR_BRIGHT_RED_BG -> "101"
+ *
+ * To brighten both a background and a foreground, combine two of them:
+ *   TERM_COLOR_COMBINE(TERM_COLOR_BRIGHTER(RED_BG),
+ *                      TERM_COLOR_BRIGHTER(WHITE))
+ */
+#define TERM_COLOR_BRIGHTER(name) TERM_COLOR_BRIGHT_##name
+
 #define TERM_COLOR_SET(color) "\e[" color "m"
 #define TERM_COLOR_RESET TERM_COLOR_SET("0")
 
 /** Build a colored string with the pre-processor.
  *
- * \example Print a title in bright (or bold) white.
+ * \example Print a title in bright white.
  *
- * printf(TERM_COLOR_S("Title:", TERM_COLOR_BRIGHTER(TERM_COLOR_WHITE)));
+ * printf(TERM_COLOR_S("Title:", TERM_COLOR_BRIGHTER(WHITE)));
  *
  * \example Print an error description in red.
  *

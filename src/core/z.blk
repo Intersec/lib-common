@@ -604,7 +604,7 @@ z_sb_add_lstr(sb_t *sb, lstr_t s, int first_diff_pos, bool full_hex)
             /* TODO Implement Myers diff algorithm and print a colored diff
              * instead of highlighting only the first different
              * character/byte. */
-            color = TERM_COLOR_BRIGHTER(TERM_COLOR_RED_BG);
+            color = TERM_COLOR_BOLD(TERM_COLOR_BRIGHTER(RED_BG));
             highlighting_done = true;
         }
 
@@ -737,8 +737,8 @@ int z_show_diff(
                     "s/^-/\\x1b[" TERM_COLOR_PURPLE "m-/;"
 
                     /* Additions: lines that start with '+'. */
-                    "s/^+/\\x1b[" TERM_COLOR_BRIGHTER(
-                        TERM_COLOR_CYAN
+                    "s/^+/\\x1b[" TERM_COLOR_BOLD(
+                        TERM_COLOR_BRIGHTER(CYAN)
                     ) "m+/;"
 
                       /* Line/column number information. */
@@ -981,7 +981,7 @@ static void print_test_summary(const char *outcome, const char *color)
         outcome = t_z_colored_str(outcome, color);
     }
     name = t_z_colored_lstr(
-        _G.grp.t_name, TERM_COLOR_BRIGHTER(TERM_COLOR_WHITE)
+        _G.grp.t_name, TERM_COLOR_BOLD(TERM_COLOR_BRIGHTER(WHITE))
     );
     printf(
         "%*d %s %*pM # (%ld.%06lds)", _G.grp.n_total_digits, _G.grp.t_idx,
@@ -993,7 +993,7 @@ static void print_test_summary(const char *outcome, const char *color)
 static void do_skip(void)
 {
     _G.grp.t_skipped++;
-    print_test_summary("skip", TERM_COLOR_BRIGHTER(TERM_COLOR_YELLOW));
+    print_test_summary("skip", TERM_COLOR_BOLD(TERM_COLOR_BRIGHTER(YELLOW)));
     printf(" %*pM\n", LSTR_FMT_ARG(_G.grp.t_skip_reason));
     fflush(stdout);
 }
@@ -1001,7 +1001,7 @@ static void do_skip(void)
 static void do_passed(void)
 {
     _G.grp.t_passed++;
-    print_test_summary("pass", TERM_COLOR_BRIGHTER(TERM_COLOR_GREEN));
+    print_test_summary("pass", TERM_COLOR_BOLD(TERM_COLOR_BRIGHTER(GREEN)));
     printf(" %d assertions\n", _G.grp.t_asserts);
     fflush(stdout);
 }
@@ -1009,7 +1009,7 @@ static void do_passed(void)
 static void do_failed(void)
 {
     _G.grp.t_failed++;
-    print_test_summary("fail", TERM_COLOR_BRIGHTER(TERM_COLOR_RED));
+    print_test_summary("fail", TERM_COLOR_BOLD(TERM_COLOR_BRIGHTER(RED)));
     printf("\n");
     do_fail_comment();
 }
