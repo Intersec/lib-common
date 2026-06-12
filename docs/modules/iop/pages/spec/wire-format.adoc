@@ -1,0 +1,417 @@
+= Binary wire format
+:toc:
+:numbered:
+
+This page is the normative definition of the IOP binary serialization.
+It is self-contained: an encoder and decoder can be implemented from this
+page alone.
+All multi-byte quantities are *little-endian* (one documented exception
+in <<optimized-arrays>>).
+
+== TLV model
+
+A serialized structure is a concatenation of *TLV records* (tag, length,
+value), one per present field, in ascending tag order. Each record
+starts with a *leading octet* combining a *wire type* (3 most
+significant bits) and a *tag* (5 least significant bits):
+
+----
+ 7  6  5  4  3  2  1  0
++--------+--------------+
+| wire   |    tag       |
+| type   |  (0 … 31)    |
++--------+--------------+
+----
+
+The wire type tells a decoder how to compute the size of the value —
+even for fields it does not know. The tag identifies the field.
+
+== Wire types
+
+[cols="1,2,5"]
+|===
+| Code | Name | Value layout after the tag
+
+| 0 | `BLK1`   | 1 octet of length _L_, then _L_ octets of data
+| 1 | `BLK2`   | 2 octets of length _L_ (LE), then _L_ octets
+| 2 | `BLK4`   | 4 octets of length _L_ (LE), then _L_ octets
+| 3 | `QUAD`   | 8 octets of data, no length
+| 4 | `INT1`   | 1-octet integer
+| 5 | `INT2`   | 2-octet integer (LE)
+| 6 | `INT4`   | 4-octet integer (LE)
+| 7 | `REPEAT` | repetition header for the current tag (see
+                <<repeated-fields>>)
+|===
+
+The block length chosen by an encoder is the smallest that fits: `BLK1`
+for lengths ≤ 255, `BLK2` ≤ 65535, `BLK4` beyond. Decoders accept any of
+the three for any block-typed value.
+
+== Tag encoding
+
+* Tags *1 to 29* are encoded inline in the 5 low bits of the leading
+  octet.
+* Tags *30 to 255*: the 5 low bits hold the marker value *30*, and the
+  tag follows in **1 extra octet**.
+* Tags *256 to 65535*: the 5 low bits hold the marker value *31*, and
+  the tag follows in **2 extra octets, little-endian**.
+
+The language restricts user tags to *1–32767*
+(xref:../spec/types.adoc#_tags[Types and fields]); the format itself can carry
+up to 65535.
+
+*Tag 0* never identifies a user field. It has exactly two roles on the
+wire: introducing each element of a `REPEAT` sequence, and carrying
+class ids inside class encodings (see below). Anywhere else, a tag-0
+record is a decoding error.
+
+== Scalar value encoding
+
+=== Integers, booleans, enums
+
+The payload of `INT1`/`INT2`/`INT4`/`QUAD` is the value in *truncated
+two's complement, little-endian* (not zigzag). Encoders choose the
+smallest width in which the value fits as a *signed* quantity:
+
+[cols="3,1"]
+|===
+| Value (as signed 64-bit) | Wire type
+
+| -128 … 127 | `INT1`
+| -32768 … 32767 | `INT2`
+| -2^31^ … 2^31^-1 | `INT4`
+| otherwise | `QUAD` (8 octets LE)
+|===
+
+Decoders *sign-extend* the payload to 64 bits, then range-check it
+against the declared field type (e.g. a value 300 decoded into a `byte`
+field is an error) — except for `long`/`ulong` fields, whose 64 raw bits
+are taken as-is. Any of the four integer wire types is acceptable for
+any integer, boolean or enum field, whatever width the encoder picked.
+
+Consequences of the signed interpretation:
+
+* unsigned values are reinterpreted as signed 64-bit before width
+  selection: a `ulong` in [2^63^, 2^64^−2^31^) uses `QUAD`, while
+  values within 2^31^ of 2^64^ reinterpret to small negatives and use
+  the narrower widths — the `ulong` value 2^64^-1 is encoded as
+  `INT1 FF` (one octet);
+* `uint` values above 2^31^-1 use `QUAD` (they do not fit `INT4` as
+  signed).
+
+Booleans are encoded as `INT1` with value 0 or 1. Enum values are
+encoded exactly like `int` (their 32-bit numeric value).
+
+=== Doubles
+
+Always `QUAD`: the IEEE-754 double representation, little-endian.
+
+=== Strings, bytes, xml
+
+A block (`BLK1`/`BLK2`/`BLK4`) whose payload is the content *followed by
+one NUL octet*, and whose length *counts that NUL* (a length of _n_+1
+for _n_ content octets). This applies to `bytes` as well as `string` and
+`xml`. Decoders must expose the content without the trailing NUL
+(length − 1 octets); a block of length 0 on such a field is invalid
+input and must be rejected. The trailing-NUL rule binds encoders;
+decoders are not required to verify that the final octet is NUL.
+
+=== Void
+
+A mandatory `void` field of a struct is *never written* (it carries no
+information). A `void` union member, or an optional `void` field that is
+present, is written as a block of length 0 (`BLK1`, length 0). When
+decoding into a `void` field, any INT/QUAD/BLK value is accepted and its
+content discarded.
+
+== Field presence
+
+* An *absent optional* field is simply omitted.
+* An *empty repeated* field is omitted.
+* A *field with a default value* is written like a mandatory field, even
+  when it equals the default. Encoders may offer a mode that omits
+  fields equal to their default — decoders cannot tell the difference,
+  since an absent defaulted field decodes to its default.
+* A mandatory `void` field is never written.
+
+On the decoding side, an absent field is handled per its declaration:
+optional → unset; repeated → empty (an error if the field carries
+`@minOccurs`); default → the default value; mandatory `void` →
+nothing; mandatory *struct or class* → tolerated and recursively
+default-initialized — this succeeds only if no transitive field is a
+mandatory scalar or mandatory union, and fails if the declared class
+is abstract; mandatory scalar or union → *error*.
+
+== Structs
+
+A struct value is the concatenation of its present fields' TLVs in
+ascending tag order.
+
+NOTE: Precisely, fields are written in *descriptor order*, which the
+compiler normally sorts by ascending tag whatever the declaration
+order; dynamically built type descriptions (IOP²) may keep declaration
+order, in which case pack order and the decode cursor follow it.
+
+* As a *top-level* value, a struct has no wrapper: the stream is the
+  concatenation itself.
+* As a *member* of another structure, the concatenation is wrapped in a
+  block (`BLK*`) carrying the member's tag; the block length is the
+  size of the inner encoding.
+
+== Unions
+
+A union value is *one single TLV*: the active member with its own tag.
+At top level it appears bare; as a member it is wrapped in a block like
+a struct. A `REPEAT` wire type is forbidden as the member of a union.
+When decoding a top-level union, trailing octets after the single TLV
+are an error.
+
+[#repeated-fields]
+== Repeated fields
+
+For a repeated field with _n_ elements:
+
+* *n = 0*: nothing is written.
+* *n = 1*: the element is written as a plain field TLV with the field's
+  own tag (indistinguishable from a non-repeated field).
+* *n ≥ 2*: a *repeat header*, then the elements:
++
+----
+[REPEAT«5 | tag]  count(4 octets LE)  elem₀ elem₁ … elemₙ₋₁
+----
++
+Every element — including the first — is a complete TLV whose tag is
+*0*. A decoded count must be ≥ 1, and every element must carry tag 0.
+
+NOTE: The reference decoder also tolerates a `REPEAT` sequence on a
+*non-repeated* field: the elements are skipped and the last one is
+decoded into the field. Encoders must never produce this; new decoders
+may treat it as an error.
+
+[#optimized-arrays]
+=== Optimized small-scalar arrays
+
+Exception: arrays (n ≥ 2) of the 1- and 2-octet scalar types — `byte`,
+`ubyte`, `short`, `ushort`, `bool` — are written as *one block* with the
+field's tag whose payload is the raw concatenation of the elements
+(_n_ × element size octets, no per-element tags or lengths). For
+2-octet elements the payload is in native memory order, little-endian on
+all supported platforms. Decoders must accept, for such fields, either
+this block form (whose length must be a multiple of the element size) or
+the generic `REPEAT` form, or a single plain TLV for one-element arrays.
+
+Because the element *size* is part of this encoding, widening the
+element type of such an array is not a compatible change
+(xref:../spec/compatibility.adoc[Backward compatibility]).
+
+== Classes
+
+A class instance is encoded as a flat sequence inside one block (or bare
+at top level): for each level of the inheritance chain, starting at the
+*most-derived* class and walking up to the root:
+
+. a *class-id marker*: an INT TLV with tag 0 whose value is that level's
+  class id (`INT1`/`INT2`/`INT4` per the integer width rules). When
+  decoding, the payload is sign-extended and *truncated to 16 bits*
+  (an `INT1` payload `85` yields id 0xFF85; excess high bits of an
+  `INT4` marker are silently dropped);
+. the TLVs of the fields declared at that level, in ascending tag order.
+
+The marker of the most-derived level is always written; the marker of an
+ancestor level may be omitted (together with nothing) when that level
+contributes no field, in which case the next written marker implicitly
+covers it.
+
+Attempting to encode an instance whose concrete class is abstract is a
+programming error (the reference implementation aborts), not a
+recoverable encoding failure.
+
+Decoding rules:
+
+* a tag-0 record inside a class means "change of level": the remaining
+  unseen fields of the current level are treated as absent;
+* the *first* class id met must identify the concrete class, which must
+  be the declared class or one of its descendants, and must not be
+  abstract; unknown ids are an error;
+* levels whose markers were skipped must only have fields that may be
+  absent;
+* if the buffer ends before the root level, the remaining levels'
+  fields are treated as absent;
+* compatibility case: a *parentless* class may be decoded from a plain
+  struct encoding with no class-id marker at all (this is what keeps
+  "struct turned into master class" a compatible change).
+
+== Decoder obligations
+
+Decoders walk the declared fields with a forward-only cursor while
+reading TLVs:
+
+* TLV tag *greater* than the current field's tag → the current field is
+  absent (apply <<_field_presence>>), advance the cursor;
+* TLV tag *less* than the current field's tag → the TLV is *unknown
+  data*: skip it silently using its wire type (BLK: read the length and
+  skip; INT1/2/4: skip 1/2/4; QUAD: skip 8; REPEAT: read the count and
+  recursively skip that many tag-0 TLVs);
+* consequence: duplicate tags and out-of-order records are not errors —
+  they are skipped as unknown data;
+* once the last declared field has been passed, trailing records with
+  tags *above* the last declared tag are skipped using their wire type
+  (fields added by newer versions); on meeting a trailing record whose
+  tag is ≤ the last declared tag, the reference decoder stops and
+  silently ignores the *entire remainder* of the buffer without
+  validating it — the wire-type skipping guarantee only holds before
+  that point;
+* unknown-field skipping is unconditional — the binary decoder needs no
+  "ignore unknown" option;
+* decoded values must satisfy the field's declared range and the
+  xref:../spec/attributes.adoc[constraint attributes] — on the encoding side, a
+  constraint violation detected by an encoder that validates (strict
+  mode) is the only recoverable error, as out-of-range values cannot
+  arise from correctly typed storage;
+* implementations should provide a mode that rejects input setting
+  `@private` fields.
+
+Error conditions: truncated input; wire type incompatible with the field
+type; integer out of the declared type's range; zero-length block on a
+string/bytes/xml field; `REPEAT` count of 0 or missing tag-0 element
+introducer; `REPEAT` as union member; union TLV whose tag matches no
+member; absent mandatory scalar or union; tag-0 record outside
+`REPEAT`/class contexts; constraint violations; class errors (unknown
+id, abstract concrete class, id not a descendant of the declared
+class).
+
+== Worked examples
+
+All byte sequences below were produced by the reference implementation.
+
+=== Scalars and width selection
+
+[source,java]
+----
+struct Error {
+    int    code;   /* tag 1 */
+    string desc;   /* tag 2 */
+};
+----
+
+[cols="3,4"]
+|===
+| Value | Encoding
+
+| `{code: 1, desc: ""}` | `81 01  02 01 00` — `81` = INT1, tag 1; `01` =
+  1; `02` = BLK1 tag 2; length `01`; content = the lone NUL
+| `{code: -1, desc: ""}` | `81 FF  02 01 00` — -1 fits INT1
+| `{code: 300, desc: ""}` | `A1 2C 01  02 01 00` — `A1` = INT2 tag 1;
+  `2C 01` = 300 LE
+| `{code: -300, desc: ""}` | `A1 D4 FE  02 01 00` — `D4 FE` = -300
+| `{code: 70000, desc: ""}` | `C1 70 11 01 00  02 01 00` — INT4
+| `{code: 1, desc: "Hello"}` | `81 01  02 06 48 65 6C 6C 6F 00` —
+  length 6 = 5 content octets + NUL
+|===
+
+A `ulong` field `u` (tag 1) holding 2^64^-1 encodes as `81 FF` — one
+octet, via the signed reinterpretation; holding 5 000 000 000 it encodes
+as `61 00 F2 05 2A 01 00 00 00` (`61` = QUAD tag 1).
+
+=== Optional fields and unions
+
+A struct whose optional/repeated fields are all absent encodes as *zero
+octets*.
+
+[source,java]
+----
+union MyUnion {
+    int    i;   /* tag 1 */
+    Other  a;   /* tag 2 */
+    Tab    t;   /* tag 3 */
+    string s;   /* tag 4 */
+    double d;   /* tag 5 */
+};
+----
+
+[cols="2,4"]
+|===
+| Value | Encoding (top level)
+
+| `{i: 0x55}` | `81 55`
+| `{s: "hi"}` | `04 03 68 69 00` — BLK1 tag 4, length 3 = "hi" + NUL
+| `{d: 1.0}` | `65 00 00 00 00 00 00 F0 3F` — QUAD tag 5, IEEE-754 LE
+|===
+
+[source,java]
+----
+union VoidUnion {
+    void a;   /* tag 1 */
+    int  b;   /* tag 2 */
+};
+----
+
+`{a: <void>}` → `01 00` (BLK1 tag 1, length 0); `{b: 3}` → `82 03`.
+A struct `{ void a; }` encodes as zero octets; a struct `{ void? a; }`
+with `a` present encodes as `01 00`.
+
+=== Repeated fields
+
+[source,java]
+----
+struct StructF {
+    string s;   /* tag 1 */
+    int[]  i;   /* tag 2 */
+};
+----
+
+[cols="3,4"]
+|===
+| Value | Encoding
+
+| `{s: "", i: [7]}` | `01 01 00  82 07` — single element written as a
+  plain INT1 TLV with the field's tag
+| `{s: "", i: [1, 2, 3]}` | `01 01 00  E2 03 00 00 00 80 01 80 02 80
+  03` — `E2` = REPEAT tag 2; count 3 (LE32); three elements `80 nn` =
+  INT1 *tag 0*
+|===
+
+A repeated string field (tag 3) holding `["x", "y"]`:
+`E3 02 00 00 00  00 02 78 00  00 02 79 00` — each element is a BLK1
+with tag 0 and a NUL-counted length.
+
+=== Nested structs
+
+[source,java]
+----
+struct StructD {
+    StructA a;       /* tag 1, all-optional struct */
+    int     i = 0;   /* tag 2 */
+};
+----
+
+`{a: {}, i: 1}` → `01 00  82 01`: the nested struct is a BLK1 of length
+0; the defaulted field is written although a "skip defaults" encoder
+mode could omit it.
+
+=== Classes
+
+[source,java]
+----
+class ClassA : 1 {           /* master class            */
+    int     field1 = 0;      /* tag 1                   */
+    int?    optField;        /* tag 2                   */
+    string? strField;        /* tag 3                   */
+};
+
+class ClassB : 2 : ClassA {
+    int field2 = 0;          /* tag 1 (of this level)   */
+};
+----
+
+[cols="3,4"]
+|===
+| Value | Encoding (top level)
+
+| `ClassA{field1: 5}` | `80 01  81 05` — `80 01` = INT1 *tag 0*
+  carrying class id 1; then field1
+| `ClassB{field1: 5, field2: 9}` | `80 02  81 09  80 01  81 05` —
+  most-derived level first: id 2, field2; then the parent level: id 1,
+  field1
+| `ClassB{}` (all defaults) | `80 02 81 00 80 01 81 00`
+|===

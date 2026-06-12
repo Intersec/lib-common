@@ -12,6 +12,8 @@
 **** xref:spec/interfaces-modules.adoc[Interfaces, RPCs and modules]
 **** xref:spec/snmp.adoc[SNMP extensions]
 **** xref:spec/doc-comments.adoc[Documentation comments]
+*** Serialization formats
+**** xref:spec/wire-format.adoc[Binary wire format]
 ** Legacy pages
 *** xref:wire-format.adoc[Wire format]
 *** xref:inheritance.adoc[Class inheritance]
