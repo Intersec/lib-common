@@ -1,0 +1,150 @@
+= XML and SOAP representation
+:toc:
+:numbered:
+
+The XML representation is used for SOAP web services (described by
+generated xref:../impl/generators.adoc[WSDL]) and legacy integrations.
+Identity of fields is by *name*.
+
+== Document model
+
+A struct value is a *sequence of elements, one per present field, in
+declaration order*, with the element's local name equal to the field
+name. The serialization itself produces no wrapper element and no
+namespace declarations: the enclosing document (for instance the SOAP
+envelope) provides the root element, which must declare
+`xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"` (and
+`xmlns:xsd` when xsi-typed output is used).
+
+[source,xml]
+----
+<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <a>20</a>
+  <b>blah</b>
+</root>
+----
+
+Symmetrically, the decoder starts on the first field element and
+consumes the parent's closing tag.
+
+== Value mapping
+
+[cols="1,2,3"]
+|===
+| IOP type | Output | Accepted input
+
+| integers | decimal | C integer syntax: decimal, hex `0x…`, octal
+  `0…`; surrounding whitespace tolerated; range-checked
+| `bool` | `1` / `0` | `0`, `1`, `true`, `false` (case-insensitive)
+| `double` | `%.17g`; ±infinity as `INF`/`-INF` | `strtod` forms,
+  case-insensitive `inf`/`nan`
+| `string` | XML-escaped (`&amp;` `&lt;` `&gt;` `&#39;` `&#34;`); tab,
+  CR, LF kept literal; other control characters are *silently
+  dropped* (invalid in XML 1.0) | element text (entities resolved);
+  empty element → empty string
+| `string` with `@cdata` | wrapped verbatim in `<![CDATA[ … ]]>`
+  (beware: content containing `]]>` produces malformed XML) |
+  transparent (CDATA merges into text)
+| `bytes` | Base64 | Base64 (`value isn't valid base64` otherwise)
+| `xml` | the value inserted *verbatim* (must be well-formed) | the
+  inner XML of the element, re-serialized into the string
+| enums | numeric value by default; the *name* in "literal enums"
+  mode | name or integer, both always accepted
+| `void` | empty element with `xsi:nil="true"` (mandatory void fields
+  are not emitted at all) | content ignored
+|===
+
+In *verbose mode*, each scalar element also carries an
+`xsi:type="xsd:…"` attribute (`xsd:int`, `xsd:string`,
+`xsd:base64Binary`, …); decoders ignore these attributes.
+
+== Presence, repeated fields, defaults
+
+* Absent optional fields are omitted; there is no `xsi:nil`-based
+  absence form — an optional scalar present as an *empty element* is
+  an error (`node value is missing`), absence means omitting the
+  element.
+* A repeated field is a run of *consecutive* elements with the same
+  name; an empty array emits nothing.
+* Default-valued fields are always emitted; on input, an absent
+  defaulted field takes its default.
+* Field elements must appear in *declaration order*: the decoder scans
+  forward only, so an element appearing before its declared position
+  (or a repeated run split in two) is reported as an unknown tag.
+  Skipped positions are treated as absent (error for mandatory
+  scalars: `missing mandatory tag <name>`).
+* Unknown elements are an error by default; in "ignore unknown" mode
+  the whole subtree is skipped. A "forbid private" mode rejects input
+  setting `@private` fields (`private tag <name>`).
+
+== Unions
+
+One element: the active member, inside the field's wrapper element —
+
+[source,xml]
+----
+<choice><wantInt>42</wantInt></choice>
+----
+
+The decoder requires exactly one child, matched against the member
+names (`unknown tag <name>` otherwise).
+
+== Classes
+
+The element of a class-typed value carries the concrete class in an
+`xsi:type` attribute whose value is the fully-qualified IOP name, with
+a namespace prefix:
+
+[source,xml]
+----
+<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:type="n:test.B1">
+  <a>20</a>
+  <b>blah</b>
+</root>
+----
+
+* Fields appear *parents first* (root ancestor down to the concrete
+  class), and that order is required on input.
+* On input the attribute is matched by local name `type` whatever its
+  prefix, and the value's prefix (before `:`) is ignored; the named
+  class must exist (`class 'X' not found`), must be the expected class
+  or one of its descendants (`class 'X' is not a child of 'Y'`), not
+  abstract, and not `@private` (in forbid-private mode).
+* The attribute may be *omitted* when the static type is concrete (the
+  instance is then exactly of that type); it is mandatory when the
+  static type is abstract.
+* The reference encoder uses the prefix `n`, expected to be bound by
+  the enclosing SOAP serializer.
+
+== Parser requirements
+
+The decoder operates on a stream with: whitespace-only text nodes
+dropped, CDATA merged into text, comments and processing instructions
+skipped, no network access for external entities, and *no mixed
+content* (text and elements as siblings is unsupported). Attributes
+other than `xsi:type` and `href` are ignored.
+
+=== Multipart attachments
+
+When decoding multipart messages (SOAP with attachments / XOP), a
+`string` or `bytes` field may reference a MIME part by Content-ID:
+
+[source,xml]
+----
+<doc href="cid:1234"/>                       <!-- SwA style -->
+<doc><Include href="cid:1234"/></doc>        <!-- XOP style -->
+----
+
+The `cid:` prefix is mandatory; unknown ids and `href` without an
+attachment table are errors. Part content is used as-is (not
+Base64-decoded).
+
+== SOAP usage
+
+RPC payloads travel inside a standard SOAP 1.1 envelope: the request
+body contains a `<n:RpcReq>`-style element wrapping the `in` payload,
+the response a `<n:RpcRes>` wrapping the `out` payload, and exceptions
+map to `<s:Fault>` with the `throw` payload under `<detail>`. The
+WSDL generator (xref:../impl/generators.adoc[Part II]) publishes the
+matching document/literal contract.

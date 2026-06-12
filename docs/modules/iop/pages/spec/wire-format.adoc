@@ -1,6 +1,7 @@
 = Binary wire format
 :toc:
 :numbered:
+:page-aliases: wire-format.adoc
 
 This page is the normative definition of the IOP binary serialization.
 It is self-contained: an encoder and decoder can be implemented from this

@@ -14,6 +14,9 @@
 **** xref:spec/doc-comments.adoc[Documentation comments]
 *** Serialization formats
 **** xref:spec/wire-format.adoc[Binary wire format]
+**** xref:spec/json.adoc[JSON representation]
+**** xref:spec/yaml.adoc[YAML representation]
+**** xref:spec/xml.adoc[XML and SOAP representation]
 *** xref:spec/compatibility.adoc[Backward-compatibility rules]
 ** Reference implementation
 *** xref:impl/iopc.adoc[The iopc compiler]
@@ -21,5 +24,4 @@
 *** xref:impl/c-mapping.adoc[C language mapping]
 *** xref:impl/c-runtime.adoc[C runtime library]
 ** Legacy pages
-*** xref:wire-format.adoc[Wire format]
 *** xref:library-c.adoc[C library]

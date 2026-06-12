@@ -1,0 +1,238 @@
+= JSON representation
+:toc:
+:numbered:
+
+The JSON representation of IOP values has two faces: a *canonical
+output* produced by encoders, and a deliberately *lenient input
+grammar* accepted by decoders (a superset of RFC 8259 JSON). Identity
+of fields is by *name*; the xref:../spec/compatibility.adoc[compatibility]
+rules of the JSON family apply.
+
+== Canonical output
+
+* Member names are the field names as declared (camelCase), always
+  double-quoted, in *declaration order*.
+* Pretty layout by default: 4-space indentation, `": "` after keys,
+  one field per line, and a trailing newline; encoders also provide a
+  compact mode (no whitespace).
+
+=== Value mapping
+
+[cols="1,4"]
+|===
+| IOP type | JSON output
+
+| integers | bare decimal numbers — except that values whose magnitude
+  is ≥ 2^53^ are emitted as *quoted decimal strings* so that
+  JavaScript readers do not lose precision (encoders may offer an
+  "unsafe integers" mode that always emits bare numbers)
+| `double` | `%.17g` decimal; *NaN and ±Infinity are emitted as
+  `null`*
+| `bool` | `true` / `false`
+| `string`, `xml` | quoted string; printable ASCII except `"` and `\`
+  is emitted raw, everything else (control characters, `"`, `\`,
+  non-ASCII) as `\uXXXX` escapes, with surrogate pairs beyond the BMP.
+  Input text is treated as UTF-8 (invalid bytes as Latin-1)
+| `bytes` | Base64 in a quoted string, unwrapped
+| enums | the value's *name* as a string; an undeclared numeric value
+  falls back to the bare integer
+| `void` | `null` (union members and present optional voids); a
+  mandatory void field of a struct is never emitted
+| structs | nested objects
+|===
+
+=== Presence
+
+* Absent optional fields are *omitted* (never `null`).
+* Repeated fields are always arrays (`[]` when empty); single-line
+  format `[ v1, v2 ]`.
+* Default-valued fields are emitted, even when equal to their default.
+* Encoders provide lossless reduction modes — skip fields equal to
+  their default, skip empty arrays, skip empty sub-structs, skip the
+  `_class` of instances whose dynamic type equals the static type —
+  and lossy ones — skip `@private` fields, never emit `_class`,
+  truncate long Base64 values.
+
+=== Unions
+
+A union is an object with the single active member, on one line:
+
+[source,json]
+----
+{ "wantInt": 42 }
+----
+
+=== Classes
+
+A class instance is an object whose *first* member is `"_class"`, the
+fully-qualified name of the concrete class; the fields follow from the
+*root ancestor down* to the concrete class:
+
+[source,json]
+----
+{
+    "_class": "test.B1",
+    "a": 20,
+    "b": "blah"
+}
+----
+
+Encoding an abstract concrete class is an error.
+
+== Lenient input
+
+Decoders accept the following extensions over strict JSON:
+
+* *comments*: `/* … */` (non-nesting), `// …` and `# …` to end of
+  line (an unterminated `/* … */` comment is an error);
+* *unquoted member names*: identifiers `[A-Za-z][A-Za-z0-9_]*`;
+* *single-quoted strings* wherever double-quoted ones are accepted;
+* `=` as an alias for `:`, `;` as an alias for `,`;
+* *trailing separators* in arrays and objects (separators between
+  members remain mandatory);
+* *integer literals* in C syntax: decimal, hex `0x…`, octal `0…`, with
+  the optional xref:../spec/lexical.adoc#_unit_suffixes[unit suffixes]
+  (`s m h d w`, `K M G T`) — a literal that overflows or falls outside
+  the field's range, or that carries an unrecognized unit suffix, is an
+  error;
+* *arithmetic constant expressions* on integers, with the
+  xref:../spec/lexical.adoc#_constant_expressions[constant-folder operators]
+  (`-0x7fffffffffffffff + (-1)` is valid input); quoted enum names may
+  be operands; a malformed expression is an error;
+* *character literals* `c'x'` / `c"x"` (with the string escape set)
+  as integer values;
+* keyword aliases: `yes`/`no` for `true`/`false`, `nil` for `null` —
+  all accepted for booleans and numeric coercions;
+* doubles with leading dot (`.42`) and exponents; quoted `"inf"`,
+  `"nan"` strings coerce into double fields;
+* a *repeated field may be given a single value* without brackets
+  (one-element array);
+* string escapes: the C set plus `\'`, `\/`, octal `\NNN`, `\xHH`,
+  `\uHHHH` with surrogate-pair recombination; unknown escapes are kept
+  literally; a raw newline inside a string, or a string that is never
+  closed, is an error.
+
+The top-level value must be an object (`{…}` or the prefixed syntax
+below).
+
+Decoding errors are reported with `line:col:` positions; an unexpected
+token, or an invalid identifier or value, is an error.
+
+=== Accepted coercions
+
+[cols="2,2,4"]
+|===
+| Input | Field type | Behavior
+
+| `true`/`false` (and quoted forms) | integers, double, enum | 1 / 0
+| integer | double | exact conversion
+| integer | bool | only 0 or 1
+| quoted string | integer types | parsed as a C integer (hex/octal
+  allowed, *no* unit suffixes)
+| quoted string | double | parsed with `strtod`
+| quoted string | bytes | Base64-decoded
+| `null` | string/bytes/xml | the null (absent) string value
+| `null` | optional field | field absent — except *optional void*,
+  which `null` marks as *present*
+| double literal | integer types | *rejected*
+|===
+
+Constraints (xref:../spec/attributes.adoc[attributes]) are checked field by
+field during decoding; a violation is an error.
+
+=== Unions
+
+Three input forms:
+
+[source,json]
+----
+/* 1 — standard object (exactly one member) */
+{ "choice": { "b": true } }
+
+/* 2 — dotted syntax for a union-typed field */
+{ "choice.b": true }
+
+/* 3 — leading-dot syntax inside arrays of unions */
+{ "choices": [ .b: true, .i: 42 ] }
+----
+
+The dotted forms chain for unions inside unions; using them on a
+non-union field is an error.
+
+=== Prefixed syntax
+
+One *scalar* member (any non-repeated field that is not a
+struct/union/class) may be pulled out in front of the object and written
+`@name value`, with the remaining members following in braces. Given:
+
+[source,java]
+----
+struct Endpoint {
+    string host;
+    int    port;
+};
+----
+
+these two inputs are equivalent:
+
+[source,json]
+----
+/* plain object */
+{ "host": "foo.example.org", "port": 80 }
+
+/* prefixed form: the "host" member is hoisted out with @ */
+@host "foo.example.org" { "port": 80 }
+----
+
+This is accepted at top level and in nested struct values.
+
+=== Enums
+
+Enum values are matched by *name, ASCII case-insensitively*, including
+`@alias` names (a name matching no declared value is an error). A
+quoted integer, a bare integer or an expression is also accepted with
+only an int32 range check — *undeclared values are
+accepted even for `@strict` enums*; this is an implementation quirk of
+the reference decoder: do not rely on it, strict enums should be fed
+declared values only.
+
+=== Field matching, unknown and missing fields
+
+* Member names match the declared field names *case-sensitively* (the
+  reference implementation offers a `USE_C_CASE` option matching
+  snake_case input instead). Duplicate members are an error.
+* Unknown members are an error by default; decoders provide an
+  "ignore unknown" mode that skips the value (with full lenient
+  syntax). An input setting a `@private` field can be rejected
+  ("forbid private" mode).
+* Missing fields: optional → absent; defaulted → default; repeated →
+  empty; mandatory struct/class → recursively default-constructed when
+  possible; mandatory void → fine; any other mandatory field → error.
+
+=== Classes
+
+`"_class"` may appear *anywhere* in the object (decoders re-scan, so
+first position is fastest). It must be a string holding the
+fully-qualified name of the expected class or one of its descendants;
+unknown names, non-descendants and abstract classes are errors. It may
+be *omitted* when the static type is concrete — the instance is then
+of exactly that type — and is *mandatory* when the static type is
+abstract.
+
+=== File inclusion
+
+When decoding *from a file*, a value may be replaced by
+`@include("relative/path")`:
+
+* for `string`/`bytes`/`xml` fields, the raw file content becomes the
+  value (bytes are *not* Base64-decoded);
+* for struct/union/class fields, the file is parsed as the JSON
+  representation of that type;
+* paths are relative to the including file; includes nest to arbitrary
+  depth with cycle detection. An unreadable file, an `@include` on a
+  field type that does not support it, or a recursive include is an
+  error.
+
+Encoders can reverse the operation: given a list of (IOP path, file
+path) pairs, matching sub-values are written to their own files and
+replaced by `@include(…)` (one level deep).

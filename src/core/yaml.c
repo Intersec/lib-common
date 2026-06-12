@@ -44,7 +44,9 @@ static struct yaml_g {
  *  * AST API: creating/manipulating YAML AST from code.
  *
  * Not all of YAML 1.2 is supported, and custom features are added on top of
- * it. See README-iop-yaml.adoc for a description of handled features.
+ * it. See the "YAML representation" page of the IOP documentation
+ * (docs/modules/iop/pages/spec/yaml.adoc) for a description of handled
+ * features.
  *
  * In addition to AST, presentation data is parsed and used when packing.
  * Presentation data is everything that is related to how a document is

@@ -1,0 +1,230 @@
+= YAML representation
+:toc:
+:numbered:
+
+IOP values can be read from and written to YAML — the format of choice
+for configuration files, thanks to comments, includes, overrides and
+variables. The supported language is a deliberate *subset* of YAML
+with IOP-specific extensions; this page specifies it exactly. Identity
+of fields is by *name* (the xref:../spec/compatibility.adoc[JSON-family
+compatibility rules] apply).
+
+== The supported YAML subset
+
+* One document per stream: *no* `%YAML` directives, no `---`/`...`
+  document markers (content after the document is an error —
+  `extra characters after data`).
+* *No anchors or aliases* (`&`, `*`).
+* Comments: `#` to end of line.
+* Indentation is significant; *tab characters in indentation are
+  forbidden* (`tab character detected`).
+* Block style: mappings `key: value`, sequences `- item`, with strict
+  alignment per collection (a sequence may sit at the same indentation
+  as its parent key); misaligned content is a `wrong indentation`
+  error.
+* Flow style: `[a, b]` and `{k: v}`, nested flow only, trailing comma
+  allowed; only `key: value` pairs inside `{…}`; tags and variables
+  are not available inside flow collections.
+* Keys: `[a-zA-Z][a-zA-Z0-9_~-]*`, followed by `:` and a space or end
+  of line (a key without its `:` is a `missing colon` error, and a `:`
+  where none is expected an `unexpected colon`). Duplicate keys are an
+  error.
+* Tags: a single `!name` per node (declaring more is `two tags have
+  been declared`). Three reserved tags — `!bin`,
+  `!include:<path>`, `!includeraw:<path>` — everything else is an IOP
+  type name. No `!!` shorthands, no `!<…>` verbatim form.
+
+== Scalars
+
+[cols="2,4"]
+|===
+| Kind | Syntax
+
+| null | `~` or `null` (case-insensitive); an absent value is also
+  null. Canonical output: `~`
+| booleans | `true` / `false`, case-insensitive on input, lowercase on
+  output
+| integers | decimal only: `154`, `-23` (no hex/octal, no unit
+  suffixes)
+| doubles | `-15.23`, scientific notation accepted on input; special
+  values `.Inf`, `-.Inf`, `.NaN` (case-insensitive)
+| strings | plain (unquoted, runs to end of line or `#`) or
+  *double-quoted* with escapes. Single quotes have no special meaning;
+  there are no block scalars (`\|`, `>`) and no multi-line plain
+  scalars
+| binary | `!bin "<Base64>"` — the tag is only valid on strings and
+  the content must be valid Base64
+|===
+
+Double-quoted escapes: `\a \b \e \f \n \r \t \v \" \\ \' \/`, `\0`,
+octal `\ooo`, `\xHH`, and `\uHHHH` with *exactly four* hex digits
+(surrogate pairs recombine); a backslash before a newline continues
+the string.
+
+When *writing*, a string is quoted when it could parse as something
+else: empty, equal to `~`/`null`, starting with one of
+`! & * - . [ {`, containing `:`/`#`/control characters/`$(`, or with
+leading/trailing whitespace. Non-ASCII and invalid UTF-8 are written
+as `\uXXXX` escapes.
+
+== Sequences and objects
+
+[source,yaml]
+----
+elements:
+  - 4 2
+  - ~
+  - name: "Anna"
+inline: [ foo, ~, key: val ]
+----
+
+A sequence element carrying a `key: value` directly (in flow form)
+becomes a one-pair object. Decoders map sequences to repeated fields —
+including the coercion of a lone scalar into a one-element array — and
+objects to structs/unions/classes.
+
+== Structs, unions, classes
+
+* A *struct* is an object; field names are the declared IOP names.
+* A *union* is a one-key object: `choice: { b: true }` or in block
+  form a single `b: true` under the field.
+* A *class* instance may carry its concrete class as a tag:
++
+[source,yaml]
+----
+resource: !test.UserResource
+  name: "n"
+  userLogin: "u"
+----
++
+The tag is the fully-qualified class name, required only when the
+concrete class differs from the field's static type; without a tag the
+instance is of exactly the static type (which must not be abstract).
+Fields appear parents-first. A tag naming the exact expected type is
+also tolerated on structs and unions (and dropped on re-encoding);
+tags on scalar fields are an error.
+* `~` decodes into a struct or class *with no mandatory scalar
+  fields*, into an absent optional, an empty array, an absent
+  string, or a present `void`.
+* Enum values are written as their names and read as names or
+  integers (strict enums validate the value).
+* Numbers and booleans coerce into string fields using their source
+  text; integers coerce into doubles.
+
+IOP mapping failures — type mismatches, out-of-range values, invalid
+enum values, invalid Base64, unknown or missing fields, wrong union
+arity, tag/class mismatches, constraint violations — are reported as
+`cannot set field …: …`. All errors are located as
+`<file>:<line>:<col>: <message>` with the offending source line.
+
+Canonical output skips fields equal to their default, empty arrays,
+empty sub-structs and optional class names; empty collections are
+written `{}` / `[]`; `bytes` are written `!bin <base64>`; indentation
+is two spaces.
+
+== Includes
+
+[source,yaml]
+----
+config: !include:sub/part.yml
+logo:   !includeraw:logo.png
+----
+
+* `!include:<path>` parses the referenced YAML file and inlines it.
+* `!includeraw:<path>` inserts the raw file content (binary scalar).
+* Paths are relative to the including file, and an include may not
+  escape the directory of the *top-level* file (paths resolving
+  outside are rejected); symbolic links are canonicalized; inclusion
+  loops are detected and rejected; an unreadable referenced file is an
+  error. Errors inside an included file are wrapped in one `error in
+  included file` header per inclusion level.
+
+When re-encoding with presentation data (below), included subfiles are
+recreated; identical shared subfiles are deduplicated.
+
+== Overrides
+
+Data placed *under* an include overrides the included content:
+
+[source,yaml]
+----
+config: !include:base.yml
+  key: 2
+  obj:
+    a: 3
+  seq:
+    - 5
+----
+
+Rules:
+
+* the override payload must be an object (`override data after
+  include must be an object`);
+* each key is merged recursively into the included data: an existing
+  scalar is *replaced*, an existing object is merged key by key, an
+  existing *sequence is appended to* (overrides are additive for
+  sequences), a missing key is added;
+* the override may not change the kind of a node (`cannot change types
+  of data in override`) — except that a *null* in the included data
+  may be overridden by anything;
+* scalar kind changes (string → int, …) are allowed.
+
+== Variables
+
+An included file may contain *variables*, bound by the includer:
+
+[source,yaml]
+----
+# sub.yml
+name: $(name)
+greeting: "hello $(name)\n"
+
+# main.yml
+who: !include:sub.yml
+  variables:
+    name: "Alice"
+----
+
+* Syntax `$(name)`, name = `[a-zA-Z][a-zA-Z0-9_~-]*`.
+* Bindings are given in the *first* key, `variables:`, of the override
+  object; binding a name that the included file does not use is an
+  error.
+* A value that is *exactly* `$(x)` (raw occurrence) may be bound to
+  any data; an occurrence inside a string must be bound to a scalar,
+  and such a binding may not itself contain variables. Raw bindings
+  and override values may contain variables — they simply become
+  variables of the *including* document, to be bound further out.
+* `\$(` escapes the construct inside double-quoted strings only.
+* Variables are forbidden inside flow collections.
+* Unbound variables at the end of the top-level parse are an error
+  (`there are unbound variables: …`).
+
+== Merge keys
+
+A limited form of YAML merge keys is supported:
+
+[source,yaml]
+----
+base: &ignored            # (no anchors: value written inline)
+merged:
+  <<:
+    a: 1
+    b: 2
+  b: 3                    # later keys override the merged content
+----
+
+* `<<:` must be the *first* key of its object; its value is an object
+  or a sequence of objects (tags forbidden inside).
+* Contrary to the YAML 1.1 specification (first wins), the semantics
+  here are *last wins*: each successive source, and then the sibling
+  keys, override what precedes — consistent with the override
+  mechanism.
+
+== Presentation round-trip
+
+Parsers can capture *presentation data* — comments, empty lines, flow
+mode, quoting, `~` vs absent, include structure, override and
+variable templates — as an IOP value (`yaml.DocumentPresentation`),
+and encoders can re-apply it, allowing tools to rewrite YAML
+configuration files while preserving their formatting and file
+layout.
