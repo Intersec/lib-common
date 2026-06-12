@@ -1,0 +1,137 @@
+= IOP — Intersec Object Packer
+:toc:
+:numbered:
+
+== What is IOP?
+
+IOP (_Intersec Object Packer_) is Intersec's interface description language
+(IDL) and serialization framework. From a single description of your data
+types and service interfaces written in the IOP language, you get:
+
+* a compact, backward-compatible *binary* serialization format;
+* alternative *JSON*, *YAML* and *XML* representations of the same data;
+* *RPC* definitions (interfaces and modules) usable over several transports;
+* generated native code for the supported languages (C, TypeScript, Rust) and
+  runtime bindings for others (Python).
+
+The concept is similar to
+https://developers.google.com/protocol-buffers/docs/overview[Google Protocol
+Buffers]: data structures are described in a dedicated language, every field
+carries a numeric _tag_, and the wire formats are designed so that
+independently evolved producers and consumers remain compatible as long as a
+set of evolution rules is respected. Unlike Protocol Buffers, tags need not
+be written explicitly: they are assigned automatically in declaration order
+unless you set them by hand.
+
+== A complete example
+
+IOP definitions live in `.iop` files. A file declares a _package_ and a set
+of types and interfaces:
+
+[source,java]
+----
+package exiop;
+
+enum Severity {
+    DEBUG = 0,
+    INFO,
+    ERROR,
+};
+
+/** A log event. */
+struct Event {
+    /** Unique identifier of the event. */
+    ulong     id;
+    Severity  severity = SEVERITY_INFO;  /* field with a default value */
+    string?   details;                   /* optional field             */
+    string[]  tags;                      /* repeated field (array)     */
+};
+
+union EventFilter {
+    Severity bySeverity;
+    string   byTag;
+};
+
+/** Classes support single inheritance; `Resource` is a master class. */
+class Resource {
+    string name;
+};
+
+class UserResource : 1 : Resource {
+    string userLogin;
+};
+
+interface EventIface {
+    push
+        in    (Event ev)
+        out   (ulong seqno)
+        throw (int code, string desc);
+};
+
+module EventMod {
+    EventIface eventIface;
+};
+----
+
+Every field of a structure is identified by a tag (assigned automatically in
+declaration order here). The binary format encodes fields as
+tag-length-value records, which is what makes most schema evolutions safe:
+unknown fields can be skipped, missing optional fields take their default
+values.
+
+== How this documentation is organized
+
+The documentation is split in two parts:
+
+*Part I — IOP specification*::
+  The normative description of IOP, written independently of any
+  implementation: the IOP language (lexical structure, types, classes,
+  attributes, interfaces…), the binary wire format, the JSON, YAML and XML
+  representations, and the backward-compatibility rules. Reading this part
+  alone should be sufficient to implement an independent, correct IOP
+  compiler with its encoders and decoders.
+
+*Part II — Reference implementation*::
+  The documentation of the Intersec implementation shipped in lib-common:
+  the `iopc` compiler and its backends, the generated C code and the C
+  runtime library, the IChannel RPC protocol, dynamically loaded IOP
+  plugins (DSO) and runtime type descriptions (IOP²), the language bindings
+  and the documentation generators (OpenAPI, WSDL, SNMP MIB).
+
+If you want to…
+
+* *write `.iop` files*: read the language reference in Part I
+  (xref:spec/types.adoc[types], xref:spec/attributes.adoc[attributes],
+  xref:spec/interfaces-modules.adoc[interfaces]) and the
+  xref:spec/compatibility.adoc[backward-compatibility rules];
+* *implement an IOP parser, compiler, encoder or decoder*: read all of
+  Part I;
+* *use IOP from C*: read Part II, starting with the
+  xref:impl/c-mapping.adoc[C language mapping];
+* *evolve existing IOP packages safely*: read
+  xref:spec/compatibility.adoc[backward-compatibility rules].
+
+== Glossary
+
+package::
+  The namespace and compilation unit of IOP. One `.iop` file declares
+  exactly one package.
+tag::
+  The small integer that identifies a field of a structure (or an RPC of an
+  interface) in the serialized representations. Tags, not names, are the
+  stable identity of fields in the binary format.
+wire type::
+  The 3-bit code, packed together with the tag in the binary format, that
+  tells a decoder how to compute the length of a value it does not
+  necessarily know.
+class id::
+  The integer that uniquely identifies a class inside its inheritance
+  hierarchy; serialized in place of the class name in the binary format.
+interface::
+  A named set of RPCs (remote procedure calls), each with an input, an
+  output and an optional exception payload.
+module::
+  A named set of interface instances; the unit that an RPC server
+  implements.
+master class::
+  A class with no parent, the root of a class hierarchy.

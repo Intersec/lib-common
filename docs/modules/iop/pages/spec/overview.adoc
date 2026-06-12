@@ -1,0 +1,112 @@
+= Specification overview
+:toc:
+:numbered:
+
+This part of the documentation is the *IOP specification*: a normative
+description of the IOP language, of its serialization formats and of its
+compatibility rules, written independently of the Intersec implementation.
+An implementation written from these pages alone must interoperate with any
+existing IOP implementation.
+
+== Conformance and terminology
+
+In the specification pages:
+
+* *must* / *is rejected* / *is an error* describe mandatory behavior: a
+  conforming compiler refuses the construct, or a conforming encoder or
+  decoder fails the operation;
+* *should* describes recommended behavior that does not affect
+  interoperability;
+* *implementation-defined* explicitly marks the points where behavior is
+  delegated to a backend or an implementation (these are documented for the
+  Intersec implementation in Part II).
+
+A complete IOP implementation consists of:
+
+. a *parser/compiler* for the IOP language: it reads packages of `.iop`
+  files, validates them, and produces type descriptions usable by the
+  encoders/decoders and code generators (xref:../spec/lexical.adoc[lexical structure]
+  through
+  xref:../spec/doc-comments.adoc[documentation comments]);
+. the *binary encoder/decoder*, the reference serialization
+  (xref:../spec/wire-format.adoc[binary wire format]);
+. optionally, the *text encoders/decoders*: xref:../spec/json.adoc[JSON],
+  xref:../spec/yaml.adoc[YAML] and xref:../spec/xml.adoc[XML] representations;
+. optionally, a *compatibility checker* implementing the
+  xref:../spec/compatibility.adoc[backward-compatibility rules].
+
+== Data model
+
+An IOP *package* contains named declarations:
+
+* *structs* — records of typed, tagged fields;
+* *unions* — a choice of exactly one among a set of tagged fields;
+* *enums* — named integer constants;
+* *classes* — structs with single inheritance, identified by a _class id_,
+  supporting polymorphism in all serialization formats;
+* *typedefs* — named aliases of types, possibly carrying attributes;
+* *interfaces* — named sets of RPCs, each RPC having `in`, `out` and
+  `throw` payloads;
+* *modules* — named sets of interface instances;
+* *SNMP objects, tables and interfaces* — declarations dedicated to SNMP
+  instrumentation.
+
+Every field has:
+
+* a *type*: one of the fourteen primitive types (`byte`, `ubyte`, `short`,
+  `ushort`, `int`, `uint`, `long`, `ulong`, `bool`, `double`, `string`,
+  `bytes`, `xml`, `void`) or a named struct/union/enum/class type;
+* a *cardinality*: mandatory, optional (`?`), repeated (`[]`), or mandatory
+  with a default value (`=`);
+* a *tag*: a small integer, unique within the enclosing structure, that
+  identifies the field in serialized data. Field names matter to the text
+  formats; tags are the identity of fields in the binary format;
+* optionally, *attributes* that constrain its values or alter its handling.
+
+== Compilation model
+
+One `.iop` file declares exactly one package, and the package name
+determines the file path (package `a.b.c` lives in `a/b/c.iop`). Types from
+other packages are referenced with their qualified name (`pkg.Type`), which
+makes the dependencies of a file explicit; circular dependencies between
+packages are rejected, while circular type references inside a package are
+legal where semantically possible.
+
+Compiling a package requires the full transitive closure of the packages it
+references. A compiler validates, for each package: lexical and syntactic
+correctness, name resolution, tag consistency, attribute applicability, and
+the structural rules of every construct. The specification pages list the
+mandatory error conditions construct by construct.
+
+== Serializations at a glance
+
+[cols="1,2,3"]
+|===
+| Format | Identity of fields | Typical use
+
+| xref:../spec/wire-format.adoc[Binary]
+| tags
+| Network protocols, storage. Compact TLV encoding; unknown fields are
+  skippable, making it the reference format for compatibility.
+
+| xref:../spec/json.adoc[JSON]
+| names
+| Configuration files, web APIs, debugging. Canonical output plus a lenient
+  input grammar (comments, unquoted keys…).
+
+| xref:../spec/yaml.adoc[YAML]
+| names
+| Configuration files with includes, overrides and round-trip preservation
+  of presentation.
+
+| xref:../spec/xml.adoc[XML]
+| names
+| SOAP web services (WSDL), legacy integrations.
+|===
+
+All formats share the same data model; a value packed in one format and
+unpacked from it is identical to the same value transported through another
+format. The xref:../spec/compatibility.adoc[compatibility rules] differ by format,
+however: the binary format relies on tags and value encodings, while the
+text formats rely on field names — so a change can be safe in one format and
+breaking in another.

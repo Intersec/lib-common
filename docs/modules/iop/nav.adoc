@@ -1,6 +1,10 @@
 * IOP
-** xref:base.adoc[IOP Basics]
-** xref:wire-format.adoc[Wire format]
-** xref:inheritance.adoc[Class inheritance]
-** xref:iop-attributes.adoc[IOP attributes]
-** xref:library-c.adoc[C library]
+** xref:index.adoc[Introduction]
+** IOP specification
+*** xref:spec/overview.adoc[Specification overview]
+** Legacy pages
+*** xref:base.adoc[IOP Basics]
+*** xref:wire-format.adoc[Wire format]
+*** xref:inheritance.adoc[Class inheritance]
+*** xref:iop-attributes.adoc[IOP attributes]
+*** xref:library-c.adoc[C library]
