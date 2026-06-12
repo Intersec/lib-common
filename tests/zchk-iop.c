@@ -10287,6 +10287,150 @@ Z_GROUP_EXPORT(iop)
             iop_env_old_, *pkgp_old, iop_env_new_, *pkgp_new, IOP_COMPAT_ALL
         );
 
+        /* Moving an optional or defval field from a class to one of its
+         * ancestors. The classes share the same fullname in the two DSOs, so
+         * the JSON case can actually be checked here, unlike in the
+         * struct-level test where class names differ.
+         *
+         * In the text encodings (JSON/YAML) a class is serialized flat,
+         * so the field is still reachable by its name in the new tree:
+         * the move is backward compatible (this is the case that used to
+         * be wrongly reported as "field `X` does not exist anymore").
+         *
+         * In binary, the field is tagged per inheritance level. Unlike
+         * a plain removal (cf. `disappeared_field` above, where the name
+         * is gone and the tag is simply skipped at unpacking), here the
+         * field still exists by name in the new tree but at another
+         * level: the value packed at the child level would no longer be
+         * read into it. This is reported for the binary encoding, be it
+         * checked alone or as part of IOP_COMPAT_ALL. */
+        {
+            const iop_struct_t *child_old;
+            const iop_struct_t *child_new;
+            lstr_t child_name =
+                LSTR("tstiop_backward_compat_class_move.FieldMoveChild");
+            lstr_t bin_err = LSTR(
+                "field with tag 2 (`movedDefval`) does not exist anymore"
+                "\nfield with tag 3 (`movedOpt`) does not exist anymore"
+            );
+            iop_env_ctx_scope(iop_env_old_, iop_env_ctx_old);
+            iop_env_ctx_scope(iop_env_new_, iop_env_ctx_new);
+
+            Z_ASSERT_P(
+                child_old =
+                    iop_env_ctx_get_struct(iop_env_ctx_old, child_name)
+            );
+            Z_ASSERT_P(
+                child_new =
+                    iop_env_ctx_get_struct(iop_env_ctx_new, child_name)
+            );
+
+            /* JSON/YAML: backward compatible. */
+            sb_reset(&err);
+            Z_ASSERT_N(
+                iop_struct_check_backward_compat(
+                    iop_env_ctx_old, child_old, iop_env_ctx_new, child_new,
+                    IOP_COMPAT_JSON, &err
+                ),
+                "moving an optional/defval field to the parent must be "
+                "JSON backward compatible: %*pM",
+                SB_FMT_ARG(&err)
+            );
+
+            /* Binary: reported, both alone and combined (consistent). */
+            sb_reset(&err);
+            Z_ASSERT_NEG(iop_struct_check_backward_compat(
+                iop_env_ctx_old, child_old, iop_env_ctx_new, child_new,
+                IOP_COMPAT_BIN, &err
+            ));
+            Z_ASSERT_LSTREQUAL(LSTR_SB_V(&err), bin_err);
+
+            sb_reset(&err);
+            Z_ASSERT_NEG(iop_struct_check_backward_compat(
+                iop_env_ctx_old, child_old, iop_env_ctx_new, child_new,
+                IOP_COMPAT_ALL, &err
+            ));
+            Z_ASSERT_LSTREQUAL(LSTR_SB_V(&err), bin_err);
+        }
+
+        /* Reverse migration: swapping the old and new environments turns the
+         * upward move into a downward one (the field moves from the parent
+         * down into the child). It is never backward compatible, but each
+         * encoding's loss surfaces on a different class:
+         *  - the parent loses the field by name, so an instance serialized as
+         *    the parent can no longer carry it -> reported for the text
+         *    encodings;
+         *  - the child now declares at its own level a field whose value used
+         *    to be packed at the parent level -> reported for the binary
+         *    encoding. */
+        {
+            const iop_struct_t *parent_old;
+            const iop_struct_t *parent_new;
+            const iop_struct_t *child_old;
+            const iop_struct_t *child_new;
+            lstr_t parent_name =
+                LSTR("tstiop_backward_compat_class_move.FieldMoveParent");
+            lstr_t child_name =
+                LSTR("tstiop_backward_compat_class_move.FieldMoveChild");
+            lstr_t json_err = LSTR(
+                "field `movedDefval` does not exist anymore"
+                "\nfield `movedOpt` does not exist anymore"
+            );
+            lstr_t bin_err = LSTR(
+                "field with tag 2 (`movedDefval`) moved to "
+                "another inheritance level"
+                "\nfield with tag 3 (`movedOpt`) moved to "
+                "another inheritance level"
+            );
+            iop_env_ctx_scope(iop_env_old_, iop_env_ctx_old);
+            iop_env_ctx_scope(iop_env_new_, iop_env_ctx_new);
+
+            Z_ASSERT_P(
+                parent_old =
+                    iop_env_ctx_get_struct(iop_env_ctx_old, parent_name)
+            );
+            Z_ASSERT_P(
+                parent_new =
+                    iop_env_ctx_get_struct(iop_env_ctx_new, parent_name)
+            );
+            Z_ASSERT_P(
+                child_old =
+                    iop_env_ctx_get_struct(iop_env_ctx_old, child_name)
+            );
+            Z_ASSERT_P(
+                child_new =
+                    iop_env_ctx_get_struct(iop_env_ctx_new, child_name)
+            );
+
+            /* Parent (losing side), text encodings: reported. */
+            sb_reset(&err);
+            Z_ASSERT_NEG(iop_struct_check_backward_compat(
+                iop_env_ctx_new, parent_new, iop_env_ctx_old, parent_old,
+                IOP_COMPAT_JSON, &err
+            ));
+            Z_ASSERT_LSTREQUAL(LSTR_SB_V(&err), json_err);
+
+            /* Child (gaining side), binary: reported (level change). */
+            sb_reset(&err);
+            Z_ASSERT_NEG(iop_struct_check_backward_compat(
+                iop_env_ctx_new, child_new, iop_env_ctx_old, child_old,
+                IOP_COMPAT_BIN, &err
+            ));
+            Z_ASSERT_LSTREQUAL(LSTR_SB_V(&err), bin_err);
+
+            /* The combined check catches both sides. */
+            sb_reset(&err);
+            Z_ASSERT_NEG(iop_struct_check_backward_compat(
+                iop_env_ctx_new, parent_new, iop_env_ctx_old, parent_old,
+                IOP_COMPAT_ALL, &err
+            ));
+            sb_reset(&err);
+            Z_ASSERT_NEG(iop_struct_check_backward_compat(
+                iop_env_ctx_new, child_new, iop_env_ctx_old, child_old,
+                IOP_COMPAT_ALL, &err
+            ));
+        }
+
         iop_dso_close(&dso_old);
         iop_dso_close(&dso_new);
         iop_env_delete(&iop_env_old_);

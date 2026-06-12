@@ -217,6 +217,16 @@ it stays compatible in both families (see <<_authoring_guidelines>>).
   rule, the inserted-parent check grants *no* exemption to mandatory
   `void` fields). The matched ancestor pair is then checked recursively
   like a struct.
+* *Moving a field between a class and an ancestor*: moving a field *up*
+  to an ancestor is OK in JSON/YAML/XML (a class serializes flat and the
+  name lookup walks the ancestors, so the field is still reached), but a
+  *break in binary* (each inheritance level is packed separately with
+  tags scoped to its level, see xref:../spec/wire-format.adoc[the wire
+  format]) — the value is then silently lost. Moving a field *down* to a
+  child is a break in both families. Consequently, promoting an optional
+  or defaulted field to an ancestor is safe for a config-only structure
+  (read from JSON/YAML) but must be avoided when the structure is also
+  serialized in binary.
 * Checking a class does not implicitly check its descendants — a
   package-level check is needed to cover a whole hierarchy.
 

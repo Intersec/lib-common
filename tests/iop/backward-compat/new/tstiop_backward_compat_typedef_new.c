@@ -19,10 +19,12 @@
 #include <lib-common/iop.h>
 #include "tstiop_backward_compat_typedef.iop.h"
 #include "tstiop_backward_compat_remote_typedef.iop.h"
+#include "tstiop_backward_compat_class_move.iop.h"
 
 IOP_EXPORT_PACKAGES_COMMON(0, NULL);
 IOP_USE_EXTERNAL_PACKAGES;
 IOP_EXPORT_PACKAGES(
     &tstiop_backward_compat_typedef__pkg,
-    &tstiop_backward_compat_remote_typedef__pkg
+    &tstiop_backward_compat_remote_typedef__pkg,
+    &tstiop_backward_compat_class_move__pkg
 );

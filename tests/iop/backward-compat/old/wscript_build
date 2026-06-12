@@ -26,6 +26,7 @@ bld.shlib(
     source=[
         'tstiop_backward_compat_typedef_old.c',
         'tstiop_backward_compat_typedef.iop',
+        'tstiop_backward_compat_class_move.iop',
     ],
     use=['libcommon'],
     remove_dynlibs=True,
