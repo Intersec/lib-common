@@ -1,0 +1,118 @@
+= Language bindings: IOPy, TypeScript and Rust
+:toc:
+:numbered:
+
+This page is a quick orientation, not a full reference.
+
+== IOPy (Python)
+
+IOPy is a Cython-based Python module that loads IOP
+xref:../impl/dso-iopsq.adoc[DSO plugins] and exposes their packages as Python
+classes — including full RPC client and server support.
+
+=== Loading a plugin
+
+[source,python]
+----
+import iopy
+
+plugin = iopy.Plugin("/path/to/pkg-iop-plugin.so")
+pkg = plugin.mypkg                  # packages become attributes
+----
+
+Loading the DSO also runs the Python snippets the plugin exports under
+the `iopy_on_register` DSO resource category.
+
+=== Types and values
+
+Every IOP enum/struct/union/class becomes a dynamically created Python
+class (under `iopy.EnumBase`, `StructBase`, `UnionBase`; the Python
+class hierarchy mirrors IOP class inheritance):
+
+[source,python]
+----
+a = pkg.KeyFull(key="toto", aggrs=23)        # field kwargs
+a.key = "lili"
+b = pkg.KeyFull(_json='{"key": "juju", "aggrs": 46}')
+
+a.to_json(); a.to_yaml(); a.to_xml(); a.to_bin(); a.to_hex()
+
+k = pkg.Key(s="toto")     # unions: exactly one member
+k.t = 12                  # switches the active member
+----
+
+Constructors accept either field keyword arguments or one of `_json`,
+`_yaml`, `_xml`, `_bin`, `_hex` to unpack from a serialized form.
+Class instances are created like structs; passing a child instance
+where a parent is expected works as in IOP.
+
+=== RPC client
+
+[source,python]
+----
+ch  = plugin.connect("localhost:20001",
+                     _login="root", _password="1234")
+res = ch.mypkg.myModule.myIface.myRpc(key="toto")
+----
+
+RPCs are attributes of `channel.<module>.<iface>`; per-call keyword
+overrides include `_timeout`, `_hdr`, `_login`, `_password`. An asyncio
+variant exists (`await plugin.async_connect(...)`).
+
+=== RPC server
+
+[source,python]
+----
+server = plugin.channel_server()
+
+def my_rpc_impl(args):
+    return args.res(value=42)
+
+server.myModule.myIface.myRpc.impl = my_rpc_impl
+server.listen(uri="0.0.0.0:20001")
+----
+
+`src/iopy/README.adoc` documents the module internals (debugging the
+generated Cython, the event-loop thread isolation rules).
+
+=== Static type checking
+
+Because IOPy builds its classes dynamically, a type checker sees
+nothing by default. The xref:../impl/iopc-backends.adoc#_python_stub_backend_l_pystub[`pystub`
+backend] (`iopc -l pystub`) generates `.pyi` stubs describing those
+classes, so mypy/pyright can check IOPy code statically. The generated
+stubs build on the hand-written base stub `src/iopy/iopy.pyi`, which
+types the `iopy` module itself.
+
+== TypeScript
+
+The xref:../impl/iopc-backends.adoc[TypeScript backend] generates one `.iop.ts`
+module per package: plain interfaces and union types for static typing,
+plus `*_Model` Backbone classes registered by IOP fullname that load
+the package's JSON description at module init and provide runtime
+packing and `icQuery`-based RPC calls. Consumption is therefore: import
+the generated module, type your data with the interfaces, and use the
+registered models for runtime interaction.
+
+== Rust
+
+Rust support is emerging (the runtime module still marks itself
+work-in-progress) and comes in two parts.
+
+*Env context storage.* The mutable part of the
+xref:../impl/c-runtime.adoc#_iop_environment[IOP environment] — the context
+snapshot — is stored behind a lock-free `ArcSwap` in the
+`libcommon-iop-arcswap` crate. The C runtime calls into its FFI to
+acquire a snapshot, mutate a uniquely-owned copy and atomically install
+the new context; the `iop_env_t` struct itself stays plain C. This is
+what makes context snapshots cheap and thread-safe.
+
+*Consuming IOP from Rust.* A crate binding a C library that exposes IOP
+types runs `bindgen` on the generated `<pkg>.iop.h` headers. The
+`waf-cargo-build` build-script helper then post-processes that output:
+it reads the `@iop …` annotations the C backend embeds in the headers
+and emits typed trait implementations onto the raw bindgen structs. The
+traits live in `libcommon::iop` (`Base`, `Struct`/`CStruct`,
+`Union`/`CUnion`, `Enum`/`CEnum`, plus a `GenericStructUnion` wrapper),
+which also provides `Env`/`EnvCtx` handles over `iop_env_t` and its
+snapshot.

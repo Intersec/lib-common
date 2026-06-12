@@ -1,0 +1,157 @@
+= DSO plugins and IOP²
+:toc:
+:numbered:
+
+Two mechanisms make IOP types available *dynamically*, without linking
+the generated C statically: *IOP DSOs* (shared objects embedding
+compiled packages) and *IOP²* (building runtime type descriptors from
+IOP-described data).
+
+== IOP DSO plugins
+
+An IOP DSO is a shared object containing the compiled descriptors of
+one or more IOP packages, loadable at runtime by any lib-common
+program (and by the language bindings, e.g. IOPy).
+
+=== Building a DSO
+
+`iopc_dso_build()` (`src/iopc/iopc-dso.c`) runs the iopc pipeline
+in-process on a `.iop` file (dependencies provided as in-memory
+buffers), generates self-contained C (the runtime internals are
+embedded so the DSO needs no lib-common headers at build time), emits
+the package JSON description next to the result, synthesizes a plugin
+stub —
+
+[source,c]
+----
+#include "<pkg>.h"
+IOP_EXPORT_PACKAGES_COMMON;
+IOP_USE_EXTERNAL_PACKAGES;
+IOP_EXPORT_PACKAGES(&<pkg>__pkg);
+----
+
+— and compiles everything with `cc -shared -fPIC` into `<pkg>.iop.so`.
+`iopc_dso_set_class_id_range()` applies the same restriction as
+`iopc --class-id-range`.
+
+=== What a DSO exports
+
+[cols="2,4"]
+|===
+| Symbol | Role
+
+| `iop_packages[]` | NULL-terminated array of `iop_pkg_t *` —
+  mandatory, the loader fails without it (`IOP_EXPORT_PACKAGES`)
+| `iop_dso_version` | ABI version stamp (`IOP_EXPORT_DSO_VERSION`);
+  gates newer features such as the typedef tables
+| `iop_vtable` | lets the host inject its error reporting so
+  constraint errors raised inside the DSO reach the host
+| `iop_use_external_packages` | opt-in to *fixup*: type references are
+  re-pointed at packages already registered in the host
+| `iop_dso_ressources_<category>[]` | optional resource arrays (below)
+|===
+
+=== Loading and registration
+
+[source,c]
+----
+iop_dso_t *dso = iop_dso_open(iop_env, "/path/pkg.iop.so", &err);
+...
+iop_dso_close(&dso);
+----
+
+* The packages are registered in the `iop_env` passed to
+  `iop_dso_open()` (`iop_dso_close()` unregisters them). Loading uses
+  `dlmopen()`: the link-map namespace is configured on the environment
+  (`iop_env_set_dso_lmid()`); a dedicated namespace (`LM_ID_NEWLM`)
+  isolates the DSO, allowing the same package to be loaded several
+  times, while `RTLD_GLOBAL` only applies in the base namespace.
+* Registration walks the exported packages and their dependencies,
+  performs the *fixup* against already-registered packages, and runs
+  the *class-id collision checks*: two distinct classes with the same
+  id under one master class are rejected (`conflicting class id …`),
+  and every parent of a registered class must be registered.
+* `iop_dso_t` is reference-counted (`iop_dso_dup`); reopening the same
+  handle reuses it. Unloading unregisters the DSO and every DSO that
+  depends on it, then re-opens the dependents so their fixups
+  re-resolve.
+* Lookups: `iop_dso_find_type(dso, LSTR("pkg.Type"))` resolves
+  fullnames, typedefs and the synthetic RPC payload names
+  (`pkg.Iface.funArgs`…); `iop_dso_find_enum()` similarly.
+
+=== DSO resources
+
+A *resource category* is declared by the host application —
+`IOP_DSO_DECLARE_RESSOURCE_CATEGORY(category, type)` — and plugins
+export entries with `IOP_DSO_EXPORT_RESSOURCES(category, &r1, &r2)`.
+The host retrieves them with `iop_dso_get_ressources(dso,
+LSTR("category"))` / `IOP_DSO_GET_RESSOURCES()`. Example: IOPy declares
+the `iopy_on_register` category, whose entries are Python snippets run
+when the plugin is loaded.
+
+== IOP² (iopsq)
+
+IOP² generates *runtime type descriptors from data*: a type described
+as an IOP value (package `iopsq`, file `src/iopc/iopsq.iop`) — for
+instance unpacked from JSON — is turned directly into in-memory
+`iop_pkg_t`/`iop_struct_t` descriptors, without running iopc or
+building a DSO.
+
+=== The meta-model
+
+[source,java]
+----
+union Type {
+    IntType    i;          /* integer: signedness + size (S8…S64) */
+    void       b;          /* bool                                */
+    void       d;          /* double                              */
+    StringType s;          /* STRING | BYTES | XML                */
+    void       v;          /* void                                */
+    string     typeName;   /* named type from the environment     */
+    Type&      array;      /* repeated                            */
+    uint       typeId;     /* reference handed out by a type table */
+};
+
+struct Field {
+    string   name;
+    Type     type;
+    OptInfo? optional;     /* presence + optional default value   */
+    ushort?  tag;
+    void?    isReference;
+};
+
+struct Package {
+    string        name;
+    PackageElem[] elems;   /* Struct, Union, Enum classes         */
+};
+----
+
+=== API
+
+[source,c]
+----
+iop_pkg_t *mp_iopsq_build_pkg(mem_pool_t *mp,
+                              const iop__package__t *pkg_desc,
+                              const iopsq_type_table_t *type_table,
+                              sb_t *err);
+const iop_struct_t *mp_iopsq_build_struct(mem_pool_t *mp,
+                              const iopsq__structure__t *st_desc, ...);
+----
+
+(`src/iopc/iopc-iopsq.h`.) The descriptors are allocated on the given
+memory pool; they may point into the current IOP environment, which
+must not change during their lifetime. A *type table*
+(`IOPSQ_TYPE_TABLE()` + `iopsq_type_table_fill_type()`) registers types
+not present in the environment and yields `typeId` references —
+the bridge for composing generated types.
+
+=== Limitations
+
+Documented in `iopc-iopsq.h`: classes, attributes, modules,
+interfaces, typedefs, RPCs and SNMP objects are not supported; default
+values are parsed but not yet emitted into the runtime descriptors;
+environment typedefs cannot be referenced by `typeName`; there is no
+reverse conversion (descriptor → IOP² value) and no sub-packages.
+
+Tests and examples: `tests/iopc/iopsq-tests/*.json` (JSON-packed
+`iopsq.Package` values) driven by `tests/iopc/zchk.c`.

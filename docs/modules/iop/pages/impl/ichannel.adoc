@@ -1,0 +1,242 @@
+= IChannel RPC protocol
+:toc:
+:numbered:
+
+IChannels are the native transport for IOP RPCs: TCP or Unix-domain
+connections carrying binary-packed queries and replies. This page first
+specifies the *wire protocol* (implementable without reading any C),
+then describes the C API.
+
+== Part A — Protocol
+
+Current protocol version: *1* (`IC_VERSION`).
+
+=== Endianness and framing
+
+All header words are encoded *little-endian* (not network byte order).
+A packet is a 12-byte header — three 32-bit little-endian words —
+followed by a payload:
+
+----
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|     Flags     |                   Reserved                    | } 32LE
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                            Command                            | } 32LE
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|0|                         Data length                         | } 32LE
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+| Payload...
++-+-+-+-+-+-+-
+----
+
+*Flags* (the 8 most significant bits of the first word):
+
+[cols="2,4"]
+|===
+| Bit | Meaning
+
+| `IC_MSG_HAS_FD` (1 « 24) | a file descriptor is passed along with the
+  message (Unix sockets only, using the kernel's file-descriptor passing
+  mechanism)
+| `IC_MSG_HAS_HDR` (1 « 25) | the payload starts with an IC IOP header
+  (see <<ic-hdr>>)
+| `IC_MSG_IS_TRACED` (1 « 26) | tracing requested
+| priority (2 bits at 27) | message priority; high-priority messages
+  are sent first, and the priority propagates to the response
+|===
+
+The low 24 bits of the first word are the *slot* (query/reply
+correlation id) for queries and replies, or a type field for stream
+control.
+
+*Command* selects the message kind:
+
+* `Command > 0` — *query*;
+* `Command == 0x80000000` — *stream control*;
+* otherwise — *reply* (Command = −status).
+
+*Data length* is the payload length; its sign bit must be 0.
+
+=== Queries
+
+The Command word of a query packs the *interface tag* (15 bits, upper
+half) and the *RPC tag* (15 bits, lower half):
+
+----
+|0|         Interface           |0|           RPC               |
+----
+
+These are the module-member tag and RPC tag of the IOP definitions
+(xref:../spec/interfaces-modules.adoc[Interfaces]). The payload is the
+binary-packed `in` payload of the RPC
+(xref:../spec/wire-format.adoc[wire format]), optionally preceded by
+the IC header when `IC_MSG_HAS_HDR` is set. The *slot* identifies the
+query; the reply carries the same slot. Asynchronous RPCs (`out null`)
+send slot 0 and never receive a reply.
+
+=== Replies
+
+The Command word is the negated status. Status codes (`ic_status_t`):
+
+[cols="1,2,4"]
+|===
+| Value | Name | Meaning
+
+| 0 | `IC_MSG_OK` | success; payload = binary-packed `out` value
+| 1 | `IC_MSG_EXN` | RPC exception; payload = binary-packed `throw`
+  value
+| 2 | `IC_MSG_RETRY` | retry later
+| 3 | `IC_MSG_ABORT` | query aborted (e.g. connection lost)
+| 4 | `IC_MSG_INVALID` | invalid query (e.g. constraint violation on
+  unpack)
+| 5 | `IC_MSG_UNIMPLEMENTED` | no such RPC registered
+| 6 | `IC_MSG_SERVER_ERROR` | internal server error
+| 7 | `IC_MSG_PROXY_ERROR` | proxying failure
+| 8 | `IC_MSG_TIMEDOUT` | query timeout
+| 9 | `IC_MSG_CANCELED` | query canceled
+|===
+
+The payload is non-empty only for `OK` and `EXN`.
+
+=== Stream control
+
+`Command = 0x80000000`; the Reserved field carries the type:
+
+* *Bye* — the peer is about to shut down and will send nothing more;
+* *Nop* — must be silently ignored (sent by version 0 at connection
+  establishment);
+* *Version* — see below.
+
+=== Version handshake
+
+On *network sockets*, the very first message sent by both peers must be
+a Version stream-control message with a 2×16LE payload:
+
+----
+|          Version = 1          |T|          Reserved           |
+----
+
+`T` (bit 15 of the second halfword) requires TLS: if either peer sets
+it, both proceed to a TLS handshake (or close). If a peer's first
+message is not a Version message, that peer is version 0 and all
+version-1 features are disabled. Neither side may send anything else
+before having parsed the peer's version message.
+
+On *Unix-domain sockets*, the handshake is skipped (same-host processes
+are assumed to run the same version). Both `SOCK_STREAM` and
+`SOCK_SEQPACKET` are usable; the latter allows file-descriptor passing.
+
+Extensibility rules: versions are strictly increasing and newer
+versions must not send messages older peers ignore; trailing payload
+data and Reserved fields are ignored, allowing extension.
+
+[#ic-hdr]
+=== The IC IOP header
+
+When `IC_MSG_HAS_HDR` is set, the payload starts with a binary-packed
+`ic.Hdr` (defined in `ic.iop`) before the RPC payload — a union of:
+
+* `SimpleHdr` — credential/context fields (`login`, `password`,
+  `kind`, `host`, `group`, `source`, `workspaceId`, `dealias`, and the
+  byte offset of the actual payload);
+* `RoutingHdr` — routing information (`Route` class, `ttl`, priority,
+  optional `Tracer`, original header) used by proxying
+  infrastructures.
+
+=== Limits
+
+`IC_PKT_MAX` = 65536: maximum packet size used for buffering decisions;
+one RPC payload may span multiple TCP segments but `Data length` is
+bounded by the 31-bit rule.
+
+== Part B — C API
+
+The API lives in `lib-common/iop-rpc.h` (`ichannel_t`). The library is
+initialized through the `ic` module (`MODULE_REQUIRE(ic)`). A complete
+example is `examples/iop-tutorial/ex-iop.c`.
+
+=== The ichannel_t object
+
+Client and server connections use the same `ichannel_t`. By default an
+IChannel manages its own life cycle and reconnects automatically;
+properties set after `ic_new()`:
+
+* `iop_env` — the xref:../impl/c-runtime.adoc#_iop_environment[IOP environment]
+  used to (un)pack RPC payloads; must be set on every channel (the
+  `ic_server_t` helpers propagate it to accepted channels);
+* `no_autodel` — keep ownership of the object;
+* `auto_reconn` — disable auto-reconnection;
+* `do_el_unref` — do not keep the event loop alive for this channel;
+* `on_event` — connection state callback (`IC_EVT_CONNECTED`,
+  `IC_EVT_DISCONNECTED`, …).
+
+=== Implementing RPCs
+
+The implementation table maps RPCs to callbacks:
+
+[source,c]
+----
+qm_t(ic_cbs) ic_impl;
+qm_init(ic_cbs, &ic_impl, false);
+
+static void IOP_RPC_IMPL(test__mod, foo, bar)
+{
+    ic_reply(ic, slot, test__mod, foo, bar, .res = 42);
+}
+
+ic_register(&ic_impl, test__mod, foo, bar);
+
+ichannel_t *ic = ic_new();
+ic->impl = &ic_impl;
+----
+
+`ic_reply()` answers with `IC_MSG_OK`; `ic_throw()`/`ic_throw_exn()`
+answer with `IC_MSG_EXN`; `ic_reply_err()` with any other status.
+
+=== Pre/post hooks
+
+`ic_register_pre_post_hook()` wraps an RPC implementation with shared
+code (authentication, audit logs…):
+
+* the *pre-hook* must allocate the query context with
+  `ic_hook_ctx_new(slot, sz)` (retrievable in the implementation with
+  `ic_hook_ctx_get()`); if it does not, the query is considered
+  answered and the implementation is never called. To refuse a query,
+  the pre-hook calls `ic_throw_exn()`;
+* the *post-hook* runs at reply time with the final status; it requires
+  the pre-hook's context (a post-hook without pre-hook is invalid). It
+  must not free the context (automatic), only what was stored inside;
+* hook arguments are passed by reference at registration and must stay
+  valid until unregistration.
+
+=== Client setup
+
+. `ic_new()`, set `on_event`, optionally `impl`;
+. set the server address (`ic->su`);
+. `ic_connect()`;
+. send queries only once `IC_EVT_CONNECTED` is notified.
+
+Queries are `ic_msg_t` objects (`ic_msg_new()`…), carrying optional
+private data, a timeout (timed-out queries complete with
+`IC_MSG_TIMEDOUT`) and the result callback; `ic_query()` sends them.
+
+=== Server and local channels
+
+A server registers a listening socket with the same implementation
+table. A *local* IChannel is client and server in one process:
+set it up like a server, then call `ic_set_local()` instead of
+`ic_connect()` — useful to call local implementations through the
+standard RPC path.
+
+== HTTP transport
+
+RPCs can also be transported over HTTP(S) (`src/iop/rpc-http-client.c`,
+`rpc-http-server.c`): queries map to HTTP requests (JSON or binary
+bodies), HTTP statuses map to `ic_status_t`, and the usual
+authentication schemes are supported. The IChannel-based API
+(`ichttp_*`) mirrors the native one; WSDL/SOAP interoperability is
+provided through the XML encoder/decoder
+(xref:../spec/xml.adoc[XML representation]) and
+xref:../impl/generators.adoc[WSDL generation].

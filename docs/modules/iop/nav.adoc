@@ -23,5 +23,7 @@
 *** xref:impl/iopc-backends.adoc[iopc backends: C, JSON, TypeScript]
 *** xref:impl/c-mapping.adoc[C language mapping]
 *** xref:impl/c-runtime.adoc[C runtime library]
-** Legacy pages
-*** xref:library-c.adoc[C library]
+*** xref:impl/ichannel.adoc[IChannel RPC protocol]
+*** xref:impl/dso-iopsq.adoc[DSO plugins and IOP²]
+*** xref:impl/bindings.adoc[Language bindings: IOPy and TypeScript]
+*** xref:impl/generators.adoc[OpenAPI, WSDL and SNMP MIB generation]

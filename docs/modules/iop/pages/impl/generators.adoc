@@ -1,0 +1,57 @@
+= OpenAPI, WSDL and SNMP MIB generation
+:toc:
+:numbered:
+
+Three generators derive external interface descriptions from IOP
+definitions. They all feed on the runtime descriptors (including the
+doxygen help texts), so they work on any registered package.
+
+== OpenAPI
+
+`src/iop-openapi.h` generates an *OpenAPI 3.0.2* document as a YAML
+AST:
+
+[source,c]
+----
+iop_openapi_t *oa = t_new_iop_openapi(title, version, mod, route);
+t_iop_openapi_set_server(oa, url, desc);
+t_iop_openapi_set_security(oa, name, OPENAPI_SECURITY_BASIC_HTTP);
+t_iop_openapi_whitelist_rpc(oa, LSTR("pkg.Iface.rpc"));
+t_iop_openapi_to_yaml(oa, &yaml_data, &err);
+----
+
+Every RPC of the module becomes a `post` operation on
+`/<route>/<iface_alias>/<rpc>`, with `requestBody` from the `in`
+payload and responses from `out`/`throw`. Struct/union/class/enum
+schemas are emitted under `components.schemas` with `$ref` links;
+constraints and defaults are reflected; `@brief`/`@details` comments
+become `description` fields. An empty whitelist exposes everything; a
+whitelist entry matching nothing fails generation.
+
+== WSDL
+
+`iop_xwsdl()` (`src/iop/xml.h`) writes a complete *WSDL 1.1
+document/literal SOAP* contract for a module: an XML-Schema `types`
+section (structs/classes as `complexType` with `extension` for
+inheritance, unions as `choice`, constraints as restrictions, optional
+literal enums), per-RPC request/response/fault messages (a union
+exception expands to one fault per member), a `portType`, a SOAP
+binding and the service endpoint address. An optional RPC set
+restricts what is exported; `with_auth` adds a caller-identity SOAP
+header. Packages containing classes must be registered
+(`IOP_REGISTER_PACKAGES`) beforehand.
+
+== SNMP MIB and documentation
+
+From packages containing xref:../spec/snmp.adoc[SNMP constructs]:
+
+* `iop_write_mib(sb, pkgs, revisions)` (`src/iop-snmp.h`) emits an
+  SNMPv2 MIB document rooted at Intersec's enterprise OID: imports,
+  `MODULE-IDENTITY` with one `REVISION` clause per registered revision
+  (`mib_register_revision()`, chronological order), `OBJECT-TYPE`s,
+  table/entry constructs and `NOTIFICATION-TYPE`s. The mandatory
+  doc-comment briefs become the `DESCRIPTION` clauses. `iop_mib()`
+  wraps it as a ready-made CLI.
+* `iop_write_snmp_doc()` generates two AsciiDoc documents (alarms/
+  notifications and objects) tabulating each OID with its help text;
+  `iop_snmp_doc()` is the CLI wrapper.
