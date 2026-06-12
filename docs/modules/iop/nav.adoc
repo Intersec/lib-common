@@ -2,6 +2,11 @@
 ** xref:index.adoc[Introduction]
 ** IOP specification
 *** xref:spec/overview.adoc[Specification overview]
+*** Language reference
+**** xref:spec/lexical.adoc[Lexical structure]
+**** xref:spec/packages.adoc[Packages and imports]
+**** xref:spec/types.adoc[Types and fields]
+**** xref:spec/structs-unions-enums.adoc[Structs, unions and enums]
 ** Legacy pages
 *** xref:base.adoc[IOP Basics]
 *** xref:wire-format.adoc[Wire format]

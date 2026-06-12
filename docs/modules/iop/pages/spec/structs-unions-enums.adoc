@@ -1,0 +1,180 @@
+= Structs, unions and enums
+:toc:
+:numbered:
+
+This page defines the three plain compound types. Classes — structs with
+inheritance — are specified in xref:../spec/classes.adoc[Classes and inheritance].
+Each declares a type whose name must be unique within its package;
+reusing a name already taken is an error (`something named 'X' already
+exists`).
+
+== Structs
+
+A *struct* is a record of typed, tagged fields:
+
+[source,java]
+----
+struct User {
+    int    id;
+    string name;
+};
+----
+
+* The body is a sequence of field declarations
+  (xref:../spec/types.adoc#_field_declarations[Types and fields]), each terminated
+  by `;`; the closing brace is also followed by `;`.
+* Fields may have any cardinality (mandatory, optional, repeated, with
+  default) and any type, including other structs, unions, classes and
+  enums:
++
+[source,java]
+----
+struct Address {
+    int    number;
+    string street;
+    int    zipCode;
+    string country;
+};
+
+struct User {
+    int     id;
+    string  name;
+    Address address;
+};
+----
+* An *empty struct* (`struct Empty { };`) is legal.
+* Tags follow the rules of xref:../spec/types.adoc#_tags[Tags]: implicit
+  numbering from 1, explicit `N:` prefixes, uniqueness, range 1–32767.
+* Structs cannot inherit: `struct Child : Parent` is a syntax error
+  (`'{' expected, but got ':'`). Use a class.
+
+=== Field order and `@noReorder`
+
+The declaration order of fields is significant: it drives implicit tag
+numbering, and the binary format writes fields in ascending tag order.
+Implementations are otherwise free to reorder fields in their in-memory
+representations. The declaration attribute `@noReorder` (structs and
+classes; rejected on unions) forbids such reordering, freezing the
+declared layout; it exists for structures whose memory layout must
+remain stable across compiler versions.
+
+== Unions
+
+A *union* holds exactly one of its members at a time:
+
+[source,java]
+----
+union MyUnion {
+    int    wantInt;
+    string wantString;
+    User   wantUser;
+};
+----
+
+Rules:
+
+* a union must contain *at least one member* (`a union must contain at
+  least one field`);
+* members are implicitly tagged like struct fields; the tag identifies
+  the active member in the binary format, the member name identifies it
+  in the text formats;
+* *only mandatory members* are allowed: optional members (`optional
+  members are forbidden in union types`), repeated members (`repeated
+  members are forbidden in union types`) and default values (`default
+  values are forbidden in union types`) are all rejected — including when
+  the cardinality comes through a typedef;
+* *reference members* (`Type&`) are allowed, and a reference member of a
+  union with at least two members may close a type cycle
+  (xref:../spec/types.adoc#references[References]);
+* `void` members are allowed — they declare an alternative that carries
+  no data:
++
+[source,java]
+----
+union Command {
+    int  setValue;
+    void reset;      /* no payload */
+};
+----
+* unions cannot inherit and cannot be inherited from (inheritance
+  syntax is a syntax error, `'{' expected, but got ':'`);
+* the member set of a union can be restricted at use sites with the
+  `@allow`/`@disallow` xref:../spec/attributes.adoc[attributes].
+
+== Enums
+
+An *enum* declares named integer constants:
+
+[source,java]
+----
+enum MyEnum {
+    VALUE_1 = 1,
+    VALUE_2 = 2,
+    VALUE_3 = 3,
+};
+----
+
+=== Member names
+
+Member names must be all-uppercase: every character an uppercase letter, a
+digit or an underscore (`MY_VALUE_2`).
+
+Each member also has a *global constant name* used in constant expressions
+and default values: the enum type name converted to upper snake case
+(`MyEnum` → `MY_ENUM`), or the `@prefix` attribute value if present,
+joined to the member name with an underscore (`MY_ENUM_VALUE_1`). These
+constant names live in a single global namespace for the whole
+compilation: two enums whose constant names collide (for instance two
+enums sharing a `@prefix` and a member name) are an error (`enum field
+name 'A' is used twice`).
+
+=== Values
+
+* A member may declare its value with `= <constant-expression>`
+  (xref:../spec/lexical.adoc#_constant_expressions[constant expressions]:
+  literals, arithmetic and bitwise operators, and previously declared
+  enum constants such as `B = MY_ENUM_A + 10`).
+* Without `=`, values are assigned by a counter starting at 0; an
+  explicit value resets the counter (the next member gets the previous
+  value plus one).
+* Values are signed 32-bit integers; negative values are allowed.
+* Two members of the same enum cannot share a value (`value <n> is used
+  twice`).
+* *Every member declaration ends with a comma, including the last one*
+  (`',' expected on every line`).
+
+=== Aliases
+
+A member may carry one or more `@alias(NAME)` attributes declaring
+alternative names accepted by the text (name-based) formats:
+
+[source,java]
+----
+enum Color {
+    @alias(CRIMSON) @alias(SCARLET)
+    RED = 0,
+    GREEN,
+};
+----
+
+Aliases share the member namespace: an alias colliding with another
+member, another alias, or its own member is an error (`enum field alias
+'X' is used twice`, `enum field name 'X' is used twice`).
+
+The only attributes allowed on an enum member are `@alias` and generic
+attributes `@(ns:name, …)`; anything else is `invalid attribute <name> on
+enum field`.
+
+=== Enum-level attributes
+
+`@prefix(Name)`::
+  Replaces the upper-snake-case type name in the members' global constant
+  names. After `@prefix(A)`, member `VAL` is referred to as `A_VAL`. Using
+  the original un-prefixed name in a constant expression is reported as
+  ambiguous (warning).
+`@strict`::
+  By default, decoders accept unknown numeric values for an enum (they pass
+  through where representable). A strict enum rejects values that are not
+  declared: decoding an undeclared value fails, and default values of
+  fields typed with the enum must be declared values. Making an existing
+  enum strict is a xref:../spec/compatibility.adoc[backward-compatibility] break.

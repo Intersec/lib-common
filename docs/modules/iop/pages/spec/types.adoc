@@ -1,0 +1,278 @@
+= Types and fields
+:toc:
+:numbered:
+
+== Primitive types
+
+[cols="1,3,3"]
+|===
+| Type | Definition | Value range
+
+| `byte`   | 8-bit signed integer    | -128 … 127
+| `ubyte`  | 8-bit unsigned integer  | 0 … 255
+| `short`  | 16-bit signed integer   | -32 768 … 32 767
+| `ushort` | 16-bit unsigned integer | 0 … 65 535
+| `int`    | 32-bit signed integer   | -2^31^ … 2^31^-1
+| `uint`   | 32-bit unsigned integer | 0 … 2^32^-1
+| `long`   | 64-bit signed integer   | -2^63^ … 2^63^-1
+| `ulong`  | 64-bit unsigned integer | 0 … 2^64^-1
+| `bool`   | boolean                 | `true`, `false`
+| `double` | IEEE-754 double-precision floating point | —
+| `string` | character string (text, by convention UTF-8) | —
+| `bytes`  | binary blob | —
+| `xml`    | string carrying an XML fragment (affects only the XML
+             representation) | —
+| `void`   | no data; indicates a presence without an associated value |
+|===
+
+Field types can also be any named type: a struct, union, class, enum or
+typedef, possibly qualified with its package name
+(xref:../spec/packages.adoc[Packages]).
+
+== Field declarations
+
+Fields of structs, unions and classes share one declaration syntax:
+
+----
+[<tag>:] <type>[? | [] | &] <name> [= <default>] ;
+----
+
+`<name>` starts with a lowercase letter and contains no underscore (unless
+the field carries `@forceFieldName`). Two fields of the same structure can
+share neither their name (`field name 'x' is already in use`) nor their
+tag (`tag <n> is used twice`).
+
+=== Cardinality
+
+Every field has one of four cardinalities:
+
+Mandatory (required)::
+  The default. The field must be present for an instance to be valid.
++
+[source,java]
+----
+struct Foo {
+    int      mandatoryInteger;
+    MyStruct mandatoryStruct;
+};
+----
+
+Optional — `?`::
+  The field may be absent. Codecs accept its absence without error.
++
+[source,java]
+----
+struct Foo {
+    int? optionalMember;
+    Bar? optionalStruct;
+};
+----
+
+Repeated — `[]`::
+  The field is a list of zero or more values. An absent repeated field is
+  the empty list.
++
+[source,java]
+----
+struct Foo {
+    int[] repeatedInteger;
+};
+----
+
+With default value — `=`::
+  A mandatory field that is allowed to be absent in serialized data; the
+  decoder then sets it to the declared default. A default value may only
+  be attached to an otherwise mandatory field: combining `=` with `?` or
+  `[]` is an error (`default values for non required fields makes no
+  sense`).
++
+[source,java]
+----
+struct Foo {
+    int val = 42;
+};
+----
+
+== Default values
+
+The default value must be compatible with the field type:
+
+* *integer fields*: an integer xref:../spec/lexical.adoc#_constant_expressions[constant
+  expression] (literals with optional unit suffixes, arithmetic
+  operators, enum value constants) or a character literal `c"x"`; any
+  other kind is an error (`invalid default value on integer field`). The
+  value must fit the field type's range; a negative value on an unsigned
+  field is an error (`invalid default value on unsigned integer field`);
+* *double fields*: a floating-point or integer literal. A string default
+  on a double field is an error (`string default value on double field`);
+* *bool fields*: `true` or `false` (an integer expression is also
+  accepted; any other kind is `invalid default value on bool field`);
+* *string and bytes fields*: a string literal; any other kind is an error
+  (`invalid default value on string field`);
+* *enum fields*: the constant name of one of the enum's values, written
+  with the enum's prefix: the enum type name converted to
+  `UPPER_SNAKE_CASE` (or the `@prefix` override), an underscore, and the
+  value name:
++
+[source,java]
+----
+enum MyEnum {
+    VAL_1 = 1,
+    VAL_2 = 2,
+};
+
+struct Foo {
+    MyEnum foo = MY_ENUM_VAL_1;
+};
+----
+
+* *struct, union, class fields*: cannot have default values;
+* *void fields*: cannot have default values (`default values are
+  forbidden for void types`).
+
+The default value must also satisfy the field's
+xref:../spec/attributes.adoc[constraint attributes] (`violation of @min
+constraint`, `violation of @max constraint`, `violation of @nonZero
+constraint`, `violation of @maxLength constraint`, …), and for a
+`@strict` enum it must be one of the declared values (`invalid default
+value on strict enum field`).
+
+== Tags
+
+Every field of a struct, union or class carries a *tag*: a small integer
+that identifies the field in the binary representation
+(xref:../spec/wire-format.adoc[wire format]) and that, together with the rules of
+xref:../spec/compatibility.adoc[backward compatibility], constitutes the stable
+identity of the field.
+
+* Valid tags range from *1 to 32767* (0x7FFF) inclusive. Out-of-range
+  explicit tags are errors (`tag is too small (must be >= 1)`, `tag is
+  too large (must be < 0x8000)`).
+* Tags are assigned implicitly by a counter starting at 1: the first
+  field gets tag 1, the next tag 2, and so on.
+* An explicit tag may be given as an integer prefix `N:`; it sets the
+  field's tag to N and resets the counter so that the next untagged field
+  gets N+1.
+
+[source,java]
+----
+struct Foo {
+1:    int a;
+2:    int b;
+3:    int c;
+      int d; /*< implicitly tag 4 */
+5:    int e;
+1024: int f; /*< legal, but small tags encode smaller */
+};
+----
+
+Tags below 30 occupy a single byte in the binary encoding; prefer small
+tags.
+
+[#references]
+== References
+
+A *reference* field is declared with `&` after the type:
+
+[source,java]
+----
+struct Foo {
+    MyStruct& referencedStruct;  /* mandatory, held by reference */
+};
+----
+
+A reference is semantically a mandatory field; the `&` only changes the
+in-memory representation (the value is pointed to rather than inlined) and
+the dependency rules. Restrictions:
+
+* the type must be a *struct or union* — scalars, enums and classes
+  cannot be referenced (`references can only be applied to structures or
+  unions`); classes need no `&`, they are always held by reference;
+* only *mandatory* fields can be references: `&` combines with neither
+  `?` nor `[]` nor a default value (`references can only be applied to
+  required fields`, `only mandatory fields can be references`). The forms
+  `Type&?` and `Type?&` are syntax errors;
+* static class fields cannot be references (`referenced static members
+  are forbidden`).
+
+A reference field is a strong dependency for the circular-dependency
+check, except as a member of a union with at least two members — the
+construct that makes recursive types possible
+(xref:../spec/packages.adoc#_dependencies_and_cycles[Dependencies and cycles]).
+
+== Typedefs
+
+A *typedef* creates a new name for a type, with optional cardinality
+modifiers and attributes:
+
+----
+[<attributes>] typedef <type>[? | [] | &] <UpperName> ;
+----
+
+[source,java]
+----
+typedef int MyInt;
+
+@min(3)
+typedef int MyIntMin3;
+
+typedef string[] MyStringArray;
+
+@allow(a)
+typedef MyUnion MyUnionA;
+
+typedef otherPkg.OtherStruct ExternalStruct;
+----
+
+Rules:
+
+* anything can be typedef'd: primitive types, enums, structs, unions,
+  classes, and other typedefs (chains are allowed and attributes
+  accumulate along the chain);
+* the typedef name follows type-name rules (uppercase first letter, no
+  underscore);
+* using a typedef applies its kind, target type and attributes to the
+  use site. Constraint attributes from the typedef chain and from the use
+  site accumulate;
+* *cardinality merge*: if both the typedef and the use site specify a
+  non-mandatory cardinality and they differ, the use is an error (`cannot
+  declare repeated optional fields`) — e.g. an optional typedef used as a
+  repeated field, or an array typedef used with `?`. Otherwise the
+  typedef's cardinality applies;
+* typedef cycles are errors (`recursive typedef for type 'X' in pkg
+  'Y'`);
+* attributes attached to a typedef must be applicable to the resolved
+  type and cardinality (e.g. `@minOccurs` on a non-repeated typedef is
+  `attribute minOccurs does not apply to required typedefs`; `@pattern`
+  on an integer typedef is `attribute pattern does not apply to
+  integer`);
+* a class may inherit from a typedef that resolves to a class.
+
+Typedefs also serve to *move types across packages* without breaking the
+name-based (JSON/YAML/XML) representations: after moving a type to
+another package, leave behind a typedef with the original name pointing at
+the new location (see xref:../spec/compatibility.adoc[Backward compatibility]).
+
+== The void type
+
+`void` denotes presence without data. Its allowed contexts:
+
+[cols="3,1,3"]
+|===
+| Context | Legal | Notes
+
+| union member `void v;` | yes | distinguishes a case carrying no data
+| mandatory struct field `void f;` | yes | carries no information;
+  idiomatic replacement for a removed field (keeps its tag reserved)
+| optional struct field `void? f;` | yes | a pure presence flag
+| `@private void f;` (mandatory) | yes | the one case where `@private`
+  applies to a mandatory field
+| repeated `void[] f;` | no | `repeated void types are forbidden`
+| `void f = …;` | no | `default values are forbidden for void types`
+| RPC argument fields `in (void a, int b)` | yes | including optional
+  `void? a`
+| `in void` / `out void` / `throw void` clauses | yes | declares the
+  payload empty — see xref:../spec/interfaces-modules.adoc[Interfaces]
+| anywhere in SNMP interfaces | no | `void is not supported by snmpIface
+  RPCs`
+|===

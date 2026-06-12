@@ -1,0 +1,122 @@
+= Packages and imports
+:toc:
+:numbered:
+
+== Package declaration
+
+A `.iop` file declares exactly one *package*, and the declaration must be
+the first statement of the file (only comments and documentation comments
+may precede it):
+
+[source,java]
+----
+package foo;        /* file foo.iop */
+----
+
+The package name is a dot-separated path of identifiers, each starting
+with a lowercase letter. A package may be a sub-package of another
+package; sub-packaging is purely a naming convention (it creates no
+visibility or dependency relation between `foo` and `foo.bar`).
+
+A missing or misspelled `package` keyword is an error (`package expected`).
+A file that does not contain a package statement is invalid (`unexpected
+end of file`).
+
+== File and directory mapping
+
+The package name determines the file path: package `a.b.c` must live in
+the file `a/b/c.iop` relative to some root directory. Compilers must
+verify the correspondence between the declared package name and the actual
+file location, and reject mismatches (`incorrect package name`).
+
+This mapping is what makes cross-package references resolvable: given a
+set of include directories, the package `foo.bar` is found in
+`<include-dir>/foo/bar.iop`.
+
+== Cross-package references
+
+There is *no import statement* in the IOP language. A type from another
+package is referenced by its qualified name, which is also what makes the
+dependency explicit:
+
+[source,java]
+----
+package plop;
+
+struct Plop {
+    foo.bar.Bar bar;   /* type Bar from package foo.bar */
+};
+----
+
+A qualified name is one or more lowercase path components followed by one
+uppercase type name. Encountering a qualified name makes the compiler
+locate and load the referenced package: the file is searched relative to
+the current package's root directory, then in each include directory, in
+order. Failure to locate it is an error (`unable to find file '<pkg>.iop'
+in the include path`).
+
+NOTE: `import` is a reserved keyword. Historic documentation described an
+`import` statement; it is not part of the language and is rejected. More
+generally, every top-level statement must be one of the allowed
+declarations, and anything else is an error (`unexpected keyword 'X'`,
+e.g. `unexpected keyword 'import'`).
+
+== Name resolution
+
+* An *unqualified* type name is resolved in the current package only.
+* Within a package, names are looked up among structs, unions, classes and
+  SNMP objects first, then enums, then typedefs.
+* A qualified name is resolved in the named package; failure yields
+  `unable to find type 'X' in pkg 'Y'`, while an unresolvable unqualified
+  name yields `unable to find any pkg providing type 'X'`.
+* Interfaces and modules are resolved through the same rules but in their
+  own namespace (see below); failures yield `unable to find any pkg
+  providing interface/module 'X'`.
+
+=== Namespaces
+
+A package has two declaration namespaces:
+
+. *types*: structs, unions, classes, enums, typedefs, SNMP objects and
+  tables share a single namespace — declaring two of them with the same
+  name is an error (`something named 'X' already exists`);
+. *interfaces and modules*: interfaces, SNMP interfaces and modules share
+  a second, independent namespace with the same uniqueness rule.
+
+== Dependencies and cycles
+
+Field types create dependencies between packages. Two kinds are
+distinguished:
+
+* a *strong* dependency: a required (mandatory) field of struct, union or
+  class type — the full definition of the target type is needed to lay
+  out the dependent type;
+* a *weak* dependency: an optional (`?`) or repeated (`[]`) field — the
+  target type's resolution can be deferred.
+
+Rules:
+
+* *Cycles of strong dependencies are rejected*, both inside a package and
+  across packages (`circular dependency`). The error message includes the
+  dependency trail.
+* A cycle is legal as soon as it is broken by at least one weak
+  dependency, in the same package or across packages.
+* A *reference* member (`Type&`, see xref:../spec/types.adoc#references[References])
+  is still a strong dependency, with one exception: a reference member of
+  a *union with at least two members* breaks the cycle. This is the
+  idiomatic way to declare recursive types:
+
+[source,java]
+----
+struct Leaf {
+    int value;
+};
+
+union Tree {
+    Tree& node;   /* legal: reference member of a 2-member union */
+    Leaf  leaf;
+};
+----
+
+Errors in transitively loaded packages are reported like errors in the
+main package.

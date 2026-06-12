@@ -1,0 +1,293 @@
+= Lexical structure
+:toc:
+:numbered:
+
+This page defines how the text of a `.iop` file is decomposed into tokens.
+Syntax and semantics of the constructs built from these tokens are defined
+in the following pages.
+
+== Source encoding
+
+An IOP source file is a text file. The language syntax itself uses only
+ASCII characters, while the contents of string literals may carry
+arbitrary bytes (typically UTF-8 text).
+
+Horizontal whitespace (space, tab, vertical tab) separates tokens and is
+otherwise ignored. Lines are terminated by `LF`; lines and columns are
+reported 1-based in error messages.
+
+An end-of-file inside a string literal, character literal, comment or
+documentation comment is an error (`unterminated string`, `unterminated
+cstring`, `unterminated comment`, `unterminated doxygen comment`). A file
+that ends where a token is still required is likewise an error
+(`unexpected end of file`); in particular, an empty file is invalid.
+
+== Comments
+
+Three families of comments exist:
+
+Line comments::
+  `//` up to and including the end of line.
+Block comments::
+  `+/*+` up to the first `+*/+`. Block comments do *not* nest: the first
+  `+*/+` always terminates the comment.
+Documentation comments::
+  Comments attached to declarations. An introducer is a block form
+  (`+/**+` or `+/*!+`) or a line form (`///` or `//!`), each optionally
+  followed by `<`. A trailing `<` marks a _back_ comment documenting the
+  *preceding* element; otherwise it documents the *following* one. Their
+  internal markup and attachment rules are specified in
+  xref:../spec/doc-comments.adoc[Documentation comments].
+
+A sequence of four or more slashes (`////…`) is a plain line comment, not
+a documentation comment.
+
+== Identifiers
+
+An identifier starts with an ASCII letter, followed by ASCII letters,
+digits or underscores (`+[a-zA-Z][a-zA-Z0-9_]*+`). Additional *naming rules*
+restrict identifiers depending on what they name; violating them is an
+error:
+
+[cols="2,3,4"]
+|===
+| Names | First character | Additional rules
+
+| package path components
+| lowercase letter
+| —
+
+| type names (struct, union, class, enum, typedef, interface, module, SNMP
+  objects)
+| uppercase letter
+| no underscore; not a reserved keyword
+
+| field names, RPC names, module member names
+| lowercase letter
+| no underscore (unless the field carries the `@forceFieldName`
+  attribute); not a reserved keyword
+
+| enum value names
+| —
+| every character must be an uppercase letter, a digit or an underscore
+  (e.g. `MY_VALUE_2`)
+|===
+
+The "no underscore" rule yields the error `<name> contains a _`; reserved
+keywords yield `<name> is a reserved keyword`.
+
+Inside attribute argument lists (between the parentheses of `@attr(...)`),
+identifiers follow an extended form: a leading underscore is allowed and
+dots may be embedded (`+[a-zA-Z_][a-zA-Z0-9_.]*+`). This is what allows
+qualified names such as `pkg.path.Obj` as attribute arguments.
+
+== Keywords
+
+=== Reserved words
+
+The following words cannot be used as type, field, RPC or module member
+names (error `is a reserved keyword`). Most are reserved to keep generated
+code from clashing with target-language keywords; the last line holds the
+IOP structural keywords:
+
+----
+auto bool break case char const continue default do double else enum
+extern float for goto if inline int long register restrict return short
+signed sizeof static struct switch typedef union unsigned void volatile
+while
+
+abstract assert boolean byte catch extends false final finally friend
+implements import instanceof interface mutable namespace native null
+operator package private protected public strictfp super synchronized
+template this throw throws transient true try typename virtual
+
+in out module
+----
+
+Four additional words are rejected with the error `is a keyword in some
+languages` unless the declaration carries `@nowarn(keyword)`:
+`class`, `new`, `delete`, `explicit`.
+
+NOTE: `import` is a reserved word but there is *no import statement* in
+the language; see xref:../spec/packages.adoc[Packages].
+
+=== Contextual keywords
+
+The structural keywords (`package`, `struct`, `union`, `class`, `enum`,
+`typedef`, `interface`, `module`, `snmpObj`, `snmpTbl`, `snmpIface`,
+`static`, `abstract`, `local`, `in`, `out`, `throw`, `null`) are ordinary
+identifiers recognized by position.
+
+=== Built-in type names
+
+The built-in type names are `int`, `uint`, `long`, `ulong`, `byte`,
+`ubyte`, `short`, `ushort`, `bool`, `double`, `string`, `bytes`, `xml` and
+`void`. They are matched case-insensitively, but only when the identifier
+contains no uppercase character (so `int` and `INT` would not both match;
+in practice always write them in lowercase).
+
+`true` and `false` are boolean literals with values 1 and 0; they are
+usable inside constant expressions.
+
+== Integer literals
+
+Accepted forms:
+
+* *decimal*: a non-zero digit followed by digits (`123`);
+* *hexadecimal*: `0x` followed by hexadecimal digits (`0x19af`). Only the
+  lowercase `0x` prefix is recognized;
+* *octal*: `0` followed by octal digits (`0123` = 83); a lone `0` is this
+  form;
+* an optional leading `-` is part of the literal for decimal and
+  hexadecimal forms (the value is then parsed as signed).
+
+There are no digit separators. Values must fit in 64 bits: signed literals
+down to -9223372036854775808, unsigned literals up to
+18446744073709551615; out-of-range values are an error (`integer
+overflow`).
+
+=== Unit suffixes
+
+A literal may carry *exactly one* suffix letter that multiplies its value.
+Nothing alphanumeric may follow the suffix (otherwise: `invalid integer
+extension`).
+
+[cols="1,2,1,2"]
+|===
+| Suffix | Multiplier | Suffix | Multiplier
+
+| `K` | 1024 (2^10^)               | `s` | 1 (seconds)
+| `M` | 1 048 576 (2^20^)          | `m` | 60
+| `G` | 1 073 741 824 (2^30^)      | `h` | 3 600
+| `T` | 1 099 511 627 776 (2^40^)  | `d` | 86 400
+|     |                            | `w` | 604 800
+|===
+
+The size suffixes are powers of 1024, not 1000. The multiplication must
+not overflow (`integer overflow`). Examples: `100K`, `0x0aM`, `-10K`,
+`012K` (octal 10 × 1024).
+
+== Floating-point literals
+
+The only accepted form is `-?[0-9]\*"."[0-9]+([eE][+-]?[0-9]+)?`: a decimal
+point with at least one digit *after* it is mandatory, the integer part
+and the exponent are optional. `1.0`, `.5`, `-0.25` and `3.14e-10` are
+valid; `1.` is not, and `1e10` is *not* a floating-point literal (it reads
+as the integer `1` with an invalid suffix `e10`, an error). There are no
+`inf` or `nan` literals. A value overflowing the double range is an error
+(`double overflow`).
+
+== String literals
+
+A string literal is a double-quoted sequence of characters. Recognized
+escape sequences:
+
+[cols="2,4"]
+|===
+| Escape | Meaning
+
+| `\a \b \e \t \n \v \f \r` | usual control characters
+| `\\` `\"` `\'` | backslash, double quote, single quote
+| `\` + exactly 3 octal digits, first in `0`–`2` (e.g. `\277`) | one byte
+| `\x` + exactly 2 hexadecimal digits | one byte
+| `\u` + exactly 4 hexadecimal digits | the code point, encoded in UTF-8
+|===
+
+A backslash followed by any other character is kept verbatim (both the
+backslash and the character); it is not an error. A string literal must be
+terminated before the end of file (`unterminated string`). String literals
+do not concatenate.
+
+== Character literals
+
+The form `c"<content>"` denotes a character literal: a `c`-prefixed
+double-quoted string whose *first byte* is used as an integer value. It is
+only meaningful as the default value of an integer field:
+
+[source,java]
+----
+struct InputCsv {
+    int separator = c";";
+};
+----
+
+Inside `c"…"`, only the simple escapes (`\a \b \e \t \n \v \f \r \\ \"
+\'`) are allowed; `\x`, `\u` and octal escapes are an error.
+
+== Punctuation and operators
+
+The single-character tokens are:
+
+----
+. = : , ; ( ) [ ] { } ? * - _ ~ ^ / + % & |
+----
+
+The only multi-character operator tokens are `<<`, `>>` and `+**+`. The
+characters `<` and `>` alone are not valid tokens (error `unexpected
+char`), except as part of documentation comment introducers.
+
+Declarations are terminated by `;`, *including* after the closing brace of
+a struct, union, enum, class, interface or module body (`};`).
+
+The token `@` followed by an identifier introduces an attribute; `@(`
+introduces a generic attribute, whose name has the form
+`ns:name` (one or more namespace segments separated by colons). See
+xref:../spec/attributes.adoc[Attributes].
+
+== Constant expressions
+
+Integer constant expressions are accepted in three places: default values
+of integer fields, enum member values, and integer or boolean attribute
+arguments.
+
+Operands are integer literals (with optional unit suffix), the boolean
+literals `true`/`false`, and *enum value identifiers* (the all-uppercase
+constant name of any previously seen enum value, e.g. `MY_ENUM_A`;
+ambiguity with a renamed `@prefix` value is reported as a warning).
+
+Operators, from highest to lowest precedence:
+
+[cols="1,2,2"]
+|===
+| Precedence | Operators | Associativity
+
+| 7 | `+**+` (exponentiation) | right
+| 6 | unary `-`, `~` | right
+| 5 | `+*+` `/` `%` | left
+| 4 | `+` `-` | left
+| 3 | `<<` `>>` | left
+| 2 | `&` | left
+| 1 | `\|` `^` | left
+|===
+
+Parentheses group sub-expressions. There is *no unary `+`*.
+
+Evaluation semantics:
+
+* values are 64-bit integers carrying a signedness flag; a value is
+  considered signed only when it is negative;
+* `+` and `-` are checked for both signed and unsigned overflow;
+* division and modulo by zero are errors (`invalid division by 0`,
+  `invalid modulo by 0`), as is `INT64_MIN / -1` (`division overflow`);
+* `+**+` rejects negative exponents (`negative expressions are forbidden
+  when used as exponent`); `+0**0+` evaluates to 1; the iterated
+  multiplication is overflow-checked;
+* the bitwise operators (`~ & | ^ << >>`) operate on the raw 64-bit value
+  and produce an unsigned result; shift counts are not validated;
+* unbalanced parentheses and other malformed expressions are an error
+  (`invalid arithmetic expression`).
+
+Example:
+
+[source,java]
+----
+struct Foo {
+    int a = 2 * (256 << 20) + 42;
+};
+
+enum Flags {
+    VAL_1 = 1 << 0,
+    VAL_2 = 1 << 1,
+    VAL_3 = 1 << 2,
+};
+----
