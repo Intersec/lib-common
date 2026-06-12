@@ -797,6 +797,28 @@ void RewriteBlocks::CheckFunctionPointerDecl(QualType funcType, NamedDecl *ND) {
 }
 
 void RewriteBlocks::RewriteBlockLiteralFunctionDecl(FunctionDecl *FD) {
+  // If the function already has an explicit forward declaration in the source,
+  // synthesizing another prototype here would emit a redundant declaration
+  // (rejected by -Werror=redundant-decls). We must still get rid of the
+  // definition's `static` storage-class specifier though: the block helpers
+  // are hoisted at the type-spec location (right after `static`), so leaving
+  // the keyword in place would strand it in front of them, e.g.
+  // "static struct __foo_block_impl_0 { ... };". The existing forward
+  // declaration already provides the internal linkage, so simply drop the
+  // storage-class specifier from the definition.
+  if (FD->getPreviousDecl()) {
+    SourceLocation Begin = FD->getBeginLoc();
+    SourceLocation TypeLoc = FD->getTypeSpecStartLoc();
+
+    if (Begin != TypeLoc) {
+      const char *beginBuf = SM->getCharacterData(Begin);
+      const char *typeBuf = SM->getCharacterData(TypeLoc);
+
+      ReplaceText(Begin, typeBuf - beginBuf, "", false);
+    }
+    CurFunctionDeclToDeclareForBlock = 0;
+    return;
+  }
   SourceLocation FunLocStart = FD->getTypeSpecStartLoc();
   const FunctionType *funcType = FD->getType()->getAs<FunctionType>();
   const FunctionProtoType *proto = dyn_cast<FunctionProtoType>(funcType);
