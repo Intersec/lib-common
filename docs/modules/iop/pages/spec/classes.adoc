@@ -1,0 +1,155 @@
+= Classes and inheritance
+:toc:
+:numbered:
+
+== Concepts
+
+A *class* is a struct that takes part in single inheritance: a class
+either has exactly one parent class — and then inherits all the fields of
+its ancestors — or is a *master class* (the root of its hierarchy). A
+field declared with a class type is *polymorphic*: at runtime it may hold
+an instance of that class or of any of its descendants, and every
+serialization format encodes which concrete class an instance has (the
+*class id* in the binary format, the class name in the text formats).
+
+Classes have no methods. They may carry *static fields*, which are
+per-class constants, not instance data.
+
+== Declaration syntax
+
+----
+[abstract] [local] class <Name> [: <classId> [: <ParentRef>]] {
+    <static-field>*
+    <field>*
+};
+----
+
+[source,java]
+----
+package test;
+
+class A1 {
+    static string name = "a1";
+    int a = 10;
+};
+
+class B1 : 1 : A1 {
+    string b;
+};
+
+class B2 : 2 : A1 {
+    static string name = "b2";
+    bool b;
+};
+----
+
+* `abstract` and `local` may appear in either order, each at most once
+  (`repetition of 'abstract' keyword`). They apply only to classes (`only
+  classes can be abstract/local`).
+* The first `:` introduces the integer *class id*. It is optional for a
+  parentless class (defaulting to 0), but a parent can only be specified
+  after an explicit id: `class B : A` is a syntax error (`integer
+  expected, but got identifier instead`).
+* The parent must itself be a class — inheriting from a struct or union
+  is an error (`parent object 'X' is not a class`) — or a typedef
+  resolving to a class. Multiple inheritance is not supported (`multiple
+  inheritance is not supported`).
+* Instance fields are declared exactly as in structs, with one extra
+  rule: a field may not have the same name as any field of an ancestor
+  *or descendant* (`field name 'a' is also used in child 'C'`). Tags only
+  need to be unique within each class, not across the hierarchy.
+* Inheritance cycles are rejected (`circular dependency`, with the
+  inheritance trail in the message).
+* A class can be used as a field type in structs, unions and other
+  classes, with any cardinality; class-typed fields need no `&` (classes
+  are always held by reference).
+
+== Class ids
+
+The class id is the identity of the class in the binary format
+(xref:../spec/wire-format.adoc[wire format]), playing the role tags play for
+fields.
+
+* Range: *0 to 65535* inclusive (`id is too small`, `id is too large`).
+* Ids must be *unique within an entire inheritance tree* (all classes
+  sharing a master class), whatever package each class lives in: `id 3 is
+  also used by class 'C1'`. A compiler can only verify this for the trees
+  it sees entirely; implementations must detect remaining collisions when
+  the type descriptions are assembled at runtime.
+* An implementation may let a build restrict the authorized id range for
+  the package being compiled (in the reference implementation:
+  `--class-id-range`, see xref:../impl/iopc.adoc[the iopc compiler]); ids
+  outside the configured range are then rejected with the same errors.
+* Changing the id of an existing class is a
+  xref:../spec/compatibility.adoc[backward-compatibility] break.
+
+== Abstract classes
+
+An `abstract` class cannot be instantiated: encoders and decoders must
+refuse to encode or decode a value whose *concrete* class is abstract (an
+abstract class appearing as an ancestor of the concrete class is of course
+fine).
+Abstract classes typically anchor a hierarchy and may declare static
+fields without values (see below).
+
+== Local classes
+
+A `local` class can only be inherited from within its own package:
+declaring a child of a local class in another package is an error (`as
+the parent class 'X' of class 'Y' is 'local', both classes need to be in
+the same package`). Local classes can still be *used* (as field types,
+RPC payloads…) from any package.
+
+== Static fields
+
+----
+static <type> <name> [= <value>] ;
+----
+
+Static fields are class constants, attached to the class itself. The
+`static` keyword is only valid inside a class; using it on a field of a
+struct or union is an error (`static keyword is only authorized for
+class fields`):
+
+* they must all be declared *before* the instance fields (`all static
+  attributes must be declared first`);
+* they carry no tag (`tag is not authorized for static class fields`) and
+  are never serialized with instances;
+* they cannot be optional, repeated or references
+  (`optional/repeated/referenced static members are forbidden`);
+* in a *non-abstract* class, every static field must have a value
+  (`static fields of non-abstract classes must have a default value`);
+* an *abstract* class may declare a static field without a value; every
+  non-abstract descendant must then define it (`class 'D1' must define a
+  static field named 'x'`);
+* a class may redefine an ancestor's static field with a new value; the
+  type must be identical (`incompatible type for static field 'x':
+  should be 'int'`). Redefining it *without* a value is an error (`field
+  'x' already defined by parent 'A'`);
+* static values follow the default-value rules of
+  xref:../spec/types.adoc#_default_values[Types and fields], including enum
+  constants from other packages.
+
+Statics are inherited: looking up a static on a class searches the class
+then its ancestors.
+
+== Private classes
+
+The declaration attribute `@private` (valid on classes only — on a
+struct, union or enum it is `attribute private does not apply to
+struct/union/enum`) marks a class as internal: it must not be exposed in
+public interface descriptions, and decoders must refuse to *decode* an
+instance of a private class from untrusted input while still being able
+to encode and re-decode it internally (see the per-format pages for the
+exact behavior).
+
+== Typing rules
+
+* The static type of a class-typed field is an upper bound: any
+  descendant class instance is acceptable at that position
+  (assignability).
+* The *master class* of a hierarchy is the ancestor with no parent;
+  class-id uniqueness is defined per master class.
+* When decoding, the concrete class conveyed by the data (class id or
+  class name) must be the declared class or one of its descendants;
+  anything else is an error.

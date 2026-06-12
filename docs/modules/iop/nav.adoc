@@ -7,9 +7,10 @@
 **** xref:spec/packages.adoc[Packages and imports]
 **** xref:spec/types.adoc[Types and fields]
 **** xref:spec/structs-unions-enums.adoc[Structs, unions and enums]
+**** xref:spec/classes.adoc[Classes and inheritance]
+**** xref:spec/attributes.adoc[Attributes and constraints]
 ** Legacy pages
 *** xref:base.adoc[IOP Basics]
 *** xref:wire-format.adoc[Wire format]
 *** xref:inheritance.adoc[Class inheritance]
-*** xref:iop-attributes.adoc[IOP attributes]
 *** xref:library-c.adoc[C library]

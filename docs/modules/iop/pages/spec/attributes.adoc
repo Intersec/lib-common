@@ -1,0 +1,296 @@
+= Attributes and constraints
+:toc:
+:numbered:
+:page-aliases: iop-attributes.adoc
+
+Attributes annotate declarations and fields. They constrain values,
+alter the behavior of encoders and decoders, or carry metadata for code
+generators and applications.
+
+== Attribute syntax
+
+An attribute is written before the element it annotates — the
+declaration keyword (`struct`, `enum`, …) or the field/RPC it applies
+to:
+
+[source,java]
+----
+@ctype(type = foo__t) @(test:gen1, 2)
+struct Foo {
+    @min(0) @max(1 << 4)
+    int someField;
+};
+----
+
+* Arguments are given either *positionally* (declaration order) or all
+  *named* (`name=value`); the two styles cannot be mixed. Unknown
+  argument names (`incorrect argument name`), duplicate named arguments,
+  and wrong argument counts (`attribute <a> expects <n> arguments, got
+  <m>`, or `too many arguments`) are errors.
+* Argument types are: integer/double (integer arguments accept
+  xref:../spec/lexical.adoc#_constant_expressions[constant expressions], e.g.
+  `@max(10*5)` or `@min(1 << 5)`; double arguments also accept integers),
+  strings (double-quoted), and identifiers (in attribute argument lists,
+  identifiers may contain dots and a leading underscore, allowing
+  qualified names).
+* An attribute declared without arguments must be written without
+  parentheses (`attribute should not have arguments`); conversely, an
+  attribute that requires arguments cannot be written bare (`attribute
+  arguments missing`) nor as `@attr()` (`attribute <a> expects at
+  least one argument`).
+* *Repeatable* attributes (marked _multi_ below) may be written several
+  times and/or with several comma-separated values: `@allow(a, c)` ≡
+  `@allow(a) @allow(c)`. Non-repeatable attributes must be unique
+  (`attribute <a> must be unique`).
+* An unknown attribute name is an error (`incorrect attribute name`).
+
+== Applicability matrix
+
+"Declarations" means the attribute is written before a type/interface
+declaration; "fields" means it is written before a field (with the
+cardinalities it accepts). Typedefs are governed by the *fields*
+column, checked against the resolved type and cardinality —
+declaration-only attributes are rejected on typedefs (`attribute ctype
+does not apply to typedefs`).
+
+[cols="2,3,2,3,3,1"]
+|===
+| Attribute | Purpose | Arguments | On declarations | On fields | Multi
+
+| `@ctype` | override the generated C type name | ident (`…__t`), ≥1 |
+  struct, union, enum, class | — | yes
+| `@nowarn` | silence a warning category | ident, ≥1 | all | all | yes
+| `@prefix` | override the enum-constant prefix | ident, 1 | enum | — | no
+| `@strict` | reject undeclared enum values | — | enum | — | no
+| `@min` `@max` | numeric value bounds | int/double | — | int and double
+  fields, any cardinality | yes
+| `@minLength` `@maxLength` | string/bytes length bounds | int (non-zero)
+  | — | string and bytes fields, any cardinality | yes
+| `@length` | exact string/bytes length | int (non-zero), 1 | — | string
+  and bytes fields, any cardinality | no
+| `@minOccurs` `@maxOccurs` | array element-count bounds | int (non-zero)
+  | — | *repeated* fields only, any type | yes
+| `@cdata` | XML packing hint | — | — | string fields | no
+| `@nonEmpty` | forbid an empty value | — | — | string, bytes and xml
+  fields | no
+| `@nonZero` | forbid the value zero | — | — | int and double fields | no
+| `@pattern` | restrict the allowed character set | string, 1 | — |
+  string fields | no
+| `@private` | mark a field/class internal | — | class only | optional,
+  repeated and default-valued fields; mandatory `void` fields | no
+| `@alias` | declare alternative names | ident, ≥1 | RPCs; enum values |
+  — | yes
+| `@noReorder` | keep the declared field order in memory | — | struct,
+  class | — | no
+| `@allow` `@disallow` | restrict union members / enum values at a use
+  site | ident, ≥1 | — | fields of union or enum type, any cardinality |
+  yes
+| `@deprecated` | mark the element deprecated | — | all (including SNMP
+  objects) | all | no
+| `@(ns:name, value)` | attach arbitrary metadata | one value | all |
+  all, and enum values | yes (one per name)
+| `@snmpParamsFrom` | SNMP (see xref:../spec/snmp.adoc[SNMP]) | ident, ≥1 |
+  snmpIface | — | yes
+| `@snmpParam` | SNMP (see xref:../spec/snmp.adoc[SNMP]) | — | snmpObj | — | no
+| `@snmpIndex` | SNMP (see xref:../spec/snmp.adoc[SNMP]) | — | — | fields of an
+  snmpTbl | no
+| `@typescriptNoCollection` | TypeScript backend hint | — | struct,
+  union, class | — | no
+| `@forceFieldName` | lift the field-naming rules | — | — | all fields |
+  no
+|===
+
+Violations yield `attribute <a> does not apply to <context>` (e.g.
+`attribute ctype does not apply to fields`, `attribute private does not
+apply to required fields`, `attribute minOccurs does not apply to fields
+with default value`, `attribute noReorder does not apply to union`).
+
+On enum *values*, only `@alias` and generic attributes are allowed
+(`invalid attribute <a> on enum field`).
+
+== Constraint attributes
+
+Constraints restrict the acceptable values of a field. A value violating
+a constraint is *invalid*: decoders must reject it (whatever the
+format), and encoders should refuse to produce it. Default values are
+checked against constraints at compile time (`violation of @min
+constraint`, …).
+
+`@min(v)` / `@max(v)`::
+  Inclusive bounds for integer and double fields. The bound must fit the
+  field's type range (`attribute min is lower than minimum value of type
+  <t>`, `attribute max is larger than maximum value of type ubyte (256 >
+  255)`).
+`@nonZero`::
+  Zero is forbidden (integer and double fields).
+`@minLength(n)` / `@maxLength(n)` / `@length(n)`::
+  Inclusive bounds (or exact value) for the byte length of string and
+  bytes fields. `@length(n)` is equivalent to `@minLength(n)
+  @maxLength(n)`. The argument 0 is forbidden (use `@nonEmpty`'s absence
+  to permit empty values).
+`@nonEmpty`::
+  The string/bytes/xml value must not be empty.
+`@minOccurs(n)` / `@maxOccurs(n)`::
+  Inclusive bounds for the number of elements of a repeated field. The
+  argument 0 is forbidden. On repeated fields, `@min`/`@max`/length
+  constraints apply to *each element*.
+`@pattern("…")`::
+  Character-set restriction for string fields. The supported dialect is
+  deliberately small — *one character class applied to the whole
+  string*: `[<set>]\*` or `[^<set>]*`, where `<set>` contains single
+  characters and `a-b` ranges, and the characters `| . - ^ ? * + { } (
+  ) [ ]` and `\` must be backslash-escaped. Any other regular-expression
+  construct must be rejected at compile time (`unsupported pattern`).
+  Example: `@pattern("[a-zA-Z0-9_\-]*")`.
+`@allow(m, …)` / `@disallow(m, …)`::
+  For a field of union or enum type, restricts which members (union) or
+  values (enum) are acceptable *at this use site*: `@allow` lists the
+  only permitted ones, `@disallow` forbids the listed ones. The two are
+  mutually exclusive on one field (`cannot use both @allow and @disallow
+  on the same field`); every name must exist in the target type
+  (`unknown field c in MyUnion`); a default value must satisfy the
+  restriction (`invalid default value on enum field`, or `invalid
+  default value on strict enum field` when the enum is `@strict`).
+`@strict` (enum declarations)::
+  See xref:../spec/structs-unions-enums.adoc#_enum_level_attributes[Enums].
+
+Example:
+
+[source,java]
+----
+struct User {
+    @minLength(5) @maxLength(128) @pattern("[a-zA-Z0-9_\-]*")
+    string login;
+
+    /* between 5 and 10 elements, each in [-5, 5] */
+    @minOccurs(5) @maxOccurs(10)
+    @min(-5) @max(5)
+    int[] intTab;
+
+    @allow(a, c)
+    MyUnion choice;
+};
+----
+
+=== Combining constraints
+
+Constraint attributes accumulate from three sources: the typedef chain
+(each typedef adds its attributes), and the use site. When the same
+bound is given several times, the *strictest* one wins: the highest
+`@min`/`@minLength`/`@minOccurs`, the lowest
+`@max`/`@maxLength`/`@maxOccurs`:
+
+[source,java]
+----
+@max(42) @min(5)
+typedef uint Digit;
+
+struct Test {
+    @max(21) @min(7)
+    Digit a;          /* effective range: [7, 21] */
+
+    @max(45) @min(3)
+    Digit b;          /* effective range: [5, 42] (typedef is stricter) */
+};
+----
+
+Contradictory bounds (`@min` above `@max`) are not detected at compile
+time; they simply make every value invalid.
+
+== Behavior attributes
+
+`@private`::
+  On a *field* (optional, repeated, default-valued, or mandatory
+  `void`): the field is internal — it must not appear in public
+  interface descriptions (WSDL, OpenAPI…), encoders must be able to
+  omit it when producing data for external consumers, and decoders must
+  be able to reject input that tries to set it. On a *class*
+  declaration: see xref:../spec/classes.adoc#_private_classes[Private classes].
+`@alias(name, …)`::
+  On an RPC: declares alternative names under which the RPC is callable.
+  On an enum value: declares alternative names accepted by the text
+  (name-based) formats (xref:../spec/structs-unions-enums.adoc#_aliases[Enums]).
+`@noReorder`::
+  On a struct: forbids implementations from reordering fields in memory
+  (xref:../spec/structs-unions-enums.adoc#_field_order_and_noreorder[Structs]).
+`@deprecated`::
+  Marks the element as deprecated. Carried through to generated code and
+  interface descriptions; implementations should emit warnings on use.
+`@nowarn(category)`::
+  Suppresses the named compiler warning category for this element. The
+  only defined category is `keyword`, which lifts the rejection of the
+  names `class`, `new`, `delete` and `explicit`.
+`@forceFieldName`::
+  Lifts the field naming rules (lowercase first letter, no underscore)
+  for this field, allowing names like `my_field`.
+
+== Backend-hint attributes
+
+The following attributes are part of the language (a conforming parser
+accepts them with the syntax and placement above) but their semantics
+belong to specific backends, documented in
+xref:../impl/iopc-backends.adoc[Part II]:
+
+`@ctype(name)`::
+  Alternative type name(s) for the C backend. Each argument must end in
+  `__t` (`invalid ctype 'user_t': missing __t suffix`).
+`@prefix(Name)`::
+  Replaces the enum constant prefix. Note that this has a
+  language-visible effect: it changes the constant names used in
+  xref:../spec/lexical.adoc#_constant_expressions[constant expressions] and
+  default values.
+`@cdata`::
+  Hint for the XML packer (xref:../spec/xml.adoc[XML representation]).
+`@typescriptNoCollection`::
+  Hint for the TypeScript backend.
+
+== Generic attributes
+
+A *generic attribute* attaches an arbitrary named value to an element;
+it has no meaning for the IOP engine itself and is exposed through
+runtime introspection:
+
+----
+@(<namespace>:<name>, <value>)
+----
+
+* The name has at least one namespace segment (`@(testgen, 1)` is an
+  error: `generic attribute name (namespaces:id) expected`); multiple
+  segments are allowed (`@(ns:sub:attr, true)`). The character `=` is
+  forbidden in the name (`invalid name for generic attribute: '=' is
+  forbidden`).
+* The value is a string, an integer (constant expressions allowed), a
+  double, a boolean, or an inline *JSON object* written either with
+  braces or as a brace-less `key: value` list; `=` is accepted in place
+  of `:` and trailing commas are tolerated. A value that cannot be
+  parsed is an error (`unable to parse value for generic argument
+  '<x>'`). With no value at all, `@(ns:name)` records the empty object
+  `{}`.
+* Exactly one value is allowed (`')' expected, but got ','`).
+* A given generic attribute name can appear only once per element
+  (`generic attribute 'x:y' must be unique for each IOP object`).
+* Generic attributes may be placed on every declaration kind, on fields,
+  and on enum values.
+
+[source,java]
+----
+@(test:gen1, 2)
+struct MyStruct {
+    @(test:gen2, "toto")
+    @(test:gen3, min = 1, max = 2)
+    int field;
+};
+----
+
+=== Reserved namespaces
+
+The `compat:` namespace is reserved for the backward-compatibility
+checker: `@(compat:ignore, true)`, `@(compat:ignoreJson, true)` and
+`@(compat:ignoreBin, true)` on a struct/union/class, interface or RPC
+disable the corresponding checks — see
+xref:../spec/compatibility.adoc#_escape_hatches[Backward compatibility].
+
+== SNMP attributes
+
+`@snmpParam`, `@snmpParamsFrom` and `@snmpIndex` are specified with the
+SNMP constructs in xref:../spec/snmp.adoc[SNMP extensions].
