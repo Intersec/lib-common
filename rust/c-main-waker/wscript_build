@@ -20,15 +20,9 @@ from waflib.Build import BuildContext
 
 ctx: BuildContext
 
-
-ctx.recurse(
-    [
-        'libcommon-iop-arcswap',
-        'libcommon-core',
-        'libcommon',
-        'farchc',
-        'tokio-c-mod',
-        'run-callback',
-        'c-main-waker',
-    ]
+ctx(
+    target='c-main-waker-rs',
+    features='rust',
+    cargo_package='c-main-waker',
+    use=['libcommon-core-rs'],
 )
