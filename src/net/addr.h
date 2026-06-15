@@ -192,7 +192,7 @@ static inline int addr_parse(
  * \param[in]  host hostname or IP address to resolve
  * \param[in]  port port number to set on the resolved address
  *
- * \return 0 on success, -1 on error
+ * \return 0 on success, a negative getaddrinfo() error code (EAI_*) on error
  */
 int addr_info(
     sockunion_t *nonnull su, sa_family_t af, pstream_t host, in_port_t port

@@ -312,7 +312,7 @@ static int process_getaddrinfo_result(
         sockunion_setport(su, port);
     }
     freeaddrinfo(ai);
-    return cur ? 0 : -1;
+    return cur ? 0 : EAI_NODATA;
 }
 
 static dns_resolv_ctx_t *__addr_info_async(
