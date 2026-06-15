@@ -19,14 +19,15 @@
 //! Infrastructure to run functions that need `callback` in `main C event loop`
 //!
 //! This provides a `run_callback` function. `run_callback` launches a function
-//! in the `main C event loop` and then awaits its termination to return the result.
+//! in the `main C event loop` and returns a `CallbackFut<T>` that resolves to
+//! the result once the completion callback runs.
 //!
 //! # Example
 //!
 //! ## Use `run_callback` with a `main C event loop` timer
 //!
 //! ```
-//! # use run_callback::run_callback;
+//! # use run_callback::{Callback, run_callback};
 //! # use libcommon_core::{
 //! #     bindings::{
 //! #         data_t, el_blocker_register, el_loop, el_timer_register, el_unregister, ev_t,
@@ -40,10 +41,10 @@
 //! # struct ElBlocker(*mut ev_t);
 //! # unsafe impl Send for ElBlocker {}
 //! # unsafe extern "C" fn on_el_timer_fire(_el: *mut ev_t, data: data_t) {
-//! #    let promise_cb = unsafe { *Box::from_raw(data.ptr.cast::<Box<dyn FnOnce(()) + Send>>()) };
-//! #    promise_cb(());
+//! #    let promise_cb = unsafe { *Box::from_raw(data.ptr.cast::<Callback<()>>()) };
+//! #    promise_cb.call(());
 //! # }
-//! # fn run_timer(promise_cb: Box<dyn FnOnce(()) + Send>) {
+//! # fn run_timer(promise_cb: Callback<()>) {
 //! #    let ptr = Box::into_raw(Box::new(promise_cb)).cast();
 //! #    let flag: ev_timer_flags_t = ev_timer_flags_t::EL_TIMER_NOMISS;
 //! #    unsafe {
@@ -83,7 +84,7 @@ use std::{
 
 // {{{ Structure
 
-struct Callback<T>
+struct Inner<T>
 where
     T: Send + 'static,
 {
@@ -91,11 +92,39 @@ where
     waker: Option<Waker>,
 }
 
-struct CallbackFut<T>
+/// Producer handle used by `run_fun` to deliver the result.
+pub struct Callback<T>
 where
     T: Send + 'static,
 {
-    callback: Arc<Mutex<Callback<T>>>,
+    inner: Arc<Mutex<Inner<T>>>,
+}
+
+/// Future returned by `run_callback`, resolving to the result.
+pub struct CallbackFut<T>
+where
+    T: Send + 'static,
+{
+    inner: Arc<Mutex<Inner<T>>>,
+}
+
+impl<T> Callback<T>
+where
+    T: Send + 'static,
+{
+    /// Deliver the completion result and wake the pending future.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the internal mutex protecting the callback state is poisoned,
+    /// which only happens if another thread panics while holding the lock.
+    pub fn call(self, res: T) {
+        let mut inner = self.inner.lock().expect("couldn't lock");
+        inner.result = Some(res);
+        if let Some(waker) = inner.waker.take() {
+            waker.wake();
+        }
+    }
 }
 
 impl<T> Future for CallbackFut<T>
@@ -105,13 +134,13 @@ where
     type Output = T;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let mut callback = self.callback.lock().expect("couldn't lock");
+        let mut inner = self.inner.lock().expect("couldn't lock");
 
-        if let Some(result) = callback.result.take() {
+        if let Some(result) = inner.result.take() {
             return Poll::Ready(result);
         }
 
-        callback.waker = Some(cx.waker().clone());
+        inner.waker = Some(cx.waker().clone());
         Poll::Pending
     }
 }
@@ -119,15 +148,18 @@ where
 // }}}
 // {{{ run_callback
 
-/// Run the input function in `main C event loop` and await its result
+/// Run the input function in `main C event loop` and return a `CallbackFut<T>`
 ///
 /// # Arguments
 ///
-/// `run_fun` - a non-async function to run on `main C event loop`
+/// `run_fun` - a non-async function to run on `main C event loop`. It receives
+/// a `Callback<T>` and must invoke `Callback::call` with the result to resolve
+/// the returned future.
 ///
 /// # Returns
 ///
-/// Return `T` holding the value the completion callback was invoked with.
+/// Return `CallbackFut<T>` which resolves to the result value `T` once the
+/// completion callback runs.
 ///
 /// # Limitations
 ///
@@ -135,34 +167,22 @@ where
 /// drops it without invoking it, the future will never resolve. That error
 /// case is not supported for now; the caller must guarantee the callback
 /// eventually runs.
-///
-/// # Panics
-///
-/// Panics if the internal mutex protecting the callback state is poisoned,
-/// which only happens if another thread panics while holding the lock.
-pub async fn run_callback<F, T>(run_fun: F) -> T
+pub fn run_callback<F, T>(run_fun: F) -> CallbackFut<T>
 where
-    F: FnOnce(Box<dyn FnOnce(T) + Send>) + Send + 'static,
+    F: FnOnce(Callback<T>) + Send + 'static,
     T: Send + 'static,
 {
-    let callback = Arc::new(Mutex::new(Callback {
+    let inner = Arc::new(Mutex::new(Inner {
         result: None,
         waker: None,
     }));
 
-    let fun_callback = Arc::clone(&callback);
-    let fun = move |res: T| {
-        let mut callback = fun_callback.lock().expect("couldn't lock");
-        callback.result = Some(res);
-        if let Some(waker) = callback.waker.take() {
-            waker.wake();
-        }
+    let task = Callback {
+        inner: Arc::clone(&inner),
     };
-    let fun_box = Box::new(fun);
+    main_c_queue_schedule(move || run_fun(task));
 
-    main_c_queue_schedule(move || run_fun(fun_box));
-
-    CallbackFut { callback }.await
+    CallbackFut { inner }
 }
 
 // }}}
@@ -170,7 +190,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::run_callback;
+    use crate::{Callback, run_callback};
     use libcommon_core::{
         bindings::{
             data_t, el_blocker_register, el_loop, el_timer_register, el_unregister, ev_t,
@@ -185,11 +205,11 @@ mod tests {
     unsafe impl Send for ElBlocker {}
 
     unsafe extern "C" fn on_el_timer_fire(_el: *mut ev_t, data: data_t) {
-        let promise_cb = unsafe { *Box::from_raw(data.ptr.cast::<Box<dyn FnOnce(()) + Send>>()) };
-        promise_cb(());
+        let promise_cb = unsafe { *Box::from_raw(data.ptr.cast::<Callback<()>>()) };
+        promise_cb.call(());
     }
 
-    fn run_timer(promise_cb: Box<dyn FnOnce(()) + Send>) {
+    fn run_timer(promise_cb: Callback<()>) {
         let ptr = Box::into_raw(Box::new(promise_cb)).cast();
         let flag: ev_timer_flags_t = ev_timer_flags_t::EL_TIMER_NOMISS;
 
