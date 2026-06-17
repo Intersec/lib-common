@@ -1432,7 +1432,7 @@ Z_GROUP_EXPORT(asn1_aper) {
         t_scope;
         z_bit_string_t bs_before;
         z_bit_string_t bs_after;
-        bb_t bb __attr_cleanup__(bb_wipe) = *bb_init(&bb);
+        scoped(bb_t, bb, bb_wipe) = *bb_init(&bb);
         SB_8k(buf);
         pstream_t ps;
         bit_stream_t bs;

@@ -226,6 +226,23 @@ void __tsan_release(void *addr);
 # define __attr_deprecated__    __attribute__((deprecated))
 # define __attr_cleanup__(f)    __attribute__((cleanup(f)))
 
+/** Declare a scope-local variable that is cleaned up at the end of its block.
+ *
+ * This wraps the `type name __attr_cleanup__(fn)` declarator. As it does not
+ * include the initializer, it can be used both with and without an explicit
+ * initialization:
+ *
+ *     scoped(wah_t *, w, wah_delete) = NULL;
+ *     scoped(lstr_t, s, lstr_wipe) = LSTR_NULL;
+ *     scoped(qv_t(u8), buf, aper_buf_wipe) = QV_INIT();
+ *     scoped(wah_t, map, wah_wipe);
+ *
+ * \param[in]  type  the variable type (may be a pointer, e.g. `wah_t *`).
+ * \param[in]  name  the variable name.
+ * \param[in]  fn    the cleanup function run when \p name goes out of scope.
+ */
+# define scoped(type, name, fn)  type name __attr_cleanup__(fn)
+
 #ifndef __attribute_deprecated__
 # define __attribute_deprecated__  __attr_deprecated__
 #endif

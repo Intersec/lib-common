@@ -1026,7 +1026,7 @@ Z_GROUP_EXPORT(wah) {
 
     /* }}} */
     Z_TEST(fuzzing_nr_1) { /* {{{ */
-        wah_t map __attr_cleanup__(wah_wipe);
+        scoped(wah_t, map, wah_wipe);
         static const uint8_t data[32] = {
             0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00,
@@ -1066,8 +1066,8 @@ Z_GROUP_EXPORT(wah) {
     /* }}} */
     Z_TEST(fuzzing_nr_2) { /* {{{ */
         t_scope;
-        wah_t map __attr_cleanup__(wah_wipe);
-        wah_t map2 __attr_cleanup__(wah_wipe);
+        scoped(wah_t, map, wah_wipe);
+        scoped(wah_t, map2, wah_wipe);
         lstr_t storage;
         const wah_word_t data[] = {
             { .head = { .words = 0 } },
