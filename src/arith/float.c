@@ -63,3 +63,12 @@ double double_round_significant(double d, uint8_t precision)
 
     return double_round(d, precision - base_nb_digits);
 }
+
+bool double_is_close(double d1, double d2, double rel_tol, double abs_tol)
+{
+    THROW_IF(d1 == d2, true);
+    THROW_FALSE_IF(isinf(d1));
+    THROW_FALSE_IF(isinf(d2));
+
+    return fabs(d2 - d1) <= MAX(abs_tol, rel_tol * MAX(fabs(d2), fabs(d1)));
+}

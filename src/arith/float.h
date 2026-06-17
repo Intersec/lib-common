@@ -193,7 +193,6 @@ static inline double get_unaligned_double_be(const void * nonnull p) {
     return bits_to_double_(get_unaligned_be64(p));
 }
 
-
 /** Round a double value to a given precision.
  *
  * Round a double value to a given precision, expressed in number of decimal
@@ -229,5 +228,22 @@ double double_round(double val, uint8_t precision);
  * \return  the rounded value.
  */
 double double_round_significant(double d, uint8_t precision);
+
+/** Tell if the two values are close to each other.
+ *
+ * Inspired from python math.is_close(). If you have no idea, advised
+ * tolerance values are 1e-9 (relative) and 1e-12 (absolute).
+ *
+ * \warning You could be tempted to use DBL_EPSILON but it will cover only
+ * basic representation error, not real-life cumulated rounding errors.
+ *
+ * \param[in] rel_tol Relative tolerance. It is the maximum tolerated
+ *                    difference relatively to the biggest compared value (in
+ *                    absolute value).
+ *
+ * \param[in] abs_tol Absolute tolerance. It is the maximum tolerated
+ *                    difference between the two values.
+ */
+bool double_is_close(double d1, double d2, double rel_tol, double abs_tol);
 
 #endif

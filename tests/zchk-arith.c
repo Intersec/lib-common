@@ -110,6 +110,44 @@ Z_GROUP_EXPORT(arithfloat)
         T( 9.23,  1, 9.);
 #undef T
     } Z_TEST_END
+
+    Z_TEST(double_is_close, "double_is_close") {
+        /* Exactly equal values are close, whatever the tolerances. */
+        Z_ASSERT(double_is_close(1.0, 1.0, 0, 0));
+        Z_ASSERT(double_is_close(1.0, 1.0, 1e-9, 1e-12));
+        /* +0 and -0 are equal for ==, hence close. */
+        Z_ASSERT(double_is_close(0.0, -0.0, 0, 0));
+
+        /* Relative tolerance: applied to the largest magnitude. */
+        Z_ASSERT( double_is_close(1.0, 1.0 + 5e-10, 1e-9, 0));
+        Z_ASSERT(!double_is_close(1.0, 1.0 + 2e-9,  1e-9, 0));
+        /* It scales with the magnitude of the values. */
+        Z_ASSERT( double_is_close(1e6, 1e6 + 5e-4, 1e-9, 0));
+        Z_ASSERT(!double_is_close(1e6, 1e6 + 2e-3, 1e-9, 0));
+
+        /* Absolute tolerance: a fixed floor, useful around zero where the
+         * relative tolerance vanishes. */
+        Z_ASSERT( double_is_close(0.0, 1e-13, 0, 1e-12));
+        Z_ASSERT(!double_is_close(0.0, 1e-11, 0, 1e-12));
+        Z_ASSERT( double_is_close(0.0, 1e-13, 1e-9, 1e-12));
+
+        /* The two tolerances combine with a max(): here the absolute one
+         * dominates the (tiny) relative one. */
+        Z_ASSERT( double_is_close(1.0, 1.0 + 5e-10, 1e-12, 1e-9));
+        Z_ASSERT(!double_is_close(1.0, 1.0 + 5e-10, 1e-12, 1e-12));
+
+        /* Matching infinities are equal (==); any other case with an
+         * infinity is not close. */
+        Z_ASSERT( double_is_close(INFINITY, INFINITY, 1e-9, 1e-12));
+        Z_ASSERT( double_is_close(-INFINITY, -INFINITY, 1e-9, 1e-12));
+        Z_ASSERT(!double_is_close(INFINITY, -INFINITY, 1e-9, 1e-12));
+        Z_ASSERT(!double_is_close(INFINITY, 1.0, 1e-9, 1e-12));
+
+        /* NaN is never close, not even to an identical NaN: detecting that
+         * is up to the caller (e.g. via double_is_identical()). */
+        Z_ASSERT(!double_is_close(NAN, NAN, 1e-9, 1e-12));
+        Z_ASSERT(!double_is_close(NAN, 1.0, 1e-9, 1e-12));
+    } Z_TEST_END
 } Z_GROUP_END
 
 /* }}} */
