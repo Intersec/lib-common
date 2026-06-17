@@ -34,6 +34,7 @@ ctx.program(
     ],
     source=[
         'zchk.c',
+        'zchk-arith.c',
         'zchk-asn1-per.c',
         'zchk-asn1-writer.c',
         'zchk-bithacks.c',
