@@ -17,19 +17,40 @@
 /***************************************************************************/
 
 use libcommon_core::thr;
+use std::cell::UnsafeCell;
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::task::{Context, Poll, Wake, Waker};
 
-struct CMainWaker<F, C>
+const IDLE: u8 = 0;
+const POLLING: u8 = 1;
+const NOTIFIED: u8 = 2;
+const DONE: u8 = 3;
+
+// {{{ Struct basic implementation
+
+struct Task<F, C> {
+    future: Pin<Box<F>>,
+    on_done: C,
+}
+
+struct CMainWaker<F, C> {
+    task: UnsafeCell<Option<Task<F, C>>>,
+    state: AtomicU8,
+}
+
+unsafe impl<F, C> Sync for CMainWaker<F, C>
 where
     F: Future + Send + 'static,
+    F::Output: Send + 'static,
     C: FnOnce(F::Output) + Send + 'static,
 {
-    future: Mutex<Pin<Box<F>>>,
-    on_done: Mutex<Option<C>>,
 }
+
+// }}}
+// {{{ Waker
 
 impl<F, C> Wake for CMainWaker<F, C>
 where
@@ -38,37 +59,85 @@ where
     C: FnOnce(F::Output) + Send + 'static,
 {
     fn wake(self: Arc<Self>) {
-        poll_future(&self);
+        self.wake_by_ref();
+    }
+
+    fn wake_by_ref(self: &Arc<Self>) {
+        loop {
+            match self
+                .state
+                .compare_exchange(IDLE, POLLING, Ordering::AcqRel, Ordering::Acquire)
+            {
+                Ok(_) => {
+                    let c_main_waker = Arc::clone(self);
+                    thr::main_c_queue_schedule(move || c_main_waker.poll_future());
+                    return;
+                }
+                Err(POLLING) => {
+                    match self.state.compare_exchange(
+                        POLLING,
+                        NOTIFIED,
+                        Ordering::AcqRel,
+                        Ordering::Acquire,
+                    ) {
+                        Err(IDLE) => {}
+                        Ok(_) | Err(_) => return,
+                    }
+                }
+                Err(_) => return,
+            }
+        }
     }
 }
 
-fn poll_future<F, C>(c_main_waker: &Arc<CMainWaker<F, C>>)
+// }}}
+// {{{ Poll
+
+impl<F, C> CMainWaker<F, C>
 where
     F: Future + Send + 'static,
     F::Output: Send + 'static,
     C: FnOnce(F::Output) + Send + 'static,
 {
-    let waker = Waker::from(Arc::clone(c_main_waker));
-    let mut context = Context::from_waker(&waker);
+    fn poll_future(self: Arc<Self>) {
+        loop {
+            let slot = unsafe { &mut *self.task.get() };
+            let Some(mut task) = slot.take() else {
+                self.state.store(DONE, Ordering::Release);
+                return;
+            };
 
-    let poll_res = {
-        let mut future = c_main_waker.future.lock().expect("couldn't lock future");
-        future.as_mut().poll(&mut context)
-    };
+            let waker = Waker::from(Arc::clone(&self));
+            let mut context = Context::from_waker(&waker);
 
-    if let Poll::Ready(res) = poll_res {
-        let on_done = c_main_waker
-            .on_done
-            .lock()
-            .expect("couldn't lock on_done")
-            .take()
-            .expect("future resolved but on_done was already consumed");
-
-        thr::main_c_queue_schedule(move || {
-            on_done(res);
-        });
+            match task.future.as_mut().poll(&mut context) {
+                Poll::Ready(output) => {
+                    self.state.store(DONE, Ordering::Release);
+                    let on_done = task.on_done;
+                    on_done(output);
+                    return;
+                }
+                Poll::Pending => {
+                    *slot = Some(task);
+                    match self.state.compare_exchange(
+                        POLLING,
+                        IDLE,
+                        Ordering::AcqRel,
+                        Ordering::Acquire,
+                    ) {
+                        Err(NOTIFIED) => {
+                            self.state.store(POLLING, Ordering::Release);
+                        }
+                        Ok(_) | Err(_) => return,
+                    }
+                }
+            }
+        }
     }
 }
+
+// }}}
+// {{{ Runner
 
 pub fn run_future<F, C>(future: F, on_done: C)
 where
@@ -77,8 +146,14 @@ where
     C: FnOnce(F::Output) + Send + 'static,
 {
     let c_main_waker = Arc::new(CMainWaker {
-        future: Mutex::new(Box::pin(future)),
-        on_done: Mutex::new(Some(on_done)),
+        task: UnsafeCell::new(Some(Task {
+            future: Box::pin(future),
+            on_done,
+        })),
+        state: AtomicU8::new(POLLING),
     });
-    poll_future(&c_main_waker);
+
+    thr::main_c_queue_schedule(move || c_main_waker.poll_future());
 }
+
+// }}}
