@@ -1,9 +1,5 @@
 # Clang-format configuration for lib-common.
 #
-# IMPORTANT: This is intended for range-based formatting only (gq in Nvim).
-# Do NOT run this on whole files — it will reformat existing code that was
-# intentionally laid out differently.
-#
 # Use `// clang-format off` / `// clang-format on` around blocks where
 # clang-format produces incorrect output (e.g. column-aligned struct
 # initialisers).
@@ -39,6 +35,17 @@ AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
 AllowShortBlocksOnASingleLine: Never
 
+# Always wrap single-statement control bodies in braces, as required by the
+# coding rules ("Always use braces, even for single-statement blocks").
+InsertBraces: true
+
+# --- Control-flow macros ---
+# Treat the Z_TEST(...) test macro like a conditional so its opening brace
+# stays on the same line (Z_TEST(name) {) and its body is indented as a block,
+# instead of being mis-parsed as a function definition.
+IfMacros:
+  - Z_TEST
+
 # --- Spacing ---
 # One space after if/while/switch/for, no space before fn() or foreach macros.
 SpaceBeforeParens: ControlStatementsExceptForEachMacros
@@ -59,6 +66,13 @@ BinPackParameters:    true
 # Don't put all parameters on the next line as a block when they don't fit.
 AllowAllParametersOfDeclarationOnNextLine: false
 
+# --- Braced initializer lists ---
+# Block-indent multi-line braced initializers instead of aligning their
+# elements to the opening brace (which produces deep, unreadable indentation
+# for arrays of structs). Also put the closing brace on its own line.
+BreakAfterOpenBracketBracedList: true
+BreakBeforeCloseBracketBracedList: true
+
 # --- Ternary operator ---
 # Align ':' with '?':
 #   a = long_cond ? value1
@@ -70,12 +84,16 @@ BreakBeforeTernaryOperators: true
 # CRITICAL: never reorder includes — order is semantically significant.
 SortIncludes: false
 
-# Indent cascaded #ifdef/#else/#endif using AfterHash style:
+# Indent cascaded #ifdef/#else/#endif using AfterHash style (2 spaces/level,
+# see PPIndentWidth below):
 #   #ifdef FOO
-#   # define BAR
-#   # ifdef BAZ
-#   #   define QUX
+#   #  define BAR
+#   #  ifdef BAZ
+#   #    define QUX
 IndentPPDirectives: AfterHash
+# Indent nested PP directives by 2 spaces per level (not IndentWidth), matching
+# the historical convention (level 1: "#  define", level 2: "#    define").
+PPIndentWidth: 2
 
 # --- Apple Blocks (.blk files) ---
 # .blk files use Apple's blocks extension; keep block indent consistent.
@@ -116,12 +134,16 @@ ForEachMacros:
   - dlist_for_each_rev_start
   - dlist_for_each_start
   - file_bin_for_each_entry
+  - for_each_thread
   - htlist_for_each
   - htlist_for_each_entry
   - htlist_for_each_entry_start
   - htlist_for_each_start
   - iop_array_for_each
   - iop_array_for_each_const
+  - iop_class_for_each_field
+  - iop_dso_for_each_ressource
+  - iop_dso_ressources_for_each_entry
   - iop_obj_for_each_field
   - iop_struct_for_each_field
   - iop_tab_for_each
@@ -135,7 +157,9 @@ ForEachMacros:
   - qh_for_each_key
   - qh_for_each_key_p
   - qh_for_each_pos
+  - qhh_for_each_pos
   - qhhash_for_each_pos
+  - qhm_for_each_pos
   - qhp_for_each_pos
   - qm_for_each_key
   - qm_for_each_key_p
