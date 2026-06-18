@@ -56,6 +56,9 @@ dev = [
     # Gerrit REST API client, used by Claude Code skills
     "python-gerrit-api~=3.1.0",
     "types-requests~=2.31",
+
+    # C/C++ code formatter
+    "clang-format==22.1.5",
 ]
 
 # {{{ Ruff linter

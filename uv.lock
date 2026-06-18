@@ -116,6 +116,31 @@ wheels = [
 ]
 
 [[package]]
+name = "clang-format"
+version = "22.1.5"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/12/67/4195b7bf2204e77a1c6305ea976f8e5dc63e70bcb59702912adb266a102e/clang_format-22.1.5.tar.gz", hash = "sha256:94401741d1db878ee1e002e3c33305a7c8e50ff1a9b0a4b8c713690f404d535c", size = 11508, upload-time = "2026-05-06T13:12:22.996Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6f/f4/eef03a87fe65a666bf8a1d9cf804addd5cd26eb225d4e270f22c20d832b0/clang_format-22.1.5-py2.py3-none-macosx_10_9_x86_64.whl", hash = "sha256:a73a500dcabdac1ebc993b99f77fe61de967c7ab9c26d12d664f02def31f0464", size = 1492641, upload-time = "2026-05-06T13:11:49.939Z" },
+    { url = "https://files.pythonhosted.org/packages/0f/d8/e5cfbfd7f0d29c167dda2d014bd76ee3c4169000958948c73dd270c995c4/clang_format-22.1.5-py2.py3-none-macosx_11_0_arm64.whl", hash = "sha256:47e73563e6c55b47d6800bcc52e53e66c73b1d801f775b118dcc7aab8410c36f", size = 1478953, upload-time = "2026-05-06T13:11:52.282Z" },
+    { url = "https://files.pythonhosted.org/packages/d9/d5/077d5bbea3d07c494705dc0960e58150651eeb024d9f837ea3350505b1a9/clang_format-22.1.5-py2.py3-none-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:2db8b07d54f2b9583327715267b8ae5e9852e8da23b49c1bf8dde19067ce6fbc", size = 1757816, upload-time = "2026-05-06T13:11:54.468Z" },
+    { url = "https://files.pythonhosted.org/packages/ca/95/25636844c2255fa40d1e6a691c483a9c8804f0ce6903eb790f8e4d95dfa6/clang_format-22.1.5-py2.py3-none-manylinux_2_26_i686.manylinux_2_28_i686.whl", hash = "sha256:7a93aad78b03f190d8a73e5e81d6942bc0e4f449add21e62c7fad1be2cdfec03", size = 1888629, upload-time = "2026-05-06T13:11:56.31Z" },
+    { url = "https://files.pythonhosted.org/packages/6f/59/8b9a1f6f4197292577dae8ff9f94c5900622c0e0a395a46cb2278e4d813a/clang_format-22.1.5-py2.py3-none-manylinux_2_26_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:b40d0d264003c831cda317d09db31f0ebbcddd5dc13f04af52be5664d2b8aa89", size = 2070260, upload-time = "2026-05-06T13:11:58.243Z" },
+    { url = "https://files.pythonhosted.org/packages/f1/a8/f33290829eb73e1baece6d46a55d19a3d286ddee559a1955add639ceb731/clang_format-22.1.5-py2.py3-none-manylinux_2_26_s390x.manylinux_2_28_s390x.whl", hash = "sha256:a89ec86dd33f367b4e10dc1f243508709deed8576bb75a7b01c1412de47504df", size = 2101891, upload-time = "2026-05-06T13:12:00.131Z" },
+    { url = "https://files.pythonhosted.org/packages/39/5e/bf1ea7a20ec3ffecda7eff98ad0f1621255e244e0f888d011a2106a04318/clang_format-22.1.5-py2.py3-none-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:451efcd0738908b2bd4d76409b52920ef381e045eb6728f9286d2ae5f02f3ef2", size = 1841172, upload-time = "2026-05-06T13:12:02.03Z" },
+    { url = "https://files.pythonhosted.org/packages/b5/5f/853664a3d7599a682b2c89cc76606b818c5c56c7741251a42004e3e76104/clang_format-22.1.5-py2.py3-none-manylinux_2_31_armv7l.whl", hash = "sha256:39af8c0b77fb05d1dc7073ee9e348d81a965a0b96c0307d07cd92bbd74c611c7", size = 1684799, upload-time = "2026-05-06T13:12:03.6Z" },
+    { url = "https://files.pythonhosted.org/packages/81/0b/7eb88226eed4c6cb529878d578f888c96ad3778df30e64d3223860327a08/clang_format-22.1.5-py2.py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:cbafc220a1ad3da603f0e4a469f52cf31be60da384d213727b62af0684cfd96b", size = 2735300, upload-time = "2026-05-06T13:12:05.329Z" },
+    { url = "https://files.pythonhosted.org/packages/7e/82/38a8271f80861e75012c5ef63955f42ddd90cfff6a4ac09c84c055c1f4b3/clang_format-22.1.5-py2.py3-none-musllinux_1_2_armv7l.whl", hash = "sha256:4f43424bc0944402f2166337cc330f92d31d102b5a3ee31714814823ac647a67", size = 2514975, upload-time = "2026-05-06T13:12:07.458Z" },
+    { url = "https://files.pythonhosted.org/packages/98/7a/2fb4e48fb9205e0b4380fe44d27d1e29141211f0fa53887e75224bf4fbe7/clang_format-22.1.5-py2.py3-none-musllinux_1_2_i686.whl", hash = "sha256:a6f700f948a0eeccdc74966a773d3f2f348ffedab4b49b10b71439f26d1b8ad2", size = 2985901, upload-time = "2026-05-06T13:12:09.317Z" },
+    { url = "https://files.pythonhosted.org/packages/8c/0a/1f6cd7f0ebb8083db3098d648af3d363c35f6864159fa508d213279294b0/clang_format-22.1.5-py2.py3-none-musllinux_1_2_ppc64le.whl", hash = "sha256:f0fb5226525c846a8770b8adaba3a323261b6031a13d065d4d4c4aa0bf6dbbc4", size = 3119111, upload-time = "2026-05-06T13:12:11.445Z" },
+    { url = "https://files.pythonhosted.org/packages/e3/7e/89cdc4216d8d49eeff98043bb5836eec5da805fd31aeb8f480bf4b8fa8ca/clang_format-22.1.5-py2.py3-none-musllinux_1_2_s390x.whl", hash = "sha256:86838932bcbfebdb4c900ea9e7c4dc4356a56aa75990c38065863c82c0d5e39f", size = 3217256, upload-time = "2026-05-06T13:12:13.252Z" },
+    { url = "https://files.pythonhosted.org/packages/f7/eb/a1fa659d85d9b40eee594bfd2be7ddaf05e0296788ee2955473ef1e7bb38/clang_format-22.1.5-py2.py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:5028f730a1acd0a2ff5fde309c3a064b2f8375caa664e57ff99c69a524d6cfd2", size = 2848433, upload-time = "2026-05-06T13:12:15.421Z" },
+    { url = "https://files.pythonhosted.org/packages/c0/f7/f6c94ec536b6ada3dd23e0b49e691c80991dc5de89a5152b1ea2ed14c20b/clang_format-22.1.5-py2.py3-none-win32.whl", hash = "sha256:c1c2c4b9c9b7fba124c1b60647706ac6d4950e52830303951e7004403bb07006", size = 1299262, upload-time = "2026-05-06T13:12:17.449Z" },
+    { url = "https://files.pythonhosted.org/packages/79/62/96fb942f00a39f93aeedf8ab5a16b2b42688bdc7ca7ec94714502b787c0e/clang_format-22.1.5-py2.py3-none-win_amd64.whl", hash = "sha256:0393ce061bf7bd7e7ce349fc758a05f9ce604d8653e23b47f24322fb4843074c", size = 1460369, upload-time = "2026-05-06T13:12:19.016Z" },
+    { url = "https://files.pythonhosted.org/packages/ce/2d/35c5301c6d04f4babf218ad9716c061abebb8a56a1bbad167a86dfe966d3/clang_format-22.1.5-py2.py3-none-win_arm64.whl", hash = "sha256:4f5ac3b91bb5700c43cb96beb32e360a5aa6a7f94105d7900054f6496554d9b9", size = 1344987, upload-time = "2026-05-06T13:12:20.88Z" },
+]
+
+[[package]]
 name = "cython"
 version = "3.2.4"
 source = { registry = "https://pypi.org/simple" }
@@ -166,6 +191,7 @@ source = { virtual = "." }
 [package.dev-dependencies]
 dev = [
     { name = "ast-grep-cli" },
+    { name = "clang-format" },
     { name = "cython" },
     { name = "psutil" },
     { name = "pyrefly" },
@@ -181,6 +207,7 @@ dev = [
 [package.metadata.requires-dev]
 dev = [
     { name = "ast-grep-cli", specifier = "~=0.42.0" },
+    { name = "clang-format", specifier = "==22.1.5" },
     { name = "cython", specifier = "~=3.2.4" },
     { name = "psutil", specifier = "~=7.2.2" },
     { name = "pyrefly", specifier = "==1.0.0" },
