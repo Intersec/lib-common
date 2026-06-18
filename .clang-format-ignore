@@ -1,15 +1,15 @@
 # Auto-generated IOP files.
-*.iop.c
-*.iop.h
-*-t.iop.h
-*-tdef.iop.h
+**/*.iop.c
+**/*.iop.h
+**/*-t.iop.h
+**/*-tdef.iop.h
 
-# Auto-generated reference files (test fixtures).
-*.ref.c
-*.ref.h
+# IOP reference files (for iopc tests)
+tests/iopc/testsuite/*.c
+tests/iopc/testsuite/*.h
 
 # Cython-generated files.
-*.pyx.c
+**/*.pyx.c
 
 # Build artifacts.
-.build-*
+.build-*/**
