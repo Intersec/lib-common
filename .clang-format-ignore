@@ -11,5 +11,27 @@ tests/iopc/testsuite/*.h
 # Cython-generated files.
 **/*.pyx.c
 
+# Third-party code, kept in its original upstream style.
+src/core/str-dtoa.c
+src/compat/**
+src/crypto/aes.c
+src/crypto/aes.h
+src/crypto/des.c
+src/crypto/des.h
+src/crypto/md5.c
+src/crypto/md5.h
+src/crypto/padlock.c
+src/crypto/padlock.h
+src/crypto/sha1.c
+src/crypto/sha1.h
+src/crypto/sha2.c
+src/crypto/sha2.h
+src/crypto/sha2.in.c
+src/crypto/sha4.c
+src/crypto/sha4.h
+tests/ztst-iprintf.c
+tests/ztst-iprintf-fp.c
+tests/ztst-iprintf-glibc.c
+
 # Build artifacts.
 .build-*/**
