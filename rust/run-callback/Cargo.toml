@@ -32,5 +32,7 @@ waf-cargo-build = { path = "../waf-cargo-build" }
 
 [dependencies]
 libcommon-core = { path = "../libcommon-core" }
-tokio-c-mod = { path = "../tokio-c-mod" }
 waf-cargo-build = { path = "../waf-cargo-build" }
+
+[dev-dependencies]
+tokio-c-mod = { path = "../tokio-c-mod" }
