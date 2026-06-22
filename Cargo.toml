@@ -68,7 +68,7 @@ arc-swap = "1.8.0"
 prettyplease = "0.2"
 
 # Used by tokio_c_mod
-tokio = {version = "1.52.1", features = ["sync","rt-multi-thread"]}
+tokio = {version = "1.52.1", features = ["sync","rt-multi-thread","time"]}
 
 # }}}
 # {{{ Shared profiles

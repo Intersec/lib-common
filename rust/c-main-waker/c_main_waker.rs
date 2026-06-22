@@ -16,6 +16,58 @@
 /*                                                                         */
 /***************************************************************************/
 
+//! Waker infrastructure to drive a `Future` task to completion on the main C
+//! thread.
+//!
+//! This provides a `CMainWaker` to track the state of a [`Future`] `task` and
+//! (re)schedule it on the main C thread whenever it is woken.
+//!
+//! # Overview
+//!
+//! `CMainWaker` implements the following methods:
+//! - `wake` / `wake_by_ref`: schedule the task to be polled on the main C
+//!   thread when it is woken.
+//! - `poll_future`: poll the future task and drive it toward completion.
+//!
+//! # Examples
+//!
+//! ```
+//! # use c_main_waker::run_future;
+//! # use libcommon_core::bindings::{el_blocker_register, el_loop, el_unregister, ev_t};
+//! # use libcommon_core::module::{module_is_loaded, module_release, module_require};
+//! # use tokio::time::{Duration, sleep};
+//! # use tokio_c_mod::tokio_get_module;
+//!
+//! # struct ElBlocker(*mut ev_t);
+//! # unsafe impl Send for ElBlocker {}
+//! module_require(tokio_get_module());
+//! # assert!(module_is_loaded(tokio_get_module()));
+//!
+//! let blocker = ElBlocker(unsafe { el_blocker_register() });
+//! let future = async {
+//!     tokio_c_mod::spawn(async {
+//!         sleep(Duration::from_millis(10)).await;
+//!     })
+//!     .await
+//!     .expect("spawned tokio task panicked");
+//! };
+//!
+//! run_future(
+//!     future,
+//!     move |()| {
+//!         let mut blocker = blocker;
+//!         unsafe {
+//!             el_unregister(&raw mut blocker.0);
+//!         }
+//!     }
+//! );
+//! unsafe {
+//!     el_loop();
+//! }
+//!
+//! module_release(tokio_get_module());
+//! ```
+
 use libcommon_core::thr;
 use std::cell::UnsafeCell;
 use std::future::Future;
@@ -41,6 +93,9 @@ struct CMainWaker<F, C> {
     state: AtomicU8,
 }
 
+// SAFETY: the `task` UnsafeCell is only accessed from poll_future, which runs
+// on the main C thread via main_c_queue_schedule; the atomic state machine
+// ensures at most one poll_future runs at a time.
 unsafe impl<F, C> Sync for CMainWaker<F, C>
 where
     F: Future + Send + 'static,
@@ -154,6 +209,15 @@ where
 // }}}
 // {{{ Runner
 
+/// Create a `CMainWaker` object and schedule it to be polled on the
+/// main C thread.
+///
+/// # Arguments
+///
+/// `future` - a future to execute on the main C thread
+///
+/// `on_done` - a function that runs once the `future` completes, taking
+/// `future`'s output as an argument.
 pub fn run_future<F, C>(future: F, on_done: C)
 where
     F: Future + Send + 'static,
@@ -172,3 +236,48 @@ where
 }
 
 // }}}
+
+#[cfg(test)]
+mod tests {
+    use crate::run_future;
+    use libcommon_core::bindings::{el_blocker_register, el_loop, el_unregister, ev_t};
+    use libcommon_core::module::{module_is_loaded, module_release, module_require};
+    use tokio::time::{Duration, sleep};
+    use tokio_c_mod::tokio_get_module;
+
+    struct ElBlocker(*mut ev_t);
+    unsafe impl Send for ElBlocker {}
+
+    // Drive a tokio sleep future to completion on the C event loop.
+    #[test]
+    fn run_future_drives_tokio_sleep_to_completion() {
+        module_require(tokio_get_module());
+        assert!(module_is_loaded(tokio_get_module()));
+
+        let blocker = ElBlocker(unsafe { el_blocker_register() });
+
+        // tokio sleep future
+        let future = async {
+            tokio_c_mod::spawn(async {
+                sleep(Duration::from_millis(10)).await;
+            })
+            .await
+            .expect("spawned tokio task panicked");
+        };
+
+        run_future(future, move |()| {
+            let mut blocker = blocker;
+
+            unsafe {
+                el_unregister(&raw mut blocker.0);
+            }
+        });
+
+        unsafe {
+            el_loop();
+        }
+
+        module_release(tokio_get_module());
+        assert!(!module_is_loaded(tokio_get_module()));
+    }
+}
