@@ -56,8 +56,41 @@ static ALWAYS_INLINE unsigned get_vint64_len(int64_t i)
     return sizes[bsr64(((i >> 63) ^ (i << 1)) | 1) / 8];
 }
 
+/** Configuration for the internal IOP equality/diff machinery.
+ *
+ * A NULL cfg means exact (bitwise) comparison, you can use
+ * 'iop_equals_strict()' if you want that.
+ *
+ * Otherwise, double that are equals bitwise will always be considered as
+ * equal, others will be checked using \ref double_is_close().
+ *
+ * iop_equals_desc() and iop_first_diff_desc() use the default tolerances
+ * (1e-9 relative, 1e-12 absolute); iop_equals_strict_desc() uses NULL.
+ */
+typedef struct iop_equals_cfg_t {
+    /** Configuration for comparing double.
+     *
+     * \see double_is_close() for attributes documentation.
+     */
+    struct {
+        double rel_tol;
+        double abs_tol;
+    } dbl;
+} iop_equals_cfg_t;
+
+/** Whether the configuration enables tolerant double comparison.
+ *
+ * When neither tolerance is set (or cfg is NULL), doubles are compared
+ * exactly (bitwise).
+ */
+static inline bool iop_equals_cfg_has_tolerance(const iop_equals_cfg_t *cfg)
+{
+    return cfg && (cfg->dbl.rel_tol != 0 || cfg->dbl.abs_tol != 0);
+}
+
 static inline bool iop_value_equals(iop_type_t type, const void *v1,
-                                    const void *v2)
+                                    const void *v2,
+                                    const iop_equals_cfg_t *cfg)
 {
     switch (type) {
       case IOP_T_BOOL:
@@ -80,8 +113,22 @@ static inline bool iop_value_equals(iop_type_t type, const void *v1,
       case IOP_T_I64:
         return *(const int64_t *)v1 == *(const int64_t *)v2;
 
-      case IOP_T_DOUBLE:
-        return *(const double *)v1 == *(const double *)v2;
+      case IOP_T_DOUBLE: {
+        double d1 = *(const double *)v1;
+        double d2 = *(const double *)v2;
+
+        /* Test bitwise equality first. 'double_is_close()' won't consider two
+         * NaN values as equal, but applied to data comparison, same values
+         * must be equal. */
+        if (double_is_identical(d1, d2)) {
+            return true;
+        }
+        if (iop_equals_cfg_has_tolerance(cfg)) {
+            return double_is_close(d1, d2, cfg->dbl.rel_tol,
+                                   cfg->dbl.abs_tol);
+        }
+        return false;
+      }
 
       case IOP_T_STRING:
       case IOP_T_DATA:
@@ -128,7 +175,8 @@ static inline bool iop_opt_field_isset(iop_type_t type, const void *v)
 }
 
 static inline bool
-iop_scalar_equals(const iop_field_t *f, const void *v1, const void *v2, int n)
+iop_scalar_equals(const iop_field_t *f, const void *v1, const void *v2,
+                  int n, const iop_equals_cfg_t *cfg)
 {
     /* Scalar types (even repeated) could be compared with one big
      * memcmp*/
@@ -144,6 +192,17 @@ iop_scalar_equals(const iop_field_t *f, const void *v1, const void *v2, int n)
       case IOP_T_BOOL:
         return (!memcmp(v1, v2, sizeof(bool) * n));
       case IOP_T_DOUBLE:
+        if (iop_equals_cfg_has_tolerance(cfg)) {
+            const double *d1 = v1;
+            const double *d2 = v2;
+
+            for (int i = 0; i < n; i++) {
+                if (!iop_value_equals(IOP_T_DOUBLE, &d1[i], &d2[i], cfg)) {
+                    return false;
+                }
+            }
+            return true;
+        }
         return (!memcmp(v1, v2, sizeof(double) * n));
       default:
         return false;

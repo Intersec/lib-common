@@ -666,7 +666,7 @@
                                    const pfx##__t * nonnull k1,              \
                                    const pfx##__t * nonnull k2)              \
     {                                                                        \
-        return iop_equals(pfx, k1, k2);                                      \
+        return iop_equals_strict(pfx, k1, k2);                               \
     }
 
 #define QH_K_IOP_T(type, name, pfx)                                          \

@@ -2510,7 +2510,7 @@ static int check_subfile_value(const iop_field_t *fdesc, const void *ptr,
       case IOP_T_STRING:
       case IOP_T_DATA:
       case IOP_T_VOID:
-        if (!iop_value_equals(value_type, value->ptr, ptr)) {
+        if (!iop_value_equals(value_type, value->ptr, ptr, NULL)) {
             goto err_val;
         }
         break;

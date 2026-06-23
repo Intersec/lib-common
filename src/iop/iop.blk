@@ -1825,12 +1825,14 @@ sb_prepend_field(sb_t *sb, const iop_field_t *fdesc, int j);
 
 static int iop_first_diff(const iop_struct_t *st,
                           const void *v1, const void *v2,
-                          sb_t *field_path, sb_t *diff_desc);
+                          sb_t *field_path, sb_t *diff_desc,
+                          const iop_equals_cfg_t *cfg);
 
 /* Returns -1 if no diff found, 0 otherwise. */
 static int __iop_first_diff(const iop_struct_t *st,
                             const void *v1, const void *v2,
-                            sb_t *field_path, sb_t *diff_desc)
+                            sb_t *field_path, sb_t *diff_desc,
+                            const iop_equals_cfg_t *cfg)
 {
     const iop_field_t *fdesc;
     int i = 0;
@@ -1889,7 +1891,7 @@ static int __iop_first_diff(const iop_struct_t *st,
                 }
 
                 if (iop_first_diff(fdesc->u1.st_desc, t1, t2,
-                                        field_path, diff_desc) >= 0)
+                                        field_path, diff_desc, cfg) >= 0)
                 {
                     goto print_field;
                 }
@@ -1901,7 +1903,7 @@ static int __iop_first_diff(const iop_struct_t *st,
                 t1 = &IOP_FIELD(const uint8_t, r1, i * fdesc->size);
                 t2 = &IOP_FIELD(const uint8_t, r2, i * fdesc->size);
 
-                if (!iop_value_equals(fdesc->type, t1, t2)) {
+                if (!iop_value_equals(fdesc->type, t1, t2, cfg)) {
                     const iop_enum_t *en_desc = NULL;
 
                     if (fdesc->type == IOP_T_ENUM) {
@@ -1929,7 +1931,8 @@ static int __iop_first_diff(const iop_struct_t *st,
 
 static int iop_first_diff(const iop_struct_t *st,
                           const void *v1, const void *v2,
-                          sb_t *field_path, sb_t *diff_desc)
+                          sb_t *field_path, sb_t *diff_desc,
+                          const iop_equals_cfg_t *cfg)
 {
     THROW_ERR_IF(v1 == v2);
 
@@ -1945,7 +1948,9 @@ static int iop_first_diff(const iop_struct_t *st,
         }
 
         do {
-            if (__iop_first_diff(st, v1, v2, field_path, diff_desc) >= 0) {
+            if (__iop_first_diff(st, v1, v2, field_path, diff_desc,
+                                 cfg) >= 0)
+            {
                 return 0;
             }
         } while ((st = st->class_attrs->parent));
@@ -1953,8 +1958,16 @@ static int iop_first_diff(const iop_struct_t *st,
         return -1;
     }
 
-    return __iop_first_diff(st, v1, v2, field_path, diff_desc);
+    return __iop_first_diff(st, v1, v2, field_path, diff_desc, cfg);
 }
+
+/* Tolerance used by iop_equals_desc() and iop_first_diff_desc(). */
+static const iop_equals_cfg_t iop_equals_default_cfg_g = {
+    .dbl = {
+        .rel_tol = 1e-9,
+        .abs_tol = 1e-12,
+    },
+};
 
 int iop_first_diff_desc(const iop_struct_t *st,
                         const void *v1, const void *v2, sb_t *diff_desc)
@@ -1962,7 +1975,8 @@ int iop_first_diff_desc(const iop_struct_t *st,
     SB_1k(field_path);
 
     sb_reset_reverse(&field_path);
-    RETHROW(iop_first_diff(st, v1, v2, &field_path, diff_desc));
+    RETHROW(iop_first_diff(st, v1, v2, &field_path, diff_desc,
+                           &iop_equals_default_cfg_g));
 
     if (field_path.len) {
         assert (field_path.data[0] == '.');
@@ -1974,7 +1988,12 @@ int iop_first_diff_desc(const iop_struct_t *st,
 }
 
 static bool
-__iop_equals(const iop_struct_t *st, const uint8_t *v1, const uint8_t *v2)
+iop_equals_cfg(const iop_struct_t *st, const void *v1, const void *v2,
+               const iop_equals_cfg_t *cfg);
+
+static bool
+__iop_equals(const iop_struct_t *st, const uint8_t *v1, const uint8_t *v2,
+             const iop_equals_cfg_t *cfg)
 {
     const iop_field_t *fdesc;
     const iop_field_t *end;
@@ -2052,10 +2071,11 @@ __iop_equals(const iop_struct_t *st, const uint8_t *v1, const uint8_t *v2)
                     t2  = *(void **)t2;
                 }
                 if (is_class) {
-                    THROW_IF(!iop_equals_desc(fdesc->u1.st_desc, t1, t2),
+                    THROW_IF(!iop_equals_cfg(fdesc->u1.st_desc, t1, t2, cfg),
                              false);
                 } else {
-                    THROW_IF(!__iop_equals(fdesc->u1.st_desc, t1, t2), false);
+                    THROW_IF(!__iop_equals(fdesc->u1.st_desc, t1, t2, cfg),
+                             false);
                 }
             }
         } else
@@ -2074,7 +2094,7 @@ __iop_equals(const iop_struct_t *st, const uint8_t *v1, const uint8_t *v2)
             }
         } else {
             assert (fdesc->size > 0 && "IOPC is probably outdated");
-            if (!iop_scalar_equals(fdesc, r1, r2, n))
+            if (!iop_scalar_equals(fdesc, r1, r2, n, cfg))
                 return false;
         }
     }
@@ -2082,7 +2102,9 @@ __iop_equals(const iop_struct_t *st, const uint8_t *v1, const uint8_t *v2)
     return true;
 }
 
-bool iop_equals_desc(const iop_struct_t *st, const void *v1, const void *v2)
+static bool
+iop_equals_cfg(const iop_struct_t *st, const void *v1, const void *v2,
+               const iop_equals_cfg_t *cfg)
 {
     if (v1 && v2) {
         if (iop_struct_is_class(st)) {
@@ -2094,7 +2116,7 @@ bool iop_equals_desc(const iop_struct_t *st, const void *v1, const void *v2)
             }
 
             do {
-                if (!__iop_equals(st, v1, v2)) {
+                if (!__iop_equals(st, v1, v2, cfg)) {
                     return false;
                 }
             } while ((st = st->class_attrs->parent));
@@ -2102,10 +2124,21 @@ bool iop_equals_desc(const iop_struct_t *st, const void *v1, const void *v2)
             return true;
         }
 
-        return __iop_equals(st, v1, v2);
+        return __iop_equals(st, v1, v2, cfg);
     } else {
         return v1 == v2 || (st->size == 0);
     }
+}
+
+bool iop_equals_desc(const iop_struct_t *st, const void *v1, const void *v2)
+{
+    return iop_equals_cfg(st, v1, v2, &iop_equals_default_cfg_g);
+}
+
+bool
+iop_equals_strict_desc(const iop_struct_t *st, const void *v1, const void *v2)
+{
+    return iop_equals_cfg(st, v1, v2, NULL);
 }
 
 /* XXX Most of this function is copied from __iop_equals. */
@@ -2205,7 +2238,7 @@ __z_iop_mem_equals(const iop_struct_t *st, const uint8_t *v1,
             if (s1->len != s2->len || s1->data != s2->data) {
                 return false;
             }
-        } else if (!iop_scalar_equals(fdesc, r1, r2, 1)) {
+        } else if (!iop_scalar_equals(fdesc, r1, r2, 1, NULL)) {
             return false;
         }
     }

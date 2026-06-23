@@ -661,6 +661,9 @@ struct FirstDiffSt {
     int[] tab;
     FirstDiffC0? o;
     FirstDiffEnum? e;
+    double d;
+    double? optD;
+    double[] dTab;
 };
 
 /* }}} */

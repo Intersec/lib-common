@@ -9404,6 +9404,106 @@ Z_GROUP_EXPORT(iop)
                                        &diff_desc));
         Z_ASSERT_STREQUAL(diff_desc.data, "field `e`: "
                           "value differs (A(0) vs C(2))");
+
+        /* Doubles are compared with a tolerance: a one-ULP difference is
+         * not reported as a diff. */
+        iop_init(z_first_diff_st, &d1);
+        d1.d = 1.0;
+        d2 = d1;
+        d2.d = nextafter(1.0, 2.0);
+        Z_ASSERT_NEG(iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2,
+                                         &diff_desc), "diff_desc: %*pM",
+                     SB_FMT_ARG(&diff_desc));
+
+        /* A larger difference is reported. */
+        d2.d = 1.02;
+        Z_ASSERT_N(iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2,
+                                       &diff_desc));
+        Z_ASSERT_STREQUAL(diff_desc.data,
+                          "field `d`: value differs (1 vs 1.02)");
+    } Z_TEST_END;
+    /* }}} */
+    Z_TEST(iop_equals_strict, "test iop_equals_desc() vs strict") { /* {{{ */
+        SB_1k(diff_desc);
+        z_first_diff_st__t s1;
+        z_first_diff_st__t s2;
+        /* eps differs from 1.0 by one ULP, far below the default tolerance:
+         * it is equal to 1.0 for iop_equals() but differs for the strict
+         * (bitwise) comparison. The tolerance behaviour itself is covered by
+         * the arithfloat/double_is_close test. */
+        double eps = nextafter(1.0, 2.0);
+        double dtab1[] = { 1.0, 0.5, 0.25 };
+        double dtab2[] = { nextafter(1.0, 2.0), nextafter(0.5, 1.0),
+                           nextafter(0.25, 1.0) };
+        double dtab3[] = { 1.0, 0.52, 0.25 };
+
+        iop_init(z_first_diff_st, &s1);
+        s1.d = 1.0;
+        s2 = s1;
+
+        /* Equal structs: equal both ways. */
+        Z_ASSERT(iop_equals_desc(&z_first_diff_st__s, &s1, &s2));
+        Z_ASSERT(iop_equals_strict_desc(&z_first_diff_st__s, &s1, &s2));
+
+        /* One-ULP difference: equal with the default tolerance, different
+         * for the strict comparison. */
+        s2.d = eps;
+        Z_ASSERT(iop_equals_desc(&z_first_diff_st__s, &s1, &s2));
+        Z_ASSERT(!iop_equals_strict_desc(&z_first_diff_st__s, &s1, &s2));
+
+        /* Larger difference: different both ways. */
+        s2.d = 1.02;
+        Z_ASSERT(!iop_equals_desc(&z_first_diff_st__s, &s1, &s2));
+        Z_ASSERT(!iop_equals_strict_desc(&z_first_diff_st__s, &s1, &s2));
+
+        /* Optional double absent vs present: different both ways. */
+        s2 = s1;
+        OPT_SET(s2.opt_d, 1.0);
+        Z_ASSERT(!iop_equals_desc(&z_first_diff_st__s, &s1, &s2));
+        Z_ASSERT(!iop_equals_strict_desc(&z_first_diff_st__s, &s1, &s2));
+
+        /* Optional double both present, one-ULP apart. */
+        OPT_SET(s1.opt_d, 1.0);
+        OPT_SET(s2.opt_d, eps);
+        Z_ASSERT(iop_equals_desc(&z_first_diff_st__s, &s1, &s2));
+        Z_ASSERT(!iop_equals_strict_desc(&z_first_diff_st__s, &s1, &s2));
+
+        /* Repeated doubles, each element one-ULP apart. */
+        s2 = s1;
+        s1.d_tab = (iop_array_double_t)IOP_ARRAY(dtab1, countof(dtab1));
+        s2.d_tab = (iop_array_double_t)IOP_ARRAY(dtab2, countof(dtab2));
+        Z_ASSERT(iop_equals_desc(&z_first_diff_st__s, &s1, &s2));
+        Z_ASSERT(!iop_equals_strict_desc(&z_first_diff_st__s, &s1, &s2));
+
+        /* Repeated doubles, one element clearly different. */
+        s2.d_tab = (iop_array_double_t)IOP_ARRAY(dtab3, countof(dtab3));
+        Z_ASSERT(!iop_equals_desc(&z_first_diff_st__s, &s1, &s2));
+        Z_ASSERT(!iop_equals_strict_desc(&z_first_diff_st__s, &s1, &s2));
+
+        /* Non-finite doubles: bitwise identical values are equal both ways,
+         * even though inf - inf and NaN comparisons are false. */
+        iop_init(z_first_diff_st, &s1);
+        s1.d = INFINITY;
+        s2 = s1;
+        Z_ASSERT(iop_equals_desc(&z_first_diff_st__s, &s1, &s2));
+        Z_ASSERT(iop_equals_strict_desc(&z_first_diff_st__s, &s1, &s2));
+        Z_ASSERT_NEG(iop_first_diff_desc(&z_first_diff_st__s, &s1, &s2,
+                                         &diff_desc));
+
+        s2.d = -INFINITY;
+        Z_ASSERT(!iop_equals_desc(&z_first_diff_st__s, &s1, &s2));
+        Z_ASSERT(!iop_equals_strict_desc(&z_first_diff_st__s, &s1, &s2));
+
+        s1.d = NAN;
+        s2.d = NAN;
+        Z_ASSERT(iop_equals_desc(&z_first_diff_st__s, &s1, &s2));
+        Z_ASSERT(iop_equals_strict_desc(&z_first_diff_st__s, &s1, &s2));
+
+        /* Signed zeros: within the tolerance but not bitwise identical. */
+        s1.d = 0.0;
+        s2.d = -0.0;
+        Z_ASSERT(iop_equals_desc(&z_first_diff_st__s, &s1, &s2));
+        Z_ASSERT(!iop_equals_strict_desc(&z_first_diff_st__s, &s1, &s2));
     } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_nonreg_ioptag_union_unpack, "test iop_tag all bytes set (i32 vs u16)") { /* {{{ */

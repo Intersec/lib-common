@@ -1105,13 +1105,19 @@ static inline void * nonnull r_iop_new_desc(const iop_struct_t * nonnull st)
  * v1 and v2 can be NULL. If both v1 and v2 are NULL they are considered as
  * equals.
  *
+ * Two double fields are considered equal when they are bitwise identical
+ * (this includes NaNs and infinities) or when they are close enough, using
+ * a 1e-9 relative and 1e-12 absolute tolerance (see double_is_close()). Use
+ * iop_equals_strict() when a bit-exact comparison is required (e.g. for
+ * IOPs used as QHASH keys).
+ *
  * \param[in] st  The IOP structures definition (__s).
  * \param[in] v1  Pointer on the IOP structure to be compared.
  * \param[in] v2  Pointer on the IOP structure to be compared with.
  */
-bool  iop_equals_desc(const iop_struct_t * nonnull st,
-                      const void * nullable v1,
-                      const void * nullable v2);
+bool iop_equals_desc(const iop_struct_t * nonnull st,
+                     const void * nullable v1,
+                     const void * nullable v2);
 
 #define iop_equals(pfx, v1, v2)  ({                                          \
         const pfx##__t *__v1 = (v1);                                         \
@@ -1120,10 +1126,35 @@ bool  iop_equals_desc(const iop_struct_t * nonnull st,
         iop_equals_desc(&pfx##__s, (const void *)__v1, (const void *)__v2);  \
     })
 
+/** Return whether two IOP structures are strictly equals or not.
+ *
+ * Same as iop_equals_desc() but double fields are compared bitwise, with no
+ * tolerance, consistently with iop_hash32(). Required when IOPs are used as
+ * QHASH keys.
+ *
+ * Prefer the macro version iop_equals_strict instead of this low-level API.
+ *
+ * \param[in] st  The IOP structures definition (__s).
+ * \param[in] v1  Pointer on the IOP structure to be compared.
+ * \param[in] v2  Pointer on the IOP structure to be compared with.
+ */
+bool iop_equals_strict_desc(const iop_struct_t * nonnull st,
+                            const void * nullable v1,
+                            const void * nullable v2);
+
+#define iop_equals_strict(pfx, v1, v2)  ({                                   \
+        const pfx##__t *__v1 = (v1);                                         \
+        const pfx##__t *__v2 = (v2);                                         \
+                                                                             \
+        iop_equals_strict_desc(&pfx##__s, (const void *)__v1,                \
+                               (const void *)__v2);                          \
+    })
+
 /** Print a description of the first difference between two IOP structures.
  *
  * Mainly designed for testing: give additional information when two IOP
- * structures differ when they are not supposed to.
+ * structures differ when they are not supposed to. Uses the same
+ * tolerance as iop_equals_desc() for floating-point fields.
  *
  * \return -1 if the IOP structs are equal.
  */

@@ -50,6 +50,8 @@ ctx.stlib(
     ],
     use=libcommon_minimal_use,
     source=[
+        'arith/int.c',
+        'arith/float.c',
         'core-version.c',
         'container/qhash.c',
         'container/qvector.blk',
@@ -201,8 +203,6 @@ ctx.stlib(
         'zlib',
     ],
     source=[
-        'arith/int.c',
-        'arith/float.c',
         'arith/scan.c',
         'asn1/asn1.c',
         'asn1/writer.c',
