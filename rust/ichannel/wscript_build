@@ -20,14 +20,9 @@ from waflib.Build import BuildContext
 
 ctx: BuildContext
 
-
-ctx.recurse(
-    [
-        'libcommon-iop-arcswap',
-        'libcommon-core',
-        'libcommon',
-        'farchc',
-        'tokio-c-mod',
-        'ichannel',
-    ]
+ctx(
+    target='ichannel-rs',
+    features='rust',
+    cargo_package='ichannel',
+    use=['libcommon-core-rs', 'libcommon-rs'],
 )

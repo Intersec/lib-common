@@ -29,6 +29,7 @@ members = [
     "rust/waf-cargo-build",
     "rust/waf-cargo-build-macros",
     "rust/tokio-c-mod",
+    "rust/ichannel",
 
     "tests/iop-rust",
 ]
