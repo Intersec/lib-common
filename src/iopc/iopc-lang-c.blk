@@ -86,8 +86,6 @@ static inline int iopc_tag_len(int32_t tag)
 /* }}} */
 /* {{{ Struct sorting and optimizing. */
 
-static void iopc_field_compute_size(iopc_field_t *f);
-
 static iopc_field_t *
 iopc_bubble_field(qv_t(iopc_field) *fields, int pos, size_t size)
 {
@@ -132,7 +130,7 @@ static void iopc_struct_build_fields_by_tag(iopc_struct_t *st)
 /** Calculate sizes and alignments then and optimize the fields order to
  * minimize the structure size.
  */
-static void iopc_struct_optimize(iopc_struct_t *st)
+void iopc_struct_optimize(iopc_struct_t *st)
 {
     size_t size = 0;
     size_t opt_size = 0;
@@ -356,7 +354,7 @@ static uint8_t iop_struct_get_align(const iop_struct_t *st)
     return align;
 }
 
-static void iopc_field_compute_size(iopc_field_t *f)
+void iopc_field_compute_size(iopc_field_t *f)
 {
     if (f->size) {
         return;

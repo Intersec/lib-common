@@ -1179,6 +1179,9 @@ extern struct iopc_do_c_globs {
     const char *iop_compat_header;
 } iopc_do_c_g;
 
+void iopc_field_compute_size(iopc_field_t *f);
+void iopc_struct_optimize(iopc_struct_t *st);
+
 int iopc_do_c(iopc_pkg_t *pkg, const char *outdir);
 int iopc_do_json(iopc_pkg_t *pkg, const char *outdir);
 int iopc_do_typescript(iopc_pkg_t *pkg, const char *outdir);
