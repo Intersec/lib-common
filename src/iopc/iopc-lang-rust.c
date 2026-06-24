@@ -359,9 +359,19 @@ static void iopc_rust_dump_union(
 /* }}} */
 /* {{{ Classes management */
 
-static void iopc_rust_dump_class(sb_t *buf, const iopc_struct_t *st)
+static void iopc_rust_dump_class(
+    sb_t *buf, const iopc_pkg_t *pkg, const iopc_struct_t *st
+)
 {
-    sb_addf(buf, "// class test %d\n", 4);
+    sb_addf(
+        buf,
+        "#[repr(C)]\n"
+        "#[allow(nonstandard_style)]\n"
+        "pub struct %s {\n"
+        "    pub vptr: *mut iop_struct_t,\n",
+        st->name
+    );
+    iopc_rust_dump_fields(buf, pkg, st);
 }
 
 /* }}} */
@@ -411,7 +421,7 @@ int iopc_do_rust(iopc_pkg_t *pkg, const char *outdir)
         } else if (d.iop_st_type == STRUCT_TYPE_UNION) {
             iopc_rust_dump_union(&buf_types, pkg, d.st);
         } else if (d.iop_st_type == STRUCT_TYPE_CLASS) {
-            iopc_rust_dump_class(&buf, d.st);
+            iopc_rust_dump_class(&buf_types, pkg, d.st);
         }
     }
 
