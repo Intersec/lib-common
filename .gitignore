@@ -47,3 +47,6 @@ mem.fifo.data.*
 
 # Claude code
 .claude
+
+# VSCode
+.vscode
