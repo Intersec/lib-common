@@ -163,6 +163,17 @@ iopc_rust_decl_cmp(const iopc_rust_decl_t *a, const iopc_rust_decl_t *b)
     return CMP(a->lmin, b->lmin);
 }
 
+static lstr_t t_iopc_rust_join(
+    const iopc_pkg_t *pkg, const char *type_name, const char *suffix
+)
+{
+    t_SB_1k(buf);
+
+    iopc_path_join(pkg->name, "_", &buf);
+    sb_addf(&buf, "__%s__%s", t_camelcase_to_c_str(type_name), suffix);
+    return LSTR(buf.data);
+}
+
 static lstr_t t_format_type_name(
     const iopc_pkg_t *pkg, const iopc_struct_t *st, lstr_t type_name
 )
@@ -307,20 +318,25 @@ static void iopc_rust_dump_struct(
 /* }}} */
 /* {{{ Enums management */
 
-static void iopc_rust_dump_enum_values(sb_t *buf, const iopc_enum_t *en)
+static void
+iopc_rust_dump_enum(sb_t *buf, const iopc_pkg_t *pkg, const iopc_enum_t *en)
 {
-    tab_for_each_entry(v, &en->values) {
-        sb_addf(buf, "    %s(%s) = %d,\n", v->name, "u32", v->value);
-    }
-}
+    t_scope;
+    lstr_t en_name = t_iopc_rust_join(pkg, en->name, "e");
 
-static void iopc_rust_dump_enum(sb_t *buf, const iopc_enum_t *en)
-{
-    sb_addf(buf, "pub enum %s", en->name);
-    sb_adds(buf, "{\n");
-    iopc_rust_dump_enum_values(buf, en);
-    sb_adds(buf, "}");
-    sb_adds(buf, "\n\n");
+    sb_addf(
+        buf,
+        "#[repr(C)]\n"
+        "#[allow(nonstandard_style)]\n"
+        "#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]\n"
+        "pub enum %pL {\n"
+        "    #[default]\n",
+        &en_name
+    );
+    tab_for_each_entry(v, &en->values) {
+        sb_addf(buf, "    %s = %d,\n", v->name, v->value);
+    }
+    sb_adds(buf, "}\n\n");
 }
 
 /* }}} */
@@ -389,7 +405,7 @@ int iopc_do_rust(iopc_pkg_t *pkg, const char *outdir)
 
     tab_for_each_entry(d, &_G.decls) {
         if (d.basic_iop_types == IOP_T_ENUM) {
-            iopc_rust_dump_enum(&buf_types, d.en);
+            iopc_rust_dump_enum(&buf_types, pkg, d.en);
         } else if (d.iop_st_type == STRUCT_TYPE_STRUCT) {
             iopc_rust_dump_struct(&buf_types, pkg, d.st);
         } else if (d.iop_st_type == STRUCT_TYPE_UNION) {
