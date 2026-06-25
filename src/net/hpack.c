@@ -1000,7 +1000,7 @@ hpack_parser_status_t hpack_decoder_extract_hdr(
         }
         val = __ps_get_ps(in, len);
         /* XXX: huffman encoding maximum compression ratio: 5/8 */
-        vallen = (flags & HPACK_XHDR_RAW_KEY) ? len : 2u * len;
+        vallen = (flags & HPACK_XHDR_RAW_VAL) ? len : 2u * len;
     }
     if (add_dtbl) {
         flags |= HPACK_XHDR_ADD_DTBL;
