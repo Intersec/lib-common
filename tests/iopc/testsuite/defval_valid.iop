@@ -10,4 +10,8 @@ struct Test {
     int c1 = c"a";
     int c2 = c"\"";
     int c3 = c"\n";
+    /* A negative integer literal as default of a double field: the sign
+     * must be preserved through the integer-to-double conversion. */
+    @min(-768) @max(0)
+    double dNegInt = -512;
 };

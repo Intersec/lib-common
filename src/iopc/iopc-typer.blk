@@ -1188,7 +1188,14 @@ static int check_defval_double(iopc_field_t *f)
     if (f->defval_type == IOPC_DEFVAL_STRING) {
         throw_loc("string default value on double field", f->loc);
     } else if (f->defval_type == IOPC_DEFVAL_INTEGER) {
-        f->defval.d = f->defval.u64;
+        /* defval.u64 holds the raw bits of the integer literal; a negative
+         * literal must be reinterpreted as signed before the conversion to
+         * double, otherwise e.g. -512 would become (double)UINT64_MAX-ish. */
+        if (f->defval_is_signed) {
+            f->defval.d = (int64_t)f->defval.u64;
+        } else {
+            f->defval.d = f->defval.u64;
+        }
     }
 
     tab_for_each_entry(attr, &f->attrs) {

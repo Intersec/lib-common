@@ -543,6 +543,12 @@ class IopcTest(z.TestCase):
         self.run_iopc(f, True, None)
         self.run_gcc(f)
 
+        # A negative integer literal default on a double field must keep its
+        # sign through the int-to-double conversion (regression: -512 used to
+        # be read as an unsigned u64, yielding ~2^64).
+        with open(os.path.join(TEST_PATH, f + '.c'), 'r') as gen:
+            self.assertIn('.defval_d = -5.12', gen.read())
+
     # }}}
     # {{{ Inheritance
 
