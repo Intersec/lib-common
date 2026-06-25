@@ -321,7 +321,10 @@ static dns_resolv_ctx_t *__addr_info_async(
 
     thr_schedule_b(^{
         struct addrinfo *ai = NULL;
-        struct addrinfo hint = {.ai_family = ctx->af};
+        struct addrinfo hint = {
+            .ai_family = ctx->af,
+            .ai_flags = ctx->af == AF_UNSPEC ? AI_ADDRCONFIG : 0,
+        };
         int ret = getaddrinfo(ctx->host.s, NULL, &hint, &ai);
         dns_resolv_res_t *res = &ctx->res;
 
@@ -383,7 +386,10 @@ int addr_info(sockunion_t *su, sa_family_t af, pstream_t host, in_port_t port)
 {
     t_scope;
     struct addrinfo *ai = NULL;
-    struct addrinfo hint = {.ai_family = af};
+    struct addrinfo hint = {
+        .ai_family = af,
+        .ai_flags = af == AF_UNSPEC ? AI_ADDRCONFIG : 0,
+    };
 
     RETHROW(getaddrinfo(t_dupz(host.p, ps_len(&host)), NULL, &hint, &ai));
     return process_getaddrinfo_result(ai, port, su);
