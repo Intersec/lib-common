@@ -1014,7 +1014,7 @@ hpack_parser_status_t hpack_decoder_extract_hdr(
     if (new_val) {
         xhdr->val = val;
     }
-    *entry_len = keylen + vallen;
+    *entry_len = keylen + vallen + 4;
 
     if (missing_entry) {
         return HPACK_PARSER_STATUS_MISSING_ENTRY;

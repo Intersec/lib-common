@@ -262,8 +262,8 @@ hpack_parser_status_t hpack_decoder_extract_hdr(
  *
  * \note the hdr line written has the format 'KEY(-OF-KEYLEN): VALUE\r\n'. On
  * success, \p keylen is the length of key part, i.e, the offset of ':' in the
- * written hdr line. So, it is up to the caller to ensure that \p out has at
- * least 4 bytes more than the value return by \ref hpack_decoder_extract_hdr.
+ * written hdr line. \p out must be at least as large as the value returned
+ * by \ref hpack_decoder_extract_hdr.
  */
 int hpack_decoder_write_hdr(
     hpack_dec_dtbl_t *dtbl, hpack_xhdr_t *xhdr, byte *out, int *keylen
