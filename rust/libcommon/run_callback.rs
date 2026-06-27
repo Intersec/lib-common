@@ -196,8 +196,8 @@ mod tests {
             data_t, el_blocker_register, el_loop, el_timer_register, el_unregister, ev_t,
             ev_timer_flags_t,
         },
+        c_event_loop_test,
         module::{module_is_loaded, module_release, module_require},
-        test_sync::C_EVENT_LOOP,
         thr::main_c_queue_schedule,
     };
     use tokio_c_mod::tokio_get_module;
@@ -219,10 +219,8 @@ mod tests {
         }
     }
 
-    #[test]
+    #[c_event_loop_test]
     fn tokio_c_mod_async_await_with_c_event_loop() {
-        let _guard = C_EVENT_LOOP.lock().expect("C event loop lock poisoned");
-
         module_require(tokio_get_module());
         assert!(module_is_loaded(tokio_get_module()));
 

@@ -294,6 +294,7 @@ name = "libcommon-core"
 version = "0.0.0"
 dependencies = [
  "libcommon-iop-arcswap",
+ "libcommon-test-macros",
  "paste",
  "waf-cargo-build",
 ]
@@ -303,6 +304,15 @@ name = "libcommon-iop-arcswap"
 version = "0.0.0"
 dependencies = [
  "arc-swap",
+]
+
+[[package]]
+name = "libcommon-test-macros"
+version = "0.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

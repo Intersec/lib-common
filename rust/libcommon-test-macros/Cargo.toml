@@ -17,31 +17,18 @@
 ###########################################################################
 
 [package]
-name = "libcommon-core"
+name = "libcommon-test-macros"
 edition.workspace = true
 publish.workspace = true
 
 [lints]
 workspace = true
 
-[lib]
-path = "lib.rs"
-crate-type = ["lib", "staticlib"]
-
-[features]
-# Expose the test-only helpers (`test_sync`, the `c_event_loop_test` attribute)
-# to downstream crates' tests.
-test-support = ["dep:libcommon-test-macros"]
-
-[build-dependencies]
-waf-cargo-build = { path = "../waf-cargo-build" }
-
 [dependencies]
-waf-cargo-build = { path = "../waf-cargo-build" }
-# Transitively re-link the ArcSwap primitives so every binary that uses
-# libcommon-core (farchc, iopc, pxcc, ...) automatically pulls them in.
-libcommon-iop-arcswap = { path = "../libcommon-iop-arcswap" }
-# Test-support proc-macros, re-exported under the `test-support` feature so
-# consumers don't depend on the macro crate directly.
-libcommon-test-macros = { path = "../libcommon-test-macros", optional = true }
-paste.workspace = true
+proc-macro2.workspace = true
+syn.workspace = true
+quote.workspace = true
+
+[lib]
+proc-macro = true
+path = "lib.rs"

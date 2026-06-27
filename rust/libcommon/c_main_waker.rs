@@ -241,8 +241,8 @@ where
 mod tests {
     use super::run_future;
     use libcommon_core::bindings::{el_blocker_register, el_loop, el_unregister, ev_t};
+    use libcommon_core::c_event_loop_test;
     use libcommon_core::module::{module_is_loaded, module_release, module_require};
-    use libcommon_core::test_sync::C_EVENT_LOOP;
     use tokio::time::{Duration, sleep};
     use tokio_c_mod::tokio_get_module;
 
@@ -250,10 +250,8 @@ mod tests {
     unsafe impl Send for ElBlocker {}
 
     // Drive a tokio sleep future to completion on the C event loop.
-    #[test]
+    #[c_event_loop_test]
     fn run_future_drives_tokio_sleep_to_completion() {
-        let _guard = C_EVENT_LOOP.lock().expect("C event loop lock poisoned");
-
         module_require(tokio_get_module());
         assert!(module_is_loaded(tokio_get_module()));
 

@@ -41,6 +41,12 @@ pub mod thr;
 #[cfg(any(test, feature = "test-support"))]
 pub mod test_sync;
 
+// Re-export the test-support proc-macros so downstream crates only need a
+// dev-dependency on libcommon-core (with the `test-support` feature) rather
+// than on the macro crate directly.
+#[cfg(feature = "test-support")]
+pub use libcommon_test_macros::c_event_loop_test;
+
 // Re-export the IOP ArcSwap primitives so every consumer of
 // `libcommon-core` transitively links the `#[no_mangle]` FFI symbols
 // from `libcommon-iop-arcswap`.
