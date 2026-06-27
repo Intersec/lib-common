@@ -28,6 +28,10 @@ workspace = true
 path = "lib.rs"
 crate-type = ["lib", "staticlib"]
 
+[features]
+# Expose the test-only helpers (e.g. `test_sync`) to downstream crates' tests.
+test-support = []
+
 [build-dependencies]
 waf-cargo-build = { path = "../waf-cargo-build" }
 

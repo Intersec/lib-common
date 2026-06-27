@@ -16,7 +16,9 @@
 /*                                                                         */
 /***************************************************************************/
 
+pub mod c_main_waker;
 pub mod iop;
+pub mod run_callback;
 
 #[waf_cargo_build::bindings_mod]
 pub mod bindings {

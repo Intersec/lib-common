@@ -36,6 +36,11 @@ pub mod pstream;
 pub mod sb;
 pub mod thr;
 
+// Test-only synchronization helpers. Always available to this crate's own
+// tests, and to downstream crates that enable the `test-support` feature.
+#[cfg(any(test, feature = "test-support"))]
+pub mod test_sync;
+
 // Re-export the IOP ArcSwap primitives so every consumer of
 // `libcommon-core` transitively links the `#[no_mangle]` FFI symbols
 // from `libcommon-iop-arcswap`.

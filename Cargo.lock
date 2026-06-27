@@ -96,16 +96,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4388bee8683e3d04af747c73422af53102d2bd24d9eadb6cbc100baef4b43f8"
 
 [[package]]
-name = "c-main-waker"
-version = "0.0.0"
-dependencies = [
- "libcommon-core",
- "tokio",
- "tokio-c-mod",
- "waf-cargo-build",
-]
-
-[[package]]
 name = "cc"
 version = "1.2.63"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -294,6 +284,8 @@ version = "0.0.0"
 dependencies = [
  "libcommon-core",
  "paste",
+ "tokio",
+ "tokio-c-mod",
  "waf-cargo-build",
 ]
 
@@ -469,15 +461,6 @@ name = "regex-syntax"
 version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
-
-[[package]]
-name = "run-callback"
-version = "0.0.0"
-dependencies = [
- "libcommon-core",
- "tokio-c-mod",
- "waf-cargo-build",
-]
 
 [[package]]
 name = "rustc-hash"

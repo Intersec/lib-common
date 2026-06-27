@@ -28,8 +28,6 @@ members = [
     "rust/waf-cargo-build",
     "rust/waf-cargo-build-macros",
     "rust/tokio-c-mod",
-    "rust/run-callback",
-    "rust/c-main-waker",
 
     "tests/iop-rust",
 ]

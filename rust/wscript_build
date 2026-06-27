@@ -28,7 +28,5 @@ ctx.recurse(
         'libcommon',
         'farchc',
         'tokio-c-mod',
-        'run-callback',
-        'c-main-waker',
     ]
 )

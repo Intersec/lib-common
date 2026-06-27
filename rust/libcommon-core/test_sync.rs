@@ -16,12 +16,29 @@
 /*                                                                         */
 /***************************************************************************/
 
-use std::error;
-use waf_cargo_build::WafBuild;
+//! Synchronization helpers shared between the workspace's tests.
+//!
+//! C modules and the C event loop are process-wide singletons. Requiring a
+//! module that is already required aborts with a `module '<name>' has been
+//! recursively required` fatal error, and the event loop cannot be driven from
+//! several threads at once.
+//!
+//! Unlike the C test suite, where tests run sequentially, the Rust test
+//! harness runs the tests of a single crate concurrently within one process.
+//! So two Rust tests that require the same module or run the event loop would
+//! race against each other.
+//!
+//! [`C_EVENT_LOOP`] serializes them: each such test must hold the lock for its
+//! whole body so that at most one of them touches those singletons at a time.
+//!
+//! This module is only compiled for the crate's own tests and, for downstream
+//! crates, when they enable the `test-support` feature on `libcommon-core` in
+//! their `[dev-dependencies]`.
 
-fn main() -> Result<(), Box<dyn error::Error>> {
-    let waf_build = WafBuild::read_build_env()?;
+use std::sync::Mutex;
 
-    waf_build.print_cargo_instructions();
-    Ok(())
-}
+/// Serialize the tests that require a C module or run the C event loop.
+///
+/// Those tests rely on process-wide singletons and cannot run concurrently
+/// with each other, so each such test must hold this lock for its whole body.
+pub static C_EVENT_LOOP: Mutex<()> = Mutex::new(());

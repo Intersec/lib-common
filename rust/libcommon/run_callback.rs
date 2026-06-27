@@ -27,7 +27,7 @@
 //! ## Use `run_callback` with a `main C event loop` timer
 //!
 //! ```
-//! # use run_callback::{Callback, run_callback};
+//! # use libcommon::run_callback::{Callback, run_callback};
 //! # use libcommon_core::{
 //! #     bindings::{
 //! #         data_t, el_blocker_register, el_loop, el_timer_register, el_unregister, ev_t,
@@ -190,13 +190,14 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{Callback, run_callback};
+    use super::{Callback, run_callback};
     use libcommon_core::{
         bindings::{
             data_t, el_blocker_register, el_loop, el_timer_register, el_unregister, ev_t,
             ev_timer_flags_t,
         },
         module::{module_is_loaded, module_release, module_require},
+        test_sync::C_EVENT_LOOP,
         thr::main_c_queue_schedule,
     };
     use tokio_c_mod::tokio_get_module;
@@ -220,6 +221,8 @@ mod tests {
 
     #[test]
     fn tokio_c_mod_async_await_with_c_event_loop() {
+        let _guard = C_EVENT_LOOP.lock().expect("C event loop lock poisoned");
+
         module_require(tokio_get_module());
         assert!(module_is_loaded(tokio_get_module()));
 
