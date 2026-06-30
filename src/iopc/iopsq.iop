@@ -139,13 +139,10 @@ local class Union : 4 : Structure {
 /* }}} */
 /* {{{ Typedef */
 
-/* TODO Implement */
-/*
 @ctype(iop__typedef__t)
 local class Typedef : 5 : PackageElem {
     Type type;
 };
-*/
 
 /* }}} */
 /* {{{ Package */

@@ -5249,6 +5249,34 @@ mp_iopc_enum_to_desc(mem_pool_t *mp, iopc_enum_t *en, const iopc_pkg_t *pkg)
 }
 
 /* }}} */
+/* {{{ IOP typedef */
+
+static iop_typedef_t *mp_iopc_typedef_to_desc(
+    mem_pool_t *mp, const iopc_field_t *td, const iopc_pkg_t *pkg
+)
+{
+    iop_typedef_t *td_desc;
+    iop_typedef_t _td_desc = {
+        .fullname = mp_build_fullname(mp, pkg, td->name),
+        .type = td->kind,
+    };
+
+    if (td->kind == IOP_T_ENUM) {
+        _td_desc.ref_enum =
+            td->has_external_type ? td->external_en : td->enum_def->desc;
+    } else if (!iop_type_is_scalar(td->kind)) {
+        _td_desc.ref_struct =
+            td->has_external_type ? td->external_st : td->struct_def->desc;
+    }
+
+    td_desc = mp_new_raw(mp, iop_typedef_t, 1);
+    /* XXX Work-around all the const fields in 'iop_typedef_t'. */
+    p_copy(td_desc, &_td_desc, 1);
+
+    return td_desc;
+}
+
+/* }}} */
 /* {{{ IOP package */
 
 iop_pkg_t *mp_iopc_pkg_to_desc(mem_pool_t *mp, iopc_pkg_t *pkg, sb_t *err)
@@ -5258,6 +5286,8 @@ iop_pkg_t *mp_iopc_pkg_to_desc(mem_pool_t *mp, iopc_pkg_t *pkg, sb_t *err)
     const iop_struct_t **wst;
     const iop_enum_t **enums;
     const iop_enum_t **wen;
+    const iop_typedef_t **typedefs;
+    const iop_typedef_t **wtd;
 
     tab_for_each_entry(st, &pkg->structs) {
         iopc_struct_optimize(st);
@@ -5283,11 +5313,19 @@ iop_pkg_t *mp_iopc_pkg_to_desc(mem_pool_t *mp, iopc_pkg_t *pkg, sb_t *err)
     }
     *wst = NULL;
 
+    typedefs = mp_new_raw(mp, const iop_typedef_t *, pkg->typedefs.len + 1);
+    wtd = typedefs;
+    tab_for_each_entry(td, &pkg->typedefs) {
+        *wtd++ = mp_iopc_typedef_to_desc(mp, td, pkg);
+    }
+    *wtd = NULL;
+
     {
         iop_pkg_t _pkg_desc = {
             .name = mp_lstr_dups(mp, iopc_path_dot(pkg->name), -1),
             .enums = enums,
             .structs = structs,
+            .typedefs = typedefs,
             /* TODO (later) ifaces, mods */
             /* TODO deps */
         };

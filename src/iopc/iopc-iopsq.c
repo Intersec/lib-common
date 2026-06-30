@@ -556,6 +556,30 @@ static iopc_enum_t *iopc_enum_load(const iop__enum__t *en_desc, sb_t *err)
 }
 
 /* }}} */
+/* {{{ IOP typedef */
+
+static iopc_field_t *iopc_typedef_load(
+    const iop_env_ctx_t *nonnull iop_env_ctx,
+    const iop__typedef__t *nonnull td_desc,
+    const iopsq_type_table_t *nullable type_table, sb_t *nonnull err
+)
+{
+    iopc_field_t *tdef = iopc_field_new();
+
+    tdef->is_visible = true;
+    tdef->name = p_dupz(td_desc->name.s, td_desc->name.len);
+    if (iopc_field_set_type(
+            tdef, iop_env_ctx, &td_desc->type, type_table, err
+        ) < 0)
+    {
+        iopc_field_delete(&tdef);
+        return NULL;
+    }
+
+    return tdef;
+}
+
+/* }}} */
 /* {{{ IOP package */
 
 static const char *pkg_elem_type_to_str(const iop__package_elem__t *elem)
@@ -570,6 +594,9 @@ static const char *pkg_elem_type_to_str(const iop__package_elem__t *elem)
 
     case IOP_CLASS_ID(iop__enum):
         return "enum";
+
+    case IOP_CLASS_ID(iop__typedef):
+        return "typedef";
     }
 
     assert(false);
@@ -636,8 +663,24 @@ static iopc_pkg_t *iopc_pkg_load_from_iop(
                 qv_append(&pkg->enums, en);
             }
 
+            IOP_OBJ_CASE(iop__typedef, elem, td_desc)
+            {
+                iopc_field_t *tdef;
+
+                if (!(tdef = iopc_typedef_load(
+                          iop_env_ctx, td_desc, type_table, err
+                      )))
+                {
+                    sb_prependf(
+                        err, "cannot load typedef `%pL': ", &elem->name
+                    );
+                    goto error;
+                }
+
+                qv_append(&pkg->typedefs, tdef);
+            }
+
             /* TODO Classes */
-            /* TODO Typedefs */
             /* TODO Interfaces */
             /* TODO Modules */
             /* TODO SNMP stuff */

@@ -44,8 +44,8 @@
  *
  * Limitations:
  *
- *    - Not supported yet: classes, attributes, modules, interfaces, typedefs,
- *    RPCs, SNMP objects.
+ *    - Not supported yet: classes, attributes, modules, interfaces, RPCs,
+ *    SNMP objects.
  *
  *    - Typedefs from IOPs loaded to the environment cannot be used by
  *    refering to them with "typeName" like for the other types because

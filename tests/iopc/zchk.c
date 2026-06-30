@@ -415,6 +415,41 @@ Z_GROUP_EXPORT(iopsq)
     }
     Z_TEST_END;
 
+    Z_TEST(typedef_, "package with typedefs") {
+        t_scope;
+        iop_pkg_t *pkg;
+        const iop_typedef_t *td;
+        int n = 0;
+
+        Z_HELPER_RUN(t_package_load(&pkg, iop_env, "typedef.json"));
+
+        Z_ASSERT_P(pkg->typedefs);
+        for (const iop_typedef_t *const *it = pkg->typedefs; *it; it++) {
+            n++;
+        }
+        Z_ASSERT_EQ(n, 3, "expected 3 typedefs");
+
+        /* MyInt -> int: a scalar typedef has no referenced object. */
+        td = pkg->typedefs[0];
+        Z_ASSERT_LSTREQUAL(td->fullname, LSTR("foo.MyInt"));
+        Z_ASSERT(td->type == IOP_T_I32);
+
+        /* MyColor -> Color (enum). */
+        td = pkg->typedefs[1];
+        Z_ASSERT_LSTREQUAL(td->fullname, LSTR("foo.MyColor"));
+        Z_ASSERT(td->type == IOP_T_ENUM);
+        Z_ASSERT_P(td->ref_enum);
+        Z_ASSERT_LSTREQUAL(td->ref_enum->name, LSTR("Color"));
+
+        /* MyPoint -> Point (struct). */
+        td = pkg->typedefs[2];
+        Z_ASSERT_LSTREQUAL(td->fullname, LSTR("foo.MyPoint"));
+        Z_ASSERT(td->type == IOP_T_STRUCT);
+        Z_ASSERT_P(td->ref_struct);
+        Z_ASSERT_LSTREQUAL(td->ref_struct->fullname, LSTR("foo.Point"));
+    }
+    Z_TEST_END;
+
     Z_TEST(external_types, "external type names") {
         Z_HELPER_RUN(test_pkg_struct(
             iop_env, "external-types.json", 0,
