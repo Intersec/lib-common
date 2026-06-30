@@ -271,6 +271,66 @@
         } ]
     }, {
         "_class": "iopsq.Struct",
+        "name": "FullDefVal",
+        "fields": [ {
+            "name": "i8",
+            "type": { "typeName": "byte" },
+            "optional": { "defVal": { "i": -1 } }
+        }, {
+            "name": "u8",
+            "type": { "typeName": "ubyte" },
+            "optional": { "defVal": { "i": 2 } }
+        }, {
+            "name": "i16",
+            "type": { "typeName": "short" },
+            "optional": { "defVal": { "i": -3 } }
+        }, {
+            "name": "u16",
+            "type": { "typeName": "ushort" },
+            "optional": { "defVal": { "i": 4 } }
+        }, {
+            "name": "i32",
+            "type": { "typeName": "int" },
+            "optional": { "defVal": { "i": -5 } }
+        }, {
+            "name": "u32",
+            "type": { "typeName": "uint" },
+            "optional": { "defVal": { "i": 6 } }
+        }, {
+            "name": "i64",
+            "type": { "typeName": "long" },
+            "optional": { "defVal": { "i": -7 } }
+        }, {
+            "name": "u64",
+            "type": { "typeName": "ulong" },
+            "optional": { "defVal": { "i": 8 } }
+        }, {
+            "name": "b",
+            "type": { "typeName": "bool" },
+            "optional": { "defVal": { "b": true } }
+        }, {
+            "name": "e",
+            "type": { "typeName": "TestEnum" },
+            "optional": { "defVal": { "i": 42 } }
+        }, {
+            "name": "d",
+            "type": { "typeName": "double" },
+            "optional": { "defVal": { "d": 3.14 } }
+        }, {
+            "name": "s",
+            "type": { "typeName": "string" },
+            "optional": { "defVal": { "s": "Default value" } }
+        }, {
+            "name": "data",
+            "type": { "typeName": "bytes" },
+            "optional": { "defVal": { "s": "B" } }
+        }, {
+            "name": "xml",
+            "type": { "typeName": "xml" },
+            "optional": { "defVal": { "s": "<a></a>" } }
+        } ]
+    }, {
+        "_class": "iopsq.Struct",
         "name": "FullStruct",
         "fields": [ {
             "name": "required",
@@ -286,10 +346,10 @@
             "type": { "typeName": "FullOpt" }
         }, {
             "name": "defValPresent",
-            "type": { "typeName": "tstiop.FullDefVal" }
+            "type": { "typeName": "FullDefVal" }
         }, {
             "name": "defValAbsent",
-            "type": { "typeName": "tstiop.FullDefVal" }
+            "type": { "typeName": "FullDefVal" }
         }, {
             "name": "repeated",
             "type": { "typeName": "FullRepeated" }

@@ -44,9 +44,6 @@
  *
  * Limitations:
  *
- *    - Default values: default values exist in iopsq.iop and are correctly
- *    transformed at step 1., but not at step 3 (yet).
- *
  *    - Not supported yet: classes, attributes, modules, interfaces, typedefs,
  *    RPCs, SNMP objects.
  *

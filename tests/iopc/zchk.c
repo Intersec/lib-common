@@ -129,7 +129,38 @@ static int z_assert_field_eq(const iop_field_t *f, const iop_field_t *ref)
     Z_ASSERT(f->repeat == ref->repeat, "repeat field mismatch");
     Z_ASSERT_EQ(f->data_offs, ref->data_offs, "offset mismatch");
 
-    /* TODO Check default value. */
+    if (f->repeat == IOP_R_DEFVAL) {
+        switch (f->type) {
+        case IOP_T_I8 ... IOP_T_U64:
+        case IOP_T_BOOL:
+            Z_ASSERT_EQ(
+                f->u1.defval_u64, ref->u1.defval_u64, "defval mismatch"
+            );
+            break;
+        case IOP_T_DOUBLE:
+            Z_ASSERT_EQ(f->u1.defval_d, ref->u1.defval_d, "defval mismatch");
+            break;
+        case IOP_T_ENUM:
+            Z_ASSERT_EQ(
+                f->u0.defval_enum, ref->u0.defval_enum, "defval mismatch"
+            );
+            break;
+        case IOP_T_STRING:
+        case IOP_T_DATA:
+        case IOP_T_XML:
+            Z_ASSERT_EQ(
+                f->u0.defval_len, ref->u0.defval_len, "defval length mismatch"
+            );
+            Z_ASSERT_EQUAL(
+                (const char *)f->u1.defval_data, f->u0.defval_len,
+                (const char *)ref->u1.defval_data, ref->u0.defval_len,
+                "defval data mismatch"
+            );
+            break;
+        default:
+            break;
+        }
+    }
 
     if (!iop_type_is_scalar(f->type)) {
         /* TODO Protect against loops. */
@@ -448,9 +479,9 @@ Z_GROUP_EXPORT(iopsq)
         const iop_struct_t *st;
         lstr_t st_name = LSTR("FullStruct");
 
-        /* FIXME: some types cannot be implemented with IOP² yet (classes and
-         * fields with default values) so we have to use types from tstiop to
-         * avoid dissimilarities between structs. */
+        /* FIXME: classes cannot be implemented with IOP² yet, so the class
+         * fields still use types from tstiop to avoid dissimilarities between
+         * structs. */
         Z_HELPER_RUN(t_package_load(&pkg, iop_env, "full-struct.json"));
         st = iop_pkg_get_struct_by_name(pkg, st_name);
         Z_ASSERT_P(st, "cannot find struct `%pL'", &st_name);
@@ -546,9 +577,6 @@ Z_GROUP_EXPORT(iopsq)
             "invalid package `user_package': "
             "cannot load enum `KeyConflict': "
             "the key `A' is duplicated",
-            "failed to generate package `user_package': "
-            "struct UnsupportedDefVal: field `field': "
-            "default values are not supported yet",
             "failed to resolve the package: "
             "error: unable to find any pkg providing type `Unknown`",
             "invalid package `user_package': "

@@ -5031,17 +5031,53 @@ mp_build_fullname(mem_pool_t *mp, const iopc_pkg_t *pkg, const char *name)
 /* }}} */
 /* {{{ IOP struct/union */
 
+/** Fill the default value of an \ref iop_field_t descriptor from its iopc
+ * field. Mirrors the default-value emission of the C source generator (see
+ * \ref iopc_do_c_write_field). */
+static void mp_iopc_field_fill_defval(
+    mem_pool_t *mp, const iopc_field_t *f, iop_field_t *fdesc
+)
+{
+    switch (f->kind) {
+    case IOP_T_ENUM:
+        /* The enum descriptor lives in u1 (set by the caller); the default
+         * goes into u0. */
+        fdesc->u0.defval_enum = f->defval.u64;
+        break;
+
+    case IOP_T_I8 ... IOP_T_U64:
+    case IOP_T_BOOL:
+        fdesc->u1.defval_u64 = f->defval.u64;
+        break;
+
+    case IOP_T_DOUBLE:
+        fdesc->u1.defval_d = f->defval.d;
+        break;
+
+    case IOP_T_STRING:
+    case IOP_T_DATA:
+    case IOP_T_XML: {
+        size_t len = strlen(f->defval.ptr);
+
+        fdesc->u0.defval_len = len;
+        fdesc->u1.defval_data = mp_dupz(mp, f->defval.ptr, len);
+        break;
+    }
+
+    /* No default value on those types. */
+    case IOP_T_UNION:
+    case IOP_T_STRUCT:
+    case IOP_T_VOID:
+        break;
+    }
+}
+
 static int mp_iopc_field_to_desc(
     mem_pool_t *mp, const iopc_field_t *f, const iopc_struct_t *st,
     uint16_t *offset, iop_field_t *fdesc, sb_t *err
 )
 {
     uint16_t size;
-
-    if (f->repeat == IOP_R_DEFVAL) {
-        sb_sets(err, "default values are not supported yet");
-        return -1;
-    }
 
     *offset = ROUND_UP(*offset, f->align);
 
@@ -5074,7 +5110,6 @@ static int mp_iopc_field_to_desc(
         .type = f->kind,
         .data_offs = *offset,
         .flags = iopc_field_build_flags(f, st, NULL), /* TODO attrs */
-        /* TODO default value */
         .size = size,
     };
 
@@ -5097,6 +5132,10 @@ static int mp_iopc_field_to_desc(
         }
 
         assert(fdesc->u1.en_desc);
+    }
+
+    if (f->repeat == IOP_R_DEFVAL) {
+        mp_iopc_field_fill_defval(mp, f, fdesc);
     }
 
     if (st->type != STRUCT_TYPE_UNION) {

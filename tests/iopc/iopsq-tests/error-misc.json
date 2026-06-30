@@ -125,20 +125,6 @@
         } ]
     }, {
         "_class": "iopsq.Struct",
-        "name": "UnsupportedDefVal",
-        "fields": [ {
-            "name": "field",
-            "type": {
-                "typeName": "int"
-            },
-            "optional": {
-                "defVal": {
-                    "i": 1
-                }
-            }
-        } ]
-    }, {
-        "_class": "iopsq.Struct",
         "name": "Bar",
         "fields": [ {
             "name": "unknownTypeField",
