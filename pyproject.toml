@@ -61,6 +61,18 @@ dev = [
     "clang-format==22.1.5",
 ]
 
+# {{{ uv
+
+[tool.uv]
+# Defer Python selection to asdf/mise (system python where it satisfies
+# requires-python, per build/asdf_python_version.sh). uv must never download
+# or use its own managed CPython: stick to the system/PATH interpreter, and
+# fail loudly rather than silently fetching one into ~/.local/share/uv/ (whose
+# RPATH would leak into the python3_embed-linked .so artifacts).
+python-preference = "only-system"
+python-downloads = "never"
+
+# }}}
 # {{{ Ruff linter
 
 [tool.ruff]
