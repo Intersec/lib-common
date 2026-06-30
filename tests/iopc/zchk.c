@@ -109,8 +109,25 @@ static int z_assert_enum_eq(const iop_enum_t *en, const iop_enum_t *ref)
         "ranges mismatch"
     );
 
+    if (TST_BIT(&en->flags, IOP_ENUM_ALIASES)) {
+        Z_ASSERT_P(en->aliases);
+        Z_ASSERT_P(ref->aliases);
+        Z_ASSERT_EQ(
+            en->aliases->len, ref->aliases->len, "aliases count mismatch"
+        );
+        for (int i = 0; i < en->aliases->len; i++) {
+            Z_ASSERT_EQ(
+                en->aliases->aliases[i].pos, ref->aliases->aliases[i].pos,
+                "alias position mismatch for alias #%d", i
+            );
+            Z_ASSERT_LSTREQUAL(
+                en->aliases->aliases[i].name, ref->aliases->aliases[i].name,
+                "alias name mismatch for alias #%d", i
+            );
+        }
+    }
+
     /* TODO Attributes. */
-    /* TODO Aliases. */
 
     Z_HELPER_END;
 }
@@ -450,6 +467,39 @@ Z_GROUP_EXPORT(iopsq)
     }
     Z_TEST_END;
 
+    Z_TEST(enum_strict_aliases, "enum strictness and value aliases") {
+        t_scope;
+        iop_pkg_t *pkg;
+        const iop_enum_t *en;
+
+        Z_HELPER_RUN(
+            t_package_load(&pkg, iop_env, "enum-strict-aliases.json")
+        );
+
+        /* StrictEnum: @strict maps to the IOP_ENUM_STRICT flag. */
+        en = pkg->enums[0];
+        Z_ASSERT_LSTREQUAL(en->name, LSTR("StrictEnum"));
+        Z_ASSERT(TST_BIT(&en->flags, IOP_ENUM_STRICT));
+        Z_ASSERT(!TST_BIT(&en->flags, IOP_ENUM_ALIASES));
+        Z_ASSERT_NULL(en->aliases);
+
+        /* AliasEnum: value aliases build an iop_enum_aliases_t table, with
+         * one entry per alias pointing at the position of its value. */
+        en = pkg->enums[1];
+        Z_ASSERT_LSTREQUAL(en->name, LSTR("AliasEnum"));
+        Z_ASSERT(TST_BIT(&en->flags, IOP_ENUM_ALIASES));
+        Z_ASSERT(!TST_BIT(&en->flags, IOP_ENUM_STRICT));
+        Z_ASSERT_P(en->aliases);
+        Z_ASSERT_EQ(en->aliases->len, 3);
+        Z_ASSERT_EQ(en->aliases->aliases[0].pos, 0);
+        Z_ASSERT_LSTREQUAL(en->aliases->aliases[0].name, LSTR("A_ALIAS"));
+        Z_ASSERT_EQ(en->aliases->aliases[1].pos, 2);
+        Z_ASSERT_LSTREQUAL(en->aliases->aliases[1].name, LSTR("C_ALIAS_1"));
+        Z_ASSERT_EQ(en->aliases->aliases[2].pos, 2);
+        Z_ASSERT_LSTREQUAL(en->aliases->aliases[2].name, LSTR("C_ALIAS_2"));
+    }
+    Z_TEST_END;
+
     Z_TEST(external_types, "external type names") {
         Z_HELPER_RUN(test_pkg_struct(
             iop_env, "external-types.json", 0,
@@ -612,6 +662,9 @@ Z_GROUP_EXPORT(iopsq)
             "invalid package `user_package': "
             "cannot load enum `KeyConflict': "
             "the key `A' is duplicated",
+            "invalid package `user_package': "
+            "cannot load enum `AliasConflict': "
+            "the alias `A' is duplicated",
             "failed to resolve the package: "
             "error: unable to find any pkg providing type `Unknown`",
             "invalid package `user_package': "

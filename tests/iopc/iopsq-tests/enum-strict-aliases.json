@@ -1,0 +1,17 @@
+{
+    "name": "foo",
+    "elems": [ {
+        "_class": "iopsq.Enum",
+        "name": "StrictEnum",
+        "strict": true,
+        "values": [ { "name": "A" }, { "name": "B" }, { "name": "C" } ]
+    }, {
+        "_class": "iopsq.Enum",
+        "name": "AliasEnum",
+        "values": [
+            { "name": "A", "aliases": [ "A_ALIAS" ] },
+            { "name": "B" },
+            { "name": "C", "aliases": [ "C_ALIAS_1", "C_ALIAS_2" ] }
+        ]
+    } ]
+}

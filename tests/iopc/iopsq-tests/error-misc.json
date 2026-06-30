@@ -124,6 +124,15 @@
             "name": "A"
         } ]
     }, {
+        "_class": "iopsq.Enum",
+        "name": "AliasConflict",
+        "values": [ {
+            "name": "A"
+        }, {
+            "name": "B",
+            "aliases": [ "A" ]
+        } ]
+    }, {
         "_class": "iopsq.Struct",
         "name": "Bar",
         "fields": [ {

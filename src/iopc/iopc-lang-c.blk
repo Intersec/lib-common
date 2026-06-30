@@ -5209,6 +5209,50 @@ static iop_struct_t *mp_iopc_struct_to_desc(
 /* }}} */
 /* {{{ IOP enum */
 
+/* Build the enum value aliases table from the @alias attributes, mirroring
+ * iopc_enum_dump_src. Sets IOP_ENUM_ALIASES in \p flags when at least one
+ * alias is found; returns NULL otherwise. */
+static const iop_enum_aliases_t *mp_iopc_enum_build_aliases(
+    mem_pool_t *mp, const iopc_enum_t *en, unsigned *flags
+)
+{
+    iop_enum_aliases_t *aliases;
+    int nb_aliases = 0;
+
+    for (int i = 0; i < en->values.len; i++) {
+        tab_for_each_entry(attr, &en->values.tab[i]->attrs) {
+            if (attr->desc->id == IOPC_ATTR_ALIAS) {
+                nb_aliases += attr->args.len;
+            }
+        }
+    }
+    if (!nb_aliases) {
+        return NULL;
+    }
+
+    aliases = mp_new_extra(
+        mp, iop_enum_aliases_t, nb_aliases * sizeof(iop_enum_alias_t)
+    );
+    aliases->len = nb_aliases;
+    nb_aliases = 0;
+    for (int i = 0; i < en->values.len; i++) {
+        tab_for_each_entry(attr, &en->values.tab[i]->attrs) {
+            if (attr->desc->id != IOPC_ATTR_ALIAS) {
+                continue;
+            }
+            tab_for_each_entry(arg, &attr->args) {
+                aliases->aliases[nb_aliases++] = (iop_enum_alias_t){
+                    .pos = i,
+                    .name = mp_lstr_dup(mp, arg.v.s),
+                };
+            }
+        }
+    }
+    SET_BIT(flags, IOP_ENUM_ALIASES);
+
+    return aliases;
+}
+
 static iop_enum_t *
 mp_iopc_enum_to_desc(mem_pool_t *mp, iopc_enum_t *en, const iopc_pkg_t *pkg)
 {
@@ -5228,6 +5272,17 @@ mp_iopc_enum_to_desc(mem_pool_t *mp, iopc_enum_t *en, const iopc_pkg_t *pkg)
     }
 
     {
+        unsigned flags = 0;
+        const iop_enum_aliases_t *aliases =
+            mp_iopc_enum_build_aliases(mp, en, &flags);
+
+        tab_for_each_entry(attr, &en->attrs) {
+            if (attr->desc->id == IOPC_ATTR_STRICT) {
+                SET_BIT(&flags, IOP_ENUM_STRICT);
+                break;
+            }
+        }
+
         iop_enum_t _en_desc = {
             .name = mp_lstr_dup(mp, LSTR(en->name)),
             .fullname = mp_build_fullname(mp, pkg, en->name),
@@ -5236,8 +5291,9 @@ mp_iopc_enum_to_desc(mem_pool_t *mp, iopc_enum_t *en, const iopc_pkg_t *pkg)
             .ranges = ranges.tab,
             .ranges_len = ranges.len / 2,
             .enum_len = en->values.len,
+            .flags = flags,
+            .aliases = aliases,
             /* TODO attrs */
-            /* TODO aliases */
         };
 
         en_desc = mp_new_raw(mp, iop_enum_t, 1);

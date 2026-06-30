@@ -118,13 +118,16 @@ struct EnumVal {
     @pattern("[A-Z0-9_]*") @minLength(1)
     string name;
     int? val;
-    /* TODO Aliases */
+    /** Alternative names accepted when unpacking this value. */
+    @pattern("[A-Z0-9_]*") @minLength(1)
+    string[] aliases;
 };
 
 @ctype(iop__enum__t)
 local class Enum : 3 : PackageElem {
     EnumVal[] values;
-    /* TODO Strictness */
+    /** Reject unknown integer values when (un)packing. */
+    bool strict = false;
 };
 
 /* }}} */

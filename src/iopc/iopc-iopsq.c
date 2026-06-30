@@ -512,6 +512,57 @@ static iopc_struct_t *iopc_struct_load(
 /* }}} */
 /* {{{ IOP enum */
 
+/* Enum strictness and value aliases are carried by attributes, exactly as in
+ * the IOP language (@strict on the enum, @alias on a value). The IOP² loader
+ * attaches the same attributes without depending on the parser's attribute
+ * registry: only 'desc->id' is read downstream (typer and descriptor
+ * generator), so file-static descriptors are enough and keep IOP²
+ * self-contained. */
+static iopc_attr_desc_t iopsq_attr_strict_g = {
+    .id = IOPC_ATTR_STRICT,
+    .name = LSTR_IMMED("strict"),
+};
+static iopc_attr_desc_t iopsq_attr_alias_g = {
+    .id = IOPC_ATTR_ALIAS,
+    .name = LSTR_IMMED("alias"),
+};
+static iopc_arg_desc_t iopsq_alias_arg_g = {
+    .name = LSTR_IMMED("name"),
+    .type = ITOK_IDENT,
+};
+
+static iopc_attr_t *iopsq_attr_new(iopc_attr_desc_t *desc)
+{
+    iopc_attr_t *attr = iopc_attr_new();
+
+    attr->desc = desc;
+    return attr;
+}
+
+/* Attach an @alias attribute holding the value aliases, mirroring the parser
+ * which stores one alias name per attribute argument. */
+static void iopc_enum_field_load_aliases(
+    iopc_enum_field_t *field, const lstr_t *aliases, int nb_aliases
+)
+{
+    iopc_attr_t *attr;
+
+    if (!nb_aliases) {
+        return;
+    }
+    attr = iopsq_attr_new(&iopsq_attr_alias_g);
+    for (int i = 0; i < nb_aliases; i++) {
+        iopc_arg_t arg;
+
+        iopc_arg_init(&arg);
+        arg.desc = &iopsq_alias_arg_g;
+        arg.type = ITOK_IDENT;
+        arg.v.s = lstr_dup(aliases[i]);
+        qv_append(&attr->args, arg);
+    }
+    qv_append(&field->attrs, attr);
+}
+
 static iopc_enum_t *iopc_enum_load(const iop__enum__t *en_desc, sb_t *err)
 {
     t_scope;
@@ -536,11 +587,20 @@ static iopc_enum_t *iopc_enum_load(const iop__enum__t *en_desc, sb_t *err)
             sb_setf(err, "the key `%pL' is duplicated", &enum_val->name);
             return NULL;
         }
+        tab_for_each_ptr(alias, &enum_val->aliases) {
+            if (qh_add(lstr, &keys, alias) < 0) {
+                sb_setf(err, "the alias `%pL' is duplicated", alias);
+                return NULL;
+            }
+        }
         next_val = val + 1;
     }
 
     en = iopc_enum_new();
     en->name = p_dupz(en_desc->name.s, en_desc->name.len);
+    if (en_desc->strict) {
+        qv_append(&en->attrs, iopsq_attr_new(&iopsq_attr_strict_g));
+    }
     next_val = 0;
     tab_for_each_ptr(enum_val, &en_desc->values) {
         iopc_enum_field_t *field = iopc_enum_field_new();
@@ -549,6 +609,9 @@ static iopc_enum_t *iopc_enum_load(const iop__enum__t *en_desc, sb_t *err)
         field->value = OPT_DEFVAL(enum_val->val, next_val);
         next_val = field->value + 1;
 
+        iopc_enum_field_load_aliases(
+            field, enum_val->aliases.tab, enum_val->aliases.len
+        );
         qv_append(&en->values, field);
     }
 
