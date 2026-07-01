@@ -219,13 +219,6 @@ static int iop_jlex_werror(
         return ESTR("member `%s' already seen", ll->err_str);
     case IOP_JERR_MISSING_MEMBER:
         return ESTR("member `%s' is missing", ll->err_str);
-    case IOP_JERR_UNION_ARR:
-        return ESTR(
-            "syntax `member.ufield' for union cannot be used with"
-            " a repeated field"
-        );
-    case IOP_JERR_UNION_RESERVED:
-        return ESTR("the syntax `member.field' is reserved for unions");
     case IOP_JERR_NOTHING_TO_READ:
         return ESTR("there is nothing to read");
 
@@ -1060,9 +1053,8 @@ thr_hooks(NULL, thr_globals_wipe);
 /* }}} */
 
 static int unpack_arr(iop_json_lex_t *, const iop_field_t *, void *);
-static int unpack_union(iop_json_lex_t *, const iop_struct_t *, void *, bool);
-static int
-unpack_struct(iop_json_lex_t *, const iop_struct_t *, void *, bool);
+static int unpack_union(iop_json_lex_t *, const iop_struct_t *, void *);
+static int unpack_struct(iop_json_lex_t *, const iop_struct_t *, void *);
 static int
 t_unpack_val_file_inclusion(iop_json_lex_t *, const iop_field_t *, void *);
 
@@ -1084,7 +1076,7 @@ static int skip_val(iop_json_lex_t *ll, bool in_arr)
         return in_arr ? -1 : unpack_arr(ll, NULL, NULL);
 
     case '{':
-        return unpack_struct(ll, NULL, NULL, false);
+        return unpack_struct(ll, NULL, NULL);
 
     case '@':
         if (ps_startswithlstr(PS, LSTR("include("))) {
@@ -1093,12 +1085,8 @@ static int skip_val(iop_json_lex_t *ll, bool in_arr)
              * of t_iop_junpack_file() and t_iop_junpack_ptr_file() */
             /* ast-grep-ignore */
             return t_unpack_val_file_inclusion(ll, NULL, NULL);
-        } else {
-            return unpack_struct(ll, NULL, NULL, true);
         }
-
-    case '.':
-        return unpack_union(ll, NULL, NULL, true);
+        return RJERROR_WARG(IOP_JERR_BAD_TOKEN);
 
     case IOP_JSON_EOF:
         return RJERROR_WARG(IOP_JERR_EXP_SMTH);
@@ -1461,18 +1449,11 @@ static int unpack_val(
             if (iop_field_is_class(fdesc)) {
                 *(void **)value = NULL;
             }
-            return unpack_struct(ll, fdesc->u1.st_desc, value, false);
+            return unpack_struct(ll, fdesc->u1.st_desc, value);
         } else if (fdesc->type == IOP_T_UNION) {
-            return unpack_union(ll, fdesc->u1.st_desc, value, false);
+            return unpack_union(ll, fdesc->u1.st_desc, value);
         }
         return RJERROR_EXP_TYPE(fdesc->type);
-
-    case '.':
-        /* Extended syntax of union */
-        if (fdesc->type != IOP_T_UNION) {
-            return RJERROR(IOP_JERR_UNION_RESERVED);
-        }
-        return unpack_union(ll, fdesc->u1.st_desc, value, true);
 
     case '@':
         if (ps_startswithlstr(PS, LSTR("include("))) {
@@ -1482,16 +1463,8 @@ static int unpack_val(
              * of t_iop_junpack_file() and t_iop_junpack_ptr_file() */
             /* ast-grep-ignore */
             return t_unpack_val_file_inclusion(ll, fdesc, value);
-        } else {
-            /* Prefix extended syntax */
-            if (fdesc->type != IOP_T_STRUCT) {
-                return RJERROR_EXP_TYPE(fdesc->type);
-            }
-            if (iop_field_is_class(fdesc)) {
-                *(void **)value = NULL;
-            }
-            return unpack_struct(ll, fdesc->u1.st_desc, value, true);
         }
+        return RJERROR_EXP_TYPE(fdesc->type);
 
     case IOP_JSON_EOF:
         return RJERROR_WARG(IOP_JERR_EXP_SMTH);
@@ -1554,28 +1527,17 @@ unpack_arr(iop_json_lex_t *ll, const iop_field_t *fdesc, void *value)
     }
 }
 
-/* unions have two syntaxes, depending where they are:
+/* A union is packed as an object with its single active member:
  *  outside of a struct: { selected_field: value }
- *  inside a struct, there is two alternatives:
+ *  inside a struct:
  *      { ...
  *        umember: { selected_field: value };
  *        umember_arr: [ { sfield: val }, { sfield: val }, ... ];
  *        ...
  *      }
- *      or
- *      { ...
- *        umember.selected_field [:=] value;
- *        umember_arr: [ .sfield: val, .sfield: val, ... ];
- *        ...
- *      }
- *
- * XXX Note: skip_val works with unions only because without the extended
- * syntax a union can be handled like two overlapping structures.
- * skip_val calls this function when the extended syntax is detected.
  */
-static int unpack_union(
-    iop_json_lex_t *ll, const iop_struct_t *desc, void *value, bool ext_syntax
-)
+static int
+unpack_union(iop_json_lex_t *ll, const iop_struct_t *desc, void *value)
 {
     const iop_field_t *fdesc = NULL;
 
@@ -1624,35 +1586,11 @@ static int unpack_union(
         }
         break;
 
-        /* Extended syntax of union */
-    case '.':
-        if (fdesc) {
-            if (fdesc->type != IOP_T_UNION) {
-                return RJERROR(IOP_JERR_UNION_RESERVED);
-            }
-
-            /* Write the selected field */
-            iop_union_set_tag(desc, fdesc->tag, value);
-            value = (char *)value + fdesc->data_offs;
-            if (iop_field_is_reference(fdesc)) {
-                /* reference fields must be dereferenced */
-                value = iop_field_ptr_alloc(ll->mp, fdesc, value);
-            }
-
-            iop_junpack_add_field_path_field(fdesc->name);
-            PS_CHECK(unpack_union(ll, fdesc->u1.st_desc, value, true));
-            iop_junpack_remove_last_field_path();
-        } else {
-            PS_CHECK(unpack_union(ll, NULL, NULL, true));
-        }
-        break;
-
     default:
         return RJERROR_EXP("`:' or `='");
     }
 
-    /* With the json compliant syntax we must check for a `}' */
-    if (!ext_syntax && PS_CHECK(iop_json_lex(ll, NULL)) != '}') {
+    if (PS_CHECK(iop_json_lex(ll, NULL)) != '}') {
         return RJERROR_EXP("`}'");
     }
     return 0;
@@ -1759,15 +1697,9 @@ static ALWAYS_INLINE void seen_free(uint32_t **ptr)
  * structure layout).
  * \param[out] value    a pointer to the structure to fill. Can be NULL iff
  * desc is NULL.
- * \param[in] prefixed  if set to true, the function assumes that it has
- * to parse a value with the prefix syntax:
- *      @member value {
- *          ...
- *      }
  */
-static int unpack_struct(
-    iop_json_lex_t *ll, const iop_struct_t *desc, void *value, bool prefixed
-)
+static int
+unpack_struct(iop_json_lex_t *ll, const iop_struct_t *desc, void *value)
 {
     const iop_field_t *fdesc;
     uint32_t seen_buf[BITS_TO_ARRAY_LEN(uint32_t, 256)];
@@ -1779,7 +1711,6 @@ static int unpack_struct(
 
     pstream_t ctx_ps;
     int ctx_line = 0, ctx_col = 0;
-    bool ctx_prefixed = prefixed;
 
 #define INIT_SEEN(_len)                                                      \
     do {                                                                     \
@@ -1886,11 +1817,7 @@ static int unpack_struct(
             }
         }
 
-        /* XXX `.' must be kept (using lex_peek) for the unpack_val
-         * function */
-        if (!prefixed && PS_CHECK(iop_json_lex_peek(ll, NULL)) != '.' &&
-            PS_CHECK(iop_json_lex(ll, NULL)) != ':')
-        {
+        if (PS_CHECK(iop_json_lex(ll, NULL)) != ':') {
             return RJERROR_EXP("`:' or `='");
         }
         if (found_class_field) {
@@ -1907,7 +1834,6 @@ static int unpack_struct(
             *PS = ctx_ps;
             ll->ctx->line = ctx_line;
             ll->ctx->col = ctx_col;
-            prefixed = ctx_prefixed;
             continue;
         } else if (fdesc && !skip_field) {
             void *ptr = (char *)value + fdesc->data_offs;
@@ -1933,11 +1859,6 @@ static int unpack_struct(
                 }
             }
 
-            if (prefixed && (((1 << fdesc->type) & IOP_STRUCTS_OK) ||
-                             fdesc->repeat == IOP_R_REPEATED))
-            {
-                return RJERROR_EXP("a member with a scalar type");
-            }
             iop_junpack_add_field_path_field(fdesc->name);
             PS_CHECK(unpack_val(ll, fdesc, ptr, false));
             iop_junpack_remove_last_field_path();
@@ -1965,16 +1886,6 @@ static int unpack_struct(
         }
 
     nextfield:
-        if (prefixed) {
-            /* Special handling of prefixed value */
-            if (PS_CHECK(iop_json_lex(ll, NULL)) != '{') {
-                return RJERROR_EXP("`{'");
-            }
-
-            prefixed = false;
-            continue;
-        }
-
         switch (PS_CHECK(iop_json_lex(ll, NULL))) {
         case ',':
             break;
@@ -2045,19 +1956,11 @@ int iop_junpack(
     switch (PS_CHECK(iop_json_lex(ll, NULL))) {
     case '{':
         if (desc->is_union) {
-            PS_CHECK(unpack_union(ll, desc, value, false));
+            PS_CHECK(unpack_union(ll, desc, value));
         } else {
-            PS_CHECK(unpack_struct(ll, desc, value, false));
-        }
-        goto endcheck;
-    case '@':
-        if (desc->is_union) {
-            return RJERROR_EXP("`{'");
-        } else {
-            PS_CHECK(unpack_struct(ll, desc, value, true));
+            PS_CHECK(unpack_struct(ll, desc, value));
         }
 
-    endcheck:
         /* Skip trailing characters (insignificant characters) */
         for (;;) {
             switch (PS_CHECK(iop_json_lex(ll, NULL))) {

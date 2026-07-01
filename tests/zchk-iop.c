@@ -2733,7 +2733,8 @@ Z_GROUP_EXPORT(iop)
 
         const char json_sa[] =
             "/* Json example */\n"
-            "@j \"bar\" {\n"
+            "{\n"
+            "    \"j\": \"bar\",\n"
             "    \"a\": 42,\n"
             "    \"b\": 50,\n"
             "    cOfMyStructA: 30,\n"
@@ -2745,17 +2746,16 @@ Z_GROUP_EXPORT(iop)
             "    \"i\": \"Zm9v\",\n"
             "    \"xmlField\": \"\",\n"
             "    \"k\": \"B\",\n"
-            "    l.us: \"union value\",\n"
-            "    lr.ua: 1,\n"
+            "    l: {us: \"union value\"},\n"
+            "    lr: {ua: 1},\n"
             "    cls2: {\n"
             "        \"_class\": \"tstiop.MyClass2\",\n"
             "        \"int1\": 1,\n"
             "        \"int2\": 2\n"
             "    },\n"
             "    foo: {us: \"union value to skip\"},\n"
-            "    bar.us: \"union value to skip\",\n"
-            "    arraytoSkip: [ .blah: \"skip\", .foo: 42, 32; \"skipme\";\n"
-            "                   { foo: 42 } ];"
+            "    bar: {us: \"union value to skip\"},\n"
+            "    arraytoSkip: [ 32, \"skipme\", { foo: 42 } ];"
             "    \"m\": .42,\n"
             "    \"n\": true,\n"
             "    \"p\": c\'.\',\n"
@@ -2767,7 +2767,8 @@ Z_GROUP_EXPORT(iop)
 
         const char json_sa2[] =
             "/* Json example */\n"
-            "@j \"bar\" {\n"
+            "{\n"
+            "    \"j\": \"bar\",\n"
             "    \"a\": 42,\n"
             "    \"b\": 50,\n"
             "    cOfMyStructA: 30,\n"
@@ -2790,7 +2791,7 @@ Z_GROUP_EXPORT(iop)
             "        \"int2\": 2\n"
             "    },\n"
             "    foo: {us: \"union value to skip\"},\n"
-            "    bar.us: \"union value to skip\",\n"
+            "    bar: {us: \"union value to skip\"},\n"
             "    \"m\": 0.42\n,"
             "    \"n\": true,\n"
             "    \"p\": c\'.\',\n"
@@ -2831,18 +2832,8 @@ Z_GROUP_EXPORT(iop)
             "{\n"
             "    a = [ \"foo\", \"bar\", ];\n"
             "    b = [ \"Zm9vYmFy\", \"YmFyZm9v\", ];\n"
-            "    c = [ @a 10 {\n"
-            "       b = [ 1w, 1d, 1h, 1m, 1s, 1G, 1M, 1K, ];\n"
-            "    }];\n"
-            "    d = [ .us: \"foo\", .ub: true ];\n"
-            "};;;\n";
-
-        const char json_sf2[] =
-            "/* Json example */\n"
-            "{\n"
-            "    a = [ \"foo\", \"bar\", ];\n"
-            "    b = [ \"Zm9vYmFy\", \"YmFyZm9v\", ];\n"
-            "    c = [ @a 10 {\n"
+            "    c = [ {\n"
+            "       a: 10,\n"
             "       b = [ 1w, 1d, 1h, 1m, 1s, 1G, 1M, 1K, ];\n"
             "    }];\n"
             "    d = [ {us: \"foo\"}, {ub: true} ];\n"
@@ -2927,10 +2918,10 @@ Z_GROUP_EXPORT(iop)
         const char json_sk[] =
             "/* Json example */\n"
             "{\n"
-            "    j = @cval 2 { \n"
-            "                  b.a.us = \"foo\";\n"
-            "                  btab = [ .bval: 0xf + 1, .a.ua: 2*8 ];\n"
-            "                };\n"
+            "    j = { cval: 2,\n"
+            "          b: { a: { us: \"foo\" } },\n"
+            "          btab = [ {bval: 0xf + 1}, {a: {ua: 2*8}} ];\n"
+            "        };\n"
             "};;;\n";
 
         tstiop__my_union_b__t j_bvals[] = {
@@ -3023,9 +3014,6 @@ Z_GROUP_EXPORT(iop)
         );
         Z_HELPER_RUN(
             iop_json_test_json(st_sf, json_sf, &json_sf_res, "json_sf")
-        );
-        Z_HELPER_RUN(
-            iop_json_test_json(st_sf, json_sf2, &json_sf_res, "json_sf2")
         );
         Z_HELPER_RUN(
             iop_json_test_json(st_si, json_si, &json_si_res, "json_si")
@@ -7047,8 +7035,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_EQ(d1->c, (uint32_t)153);
 
         /* Test that missing mandatory class fields are OK if this class have
-         * only optional fields.
-         * Also check prefixed syntax on a class field. */
+         * only optional fields. */
         CHECK_OK(class_container2, "tstiop_inheritance_valid4.json");
         Z_ASSERT_P(class_container2->a1);
         Z_ASSERT(class_container2->a1->__vptr == &tstiop_inheritance__a1__s);
@@ -7061,14 +7048,6 @@ Z_GROUP_EXPORT(iop)
         b4 = iop_obj_vcast(tstiop_inheritance__b4, class_container2->a3);
         Z_ASSERT_EQ(b4->a3, 6);
         Z_ASSERT_EQ(b4->b4, 7);
-
-        /* Test that "_class" field can be given using prefixed syntax */
-        CHECK_OK(c1, "tstiop_inheritance_valid5.json");
-        Z_ASSERT(c1->__vptr == &tstiop_inheritance__c1__s);
-        Z_ASSERT_EQ(c1->a, -480);
-        Z_ASSERT_EQ(c1->a2, -479);
-        Z_ASSERT_EQ(c1->b, false);
-        Z_ASSERT_EQ(c1->c, (uint32_t)478);
 
 #define CHECK_FAIL(_type, _filename, _flags, _err)                           \
     do {                                                                     \
@@ -7358,10 +7337,6 @@ Z_GROUP_EXPORT(iop)
             _G.iop_env, tstiop__my_ref_struct, &s,
             LSTR("{ u: { b: 42 }, s: { a: 666 } }")
         );
-        Z_ASSERT_IOPJSONEQUAL(
-            _G.iop_env, tstiop__my_ref_struct, &s,
-            LSTR("{ u.b: 42, s: { a: 666 } }")
-        );
         JUNPACK_FAIL(
             my_ref_struct, "{ u: { b: 1 } }",
             "member `tstiop.MyRefStruct:s' is missing"
@@ -7405,9 +7380,6 @@ Z_GROUP_EXPORT(iop)
         );
         Z_ASSERT_IOPJSONEQUAL(
             _G.iop_env, tstiop__my_ref_union, &uu, LSTR("{ u: { b: 42 } }")
-        );
-        Z_ASSERT_IOPJSONEQUAL(
-            _G.iop_env, tstiop__my_ref_union, &uu, LSTR("{ u.b: 42 }")
         );
         Z_ASSERT_IOPJSONEQUAL(
             _G.iop_env, tstiop__my_ref_union, &us, LSTR("{ s: { a: 666 } }")
@@ -10801,7 +10773,6 @@ Z_GROUP_EXPORT(iop)
         int ret;
         lstr_t data;
         pstream_t json1 = ps_initstr("{ bval: 1234 }");
-        pstream_t json2 = ps_initstr("{ a.ua: 1234 }");
         SB_1k(sb);
 
         iop_init(tstiop__my_union_b, &src);
@@ -10827,21 +10798,6 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_EQ(
             dst.iop_tag, (IOP_UNION_TAG_T(tstiop__my_union_b))
                              IOP_UNION_TAG(tstiop__my_union_b, bval)
-        );
-
-        /* unpack json union with format "." */
-        memset(&dst, 0xFF, sizeof(tstiop__my_union_b__t));
-        ret = t_iop_junpack_ps(
-            iop_env_ctx, &json2, &tstiop__my_union_b__s, &dst, 0, NULL
-        );
-        Z_ASSERT_EQ(ret, 0);
-        Z_ASSERT_EQ(
-            dst.iop_tag, (IOP_UNION_TAG_T(tstiop__my_union_b))
-                             IOP_UNION_TAG(tstiop__my_union_b, a)
-        );
-        Z_ASSERT_EQ(
-            dst.a.iop_tag, (IOP_UNION_TAG_T(tstiop__my_union_a))
-                               IOP_UNION_TAG(tstiop__my_union_a, ua)
         );
 
         /* pack/unpack xml */

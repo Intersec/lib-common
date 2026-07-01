@@ -112,8 +112,7 @@ Decoders accept the following extensions over strict JSON:
   literally; a raw newline inside a string, or a string that is never
   closed, is an error.
 
-The top-level value must be an object (`{…}` or the prefixed syntax
-below).
+The top-level value must be an object (`{…}`).
 
 Decoding errors are reported with `line:col:` positions; an unexpected
 token, or an invalid identifier or value, is an error.
@@ -139,52 +138,6 @@ token, or an invalid identifier or value, is an error.
 
 Constraints (xref:../spec/attributes.adoc[attributes]) are checked field by
 field during decoding; a violation is an error.
-
-=== Unions
-
-Three input forms:
-
-[source,json]
-----
-/* 1 — standard object (exactly one member) */
-{ "choice": { "b": true } }
-
-/* 2 — dotted syntax for a union-typed field */
-{ "choice.b": true }
-
-/* 3 — leading-dot syntax inside arrays of unions */
-{ "choices": [ .b: true, .i: 42 ] }
-----
-
-The dotted forms chain for unions inside unions; using them on a
-non-union field is an error.
-
-=== Prefixed syntax
-
-One *scalar* member (any non-repeated field that is not a
-struct/union/class) may be pulled out in front of the object and written
-`@name value`, with the remaining members following in braces. Given:
-
-[source,java]
-----
-struct Endpoint {
-    string host;
-    int    port;
-};
-----
-
-these two inputs are equivalent:
-
-[source,json]
-----
-/* plain object */
-{ "host": "foo.example.org", "port": 80 }
-
-/* prefixed form: the "host" member is hoisted out with @ */
-@host "foo.example.org" { "port": 80 }
-----
-
-This is accepted at top level and in nested struct values.
 
 === Enums
 

@@ -53,14 +53,12 @@ typedef enum iop_json_error {
     /* structure checking */
     IOP_JERR_DUPLICATED_MEMBER = -15,
     IOP_JERR_MISSING_MEMBER = -16,
-    IOP_JERR_UNION_ARR = -17,
-    IOP_JERR_UNION_RESERVED = -18,
-    IOP_JERR_NOTHING_TO_READ = -19,
+    IOP_JERR_NOTHING_TO_READ = -17,
 
-    IOP_JERR_CONSTRAINT = -20,
+    IOP_JERR_CONSTRAINT = -18,
 
     /* Various errors (information is in err_str) */
-    IOP_JERR_VARIOUS = -21,
+    IOP_JERR_VARIOUS = -19,
 } iop_json_error;
 
 typedef struct iop_json_lex_ctx_t {

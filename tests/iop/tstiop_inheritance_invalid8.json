@@ -3,7 +3,8 @@
  * Field "a3" is missing and this is not authorized since this is an abstract
  * class. */
 {
-     "a1": @a2 10 {
-         "_class": "tstiop_inheritance.A1"
+     "a1": {
+         "_class": "tstiop_inheritance.A1",
+         "a2": 10
      }
 }
