@@ -1685,6 +1685,86 @@ static iop__package_elem__t *mp_iopsq_typedef_elem(
     return &desc->super;
 }
 
+/* Build an RPCStruct from an RPC argument/result/exception part. A void part
+ * (the shared &iop__void__s descriptor, or NULL) carries no structure: NULL
+ * is returned so the matching RPC field stays absent. */
+static iop__rpc_struct__t *mp_iopsq_rpc_struct_from_iop(
+    mem_pool_t *mp, const iop_pkg_t *nullable pkg,
+    const iop_struct_t *nullable st
+)
+{
+    iop__rpc_struct__t *rs;
+
+    if (!st || st == &iop__void__s) {
+        return NULL;
+    }
+    rs = mp_iop_new(mp, iop__rpc_struct);
+    rs->fields = mp_iopsq_fields_from_iop(mp, pkg, st);
+    return rs;
+}
+
+/* Fill an IOP² RPC from a compiled RPC: name, tag, the anonymous arg/res/exn
+ * structures (absent when void) and the async flag. */
+static void mp_iopsq_rpc_from_iop(
+    mem_pool_t *mp, const iop_pkg_t *nullable pkg, const iop_rpc_t *rpc,
+    iop__rpc__t *out
+)
+{
+    iop_init(iop__rpc, out);
+    out->name = mp_lstr_dup(mp, rpc->name);
+    OPT_SET(out->tag, rpc->tag);
+    out->arg = mp_iopsq_rpc_struct_from_iop(mp, pkg, rpc->args);
+    out->res = mp_iopsq_rpc_struct_from_iop(mp, pkg, rpc->result);
+    out->exn = mp_iopsq_rpc_struct_from_iop(mp, pkg, rpc->exn);
+    out->is_async = rpc->async;
+}
+
+/* Build an Iface element from a compiled interface: only the interface part
+ * (its RPCs) is described; handler binding stays outside IOP². */
+static iop__package_elem__t *mp_iopsq_iface_elem(
+    mem_pool_t *mp, const iop_pkg_t *nullable pkg, const iop_iface_t *iface
+)
+{
+    iop__iface__t *desc = mp_iop_new(mp, iop__iface);
+    iop__rpc__array_t rpcs = MP_IOP_ARRAY_NEW(mp, iop__rpc, iface->funs_len);
+
+    desc->name = mp_lstr_dup(mp, iopsq_short_name(iface->fullname));
+    for (int i = 0; i < iface->funs_len; i++) {
+        mp_iopsq_rpc_from_iop(mp, pkg, &iface->funs[i], &rpcs.tab[i]);
+    }
+    desc->rpcs = rpcs;
+    return &desc->super;
+}
+
+/* Build a Module element from a compiled module: each interface alias keeps
+ * its local name and tag; the referenced interface is named by short name
+ * when it belongs to \p pkg. */
+static iop__package_elem__t *mp_iopsq_module_elem(
+    mem_pool_t *mp, const iop_pkg_t *nullable pkg, const iop_mod_t *mod
+)
+{
+    iop__module__t *desc = mp_iop_new(mp, iop__module);
+    iop__module_iface__array_t ifaces =
+        MP_IOP_ARRAY_NEW(mp, iop__module_iface, mod->ifaces_len);
+
+    desc->name = mp_lstr_dup(mp, iopsq_short_name(mod->fullname));
+    for (int i = 0; i < mod->ifaces_len; i++) {
+        const iop_iface_alias_t *alias = &mod->ifaces[i];
+        iop__module_iface__t *mi = &ifaces.tab[i];
+        const lstr_t iname = iopsq_ref_name(
+            pkg, alias->iface->fullname,
+            pkg && iop_pkg_owns_fullname(pkg, alias->iface->fullname)
+        );
+
+        iop_init(iop__module_iface, mi);
+        mi->name = mp_lstr_dup(mp, alias->name);
+        mi->iface = mp_lstr_dup(mp, iname);
+        OPT_SET(mi->tag, alias->tag);
+    }
+    desc->ifaces = ifaces;
+    return &desc->super;
+}
+
 iop__package__t *mp_iopsq_pkg_from_iop(
     mem_pool_t *nonnull mp, const iop_pkg_t *nonnull pkg, sb_t *nonnull err
 )
@@ -1694,7 +1774,8 @@ iop__package__t *mp_iopsq_pkg_from_iop(
 
     /* Enums have no dependencies; emit them first, then the structs and
      * unions (which may reference the enums by name), then the typedefs
-     * (which may alias any of the above). */
+     * (which may alias any of the above), then the interfaces and finally the
+     * modules (which reference the interfaces by name). */
     for (const iop_enum_t *const *en = pkg->enums; *en; en++) {
         qv_append(&elems, mp_iopsq_elem_from_iop_enum(mp, *en));
     }
@@ -1706,6 +1787,12 @@ iop__package__t *mp_iopsq_pkg_from_iop(
     }
     for (const iop_typedef_t *const *td = pkg->typedefs; *td; td++) {
         qv_append(&elems, mp_iopsq_typedef_elem(mp, pkg, *td));
+    }
+    for (const iop_iface_t *const *iface = pkg->ifaces; *iface; iface++) {
+        qv_append(&elems, mp_iopsq_iface_elem(mp, pkg, *iface));
+    }
+    for (const iop_mod_t *const *mod = pkg->mods; *mod; mod++) {
+        qv_append(&elems, mp_iopsq_module_elem(mp, pkg, *mod));
     }
 
     desc->name = mp_lstr_dup(mp, pkg->name);

@@ -328,6 +328,69 @@ z_assert_typedef_eq(const iop_typedef_t *td, const iop_typedef_t *ref)
     Z_HELPER_END;
 }
 
+/* Compare an RPC arg/res/exn part: a void part is the shared &iop__void__s
+ * descriptor in both (z_assert_struct_eq short-circuits on it). */
+static int
+z_assert_rpc_part_eq(const iop_struct_t *st, const iop_struct_t *ref)
+{
+    Z_ASSERT((st == NULL) == (ref == NULL), "rpc part presence mismatch");
+    if (st) {
+        Z_HELPER_RUN(z_assert_struct_eq(st, ref), "rpc part mismatch");
+    }
+    Z_HELPER_END;
+}
+
+static int z_assert_rpc_eq(const iop_rpc_t *rpc, const iop_rpc_t *ref)
+{
+    Z_ASSERT_LSTREQUAL(rpc->name, ref->name, "rpc name mismatch");
+    Z_ASSERT_EQ(rpc->tag, ref->tag, "rpc tag mismatch");
+    Z_ASSERT(rpc->async == ref->async, "rpc async flag mismatch");
+    Z_HELPER_RUN(
+        z_assert_rpc_part_eq(rpc->args, ref->args), "rpc arg mismatch"
+    );
+    Z_HELPER_RUN(
+        z_assert_rpc_part_eq(rpc->result, ref->result), "rpc res mismatch"
+    );
+    Z_HELPER_RUN(
+        z_assert_rpc_part_eq(rpc->exn, ref->exn), "rpc exn mismatch"
+    );
+    Z_HELPER_END;
+}
+
+static int z_assert_iface_eq(const iop_iface_t *iface, const iop_iface_t *ref)
+{
+    Z_ASSERT_LSTREQUAL(iface->fullname, ref->fullname, "iface name mismatch");
+    Z_ASSERT_EQ(iface->funs_len, ref->funs_len, "rpc count mismatch");
+    Z_ASSERT(iface->flags == ref->flags, "iface flags mismatch");
+
+    for (int i = 0; i < iface->funs_len; i++) {
+        Z_HELPER_RUN(
+            z_assert_rpc_eq(&iface->funs[i], &ref->funs[i]),
+            "rpc #%d mismatch", i
+        );
+    }
+    Z_HELPER_END;
+}
+
+static int z_assert_mod_eq(const iop_mod_t *mod, const iop_mod_t *ref)
+{
+    Z_ASSERT_LSTREQUAL(mod->fullname, ref->fullname, "module name mismatch");
+    Z_ASSERT_EQ(mod->ifaces_len, ref->ifaces_len, "iface count mismatch");
+    Z_ASSERT(mod->flags == ref->flags, "module flags mismatch");
+
+    for (int i = 0; i < mod->ifaces_len; i++) {
+        const iop_iface_alias_t *a = &mod->ifaces[i];
+        const iop_iface_alias_t *ra = &ref->ifaces[i];
+
+        Z_ASSERT_LSTREQUAL(a->name, ra->name, "iface alias name mismatch");
+        Z_ASSERT_EQ(a->tag, ra->tag, "iface alias tag mismatch");
+        Z_HELPER_RUN(
+            z_assert_iface_eq(a->iface, ra->iface), "aliased iface mismatch"
+        );
+    }
+    Z_HELPER_END;
+}
+
 static int _test_struct(
     const iop_env_t *iop_env, const iop_struct_t *nonnull st_desc,
     const char **jsons, int nb_jsons, const iop_struct_t *nullable ref_st_desc
@@ -1124,6 +1187,54 @@ Z_GROUP_EXPORT(iopsq)
         }
         Z_ASSERT_NULL(pkg->typedefs[i]);
         Z_ASSERT_NULL(pkg2->typedefs[i]);
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        iopsq_iface_module_from_iop,
+        "reverse conversion: interface and module round-trip"
+    )
+    {
+        t_scope;
+        iop_env_ctx_scope(iop_env, iop_env_ctx);
+        SB_1k(err);
+        iop_pkg_t *pkg;
+        iop_pkg_t *pkg2;
+        iop__package__t *desc;
+        int i;
+
+        /* Build a package with an interface (an RPC with arg/res plus an
+         * async void RPC) and a module aliasing it, extract it back to IOP²,
+         * rebuild it and check the interface and module descriptors
+         * round-trip (the module references its interface through the
+         * short-name path). */
+        Z_HELPER_RUN(t_package_load(&pkg, iop_env, "iface-module.yml"));
+
+        desc = mp_iopsq_pkg_from_iop(t_pool(), pkg, &err);
+        Z_ASSERT_P(desc, "%pL", &err);
+
+        pkg2 = mp_iopsq_build_pkg(t_pool(), iop_env_ctx, desc, NULL, &err);
+        Z_ASSERT_P(pkg2, "%pL", &err);
+
+        Z_ASSERT_P(pkg->ifaces[0], "the fixture should define an interface");
+        for (i = 0; pkg->ifaces[i] && pkg2->ifaces[i]; i++) {
+            Z_HELPER_RUN(
+                z_assert_iface_eq(pkg2->ifaces[i], pkg->ifaces[i]),
+                "iface #%d mismatch", i
+            );
+        }
+        Z_ASSERT_NULL(pkg->ifaces[i]);
+        Z_ASSERT_NULL(pkg2->ifaces[i]);
+
+        Z_ASSERT_P(pkg->mods[0], "the fixture should define a module");
+        for (i = 0; pkg->mods[i] && pkg2->mods[i]; i++) {
+            Z_HELPER_RUN(
+                z_assert_mod_eq(pkg2->mods[i], pkg->mods[i]),
+                "module #%d mismatch", i
+            );
+        }
+        Z_ASSERT_NULL(pkg->mods[i]);
+        Z_ASSERT_NULL(pkg2->mods[i]);
     }
     Z_TEST_END;
 

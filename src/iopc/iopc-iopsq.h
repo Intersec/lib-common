@@ -228,10 +228,9 @@ iop__package_elem__t *nonnull mp_iopsq_elem_from_iop_enum(
  * through IOP². Types belonging to \p pkg are referenced by their short name;
  * types from other packages keep their fullname (resolved against the
  * environment on rebuild). Classes (with same-package parents referenced by
- * short name) are supported.
+ * short name), typedefs, interfaces and modules are supported.
  *
- * Not supported yet: typedefs, interfaces, modules, and field/enum
- * attributes and constraints.
+ * Not supported yet: field/enum attributes and constraints.
  *
  * \param[in,out] mp   Memory pool for all allocations.
  * \param[in]     pkg  The compiled package descriptor.
