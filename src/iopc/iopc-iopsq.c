@@ -1324,6 +1324,41 @@ iopsq_ref_name(const iop_pkg_t *nullable pkg, lstr_t fullname, bool same_pkg)
     return (pkg && same_pkg) ? iopsq_short_name(fullname) : fullname;
 }
 
+/* Fill a non-repeated IOP² Type referencing \p type. Structs/unions/classes
+ * and enums are referenced by name (short name when they belong to \p pkg);
+ * scalars (including void) are filled directly and cannot fail. */
+static void mp_iopsq_fill_type(
+    mem_pool_t *mp, const iop_pkg_t *nullable pkg, iop_type_t type,
+    const iop_struct_t *nullable st_desc, const iop_enum_t *nullable en_desc,
+    iop__type__t *out
+)
+{
+    switch (type) {
+    case IOP_T_STRUCT:
+    case IOP_T_UNION: {
+        const lstr_t name = iopsq_ref_name(
+            pkg, st_desc->fullname,
+            pkg && iop_pkg_owns_fullname(pkg, st_desc->fullname)
+        );
+
+        *out = IOP_UNION(iop__type, type_name, mp_lstr_dup(mp, name));
+    } break;
+
+    case IOP_T_ENUM: {
+        const lstr_t name = iopsq_ref_name(
+            pkg, en_desc->fullname,
+            pkg && iop_pkg_owns_fullname(pkg, en_desc->fullname)
+        );
+
+        *out = IOP_UNION(iop__type, type_name, mp_lstr_dup(mp, name));
+    } break;
+
+    default:
+        IGNORE(iop_type_to_iop(type, out));
+        break;
+    }
+}
+
 /* Fill an IOP² Type from a compiled field. Structs/unions/classes and enums
  * are referenced by name; a repeated field wraps its element type in a
  * Type.array. */
@@ -1334,31 +1369,7 @@ static void mp_iopsq_type_from_field(
 {
     iop__type__t base;
 
-    switch (f->type) {
-    case IOP_T_STRUCT:
-    case IOP_T_UNION: {
-        const lstr_t name = iopsq_ref_name(
-            pkg, f->u1.st_desc->fullname,
-            pkg && iop_pkg_owns_fullname(pkg, f->u1.st_desc->fullname)
-        );
-
-        base = IOP_UNION(iop__type, type_name, mp_lstr_dup(mp, name));
-    } break;
-
-    case IOP_T_ENUM: {
-        const lstr_t name = iopsq_ref_name(
-            pkg, f->u1.en_desc->fullname,
-            pkg && iop_pkg_owns_fullname(pkg, f->u1.en_desc->fullname)
-        );
-
-        base = IOP_UNION(iop__type, type_name, mp_lstr_dup(mp, name));
-    } break;
-
-    default:
-        /* Scalar (including void): cannot fail for a non-aggregate type. */
-        (void)iop_type_to_iop(f->type, &base);
-        break;
-    }
+    mp_iopsq_fill_type(mp, pkg, f->type, f->u1.st_desc, f->u1.en_desc, &base);
 
     if (f->repeat == IOP_R_REPEATED) {
         iop__type__t *elem = mp_new(mp, iop__type__t, 1);
@@ -1659,6 +1670,21 @@ static void iopsq_pkg_elem_vec_wipe(qv_t(iopsq_pkg_elem) *vec)
     qv_wipe(vec);
 }
 
+/* Build a Typedef element from a compiled typedef. A typedef aliases a single
+ * (non-repeated) type, referenced by short name when it belongs to \p pkg. */
+static iop__package_elem__t *mp_iopsq_typedef_elem(
+    mem_pool_t *mp, const iop_pkg_t *nullable pkg, const iop_typedef_t *td
+)
+{
+    iop__typedef__t *desc = mp_iop_new(mp, iop__typedef);
+
+    desc->name = mp_lstr_dup(mp, iopsq_short_name(td->fullname));
+    mp_iopsq_fill_type(
+        mp, pkg, td->type, td->ref_struct, td->ref_enum, &desc->type
+    );
+    return &desc->super;
+}
+
 iop__package__t *mp_iopsq_pkg_from_iop(
     mem_pool_t *nonnull mp, const iop_pkg_t *nonnull pkg, sb_t *nonnull err
 )
@@ -1667,7 +1693,8 @@ iop__package__t *mp_iopsq_pkg_from_iop(
     iop__package__t *desc = mp_new(mp, iop__package__t, 1);
 
     /* Enums have no dependencies; emit them first, then the structs and
-     * unions (which may reference the enums by name). */
+     * unions (which may reference the enums by name), then the typedefs
+     * (which may alias any of the above). */
     for (const iop_enum_t *const *en = pkg->enums; *en; en++) {
         qv_append(&elems, mp_iopsq_elem_from_iop_enum(mp, *en));
     }
@@ -1676,6 +1703,9 @@ iop__package__t *mp_iopsq_pkg_from_iop(
 
         RETHROW_P(elem);
         qv_append(&elems, elem);
+    }
+    for (const iop_typedef_t *const *td = pkg->typedefs; *td; td++) {
+        qv_append(&elems, mp_iopsq_typedef_elem(mp, pkg, *td));
     }
 
     desc->name = mp_lstr_dup(mp, pkg->name);

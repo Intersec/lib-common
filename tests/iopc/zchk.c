@@ -301,6 +301,33 @@ static int z_assert_struct_eq(const iop_struct_t *st, const iop_struct_t *ref)
     Z_HELPER_END;
 }
 
+/* Check that two IOP typedefs are identical: same aliased type and, for a
+ * struct/enum alias, the same referenced descriptor. */
+static int
+z_assert_typedef_eq(const iop_typedef_t *td, const iop_typedef_t *ref)
+{
+    if (td == ref) {
+        return 0;
+    }
+
+    Z_ASSERT_LSTREQUAL(td->fullname, ref->fullname, "typedef name mismatch");
+    Z_ASSERT_EQ(td->type, ref->type, "typedef type mismatch");
+
+    if (td->type == IOP_T_ENUM) {
+        Z_HELPER_RUN(
+            z_assert_enum_eq(td->ref_enum, ref->ref_enum),
+            "typedef enum mismatch"
+        );
+    } else if (!iop_type_is_scalar(td->type)) {
+        Z_HELPER_RUN(
+            z_assert_struct_eq(td->ref_struct, ref->ref_struct),
+            "typedef struct mismatch"
+        );
+    }
+
+    Z_HELPER_END;
+}
+
 static int _test_struct(
     const iop_env_t *iop_env, const iop_struct_t *nonnull st_desc,
     const char **jsons, int nb_jsons, const iop_struct_t *nullable ref_st_desc
@@ -1064,6 +1091,39 @@ Z_GROUP_EXPORT(iopsq)
         }
         Z_ASSERT_NULL(pkg->structs[i]);
         Z_ASSERT_NULL(pkg2->structs[i]);
+    }
+    Z_TEST_END;
+
+    Z_TEST(iopsq_typedef_from_iop, "reverse conversion: typedef round-trip") {
+        t_scope;
+        iop_env_ctx_scope(iop_env, iop_env_ctx);
+        SB_1k(err);
+        iop_pkg_t *pkg;
+        iop_pkg_t *pkg2;
+        iop__package__t *desc;
+        int i;
+
+        /* Build a package with typedefs aliasing a scalar, a same-package
+         * enum and a same-package struct, extract it back to IOP², rebuild it
+         * and check the typedef descriptors round-trip (same-package aliases
+         * must resolve through the short-name path). */
+        Z_HELPER_RUN(t_package_load(&pkg, iop_env, "typedef.yml"));
+
+        desc = mp_iopsq_pkg_from_iop(t_pool(), pkg, &err);
+        Z_ASSERT_P(desc, "%pL", &err);
+
+        pkg2 = mp_iopsq_build_pkg(t_pool(), iop_env_ctx, desc, NULL, &err);
+        Z_ASSERT_P(pkg2, "%pL", &err);
+
+        Z_ASSERT_P(pkg->typedefs[0], "the fixture should define typedefs");
+        for (i = 0; pkg->typedefs[i] && pkg2->typedefs[i]; i++) {
+            Z_HELPER_RUN(
+                z_assert_typedef_eq(pkg2->typedefs[i], pkg->typedefs[i]),
+                "typedef #%d mismatch", i
+            );
+        }
+        Z_ASSERT_NULL(pkg->typedefs[i]);
+        Z_ASSERT_NULL(pkg2->typedefs[i]);
     }
     Z_TEST_END;
 
