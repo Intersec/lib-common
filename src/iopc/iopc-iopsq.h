@@ -216,6 +216,28 @@ iop__package_elem__t *nonnull mp_iopsq_elem_from_iop_enum(
     mem_pool_t *nonnull mp, const iop_enum_t *nonnull en
 );
 
+/** Build the IOP² (iopsq) description of a compiled IOP package.
+ *
+ * Inverse of \ref mp_iopsq_build_pkg for the currently supported element
+ * kinds (structs, unions and enums): so a package can be round-tripped
+ * through IOP². Types belonging to \p pkg are referenced by their short name;
+ * types from other packages keep their fullname (resolved against the
+ * environment on rebuild).
+ *
+ * Not supported yet: classes, typedefs, interfaces, modules, and field/enum
+ * attributes and constraints (returns an error if the package contains a
+ * class).
+ *
+ * \param[in,out] mp   Memory pool for all allocations.
+ * \param[in]     pkg  The compiled package descriptor.
+ * \param[out]    err  Error buffer.
+ *
+ * \return the IOP² package description, or NULL on error.
+ */
+iop__package__t *nullable mp_iopsq_pkg_from_iop(
+    mem_pool_t *nonnull mp, const iop_pkg_t *nonnull pkg, sb_t *nonnull err
+);
+
 /* {{{ Helper: iopsq_iop_struct_t */
 
 typedef struct iopsq_iop_struct_t {

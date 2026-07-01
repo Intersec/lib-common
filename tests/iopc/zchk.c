@@ -918,6 +918,47 @@ Z_GROUP_EXPORT(iopsq)
     }
     Z_TEST_END;
 
+    Z_TEST(iopsq_pkg_from_iop, "reverse conversion: whole-package round-trip")
+    {
+        t_scope;
+        iop_env_ctx_scope(iop_env, iop_env_ctx);
+        SB_1k(err);
+        iop_pkg_t *pkg;
+        iop_pkg_t *pkg2;
+        iop__package__t *desc;
+        int i;
+
+        /* Build a package from IOP², extract it back to IOP², rebuild it and
+         * check the two descriptors match element by element (intra-package
+         * references must resolve through the short-name path). */
+        Z_HELPER_RUN(t_package_load(&pkg, iop_env, "reverse-pkg.yml"));
+
+        desc = mp_iopsq_pkg_from_iop(t_pool(), pkg, &err);
+        Z_ASSERT_P(desc, "%pL", &err);
+
+        pkg2 = mp_iopsq_build_pkg(t_pool(), iop_env_ctx, desc, NULL, &err);
+        Z_ASSERT_P(pkg2, "%pL", &err);
+
+        for (i = 0; pkg->enums[i] && pkg2->enums[i]; i++) {
+            Z_HELPER_RUN(
+                z_assert_enum_eq(pkg2->enums[i], pkg->enums[i]),
+                "enum #%d mismatch", i
+            );
+        }
+        Z_ASSERT_NULL(pkg->enums[i]);
+        Z_ASSERT_NULL(pkg2->enums[i]);
+
+        for (i = 0; pkg->structs[i] && pkg2->structs[i]; i++) {
+            Z_HELPER_RUN(
+                z_assert_struct_eq(pkg2->structs[i], pkg->structs[i]),
+                "struct #%d mismatch", i
+            );
+        }
+        Z_ASSERT_NULL(pkg->structs[i]);
+        Z_ASSERT_NULL(pkg2->structs[i]);
+    }
+    Z_TEST_END;
+
     Z_TEST(
         mp_iopsq_build_struct, "test mp_iopsq_build_struct and "
                                "iop_struct_mp_build"

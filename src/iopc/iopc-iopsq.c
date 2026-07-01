@@ -1301,28 +1301,58 @@ static lstr_t iopsq_short_name(lstr_t fullname)
     return LSTR_PS_V(&ps);
 }
 
+/* Whether \p fullname names a type of \p pkg, that is
+ * "<package name>.<short name>". */
+static bool iop_pkg_owns_fullname(const iop_pkg_t *pkg, lstr_t fullname)
+{
+    pstream_t ps = ps_initlstr(&fullname);
+
+    if (ps_skiplstr(&ps, pkg->name) < 0 || ps_skipc(&ps, '.') < 0) {
+        return false;
+    }
+    /* Another dot means a nested package, so another package. */
+    return !memchr(ps.s, '.', ps_len(&ps));
+}
+
+/* Reference name of a type. A type belonging to \p pkg (the package being
+ * converted) is referenced by its short name so the same-package resolver
+ * finds it; any other type keeps its fullname (resolved against the
+ * environment). \p pkg may be NULL when converting a lone element. */
+static lstr_t
+iopsq_ref_name(const iop_pkg_t *nullable pkg, lstr_t fullname, bool same_pkg)
+{
+    return (pkg && same_pkg) ? iopsq_short_name(fullname) : fullname;
+}
+
 /* Fill an IOP² Type from a compiled field. Structs/unions/classes and enums
- * are referenced by fullname; a repeated field wraps its element type in a
+ * are referenced by name; a repeated field wraps its element type in a
  * Type.array. */
 static void mp_iopsq_type_from_field(
-    mem_pool_t *mp, const iop_field_t *f, iop__type__t *out
+    mem_pool_t *mp, const iop_pkg_t *nullable pkg, const iop_field_t *f,
+    iop__type__t *out
 )
 {
     iop__type__t base;
 
     switch (f->type) {
     case IOP_T_STRUCT:
-    case IOP_T_UNION:
-        base = IOP_UNION(
-            iop__type, type_name, mp_lstr_dup(mp, f->u1.st_desc->fullname)
+    case IOP_T_UNION: {
+        const lstr_t name = iopsq_ref_name(
+            pkg, f->u1.st_desc->fullname,
+            pkg && iop_pkg_owns_fullname(pkg, f->u1.st_desc->fullname)
         );
-        break;
 
-    case IOP_T_ENUM:
-        base = IOP_UNION(
-            iop__type, type_name, mp_lstr_dup(mp, f->u1.en_desc->fullname)
+        base = IOP_UNION(iop__type, type_name, mp_lstr_dup(mp, name));
+    } break;
+
+    case IOP_T_ENUM: {
+        const lstr_t name = iopsq_ref_name(
+            pkg, f->u1.en_desc->fullname,
+            pkg && iop_pkg_owns_fullname(pkg, f->u1.en_desc->fullname)
         );
-        break;
+
+        base = IOP_UNION(iop__type, type_name, mp_lstr_dup(mp, name));
+    } break;
 
     default:
         /* Scalar (including void): cannot fail for a non-aggregate type. */
@@ -1394,11 +1424,12 @@ static void mp_iopsq_value_from_defval(
  * to preserve the exact numbering; optional/default state is carried in the
  * OptInfo, and references through the boolean flag. */
 static void mp_iopsq_field_from_iop(
-    mem_pool_t *mp, const iop_field_t *f, iop__field__t *out
+    mem_pool_t *mp, const iop_pkg_t *nullable pkg, const iop_field_t *f,
+    iop__field__t *out
 )
 {
     out->name = mp_lstr_dup(mp, f->name);
-    mp_iopsq_type_from_field(mp, f, &out->type);
+    mp_iopsq_type_from_field(mp, pkg, f, &out->type);
     OPT_SET(out->tag, f->tag);
     out->is_reference = iop_field_is_reference(f);
 
@@ -1416,20 +1447,24 @@ static void mp_iopsq_field_from_iop(
 }
 
 /* Build the Field array shared by structs and unions. */
-static iop__field__array_t
-mp_iopsq_fields_from_iop(mem_pool_t *mp, const iop_struct_t *st)
+static iop__field__array_t mp_iopsq_fields_from_iop(
+    mem_pool_t *mp, const iop_pkg_t *nullable pkg, const iop_struct_t *st
+)
 {
     iop__field__array_t fields;
 
     fields = MP_IOP_ARRAY_NEW(mp, iop__field, st->fields_len);
     for (int i = 0; i < st->fields_len; i++) {
-        mp_iopsq_field_from_iop(mp, &st->fields[i], &fields.tab[i]);
+        mp_iopsq_field_from_iop(mp, pkg, &st->fields[i], &fields.tab[i]);
     }
     return fields;
 }
 
-iop__package_elem__t *mp_iopsq_elem_from_iop_struct(
-    mem_pool_t *nonnull mp, const iop_struct_t *nonnull st, sb_t *nonnull err
+/* Internal struct/union converter, aware of the enclosing package (NULL when
+ * converting a lone element) for same-package reference naming. */
+static iop__package_elem__t *mp_iopsq_struct_elem(
+    mem_pool_t *mp, const iop_pkg_t *nullable pkg, const iop_struct_t *st,
+    sb_t *err
 )
 {
     iop__structure__t *structure;
@@ -1440,7 +1475,7 @@ iop__package_elem__t *mp_iopsq_elem_from_iop_struct(
         return NULL;
     }
 
-    fields = mp_iopsq_fields_from_iop(mp, st);
+    fields = mp_iopsq_fields_from_iop(mp, pkg, st);
 
     if (st->is_union) {
         iop__union__t *un = mp_iop_new(mp, iop__union);
@@ -1457,6 +1492,13 @@ iop__package_elem__t *mp_iopsq_elem_from_iop_struct(
     structure->name = mp_lstr_dup(mp, iopsq_short_name(st->fullname));
 
     return &structure->super;
+}
+
+iop__package_elem__t *mp_iopsq_elem_from_iop_struct(
+    mem_pool_t *nonnull mp, const iop_struct_t *nonnull st, sb_t *nonnull err
+)
+{
+    return mp_iopsq_struct_elem(mp, NULL, st, err);
 }
 
 /* Wipe a temporary lstr vector. Only the vector is freed: its entries are
@@ -1509,6 +1551,41 @@ iop__package_elem__t *mp_iopsq_elem_from_iop_enum(
 
     desc->values = values;
     return &desc->super;
+}
+
+qvector_t(iopsq_pkg_elem, iop__package_elem__t *);
+
+/* Wipe a temporary package-element vector. Only the vector is freed: its
+ * entries are allocated on the caller's memory pool. */
+static void iopsq_pkg_elem_vec_wipe(qv_t(iopsq_pkg_elem) *vec)
+{
+    qv_wipe(vec);
+}
+
+iop__package__t *mp_iopsq_pkg_from_iop(
+    mem_pool_t *nonnull mp, const iop_pkg_t *nonnull pkg, sb_t *nonnull err
+)
+{
+    scoped(qv_t(iopsq_pkg_elem), elems, iopsq_pkg_elem_vec_wipe) = QV_INIT();
+    iop__package__t *desc = mp_new(mp, iop__package__t, 1);
+
+    /* Enums have no dependencies; emit them first, then the structs and
+     * unions (which may reference the enums by name). */
+    for (const iop_enum_t *const *en = pkg->enums; *en; en++) {
+        qv_append(&elems, mp_iopsq_elem_from_iop_enum(mp, *en));
+    }
+    for (const iop_struct_t *const *st = pkg->structs; *st; st++) {
+        iop__package_elem__t *elem = mp_iopsq_struct_elem(mp, pkg, *st, err);
+
+        RETHROW_P(elem);
+        qv_append(&elems, elem);
+    }
+
+    desc->name = mp_lstr_dup(mp, pkg->name);
+    desc->elems = IOP_TYPED_ARRAY(
+        iop__package_elem, mp_dup(mp, elems.tab, elems.len), elems.len
+    );
+    return desc;
 }
 
 /* }}} */

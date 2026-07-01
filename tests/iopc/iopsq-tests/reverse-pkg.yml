@@ -1,0 +1,44 @@
+name: revpkg
+elems:
+  - !iopsq.Enum
+    name: Color
+    values:
+      - name: RED
+      - name: GREEN
+        val: 5
+      - name: BLUE
+  - !iopsq.Union
+    name: Val
+    fields:
+      - name: i
+        type:
+          typeName: int
+      - name: s
+        type:
+          s: STRING
+  - !iopsq.Struct
+    name: Point
+    fields:
+      - name: x
+        type:
+          typeName: int
+      - name: c
+        type:
+          typeName: Color
+      - name: v
+        type:
+          typeName: Val
+      - name: tags
+        type:
+          array:
+            typeName: int
+      - name: label
+        type:
+          s: STRING
+        optional: {}
+      - name: count
+        type:
+          typeName: int
+        optional:
+          defVal:
+            i: 7
