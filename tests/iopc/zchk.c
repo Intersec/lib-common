@@ -136,6 +136,68 @@ static int z_assert_enum_eq(const iop_enum_t *en, const iop_enum_t *ref)
 static int
 z_assert_struct_eq(const iop_struct_t *st, const iop_struct_t *ref);
 
+static int z_assert_static_field_eq(
+    const iop_static_field_t *sf, const iop_static_field_t *ref
+)
+{
+    Z_ASSERT_LSTREQUAL(sf->name, ref->name, "static field name mismatch");
+    Z_ASSERT_EQ(sf->type, ref->type, "static field type mismatch");
+
+    switch (sf->type) {
+    case IOP_T_DOUBLE:
+        Z_ASSERT_EQ(sf->value.d, ref->value.d, "static field value mismatch");
+        break;
+    case IOP_T_STRING:
+        Z_ASSERT_LSTREQUAL(
+            sf->value.s, ref->value.s, "static field value mismatch"
+        );
+        break;
+    default:
+        Z_ASSERT_EQ(sf->value.u, ref->value.u, "static field value mismatch");
+        break;
+    }
+
+    Z_HELPER_END;
+}
+
+/* Compare the class-specific attributes of two class descriptors: parent,
+ * class id, abstract/private flags and static fields. */
+static int z_assert_class_attrs_eq(
+    const iop_class_attrs_t *attrs, const iop_class_attrs_t *ref
+)
+{
+    Z_ASSERT_EQ(attrs->class_id, ref->class_id, "class id mismatch");
+    Z_ASSERT(
+        attrs->is_abstract == ref->is_abstract, "abstract flag mismatch"
+    );
+    Z_ASSERT(attrs->is_private == ref->is_private, "private flag mismatch");
+
+    Z_ASSERT(
+        (attrs->parent == NULL) == (ref->parent == NULL),
+        "parent presence mismatch"
+    );
+    if (attrs->parent) {
+        Z_HELPER_RUN(
+            z_assert_struct_eq(attrs->parent, ref->parent), "parent mismatch"
+        );
+    }
+
+    Z_ASSERT_EQ(
+        attrs->static_fields_len, ref->static_fields_len,
+        "static fields count mismatch"
+    );
+    for (int i = 0; i < attrs->static_fields_len; i++) {
+        Z_HELPER_RUN(
+            z_assert_static_field_eq(
+                attrs->static_fields[i], ref->static_fields[i]
+            ),
+            "static field #%d mismatch", i
+        );
+    }
+
+    Z_HELPER_END;
+}
+
 static int z_assert_field_eq(const iop_field_t *f, const iop_field_t *ref)
 {
     Z_ASSERT_LSTREQUAL(f->name, ref->name, "names mismatch");
@@ -221,6 +283,13 @@ static int z_assert_struct_eq(const iop_struct_t *st, const iop_struct_t *ref)
         ref->flags
     );
     /* TODO Check attributes. */
+
+    if (iop_struct_is_class(st)) {
+        Z_HELPER_RUN(
+            z_assert_class_attrs_eq(st->class_attrs, ref->class_attrs),
+            "class attributes mismatch"
+        );
+    }
 
     Z_HELPER_RUN(
         z_assert_ranges_eq(
@@ -879,11 +948,13 @@ Z_GROUP_EXPORT(iopsq)
             );
         }
 
-        /* A class cannot be extracted yet. */
-        Z_ASSERT_NULL(mp_iopsq_elem_from_iop_struct(
-            t_pool(), &tstiop__my_class1__s, &err
-        ));
-        Z_ASSERT_STREQUAL(err.data, "classes are not supported yet");
+        /* A class is extracted too now. */
+        Z_ASSERT_P(
+            mp_iopsq_elem_from_iop_struct(
+                t_pool(), &tstiop__my_class1__s, &err
+            ),
+            "%pL", &err
+        );
     }
     Z_TEST_END;
 
@@ -952,6 +1023,43 @@ Z_GROUP_EXPORT(iopsq)
             Z_HELPER_RUN(
                 z_assert_struct_eq(pkg2->structs[i], pkg->structs[i]),
                 "struct #%d mismatch", i
+            );
+        }
+        Z_ASSERT_NULL(pkg->structs[i]);
+        Z_ASSERT_NULL(pkg2->structs[i]);
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        iopsq_class_from_iop, "reverse conversion: class hierarchy round-trip"
+    )
+    {
+        t_scope;
+        iop_env_ctx_scope(iop_env, iop_env_ctx);
+        SB_1k(err);
+        iop_pkg_t *pkg;
+        iop_pkg_t *pkg2;
+        iop__package__t *desc;
+        int i;
+
+        /* Build a package containing a class hierarchy (an abstract master
+         * with a static field and a private child referencing its parent by
+         * name), extract it back to IOP², rebuild it and check the class
+         * descriptors (fields, parent, class id, flags and static fields)
+         * match. */
+        Z_HELPER_RUN(t_package_load(&pkg, iop_env, "class.yml"));
+
+        desc = mp_iopsq_pkg_from_iop(t_pool(), pkg, &err);
+        Z_ASSERT_P(desc, "%pL", &err);
+
+        pkg2 = mp_iopsq_build_pkg(t_pool(), iop_env_ctx, desc, NULL, &err);
+        Z_ASSERT_P(pkg2, "%pL", &err);
+
+        for (i = 0; pkg->structs[i] && pkg2->structs[i]; i++) {
+            Z_ASSERT(iop_struct_is_class(pkg->structs[i]));
+            Z_HELPER_RUN(
+                z_assert_struct_eq(pkg2->structs[i], pkg->structs[i]),
+                "class #%d mismatch", i
             );
         }
         Z_ASSERT_NULL(pkg->structs[i]);

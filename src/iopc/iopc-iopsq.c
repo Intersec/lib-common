@@ -1460,6 +1460,103 @@ static iop__field__array_t mp_iopsq_fields_from_iop(
     return fields;
 }
 
+/* Fill an IOP² Value from a class static field's value. The stored type has
+ * been canonicalized to the widest type of its family (see
+ * mp_iopc_static_field_to_desc), so only those cases occur. */
+static void mp_iopsq_value_from_static_field(
+    mem_pool_t *mp, const iop_static_field_t *sf, iop__value__t *out
+)
+{
+    switch (sf->type) {
+    case IOP_T_U64:
+        *out = IOP_UNION(iop__value, u, sf->value.u);
+        break;
+
+    case IOP_T_DOUBLE:
+        *out = IOP_UNION(iop__value, d, sf->value.d);
+        break;
+
+    case IOP_T_BOOL:
+        *out = IOP_UNION(iop__value, b, sf->value.b);
+        break;
+
+    case IOP_T_STRING:
+        *out = IOP_UNION(iop__value, s, mp_lstr_dup(mp, sf->value.s));
+        break;
+
+    /* Of those, only IOP_T_I64 occurs: the canonicalization maps every
+     * signed integer to it and leaves no other type. */
+    case IOP_T_I8:
+    case IOP_T_I16:
+    case IOP_T_I32:
+    case IOP_T_I64:
+    case IOP_T_U8:
+    case IOP_T_U16:
+    case IOP_T_U32:
+    case IOP_T_ENUM:
+    case IOP_T_DATA:
+    case IOP_T_XML:
+    case IOP_T_UNION:
+    case IOP_T_STRUCT:
+    case IOP_T_VOID:
+        *out = IOP_UNION(iop__value, i, sf->value.i);
+        break;
+    }
+}
+
+/* Build the static field array of a class. The static field type is a scalar
+ * (canonicalized), so iop_type_to_iop always succeeds. */
+static iop__static_field__array_t mp_iopsq_static_fields_from_iop(
+    mem_pool_t *mp, const iop_class_attrs_t *attrs
+)
+{
+    iop__static_field__array_t sfields =
+        MP_IOP_ARRAY_NEW(mp, iop__static_field, attrs->static_fields_len);
+
+    for (int i = 0; i < attrs->static_fields_len; i++) {
+        const iop_static_field_t *sf = attrs->static_fields[i];
+        iop__static_field__t *out = &sfields.tab[i];
+
+        out->name = mp_lstr_dup(mp, sf->name);
+        IGNORE(iop_type_to_iop(sf->type, &out->type));
+        mp_iopsq_value_from_static_field(mp, sf, &out->value);
+    }
+    return sfields;
+}
+
+/* Build the Class element from a compiled class descriptor: own fields,
+ * parent (by short name when same-package), class id, the abstract/private
+ * flags and static fields. */
+static iop__package_elem__t *mp_iopsq_class_elem(
+    mem_pool_t *mp, const iop_pkg_t *nullable pkg, const iop_struct_t *st,
+    lstr_t name
+)
+{
+    const iop_class_attrs_t *attrs = st->class_attrs;
+    iop__class__t *cls = mp_iop_new(mp, iop__class);
+
+    cls->name = name;
+    cls->fields = mp_iopsq_fields_from_iop(mp, pkg, st);
+    cls->class_id = attrs->class_id;
+    cls->is_abstract = attrs->is_abstract;
+    cls->is_private = attrs->is_private;
+
+    if (attrs->parent) {
+        lstr_t pname = iopsq_ref_name(
+            pkg, attrs->parent->fullname,
+            pkg && iop_pkg_owns_fullname(pkg, attrs->parent->fullname)
+        );
+
+        cls->parent = mp_lstr_dup(mp, pname);
+    }
+
+    if (attrs->static_fields_len) {
+        cls->static_fields = mp_iopsq_static_fields_from_iop(mp, attrs);
+    }
+
+    return &cls->super.super;
+}
+
 /* Internal struct/union converter, aware of the enclosing package (NULL when
  * converting a lone element) for same-package reference naming. */
 static iop__package_elem__t *mp_iopsq_struct_elem(
@@ -1469,10 +1566,10 @@ static iop__package_elem__t *mp_iopsq_struct_elem(
 {
     iop__structure__t *structure;
     iop__field__array_t fields;
+    lstr_t name = mp_lstr_dup(mp, iopsq_short_name(st->fullname));
 
     if (iop_struct_is_class(st)) {
-        sb_setf(err, "classes are not supported yet");
-        return NULL;
+        return mp_iopsq_class_elem(mp, pkg, st, name);
     }
 
     fields = mp_iopsq_fields_from_iop(mp, pkg, st);
@@ -1489,7 +1586,7 @@ static iop__package_elem__t *mp_iopsq_struct_elem(
         structure = &desc->super;
     }
 
-    structure->name = mp_lstr_dup(mp, iopsq_short_name(st->fullname));
+    structure->name = name;
 
     return &structure->super;
 }

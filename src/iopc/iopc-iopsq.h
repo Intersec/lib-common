@@ -178,18 +178,23 @@ iop_pkg_t *mp_iopsq_build_mono_element_pkg(
     const iopsq_type_table_t *nullable type_table, sb_t *nonnull err
 );
 
-/** Build the IOP² (iopsq) description of a compiled IOP struct or union.
+/** Build the IOP² (iopsq) description of a compiled IOP struct, union or
+ * class.
  *
  * This is a partial inverse of \ref mp_iopsq_build_struct: it extracts an
- * 'iopsq.PackageElem' (a Struct or Union) from a compiled \ref iop_struct_t,
- * so a type can be round-tripped through IOP². Referenced types (fields of
+ * 'iopsq.PackageElem' from a compiled \ref iop_struct_t, so a type can be
+ * round-tripped through IOP². Referenced types (fields of
  * struct/union/class/enum type) are described by fullname; they are resolved
  * against the environment when the description is rebuilt.
  *
- * Not supported yet: classes, field constraints and attributes.
+ * A class parent is referenced by fullname, so it must be resolvable against
+ * the environment. \ref mp_iopsq_pkg_from_iop handles a same-package parent
+ * better, with short names.
+ *
+ * Not supported yet: field constraints and attributes.
  *
  * \param[in,out] mp   Memory pool for all allocations.
- * \param[in]     st   The compiled struct/union descriptor.
+ * \param[in]     st   The compiled struct/union/class descriptor.
  * \param[out]    err  Error buffer.
  *
  * \return the package element, or NULL on error.
@@ -222,11 +227,11 @@ iop__package_elem__t *nonnull mp_iopsq_elem_from_iop_enum(
  * kinds (structs, unions and enums): so a package can be round-tripped
  * through IOP². Types belonging to \p pkg are referenced by their short name;
  * types from other packages keep their fullname (resolved against the
- * environment on rebuild).
+ * environment on rebuild). Classes (with same-package parents referenced by
+ * short name) are supported.
  *
- * Not supported yet: classes, typedefs, interfaces, modules, and field/enum
- * attributes and constraints (returns an error if the package contains a
- * class).
+ * Not supported yet: typedefs, interfaces, modules, and field/enum
+ * attributes and constraints.
  *
  * \param[in,out] mp   Memory pool for all allocations.
  * \param[in]     pkg  The compiled package descriptor.
