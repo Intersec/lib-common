@@ -198,6 +198,24 @@ iop__package_elem__t *nullable mp_iopsq_elem_from_iop_struct(
     mem_pool_t *nonnull mp, const iop_struct_t *nonnull st, sb_t *nonnull err
 );
 
+/** Build the IOP² (iopsq) description of a compiled IOP enum.
+ *
+ * Reverse of the enum handling in \ref mp_iopsq_build_pkg.
+ *
+ * Extracted:
+ *     - Values
+ *         - Explicit integer value
+ *         - Aliases
+ *     - Strict flag
+ *
+ * Not handled yet:
+ *     - Enum-level attributes
+ *     - Value-level attributes
+ */
+iop__package_elem__t *nonnull mp_iopsq_elem_from_iop_enum(
+    mem_pool_t *nonnull mp, const iop_enum_t *nonnull en
+);
+
 /* {{{ Helper: iopsq_iop_struct_t */
 
 typedef struct iopsq_iop_struct_t {

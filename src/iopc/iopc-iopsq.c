@@ -1459,6 +1459,58 @@ iop__package_elem__t *mp_iopsq_elem_from_iop_struct(
     return &structure->super;
 }
 
+/* Wipe a temporary lstr vector. Only the vector is freed: its entries are
+ * allocated on the caller's memory pool. */
+static void iopsq_lstr_vec_wipe(qv_t(lstr) *vec)
+{
+    qv_wipe(vec);
+}
+
+/* Build the alias list attached to enum value at position \p pos, gathering
+ * the entries of the compiled alias table that point at it. */
+static lstr__array_t
+mp_iopsq_enum_val_aliases(mem_pool_t *mp, const iop_enum_t *en, int pos)
+{
+    scoped(qv_t(lstr), aliases, iopsq_lstr_vec_wipe) = QV_INIT();
+
+    if (!TST_BIT(&en->flags, IOP_ENUM_ALIASES)) {
+        return (lstr__array_t)IOP_ARRAY_EMPTY;
+    }
+    for (int i = 0; i < en->aliases->len; i++) {
+        if (en->aliases->aliases[i].pos != pos) {
+            continue;
+        }
+        qv_append(&aliases, mp_lstr_dup(mp, en->aliases->aliases[i].name));
+    }
+
+    return IOP_TYPED_ARRAY(
+        lstr, mp_dup(mp, aliases.tab, aliases.len), aliases.len
+    );
+}
+
+iop__package_elem__t *mp_iopsq_elem_from_iop_enum(
+    mem_pool_t *nonnull mp, const iop_enum_t *nonnull en
+)
+{
+    iop__enum__t *desc = mp_iop_new(mp, iop__enum);
+    iop__enum_val__array_t values;
+
+    values = MP_IOP_ARRAY_NEW(mp, iop__enum_val, en->enum_len);
+    desc->name = mp_lstr_dup(mp, iopsq_short_name(en->fullname));
+    desc->strict = TST_BIT(&en->flags, IOP_ENUM_STRICT);
+
+    for (int i = 0; i < en->enum_len; i++) {
+        iop__enum_val__t *v = &values.tab[i];
+
+        v->name = mp_lstr_dup(mp, en->names[i]);
+        OPT_SET(v->val, en->values[i]);
+        v->aliases = mp_iopsq_enum_val_aliases(mp, en, i);
+    }
+
+    desc->values = values;
+    return &desc->super;
+}
+
 /* }}} */
 /* {{{ IOP² API */
 

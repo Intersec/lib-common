@@ -888,6 +888,37 @@ Z_GROUP_EXPORT(iopsq)
     Z_TEST_END;
 
     Z_TEST(
+        iopsq_enum_from_iop, "reverse conversion: iop_enum_t -> iopsq -> "
+                             "iop_enum_t round-trip"
+    )
+    {
+        t_scope;
+        iop_env_ctx_scope(iop_env, iop_env_ctx);
+        SB_1k(err);
+        const iop_enum_t *enums[] = {
+            &tstiop__test_enum__e,
+            &tstiop__my_enum_b__e,
+        };
+
+        carray_for_each_entry(ref, enums) {
+            iop__package_elem__t *elem;
+            iop_pkg_t *pkg;
+
+            elem = mp_iopsq_elem_from_iop_enum(t_pool(), ref);
+            pkg = mp_iopsq_build_mono_element_pkg(
+                t_pool(), iop_env_ctx, elem, NULL, &err
+            );
+            Z_ASSERT_P(pkg, "%pL: %pL", &ref->fullname, &err);
+
+            Z_HELPER_RUN(
+                z_assert_enum_eq(pkg->enums[0], ref),
+                "round-trip mismatch for `%pL'", &ref->fullname
+            );
+        }
+    }
+    Z_TEST_END;
+
+    Z_TEST(
         mp_iopsq_build_struct, "test mp_iopsq_build_struct and "
                                "iop_struct_mp_build"
     )
