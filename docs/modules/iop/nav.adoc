@@ -20,10 +20,11 @@
 *** xref:spec/compatibility.adoc[Backward-compatibility rules]
 ** Reference implementation
 *** xref:impl/iopc.adoc[The iopc compiler]
-*** xref:impl/iopc-backends.adoc[iopc backends: C, JSON, TypeScript]
+*** xref:impl/iopc-backends.adoc[iopc backends: C, JSON, TypeScript, Python stubs]
 *** xref:impl/c-mapping.adoc[C language mapping]
 *** xref:impl/c-runtime.adoc[C runtime library]
 *** xref:impl/ichannel.adoc[IChannel RPC protocol]
 *** xref:impl/dso-iopsq.adoc[DSO plugins and IOP²]
-*** xref:impl/bindings.adoc[Language bindings: IOPy and TypeScript]
+*** xref:impl/bindings.adoc[Language bindings: IOPy, TypeScript and Rust]
+*** xref:impl/iopy.adoc[IOPy: the Python binding]
 *** xref:impl/generators.adoc[OpenAPI, WSDL and SNMP MIB generation]

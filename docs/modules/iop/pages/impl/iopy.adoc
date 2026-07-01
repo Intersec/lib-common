@@ -1,0 +1,273 @@
+= IOPy: the Python binding
+:toc:
+:numbered:
+
+IOPy is a Cython Python extension that loads an IOP
+xref:../impl/dso-iopsq.adoc[DSO plugin] and exposes its packages as ordinary
+Python classes — enums, structs, unions and classes — with full
+serialization support and an xref:../impl/ichannel.adoc[IChannel] RPC client
+and server. Because the classes are built dynamically at import time, a
+type checker sees nothing by default; the
+xref:../impl/iopc-backends.adoc#_python_stub_backend_l_pystub[`pystub`
+backend] generates `.pyi` stubs that make IOPy code statically
+checkable (see <<_static_type_checking>>).
+
+The module internals — debugging the generated Cython, the event-loop
+thread — are documented in `src/iopy/README.adoc`.
+
+== Loading a plugin
+
+[source,python]
+----
+import iopy
+
+plugin = iopy.Plugin("/path/to/pkg-iop-plugin.so")
+pkg    = plugin.mypkg               # packages become plugin attributes
+----
+
+Loading the DSO also runs the Python snippets it exports under the
+`iopy_on_register` DSO resource category. Types are reached by
+attribute (`plugin.<pkg>.<Type>`) or by fullname:
+
+[source,python]
+----
+Cls   = plugin.get_type_from_fullname("mypkg.KeyFull")
+Iface = plugin.get_iface_type_from_fullname("mypkg.MyIface")
+----
+
+Additional DSOs can be loaded into the same plugin with
+`plugin.load_dso(key, path)` / `plugin.unload_dso(key)`.
+
+== Values
+
+Every IOP enum, struct, union and class becomes a dynamically created
+Python class (under `iopy.Enum`, `iopy.Struct`, `iopy.Union`; the class
+hierarchy mirrors IOP inheritance). IOPy objects are *not* hashable —
+they cannot be used as dict keys or set members.
+
+=== Structs
+
+Construct with field keyword arguments; read and write fields as
+attributes; delete an optional field with `del`:
+
+[source,python]
+----
+b = pkg.StructB(a="plop", tab=["plup"])
+b.a = "plip"
+del b.opt_field                     # unset an optional field
+----
+
+=== Unions
+
+A union has exactly one active member. Construct it with a single
+keyword argument, switch the active member by assigning another, and
+inspect it with `get_key()` / `get_object()`:
+
+[source,python]
+----
+u = pkg.UnionA(i=58)                # active member: i
+u.s = "foo"                         # now active member: s
+u.get_key()                         # 's'
+u.get_object()                      # 'foo'
+----
+
+=== Enums
+
+Build an enum value from its name (ASCII case-insensitive), from its
+integer, or — for flag enums — from a `"A|B"` string. Values compare and
+convert to `int`/`str`:
+
+[source,python]
+----
+e = pkg.EnumA("A")
+e = pkg.EnumA(1)
+e = pkg.EnumA("A|B")                # combined flags
+int(e); e.get_as_str()
+----
+
+=== Classes
+
+Class instances are created like structs. A child instance is accepted
+wherever a parent type is expected, as in IOP; instantiating an
+`abstract` class raises `iopy.Error`. In a `dict`/JSON form the concrete
+type is selected by the `_class` fullname:
+
+[source,python]
+----
+b   = pkg.ClassB(field1=1, field2=2)
+obj = pkg.StructA(a=pkg.ClassB(field1=1))            # child where parent expected
+b   = pkg.StructToDict({"_class": "mypkg.ClassB", "field2": 87})
+----
+
+== Serialization
+
+Every value serializes to each supported representation and back. The
+`to_*` methods share a set of *reduction flags* — `skip_default`,
+`skip_private`, `skip_empty_arrays`, `skip_empty_structs`,
+`skip_class_names`, `skip_optional_class_names`, `shorten_data`, plus the
+layout flags `no_whitespaces` / `no_trailing_eol` (the latter two do not
+apply to `to_dict`); `minimal=True` turns on the lossless reductions at
+once.
+
+[source,python]
+----
+a.to_json(); a.to_yaml(); a.to_xml(); a.to_bin(); a.to_hex(); a.to_dict()
+a.to_json(minimal=True)
+----
+
+To build a value from a serialized form, pass the *content* as one of
+`_json` / `_yaml` / `_xml` / `_bin` / `_hex`, or a `dict` positionally:
+
+[source,python]
+----
+b = pkg.StructB(_json='{"a": "juju", "tab": ["x"]}')
+b = pkg.StructB(_yaml=yaml_text)
+b = pkg.StructB({"a": "juju"})
+----
+
+`from_file()` reads the content from a *file path* instead, and exposes
+the unpacking options (`_ignore_unknown`, `_forbid_private`,
+`_use_c_case`, `single`):
+
+[source,python]
+----
+b = pkg.ClassB.from_file(_json="obj.json", _ignore_unknown=True)
+----
+
+`iopy.set_json_flags(...)` sets process-wide JSON defaults for the same
+flags.
+
+== Introspection
+
+Classes expose their IOP metadata:
+
+[source,python]
+----
+pkg.ClassB.get_iop_fullname()       # 'mypkg.ClassB'  (dotted)
+pkg.ClassB.get_fields_name()        # ['field1', 'field2', …]
+pkg.EnumA.get_values()              # {'A': 1, 'B': 2}
+
+desc = pkg.ClassB.get_iop_description()
+desc.help.brief                     # doc-comment texts
+desc.fields["field1"].optional      # field metadata + constraints
+desc.parent, desc.is_abstract, desc.class_id, desc.statics
+----
+
+`get_iop_description()` returns the help texts, generic attributes and,
+per field, the type, default, cardinality and every constraint
+(`min`/`max`, `min_length`/`max_length`, `pattern`, …); for classes it
+also carries the parent, abstract/private flags, class id and static
+fields.
+
+== RPC client
+
+Connect to an IChannel server and call RPCs. The connection URI is a
+plain `host:port` (no scheme); `host=`/`port=` keywords are an
+alternative:
+
+[source,python]
+----
+ch  = plugin.connect("localhost:20001", _login="root", _password="1234")
+res = ch.mypkg_MyModule.myIface.myRpc(key="toto")
+----
+
+RPCs are reached as `channel.<pkg>_<Module>.<iface>.<rpc>`; the call
+takes the argument fields as keywords (or a single argument object) and
+returns the result object. Per-call keyword overrides — an
+`iopy.IcKwargs` header — include `_timeout`, `_login`, `_password`,
+`_group`, `_kind`, `_workspace_id`, `_dealias` and a pre-built `_hdr`
+(an `ic.Hdr`):
+
+[source,python]
+----
+hdr = plugin.ic.Hdr(simple=plugin.ic.SimpleHdr(login="root", password="1234"))
+res = ch.mypkg_MyModule.myIface.myRpc(key="toto", _hdr=hdr, _timeout=5)
+----
+
+A default header shared by every call is set with
+`ch.change_default_hdr(_login=…, _password=…)` (read back with
+`get_default_hdr()`). The channel exposes `connect()`, `is_connected()`,
+`disconnect()` and the `on_connect` / `on_disconnect` / `on_exception`
+callback properties.
+
+== Asynchronous client
+
+`plugin.async_connect(...)` returns an `asyncio.Future` yielding an
+`AsyncChannel` whose RPC calls return futures — everything is driven by
+the running asyncio loop:
+
+[source,python]
+----
+ch  = await plugin.async_connect("localhost:20001")
+res = await ch.mypkg_MyModule.myIface.myRpc(key="toto")
+----
+
+== RPC server
+
+Create a server channel, set an implementation per RPC, and listen:
+
+[source,python]
+----
+server = plugin.channel_server()
+
+def my_rpc_impl(args):
+    # args.arg -> the decoded argument; args.hdr -> the query header
+    # args.res / args.exn -> the result / exception constructors
+    return args.res(value=42)
+
+server.mypkg_MyModule.myIface.myRpc.impl = my_rpc_impl
+server.listen(uri="0.0.0.0:20001")
+----
+
+The implementation receives an `RPCArgs` object exposing `arg`, `hdr`,
+and the `res`/`exn` constructors, and returns either `args.res(...)`
+(replied as `IC_MSG_OK`) or `args.exn(...)` (replied as an exception);
+an asynchronous RPC returns `args.res()` with no payload. Alongside
+`listen()` (also `host=`/`port=`), `listen_block(timeout, uri)` runs the
+loop inline, `stop()` shuts the server down, `is_listening` reports its
+state, and a per-RPC `wait(timeout, uri, count=1)` serves a fixed number
+of calls — handy in tests. `on_connect` / `on_disconnect` /
+`on_exception` callbacks mirror the client's.
+
+== Pre/post hooks
+
+An interface may carry `__pre_hook__(self, rpc, *args, **kwargs)` and
+`__post_hook__(self, rpc, res)` methods that run around each of its
+RPCs — for injecting credentials, auditing, or rewriting a call. A
+pre-hook may return `(args, kwargs)` to replace the arguments; a
+post-hook may return a value to replace the result. Plugin-wide defaults
+are set with `plugin.default_pre_hook` / `plugin.default_post_hook`.
+
+== Error handling
+
+* `iopy.Error` — IOP-level failures: constraint violations, parsing
+  errors, instantiating an abstract class, type mismatches.
+* `iopy.RpcError` — an RPC answered with an exception; `err.args[0]`
+  is the decoded exception object.
+
+[source,python]
+----
+try:
+    ch.mypkg_MyModule.myIface.myRpc(key="toto")
+except iopy.RpcError as e:
+    exn = e.args[0]                 # the IOP exception object
+except iopy.Error as e:
+    ...                             # e.g. "violation of constraint max (100) …"
+----
+
+== Threading
+
+The RPC transport and its event loop run on a dedicated thread that
+never touches Python objects. Code calling IOPy from another thread must
+bracket it with `iopy.thr_attach()` / `iopy.thr_detach()`. The
+event-loop isolation rules and other internals are covered in
+`src/iopy/README.adoc`.
+
+== Static type checking
+
+Because IOPy builds its classes dynamically, run
+`iopc -l pystub` to emit `.pyi` stubs describing them, so mypy/pyright
+can check IOPy code. See the
+xref:../impl/iopc-backends.adoc#_python_stub_backend_l_pystub[Python stub
+backend]; the generated stubs build on the hand-written base stub
+`src/iopy/iopy.pyi`, which types the `iopy` module itself.

@@ -139,7 +139,7 @@ type; `@forceFieldName` names are emitted verbatim.
 
 Emits *PEP 484 type stubs* (`.pyi`) that give a static type checker
 (mypy, pyright, …) full knowledge of the classes
-xref:../impl/bindings.adoc[IOPy] materialises at runtime — the runtime keeps
+xref:../impl/iopy.adoc[IOPy] materialises at runtime — the runtime keeps
 building them dynamically; these stubs only describe them.
 
 One file per package, all written flat into `--pystub-output-path`

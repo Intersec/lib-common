@@ -8,81 +8,20 @@ This page is a quick orientation, not a full reference.
 
 IOPy is a Cython-based Python module that loads IOP
 xref:../impl/dso-iopsq.adoc[DSO plugins] and exposes their packages as Python
-classes — including full RPC client and server support.
-
-=== Loading a plugin
+classes, with full serialization and an xref:../impl/ichannel.adoc[IChannel]
+RPC client and server:
 
 [source,python]
 ----
 import iopy
 
 plugin = iopy.Plugin("/path/to/pkg-iop-plugin.so")
-pkg = plugin.mypkg                  # packages become attributes
+a      = plugin.mypkg.KeyFull(key="toto", aggrs=23)
+ch     = plugin.connect("localhost:20001", _login="root", _password="1234")
+res    = ch.mypkg_MyModule.myIface.myRpc(key="toto")
 ----
 
-Loading the DSO also runs the Python snippets the plugin exports under
-the `iopy_on_register` DSO resource category.
-
-=== Types and values
-
-Every IOP enum/struct/union/class becomes a dynamically created Python
-class (under `iopy.EnumBase`, `StructBase`, `UnionBase`; the Python
-class hierarchy mirrors IOP class inheritance):
-
-[source,python]
-----
-a = pkg.KeyFull(key="toto", aggrs=23)        # field kwargs
-a.key = "lili"
-b = pkg.KeyFull(_json='{"key": "juju", "aggrs": 46}')
-
-a.to_json(); a.to_yaml(); a.to_xml(); a.to_bin(); a.to_hex()
-
-k = pkg.Key(s="toto")     # unions: exactly one member
-k.t = 12                  # switches the active member
-----
-
-Constructors accept either field keyword arguments or one of `_json`,
-`_yaml`, `_xml`, `_bin`, `_hex` to unpack from a serialized form.
-Class instances are created like structs; passing a child instance
-where a parent is expected works as in IOP.
-
-=== RPC client
-
-[source,python]
-----
-ch  = plugin.connect("localhost:20001",
-                     _login="root", _password="1234")
-res = ch.mypkg.myModule.myIface.myRpc(key="toto")
-----
-
-RPCs are attributes of `channel.<module>.<iface>`; per-call keyword
-overrides include `_timeout`, `_hdr`, `_login`, `_password`. An asyncio
-variant exists (`await plugin.async_connect(...)`).
-
-=== RPC server
-
-[source,python]
-----
-server = plugin.channel_server()
-
-def my_rpc_impl(args):
-    return args.res(value=42)
-
-server.myModule.myIface.myRpc.impl = my_rpc_impl
-server.listen(uri="0.0.0.0:20001")
-----
-
-`src/iopy/README.adoc` documents the module internals (debugging the
-generated Cython, the event-loop thread isolation rules).
-
-=== Static type checking
-
-Because IOPy builds its classes dynamically, a type checker sees
-nothing by default. The xref:../impl/iopc-backends.adoc#_python_stub_backend_l_pystub[`pystub`
-backend] (`iopc -l pystub`) generates `.pyi` stubs describing those
-classes, so mypy/pyright can check IOPy code statically. The generated
-stubs build on the hand-written base stub `src/iopy/iopy.pyi`, which
-types the `iopy` module itself.
+IOPy has its own reference: xref:../impl/iopy.adoc[IOPy: the Python binding].
 
 == TypeScript
 
