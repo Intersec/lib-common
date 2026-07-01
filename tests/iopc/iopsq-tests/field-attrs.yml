@@ -1,0 +1,90 @@
+name: foo
+elems:
+  - !iopsq.Struct
+    name: S
+    fields:
+      - name: n
+        type:
+          typeName: int
+        constraints:
+          - min:
+              i: 1
+          - max:
+              i: 100
+      - name: u
+        type:
+          typeName: uint
+        constraints:
+          - min:
+              u: 1
+          - max:
+              u: 100
+      - name: d
+        type:
+          typeName: double
+        constraints:
+          - min:
+              d: -1.5
+          - max:
+              d: 2.5
+      - name: arr
+        type:
+          array:
+            typeName: int
+        constraints:
+          - minOccurs: 2
+          - maxOccurs: 5
+      - name: str
+        type:
+          s: STRING
+        constraints:
+          - minLength: 3
+          - maxLength: 8
+          - pattern: "ab.*"
+      - name: fixed
+        type:
+          s: STRING
+        constraints:
+          - length: 4
+      - name: text
+        type:
+          s: STRING
+        constraints:
+          - nonEmpty: ~
+          - cdata: ~
+      - name: secret
+        type:
+          s: STRING
+        optional: {}
+        constraints:
+          - isPrivate: ~
+      - name: flagged
+        type:
+          typeName: int
+        constraints:
+          - nonZero: ~
+          - isDeprecated: ~
+      - name: g
+        type:
+          typeName: int
+        genericAttrs:
+          - ns: test
+            id: num
+            value:
+              i: 42
+          - ns: test
+            id: str
+            value:
+              s: hello
+          - ns: test
+            id: unsigned
+            value:
+              u: 7
+          - ns: test
+            id: dbl
+            value:
+              d: 1.5
+          - ns: test
+            id: flag
+            value:
+              b: true

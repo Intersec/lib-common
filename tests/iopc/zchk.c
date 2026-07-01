@@ -375,6 +375,16 @@ static int _test_pkg_struct(
         );                                                                   \
     })
 
+static int z_field_index(const iop_struct_t *st, const char *name)
+{
+    for (int i = 0; i < st->fields_len; i++) {
+        if (lstr_equal(st->fields[i].name, LSTR(name))) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 /* }}} */
 /* {{{ Z_GROUP */
 
@@ -464,6 +474,125 @@ Z_GROUP_EXPORT(iopsq)
         Z_ASSERT(td->type == IOP_T_STRUCT);
         Z_ASSERT_P(td->ref_struct);
         Z_ASSERT_LSTREQUAL(td->ref_struct->fullname, LSTR("foo.Point"));
+    }
+    Z_TEST_END;
+
+    Z_TEST(field_attrs, "field constraints and generic attributes") {
+        t_scope;
+        iop_pkg_t *pkg;
+        const iop_struct_t *st;
+        const iop_field_attrs_t *fa;
+        int idx;
+
+        Z_HELPER_RUN(t_package_load(&pkg, iop_env, "field-attrs.yml"));
+        st = pkg->structs[0];
+        Z_ASSERT_LSTREQUAL(st->fullname, LSTR("foo.S"));
+        Z_ASSERT(st->flags & (1U << IOP_STRUCT_EXTENDED));
+        Z_ASSERT_P(st->fields_attrs);
+
+        /* n: @min(1) @max(100). */
+        idx = z_field_index(st, "n");
+        Z_ASSERT_N(idx);
+        fa = &st->fields_attrs[idx];
+        Z_ASSERT(TST_BIT(&fa->flags, IOP_FIELD_MIN));
+        Z_ASSERT(TST_BIT(&fa->flags, IOP_FIELD_MAX));
+        Z_ASSERT_EQ(fa->attrs_len, 2);
+        Z_ASSERT(fa->attrs[0].type == IOP_FIELD_MIN);
+        Z_ASSERT_EQ(fa->attrs[0].args->v.i64, 1);
+        Z_ASSERT(fa->attrs[1].type == IOP_FIELD_MAX);
+        Z_ASSERT_EQ(fa->attrs[1].args->v.i64, 100);
+
+        /* u: @min/@max on an unsigned field. */
+        idx = z_field_index(st, "u");
+        Z_ASSERT_N(idx);
+        fa = &st->fields_attrs[idx];
+        Z_ASSERT_EQ(fa->attrs_len, 2);
+        Z_ASSERT(fa->attrs[0].type == IOP_FIELD_MIN);
+        Z_ASSERT_EQ(fa->attrs[0].args->v.i64, 1);
+        Z_ASSERT(fa->attrs[1].type == IOP_FIELD_MAX);
+        Z_ASSERT_EQ(fa->attrs[1].args->v.i64, 100);
+
+        /* d: @min/@max on a double field keep the double value. */
+        idx = z_field_index(st, "d");
+        Z_ASSERT_N(idx);
+        fa = &st->fields_attrs[idx];
+        Z_ASSERT_EQ(fa->attrs_len, 2);
+        Z_ASSERT(fa->attrs[0].type == IOP_FIELD_MIN);
+        Z_ASSERT_EQ(fa->attrs[0].args->v.d, -1.5);
+        Z_ASSERT(fa->attrs[1].type == IOP_FIELD_MAX);
+        Z_ASSERT_EQ(fa->attrs[1].args->v.d, 2.5);
+
+        /* arr: repeated @minOccurs(2) @maxOccurs(5). */
+        idx = z_field_index(st, "arr");
+        Z_ASSERT_N(idx);
+        Z_ASSERT(st->fields[idx].flags & (1U << IOP_FIELD_NO_EMPTY_ARRAY));
+        fa = &st->fields_attrs[idx];
+        Z_ASSERT_EQ(fa->attrs_len, 2);
+        Z_ASSERT(fa->attrs[0].type == IOP_FIELD_MIN_OCCURS);
+        Z_ASSERT_EQ(fa->attrs[0].args->v.i64, 2);
+        Z_ASSERT(fa->attrs[1].type == IOP_FIELD_MAX_OCCURS);
+        Z_ASSERT_EQ(fa->attrs[1].args->v.i64, 5);
+
+        /* str: @minLength(3) @maxLength(8) @pattern("ab.*"). */
+        idx = z_field_index(st, "str");
+        Z_ASSERT_N(idx);
+        fa = &st->fields_attrs[idx];
+        Z_ASSERT_EQ(fa->attrs_len, 3);
+        Z_ASSERT(fa->attrs[0].type == IOP_FIELD_MIN_LENGTH);
+        Z_ASSERT_EQ(fa->attrs[0].args->v.i64, 3);
+        Z_ASSERT(fa->attrs[1].type == IOP_FIELD_MAX_LENGTH);
+        Z_ASSERT_EQ(fa->attrs[1].args->v.i64, 8);
+        Z_ASSERT(fa->attrs[2].type == IOP_FIELD_PATTERN);
+        Z_ASSERT_LSTREQUAL(fa->attrs[2].args->v.s, LSTR("ab.*"));
+
+        /* fixed: @length(4) expands to @minLength and @maxLength. */
+        idx = z_field_index(st, "fixed");
+        Z_ASSERT_N(idx);
+        fa = &st->fields_attrs[idx];
+        Z_ASSERT_EQ(fa->attrs_len, 2);
+        Z_ASSERT(fa->attrs[0].type == IOP_FIELD_MIN_LENGTH);
+        Z_ASSERT_EQ(fa->attrs[0].args->v.i64, 4);
+        Z_ASSERT(fa->attrs[1].type == IOP_FIELD_MAX_LENGTH);
+        Z_ASSERT_EQ(fa->attrs[1].args->v.i64, 4);
+
+        /* text: @nonEmpty @cdata are flag-only (no table entry). */
+        idx = z_field_index(st, "text");
+        Z_ASSERT_N(idx);
+        fa = &st->fields_attrs[idx];
+        Z_ASSERT_EQ(fa->attrs_len, 0);
+        Z_ASSERT(TST_BIT(&fa->flags, IOP_FIELD_NON_EMPTY));
+        Z_ASSERT(TST_BIT(&fa->flags, IOP_FIELD_CDATA));
+
+        /* secret: @private, only allowed on a non-required field. */
+        idx = z_field_index(st, "secret");
+        Z_ASSERT_N(idx);
+        fa = &st->fields_attrs[idx];
+        Z_ASSERT_EQ(fa->attrs_len, 0);
+        Z_ASSERT(TST_BIT(&fa->flags, IOP_FIELD_PRIVATE));
+
+        /* flagged: @nonZero @deprecated are flag-only too. */
+        idx = z_field_index(st, "flagged");
+        Z_ASSERT_N(idx);
+        fa = &st->fields_attrs[idx];
+        Z_ASSERT_EQ(fa->attrs_len, 0);
+        Z_ASSERT(TST_BIT(&fa->flags, IOP_FIELD_NON_ZERO));
+        Z_ASSERT(TST_BIT(&fa->flags, IOP_FIELD_DEPRECATED));
+
+        /* g: generic attributes, typed by their value. */
+        idx = z_field_index(st, "g");
+        Z_ASSERT_N(idx);
+        fa = &st->fields_attrs[idx];
+        Z_ASSERT_EQ(fa->attrs_len, 5);
+        Z_ASSERT(fa->attrs[0].type == IOP_FIELD_GEN_ATTR_I);
+        Z_ASSERT_EQ(fa->attrs[0].args->v.i64, 42);
+        Z_ASSERT(fa->attrs[1].type == IOP_FIELD_GEN_ATTR_S);
+        Z_ASSERT_LSTREQUAL(fa->attrs[1].args->v.s, LSTR("hello"));
+        Z_ASSERT(fa->attrs[2].type == IOP_FIELD_GEN_ATTR_I);
+        Z_ASSERT_EQ(fa->attrs[2].args->v.i64, 7);
+        Z_ASSERT(fa->attrs[3].type == IOP_FIELD_GEN_ATTR_D);
+        Z_ASSERT_EQ(fa->attrs[3].args->v.d, 1.5);
+        Z_ASSERT(fa->attrs[4].type == IOP_FIELD_GEN_ATTR_I);
+        Z_ASSERT_EQ(fa->attrs[4].args->v.i64, 1);
     }
     Z_TEST_END;
 

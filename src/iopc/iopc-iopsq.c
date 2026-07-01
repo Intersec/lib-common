@@ -172,6 +172,90 @@ iopsq_type_table_get_type(const iopsq_type_table_t *table, uint32_t type_id)
 }
 
 /* }}} */
+/* {{{ Attributes */
+
+/* Field constraints and generic attributes end up in iopc_attr_t, the very
+ * representation the parser builds from the `@`-attributes of an .iop source.
+ * The IOP² loader reuses the parser's built-in attribute descriptors
+ * (iopc_get_attr_desc) so that the resolver can validate them: applicability
+ * is described by desc->types/flags. */
+
+/* Shared descriptor for a string-valued attribute argument: only used by
+ * iopc_arg_wipe/dup to know the argument owns an lstr. */
+static iopc_arg_desc_t iopsq_str_arg_g = {
+    .name = LSTR_IMMED("v"),
+    .type = ITOK_STRING,
+};
+
+static iopc_attr_t *iopsq_attr_new(iopc_attr_id_t id)
+{
+    iopc_attr_t *attr = iopc_attr_new();
+
+    attr->desc = iopc_get_attr_desc(id);
+    return attr;
+}
+
+static void iopsq_attr_add_str_arg(iopc_attr_t *attr, lstr_t s)
+{
+    iopc_arg_t arg;
+
+    iopc_arg_init(&arg);
+    arg.desc = &iopsq_str_arg_g;
+    arg.type = ITOK_STRING;
+    arg.v.s = lstr_dup(s);
+    qv_append(&attr->args, arg);
+}
+
+static void iopsq_attr_add_int_arg(iopc_attr_t *attr, int64_t i)
+{
+    iopc_arg_t arg;
+
+    iopc_arg_init(&arg);
+    arg.type = ITOK_INTEGER;
+    arg.v.i64 = i;
+    qv_append(&attr->args, arg);
+}
+
+/* Append an argument built from an IOP² Value, tagging it with the token type
+ * expected downstream (drives generic-attribute type selection). */
+static void
+iopsq_attr_add_value_arg(iopc_attr_t *attr, const iop__value__t *val)
+{
+    iopc_arg_t arg;
+
+    iopc_arg_init(&arg);
+    IOP_UNION_SWITCH(val) {
+        IOP_UNION_CASE(iop__value, val, i, i)
+        {
+            arg.type = ITOK_INTEGER;
+            arg.v.i64 = i;
+        }
+        IOP_UNION_CASE(iop__value, val, u, u)
+        {
+            arg.type = ITOK_INTEGER;
+            arg.v.i64 = (int64_t)u;
+        }
+        IOP_UNION_CASE(iop__value, val, d, d)
+        {
+            arg.type = ITOK_DOUBLE;
+            arg.v.d = d;
+        }
+        IOP_UNION_CASE(iop__value, val, s, s)
+        {
+            arg.type = ITOK_STRING;
+            arg.desc = &iopsq_str_arg_g;
+            arg.v.s = lstr_dup(s);
+        }
+        IOP_UNION_CASE(iop__value, val, b, b)
+        {
+            arg.type = ITOK_BOOL;
+            arg.v.i64 = b;
+        }
+    }
+    qv_append(&attr->args, arg);
+}
+
+/* }}} */
 /* {{{ IOP struct/union */
 
 static iop_type_t iop_type_from_iop(const iop__type__t *iop_type)
@@ -376,6 +460,94 @@ static void iopc_field_set_opt_info(
     }
 }
 
+/* Build the iopc_attr_t for a single built-in constraint, mirroring the
+ * mapping the parser does from `@`-attributes to attribute descriptors. */
+static void
+iopc_field_load_constraint(iopc_field_t *f, const iop__constraint__t *c)
+{
+    iopc_attr_t *attr = NULL;
+
+    IOP_UNION_SWITCH(c) {
+        IOP_UNION_CASE_P(iop__constraint, c, min, v)
+        {
+            attr = iopsq_attr_new(IOPC_ATTR_MIN);
+            iopsq_attr_add_value_arg(attr, v);
+        }
+        IOP_UNION_CASE_P(iop__constraint, c, max, v)
+        {
+            attr = iopsq_attr_new(IOPC_ATTR_MAX);
+            iopsq_attr_add_value_arg(attr, v);
+        }
+        IOP_UNION_CASE(iop__constraint, c, min_occurs, v)
+        {
+            attr = iopsq_attr_new(IOPC_ATTR_MIN_OCCURS);
+            iopsq_attr_add_int_arg(attr, v);
+        }
+        IOP_UNION_CASE(iop__constraint, c, max_occurs, v)
+        {
+            attr = iopsq_attr_new(IOPC_ATTR_MAX_OCCURS);
+            iopsq_attr_add_int_arg(attr, v);
+        }
+        IOP_UNION_CASE(iop__constraint, c, min_length, v)
+        {
+            attr = iopsq_attr_new(IOPC_ATTR_MIN_LENGTH);
+            iopsq_attr_add_int_arg(attr, v);
+        }
+        IOP_UNION_CASE(iop__constraint, c, max_length, v)
+        {
+            attr = iopsq_attr_new(IOPC_ATTR_MAX_LENGTH);
+            iopsq_attr_add_int_arg(attr, v);
+        }
+        IOP_UNION_CASE(iop__constraint, c, length, v)
+        {
+            attr = iopsq_attr_new(IOPC_ATTR_LENGTH);
+            iopsq_attr_add_int_arg(attr, v);
+        }
+        IOP_UNION_CASE(iop__constraint, c, pattern, v)
+        {
+            attr = iopsq_attr_new(IOPC_ATTR_PATTERN);
+            iopsq_attr_add_str_arg(attr, v);
+        }
+        IOP_UNION_CASE_V(iop__constraint, c, non_empty)
+        {
+            attr = iopsq_attr_new(IOPC_ATTR_NON_EMPTY);
+        }
+        IOP_UNION_CASE_V(iop__constraint, c, non_zero)
+        {
+            attr = iopsq_attr_new(IOPC_ATTR_NON_ZERO);
+        }
+        IOP_UNION_CASE_V(iop__constraint, c, cdata)
+        {
+            attr = iopsq_attr_new(IOPC_ATTR_CDATA);
+        }
+        IOP_UNION_CASE_V(iop__constraint, c, is_private)
+        {
+            attr = iopsq_attr_new(IOPC_ATTR_PRIVATE);
+        }
+        IOP_UNION_CASE_V(iop__constraint, c, is_deprecated)
+        {
+            attr = iopsq_attr_new(IOPC_ATTR_DEPRECATED);
+        }
+    }
+
+    /* 'attr' stays NULL only for an unknown/future constraint tag that
+     * matched no case above; skip it rather than append an uninitialised
+     * pointer (also silences -Werror=maybe-uninitialized on older GCC). */
+    if (attr) {
+        qv_append(&f->attrs, attr);
+    }
+}
+
+static void
+iopc_field_load_generic_attr(iopc_field_t *f, const iop__generic_attr__t *ga)
+{
+    iopc_attr_t *attr = iopsq_attr_new(IOPC_ATTR_GENERIC);
+
+    attr->real_name = lstr_fmt("%pL:%pL", &ga->ns, &ga->id);
+    iopsq_attr_add_value_arg(attr, &ga->value);
+    qv_append(&f->attrs, attr);
+}
+
 static iopc_field_t *iopc_field_load(
     const iop_env_ctx_t *nonnull iop_env_ctx,
     const iop__field__t *nonnull field_desc, const qv_t(iopc_field) *fields,
@@ -442,6 +614,13 @@ static iopc_field_t *iopc_field_load(
             goto error;
         }
         f->is_ref = true;
+    }
+
+    tab_for_each_ptr(constraint, &field_desc->constraints) {
+        iopc_field_load_constraint(f, constraint);
+    }
+    tab_for_each_ptr(gen_attr, &field_desc->generic_attrs) {
+        iopc_field_load_generic_attr(f, gen_attr);
     }
 
     return f;
@@ -512,33 +691,6 @@ static iopc_struct_t *iopc_struct_load(
 /* }}} */
 /* {{{ IOP enum */
 
-/* Enum strictness and value aliases are carried by attributes, exactly as in
- * the IOP language (@strict on the enum, @alias on a value). The IOP² loader
- * attaches the same attributes without depending on the parser's attribute
- * registry: only 'desc->id' is read downstream (typer and descriptor
- * generator), so file-static descriptors are enough and keep IOP²
- * self-contained. */
-static iopc_attr_desc_t iopsq_attr_strict_g = {
-    .id = IOPC_ATTR_STRICT,
-    .name = LSTR_IMMED("strict"),
-};
-static iopc_attr_desc_t iopsq_attr_alias_g = {
-    .id = IOPC_ATTR_ALIAS,
-    .name = LSTR_IMMED("alias"),
-};
-static iopc_arg_desc_t iopsq_alias_arg_g = {
-    .name = LSTR_IMMED("name"),
-    .type = ITOK_IDENT,
-};
-
-static iopc_attr_t *iopsq_attr_new(iopc_attr_desc_t *desc)
-{
-    iopc_attr_t *attr = iopc_attr_new();
-
-    attr->desc = desc;
-    return attr;
-}
-
 /* Attach an @alias attribute holding the value aliases, mirroring the parser
  * which stores one alias name per attribute argument. */
 static void iopc_enum_field_load_aliases(
@@ -550,15 +702,9 @@ static void iopc_enum_field_load_aliases(
     if (!nb_aliases) {
         return;
     }
-    attr = iopsq_attr_new(&iopsq_attr_alias_g);
+    attr = iopsq_attr_new(IOPC_ATTR_ALIAS);
     for (int i = 0; i < nb_aliases; i++) {
-        iopc_arg_t arg;
-
-        iopc_arg_init(&arg);
-        arg.desc = &iopsq_alias_arg_g;
-        arg.type = ITOK_IDENT;
-        arg.v.s = lstr_dup(aliases[i]);
-        qv_append(&attr->args, arg);
+        iopsq_attr_add_str_arg(attr, aliases[i]);
     }
     qv_append(&field->attrs, attr);
 }
@@ -599,7 +745,7 @@ static iopc_enum_t *iopc_enum_load(const iop__enum__t *en_desc, sb_t *err)
     en = iopc_enum_new();
     en->name = p_dupz(en_desc->name.s, en_desc->name.len);
     if (en_desc->strict) {
-        qv_append(&en->attrs, iopsq_attr_new(&iopsq_attr_strict_g));
+        qv_append(&en->attrs, iopsq_attr_new(IOPC_ATTR_STRICT));
     }
     next_val = 0;
     tab_for_each_ptr(enum_val, &en_desc->values) {

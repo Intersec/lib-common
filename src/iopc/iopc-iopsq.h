@@ -44,8 +44,13 @@
  *
  * Limitations:
  *
- *    - Not supported yet: classes, attributes, modules, interfaces, RPCs,
- *    SNMP objects.
+ *    - Not supported yet: classes, struct-level attributes, modules,
+ *    interfaces, RPCs, SNMP objects.
+ *
+ *    - Field constraints are described but never enforced: the IOP library
+ *    only checks them through the check_constraints callback the C generator
+ *    emits, it has no interpreter for the descriptor content. So they are
+ *    introspectable metadata, nothing more.
  *
  *    - Typedefs from IOPs loaded to the environment cannot be used by
  *    refering to them with "typeName" like for the other types because

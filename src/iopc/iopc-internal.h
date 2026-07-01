@@ -1052,6 +1052,12 @@ const char *t_iopc_path_join(const iopc_path_t *path, const char *sep);
 
 void iopc_parser_initialize(void);
 void iopc_parser_shutdown(void);
+
+/** Get the built-in descriptor of an IOP attribute by id.
+ *
+ * Lazily initializes the attribute registry if needed, so it can be used
+ * outside the parser (e.g. by the IOP² loader). Panics on an unknown id. */
+iopc_attr_desc_t *iopc_get_attr_desc(iopc_attr_id_t id);
 iopc_pkg_t *iopc_parse_file(
     qv_t(cstr) *includes, const qm_t(iopc_env) *env, const char *file,
     const char *data, bool is_main_pkg

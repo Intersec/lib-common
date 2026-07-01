@@ -18,6 +18,14 @@
 
 package iopsq;
 
+/** An IOP name: a package element, a field... IOP forbids underscores. */
+@pattern("[a-zA-Z0-9]*") @minLength(1)
+typedef string Identifier;
+
+/** A generic attribute namespace or id, where underscores are allowed. */
+@pattern("[a-zA-Z0-9_]*") @minLength(1)
+typedef string AttrName;
+
 /* {{{ Type */
 
 @ctype(iop__int_size__t)
@@ -69,8 +77,7 @@ union Type {
 
 @ctype(iop__package_elem__t)
 abstract local class PackageElem {
-    @pattern("[a-zA-Z0-9]*") @minLength(1)
-    string name;
+    Identifier name;
 };
 
 /* {{{ Struct */
@@ -89,16 +96,44 @@ struct OptInfo {
     Value? defVal;
 };
 
+/** A field constraint, mirroring the built-in IOP `@`-attributes.
+ *
+ * The active union case selects the constraint kind; its value (when any)
+ * follows the semantics of the corresponding IOP attribute. */
+@ctype(iop__constraint__t)
+union Constraint {
+    Value min;
+    Value max;
+    ulong minOccurs;
+    ulong maxOccurs;
+    ulong minLength;
+    ulong maxLength;
+    ulong length;
+    string pattern;
+    void nonEmpty;
+    void nonZero;
+    void cdata;
+    void isPrivate;
+    void isDeprecated;
+};
+
+/** A user-defined generic attribute: `@(namespace:id, value)`. */
+@ctype(iop__generic_attr__t)
+struct GenericAttr {
+    AttrName ns;
+    AttrName id;
+    Value value;
+};
+
 @ctype(iop__field__t)
 struct Field {
-    @pattern("[a-zA-Z0-9]*") @minLength(1)
-    string name;
+    Identifier name;
     Type type;
-    /* TODO constraints */
-    /* TODO attributes */
     OptInfo? optional;
     ushort? tag;
     void? isReference;
+    Constraint[] constraints;
+    GenericAttr[] genericAttrs;
 };
 
 @ctype(iop__structure__t)

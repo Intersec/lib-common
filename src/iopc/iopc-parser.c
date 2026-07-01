@@ -580,6 +580,25 @@ int iopc_check_field_attributes(iopc_field_t *f, bool tdef)
     return 0;
 }
 
+static void init_attributes(void);
+
+iopc_attr_desc_t *iopc_get_attr_desc(iopc_attr_id_t id)
+{
+    if (qm_len(attr_desc, &_G.attrs) == 0) {
+        /* IOP² can build attributes without going through the parser (no
+         * source file, e.g. in tests): make sure the descriptors exist. The
+         * registry is a process-global initialized once and left alive. */
+        qm_init_cached(attr_desc, &_G.attrs);
+        init_attributes();
+    }
+    qm_for_each_pos(attr_desc, pos, &_G.attrs) {
+        if (_G.attrs.values[pos].id == id) {
+            return &_G.attrs.values[pos];
+        }
+    }
+    e_panic("unknown IOP attribute id %d", id);
+}
+
 static iopc_attr_desc_t *add_attr(iopc_attr_id_t id, const char *name)
 {
     iopc_attr_desc_t d;

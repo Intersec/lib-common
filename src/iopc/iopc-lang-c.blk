@@ -5109,7 +5109,10 @@ static int mp_iopc_field_to_desc(
         .repeat = f->repeat,
         .type = f->kind,
         .data_offs = *offset,
-        .flags = iopc_field_build_flags(f, st, NULL), /* TODO attrs */
+        /* NULL: IOP² generates no check_constraints callback, see
+         * mp_iopc_field_build_attrs(). NO_EMPTY_ARRAY / SNMP flags are
+         * derived from f->attrs. */
+        .flags = iopc_field_build_flags(f, st, NULL),
         .size = size,
     };
 
@@ -5145,12 +5148,153 @@ static int mp_iopc_field_to_desc(
     return 0;
 }
 
+static iop_field_attr_t
+mp_iop_field_attr(mem_pool_t *mp, unsigned type, iop_value_t v)
+{
+    iop_field_attr_arg_t *arg = mp_new_raw(mp, iop_field_attr_arg_t, 1);
+
+    arg->v = v;
+    return (iop_field_attr_t){.type = type, .args = arg};
+}
+
+qvector_t(iop_field_attr, iop_field_attr_t);
+
+static void iop_field_attr_vec_wipe(qv_t(iop_field_attr) *vec)
+{
+    qv_wipe(vec);
+}
+
+/* Build the IOP field attributes from the iopc attributes, mirroring
+ * iopc_dump_field_attrs.
+ *
+ * 'out->check_constraints' is left NULL: enforcing a constraint needs a C
+ * function, which only the source generator can emit, and the IOP library has
+ * no fallback interpreting the descriptor. IOP² constraints are therefore
+ * introspectable metadata that nothing checks. */
+static void mp_iopc_field_build_attrs(
+    mem_pool_t *mp, const iopc_field_t *f, iop_field_attrs_t *out
+)
+{
+    scoped(qv_t(iop_field_attr), attrs, iop_field_attr_vec_wipe) = QV_INIT();
+    unsigned flags = 0;
+
+    tab_for_each_entry(attr, &f->attrs) {
+        iop_value_t v = {.i64 = 0};
+        unsigned type = 0;
+
+        switch (attr->desc->id) {
+        case IOPC_ATTR_CDATA:
+            SET_BIT(&flags, IOP_FIELD_CDATA);
+            continue;
+        case IOPC_ATTR_NON_EMPTY:
+            SET_BIT(&flags, IOP_FIELD_NON_EMPTY);
+            continue;
+        case IOPC_ATTR_NON_ZERO:
+            SET_BIT(&flags, IOP_FIELD_NON_ZERO);
+            continue;
+        case IOPC_ATTR_PRIVATE:
+            SET_BIT(&flags, IOP_FIELD_PRIVATE);
+            continue;
+        case IOPC_ATTR_DEPRECATED:
+            SET_BIT(&flags, IOP_FIELD_DEPRECATED);
+            continue;
+
+        case IOPC_ATTR_MIN_OCCURS:
+            v.i64 = IOPC_ATTR_GET_ARG_V(int64_t, &attr->args.tab[0]);
+            type = IOP_FIELD_MIN_OCCURS;
+            break;
+        case IOPC_ATTR_MAX_OCCURS:
+            v.i64 = IOPC_ATTR_GET_ARG_V(int64_t, &attr->args.tab[0]);
+            type = IOP_FIELD_MAX_OCCURS;
+            break;
+        case IOPC_ATTR_MIN_LENGTH:
+            v.i64 = IOPC_ATTR_GET_ARG_V(int64_t, &attr->args.tab[0]);
+            type = IOP_FIELD_MIN_LENGTH;
+            break;
+        case IOPC_ATTR_MAX_LENGTH:
+            v.i64 = IOPC_ATTR_GET_ARG_V(int64_t, &attr->args.tab[0]);
+            type = IOP_FIELD_MAX_LENGTH;
+            break;
+        case IOPC_ATTR_LENGTH:
+            /* @length maps to both @minLength and @maxLength. */
+            v.i64 = IOPC_ATTR_GET_ARG_V(int64_t, &attr->args.tab[0]);
+            SET_BIT(&flags, IOP_FIELD_MIN_LENGTH);
+            qv_append(&attrs, mp_iop_field_attr(mp, IOP_FIELD_MIN_LENGTH, v));
+            SET_BIT(&flags, IOP_FIELD_MAX_LENGTH);
+            qv_append(&attrs, mp_iop_field_attr(mp, IOP_FIELD_MAX_LENGTH, v));
+            continue;
+        case IOPC_ATTR_PATTERN:
+            v.s = mp_lstr_dup(mp, attr->args.tab[0].v.s);
+            type = IOP_FIELD_PATTERN;
+            break;
+        case IOPC_ATTR_MIN:
+        case IOPC_ATTR_MAX:
+            if (f->kind == IOP_T_DOUBLE) {
+                v.d = IOPC_ATTR_GET_ARG_V(double, &attr->args.tab[0]);
+            } else {
+                v.i64 = IOPC_ATTR_GET_ARG_V(int64_t, &attr->args.tab[0]);
+            }
+            type = (attr->desc->id == IOPC_ATTR_MIN) ? IOP_FIELD_MIN
+                                                     : IOP_FIELD_MAX;
+            break;
+        case IOPC_ATTR_GENERIC:
+            type = iopc_attr_kind_get_gen_type(
+                &iopc_attr_kind_field_g, attr->args.tab[0].type
+            );
+            switch (attr->args.tab[0].type) {
+            case ITOK_STRING:
+            case ITOK_IDENT:
+                v.s = mp_lstr_dup(mp, attr->args.tab[0].v.s);
+                break;
+            case ITOK_DOUBLE:
+                v.d = attr->args.tab[0].v.d;
+                break;
+            default:
+                v.i64 = attr->args.tab[0].v.i64;
+                break;
+            }
+            break;
+
+        /* Declaration attributes: they never apply to a field. */
+        case IOPC_ATTR_CTYPE:
+        case IOPC_ATTR_PREFIX:
+        case IOPC_ATTR_STRICT:
+        case IOPC_ATTR_ALIAS:
+        case IOPC_ATTR_NO_REORDER:
+        case IOPC_ATTR_SNMP_PARAMS_FROM:
+        case IOPC_ATTR_SNMP_PARAM:
+        case IOPC_ATTR_TS_NO_COLL:
+        /* Field attributes with no entry in 'iop_field_attrs_t':
+         * @allow/@disallow only emit check code, @snmpIndex needs an SNMP
+         * structure, and the last two drive the C generator alone. */
+        case IOPC_ATTR_ALLOW:
+        case IOPC_ATTR_DISALLOW:
+        case IOPC_ATTR_SNMP_INDEX:
+        case IOPC_ATTR_NOWARN:
+        case IOPC_ATTR_FORCE_FIELD_NAME:
+            continue;
+        }
+
+        SET_BIT(&flags, type);
+        qv_append(&attrs, mp_iop_field_attr(mp, type, v));
+    }
+
+    out->flags = flags;
+    out->attrs_len = attrs.len;
+    if (attrs.len) {
+        out->attrs = mp_dup(mp, attrs.tab, attrs.len);
+    }
+}
+
 static iop_struct_t *mp_iopc_struct_to_desc(
     mem_pool_t *mp, iopc_struct_t *st, const iopc_pkg_t *pkg, sb_t *err
 )
 {
     iop_struct_t *st_desc;
     iop_field_t *fields;
+    iop_field_attrs_t *fields_attrs;
+    bool has_fields_attrs = false;
+    unsigned flags;
     uint16_t offset = 0;
     iop_array_i32_t ranges;
 
@@ -5180,7 +5324,22 @@ static iop_struct_t *mp_iopc_struct_to_desc(
         }
     }
 
+    /* Build the per-field attributes (constraints, generic attributes). The
+     * array is parallel to 'fields'; fields without attributes get a zeroed
+     * entry. */
+    fields_attrs =
+        mp_new(mp, iop_field_attrs_t, st->fields_in_c_struct_order.len);
+    tab_for_each_entry(f, &st->fields_in_c_struct_order) {
+        mp_iopc_field_build_attrs(mp, f, &fields_attrs[f->field_pos]);
+        has_fields_attrs |= !!f->attrs.len;
+    }
+
     ranges = mp_iopc_struct_build_ranges(mp, st);
+
+    flags = st->flags;
+    if (has_fields_attrs) {
+        SET_BIT(&flags, IOP_STRUCT_EXTENDED);
+    }
 
     {
         iop_struct_t _st_desc = {
@@ -5190,10 +5349,10 @@ static iop_struct_t *mp_iopc_struct_to_desc(
             .ranges = ranges.tab,
             .ranges_len = ranges.len / 2,
             .size = st->size, /* TODO Check correctness */
-            .flags = st->flags,
+            .flags = flags,
             .is_union = (st->type == STRUCT_TYPE_UNION),
+            .fields_attrs = has_fields_attrs ? fields_attrs : NULL,
             /* TODO st_attrs */
-            /* TODO field_attrs */
             /* TODO class_attrs */
         };
 
