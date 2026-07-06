@@ -38,8 +38,8 @@ pub struct IopOption<T> {
 #[repr(C)]
 pub struct IopArray<T> {
     v: *mut T,
-    len: usize,
-    size: usize,
+    len: i32,
+    flags: u32,
 }
 
 /// Names made available (via `use crate::modules::*`) to the Rust modules
@@ -52,26 +52,23 @@ pub mod modules {
     pub use std::mem::*;
 }
 
-/// Generated Rust for the `core` package, compiled here to check that
+/// Generated Rust for each in-tree IOP package, compiled here to check that
 /// `iopc` produces valid, ABI-compatible Rust. Layout assertions live in
 /// the (manually run) layout tests.
-#[cfg(test)]
-pub mod core_iop_module {
-    include!("../../src/iop-rust/core.iop.rs");
-    pub use crate::modules::*;
+macro_rules! iop_module {
+    ($name:ident, $pkg:literal) => {
+        #[cfg(test)]
+        pub mod $name {
+            include!(concat!("../../src/iop-rust/", $pkg, ".iop.rs"));
+            pub use crate::modules::*;
+        }
+    };
 }
 
-#[cfg(test)]
-pub mod yaml_iop_module {
-    include!("../../src/iop-rust/yaml.iop.rs");
-    pub use crate::modules::*;
-}
-
-#[cfg(test)]
-pub mod ic_iop_module {
-    include!("../../src/iop-rust/ic.iop.rs");
-    pub use crate::modules::*;
-}
+iop_module!(core_iop_module, "core");
+iop_module!(yaml_iop_module, "yaml");
+iop_module!(ic_iop_module, "ic");
+iop_module!(tstiop_void_type_iop_module, "tstiop_void_type");
 
 /// Hard-coded layout assertions for the generated types (see the module
 /// for how to regenerate them). Run manually with `--ignored`.

@@ -20,16 +20,13 @@
 //!
 //! The bodies below are produced by `iopc` itself: build with the
 //! `IOPC_RUST_GEN_TESTS=1` environment variable set and copy the resulting
-//! `src/**/<pkg>.iop.tests.rs` modules here. They are `#[ignore = ".."]`d on
-//! purpose: the generated layouts are still a work in progress, so the
-//! assertions are run manually with `cargo test -- --ignored`.
+//! `src/**/<pkg>.iop.tests.rs` modules here. They run as regular tests.
 
 #[cfg(test)]
 #[rustfmt::skip]
 pub mod test_core {
     use crate::core_iop_module::*;
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn core__logger_configuration__t__layout() {
         assert_eq!(size_of::<core__logger_configuration__t<'static>>(), 24);
@@ -40,7 +37,6 @@ pub mod test_core {
         assert_eq!(offset_of!(core__logger_configuration__t<'static>, isSilent), 21);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn core__log_configuration__t__layout() {
         assert_eq!(size_of::<core__log_configuration__t<'static>>(), 24);
@@ -48,23 +44,21 @@ pub mod test_core {
         assert_eq!(offset_of!(core__log_configuration__t<'static>, rootLevel), 0);
         assert_eq!(offset_of!(core__log_configuration__t<'static>, forceAll), 4);
         assert_eq!(offset_of!(core__log_configuration__t<'static>, isSilent), 5);
-        assert_eq!(offset_of!(core__log_configuration__t<'static>, specific_tab), 6);
+        assert_eq!(offset_of!(core__log_configuration__t<'static>, specific), 8);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn core__log_file_configuration__t__layout() {
-        assert_eq!(size_of::<core__log_file_configuration__t>(), 48);
+        assert_eq!(size_of::<core__log_file_configuration__t>(), 56);
         assert_eq!(align_of::<core__log_file_configuration__t>(), 8);
-        assert_eq!(offset_of!(core__log_file_configuration__t, maxSize), 0);
-        assert_eq!(offset_of!(core__log_file_configuration__t, maxTime), 4);
-        assert_eq!(offset_of!(core__log_file_configuration__t, maxFiles), 12);
-        assert_eq!(offset_of!(core__log_file_configuration__t, totalMaxSize), 16);
-        assert_eq!(offset_of!(core__log_file_configuration__t, compress), 24);
-        assert_eq!(offset_of!(core__log_file_configuration__t, maxFileAge), 25);
+        assert_eq!(offset_of!(core__log_file_configuration__t, maxSize), 8);
+        assert_eq!(offset_of!(core__log_file_configuration__t, maxTime), 16);
+        assert_eq!(offset_of!(core__log_file_configuration__t, maxFiles), 24);
+        assert_eq!(offset_of!(core__log_file_configuration__t, totalMaxSize), 32);
+        assert_eq!(offset_of!(core__log_file_configuration__t, compress), 40);
+        assert_eq!(offset_of!(core__log_file_configuration__t, maxFileAge), 48);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn core__tls_cert_and_key__t__layout() {
         assert_eq!(size_of::<core__tls_cert_and_key__t<'static>>(), 32);
@@ -73,14 +67,12 @@ pub mod test_core {
         assert_eq!(offset_of!(core__tls_cert_and_key__t<'static>, key), 16);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn core__tls_cfg__u__layout() {
         assert_eq!(size_of::<core__tls_cfg__u<'static>>(), 40);
         assert_eq!(align_of::<core__tls_cfg__u<'static>>(), 8);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn core__httpd_cfg__t__layout() {
         assert_eq!(size_of::<core__httpd_cfg__t<'static>>(), 80);
@@ -88,40 +80,38 @@ pub mod test_core {
         assert_eq!(offset_of!(core__httpd_cfg__t<'static>, bindAddr), 0);
         assert_eq!(offset_of!(core__httpd_cfg__t<'static>, outbufMaxSize), 16);
         assert_eq!(offset_of!(core__httpd_cfg__t<'static>, pipelineDepth), 20);
-        assert_eq!(offset_of!(core__httpd_cfg__t<'static>, noactDelay), 22);
-        assert_eq!(offset_of!(core__httpd_cfg__t<'static>, maxQueries), 26);
-        assert_eq!(offset_of!(core__httpd_cfg__t<'static>, maxConnsIn), 30);
-        assert_eq!(offset_of!(core__httpd_cfg__t<'static>, onDataThreshold), 34);
-        assert_eq!(offset_of!(core__httpd_cfg__t<'static>, headerLineMax), 38);
-        assert_eq!(offset_of!(core__httpd_cfg__t<'static>, headerSizeMax), 42);
-        assert_eq!(offset_of!(core__httpd_cfg__t<'static>, tls), 46);
-        assert_eq!(offset_of!(core__httpd_cfg__t<'static>, caFile), 54);
-        assert_eq!(offset_of!(core__httpd_cfg__t<'static>, checkClientCert), 70);
-        assert_eq!(offset_of!(core__httpd_cfg__t<'static>, checkCertDepth), 71);
+        assert_eq!(offset_of!(core__httpd_cfg__t<'static>, checkClientCert), 22);
+        assert_eq!(offset_of!(core__httpd_cfg__t<'static>, noactDelay), 24);
+        assert_eq!(offset_of!(core__httpd_cfg__t<'static>, maxQueries), 28);
+        assert_eq!(offset_of!(core__httpd_cfg__t<'static>, maxConnsIn), 32);
+        assert_eq!(offset_of!(core__httpd_cfg__t<'static>, onDataThreshold), 36);
+        assert_eq!(offset_of!(core__httpd_cfg__t<'static>, headerLineMax), 40);
+        assert_eq!(offset_of!(core__httpd_cfg__t<'static>, headerSizeMax), 44);
+        assert_eq!(offset_of!(core__httpd_cfg__t<'static>, tls), 48);
+        assert_eq!(offset_of!(core__httpd_cfg__t<'static>, caFile), 56);
+        assert_eq!(offset_of!(core__httpd_cfg__t<'static>, checkCertDepth), 72);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn core__httpc_cfg__t__layout() {
         assert_eq!(size_of::<core__httpc_cfg__t<'static>>(), 96);
         assert_eq!(align_of::<core__httpc_cfg__t<'static>>(), 8);
         assert_eq!(offset_of!(core__httpc_cfg__t<'static>, pipelineDepth), 0);
-        assert_eq!(offset_of!(core__httpc_cfg__t<'static>, noactDelay), 2);
-        assert_eq!(offset_of!(core__httpc_cfg__t<'static>, maxQueries), 6);
-        assert_eq!(offset_of!(core__httpc_cfg__t<'static>, onDataThreshold), 10);
-        assert_eq!(offset_of!(core__httpc_cfg__t<'static>, headerLineMax), 14);
-        assert_eq!(offset_of!(core__httpc_cfg__t<'static>, headerSizeMax), 18);
-        assert_eq!(offset_of!(core__httpc_cfg__t<'static>, tlsOn), 22);
-        assert_eq!(offset_of!(core__httpc_cfg__t<'static>, tlsCert), 23);
-        assert_eq!(offset_of!(core__httpc_cfg__t<'static>, tlsClient), 39);
-        assert_eq!(offset_of!(core__httpc_cfg__t<'static>, useHttp2), 47);
+        assert_eq!(offset_of!(core__httpc_cfg__t<'static>, tlsOn), 2);
+        assert_eq!(offset_of!(core__httpc_cfg__t<'static>, useHttp2), 3);
+        assert_eq!(offset_of!(core__httpc_cfg__t<'static>, noactDelay), 4);
+        assert_eq!(offset_of!(core__httpc_cfg__t<'static>, maxQueries), 8);
+        assert_eq!(offset_of!(core__httpc_cfg__t<'static>, onDataThreshold), 12);
+        assert_eq!(offset_of!(core__httpc_cfg__t<'static>, headerLineMax), 16);
+        assert_eq!(offset_of!(core__httpc_cfg__t<'static>, headerSizeMax), 20);
+        assert_eq!(offset_of!(core__httpc_cfg__t<'static>, tlsCert), 24);
+        assert_eq!(offset_of!(core__httpc_cfg__t<'static>, tlsClient), 40);
         assert_eq!(offset_of!(core__httpc_cfg__t<'static>, checkServerCert), 48);
-        assert_eq!(offset_of!(core__httpc_cfg__t<'static>, checkCertDepth), 49);
-        assert_eq!(offset_of!(core__httpc_cfg__t<'static>, tlsServerName), 57);
-        assert_eq!(offset_of!(core__httpc_cfg__t<'static>, proxyUrl), 73);
+        assert_eq!(offset_of!(core__httpc_cfg__t<'static>, checkCertDepth), 52);
+        assert_eq!(offset_of!(core__httpc_cfg__t<'static>, tlsServerName), 64);
+        assert_eq!(offset_of!(core__httpc_cfg__t<'static>, proxyUrl), 80);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn core__iop_json_subfile__t__layout() {
         assert_eq!(size_of::<core__iop_json_subfile__t<'static>>(), 32);
@@ -136,7 +126,6 @@ pub mod test_core {
 pub mod test_ic {
     use crate::ic_iop_module::*;
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn ic__tracer__t__layout() {
         assert_eq!(size_of::<ic__tracer__t>(), 16);
@@ -145,7 +134,6 @@ pub mod test_ic {
         assert_eq!(offset_of!(ic__tracer__t, epoch), 8);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn ic__simple_hdr__t__layout() {
         assert_eq!(size_of::<ic__simple_hdr__t<'static>>(), 120);
@@ -154,21 +142,19 @@ pub mod test_ic {
         assert_eq!(offset_of!(ic__simple_hdr__t<'static>, password), 16);
         assert_eq!(offset_of!(ic__simple_hdr__t<'static>, kind), 32);
         assert_eq!(offset_of!(ic__simple_hdr__t<'static>, payload), 48);
-        assert_eq!(offset_of!(ic__simple_hdr__t<'static>, host), 52);
-        assert_eq!(offset_of!(ic__simple_hdr__t<'static>, group), 68);
-        assert_eq!(offset_of!(ic__simple_hdr__t<'static>, source), 84);
-        assert_eq!(offset_of!(ic__simple_hdr__t<'static>, workspaceId), 100);
-        assert_eq!(offset_of!(ic__simple_hdr__t<'static>, dealias), 116);
+        assert_eq!(offset_of!(ic__simple_hdr__t<'static>, dealias), 52);
+        assert_eq!(offset_of!(ic__simple_hdr__t<'static>, host), 56);
+        assert_eq!(offset_of!(ic__simple_hdr__t<'static>, group), 72);
+        assert_eq!(offset_of!(ic__simple_hdr__t<'static>, source), 88);
+        assert_eq!(offset_of!(ic__simple_hdr__t<'static>, workspaceId), 104);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn ic__route__t__layout() {
-        assert_eq!(size_of::<ic__route__t>(), 0);
+        assert_eq!(size_of::<ic__route__t>(), 8);
         assert_eq!(align_of::<ic__route__t>(), 8);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn ic__routing_hdr__t__layout() {
         assert_eq!(size_of::<ic__routing_hdr__t<'static>>(), 32);
@@ -180,7 +166,6 @@ pub mod test_ic {
         assert_eq!(offset_of!(ic__routing_hdr__t<'static>, originalHdr), 24);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn ic__hdr__u__layout() {
         assert_eq!(size_of::<ic__hdr__u<'static>>(), 128);
@@ -193,37 +178,32 @@ pub mod test_ic {
 pub mod test_yaml {
     use crate::yaml_iop_module::*;
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn yaml__scalar_value__u__layout() {
         assert_eq!(size_of::<yaml__scalar_value__u<'static>>(), 24);
         assert_eq!(align_of::<yaml__scalar_value__u<'static>>(), 8);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn yaml__seq_value__t__layout() {
         assert_eq!(size_of::<yaml__seq_value__t<'static>>(), 16);
         assert_eq!(align_of::<yaml__seq_value__t<'static>>(), 8);
-        assert_eq!(offset_of!(yaml__seq_value__t<'static>, datas_tab), 0);
+        assert_eq!(offset_of!(yaml__seq_value__t<'static>, datas), 0);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn yaml__obj_value__t__layout() {
         assert_eq!(size_of::<yaml__obj_value__t<'static>>(), 16);
         assert_eq!(align_of::<yaml__obj_value__t<'static>>(), 8);
-        assert_eq!(offset_of!(yaml__obj_value__t<'static>, fields_tab), 0);
+        assert_eq!(offset_of!(yaml__obj_value__t<'static>, fields), 0);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn yaml__data_value__u__layout() {
         assert_eq!(size_of::<yaml__data_value__u<'static>>(), 32);
         assert_eq!(align_of::<yaml__data_value__u<'static>>(), 8);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn yaml__data__t__layout() {
         assert_eq!(size_of::<yaml__data__t<'static>>(), 48);
@@ -232,7 +212,6 @@ pub mod test_yaml {
         assert_eq!(offset_of!(yaml__data__t<'static>, tag), 32);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn yaml__key_data__t__layout() {
         assert_eq!(size_of::<yaml__key_data__t<'static>>(), 64);
@@ -241,32 +220,29 @@ pub mod test_yaml {
         assert_eq!(offset_of!(yaml__key_data__t<'static>, data), 16);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn yaml__presentation_template__t__layout() {
         assert_eq!(size_of::<yaml__presentation_template__t<'static>>(), 32);
         assert_eq!(align_of::<yaml__presentation_template__t<'static>>(), 8);
         assert_eq!(offset_of!(yaml__presentation_template__t<'static>, originalValue), 0);
-        assert_eq!(offset_of!(yaml__presentation_template__t<'static>, variablesBitmap_tab), 16);
+        assert_eq!(offset_of!(yaml__presentation_template__t<'static>, variablesBitmap), 16);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn yaml__presentation_node__t__layout() {
         assert_eq!(size_of::<yaml__presentation_node__t<'static>>(), 64);
         assert_eq!(align_of::<yaml__presentation_node__t<'static>>(), 8);
-        assert_eq!(offset_of!(yaml__presentation_node__t<'static>, prefixComments_tab), 0);
+        assert_eq!(offset_of!(yaml__presentation_node__t<'static>, prefixComments), 0);
         assert_eq!(offset_of!(yaml__presentation_node__t<'static>, inlineComment), 16);
         assert_eq!(offset_of!(yaml__presentation_node__t<'static>, emptyLines), 32);
         assert_eq!(offset_of!(yaml__presentation_node__t<'static>, flowMode), 33);
         assert_eq!(offset_of!(yaml__presentation_node__t<'static>, quoted), 34);
         assert_eq!(offset_of!(yaml__presentation_node__t<'static>, emptyNull), 35);
-        assert_eq!(offset_of!(yaml__presentation_node__t<'static>, included), 36);
-        assert_eq!(offset_of!(yaml__presentation_node__t<'static>, tpl), 44);
-        assert_eq!(offset_of!(yaml__presentation_node__t<'static>, mergeKey), 52);
+        assert_eq!(offset_of!(yaml__presentation_node__t<'static>, included), 40);
+        assert_eq!(offset_of!(yaml__presentation_node__t<'static>, tpl), 48);
+        assert_eq!(offset_of!(yaml__presentation_node__t<'static>, mergeKey), 56);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn yaml__presentation_node_mapping__t__layout() {
         assert_eq!(size_of::<yaml__presentation_node_mapping__t<'static>>(), 80);
@@ -275,28 +251,25 @@ pub mod test_yaml {
         assert_eq!(offset_of!(yaml__presentation_node_mapping__t<'static>, node), 16);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn yaml__document_presentation__t__layout() {
         assert_eq!(size_of::<yaml__document_presentation__t<'static>>(), 16);
         assert_eq!(align_of::<yaml__document_presentation__t<'static>>(), 8);
-        assert_eq!(offset_of!(yaml__document_presentation__t<'static>, mappings_tab), 0);
+        assert_eq!(offset_of!(yaml__document_presentation__t<'static>, mappings), 0);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn yaml__presentation_include__t__layout() {
         assert_eq!(size_of::<yaml__presentation_include__t<'static>>(), 72);
         assert_eq!(align_of::<yaml__presentation_include__t<'static>>(), 8);
         assert_eq!(offset_of!(yaml__presentation_include__t<'static>, path), 0);
         assert_eq!(offset_of!(yaml__presentation_include__t<'static>, raw), 16);
-        assert_eq!(offset_of!(yaml__presentation_include__t<'static>, includePresentation), 17);
-        assert_eq!(offset_of!(yaml__presentation_include__t<'static>, documentPresentation), 33);
-        assert_eq!(offset_of!(yaml__presentation_include__t<'static>, override__var), 49);
-        assert_eq!(offset_of!(yaml__presentation_include__t<'static>, variables), 57);
+        assert_eq!(offset_of!(yaml__presentation_include__t<'static>, includePresentation), 24);
+        assert_eq!(offset_of!(yaml__presentation_include__t<'static>, documentPresentation), 40);
+        assert_eq!(offset_of!(yaml__presentation_include__t<'static>, override__var), 56);
+        assert_eq!(offset_of!(yaml__presentation_include__t<'static>, variables), 64);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn yaml__presentation_override_node__t__layout() {
         assert_eq!(size_of::<yaml__presentation_override_node__t<'static>>(), 24);
@@ -305,15 +278,13 @@ pub mod test_yaml {
         assert_eq!(offset_of!(yaml__presentation_override_node__t<'static>, originalData), 16);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn yaml__presentation_override__t__layout() {
         assert_eq!(size_of::<yaml__presentation_override__t<'static>>(), 16);
         assert_eq!(align_of::<yaml__presentation_override__t<'static>>(), 8);
-        assert_eq!(offset_of!(yaml__presentation_override__t<'static>, nodes_tab), 0);
+        assert_eq!(offset_of!(yaml__presentation_override__t<'static>, nodes), 0);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn yaml__presentation_variable_binding__t__layout() {
         assert_eq!(size_of::<yaml__presentation_variable_binding__t<'static>>(), 32);
@@ -322,15 +293,13 @@ pub mod test_yaml {
         assert_eq!(offset_of!(yaml__presentation_variable_binding__t<'static>, value), 16);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn yaml__presentation_variable_settings__t__layout() {
         assert_eq!(size_of::<yaml__presentation_variable_settings__t<'static>>(), 16);
         assert_eq!(align_of::<yaml__presentation_variable_settings__t<'static>>(), 8);
-        assert_eq!(offset_of!(yaml__presentation_variable_settings__t<'static>, bindings_tab), 0);
+        assert_eq!(offset_of!(yaml__presentation_variable_settings__t<'static>, bindings), 0);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn yaml__presentation_merge_key_elem_key__t__layout() {
         assert_eq!(size_of::<yaml__presentation_merge_key_elem_key__t<'static>>(), 24);
@@ -339,21 +308,78 @@ pub mod test_yaml {
         assert_eq!(offset_of!(yaml__presentation_merge_key_elem_key__t<'static>, originalData), 16);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn yaml__presentation_merge_key_elem__t__layout() {
         assert_eq!(size_of::<yaml__presentation_merge_key_elem__t<'static>>(), 16);
         assert_eq!(align_of::<yaml__presentation_merge_key_elem__t<'static>>(), 8);
-        assert_eq!(offset_of!(yaml__presentation_merge_key_elem__t<'static>, keys_tab), 0);
+        assert_eq!(offset_of!(yaml__presentation_merge_key_elem__t<'static>, keys), 0);
     }
     #[test]
-    #[ignore = ".."] // FIXME: remove this when the test is fixed
     #[allow(nonstandard_style, dead_code)]
     fn yaml__presentation_merge_key__t__layout() {
         assert_eq!(size_of::<yaml__presentation_merge_key__t<'static>>(), 32);
         assert_eq!(align_of::<yaml__presentation_merge_key__t<'static>>(), 8);
-        assert_eq!(offset_of!(yaml__presentation_merge_key__t<'static>, elements_tab), 0);
+        assert_eq!(offset_of!(yaml__presentation_merge_key__t<'static>, elements), 0);
         assert_eq!(offset_of!(yaml__presentation_merge_key__t<'static>, presentation), 16);
         assert_eq!(offset_of!(yaml__presentation_merge_key__t<'static>, hasOnlyMergeKey), 24);
+    }
+}
+
+#[cfg(test)]
+#[rustfmt::skip]
+pub mod test_tstiop_void_type {
+    use crate::tstiop_void_type_iop_module::*;
+    #[test]
+    #[allow(nonstandard_style, dead_code)]
+    fn tstiop_void_type__void_alone__u__layout() {
+        assert_eq!(size_of::<tstiop_void_type__void_alone__u>(), 8);
+        assert_eq!(align_of::<tstiop_void_type__void_alone__u>(), 4);
+    }
+    #[test]
+    #[allow(nonstandard_style, dead_code)]
+    fn tstiop_void_type__int_to_void__t__layout() {
+        assert_eq!(size_of::<tstiop_void_type__int_to_void__t>(), 4);
+        assert_eq!(align_of::<tstiop_void_type__int_to_void__t>(), 4);
+        assert_eq!(offset_of!(tstiop_void_type__int_to_void__t, field), 0);
+    }
+    #[test]
+    #[allow(nonstandard_style, dead_code)]
+    fn tstiop_void_type__array_to_void__t__layout() {
+        assert_eq!(size_of::<tstiop_void_type__array_to_void__t>(), 16);
+        assert_eq!(align_of::<tstiop_void_type__array_to_void__t>(), 8);
+        assert_eq!(offset_of!(tstiop_void_type__array_to_void__t, field), 0);
+    }
+    #[test]
+    #[allow(nonstandard_style, dead_code)]
+    fn tstiop_void_type__small_array_to_void__t__layout() {
+        assert_eq!(size_of::<tstiop_void_type__small_array_to_void__t>(), 16);
+        assert_eq!(align_of::<tstiop_void_type__small_array_to_void__t>(), 8);
+        assert_eq!(offset_of!(tstiop_void_type__small_array_to_void__t, field), 0);
+    }
+    #[test]
+    #[allow(nonstandard_style, dead_code)]
+    fn tstiop_void_type__struct_to_void__t__layout() {
+        assert_eq!(size_of::<tstiop_void_type__struct_to_void__t>(), 4);
+        assert_eq!(align_of::<tstiop_void_type__struct_to_void__t>(), 4);
+        assert_eq!(offset_of!(tstiop_void_type__struct_to_void__t, field), 0);
+    }
+    #[test]
+    #[allow(nonstandard_style, dead_code)]
+    fn tstiop_void_type__double_to_void__t__layout() {
+        assert_eq!(size_of::<tstiop_void_type__double_to_void__t>(), 8);
+        assert_eq!(align_of::<tstiop_void_type__double_to_void__t>(), 8);
+        assert_eq!(offset_of!(tstiop_void_type__double_to_void__t, field), 0);
+    }
+    #[test]
+    #[allow(nonstandard_style, dead_code)]
+    fn tstiop_void_type__void_required__t__layout() {
+        assert_eq!(size_of::<tstiop_void_type__void_required__t>(), 0);
+        assert_eq!(align_of::<tstiop_void_type__void_required__t>(), 1);
+    }
+    #[test]
+    #[allow(nonstandard_style, dead_code)]
+    fn tstiop_void_type__void_optional__t__layout() {
+        assert_eq!(size_of::<tstiop_void_type__void_optional__t>(), 1);
+        assert_eq!(align_of::<tstiop_void_type__void_optional__t>(), 1);
     }
 }

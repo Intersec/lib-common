@@ -2163,7 +2163,7 @@ bool __ic_rpc_is_traced(
  *    your changes will be ignored, in the worst you will have a crash…
  *
  * Here an example of how to use this function:
- * <code>
+ * ```ignore
  *  RPC_IMPL(pkg, foo, bar)
  *  {
  *      CHECK_ID_OK(arg->id);
@@ -2181,7 +2181,7 @@ bool __ic_rpc_is_traced(
  *      // automatic and efficient answer forwarding
  *      __ic_forward_reply_to(ic, origin_slot, status, res, exn);
  *  }
- * </code>
+ * ```
  *
  * \param[in]  ic     the ichannel_t the "thing" we proxy comes from.
  * \param[in]  slot   the slot of the query we're answering to.

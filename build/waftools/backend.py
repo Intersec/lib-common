@@ -1598,6 +1598,7 @@ class Iop2c(FirstInputStrTask):
     color = 'BLUE'
     ext_out = ['.h', '.c']
     before = ['Blk2c', 'Blkk2cc', 'ClangCheck']
+    vars = ['IOP_RUST_GEN_TESTS']
     scan_failed: bool
     last_cmd: str
 
@@ -1743,6 +1744,9 @@ def process_iop(self: TaskGen, node: Node) -> None:
         task.env.IOP_TS_OUTPUT = opts.ts_output_option
         task.env.IOP_PYSTUB_OUTPUT = opts.pystub_output_option
         task.env.IOP_RUST_OUTPUT = opts.rust_output_option
+        task.env.IOP_RUST_GEN_TESTS = os.environ.get(
+            'IOPC_RUST_GEN_TESTS', ''
+        )
 
     self.source.append(c_node)
 

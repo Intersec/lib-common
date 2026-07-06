@@ -21,7 +21,7 @@ from waflib.Build import BuildContext
 ctx: BuildContext
 
 
-ctx.IopcOptions(ctx)
+ctx.IopcOptions(ctx, rust_path='../../src/iop-rust')
 
 ctx.stlib(
     target='tstiop',
