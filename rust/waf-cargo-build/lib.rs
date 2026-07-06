@@ -439,6 +439,17 @@ impl WafBuild {
             non_exhaustive: false,
         });
 
+        // Disable bindgen layout tests. They are incompatible with our
+        // cross-crate type deduplication: a type blocked here and re-imported
+        // from a dependency may have been generated there from an incomplete
+        // definition (e.g. `sockaddr_in6` is a 1-byte opaque placeholder in
+        // libcommon-core because glibc only forward-declares it), so the
+        // `size_of`/`offset_of` assertions of structs embedding it by value no
+        // longer hold. Some system structs also cannot be laid out identically
+        // to C in Rust at all (`packed` structs with an over-aligned member,
+        // e.g. `sctp_paddrparams` with `sockaddr_storage`).
+        builder = builder.layout_tests(false);
+
         // Call the callback to add the headers and exported functions.
         builder = cb(builder)?;
 
