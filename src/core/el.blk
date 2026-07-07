@@ -1697,22 +1697,14 @@ static data_t el_wake_unregister(el_t *elp)
     el_t el = *elp;
 
     if (el) {
-        /* An el-wake may be unregistered with some unread events
-         * (wakeup_count > 0), but if a read() has been handled while we are
-         * still inside a write() call we need to wait to avoid a data race on
-         * the FD close().
+        /* Acquire-load wakeup_count to pair with the release-add in
+         * el_wake_fire(): this establishes happens-before so that fire's
+         * struct accesses and its write(fd) are visible here before we close
+         * the fd and destroy the ev_t. The loaded value is irrelevant, only
+         * the acquire barrier matters; the eventfd read/write is already
+         * serialized by the kernel so there is nothing to wait for.
          */
-        while (unlikely(
-            atomic_load_explicit(
-                &el->wake.wakeup_count, memory_order_acquire
-            ) < 0
-        ))
-        {
-            /* Because the eventfd() API already have locks in the kernel we
-             * should rarely loop.
-             */
-            cpu_relax();
-        }
+        atomic_load_explicit(&el->wake.wakeup_count, memory_order_acquire);
         el_fd_unregister(&el->wake.event_fd);
         return el_destroy(elp);
     }
