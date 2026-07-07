@@ -1229,6 +1229,38 @@ Z_GROUP_EXPORT(core_errors)
         }
     }
     Z_TEST_END;
+
+    Z_TEST(backtrace_symbols) {
+        t_scope;
+        const char *path = t_fmt("%pL.bt", &z_tmpdir_g);
+        SB_1k(sb);
+        int fd;
+
+        if (access("/usr/bin/addr2line", X_OK) < 0 &&
+            access("/bin/addr2line", X_OK) < 0)
+        {
+            Z_SKIP("addr2line is not available");
+        }
+
+        fd = open(path, O_CREAT | O_TRUNC | O_WRONLY, 0600);
+        Z_ASSERT_N(fd, "cannot create file `%s`", path);
+
+        /* signum < 0 skips strsignal(), full == false skips the memory maps.
+         */
+        ps_dump_backtrace(-1, "zchk", fd, false);
+        p_close(&fd);
+
+        Z_ASSERT_N(sb_read_file(&sb, path));
+
+        /* backtrace_symbols_fd() cannot name ps_dump_backtrace() because it
+         * has hidden visibility, but addr2line resolves it. */
+        Z_ASSERT_P(strstr(sb.data, "--- Backtrace:"));
+        Z_ASSERT_P(
+            strstr(sb.data, "ps_dump_backtrace"),
+            "the backtrace should name ps_dump_backtrace:\n%s", sb.data
+        );
+    }
+    Z_TEST_END;
 }
 Z_GROUP_END;
 

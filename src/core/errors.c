@@ -16,13 +16,55 @@
 /*                                                                         */
 /***************************************************************************/
 
+#include <dlfcn.h>    /* dladdr */
 #include <execinfo.h> /* backtrace_symbols_fd */
+#include <link.h>     /* dl_iterate_phdr */
+#include <signal.h>   /* signal */
+#include <sys/wait.h> /* waitpid */
 
 #include <lib-common/core.h>
 #include <lib-common/thr.h>
 #include <lib-common/unix.h>
 
 #define XWRITE(s) IGNORE(xwrite(fd, s, strlen(s)))
+
+#ifndef NDEBUG
+/* Runtime address range and load bias of the main executable.
+ *
+ * dladdr() reports as base the address of the ELF header, which for a non-PIE
+ * (ET_EXEC) executable is not the load bias (e.g. 0x400000 vs 0), so the
+ * offset it implies is wrong for addr2line. We instead use the load bias
+ * reported by dl_iterate_phdr() (0 for non-PIE, the mapping base for PIE) and
+ * identify the main executable's frames by their address range.
+ * See ps_dump_symbolized_backtrace(). */
+static uintptr_t main_exe_lo_g;
+static uintptr_t main_exe_hi_g;
+static uintptr_t main_exe_bias_g;
+
+static int
+find_main_exe_base(struct dl_phdr_info *info, size_t size, void *data)
+{
+    uintptr_t lo = UINTPTR_MAX;
+    uintptr_t hi = 0;
+
+    /* The first object reported by dl_iterate_phdr() is the main program;
+     * span its loadable segments to get its runtime address range. */
+    for (int i = 0; i < info->dlpi_phnum; i++) {
+        const ElfW(Phdr) *ph = &info->dlpi_phdr[i];
+        uintptr_t seg = info->dlpi_addr + ph->p_vaddr;
+
+        if (ph->p_type != PT_LOAD) {
+            continue;
+        }
+        lo = MIN(lo, seg);
+        hi = MAX(hi, seg + ph->p_memsz);
+    }
+    main_exe_bias_g = info->dlpi_addr;
+    main_exe_lo_g = lo;
+    main_exe_hi_g = hi;
+    return 1;
+}
+#endif
 
 /** XXX The backtrace() function calls an init() function which uses malloc()
  * and leads to deadlock in the signals handler. So we always call backtrace()
@@ -33,6 +75,10 @@ __attribute__((constructor)) static void fix_backtrace_init(void)
     void *arr[256];
 
     backtrace(arr, countof(arr));
+
+#ifndef NDEBUG
+    dl_iterate_phdr(&find_main_exe_base, NULL);
+#endif
 }
 
 static bool should_dump_maps(void)
@@ -53,6 +99,251 @@ static bool should_dump_maps(void)
 }
 
 static bool debug_stack_has_frames(void);
+
+#ifndef NDEBUG
+
+typedef struct ps_frame_t {
+    const char *mod;   /* module path to display, or NULL if unresolved */
+    const char *a2l;   /* module path passed to addr2line, or NULL       */
+    uintptr_t addr;    /* return address                                 */
+    uintptr_t off;     /* addr - module base, i.e. the offset to display */
+    uintptr_t a2l_off; /* offset passed to addr2line (see the -1 below)  */
+} ps_frame_t;
+
+/* Write one backtrace line: "#NN module(+0xoff)[0xaddr]  name", where `name`
+ * (the addr2line result) may be NULL when the frame could not be resolved. */
+static void
+ps_emit_frame(const ps_frame_t *frame, int idx, const char *name, int fd)
+{
+    char buf[1024];
+    int len;
+
+    if (frame->mod) {
+        len = snprintf(
+            buf, sizeof(buf), "#%02d %s(+0x%jx)[0x%jx]", idx, frame->mod,
+            (uintmax_t)frame->off, (uintmax_t)frame->addr
+        );
+    } else {
+        len = snprintf(
+            buf, sizeof(buf), "#%02d [0x%jx]", idx, (uintmax_t)frame->addr
+        );
+    }
+    IGNORE(xwrite(fd, buf, MIN(len, (int)sizeof(buf) - 1)));
+    if (name && name[0]) {
+        XWRITE("  ");
+        XWRITE(name);
+    }
+    XWRITE("\n");
+}
+
+/* Symbolize the frames [lo, hi), which all belong to the same object, and
+ * write their backtrace lines to `fd`.
+ *
+ * We run "addr2line -p -f -C -e <obj>", feed it the file offsets on its
+ * standard input and read the resolved names back on a pipe (addr2line prints
+ * exactly one line per input address, in order). Each name is merged with the
+ * raw location computed by the caller. Frames left unresolved (addr2line
+ * missing, or fewer lines than expected) still get their raw location.
+ *
+ * We deliberately use raw fork() and execvp(): this runs from a signal
+ * handler after a crash, so we must run neither the module fork hooks that
+ * ifork() would trigger nor a shell as system() would. */
+static void
+ps_symbolize_group(const ps_frame_t *frames, int lo, int hi, int fd)
+{
+    int in_fd[2];
+    int out_fd[2];
+    pid_t pid;
+    int frame = lo;
+    char rbuf[512];
+    char line[1024];
+    int line_len = 0;
+    bool overflow = false;
+    ssize_t nr;
+
+    if (pipe(in_fd) < 0) {
+        goto unresolved;
+    }
+    if (pipe(out_fd) < 0) {
+        p_close(&in_fd[0]);
+        p_close(&in_fd[1]);
+        goto unresolved;
+    }
+    pid = (fork)();
+    if (pid < 0) {
+        p_close(&in_fd[0]);
+        p_close(&in_fd[1]);
+        p_close(&out_fd[0]);
+        p_close(&out_fd[1]);
+        goto unresolved;
+    }
+    if (pid == 0) {
+        const char *argv[] = {
+            "addr2line", "-p", "-f", "-C", "-e", frames[lo].a2l, NULL,
+        };
+
+        if (dup2(in_fd[0], STDIN_FILENO) >= 0 &&
+            dup2(out_fd[1], STDOUT_FILENO) >= 0)
+        {
+            close(in_fd[0]);
+            close(in_fd[1]);
+            close(out_fd[0]);
+            close(out_fd[1]);
+            execvp("addr2line", (char *const *)argv);
+        }
+        _exit(127);
+    }
+
+    p_close(&in_fd[0]);
+    p_close(&out_fd[1]);
+
+    /* Feed addr2line the file offsets, one per line. */
+    for (int k = lo; k < hi; k++) {
+        char buf[24];
+        int len = snprintf(
+            buf, sizeof(buf), "0x%jx\n", (uintmax_t)frames[k].a2l_off
+        );
+
+        IGNORE(xwrite(in_fd[1], buf, len));
+    }
+    p_close(&in_fd[1]);
+
+    /* Merge each resolved name back with its raw location. */
+    for (;;) {
+        nr = read(out_fd[0], rbuf, sizeof(rbuf));
+        if (nr < 0) {
+            if (ERR_RW_RETRIABLE(errno)) {
+                continue;
+            }
+            break;
+        }
+        if (nr == 0) {
+            break;
+        }
+        for (int p = 0; p < nr; p++) {
+            if (rbuf[p] == '\n') {
+                line[line_len] = '\0';
+                if (frame < hi) {
+                    ps_emit_frame(&frames[frame], frame, line, fd);
+                    frame++;
+                }
+                line_len = 0;
+                overflow = false;
+            } else if (!overflow) {
+                if (line_len < (int)sizeof(line) - 1) {
+                    line[line_len++] = rbuf[p];
+                } else {
+                    /* Drop the rest of an over-long line to stay aligned. */
+                    overflow = true;
+                }
+            }
+        }
+    }
+    p_close(&out_fd[0]);
+    IGNORE(waitpid(pid, NULL, 0));
+
+unresolved:
+    for (; frame < hi; frame++) {
+        ps_emit_frame(&frames[frame], frame, NULL, fd);
+    }
+}
+
+/* Write a symbolized backtrace to `fd`.
+ *
+ * backtrace_symbols_fd() can only name symbols listed in the dynamic symbol
+ * table. Static functions are never listed there, and since we build with
+ * -fvisibility=hidden almost nothing else is either, so it can only print
+ * bare addresses. We instead resolve every frame with addr2line, which reads
+ * the DWARF debug info embedded by -ggdb3, and print on each line both the
+ * raw location (to symbolize offline should the debug info be missing here)
+ * and the resolved "function at file:line".
+ *
+ * This is only done on debug and default builds (NDEBUG undefined). */
+static void ps_dump_symbolized_backtrace(void *const *arr, int count, int fd)
+{
+    ps_frame_t frames[256];
+    char self_exe[32];
+    void (*old_sigpipe)(int);
+
+    if (count <= 0) {
+        return;
+    }
+    count = MIN(count, countof(frames));
+
+    /* Path to the main executable. We use /proc/<pid>/exe rather than its
+     * on-disk path: it is always absolute and still points to the running
+     * binary even if it was replaced on disk (e.g. after an upgrade). It must
+     * be resolved through our own pid, not /proc/self/exe, since addr2line
+     * opens it from its own process. */
+    snprintf(self_exe, sizeof(self_exe), "/proc/%d/exe", (int)getpid());
+
+    for (int i = 0; i < count; i++) {
+        uintptr_t addr = (uintptr_t)arr[i];
+        /* The frames are return addresses: step back one byte so the lookup
+         * lands on the call instruction, and not on whatever follows it (the
+         * next line, or even the next function for a noreturn call). */
+        uintptr_t pc = addr ? addr - 1 : addr;
+        Dl_info info;
+
+        frames[i].addr = addr;
+        if (addr >= main_exe_lo_g && addr < main_exe_hi_g) {
+            /* Main executable: offset from the load bias (right for both PIE
+             * and non-PIE), and /proc/<pid>/exe as the addr2line target. */
+            frames[i].mod = dladdr((void *)pc, &info) && info.dli_fname &&
+                                    info.dli_fname[0]
+                                ? info.dli_fname
+                                : self_exe;
+            frames[i].a2l = self_exe;
+            frames[i].off = addr - main_exe_bias_g;
+            frames[i].a2l_off = pc - main_exe_bias_g;
+        } else if (
+            dladdr((void *)pc, &info) && info.dli_fname && info.dli_fname[0]
+        )
+        {
+            /* Shared library: it is always ET_DYN, so dladdr()'s base is the
+             * load bias and the offset is correct. */
+            uintptr_t base = (uintptr_t)info.dli_fbase;
+
+            frames[i].mod = info.dli_fname;
+            frames[i].a2l = info.dli_fname;
+            frames[i].off = addr - base;
+            frames[i].a2l_off = pc - base;
+        } else {
+            frames[i].mod = NULL;
+            frames[i].a2l = NULL;
+            frames[i].off = 0;
+            frames[i].a2l_off = 0;
+        }
+    }
+
+    XWRITE("--- Backtrace:\n\n");
+
+    /* Feeding offsets to an addr2line that is absent or has died raises
+     * SIGPIPE; ignore it so we keep dumping (and fall back to raw addresses)
+     * instead of being killed mid-crash. */
+    old_sigpipe = signal(SIGPIPE, SIG_IGN);
+
+    /* Symbolize consecutive frames from the same object in one addr2line run,
+     * keeping the frames in stack order. */
+    for (int i = 0; i < count;) {
+        int j = i;
+
+        if (!frames[i].a2l) {
+            ps_emit_frame(&frames[i], i, NULL, fd);
+            i++;
+            continue;
+        }
+        while (j < count && frames[j].a2l == frames[i].a2l) {
+            j++;
+        }
+        ps_symbolize_group(frames, i, j, fd);
+        i = j;
+    }
+
+    signal(SIGPIPE, old_sigpipe);
+}
+
+#endif
 
 void ps_dump_backtrace(int signum, const char *prog, int fd, bool full)
 {
@@ -83,7 +374,13 @@ void ps_dump_backtrace(int signum, const char *prog, int fd, bool full)
     }
 
     bt = backtrace(arr, countof(arr));
+#ifndef NDEBUG
+    /* On debug and default builds, resolve each frame to a symbol name and
+     * source location; the raw address stays on the line as a fallback. */
+    ps_dump_symbolized_backtrace(arr, bt, fd);
+#else
     backtrace_symbols_fd(arr, bt, fd);
+#endif
     fsync(fd);
 
     if (full && should_dump_maps()) {
