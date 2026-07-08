@@ -20,6 +20,7 @@ use crate::{
     bindings::{__ic_msg_build, ic__ic_status__t, ic_is_local, iop_rpc_t},
     ic__ic_status__t::{IC_MSG_EXN, IC_MSG_OK},
 };
+use libcommon::iop::{IopDup, Owned, OwnedIop as _};
 use libcommon::run_callback::{Callback, CallbackFut, run_callback};
 use std::ffi::c_void;
 use std::ptr::{read, write};
@@ -34,15 +35,15 @@ pub mod bindings {
 
 // {{{ ICQuery builder
 
-pub struct ICQuery<A> {
+pub struct ICQuery<A: IopDup> {
     pub ic: *mut ichannel_t,
     pub rpc: *const iop_rpc_t,
     pub hdr: *const ic__hdr__t,
-    pub args: *const A,
+    pub args: Owned<A>,
     pub cmd: i32,
 }
 
-unsafe impl<A> Send for ICQuery<A> {}
+unsafe impl<A: IopDup> Send for ICQuery<A> {}
 
 // }}}
 // {{{ Error Handler
@@ -62,20 +63,26 @@ unsafe extern "C" fn cb_func<R, E>(
     res: *mut c_void,
     exn: *mut c_void,
 ) where
-    R: Send + 'static,
-    E: Send + 'static,
+    R: IopDup + 'static,
+    E: IopDup + 'static,
 {
     // `ic` is unused: everything we need is available on `msg`/`status`/`res`/`exn`
 
     let msg = unsafe { &mut *msg_p };
-    let ptr = (&raw mut msg.priv_) as *mut Callback<Result<R, IcError<E>>>;
+
+    let ptr = (&raw mut msg.priv_) as *mut Callback<Result<Owned<R>, IcError<Owned<E>>>>;
     debug_assert!(ptr.is_aligned(), "ic_msg_t::priv_ is not properly aligned");
     let cb = unsafe { read(ptr) };
+    // The RPC descriptors are what let the generic (`GenericStructUnion`) `R`/`E`
+    // rebuild an owned value from the raw blob; the compiled path ignores them.
+    let rpc = unsafe { &*msg.rpc };
     if status == IC_MSG_OK {
-        let result = unsafe { read(res as *const R) };
+        debug_assert!(!res.is_null(), "IC_MSG_OK with null result");
+        let result = unsafe { R::dup_from_raw(rpc.result, res) };
         cb.call(Ok(result));
     } else if status == IC_MSG_EXN {
-        let result = unsafe { read(exn as *const E) };
+        debug_assert!(!exn.is_null(), "IC_MSG_EXN with null exn");
+        let result = unsafe { E::dup_from_raw(rpc.exn, exn) };
         cb.call(Err(IcError::Exn(result)));
     } else {
         cb.call(Err(IcError::Status(status)));
@@ -86,13 +93,13 @@ fn ic_prepare_msg<R, E>(
     msg: &mut ic_msg_t,
     rpc: *const iop_rpc_t,
     hdr: *const ic__hdr__t,
-    cb: Callback<Result<R, IcError<E>>>,
+    cb: Callback<Result<Owned<R>, IcError<Owned<E>>>>,
     cmd: i32,
 ) where
-    R: Send + 'static,
-    E: Send + 'static,
+    R: IopDup + 'static,
+    E: IopDup + 'static,
 {
-    let ptr = &raw mut msg.priv_ as *mut Callback<Result<R, IcError<E>>>;
+    let ptr = (&raw mut msg.priv_) as *mut Callback<Result<Owned<R>, IcError<Owned<E>>>>;
     debug_assert!(ptr.is_aligned(), "ic_msg_t::priv_ is not properly aligned");
     unsafe {
         write(ptr, cb);
@@ -108,30 +115,35 @@ fn ic_prepare_msg<R, E>(
 // }}}
 // {{{ Rust IChannel query
 
-fn call_ic_query<A, R, E>(cb: Callback<Result<R, IcError<E>>>, ic_query: &ICQuery<A>)
+fn call_ic_query<A, R, E>(cb: Callback<Result<Owned<R>, IcError<Owned<E>>>>, ic_query: &ICQuery<A>)
 where
-    R: Send + 'static,
-    E: Send + 'static,
+    A: IopDup,
+    R: IopDup + 'static,
+    E: IopDup + 'static,
 {
     let msg = unsafe { &mut *ic_msg_new(size_of_val(&cb) as i32) };
-    ic_prepare_msg(msg, ic_query.rpc, ic_query.hdr, cb, ic_query.cmd);
+    // `Owned<R>` is an associated-type projection, which is not injective, so
+    // the generic args can't be inferred back from `cb`: name them explicitly.
+    ic_prepare_msg::<R, E>(msg, ic_query.rpc, ic_query.hdr, cb, ic_query.cmd);
     let args = unsafe { (*msg.rpc).args };
     let do_bpack = !unsafe { ic_is_local(ic_query.ic) } || msg.force_pack();
     unsafe {
-        __ic_msg_build(msg, args, ic_query.args as *const c_void, do_bpack);
+        __ic_msg_build(msg, args, ic_query.args.as_raw(), do_bpack);
     }
     unsafe {
         __ic_query(ic_query.ic, msg);
     }
 }
 
-pub fn ic_query<A, R, E>(ic_query: ICQuery<A>) -> CallbackFut<Result<R, IcError<E>>>
+pub fn ic_query<A, R, E>(ic_query: ICQuery<A>) -> CallbackFut<Result<Owned<R>, IcError<Owned<E>>>>
 where
-    A: 'static,
-    R: Send + 'static,
-    E: Send + 'static,
+    A: IopDup + 'static,
+    R: IopDup + 'static,
+    E: IopDup + 'static,
 {
-    run_callback(move |cb: Callback<Result<R, IcError<E>>>| call_ic_query(cb, &ic_query))
+    run_callback(move |cb: Callback<Result<Owned<R>, IcError<Owned<E>>>>| {
+        call_ic_query::<A, R, E>(cb, &ic_query);
+    })
 }
 
 // }}}

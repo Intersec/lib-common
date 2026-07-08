@@ -28,14 +28,16 @@ use std::ptr;
 use crate::bindings::{
     iop_enum_t, iop_env_ctx_acquire, iop_env_ctx_dup, iop_env_ctx_get_struct, iop_env_ctx_guard_t,
     iop_env_ctx_release, iop_env_delete, iop_env_new, iop_env_t, iop_init_desc, iop_pkg_t,
-    iop_register_packages, iop_sb_jpack, iop_struct_t, t_iop_junpack_ptr_ps, t_iop_new_desc,
-    t_iop_sb_ypack, t_iop_yunpack_ptr_ps,
+    iop_register_packages, iop_sb_jpack, iop_struct_t, mp_iop_dup_desc_sz, t_iop_junpack_ptr_ps,
+    t_iop_new_desc, t_iop_sb_ypack, t_iop_yunpack_ptr_ps,
 };
 
 use crate::lstr;
 use crate::mem_stack::TScope;
 use crate::pstream::pstream_t;
+use libcommon_core::bindings::{mem_pool_libc, mp_ifree};
 use libcommon_core::{SB_1k, sb::Sb};
+use std::ops::Deref;
 
 // {{{ Errors
 
@@ -169,12 +171,12 @@ pub trait CStruct: Struct + CStructUnion {
 ///
 /// It implements the IOP `StructUnion` trait.
 ///
-/// `_ctx` keeps the ctx snapshot `cdesc` was resolved from alive, or is
+/// `ctx` keeps the ctx snapshot `cdesc` was resolved from alive, or is
 /// `None` for a static / caller-owned descriptor (via `new`).
 pub struct GenericStructUnion<'a> {
     cdesc: *const iop_struct_t,
     cptr: *mut c_void,
-    _ctx: Option<EnvCtx>,
+    ctx: Option<EnvCtx>,
     _phantom: PhantomData<&'a c_void>,
 }
 
@@ -189,7 +191,7 @@ impl GenericStructUnion<'_> {
         Self {
             cdesc,
             cptr,
-            _ctx: None,
+            ctx: None,
             _phantom: PhantomData,
         }
     }
@@ -200,7 +202,7 @@ impl GenericStructUnion<'_> {
         Self {
             cdesc,
             cptr,
-            _ctx: Some(ctx),
+            ctx: Some(ctx),
             _phantom: PhantomData,
         }
     }
@@ -222,6 +224,210 @@ impl StructUnion for GenericStructUnion<'_> {
     }
 }
 
+impl IopDup for GenericStructUnion<'_> {
+    type Owned = OwnedGeneric;
+
+    fn dup(&self) -> OwnedGeneric {
+        let cdesc = self.cdesc;
+        let raw = unsafe {
+            mp_iop_dup_desc_sz(&raw mut mem_pool_libc, cdesc, self.cptr, ptr::null_mut())
+        };
+        let cptr = ptr::NonNull::new(raw)
+            .expect("failed allocation for IOP dup")
+            .as_ptr();
+
+        // Rebuild the handle over the owned blob, cloning the ctx (bumping its
+        // refcount) so a DSO-resolved descriptor stays valid.
+        OwnedGeneric {
+            inner: GenericStructUnion {
+                cdesc,
+                cptr,
+                ctx: self.ctx.clone(),
+                _phantom: PhantomData,
+            },
+        }
+    }
+
+    unsafe fn dup_from_raw(cdesc: *const iop_struct_t, blob: *const c_void) -> OwnedGeneric {
+        // Wrap the raw blob in a transient handle over `cdesc`, then deep-dup
+        // it. The descriptor is treated as static / caller-owned (`ctx` stays
+        // `None`), which holds for the compiled-in RPC descriptors this is
+        // reached from.
+        GenericStructUnion::new(cdesc, blob.cast_mut()).dup()
+    }
+}
+
+// }}}
+// {{{ IOP Owned
+// {{{ IopDup trait
+
+/// Deep-duplicate an IOP value into an owned allocation.
+///
+/// The owned representation is specialized per family through the [`Owned`]
+/// associated type: a compiled ([`CStructUnion`]) value only needs a pointer
+/// (its descriptor is `'static`), while a [`GenericStructUnion`] must keep its
+/// [`EnvCtx`] snapshot alive. `dup` cannot live on [`StructUnion`] itself
+/// because that trait is object-safe and would require a single uniform return
+/// type.
+#[allow(clippy::module_name_repetitions)]
+pub trait IopDup: StructUnion + Sized {
+    /// Minimal owned representation for this type.
+    ///
+    /// Owned IOP values live in the process-global libc pool and carry no
+    /// borrows, so every representation is `Send` — required to hand a dup'd
+    /// value back through an ichannel callback (whose payload must be `Send`).
+    /// [`OwnedIop`] gives access to the raw `(blob, descriptor)` pair without
+    /// knowing which representation was selected.
+    type Owned: Send + OwnedIop;
+
+    /// Deep-duplicate this value into `mem_pool_libc`.
+    fn dup(&self) -> Self::Owned;
+
+    /// Deep-duplicate an IOP value from a raw `(descriptor, blob)` pair into
+    /// `mem_pool_libc`.
+    ///
+    /// Counterpart to [`dup`](Self::dup) for the case where only a raw C
+    /// pointer and its descriptor are available rather than a typed `&self` —
+    /// e.g. reconstructing an ichannel RPC result or exception from inside a C
+    /// callback. For a compiled type `cdesc` is redundant (it must equal
+    /// `Self::CDESC`; only the layout matters); for [`GenericStructUnion`] the
+    /// descriptor is what makes the owned value usable at all.
+    ///
+    /// # Safety
+    ///
+    /// `blob` must be non-null and point to a valid IOP value described by
+    /// `cdesc`. For a compiled `Self`, the blob must have `Self`'s layout
+    /// (equivalently `cdesc == Self::CDESC`). `cdesc` must stay valid for the
+    /// lifetime of the returned value — guaranteed for static / compiled-in
+    /// descriptors, which is the ichannel RPC case.
+    unsafe fn dup_from_raw(cdesc: *const iop_struct_t, blob: *const c_void) -> Self::Owned;
+}
+
+/// Name-preserving alias: `Owned<Foo>` and `Owned<GenericStructUnion>` resolve
+/// to their specialized representations.
+pub type Owned<T> = <T as IopDup>::Owned;
+
+// }}}
+// {{{ OwnedIop trait
+
+mod owned_sealed {
+    pub trait Sealed {}
+}
+
+/// Shared surface over any owned IOP value, regardless of representation.
+#[allow(clippy::module_name_repetitions)]
+pub trait OwnedIop: owned_sealed::Sealed {
+    /// Raw pointer to the owned IOP blob.
+    fn as_raw(&self) -> *const c_void;
+
+    /// Descriptor of the owned value.
+    fn cdesc(&self) -> *const iop_struct_t;
+}
+
+// }}}
+// {{{ OwnedStruct: compiled representation
+
+/// Owned compiled IOP value: a single pointer into `mem_pool_libc`. The
+/// descriptor is recovered from `T::CDESC` (`'static`, zero storage) and there
+/// is never a ctx to keep alive.
+pub struct OwnedStruct<T: CStructUnion> {
+    ptr: ptr::NonNull<T>,
+}
+
+// The blob lives in the process-global libc pool, so the owned value can move
+// across threads.
+unsafe impl<T: CStructUnion> Send for OwnedStruct<T> {}
+
+impl<T: CStructUnion> owned_sealed::Sealed for OwnedStruct<T> {}
+
+impl<T: CStructUnion> OwnedIop for OwnedStruct<T> {
+    fn as_raw(&self) -> *const c_void {
+        self.ptr.as_ptr().cast()
+    }
+
+    fn cdesc(&self) -> *const iop_struct_t {
+        T::CDESC
+    }
+}
+
+// Only compiled types are layout-compatible with the blob, so `Deref` is
+// bounded on `CStructUnion`.
+impl<T: CStructUnion> Deref for OwnedStruct<T> {
+    type Target = T;
+    fn deref(&self) -> &T {
+        unsafe { self.ptr.as_ref() }
+    }
+}
+
+impl<T: CStructUnion> Drop for OwnedStruct<T> {
+    fn drop(&mut self) {
+        unsafe {
+            mp_ifree(&raw mut mem_pool_libc, self.ptr.as_ptr().cast::<c_void>());
+        }
+    }
+}
+
+// }}}
+// {{{ OwnedGeneric: generic representation
+
+/// Owned generic IOP value. Reuses [`GenericStructUnion`] as its storage; the
+/// `'static` inner is sound because the blob is owned here (freed on drop) and
+/// the borrows handed out via `Deref` are bounded by this value's lifetime.
+pub struct OwnedGeneric {
+    inner: GenericStructUnion<'static>,
+}
+
+unsafe impl Send for OwnedGeneric {}
+
+impl owned_sealed::Sealed for OwnedGeneric {}
+
+impl OwnedIop for OwnedGeneric {
+    fn as_raw(&self) -> *const c_void {
+        self.inner.get_cptr()
+    }
+
+    fn cdesc(&self) -> *const iop_struct_t {
+        self.inner.get_cdesc()
+    }
+}
+
+impl Deref for OwnedGeneric {
+    type Target = GenericStructUnion<'static>;
+    fn deref(&self) -> &GenericStructUnion<'static> {
+        &self.inner
+    }
+}
+
+impl Drop for OwnedGeneric {
+    fn drop(&mut self) {
+        // Free the blob; `inner.ctx` drops afterwards, releasing the snapshot.
+        unsafe {
+            mp_ifree(&raw mut mem_pool_libc, self.inner.cptr);
+        }
+    }
+}
+
+// }}}
+// {{{ IopDup implementations
+
+impl<T: CStructUnion> IopDup for T {
+    type Owned = OwnedStruct<T>;
+
+    fn dup(&self) -> OwnedStruct<T> {
+        unsafe { <T as IopDup>::dup_from_raw(T::CDESC, self.get_cptr()) }
+    }
+
+    unsafe fn dup_from_raw(_cdesc: *const iop_struct_t, blob: *const c_void) -> OwnedStruct<T> {
+        // A compiled type is laid out exactly like its IOP blob, so the blob is
+        // duplicated straight through `T::CDESC` and reinterpreted as `T`.
+        let raw =
+            unsafe { mp_iop_dup_desc_sz(&raw mut mem_pool_libc, T::CDESC, blob, ptr::null_mut()) };
+        let ptr = ptr::NonNull::new(raw.cast::<T>()).expect("failed allocation for IOP dup");
+        OwnedStruct { ptr }
+    }
+}
+
+// }}}
 // }}}
 // {{{ IOP Env
 
