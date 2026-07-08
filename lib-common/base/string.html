@@ -6,7 +6,7 @@
     <title>Strings :: Intersec lib-common Documentation</title>
     <meta name="generator" content="Antora 3.1.2">
     <link rel="stylesheet" href="../../_/css/site.css">
-    <script>var uiRootPath = '../../_'</script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.4">
     <link rel="icon" href="../../_/img/favicon.png" type="image/png">
   </head>
   <body class="article">
@@ -15,15 +15,13 @@
     <div class="navbar-brand">
       <img class="navbar-logo" src="../../_/img/logo_intersec.png" alt="Intersec" />
       <a class="navbar-item" href="../..">Intersec lib-common Documentation</a>
-      <button class="navbar-burger" data-target="topbar-nav">
+      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
         <span></span>
         <span></span>
         <span></span>
       </button>
     </div>
     <div id="topbar-nav" class="navbar-menu">
-      <div class="navbar-end">
-            </div>
     </div>
   </nav>
 </header>
@@ -33,6 +31,7 @@
     <div class="panels">
 <div class="nav-panel-menu is-active" data-panel="menu">
   <nav class="nav-menu">
+    <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
     <h3 class="title"><a href="../index.html">Lib-common Documentation</a></h3>
 <ul class="nav-list">
   <li class="nav-item" data-depth="0">
@@ -110,19 +109,103 @@
     <span class="nav-text">IOP</span>
 <ul class="nav-list">
   <li class="nav-item" data-depth="2">
-    <a class="nav-link" href="../iop/base.html">IOP Basics</a>
+    <a class="nav-link" href="../iop/index.html">Introduction</a>
   </li>
   <li class="nav-item" data-depth="2">
-    <a class="nav-link" href="../iop/wire-format.html">Wire format</a>
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP specification</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/spec/overview.html">Specification overview</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Language reference</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/lexical.html">Lexical structure</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/packages.html">Packages and imports</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/types.html">Types and fields</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/structs-unions-enums.html">Structs, unions and enums</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/classes.html">Classes and inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/attributes.html">Attributes and constraints</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/interfaces-modules.html">Interfaces, RPCs and modules</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/snmp.html">SNMP extensions</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/doc-comments.html">Documentation comments</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Serialization formats</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/wire-format.html">Binary wire format</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/json.html">JSON representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/yaml.html">YAML representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/xml.html">XML and SOAP representation</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/spec/compatibility.html">Backward-compatibility rules</a>
+  </li>
+</ul>
   </li>
   <li class="nav-item" data-depth="2">
-    <a class="nav-link" href="../iop/inheritance.html">Class inheritance</a>
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Reference implementation</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/impl/iopc.html">The iopc compiler</a>
   </li>
-  <li class="nav-item" data-depth="2">
-    <a class="nav-link" href="../iop/iop-attributes.html">IOP attributes</a>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/impl/iopc-backends.html">iopc backends: C, JSON, TypeScript, Python stubs</a>
   </li>
-  <li class="nav-item" data-depth="2">
-    <a class="nav-link" href="../iop/library-c.html">C library</a>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/impl/c-mapping.html">C language mapping</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/impl/c-runtime.html">C runtime library</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/impl/ichannel.html">IChannel RPC protocol</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/impl/dso-iopsq.html">DSO plugins and IOP²</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/impl/bindings.html">Language bindings: IOPy, TypeScript and Rust</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/impl/iopy.html">IOPy: the Python binding</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/impl/generators.html">OpenAPI, WSDL and SNMP MIB generation</a>
+  </li>
+</ul>
   </li>
 </ul>
   </li>
@@ -138,7 +221,7 @@
   </div>
   <ul class="components">
     <li class="component is-current">
-      <a class="title" href="../index.html">Lib-common Documentation</a>
+      <div class="title"><a href="../index.html">Lib-common Documentation</a></div>
       <ul class="versions">
         <li class="version is-current is-latest">
           <a href="../index.html">master</a>
@@ -326,33 +409,33 @@ ownership you can use <code>lstr_transfer</code>.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">struct foo_t {
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">typedef struct foo_t {
    lstr_t name;
-};
+} foo_t;
 
-void foo_wipe(struct foo_t *foo)
+void foo_wipe(foo_t *foo)
 {
    lstr_wipe(&amp;bar-&gt;name);
 }
-GENERIC_DELETE(struct foo_t, foo)
+GENERIC_DELETE(foo_t, foo)
 
-struct bar_t {
+typedef struct bar_t {
    lstr_t name;
-}
+} bar_t;
 
-void bar_wipe(struct bar_t *bar)
+void bar_wipe(bar_t *bar)
 {
    lstr_wipe(&amp;bar-&gt;name);
 }
-GENERIC_DELETE(struct bar_t, bar)
+GENERIC_DELETE(bar_t, bar)
 
 /* Example of foo taking ownership of the name of bar.  This works without
  * recopy and without risk of double ownership (and thus of double free), since
  * we properly transfer the ownership of the lstr_t to foo.
  */
-struct foo_t *bar_to_foo(struct bar_t **bar)
+foo_t *bar_to_foo(bar_t **bar)
 {
-   struct foo_t *foo = p_new(struct foo_t, 1);
+   foo_t *foo = p_new(foo_t, 1);
 
    lstr_transfer(&amp;foo-&gt;name, &amp;(*bar)-&gt;name);
    bar_delete(bar);
@@ -362,9 +445,9 @@ struct foo_t *bar_to_foo(struct bar_t **bar)
 /* Example of taking a constant copy of the name of bar.  This works as long as
  * we're sure foo's lifetime is shorter than bar's one.
  */
-struct foo_t *foo_from_bar(const struct bar_t *bar)
+foo_t *foo_from_bar(const bar_t *bar)
 {
-   struct foo_t *foo = p_new(struct foo_t, 1);
+   foo_t *foo = p_new(foo_t, 1);
 
    foo-&gt;name = lstr_dupc(bar-&gt;name);
    return foo;
@@ -373,9 +456,9 @@ struct foo_t *foo_from_bar(const struct bar_t *bar)
 /* Example of taking a full copy of the name of bar.  This always work but
  * implies we have a new allocated string for each structure.
  */
-struct foo_t *copy_foo_from_bar(const struct bar_t *bar)
+foo_t *copy_foo_from_bar(const bar_t *bar)
 {
-   struct foo_t *foo = p_new(struct foo_t, 1);
+   foo_t *foo = p_new(foo_t, 1);
 
    foo-&gt;name = lstr_dup(bar-&gt;name);
    return foo;
@@ -424,18 +507,18 @@ error in case a condition is not met.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">struct user_t {
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">typedef struct user_t {
     lstr_t firstname;
     lstr_t lastname;
     int age;
     bool gender;
-};
+} user_t;
 
 /* Read a record with the following format: firstname;lastname;age;gender
  * whitespaces are ignored, firstname and lastname should contain only alpha
  * characters, gender can be either M or F
  */
-int parse_record(pstream_t *ps, struct user_t *user)
+int parse_record(pstream_t *ps, user_t *user)
 {
 #define READ_SEMICOLON()              \
     ps_ltrim(ps);                     \
@@ -488,7 +571,7 @@ int parse_record(pstream_t *ps, struct user_t *user)
  * lastname content except that they cannot contain a semi-colon. Whitespaces
  * are not ignored.
  */
-int parse_record2(pstream_t *ps, struct user_t *user)
+int parse_record2(pstream_t *ps, user_t *user)
 {
     pstream_t n;
 

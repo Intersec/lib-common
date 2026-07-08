@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>OpenAPI, WSDL and SNMP MIB generation :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 3.1.2">
+    <link rel="stylesheet" href="../../../_/css/site.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.4">
+    <link rel="icon" href="../../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../../..">Intersec lib-common Documentation</a>
+      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
+    </div>
+  </nav>
+</header>
+<div class="body">
+<div class="nav-container" data-component="lib-common" data-version="master">
+  <aside class="nav">
+    <div class="panels">
+<div class="nav-panel-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
+    <h3 class="title"><a href="../../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/modules.html">Modules</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/threads.html">Thread jobs</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/prometheus-client.html">Prometheus client</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../index.html">Introduction</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP specification</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../spec/overview.html">Specification overview</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Language reference</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/lexical.html">Lexical structure</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/packages.html">Packages and imports</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/types.html">Types and fields</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/structs-unions-enums.html">Structs, unions and enums</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/classes.html">Classes and inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/attributes.html">Attributes and constraints</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/interfaces-modules.html">Interfaces, RPCs and modules</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/snmp.html">SNMP extensions</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/doc-comments.html">Documentation comments</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Serialization formats</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/wire-format.html">Binary wire format</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/json.html">JSON representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/yaml.html">YAML representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/xml.html">XML and SOAP representation</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../spec/compatibility.html">Backward-compatibility rules</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Reference implementation</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iopc.html">The iopc compiler</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iopc-backends.html">iopc backends: C, JSON, TypeScript, Python stubs</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="c-mapping.html">C language mapping</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="c-runtime.html">C runtime library</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="ichannel.html">IChannel RPC protocol</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="dso-iopsq.html">DSO plugins and IOP²</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="bindings.html">Language bindings: IOPy, TypeScript and Rust</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iopy.html">IOPy: the Python binding</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="3">
+    <a class="nav-link" href="generators.html">OpenAPI, WSDL and SNMP MIB generation</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="nav-panel-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <div class="title"><a href="../../index.html">Lib-common Documentation</a></div>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+<main class="article">
+<div class="toolbar" role="navigation">
+<button class="nav-toggle"></button>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="../../index.html">Lib-common Documentation</a></li>
+    <li>IOP</li>
+    <li>Reference implementation</li>
+    <li><a href="generators.html">OpenAPI, WSDL and SNMP MIB generation</a></li>
+  </ul>
+</nav>
+</div>
+  <div class="content">
+<aside class="toc sidebar" data-title="Contents" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
+<article
+class="doc"
+>
+<h1 class="page">OpenAPI, WSDL and SNMP MIB generation</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_openapi">1. OpenAPI</a></li>
+<li><a href="#_wsdl">2. WSDL</a></li>
+<li><a href="#_snmp_mib_and_documentation">3. SNMP MIB and documentation</a></li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>Three generators derive external interface descriptions from IOP
+definitions. They all feed on the runtime descriptors (including the
+doxygen help texts), so they work on any registered package.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_openapi"><a class="anchor" href="#_openapi"></a>1. OpenAPI</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><code>src/iop-openapi.h</code> generates an <strong>OpenAPI 3.0.2</strong> document as a YAML
+AST:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">iop_openapi_t *oa = t_new_iop_openapi(title, version, mod, route);
+t_iop_openapi_set_server(oa, url, desc);
+t_iop_openapi_set_security(oa, name, OPENAPI_SECURITY_BASIC_HTTP);
+t_iop_openapi_whitelist_rpc(oa, LSTR("pkg.Iface.rpc"));
+t_iop_openapi_to_yaml(oa, &amp;yaml_data, &amp;err);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Every RPC of the module becomes a <code>post</code> operation on
+<code>/&lt;route&gt;/&lt;iface_alias&gt;/&lt;rpc&gt;</code>, with <code>requestBody</code> from the <code>in</code>
+payload and responses from <code>out</code>/<code>throw</code>. Struct/union/class/enum
+schemas are emitted under <code>components.schemas</code> with <code>$ref</code> links;
+constraints and defaults are reflected; <code>@brief</code>/<code>@details</code> comments
+become <code>description</code> fields. An empty whitelist exposes everything; a
+whitelist entry matching nothing fails generation.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_wsdl"><a class="anchor" href="#_wsdl"></a>2. WSDL</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><code>iop_xwsdl()</code> (<code>src/iop/xml.h</code>) writes a complete <strong>WSDL 1.1
+document/literal SOAP</strong> contract for a module: an XML-Schema <code>types</code>
+section (structs/classes as <code>complexType</code> with <code>extension</code> for
+inheritance, unions as <code>choice</code>, constraints as restrictions, optional
+literal enums), per-RPC request/response/fault messages (a union
+exception expands to one fault per member), a <code>portType</code>, a SOAP
+binding and the service endpoint address. An optional RPC set
+restricts what is exported; <code>with_auth</code> adds a caller-identity SOAP
+header. Packages containing classes must be registered
+(<code>IOP_REGISTER_PACKAGES</code>) beforehand.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_snmp_mib_and_documentation"><a class="anchor" href="#_snmp_mib_and_documentation"></a>3. SNMP MIB and documentation</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>From packages containing <a href="../spec/snmp.html" class="xref page">SNMP constructs</a>:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>iop_write_mib(sb, pkgs, revisions)</code> (<code>src/iop-snmp.h</code>) emits an
+SNMPv2 MIB document rooted at Intersec&#8217;s enterprise OID: imports,
+<code>MODULE-IDENTITY</code> with one <code>REVISION</code> clause per registered revision
+(<code>mib_register_revision()</code>, chronological order), <code>OBJECT-TYPE`s,
+table/entry constructs and `NOTIFICATION-TYPE`s. The mandatory
+doc-comment briefs become the `DESCRIPTION</code> clauses. <code>iop_mib()</code>
+wraps it as a ready-made CLI.</p>
+</li>
+<li>
+<p><code>iop_write_snmp_doc()</code> generates two AsciiDoc documents (alarms/
+notifications and objects) tabulating each OID with its help text;
+<code>iop_snmp_doc()</code> is the CLI wrapper.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</article>
+  </div>
+</main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script id="site-script" src="../../../_/js/site.js" data-ui-root-path="../../../_"></script>
+<script async src="../../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Interfaces, RPCs and modules :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 3.1.2">
+    <link rel="stylesheet" href="../../../_/css/site.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.4">
+    <link rel="icon" href="../../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../../..">Intersec lib-common Documentation</a>
+      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
+    </div>
+  </nav>
+</header>
+<div class="body">
+<div class="nav-container" data-component="lib-common" data-version="master">
+  <aside class="nav">
+    <div class="panels">
+<div class="nav-panel-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
+    <h3 class="title"><a href="../../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/modules.html">Modules</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/threads.html">Thread jobs</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/prometheus-client.html">Prometheus client</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../index.html">Introduction</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP specification</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="overview.html">Specification overview</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Language reference</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="lexical.html">Lexical structure</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="packages.html">Packages and imports</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="types.html">Types and fields</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="structs-unions-enums.html">Structs, unions and enums</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="classes.html">Classes and inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="attributes.html">Attributes and constraints</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="4">
+    <a class="nav-link" href="interfaces-modules.html">Interfaces, RPCs and modules</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="snmp.html">SNMP extensions</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="doc-comments.html">Documentation comments</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Serialization formats</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="wire-format.html">Binary wire format</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="json.html">JSON representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="yaml.html">YAML representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="xml.html">XML and SOAP representation</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="compatibility.html">Backward-compatibility rules</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Reference implementation</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc.html">The iopc compiler</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc-backends.html">iopc backends: C, JSON, TypeScript, Python stubs</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-mapping.html">C language mapping</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-runtime.html">C runtime library</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/ichannel.html">IChannel RPC protocol</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/dso-iopsq.html">DSO plugins and IOP²</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/bindings.html">Language bindings: IOPy, TypeScript and Rust</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopy.html">IOPy: the Python binding</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/generators.html">OpenAPI, WSDL and SNMP MIB generation</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="nav-panel-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <div class="title"><a href="../../index.html">Lib-common Documentation</a></div>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+<main class="article">
+<div class="toolbar" role="navigation">
+<button class="nav-toggle"></button>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="../../index.html">Lib-common Documentation</a></li>
+    <li>IOP</li>
+    <li>IOP specification</li>
+    <li>Language reference</li>
+    <li><a href="interfaces-modules.html">Interfaces, RPCs and modules</a></li>
+  </ul>
+</nav>
+</div>
+  <div class="content">
+<aside class="toc sidebar" data-title="Contents" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
+<article
+class="doc"
+>
+<h1 class="page">Interfaces, RPCs and modules</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_interfaces">1. Interfaces</a></li>
+<li><a href="#_rpc_declarations">2. RPC declarations</a>
+<ul class="sectlevel2">
+<li><a href="#_rpc_tags">2.1. RPC tags</a></li>
+<li><a href="#_rpc_aliases">2.2. RPC aliases</a></li>
+</ul>
+</li>
+<li><a href="#_modules">3. Modules</a>
+<ul class="sectlevel2">
+<li><a href="#_module_inheritance">3.1. Module inheritance</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>Data types describe values; <strong>interfaces</strong> and <strong>modules</strong> describe
+communications. An interface declares a set of RPCs (remote procedure
+calls); a module instantiates a set of interfaces — it is the unit a
+server implements.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_interfaces"><a class="anchor" href="#_interfaces"></a>1. Interfaces</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>interface &lt;Name&gt; {
+    &lt;rpc&gt;*
+};</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The interface name follows type-name rules (uppercase first letter).
+Plain interfaces do not support inheritance. Two RPCs of one interface
+cannot share a name (<code>a function 'X' already exists</code>) or a tag (<code>tag &lt;n&gt;
+is used twice</code>).</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_rpc_declarations"><a class="anchor" href="#_rpc_declarations"></a>2. RPC declarations</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>[&lt;tag&gt;:] &lt;name&gt;
+    [ in    ( &lt;field&gt;, … ) | in    &lt;TypeRef&gt; | in    void              ]
+    [ out   ( &lt;field&gt;, … ) | out   &lt;TypeRef&gt; | out   void  | out null  ]
+    [ throw ( &lt;field&gt;, … ) | throw &lt;TypeRef&gt; | throw void              ]
+;</pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">struct MyExn {
+    int    code;
+    string desc;
+};
+
+interface MyIface {
+    createUser
+        in    (string login, string password, int? age)
+        out   (int id)
+        throw MyExn;
+};</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The RPC name starts with a lowercase letter and contains no
+underscore.</p>
+</li>
+<li>
+<p>The clauses appear in this fixed order: <code>in</code>, then <code>out</code>, then
+<code>throw</code>; each is optional subject to the rules below.</p>
+</li>
+<li>
+<p>Each clause&#8217;s payload takes one of three forms:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>an <strong>inline anonymous struct</strong> <code>( … )</code>: regular field declarations
+(<a href="types.html#_field_declarations" class="xref page">same syntax as struct fields</a>,
+including tags, cardinalities, attributes) but separated by <strong>commas</strong>
+instead of semicolons;</p>
+</li>
+<li>
+<p>a <strong>named type</strong>: a (possibly qualified) struct or union — anything
+else is <code>a structure (or a union) type was expected here</code>. When
+several RPCs share the same payload shape, prefer a named type;</p>
+</li>
+<li>
+<p><code>void</code>: an explicitly empty payload.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>An omitted <code>in</code> clause is equivalent to <code>in void</code>.</p>
+</li>
+<li>
+<p>A <a href="doc-comments.html" class="xref page">documentation comment</a> on the RPC may
+reference its <code>in</code> parameters by name; referencing one that does not
+exist is an error (<code>doxygen unrelated 'in' argument '&lt;x&gt;' for RPC
+'&lt;f&gt;'</code>).</p>
+</li>
+<li>
+<p><code>out null</code> declares an <strong>asynchronous</strong> RPC: no answer is ever sent, not
+even an empty one — the call is fire-and-forget. Because nothing comes
+back, an async RPC cannot have a <code>throw</code> clause (<code>async functions
+cannot throw</code>). By contrast <code>out void</code> does send an (empty) reply, and
+is the only way for the caller to learn that the call succeeded.</p>
+</li>
+<li>
+<p>At least one of <code>out</code> or <code>throw</code> must be present (<code>no 'out' nor
+'throw' for function 'X'</code>); with <code>throw</code> alone, <code>out void</code> is implied.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">interface MyIface2 {
+    /* no exception */
+    createUser2
+        in    (string login, string password, int? age)
+        out   (int id);
+
+    /* no output parameter: "out void" is implied by throw */
+    createUser3
+        in    (string login, string password, int? age)
+        throw MyExn;
+
+    /* asynchronous: no reply at all */
+    logEvent
+        in  (string msg)
+        out null;
+};</code></pre>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_rpc_tags"><a class="anchor" href="#_rpc_tags"></a>2.1. RPC tags</h3>
+<div class="paragraph">
+<p>Like fields, every RPC has a tag identifying it in the binary protocol:
+implicit numbering from 1, optional explicit <code>N:</code> prefix resetting the
+counter, range 1–32767, uniqueness within the interface.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_rpc_aliases"><a class="anchor" href="#_rpc_aliases"></a>2.2. RPC aliases</h3>
+<div class="paragraph">
+<p><code>@alias(name, …)</code> declares additional names under which the RPC is
+callable:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">interface MyIfaceC {
+    @alias(funA2)
+    funA in (int i) out void;
+};</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_modules"><a class="anchor" href="#_modules"></a>3. Modules</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>module &lt;Name&gt; [ : &lt;ParentModule&gt;, … ] {
+    [&lt;tag&gt;:] &lt;InterfaceRef&gt; &lt;name&gt; ;
+    …
+};</pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">interface MyIfaceA { funA in (int i) out void; };
+interface MyIfaceB { funB in (int j) out void; };
+
+module MyMod {
+    MyIfaceA a;
+    MyIfaceB b;
+};</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Each member instantiates an interface under a member name (lowercase
+first letter, no underscore) and a <strong>tag</strong> (implicit numbering from 1,
+optional explicit <code>N:</code> prefix, range 1–32767). The tag identifies the
+interface instance in the binary protocol.</p>
+</li>
+<li>
+<p>Member names and tags must be unique within the module.</p>
+</li>
+<li>
+<p>The referenced interfaces — and, for an inheriting module, its parent
+modules — must resolve (<code>unable to find any pkg providing
+interface/module 'X'</code>).</p>
+</li>
+</ul>
+</div>
+<div class="sect2">
+<h3 id="_module_inheritance"><a class="anchor" href="#_module_inheritance"></a>3.1. Module inheritance</h3>
+<div class="paragraph">
+<p>A module may inherit from one or more parent modules; it then exposes
+the union of its own and its parents' interface instances. A module with
+parents may have an empty body (<code>module M : Parent;</code>).</p>
+</div>
+<div class="paragraph">
+<p>The constraint is that interface member <strong>names</strong> and <strong>tags</strong> must not
+collide across the whole inheritance closure: <code>module X cannot extend
+Y.Z, both define an interface &lt;name&gt;</code> / <code>…both define a tag &lt;n&gt;</code>. The
+practical convention is to start each base module&#8217;s tags at a distinct
+offset:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">module MyModA {
+512:
+    MyIfaceA a1;
+    MyIfaceA a2;
+};
+
+module MyModB {
+1024:
+    MyIfaceB b1;
+    MyIfaceB b2;
+};
+
+module MyModC : MyModA, MyModB {
+1:  MyIfaceA c1;
+2:  MyIfaceB c2;
+};</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</article>
+  </div>
+</main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script id="site-script" src="../../../_/js/site.js" data-ui-root-path="../../../_"></script>
+<script async src="../../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

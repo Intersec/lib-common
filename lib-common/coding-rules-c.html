@@ -6,7 +6,7 @@
     <title>Coding Rules :: Intersec lib-common Documentation</title>
     <meta name="generator" content="Antora 3.1.2">
     <link rel="stylesheet" href="../_/css/site.css">
-    <script>var uiRootPath = '../_'</script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.4">
     <link rel="icon" href="../_/img/favicon.png" type="image/png">
   </head>
   <body class="article">
@@ -15,15 +15,13 @@
     <div class="navbar-brand">
       <img class="navbar-logo" src="../_/img/logo_intersec.png" alt="Intersec" />
       <a class="navbar-item" href="..">Intersec lib-common Documentation</a>
-      <button class="navbar-burger" data-target="topbar-nav">
+      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
         <span></span>
         <span></span>
         <span></span>
       </button>
     </div>
     <div id="topbar-nav" class="navbar-menu">
-      <div class="navbar-end">
-            </div>
     </div>
   </nav>
 </header>
@@ -33,6 +31,7 @@
     <div class="panels">
 <div class="nav-panel-menu is-active" data-panel="menu">
   <nav class="nav-menu">
+    <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
     <h3 class="title"><a href="index.html">Lib-common Documentation</a></h3>
 <ul class="nav-list">
   <li class="nav-item" data-depth="0">
@@ -110,19 +109,103 @@
     <span class="nav-text">IOP</span>
 <ul class="nav-list">
   <li class="nav-item" data-depth="2">
-    <a class="nav-link" href="iop/base.html">IOP Basics</a>
+    <a class="nav-link" href="iop/index.html">Introduction</a>
   </li>
   <li class="nav-item" data-depth="2">
-    <a class="nav-link" href="iop/wire-format.html">Wire format</a>
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP specification</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iop/spec/overview.html">Specification overview</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Language reference</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="iop/spec/lexical.html">Lexical structure</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="iop/spec/packages.html">Packages and imports</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="iop/spec/types.html">Types and fields</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="iop/spec/structs-unions-enums.html">Structs, unions and enums</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="iop/spec/classes.html">Classes and inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="iop/spec/attributes.html">Attributes and constraints</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="iop/spec/interfaces-modules.html">Interfaces, RPCs and modules</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="iop/spec/snmp.html">SNMP extensions</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="iop/spec/doc-comments.html">Documentation comments</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Serialization formats</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="iop/spec/wire-format.html">Binary wire format</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="iop/spec/json.html">JSON representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="iop/spec/yaml.html">YAML representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="iop/spec/xml.html">XML and SOAP representation</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iop/spec/compatibility.html">Backward-compatibility rules</a>
+  </li>
+</ul>
   </li>
   <li class="nav-item" data-depth="2">
-    <a class="nav-link" href="iop/inheritance.html">Class inheritance</a>
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Reference implementation</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iop/impl/iopc.html">The iopc compiler</a>
   </li>
-  <li class="nav-item" data-depth="2">
-    <a class="nav-link" href="iop/iop-attributes.html">IOP attributes</a>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iop/impl/iopc-backends.html">iopc backends: C, JSON, TypeScript, Python stubs</a>
   </li>
-  <li class="nav-item" data-depth="2">
-    <a class="nav-link" href="iop/library-c.html">C library</a>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iop/impl/c-mapping.html">C language mapping</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iop/impl/c-runtime.html">C runtime library</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iop/impl/ichannel.html">IChannel RPC protocol</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iop/impl/dso-iopsq.html">DSO plugins and IOP²</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iop/impl/bindings.html">Language bindings: IOPy, TypeScript and Rust</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iop/impl/iopy.html">IOPy: the Python binding</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iop/impl/generators.html">OpenAPI, WSDL and SNMP MIB generation</a>
+  </li>
+</ul>
   </li>
 </ul>
   </li>
@@ -138,7 +221,7 @@
   </div>
   <ul class="components">
     <li class="component is-current">
-      <a class="title" href="index.html">Lib-common Documentation</a>
+      <div class="title"><a href="index.html">Lib-common Documentation</a></div>
       <ul class="versions">
         <li class="version is-current is-latest">
           <a href="index.html">master</a>
@@ -173,9 +256,8 @@ class="doc"
 <div id="toctitle">Table of Contents</div>
 <ul class="sectlevel1">
 <li><a href="#_languages">Languages</a></li>
+<li><a href="#_formatting">Formatting</a></li>
 <li><a href="#_basics">Basics</a></li>
-<li><a href="#_if_else">if else</a></li>
-<li><a href="#_ternary_operator">Ternary operator</a></li>
 <li><a href="#_switch_case">switch case</a></li>
 <li><a href="#_functions">Functions</a></li>
 <li><a href="#_blocks">Blocks</a></li>
@@ -193,6 +275,7 @@ class="doc"
 <li><a href="#_loops">Loops</a></li>
 <li><a href="#_forbidden_functions">Forbidden functions</a></li>
 <li><a href="#_stack_allocations">Stack allocations</a></li>
+<li><a href="#_defer">Defer</a></li>
 <li><a href="#_parsers_and_protocols">Parsers and protocols</a>
 <ul class="sectlevel2">
 <li><a href="#_writing_parsers">Writing parsers</a></li>
@@ -244,10 +327,37 @@ class="doc"
 </ul>
 </div>
 <div class="paragraph">
-<p>For <code>python</code>, the written code must pass <em>pylint</em> checks. You can also get
-inspiration in "python style as described by PEP 8":
-<a href="http://www.python.org/dev/peps/pep-0008/" class="bare">http://www.python.org/dev/peps/pep-0008/</a>, but only the <em>pylint</em> checks are
-mandatory.</p>
+<p>For Python, the written code must pass all checks enforced by Ruff.
+Ruff is a fast Python linter that supports a broad set of rules,
+including those from pylint, flake8, isort, pep8-naming, and more.</p>
+</div>
+<div class="paragraph">
+<p>All rules are activated and considered mandatory.
+This includes rule sets, specific linting codes, and configuration options
+such as line length, import sorting, and others.
+Some rules are explicitly ignored in the pyproject.toml configuration file,
+based on project needs and Intersec consensus.</p>
+</div>
+<div class="paragraph">
+<p>Refer to the official Ruff documentation (<a href="https://docs.astral.sh/ruff/" class="bare">https://docs.astral.sh/ruff/</a>)
+for the full list of rule codes, descriptions, and configuration options.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_formatting"><a class="anchor" href="#_formatting"></a>Formatting</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Pure formatting rules (indentation, column width, spacing, line wrapping,
+brace placement, pointer alignment, preprocessor indentation, etc.) are
+enforced automatically by clang-format and are therefore not documented here.
+The source of truth for those rules is the <code>.clang-format</code> configuration file
+at the root of the repository.</p>
+</div>
+<div class="paragraph">
+<p>The static checks reject code that is not clang-format clean. As a
+consequence, this document only covers the rules that clang-format cannot
+enforce.</p>
 </div>
 </div>
 </div>
@@ -256,105 +366,6 @@ mandatory.</p>
 <div class="sectionbody">
 <div class="ulist">
 <ul>
-<li>
-<p>indentation is made of 4 spaces, no tabs, text width is 78 full columns.</p>
-</li>
-<li>
-<p>Never put more than one statement per line, never put more than one semicolon
-per line (unless it’s in a string ;p)</p>
-</li>
-</ul>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">do1(); do2(); /* bad */
-
-if (cond) { do_sth(); } /* bad */
-
-printf("a; b; c");      /* good, but better use puts() */
-
-struct foo {
-    int a;              /* good */
-    char b, c;          /* good */
-    int d; char e;      /* bad  */
-};</code></pre>
-</div>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>labels (including switch <code>case</code> constructs) are not indented.
-They stay at the same level as the previous block indent.</p>
-</li>
-</ul>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">int main(void)
-{
-    switch (foo) {
-    case 1:       /* good */
-        break;
-        case 2:   /* bad */
-      case 3:     /* bad */
-        goto done;
-    }
-done:             /* good */
-    (void)0;
-}</code></pre>
-</div>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>One single space between a control flow keyword (such as <code>if</code>, <code>switch</code>,
-<code>while</code>, …) and the condition, the bracket is put on the same line (unless it
-would overflow the columns count).</p>
-</li>
-</ul>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">switch (foo) { /* good */
-}
-
-switch(foo) { /* bad */
-}</code></pre>
-</div>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>Spaces around binary operators:</p>
-</li>
-</ul>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">1 + 3 * (3 &lt;&lt; 2); /* good */
-1+2*3;            /* bad  */</code></pre>
-</div>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>No spaces before a semicolon or before a comma, but one leading space is
-mandatory.</p>
-</li>
-</ul>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">fn(1, 2, 3); /* good */
-fn(1,2,3);   /* bad */
-return ;     /* bad */</code></pre>
-</div>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>Avoid trailing spaces.</p>
-</li>
 <li>
 <p>Never use preincrement when postincrement is equivalent, so that preincrement
 flags probably tricky code.</p>
@@ -373,130 +384,6 @@ i++; /* good */</code></pre>
 <p>Structure your code in order to keep the indentation level as low as possible.</p>
 </li>
 </ul>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_if_else"><a class="anchor" href="#_if_else"></a>if else</h2>
-<div class="sectionbody">
-<div class="ulist">
-<ul>
-<li>
-<p>When the condition of a control flow statement spans on multiple lines, keep
-the boolean operator at the end of the line, and align the next statement
-on the new line with the first statement. Push the bracket on the next line.</p>
-</li>
-</ul>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">if (test1 &amp;&amp; test2 &amp;&amp; ... &amp;&amp; foo &amp;&amp;
-    bar)
-{
-    /* do stuff */
-}
-if (test1 &amp;&amp; test2 &amp;&amp;
-    (test3 || test4 ||
-     test5))
-{
-    /* do stuff */
-}</code></pre>
-</div>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p><code>else if</code> statements are kept on a single line:</p>
-</li>
-</ul>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* Good */
-if (cond1) {
-} else if (cond2) {
-} else {
-}
-
-/* Bad */
-if (cond1) {
-} else
-if (cond2) {
-} else {
-}</code></pre>
-</div>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>Control flow statements blocks must be enclosed in brackets.</p>
-</li>
-</ul>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">if (foo) { /* good */
-}
-
-if (foo)   /* bad  */
-{
-}
-
-if (foo)   /* bad */
-    return e_error("bad constraint");
-
-if (foo) { /* good */
-    return e_error("bad constraint");
-}
-
-if (foo)   /* bad  */
-    return a_multiline_function_call("some long reason, %s",
-                                     some_very_long_variable);
-
-if (foo) { /* good  */
-    return a_multiline_function_call("some long reason, %s",
-                                     some_very_long_variable);
-}
-
-if (foo)   /* bad */
-    return 0;
-else
-    return 1;
-
-if (foo) { /* good */
-    return 0;
-} else {
-    return 1;
-}
-
-if (test1 &amp;&amp; test2 &amp;&amp; ... &amp;&amp; foo &amp;&amp; /* bad */
-    bar)
-    return 0;
-
-if (test1 &amp;&amp; test2 &amp;&amp; ... &amp;&amp; foo &amp;&amp; /* good */
-    bar)
-{
-    return 0;
-}</code></pre>
-</div>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_ternary_operator"><a class="anchor" href="#_ternary_operator"></a>Ternary operator</h2>
-<div class="sectionbody">
-<div class="paragraph">
-<p>When using the ternary operator on a long line, the colon should be aligned
-with the question mark (if possible).</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">a = pretty_long_condition ? another_quite_long_stuff
-    : something_else;                                 /* bad */
-
-a = pretty_long_condition ? another_quite_long_stuff
-                          : something_else;           /* good */</code></pre>
-</div>
 </div>
 </div>
 </div>
@@ -524,27 +411,10 @@ case A:
 <div class="ulist">
 <ul>
 <li>
-<p>In case the case contains some variable declarations:</p>
-<div class="ulist">
-<ul>
-<li>
-<p>Put the opening brace on a newline after the last case, at one
-level of indentation greater than the case labels. Put the closing
-brace on a newline as well, on the same level of indentation as the opening
-brace.</p>
-</li>
-<li>
-<p>If a <code>break</code> is to be put, put it on a newline after the closing brace.</p>
-</li>
-<li>
-<p><code>continue</code> and <code>return</code> statements must be kept in the code block since they
-are not linked to the <code>switch() case:</code> construct.</p>
-</li>
-<li>
-<p>The code in the block is one-time indented from the <code>switch</code> statement</p>
-</li>
-</ul>
-</div>
+<p>When a case contains variable declarations, it must be wrapped in braces to
+introduce a new scope (clang-format does not add these braces for you).
+<code>continue</code> and <code>return</code> statements must be kept inside the code block since
+they are not linked to the <code>switch() case:</code> construct.</p>
 </li>
 </ul>
 </div>
@@ -616,113 +486,13 @@ enum (unless you have hundreds of elements to put in the <code>switch</code>). I
 the compiler to display warnings about missing cases whenever the enumeration
 changed. It applies for IOP unions as well.</p>
 </li>
-<li>
-<p>Block rules apply to <code>switch/case</code> macros equivalent such as
-<code>IOP_UNION_SWITCH/IOP_UNION_CASE</code>. They are not actual labels, so both the
-case and the code inside the case are indented:</p>
-</li>
 </ul>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">IOP_UNION_SWITCH(val) {
-    IOP_UNION_CASE(iop__type, val, union_name, v) {
-        foo();
-    }
-    IOP_UNION_DEFAULT() {
-        bar();
-    }
-}</code></pre>
-</div>
 </div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="_functions"><a class="anchor" href="#_functions"></a>Functions</h2>
 <div class="sectionbody">
-<div class="ulist">
-<ul>
-<li>
-<p>Opening bracket is on the same line than control flow statements, on the next
-line for function implementations.</p>
-</li>
-</ul>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">int main(void) /* good */
-{
-}
-int main(void) { /* bad */
-}</code></pre>
-</div>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>No spaces between a function call and the parenthesis.</p>
-</li>
-</ul>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">fn(1, 2, 3);        /* good */
-fn (1, 2, 3);       /* bad  */</code></pre>
-</div>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>When the argument list of a function call spans on multiple lines, indent at
-the opening paren column, unless it’s after the 40th column:</p>
-</li>
-</ul>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c"> some_call(struct-&gt;bar, 19 * long_variable_name, i++,
-          i_love_long_variables_too_much_for_my_sake);</code></pre>
-</div>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>When declaring a function prototype, if the declaration isn’t multiline, we
-usually put the return type on a single line and then the rest of the
-prototype. Wrap the prototype arguments following the same convention as
-function calls.</p>
-</li>
-</ul>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">void something_short(void); /* good */
-
-struct very_long_type_tag *
-something_not_very_short(int, struct bar *, int, void *); /* good */</code></pre>
-</div>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>Avoid useless wrapping in function prototype and try to keep it on the most
-limited number of lines</p>
-</li>
-</ul>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">static void
-something_not_very_short(struct my_struct *a,
-                         struct my_struct *b); /* bad, could fit on only 2 lines */
-
-static void
-something_not_very_short(struct my_struct *a, struct my_struct *b); /* good */
-
-static void something_not_very_short(struct my_struct *a,
-                                     struct my_struct *b) /* good */</code></pre>
-</div>
-</div>
 <div class="ulist">
 <ul>
 <li>
@@ -812,7 +582,7 @@ for further error management.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">int my_parser_run(const char *s, const char **out, my_struct *s); /* good */
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">int my_parser_run(const char *s, const char **out, my_struct_t *s); /* good */
 
 bool can_i_has_more_beer(void); /* good */
 
@@ -889,75 +659,22 @@ several calls), blocks should be inlined in function call:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* GOOD */
-call_with_block(^void (int a, int b) {
+call_with_block(^void(int a, int b) {
 });
 
 /* BAD */
-blk = ^void (int a, int b) {
+blk = ^void(int a, int b) {
 };
 call_with_block(blk);
 
 /* TOLERATED if call_with_block() performs a Block_copy()
  * .. but you should consider refactoring your code */
-blk = ^void (int a, int b) {
+blk = ^void(int a, int b) {
 };
 
 for (int ...) {
     call_with_block(blk);
 }</code></pre>
-</div>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>Inlined blocks should be formatted as follow:</p>
-<div class="ulist">
-<ul>
-<li>
-<p>keep the opening brace on the same line as the argument list</p>
-</li>
-<li>
-<p>indent the content of the block by one level from the current scope</p>
-</li>
-<li>
-<p>no space after the caret</p>
-</li>
-<li>
-<p>return type get the same formatting as for variable declaration: space after
-type name, star collated with content.</p>
-</li>
-</ul>
-</div>
-</li>
-</ul>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* GOOD */
-call_with_block(^void (int a, int b) {
-    do_something();
-});
-
-call_with_block(^void *(int a, int b) {
-    return do_something();
-});
-
-
-/* BAD: missing space after type name */
-call_with_block(^void(int a, int b) {
-    do_something();
-});
-
-/* BAD: misplaced opening brace */
-call_with_block(^void (int a, int b)
-{
-    do_something();
-});
-
-/* BAD: wrong indentation */
-call_with_block(^void (int a, int b) {
-                    do_something();
-                });</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -993,21 +710,6 @@ if (res) {
 <div class="ulist">
 <ul>
 <li>
-<p>Use a single space between a macro name and its implementation:</p>
-</li>
-</ul>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#define GOOD 1
-#define BAD  2
-#define GOOD_FN(a, b) body
-#define BAD_FN(a, b)  bad_body</code></pre>
-</div>
-</div>
-<div class="ulist">
-<ul>
-<li>
 <p>Function-like macro should be used the same way functions are used: the
 semi-colon should be in the invocation, not in the macro:</p>
 </li>
@@ -1034,70 +736,6 @@ semi-colon should be in the invocation, not in the macro:</p>
 <pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#define BAD_MACRO(_a) { char *a = (_a); foo(a); bar(a); }
 
 #define GOOD_MACRO(_a) do { char *a = (_a); foo(a); bar(a); } while (0)</code></pre>
-</div>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>In multi-line macros</p>
-<div class="ulist">
-<ul>
-<li>
-<p>the <code>\</code> should be aligned right on the 78th colum</p>
-</li>
-<li>
-<p>the first <code>\</code> can be simply put two spaces after the name of the macro, or
-one space after the beginning of the body of the macro, in order to keep 2
-lines macros simple</p>
-</li>
-<li>
-<p>the last line of a macro must not contain a trailing <code>\</code></p>
-</li>
-<li>
-<p>the body of the macro must always have at least one level of indentation</p>
-</li>
-</ul>
-</div>
-</li>
-</ul>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* GOOD macros */
-#define GOOD_MACRO(a) do {                                                   \
-        do_something();                                                      \
-        do_something_else();                                                 \
-    } while (0)
-
-#define GOOD_MACRO(a) do { \
-        do_something();                                                      \
-        do_something_else();                                                 \
-    } while (0)
-
-#define GOOD_MACRO(a) \
-    do {                                                                     \
-        do_something();                                                      \
-        do_something_else();                                                 \
-    } while (0)
-
-
-/* BAD macro: buggy indentation */
-#define BAD_MACRO(a) do { \
-    do_something();                                                          \
-    do_something_else();                                                     \
-} while (0)
-
-/* BAD macro: non-aligned \ */
-#define BAD_MACRO(a) do { \
-        do_something(); \
-        do_something_else(); \
-    } while (0)
-
-/* BAD macro: trailing \ */
-#define BAD_MACRO(a) do { \
-        do_something();                                                      \
-        do_something_else();                                                 \
-    } while (0)                                                              \</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -1134,34 +772,6 @@ endif to repeat the initial condition:</p>
 <div class="paragraph">
 <p>Purpose: for example, avoid confusing a <code>#endif</code> placed in the end of a file
 with a header guard when it is not.</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>When cascading preprocessor <code>ifdef</code>, <code>else</code>, <code>endif</code> directives and define,
-use 2 columns per level (including the sharp as a column). The <code>ifdef</code> guard
-of a header file doesn’t count for indent levels.</p>
-</li>
-</ul>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#ifndef MY_HEADER_GUARD
-#define MY_HEADER_GUARD
-
-#ifdef __GNUC__
-# define foo(a) __builtin_bar(a)
-# ifdef __GLIBC__
-#   define WE_ARE_USING_A_GLIBC
-# else
-#   error "We need a glibc"
-# endif /* __GLIBC__*/
-#else
-# error "go away, loser"
-#endif /*__GNUC__ */
-
-#endif /* MY_HEADER_GUARD */</code></pre>
-</div>
 </div>
 <div class="ulist">
 <ul>
@@ -1239,9 +849,8 @@ using the C99 for loop variable inline declarations is recommended:</p>
 <div class="ulist">
 <ul>
 <li>
-<p>Add a blank line between variable declarations and code. It is allowed to
-omit the blank line in case a very short block (two lines: one declaration
-line, one statement). <code>t_scope</code> is considered as a declaration.</p>
+<p>Add a blank line between variable declarations and code.
+<code>t_scope</code> is considered as a declaration.</p>
 </li>
 </ul>
 </div>
@@ -1260,7 +869,7 @@ line, one statement). <code>t_scope</code> is considered as a declaration.</p>
     do_something2();
 }
 
-{ /* allowed */
+{ /* bad */
     int foo;
     do_something();
 }
@@ -1308,19 +917,15 @@ my_type_t b;</code></pre>
 <div class="ulist">
 <ul>
 <li>
-<p>Keep a single line per declaration, unless the variable is const (because in
-that case the assignation cannot be done after the declaration):</p>
+<p>Keeping a single line per declaration is recommended. Multiple lines per
+declaration is allowed as long as the other rules are respected and the result
+is readable:</p>
 </li>
 </ul>
 </div>
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">{
-    int important_variable =
-        long_function_which_does_not_fit_into_one_line();                        /* bad */
-}
-
-{
     int important_variable;
 
     important_variable = long_function_which_does_not_fit_into_one_line();       /* good */
@@ -1330,59 +935,41 @@ that case the assignation cannot be done after the declaration):</p>
 }
 
 {
-    int variable = long_fonction_with_parameters(parameter1, parameter2,
-                                                 parameter3);                    /* bad */
-
-}
-
-{
-    int variable;
-
-    variable = long_fonction_with_parameters(parameter1, parameter2,
-                                             parameter3);                       /* good */
-
-}
-
-{
     const int const_variable =
         long_function_which_does_not_fit_into_one_line();                        /* allowed */
+    int important_variable =
+        long_function_which_does_not_fit_into_one_line();                        /* allowed */
+}
+
+{
+    int variable = long_fonction_with_parameters(                                /* allowed */
+        parameter1, parameter2, parameter3
+    );
 }</code></pre>
 </div>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p>Stick pointer types stars to the variable names:</p>
-</li>
-</ul>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">const char *var_name; /* good */
-
-int fun(char * foo);  /* bad */
-char* baz;            /* bad */
-
-char *p, *q;          /* good */</code></pre>
-</div>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>When the deepest type is const, we put <code>const</code> front, especially for <code>const
-char *</code>. Though, when <code>static</code> or any other storage class (<code>extern</code> e.g.) is
-used, <code>const</code> is pushed after the type:</p>
+<p>First specify the storage class when it exists (<code>static</code>, <code>extern</code>, etc.)
+then <code>const</code> then the type:</p>
 </li>
 </ul>
 </div>
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">int foo(const char *arg); /* good */
-int foo(char const *arg); /* bad  */
+int foo(char const *arg); /* bad */
 
-static const int a = 2;   /* bad  */
-static char const * const str_array[] = { /* good */
-}</code></pre>
+const char * const arg; /* good */
+char const * const arg; /* bad */
+
+static const int n = 2;   /* good */
+const static int n = 2;   /* bad */
+
+static const char * const str_array[]; /* good */
+static char const * const str_array[]; /* bad */
+const static char * const str_array[]; /* bad */</code></pre>
 </div>
 </div>
 </div>
@@ -1393,65 +980,63 @@ static char const * const str_array[] = { /* good */
 <div class="ulist">
 <ul>
 <li>
-<p>We usually like to use the <code>_t</code> suffix for type names, the <code>_f</code> suffix for
-functional types and the <code>_b</code> suffix for blocks types.</p>
+<p>Use the <code>_t</code> suffix for type names, the <code>_f</code> suffix for functional types and
+the <code>_b</code> suffix for blocks types.</p>
+</li>
+<li>
+<p>Use a <code>typedef</code> for type names. Always use the same name for the <code>struct</code>,
+<code>enum</code> or <code>union</code> tag and the <code>typedef</code>.</p>
+</li>
+<li>
+<p>Not using a name for type names and only name the <code>typedef</code> is allowed.</p>
 </li>
 <li>
 <p>IOP types must end with <code>__t</code> suffix when they are modified using <code>@ctype</code>.</p>
 </li>
-<li>
-<p>When declaring an enum, put a traling comma on <em>every</em> line:</p>
-</li>
 </ul>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">enum foo {
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">typedef enum foo_t { /* good */
    FOO_0,
-   FOO_1,
-   FOO_MAX, /* good */
-};</code></pre>
-</div>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>When declaring a type, keep the opening bracket on the same line, then put a
-mandatory line break. For a <code>typedef</code>, keep the type name on the same line as
-the closing bracket.</p>
-</li>
-</ul>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c"> enum foo {
-    FOO_0,
-    FOO_1,
-};
+} foo_t;
 
-typedef struct bar_t {
-    /* ... */
-} bar_t;</code></pre>
-</div>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>When using a <code>typedef</code>, always use the same name for the <code>struct</code>, <code>enum</code> or
-<code>union</code> tag and the <code>typedef</code>. No tag is okayish though.</p>
-</li>
-</ul>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">typedef enum bar_t {
+typedef struct bar_t { /* good */
+    int a;
 } bar_t;
 
-enum foo {
+typedef union { /* allowed */
+    int a;
+} baz_t;
+
+
+enum foo { /* bad */
+   FOO_0,
+};
+
+struct bar { /* bad */
+    int a;
+};
+
+union baz_t { /* bad */
+    int a;
+};</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>When declaring an enum, put a trailing comma on <em>every</em> line:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">typedef enum foo_t {
    FOO_0,
    FOO_1,
    FOO_MAX, /* good */
-};</code></pre>
+} foo_t;</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -1623,7 +1208,7 @@ management API.</p>
 <div class="ulist">
 <ul>
 <li>
-<p>Programation "topics" can be folded by using the <code>{{{</code> and <code>}}}</code> delimiters
+<p>Programmation "topics" can be folded by using the <code>{{{</code> and <code>}}}</code> delimiters
 (even if it is not mandatory). The name of a fold must be placed after the
 opening mark <code>{{{</code> (and should not be repeated when closing the fold). An
 empty line must be placed after the opening mark and before the closing mark.
@@ -1676,7 +1261,7 @@ no numbering), because it is hardly maintainable:</p>
 code
 
 /* }}} */
-/*  {{{ Bad nested fold 1.2 (bad ident) */
+/*  {{{ Bad nested fold 1.2 (bad indent) */
 
 code
 
@@ -1805,9 +1390,9 @@ static int bar_shutdown(void)
     ...
 }
 
-MODULE_BEGIN(bar)
+MODULE_DEFINE(bar) {
     ...
-MODULE_END()</code></pre>
+}</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -1998,6 +1583,26 @@ prefixed by <code>t_</code>.</p>
     return t_fmt(NULL, "name-%d", id);
 }</code></pre>
 </div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_defer"><a class="anchor" href="#_defer"></a>Defer</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Inspired by Go <code>defer</code> statement, <code>defer</code> is available as a C macro.
+See the documentation of <code>defer</code> in <code>src/core/macros.h</code>.</p>
+</div>
+<div class="paragraph">
+<p>One important rule about our implementation of <code>defer</code> is that variables used
+in the defer blocks <strong>MUST</strong> be declared with <code>__deferred</code> keyword.</p>
+</div>
+<div class="paragraph">
+<p>This is required to have a consistent behaviour between GCC and Clang where
+the actual <code>defer</code> implementation differs.</p>
+</div>
+<div class="paragraph">
+<p>Failure to do so can result in some undesirable consequences.</p>
 </div>
 </div>
 </div>

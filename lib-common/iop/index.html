@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>IOP — Intersec Object Packer :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 3.1.2">
+    <link rel="stylesheet" href="../../_/css/site.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.4">
+    <link rel="icon" href="../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../..">Intersec lib-common Documentation</a>
+      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
+    </div>
+  </nav>
+</header>
+<div class="body">
+<div class="nav-container" data-component="lib-common" data-version="master">
+  <aside class="nav">
+    <div class="panels">
+<div class="nav-panel-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
+    <h3 class="title"><a href="../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../base/base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../base/mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../base/string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../base/containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../base/logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../base/modules.html">Modules</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../base/threads.html">Thread jobs</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../base/prometheus-client.html">Prometheus client</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item is-current-page" data-depth="2">
+    <a class="nav-link" href="index.html">Introduction</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP specification</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="spec/overview.html">Specification overview</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Language reference</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="spec/lexical.html">Lexical structure</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="spec/packages.html">Packages and imports</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="spec/types.html">Types and fields</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="spec/structs-unions-enums.html">Structs, unions and enums</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="spec/classes.html">Classes and inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="spec/attributes.html">Attributes and constraints</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="spec/interfaces-modules.html">Interfaces, RPCs and modules</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="spec/snmp.html">SNMP extensions</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="spec/doc-comments.html">Documentation comments</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Serialization formats</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="spec/wire-format.html">Binary wire format</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="spec/json.html">JSON representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="spec/yaml.html">YAML representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="spec/xml.html">XML and SOAP representation</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="spec/compatibility.html">Backward-compatibility rules</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Reference implementation</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="impl/iopc.html">The iopc compiler</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="impl/iopc-backends.html">iopc backends: C, JSON, TypeScript, Python stubs</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="impl/c-mapping.html">C language mapping</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="impl/c-runtime.html">C runtime library</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="impl/ichannel.html">IChannel RPC protocol</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="impl/dso-iopsq.html">DSO plugins and IOP²</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="impl/bindings.html">Language bindings: IOPy, TypeScript and Rust</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="impl/iopy.html">IOPy: the Python binding</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="impl/generators.html">OpenAPI, WSDL and SNMP MIB generation</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="nav-panel-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <div class="title"><a href="../index.html">Lib-common Documentation</a></div>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+<main class="article">
+<div class="toolbar" role="navigation">
+<button class="nav-toggle"></button>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="../index.html">Lib-common Documentation</a></li>
+    <li>IOP</li>
+    <li><a href="index.html">Introduction</a></li>
+  </ul>
+</nav>
+</div>
+  <div class="content">
+<aside class="toc sidebar" data-title="Contents" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
+<article
+class="doc"
+>
+<h1 class="page">IOP — Intersec Object Packer</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_what_is_iop">1. What is IOP?</a></li>
+<li><a href="#_a_complete_example">2. A complete example</a></li>
+<li><a href="#_how_this_documentation_is_organized">3. How this documentation is organized</a></li>
+<li><a href="#_glossary">4. Glossary</a></li>
+</ul>
+</div>
+<div class="sect1">
+<h2 id="_what_is_iop"><a class="anchor" href="#_what_is_iop"></a>1. What is IOP?</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>IOP (<em>Intersec Object Packer</em>) is Intersec&#8217;s interface description language
+(IDL) and serialization framework. From a single description of your data
+types and service interfaces written in the IOP language, you get:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>a compact, backward-compatible <strong>binary</strong> serialization format;</p>
+</li>
+<li>
+<p>alternative <strong>JSON</strong>, <strong>YAML</strong> and <strong>XML</strong> representations of the same data;</p>
+</li>
+<li>
+<p><strong>RPC</strong> definitions (interfaces and modules) usable over several transports;</p>
+</li>
+<li>
+<p>generated native code for the supported languages (C, TypeScript, Rust) and
+runtime bindings for others (Python).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The concept is similar to
+<a href="https://developers.google.com/protocol-buffers/docs/overview">Google Protocol
+Buffers</a>: data structures are described in a dedicated language, every field
+carries a numeric <em>tag</em>, and the wire formats are designed so that
+independently evolved producers and consumers remain compatible as long as a
+set of evolution rules is respected. Unlike Protocol Buffers, tags need not
+be written explicitly: they are assigned automatically in declaration order
+unless you set them by hand.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_a_complete_example"><a class="anchor" href="#_a_complete_example"></a>2. A complete example</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>IOP definitions live in <code>.iop</code> files. A file declares a <em>package</em> and a set
+of types and interfaces:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">package exiop;
+
+enum Severity {
+    DEBUG = 0,
+    INFO,
+    ERROR,
+};
+
+/** A log event. */
+struct Event {
+    /** Unique identifier of the event. */
+    ulong     id;
+    Severity  severity = SEVERITY_INFO;  /* field with a default value */
+    string?   details;                   /* optional field             */
+    string[]  tags;                      /* repeated field (array)     */
+};
+
+union EventFilter {
+    Severity bySeverity;
+    string   byTag;
+};
+
+/** Classes support single inheritance; `Resource` is a master class. */
+class Resource {
+    string name;
+};
+
+class UserResource : 1 : Resource {
+    string userLogin;
+};
+
+interface EventIface {
+    push
+        in    (Event ev)
+        out   (ulong seqno)
+        throw (int code, string desc);
+};
+
+module EventMod {
+    EventIface eventIface;
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Every field of a structure is identified by a tag (assigned automatically in
+declaration order here). The binary format encodes fields as
+tag-length-value records, which is what makes most schema evolutions safe:
+unknown fields can be skipped, missing optional fields take their default
+values.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_how_this_documentation_is_organized"><a class="anchor" href="#_how_this_documentation_is_organized"></a>3. How this documentation is organized</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The documentation is split in two parts:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>Part I — IOP specification</strong></dt>
+<dd>
+<p>The normative description of IOP, written independently of any
+implementation: the IOP language (lexical structure, types, classes,
+attributes, interfaces…), the binary wire format, the JSON, YAML and XML
+representations, and the backward-compatibility rules. Reading this part
+alone should be sufficient to implement an independent, correct IOP
+compiler with its encoders and decoders.</p>
+</dd>
+<dt class="hdlist1"><strong>Part II — Reference implementation</strong></dt>
+<dd>
+<p>The documentation of the Intersec implementation shipped in lib-common:
+the <code>iopc</code> compiler and its backends, the generated C code and the C
+runtime library, the IChannel RPC protocol, dynamically loaded IOP
+plugins (DSO) and runtime type descriptions (IOP²), the language bindings
+and the documentation generators (OpenAPI, WSDL, SNMP MIB).</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>If you want to…</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>write <code>.iop</code> files</strong>: read the language reference in Part I
+(<a href="spec/types.html" class="xref page">types</a>, <a href="spec/attributes.html" class="xref page">attributes</a>,
+<a href="spec/interfaces-modules.html" class="xref page">interfaces</a>) and the
+<a href="spec/compatibility.html" class="xref page">backward-compatibility rules</a>;</p>
+</li>
+<li>
+<p><strong>implement an IOP parser, compiler, encoder or decoder</strong>: read all of
+Part I;</p>
+</li>
+<li>
+<p><strong>use IOP from C</strong>: read Part II, starting with the
+<a href="impl/c-mapping.html" class="xref page">C language mapping</a>;</p>
+</li>
+<li>
+<p><strong>evolve existing IOP packages safely</strong>: read
+<a href="spec/compatibility.html" class="xref page">backward-compatibility rules</a>.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_glossary"><a class="anchor" href="#_glossary"></a>4. Glossary</h2>
+<div class="sectionbody">
+<div class="dlist">
+<dl>
+<dt class="hdlist1">package</dt>
+<dd>
+<p>The namespace and compilation unit of IOP. One <code>.iop</code> file declares
+exactly one package.</p>
+</dd>
+<dt class="hdlist1">tag</dt>
+<dd>
+<p>The small integer that identifies a field of a structure (or an RPC of an
+interface) in the serialized representations. Tags, not names, are the
+stable identity of fields in the binary format.</p>
+</dd>
+<dt class="hdlist1">wire type</dt>
+<dd>
+<p>The 3-bit code, packed together with the tag in the binary format, that
+tells a decoder how to compute the length of a value it does not
+necessarily know.</p>
+</dd>
+<dt class="hdlist1">class id</dt>
+<dd>
+<p>The integer that uniquely identifies a class inside its inheritance
+hierarchy; serialized in place of the class name in the binary format.</p>
+</dd>
+<dt class="hdlist1">interface</dt>
+<dd>
+<p>A named set of RPCs (remote procedure calls), each with an input, an
+output and an optional exception payload.</p>
+</dd>
+<dt class="hdlist1">module</dt>
+<dd>
+<p>A named set of interface instances; the unit that an RPC server
+implements.</p>
+</dd>
+<dt class="hdlist1">master class</dt>
+<dd>
+<p>A class with no parent, the root of a class hierarchy.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</article>
+  </div>
+</main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script id="site-script" src="../../_/js/site.js" data-ui-root-path="../../_"></script>
+<script async src="../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

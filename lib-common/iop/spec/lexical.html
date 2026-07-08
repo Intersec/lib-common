@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Lexical structure :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 3.1.2">
+    <link rel="stylesheet" href="../../../_/css/site.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.4">
+    <link rel="icon" href="../../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../../..">Intersec lib-common Documentation</a>
+      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
+    </div>
+  </nav>
+</header>
+<div class="body">
+<div class="nav-container" data-component="lib-common" data-version="master">
+  <aside class="nav">
+    <div class="panels">
+<div class="nav-panel-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
+    <h3 class="title"><a href="../../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/modules.html">Modules</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/threads.html">Thread jobs</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/prometheus-client.html">Prometheus client</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../index.html">Introduction</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP specification</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="overview.html">Specification overview</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Language reference</span>
+<ul class="nav-list">
+  <li class="nav-item is-current-page" data-depth="4">
+    <a class="nav-link" href="lexical.html">Lexical structure</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="packages.html">Packages and imports</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="types.html">Types and fields</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="structs-unions-enums.html">Structs, unions and enums</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="classes.html">Classes and inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="attributes.html">Attributes and constraints</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="interfaces-modules.html">Interfaces, RPCs and modules</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="snmp.html">SNMP extensions</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="doc-comments.html">Documentation comments</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Serialization formats</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="wire-format.html">Binary wire format</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="json.html">JSON representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="yaml.html">YAML representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="xml.html">XML and SOAP representation</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="compatibility.html">Backward-compatibility rules</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Reference implementation</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc.html">The iopc compiler</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc-backends.html">iopc backends: C, JSON, TypeScript, Python stubs</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-mapping.html">C language mapping</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-runtime.html">C runtime library</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/ichannel.html">IChannel RPC protocol</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/dso-iopsq.html">DSO plugins and IOP²</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/bindings.html">Language bindings: IOPy, TypeScript and Rust</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopy.html">IOPy: the Python binding</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/generators.html">OpenAPI, WSDL and SNMP MIB generation</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="nav-panel-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <div class="title"><a href="../../index.html">Lib-common Documentation</a></div>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+<main class="article">
+<div class="toolbar" role="navigation">
+<button class="nav-toggle"></button>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="../../index.html">Lib-common Documentation</a></li>
+    <li>IOP</li>
+    <li>IOP specification</li>
+    <li>Language reference</li>
+    <li><a href="lexical.html">Lexical structure</a></li>
+  </ul>
+</nav>
+</div>
+  <div class="content">
+<aside class="toc sidebar" data-title="Contents" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
+<article
+class="doc"
+>
+<h1 class="page">Lexical structure</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_source_encoding">1. Source encoding</a></li>
+<li><a href="#_comments">2. Comments</a></li>
+<li><a href="#_identifiers">3. Identifiers</a></li>
+<li><a href="#_keywords">4. Keywords</a>
+<ul class="sectlevel2">
+<li><a href="#_reserved_words">4.1. Reserved words</a></li>
+<li><a href="#_contextual_keywords">4.2. Contextual keywords</a></li>
+<li><a href="#_built_in_type_names">4.3. Built-in type names</a></li>
+</ul>
+</li>
+<li><a href="#_integer_literals">5. Integer literals</a>
+<ul class="sectlevel2">
+<li><a href="#_unit_suffixes">5.1. Unit suffixes</a></li>
+</ul>
+</li>
+<li><a href="#_floating_point_literals">6. Floating-point literals</a></li>
+<li><a href="#_string_literals">7. String literals</a></li>
+<li><a href="#_character_literals">8. Character literals</a></li>
+<li><a href="#_punctuation_and_operators">9. Punctuation and operators</a></li>
+<li><a href="#_constant_expressions">10. Constant expressions</a></li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>This page defines how the text of a <code>.iop</code> file is decomposed into tokens.
+Syntax and semantics of the constructs built from these tokens are defined
+in the following pages.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_source_encoding"><a class="anchor" href="#_source_encoding"></a>1. Source encoding</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>An IOP source file is a text file. The language syntax itself uses only
+ASCII characters, while the contents of string literals may carry
+arbitrary bytes (typically UTF-8 text).</p>
+</div>
+<div class="paragraph">
+<p>Horizontal whitespace (space, tab, vertical tab) separates tokens and is
+otherwise ignored. Lines are terminated by <code>LF</code>; lines and columns are
+reported 1-based in error messages.</p>
+</div>
+<div class="paragraph">
+<p>An end-of-file inside a string literal, character literal, comment or
+documentation comment is an error (<code>unterminated string</code>, <code>unterminated
+cstring</code>, <code>unterminated comment</code>, <code>unterminated doxygen comment</code>). A file
+that ends where a token is still required is likewise an error
+(<code>unexpected end of file</code>); in particular, an empty file is invalid.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_comments"><a class="anchor" href="#_comments"></a>2. Comments</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Three families of comments exist:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Line comments</dt>
+<dd>
+<p><code>//</code> up to and including the end of line.</p>
+</dd>
+<dt class="hdlist1">Block comments</dt>
+<dd>
+<p><code>/*</code> up to the first <code>*/</code>. Block comments do <strong>not</strong> nest: the first
+<code>*/</code> always terminates the comment.</p>
+</dd>
+<dt class="hdlist1">Documentation comments</dt>
+<dd>
+<p>Comments attached to declarations. An introducer is a block form
+(<code>/**</code> or <code>/*!</code>) or a line form (<code>///</code> or <code>//!</code>), each optionally
+followed by <code>&lt;</code>. A trailing <code>&lt;</code> marks a <em>back</em> comment documenting the
+<strong>preceding</strong> element; otherwise it documents the <strong>following</strong> one. Their
+internal markup and attachment rules are specified in
+<a href="doc-comments.html" class="xref page">Documentation comments</a>.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>A sequence of four or more slashes (<code>////…</code>) is a plain line comment, not
+a documentation comment.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_identifiers"><a class="anchor" href="#_identifiers"></a>3. Identifiers</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>An identifier starts with an ASCII letter, followed by ASCII letters,
+digits or underscores (<code>[a-zA-Z][a-zA-Z0-9_]*</code>). Additional <strong>naming rules</strong>
+restrict identifiers depending on what they name; violating them is an
+error:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 22.2222%;">
+<col style="width: 33.3333%;">
+<col style="width: 44.4445%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Names</th>
+<th class="tableblock halign-left valign-top">First character</th>
+<th class="tableblock halign-left valign-top">Additional rules</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">package path components</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">lowercase letter</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">type names (struct, union, class, enum, typedef, interface, module, SNMP
+  objects)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">uppercase letter</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no underscore; not a reserved keyword</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">field names, RPC names, module member names</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">lowercase letter</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no underscore (unless the field carries the <code>@forceFieldName</code>
+  attribute); not a reserved keyword</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">enum value names</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">every character must be an uppercase letter, a digit or an underscore
+  (e.g. <code>MY_VALUE_2</code>)</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>The "no underscore" rule yields the error <code>&lt;name&gt; contains a _</code>; reserved
+keywords yield <code>&lt;name&gt; is a reserved keyword</code>.</p>
+</div>
+<div class="paragraph">
+<p>Inside attribute argument lists (between the parentheses of <code>@attr(&#8230;&#8203;)</code>),
+identifiers follow an extended form: a leading underscore is allowed and
+dots may be embedded (<code>[a-zA-Z_][a-zA-Z0-9_.]*</code>). This is what allows
+qualified names such as <code>pkg.path.Obj</code> as attribute arguments.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_keywords"><a class="anchor" href="#_keywords"></a>4. Keywords</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_reserved_words"><a class="anchor" href="#_reserved_words"></a>4.1. Reserved words</h3>
+<div class="paragraph">
+<p>The following words cannot be used as type, field, RPC or module member
+names (error <code>is a reserved keyword</code>). Most are reserved to keep generated
+code from clashing with target-language keywords; the last line holds the
+IOP structural keywords:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>auto bool break case char const continue default do double else enum
+extern float for goto if inline int long register restrict return short
+signed sizeof static struct switch typedef union unsigned void volatile
+while
+
+abstract assert boolean byte catch extends false final finally friend
+implements import instanceof interface mutable namespace native null
+operator package private protected public strictfp super synchronized
+template this throw throws transient true try typename virtual
+
+in out module</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Four additional words are rejected with the error <code>is a keyword in some
+languages</code> unless the declaration carries <code>@nowarn(keyword)</code>:
+<code>class</code>, <code>new</code>, <code>delete</code>, <code>explicit</code>.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<code>import</code> is a reserved word but there is <strong>no import statement</strong> in
+the language; see <a href="packages.html" class="xref page">Packages</a>.
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_contextual_keywords"><a class="anchor" href="#_contextual_keywords"></a>4.2. Contextual keywords</h3>
+<div class="paragraph">
+<p>The structural keywords (<code>package</code>, <code>struct</code>, <code>union</code>, <code>class</code>, <code>enum</code>,
+<code>typedef</code>, <code>interface</code>, <code>module</code>, <code>snmpObj</code>, <code>snmpTbl</code>, <code>snmpIface</code>,
+<code>static</code>, <code>abstract</code>, <code>local</code>, <code>in</code>, <code>out</code>, <code>throw</code>, <code>null</code>) are ordinary
+identifiers recognized by position.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_built_in_type_names"><a class="anchor" href="#_built_in_type_names"></a>4.3. Built-in type names</h3>
+<div class="paragraph">
+<p>The built-in type names are <code>int</code>, <code>uint</code>, <code>long</code>, <code>ulong</code>, <code>byte</code>,
+<code>ubyte</code>, <code>short</code>, <code>ushort</code>, <code>bool</code>, <code>double</code>, <code>string</code>, <code>bytes</code>, <code>xml</code> and
+<code>void</code>. They are matched case-insensitively, but only when the identifier
+contains no uppercase character (so <code>int</code> and <code>INT</code> would not both match;
+in practice always write them in lowercase).</p>
+</div>
+<div class="paragraph">
+<p><code>true</code> and <code>false</code> are boolean literals with values 1 and 0; they are
+usable inside constant expressions.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_integer_literals"><a class="anchor" href="#_integer_literals"></a>5. Integer literals</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Accepted forms:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>decimal</strong>: a non-zero digit followed by digits (<code>123</code>);</p>
+</li>
+<li>
+<p><strong>hexadecimal</strong>: <code>0x</code> followed by hexadecimal digits (<code>0x19af</code>). Only the
+lowercase <code>0x</code> prefix is recognized;</p>
+</li>
+<li>
+<p><strong>octal</strong>: <code>0</code> followed by octal digits (<code>0123</code> = 83); a lone <code>0</code> is this
+form;</p>
+</li>
+<li>
+<p>an optional leading <code>-</code> is part of the literal for decimal and
+hexadecimal forms (the value is then parsed as signed).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>There are no digit separators. Values must fit in 64 bits: signed literals
+down to -9223372036854775808, unsigned literals up to
+18446744073709551615; out-of-range values are an error (<code>integer
+overflow</code>).</p>
+</div>
+<div class="sect2">
+<h3 id="_unit_suffixes"><a class="anchor" href="#_unit_suffixes"></a>5.1. Unit suffixes</h3>
+<div class="paragraph">
+<p>A literal may carry <strong>exactly one</strong> suffix letter that multiplies its value.
+Nothing alphanumeric may follow the suffix (otherwise: <code>invalid integer
+extension</code>).</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 16.6666%;">
+<col style="width: 33.3333%;">
+<col style="width: 16.6666%;">
+<col style="width: 33.3335%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Suffix</th>
+<th class="tableblock halign-left valign-top">Multiplier</th>
+<th class="tableblock halign-left valign-top">Suffix</th>
+<th class="tableblock halign-left valign-top">Multiplier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>K</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1024 (2<sup>10</sup>)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>s</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1 (seconds)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>M</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1 048 576 (2<sup>20</sup>)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>m</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">60</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>G</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1 073 741 824 (2<sup>30</sup>)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>h</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">3 600</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>T</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1 099 511 627 776 (2<sup>40</sup>)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>d</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">86 400</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>w</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">604 800</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>The size suffixes are powers of 1024, not 1000. The multiplication must
+not overflow (<code>integer overflow</code>). Examples: <code>100K</code>, <code>0x0aM</code>, <code>-10K</code>,
+<code>012K</code> (octal 10 × 1024).</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_floating_point_literals"><a class="anchor" href="#_floating_point_literals"></a>6. Floating-point literals</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The only accepted form is <code>-?[0-9]*"."[0-9]+([eE][+-]?[0-9]+)?</code>: a decimal
+point with at least one digit *after* it is mandatory, the integer part
+and the exponent are optional. <code>1.0</code>, <code>.5</code>, <code>-0.25</code> and <code>3.14e-10</code> are
+valid; <code>1.</code> is not, and <code>1e10</code> is <strong>not</strong> a floating-point literal (it reads
+as the integer <code>1</code> with an invalid suffix <code>e10</code>, an error). There are no
+<code>inf</code> or <code>nan</code> literals. A value overflowing the double range is an error
+(<code>double overflow</code>).</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_string_literals"><a class="anchor" href="#_string_literals"></a>7. String literals</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>A string literal is a double-quoted sequence of characters. Recognized
+escape sequences:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 66.6667%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Escape</th>
+<th class="tableblock halign-left valign-top">Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>\a \b \e \t \n \v \f \r</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">usual control characters</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>\\</code> <code>\"</code> <code>\'</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">backslash, double quote, single quote</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>\</code> + exactly 3 octal digits, first in <code>0</code>–<code>2</code> (e.g. <code>\277</code>)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">one byte</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>\x</code> + exactly 2 hexadecimal digits</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">one byte</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>\u</code> + exactly 4 hexadecimal digits</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">the code point, encoded in UTF-8</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>A backslash followed by any other character is kept verbatim (both the
+backslash and the character); it is not an error. A string literal must be
+terminated before the end of file (<code>unterminated string</code>). String literals
+do not concatenate.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_character_literals"><a class="anchor" href="#_character_literals"></a>8. Character literals</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The form <code>c"&lt;content&gt;"</code> denotes a character literal: a <code>c</code>-prefixed
+double-quoted string whose <strong>first byte</strong> is used as an integer value. It is
+only meaningful as the default value of an integer field:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">struct InputCsv {
+    int separator = c";";
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Inside <code>c"…"</code>, only the simple escapes (<code>\a \b \e \t \n \v \f \r \\ \"
+\'</code>) are allowed; <code>\x</code>, <code>\u</code> and octal escapes are an error.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_punctuation_and_operators"><a class="anchor" href="#_punctuation_and_operators"></a>9. Punctuation and operators</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The single-character tokens are:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>. = : , ; ( ) [ ] { } ? * - _ ~ ^ / + % &amp; |</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The only multi-character operator tokens are <code>&lt;&lt;</code>, <code>&gt;&gt;</code> and <code>**</code>. The
+characters <code>&lt;</code> and <code>&gt;</code> alone are not valid tokens (error <code>unexpected
+char</code>), except as part of documentation comment introducers.</p>
+</div>
+<div class="paragraph">
+<p>Declarations are terminated by <code>;</code>, <strong>including</strong> after the closing brace of
+a struct, union, enum, class, interface or module body (<code>};</code>).</p>
+</div>
+<div class="paragraph">
+<p>The token <code>@</code> followed by an identifier introduces an attribute; <code>@(</code>
+introduces a generic attribute, whose name has the form
+<code>ns:name</code> (one or more namespace segments separated by colons). See
+<a href="attributes.html" class="xref page">Attributes</a>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_constant_expressions"><a class="anchor" href="#_constant_expressions"></a>10. Constant expressions</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Integer constant expressions are accepted in three places: default values
+of integer fields, enum member values, and integer or boolean attribute
+arguments.</p>
+</div>
+<div class="paragraph">
+<p>Operands are integer literals (with optional unit suffix), the boolean
+literals <code>true</code>/<code>false</code>, and <strong>enum value identifiers</strong> (the all-uppercase
+constant name of any previously seen enum value, e.g. <code>MY_ENUM_A</code>;
+ambiguity with a renamed <code>@prefix</code> value is reported as a warning).</p>
+</div>
+<div class="paragraph">
+<p>Operators, from highest to lowest precedence:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 20%;">
+<col style="width: 40%;">
+<col style="width: 40%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Precedence</th>
+<th class="tableblock halign-left valign-top">Operators</th>
+<th class="tableblock halign-left valign-top">Associativity</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">7</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>**</code> (exponentiation)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">right</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">6</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">unary <code>-</code>, <code>~</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">right</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">5</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>*</code> <code>/</code> <code>%</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">left</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">4</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>+</code> <code>-</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">left</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">3</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&lt;&lt;</code> <code>&gt;&gt;</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">left</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&amp;</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">left</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>|</code> <code>^</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">left</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Parentheses group sub-expressions. There is <strong>no unary <code>+</code></strong>.</p>
+</div>
+<div class="paragraph">
+<p>Evaluation semantics:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>values are 64-bit integers carrying a signedness flag; a value is
+considered signed only when it is negative;</p>
+</li>
+<li>
+<p><code>+</code> and <code>-</code> are checked for both signed and unsigned overflow;</p>
+</li>
+<li>
+<p>division and modulo by zero are errors (<code>invalid division by 0</code>,
+<code>invalid modulo by 0</code>), as is <code>INT64_MIN / -1</code> (<code>division overflow</code>);</p>
+</li>
+<li>
+<p><code>**</code> rejects negative exponents (<code>negative expressions are forbidden
+when used as exponent</code>); <code>0**0</code> evaluates to 1; the iterated
+multiplication is overflow-checked;</p>
+</li>
+<li>
+<p>the bitwise operators (<code>~ &amp; | ^ &lt;&lt; &gt;&gt;</code>) operate on the raw 64-bit value
+and produce an unsigned result; shift counts are not validated;</p>
+</li>
+<li>
+<p>unbalanced parentheses and other malformed expressions are an error
+(<code>invalid arithmetic expression</code>).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">struct Foo {
+    int a = 2 * (256 &lt;&lt; 20) + 42;
+};
+
+enum Flags {
+    VAL_1 = 1 &lt;&lt; 0,
+    VAL_2 = 1 &lt;&lt; 1,
+    VAL_3 = 1 &lt;&lt; 2,
+};</code></pre>
+</div>
+</div>
+</div>
+</div>
+</article>
+  </div>
+</main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script id="site-script" src="../../../_/js/site.js" data-ui-root-path="../../../_"></script>
+<script async src="../../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

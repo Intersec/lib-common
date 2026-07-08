@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>YAML representation :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 3.1.2">
+    <link rel="stylesheet" href="../../../_/css/site.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.4">
+    <link rel="icon" href="../../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../../..">Intersec lib-common Documentation</a>
+      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
+    </div>
+  </nav>
+</header>
+<div class="body">
+<div class="nav-container" data-component="lib-common" data-version="master">
+  <aside class="nav">
+    <div class="panels">
+<div class="nav-panel-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
+    <h3 class="title"><a href="../../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/modules.html">Modules</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/threads.html">Thread jobs</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/prometheus-client.html">Prometheus client</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../index.html">Introduction</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP specification</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="overview.html">Specification overview</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Language reference</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="lexical.html">Lexical structure</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="packages.html">Packages and imports</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="types.html">Types and fields</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="structs-unions-enums.html">Structs, unions and enums</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="classes.html">Classes and inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="attributes.html">Attributes and constraints</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="interfaces-modules.html">Interfaces, RPCs and modules</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="snmp.html">SNMP extensions</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="doc-comments.html">Documentation comments</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Serialization formats</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="wire-format.html">Binary wire format</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="json.html">JSON representation</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="4">
+    <a class="nav-link" href="yaml.html">YAML representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="xml.html">XML and SOAP representation</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="compatibility.html">Backward-compatibility rules</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Reference implementation</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc.html">The iopc compiler</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc-backends.html">iopc backends: C, JSON, TypeScript, Python stubs</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-mapping.html">C language mapping</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-runtime.html">C runtime library</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/ichannel.html">IChannel RPC protocol</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/dso-iopsq.html">DSO plugins and IOP²</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/bindings.html">Language bindings: IOPy, TypeScript and Rust</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopy.html">IOPy: the Python binding</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/generators.html">OpenAPI, WSDL and SNMP MIB generation</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="nav-panel-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <div class="title"><a href="../../index.html">Lib-common Documentation</a></div>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+<main class="article">
+<div class="toolbar" role="navigation">
+<button class="nav-toggle"></button>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="../../index.html">Lib-common Documentation</a></li>
+    <li>IOP</li>
+    <li>IOP specification</li>
+    <li>Serialization formats</li>
+    <li><a href="yaml.html">YAML representation</a></li>
+  </ul>
+</nav>
+</div>
+  <div class="content">
+<aside class="toc sidebar" data-title="Contents" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
+<article
+class="doc"
+>
+<h1 class="page">YAML representation</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_the_supported_yaml_subset">1. The supported YAML subset</a></li>
+<li><a href="#_scalars">2. Scalars</a></li>
+<li><a href="#_sequences_and_objects">3. Sequences and objects</a></li>
+<li><a href="#_structs_unions_classes">4. Structs, unions, classes</a></li>
+<li><a href="#_includes">5. Includes</a></li>
+<li><a href="#_overrides">6. Overrides</a></li>
+<li><a href="#_variables">7. Variables</a></li>
+<li><a href="#_merge_keys">8. Merge keys</a></li>
+<li><a href="#_presentation_round_trip">9. Presentation round-trip</a></li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>IOP values can be read from and written to YAML — the format of choice
+for configuration files, thanks to comments, includes, overrides and
+variables. The supported language is a deliberate <strong>subset</strong> of YAML
+with IOP-specific extensions; this page specifies it exactly. Identity
+of fields is by <strong>name</strong> (the <a href="compatibility.html" class="xref page">JSON-family
+compatibility rules</a> apply).</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_the_supported_yaml_subset"><a class="anchor" href="#_the_supported_yaml_subset"></a>1. The supported YAML subset</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>One document per stream: <strong>no</strong> <code>%YAML</code> directives, no <code>---</code>/<code>&#8230;&#8203;</code>
+document markers (content after the document is an error —
+<code>extra characters after data</code>).</p>
+</li>
+<li>
+<p><strong>No anchors or aliases</strong> (<code>&amp;</code>, <code>*</code>).</p>
+</li>
+<li>
+<p>Comments: <code>#</code> to end of line.</p>
+</li>
+<li>
+<p>Indentation is significant; <strong>tab characters in indentation are
+forbidden</strong> (<code>tab character detected</code>).</p>
+</li>
+<li>
+<p>Block style: mappings <code>key: value</code>, sequences <code>- item</code>, with strict
+alignment per collection (a sequence may sit at the same indentation
+as its parent key); misaligned content is a <code>wrong indentation</code>
+error.</p>
+</li>
+<li>
+<p>Flow style: <code>[a, b]</code> and <code>{k: v}</code>, nested flow only, trailing comma
+allowed; only <code>key: value</code> pairs inside <code>{…}</code>; tags and variables
+are not available inside flow collections.</p>
+</li>
+<li>
+<p>Keys: <code>[a-zA-Z][a-zA-Z0-9_~-]*</code>, followed by <code>:</code> and a space or end
+of line (a key without its <code>:</code> is a <code>missing colon</code> error, and a <code>:</code>
+where none is expected an <code>unexpected colon</code>). Duplicate keys are an
+error.</p>
+</li>
+<li>
+<p>Tags: a single <code>!name</code> per node (declaring more is <code>two tags have
+been declared</code>). Three reserved tags — <code>!bin</code>,
+<code>!include:&lt;path&gt;</code>, <code>!includeraw:&lt;path&gt;</code> — everything else is an IOP
+type name. No <code>!!</code> shorthands, no <code>!&lt;…&gt;</code> verbatim form.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_scalars"><a class="anchor" href="#_scalars"></a>2. Scalars</h2>
+<div class="sectionbody">
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 66.6667%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Kind</th>
+<th class="tableblock halign-left valign-top">Syntax</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">null</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>~</code> or <code>null</code> (case-insensitive); an absent value is also
+  null. Canonical output: <code>~</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">booleans</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code> / <code>false</code>, case-insensitive on input, lowercase on
+  output</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">integers</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">decimal only: <code>154</code>, <code>-23</code> (no hex/octal, no unit
+  suffixes)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">doubles</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>-15.23</code>, scientific notation accepted on input; special
+  values <code>.Inf</code>, <code>-.Inf</code>, <code>.NaN</code> (case-insensitive)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">strings</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">plain (unquoted, runs to end of line or <code>#</code>) or
+  <strong>double-quoted</strong> with escapes. Single quotes have no special meaning;
+  there are no block scalars (<code>|</code>, <code>&gt;</code>) and no multi-line plain
+  scalars</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">binary</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>!bin "&lt;Base64&gt;"</code> — the tag is only valid on strings and
+  the content must be valid Base64</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Double-quoted escapes: <code>\a \b \e \f \n \r \t \v \" \\ \' \/</code>, <code>\0</code>,
+octal <code>\ooo</code>, <code>\xHH</code>, and <code>\uHHHH</code> with <strong>exactly four</strong> hex digits
+(surrogate pairs recombine); a backslash before a newline continues
+the string.</p>
+</div>
+<div class="paragraph">
+<p>When <strong>writing</strong>, a string is quoted when it could parse as something
+else: empty, equal to <code>~</code>/<code>null</code>, starting with one of
+<code>! &amp; * - . [ {</code>, containing <code>:</code>/<code>#</code>/control characters/<code>$(</code>, or with
+leading/trailing whitespace. Non-ASCII and invalid UTF-8 are written
+as <code>\uXXXX</code> escapes.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_sequences_and_objects"><a class="anchor" href="#_sequences_and_objects"></a>3. Sequences and objects</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-yaml hljs" data-lang="yaml">elements:
+  - 4 2
+  - ~
+  - name: "Anna"
+inline: [ foo, ~, key: val ]</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>A sequence element carrying a <code>key: value</code> directly (in flow form)
+becomes a one-pair object. Decoders map sequences to repeated fields —
+including the coercion of a lone scalar into a one-element array — and
+objects to structs/unions/classes.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_structs_unions_classes"><a class="anchor" href="#_structs_unions_classes"></a>4. Structs, unions, classes</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>A <strong>struct</strong> is an object; field names are the declared IOP names.</p>
+</li>
+<li>
+<p>A <strong>union</strong> is a one-key object: <code>choice: { b: true }</code> or in block
+form a single <code>b: true</code> under the field.</p>
+</li>
+<li>
+<p>A <strong>class</strong> instance may carry its concrete class as a tag:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-yaml hljs" data-lang="yaml">resource: !test.UserResource
+  name: "n"
+  userLogin: "u"</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The tag is the fully-qualified class name, required only when the
+concrete class differs from the field&#8217;s static type; without a tag the
+instance is of exactly the static type (which must not be abstract).
+Fields appear parents-first. A tag naming the exact expected type is
+also tolerated on structs and unions (and dropped on re-encoding);
+tags on scalar fields are an error.</p>
+</div>
+</li>
+<li>
+<p><code>~</code> decodes into a struct or class <strong>with no mandatory scalar
+fields</strong>, into an absent optional, an empty array, an absent
+string, or a present <code>void</code>.</p>
+</li>
+<li>
+<p>Enum values are written as their names and read as names or
+integers (strict enums validate the value).</p>
+</li>
+<li>
+<p>Numbers and booleans coerce into string fields using their source
+text; integers coerce into doubles.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>IOP mapping failures — type mismatches, out-of-range values, invalid
+enum values, invalid Base64, unknown or missing fields, wrong union
+arity, tag/class mismatches, constraint violations — are reported as
+<code>cannot set field …: …</code>. All errors are located as
+<code>&lt;file&gt;:&lt;line&gt;:&lt;col&gt;: &lt;message&gt;</code> with the offending source line.</p>
+</div>
+<div class="paragraph">
+<p>Canonical output skips fields equal to their default, empty arrays,
+empty sub-structs and optional class names; empty collections are
+written <code>{}</code> / <code>[]</code>; <code>bytes</code> are written <code>!bin &lt;base64&gt;</code>; indentation
+is two spaces.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_includes"><a class="anchor" href="#_includes"></a>5. Includes</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-yaml hljs" data-lang="yaml">config: !include:sub/part.yml
+logo:   !includeraw:logo.png</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>!include:&lt;path&gt;</code> parses the referenced YAML file and inlines it.</p>
+</li>
+<li>
+<p><code>!includeraw:&lt;path&gt;</code> inserts the raw file content (binary scalar).</p>
+</li>
+<li>
+<p>Paths are relative to the including file, and an include may not
+escape the directory of the <strong>top-level</strong> file (paths resolving
+outside are rejected); symbolic links are canonicalized; inclusion
+loops are detected and rejected; an unreadable referenced file is an
+error. Errors inside an included file are wrapped in one <code>error in
+included file</code> header per inclusion level.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>When re-encoding with presentation data (below), included subfiles are
+recreated; identical shared subfiles are deduplicated.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_overrides"><a class="anchor" href="#_overrides"></a>6. Overrides</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Data placed <strong>under</strong> an include overrides the included content:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-yaml hljs" data-lang="yaml">config: !include:base.yml
+  key: 2
+  obj:
+    a: 3
+  seq:
+    - 5</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Rules:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>the override payload must be an object (<code>override data after
+include must be an object</code>);</p>
+</li>
+<li>
+<p>each key is merged recursively into the included data: an existing
+scalar is <strong>replaced</strong>, an existing object is merged key by key, an
+existing <strong>sequence is appended to</strong> (overrides are additive for
+sequences), a missing key is added;</p>
+</li>
+<li>
+<p>the override may not change the kind of a node (<code>cannot change types
+of data in override</code>) — except that a <strong>null</strong> in the included data
+may be overridden by anything;</p>
+</li>
+<li>
+<p>scalar kind changes (string → int, …) are allowed.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_variables"><a class="anchor" href="#_variables"></a>7. Variables</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>An included file may contain <strong>variables</strong>, bound by the includer:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-yaml hljs" data-lang="yaml"># sub.yml
+name: $(name)
+greeting: "hello $(name)\n"
+
+# main.yml
+who: !include:sub.yml
+  variables:
+    name: "Alice"</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Syntax <code>$(name)</code>, name = <code>[a-zA-Z][a-zA-Z0-9_~-]*</code>.</p>
+</li>
+<li>
+<p>Bindings are given in the <strong>first</strong> key, <code>variables:</code>, of the override
+object; binding a name that the included file does not use is an
+error.</p>
+</li>
+<li>
+<p>A value that is <strong>exactly</strong> <code>$(x)</code> (raw occurrence) may be bound to
+any data; an occurrence inside a string must be bound to a scalar,
+and such a binding may not itself contain variables. Raw bindings
+and override values may contain variables — they simply become
+variables of the <strong>including</strong> document, to be bound further out.</p>
+</li>
+<li>
+<p><code>\$(</code> escapes the construct inside double-quoted strings only.</p>
+</li>
+<li>
+<p>Variables are forbidden inside flow collections.</p>
+</li>
+<li>
+<p>Unbound variables at the end of the top-level parse are an error
+(<code>there are unbound variables: …</code>).</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_merge_keys"><a class="anchor" href="#_merge_keys"></a>8. Merge keys</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>A limited form of YAML merge keys is supported:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-yaml hljs" data-lang="yaml">base: &amp;ignored            # (no anchors: value written inline)
+merged:
+  &lt;&lt;:
+    a: 1
+    b: 2
+  b: 3                    # later keys override the merged content</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>&lt;&lt;:</code> must be the <strong>first</strong> key of its object; its value is an object
+or a sequence of objects (tags forbidden inside).</p>
+</li>
+<li>
+<p>Contrary to the YAML 1.1 specification (first wins), the semantics
+here are <strong>last wins</strong>: each successive source, and then the sibling
+keys, override what precedes — consistent with the override
+mechanism.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_presentation_round_trip"><a class="anchor" href="#_presentation_round_trip"></a>9. Presentation round-trip</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Parsers can capture <strong>presentation data</strong> — comments, empty lines, flow
+mode, quoting, <code>~</code> vs absent, include structure, override and
+variable templates — as an IOP value (<code>yaml.DocumentPresentation</code>),
+and encoders can re-apply it, allowing tools to rewrite YAML
+configuration files while preserving their formatting and file
+layout.</p>
+</div>
+</div>
+</div>
+</article>
+  </div>
+</main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script id="site-script" src="../../../_/js/site.js" data-ui-root-path="../../../_"></script>
+<script async src="../../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

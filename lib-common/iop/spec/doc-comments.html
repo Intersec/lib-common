@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Documentation comments :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 3.1.2">
+    <link rel="stylesheet" href="../../../_/css/site.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.4">
+    <link rel="icon" href="../../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../../..">Intersec lib-common Documentation</a>
+      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
+    </div>
+  </nav>
+</header>
+<div class="body">
+<div class="nav-container" data-component="lib-common" data-version="master">
+  <aside class="nav">
+    <div class="panels">
+<div class="nav-panel-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
+    <h3 class="title"><a href="../../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/modules.html">Modules</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/threads.html">Thread jobs</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/prometheus-client.html">Prometheus client</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../index.html">Introduction</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP specification</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="overview.html">Specification overview</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Language reference</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="lexical.html">Lexical structure</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="packages.html">Packages and imports</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="types.html">Types and fields</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="structs-unions-enums.html">Structs, unions and enums</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="classes.html">Classes and inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="attributes.html">Attributes and constraints</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="interfaces-modules.html">Interfaces, RPCs and modules</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="snmp.html">SNMP extensions</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="4">
+    <a class="nav-link" href="doc-comments.html">Documentation comments</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Serialization formats</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="wire-format.html">Binary wire format</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="json.html">JSON representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="yaml.html">YAML representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="xml.html">XML and SOAP representation</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="compatibility.html">Backward-compatibility rules</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Reference implementation</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc.html">The iopc compiler</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc-backends.html">iopc backends: C, JSON, TypeScript, Python stubs</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-mapping.html">C language mapping</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-runtime.html">C runtime library</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/ichannel.html">IChannel RPC protocol</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/dso-iopsq.html">DSO plugins and IOP²</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/bindings.html">Language bindings: IOPy, TypeScript and Rust</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopy.html">IOPy: the Python binding</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/generators.html">OpenAPI, WSDL and SNMP MIB generation</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="nav-panel-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <div class="title"><a href="../../index.html">Lib-common Documentation</a></div>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+<main class="article">
+<div class="toolbar" role="navigation">
+<button class="nav-toggle"></button>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="../../index.html">Lib-common Documentation</a></li>
+    <li>IOP</li>
+    <li>IOP specification</li>
+    <li>Language reference</li>
+    <li><a href="doc-comments.html">Documentation comments</a></li>
+  </ul>
+</nav>
+</div>
+  <div class="content">
+<aside class="toc sidebar" data-title="Contents" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
+<article
+class="doc"
+>
+<h1 class="page">Documentation comments</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_comment_forms_and_attachment">1. Comment forms and attachment</a></li>
+<li><a href="#_text_structure">2. Text structure</a></li>
+<li><a href="#_documenting_rpc_parameters">3. Documenting RPC parameters</a></li>
+<li><a href="#_example_payloads">4. Example payloads</a></li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>IOP supports doxygen-style documentation comments. They are part of the
+language: a conforming compiler must parse them, attach them to the
+right elements, and preserve them — they feed generated code
+(C headers, TypeScript), WSDL, OpenAPI and MIB outputs, and they are
+<strong>mandatory</strong> on SNMP constructs (a missing brief is an error, <code>field
+'&lt;x&gt;' needs a brief…</code> / <code>notification '&lt;x&gt;' needs a brief…</code>;
+<a href="snmp.html" class="xref page">SNMP extensions</a>).</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_comment_forms_and_attachment"><a class="anchor" href="#_comment_forms_and_attachment"></a>1. Comment forms and attachment</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>There are eight introducer forms, in two families:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 28.5714%;">
+<col style="width: 28.5714%;">
+<col style="width: 42.8572%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Block forms</th>
+<th class="tableblock halign-left valign-top">Line forms</th>
+<th class="tableblock halign-left valign-top">Documents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>/**</code> and <code>/*!</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>///</code> and <code>//!</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">the <strong>following</strong> element (front
+  comment)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>/**&lt;</code> and <code>/*!&lt;</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>///&lt;</code> and <code>//!&lt;</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">the <strong>preceding</strong> element (back
+  comment)</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>A block form ends at the first <code>*/</code>; reaching end of file first is an
+error (<code>unterminated doxygen comment</code>). A line form ends at the end of
+line.
+Leading <code>*</code> gutters of block comments are stripped. A run of four or
+more slashes (<code>////…</code>) is a plain comment, not documentation.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+The language accepts both families, but Intersec&#8217;s coding rules
+forbid the line comment forms (<code>///</code>, <code>//!</code>, <code>///&lt;</code>, <code>//!&lt;</code>); use the
+block forms.
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">/** Front comment for the enum. */
+enum MyEnum {
+    ///&lt; back comment... attached to MyEnum itself (no previous value)
+    VAL_A,
+    VAL_B,  ///&lt; back comment for VAL_B
+    VAL_C,  //!&lt; also a back comment for VAL_C
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Documentation comments can be attached to:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>type declarations (struct, union, class, enum, typedef, interface,
+module, SNMP objects);</p>
+</li>
+<li>
+<p>fields and static fields;</p>
+</li>
+<li>
+<p>enum values;</p>
+</li>
+<li>
+<p>RPCs;</p>
+</li>
+<li>
+<p>module members;</p>
+</li>
+<li>
+<p>the <code>in</code>/<code>out</code>/<code>throw</code> payload clauses of an RPC (the comment is
+placed immediately before or after the clause), and the individual
+fields of inline payloads:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">interface MyIface {
+    /** front comment... */
+    funD /**&lt; ...and back comment, both for funD */
+        /** comment for the result payload */
+        out (int b) /**&lt; also for the result payload */
+        ;
+};</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_text_structure"><a class="anchor" href="#_text_structure"></a>2. Text structure</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Within a comment, text is organized in paragraphs separated by blank
+lines:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>the first paragraph is the <strong>brief</strong> description;</p>
+</li>
+<li>
+<p>subsequent unmarked paragraphs and the <code>@details</code> section form the
+<strong>detailed</strong> description;</p>
+</li>
+<li>
+<p>a keyword introduced by <code>@</code> or <code>\</code> starts a new section. Recognized
+keywords are <code>@brief</code>, <code>@details</code>, <code>@warning</code>, <code>@example</code> and
+<code>@param</code>. An unrecognized keyword (e.g. <code>\word</code>) is kept as plain
+text;</p>
+</li>
+<li>
+<p>inline markers such as <code>\p</code> and <code>\ref</code> are preserved verbatim in the
+text (renderers may interpret them).</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">/** Brief for MyEnumA.
+ *
+ *  Details for MyEnumA, first paragraph.
+ *
+ *  @warning a warning section.
+ */
+enum MyEnumA {
+    VAL_A,
+};</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_documenting_rpc_parameters"><a class="anchor" href="#_documenting_rpc_parameters"></a>3. Documenting RPC parameters</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Inside an RPC&#8217;s documentation comment, <code>@param</code> documents individual
+payload fields; using it on any other element is an error (<code>unrelated
+doxygen keyword</code>). The direction — exactly one of <code>in</code>, <code>out</code>, <code>throw</code>
+— is given in brackets:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>@param[in]    &lt;name&gt; &lt;description…&gt;
+@param[out]   &lt;name&gt; &lt;description…&gt;
+@param[throw] &lt;name&gt; &lt;description…&gt;</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>An empty direction list, several directions (<code>@param[in,out]</code>) or an
+unknown direction are errors (<code>doxygen param direction not specified</code>,
+<code>more than one doxygen param direction</code>, <code>unsupported doxygen param
+direction</code>).</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">interface MyIfaceA {
+    /** Brief for funA.
+     *
+     *  @details detailed description of funA.
+     *
+     *  @param[in]   aParam  description of aParam,
+     *                       continued on the next line
+     *  @param[out]  c       description of the result field c
+     *  @param[throw] code   description of the exception field code
+     *
+     *  @warning a warning about funA.
+     */
+    funA
+        in    (int aParam)
+        out   (int c)
+        throw (int code);
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Rules:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>the parameter name must exist in the corresponding payload (<code>doxygen
+unrelated 'in' argument '&lt;x&gt;' for RPC '&lt;f&gt;'</code>); the check applies to
+inline anonymous payloads — when the clause references a named type,
+the fields of that type are documented on the type itself;</p>
+</li>
+<li>
+<p>a newline or end-of-file inside the <code>[…]</code> direction list is an error
+(<code>unterminated doxygen param</code>); other malformed direction lists are
+reported as a warning (<code>doxygen param syntax error</code>);</p>
+</li>
+<li>
+<p>repeating <code>@param</code> for the same name appends additional paragraphs to
+its description, but naming the same field twice within a single
+<code>@param</code> argument list is an error (<code>doxygen duplicated '&lt;dir&gt;'
+argument '&lt;x&gt;'</code>).</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_example_payloads"><a class="anchor" href="#_example_payloads"></a>4. Example payloads</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>On an RPC payload clause, <code>@example</code> provides a sample value, written as
+the <strong>body</strong> of a JSON object (the braces are implicit):</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">interface MyIfaceA {
+    funAa
+        /** @example "aParam": 1,
+         *           "b": { "fieldA": 11 }
+         */
+        in (int aParam, MyStructAa b)
+        out void;
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The example must be valid JSON (<code>invalid identifier when parsing json
+value</code>).</p>
+</div>
+</div>
+</div>
+</article>
+  </div>
+</main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script id="site-script" src="../../../_/js/site.js" data-ui-root-path="../../../_"></script>
+<script async src="../../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

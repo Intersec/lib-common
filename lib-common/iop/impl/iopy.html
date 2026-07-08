@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>IOPy: the Python binding :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 3.1.2">
+    <link rel="stylesheet" href="../../../_/css/site.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.4">
+    <link rel="icon" href="../../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../../..">Intersec lib-common Documentation</a>
+      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
+    </div>
+  </nav>
+</header>
+<div class="body">
+<div class="nav-container" data-component="lib-common" data-version="master">
+  <aside class="nav">
+    <div class="panels">
+<div class="nav-panel-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
+    <h3 class="title"><a href="../../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/modules.html">Modules</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/threads.html">Thread jobs</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/prometheus-client.html">Prometheus client</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../index.html">Introduction</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP specification</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../spec/overview.html">Specification overview</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Language reference</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/lexical.html">Lexical structure</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/packages.html">Packages and imports</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/types.html">Types and fields</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/structs-unions-enums.html">Structs, unions and enums</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/classes.html">Classes and inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/attributes.html">Attributes and constraints</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/interfaces-modules.html">Interfaces, RPCs and modules</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/snmp.html">SNMP extensions</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/doc-comments.html">Documentation comments</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Serialization formats</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/wire-format.html">Binary wire format</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/json.html">JSON representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/yaml.html">YAML representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/xml.html">XML and SOAP representation</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../spec/compatibility.html">Backward-compatibility rules</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Reference implementation</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iopc.html">The iopc compiler</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iopc-backends.html">iopc backends: C, JSON, TypeScript, Python stubs</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="c-mapping.html">C language mapping</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="c-runtime.html">C runtime library</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="ichannel.html">IChannel RPC protocol</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="dso-iopsq.html">DSO plugins and IOP²</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="bindings.html">Language bindings: IOPy, TypeScript and Rust</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="3">
+    <a class="nav-link" href="iopy.html">IOPy: the Python binding</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="generators.html">OpenAPI, WSDL and SNMP MIB generation</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="nav-panel-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <div class="title"><a href="../../index.html">Lib-common Documentation</a></div>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+<main class="article">
+<div class="toolbar" role="navigation">
+<button class="nav-toggle"></button>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="../../index.html">Lib-common Documentation</a></li>
+    <li>IOP</li>
+    <li>Reference implementation</li>
+    <li><a href="iopy.html">IOPy: the Python binding</a></li>
+  </ul>
+</nav>
+</div>
+  <div class="content">
+<aside class="toc sidebar" data-title="Contents" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
+<article
+class="doc"
+>
+<h1 class="page">IOPy: the Python binding</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_loading_a_plugin">1. Loading a plugin</a></li>
+<li><a href="#_values">2. Values</a>
+<ul class="sectlevel2">
+<li><a href="#_structs">2.1. Structs</a></li>
+<li><a href="#_unions">2.2. Unions</a></li>
+<li><a href="#_enums">2.3. Enums</a></li>
+<li><a href="#_classes">2.4. Classes</a></li>
+</ul>
+</li>
+<li><a href="#_serialization">3. Serialization</a></li>
+<li><a href="#_introspection">4. Introspection</a></li>
+<li><a href="#_rpc_client">5. RPC client</a></li>
+<li><a href="#_asynchronous_client">6. Asynchronous client</a></li>
+<li><a href="#_rpc_server">7. RPC server</a></li>
+<li><a href="#_prepost_hooks">8. Pre/post hooks</a></li>
+<li><a href="#_error_handling">9. Error handling</a></li>
+<li><a href="#_threading">10. Threading</a></li>
+<li><a href="#_static_type_checking">11. Static type checking</a></li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>IOPy is a Cython Python extension that loads an IOP
+<a href="dso-iopsq.html" class="xref page">DSO plugin</a> and exposes its packages as ordinary
+Python classes — enums, structs, unions and classes — with full
+serialization support and an <a href="ichannel.html" class="xref page">IChannel</a> RPC client
+and server. Because the classes are built dynamically at import time, a
+type checker sees nothing by default; the
+<a href="iopc-backends.html#_python_stub_backend_l_pystub" class="xref page"><code>pystub</code>
+backend</a> generates <code>.pyi</code> stubs that make IOPy code statically
+checkable (see <a href="#_static_type_checking">Static type checking</a>).</p>
+</div>
+<div class="paragraph">
+<p>The module internals — debugging the generated Cython, the event-loop
+thread — are documented in <code>src/iopy/README.adoc</code>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_loading_a_plugin"><a class="anchor" href="#_loading_a_plugin"></a>1. Loading a plugin</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-python hljs" data-lang="python">import iopy
+
+plugin = iopy.Plugin("/path/to/pkg-iop-plugin.so")
+pkg    = plugin.mypkg               # packages become plugin attributes</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Loading the DSO also runs the Python snippets it exports under the
+<code>iopy_on_register</code> DSO resource category. Types are reached by
+attribute (<code>plugin.&lt;pkg&gt;.&lt;Type&gt;</code>) or by fullname:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-python hljs" data-lang="python">Cls   = plugin.get_type_from_fullname("mypkg.KeyFull")
+Iface = plugin.get_iface_type_from_fullname("mypkg.MyIface")</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Additional DSOs can be loaded into the same plugin with
+<code>plugin.load_dso(key, path)</code> / <code>plugin.unload_dso(key)</code>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_values"><a class="anchor" href="#_values"></a>2. Values</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Every IOP enum, struct, union and class becomes a dynamically created
+Python class (under <code>iopy.Enum</code>, <code>iopy.Struct</code>, <code>iopy.Union</code>; the class
+hierarchy mirrors IOP inheritance). IOPy objects are <strong>not</strong> hashable —
+they cannot be used as dict keys or set members.</p>
+</div>
+<div class="sect2">
+<h3 id="_structs"><a class="anchor" href="#_structs"></a>2.1. Structs</h3>
+<div class="paragraph">
+<p>Construct with field keyword arguments; read and write fields as
+attributes; delete an optional field with <code>del</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-python hljs" data-lang="python">b = pkg.StructB(a="plop", tab=["plup"])
+b.a = "plip"
+del b.opt_field                     # unset an optional field</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_unions"><a class="anchor" href="#_unions"></a>2.2. Unions</h3>
+<div class="paragraph">
+<p>A union has exactly one active member. Construct it with a single
+keyword argument, switch the active member by assigning another, and
+inspect it with <code>get_key()</code> / <code>get_object()</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-python hljs" data-lang="python">u = pkg.UnionA(i=58)                # active member: i
+u.s = "foo"                         # now active member: s
+u.get_key()                         # 's'
+u.get_object()                      # 'foo'</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_enums"><a class="anchor" href="#_enums"></a>2.3. Enums</h3>
+<div class="paragraph">
+<p>Build an enum value from its name (ASCII case-insensitive), from its
+integer, or — for flag enums — from a <code>"A|B"</code> string. Values compare and
+convert to <code>int</code>/<code>str</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-python hljs" data-lang="python">e = pkg.EnumA("A")
+e = pkg.EnumA(1)
+e = pkg.EnumA("A|B")                # combined flags
+int(e); e.get_as_str()</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_classes"><a class="anchor" href="#_classes"></a>2.4. Classes</h3>
+<div class="paragraph">
+<p>Class instances are created like structs. A child instance is accepted
+wherever a parent type is expected, as in IOP; instantiating an
+<code>abstract</code> class raises <code>iopy.Error</code>. In a <code>dict</code>/JSON form the concrete
+type is selected by the <code>_class</code> fullname:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-python hljs" data-lang="python">b   = pkg.ClassB(field1=1, field2=2)
+obj = pkg.StructA(a=pkg.ClassB(field1=1))            # child where parent expected
+b   = pkg.StructToDict({"_class": "mypkg.ClassB", "field2": 87})</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_serialization"><a class="anchor" href="#_serialization"></a>3. Serialization</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Every value serializes to each supported representation and back. The
+<code>to_*</code> methods share a set of <strong>reduction flags</strong> — <code>skip_default</code>,
+<code>skip_private</code>, <code>skip_empty_arrays</code>, <code>skip_empty_structs</code>,
+<code>skip_class_names</code>, <code>skip_optional_class_names</code>, <code>shorten_data</code>, plus the
+layout flags <code>no_whitespaces</code> / <code>no_trailing_eol</code> (the latter two do not
+apply to <code>to_dict</code>); <code>minimal=True</code> turns on the lossless reductions at
+once.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-python hljs" data-lang="python">a.to_json(); a.to_yaml(); a.to_xml(); a.to_bin(); a.to_hex(); a.to_dict()
+a.to_json(minimal=True)</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>To build a value from a serialized form, pass the <strong>content</strong> as one of
+<code>_json</code> / <code>_yaml</code> / <code>_xml</code> / <code>_bin</code> / <code>_hex</code>, or a <code>dict</code> positionally:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-python hljs" data-lang="python">b = pkg.StructB(_json='{"a": "juju", "tab": ["x"]}')
+b = pkg.StructB(_yaml=yaml_text)
+b = pkg.StructB({"a": "juju"})</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>from_file()</code> reads the content from a <strong>file path</strong> instead, and exposes
+the unpacking options (<code>_ignore_unknown</code>, <code>_forbid_private</code>,
+<code>_use_c_case</code>, <code>single</code>):</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-python hljs" data-lang="python">b = pkg.ClassB.from_file(_json="obj.json", _ignore_unknown=True)</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>iopy.set_json_flags(&#8230;&#8203;)</code> sets process-wide JSON defaults for the same
+flags.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_introspection"><a class="anchor" href="#_introspection"></a>4. Introspection</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Classes expose their IOP metadata:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-python hljs" data-lang="python">pkg.ClassB.get_iop_fullname()       # 'mypkg.ClassB'  (dotted)
+pkg.ClassB.get_fields_name()        # ['field1', 'field2', …]
+pkg.EnumA.get_values()              # {'A': 1, 'B': 2}
+
+desc = pkg.ClassB.get_iop_description()
+desc.help.brief                     # doc-comment texts
+desc.fields["field1"].optional      # field metadata + constraints
+desc.parent, desc.is_abstract, desc.class_id, desc.statics</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>get_iop_description()</code> returns the help texts, generic attributes and,
+per field, the type, default, cardinality and every constraint
+(<code>min</code>/<code>max</code>, <code>min_length</code>/<code>max_length</code>, <code>pattern</code>, …); for classes it
+also carries the parent, abstract/private flags, class id and static
+fields.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_rpc_client"><a class="anchor" href="#_rpc_client"></a>5. RPC client</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Connect to an IChannel server and call RPCs. The connection URI is a
+plain <code>host:port</code> (no scheme); <code>host=</code>/<code>port=</code> keywords are an
+alternative:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-python hljs" data-lang="python">ch  = plugin.connect("localhost:20001", _login="root", _password="1234")
+res = ch.mypkg_MyModule.myIface.myRpc(key="toto")</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>RPCs are reached as <code>channel.&lt;pkg&gt;_&lt;Module&gt;.&lt;iface&gt;.&lt;rpc&gt;</code>; the call
+takes the argument fields as keywords (or a single argument object) and
+returns the result object. Per-call keyword overrides — an
+<code>iopy.IcKwargs</code> header — include <code>_timeout</code>, <code>_login</code>, <code>_password</code>,
+<code>_group</code>, <code>_kind</code>, <code>_workspace_id</code>, <code>_dealias</code> and a pre-built <code>_hdr</code>
+(an <code>ic.Hdr</code>):</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-python hljs" data-lang="python">hdr = plugin.ic.Hdr(simple=plugin.ic.SimpleHdr(login="root", password="1234"))
+res = ch.mypkg_MyModule.myIface.myRpc(key="toto", _hdr=hdr, _timeout=5)</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>A default header shared by every call is set with
+<code>ch.change_default_hdr(_login=…, _password=…)</code> (read back with
+<code>get_default_hdr()</code>). The channel exposes <code>connect()</code>, <code>is_connected()</code>,
+<code>disconnect()</code> and the <code>on_connect</code> / <code>on_disconnect</code> / <code>on_exception</code>
+callback properties.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_asynchronous_client"><a class="anchor" href="#_asynchronous_client"></a>6. Asynchronous client</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><code>plugin.async_connect(&#8230;&#8203;)</code> returns an <code>asyncio.Future</code> yielding an
+<code>AsyncChannel</code> whose RPC calls return futures — everything is driven by
+the running asyncio loop:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-python hljs" data-lang="python">ch  = await plugin.async_connect("localhost:20001")
+res = await ch.mypkg_MyModule.myIface.myRpc(key="toto")</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_rpc_server"><a class="anchor" href="#_rpc_server"></a>7. RPC server</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Create a server channel, set an implementation per RPC, and listen:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-python hljs" data-lang="python">server = plugin.channel_server()
+
+def my_rpc_impl(args):
+    # args.arg -&gt; the decoded argument; args.hdr -&gt; the query header
+    # args.res / args.exn -&gt; the result / exception constructors
+    return args.res(value=42)
+
+server.mypkg_MyModule.myIface.myRpc.impl = my_rpc_impl
+server.listen(uri="0.0.0.0:20001")</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The implementation receives an <code>RPCArgs</code> object exposing <code>arg</code>, <code>hdr</code>,
+and the <code>res</code>/<code>exn</code> constructors, and returns either <code>args.res(&#8230;&#8203;)</code>
+(replied as <code>IC_MSG_OK</code>) or <code>args.exn(&#8230;&#8203;)</code> (replied as an exception);
+an asynchronous RPC returns <code>args.res()</code> with no payload. Alongside
+<code>listen()</code> (also <code>host=</code>/<code>port=</code>), <code>listen_block(timeout, uri)</code> runs the
+loop inline, <code>stop()</code> shuts the server down, <code>is_listening</code> reports its
+state, and a per-RPC <code>wait(timeout, uri, count=1)</code> serves a fixed number
+of calls — handy in tests. <code>on_connect</code> / <code>on_disconnect</code> /
+<code>on_exception</code> callbacks mirror the client&#8217;s.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_prepost_hooks"><a class="anchor" href="#_prepost_hooks"></a>8. Pre/post hooks</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>An interface may carry <code><em>pre_hook</em>(self, rpc, *args, **kwargs)</code> and
+<code><em>post_hook</em>(self, rpc, res)</code> methods that run around each of its
+RPCs — for injecting credentials, auditing, or rewriting a call. A
+pre-hook may return <code>(args, kwargs)</code> to replace the arguments; a
+post-hook may return a value to replace the result. Plugin-wide defaults
+are set with <code>plugin.default_pre_hook</code> / <code>plugin.default_post_hook</code>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_error_handling"><a class="anchor" href="#_error_handling"></a>9. Error handling</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p><code>iopy.Error</code> — IOP-level failures: constraint violations, parsing
+errors, instantiating an abstract class, type mismatches.</p>
+</li>
+<li>
+<p><code>iopy.RpcError</code> — an RPC answered with an exception; <code>err.args[0]</code>
+is the decoded exception object.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-python hljs" data-lang="python">try:
+    ch.mypkg_MyModule.myIface.myRpc(key="toto")
+except iopy.RpcError as e:
+    exn = e.args[0]                 # the IOP exception object
+except iopy.Error as e:
+    ...                             # e.g. "violation of constraint max (100) …"</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_threading"><a class="anchor" href="#_threading"></a>10. Threading</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The RPC transport and its event loop run on a dedicated thread that
+never touches Python objects. Code calling IOPy from another thread must
+bracket it with <code>iopy.thr_attach()</code> / <code>iopy.thr_detach()</code>. The
+event-loop isolation rules and other internals are covered in
+<code>src/iopy/README.adoc</code>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_static_type_checking"><a class="anchor" href="#_static_type_checking"></a>11. Static type checking</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Because IOPy builds its classes dynamically, run
+<code>iopc -l pystub</code> to emit <code>.pyi</code> stubs describing them, so mypy/pyright
+can check IOPy code. See the
+<a href="iopc-backends.html#_python_stub_backend_l_pystub" class="xref page">Python stub
+backend</a>; the generated stubs build on the hand-written base stub
+<code>src/iopy/iopy.pyi</code>, which types the <code>iopy</code> module itself.</p>
+</div>
+</div>
+</div>
+</article>
+  </div>
+</main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script id="site-script" src="../../../_/js/site.js" data-ui-root-path="../../../_"></script>
+<script async src="../../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

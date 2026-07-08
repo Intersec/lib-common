@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>XML and SOAP representation :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 3.1.2">
+    <link rel="stylesheet" href="../../../_/css/site.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.4">
+    <link rel="icon" href="../../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../../..">Intersec lib-common Documentation</a>
+      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
+    </div>
+  </nav>
+</header>
+<div class="body">
+<div class="nav-container" data-component="lib-common" data-version="master">
+  <aside class="nav">
+    <div class="panels">
+<div class="nav-panel-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
+    <h3 class="title"><a href="../../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/modules.html">Modules</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/threads.html">Thread jobs</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/prometheus-client.html">Prometheus client</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../index.html">Introduction</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP specification</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="overview.html">Specification overview</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Language reference</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="lexical.html">Lexical structure</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="packages.html">Packages and imports</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="types.html">Types and fields</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="structs-unions-enums.html">Structs, unions and enums</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="classes.html">Classes and inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="attributes.html">Attributes and constraints</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="interfaces-modules.html">Interfaces, RPCs and modules</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="snmp.html">SNMP extensions</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="doc-comments.html">Documentation comments</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Serialization formats</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="wire-format.html">Binary wire format</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="json.html">JSON representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="yaml.html">YAML representation</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="4">
+    <a class="nav-link" href="xml.html">XML and SOAP representation</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="compatibility.html">Backward-compatibility rules</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Reference implementation</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc.html">The iopc compiler</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc-backends.html">iopc backends: C, JSON, TypeScript, Python stubs</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-mapping.html">C language mapping</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-runtime.html">C runtime library</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/ichannel.html">IChannel RPC protocol</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/dso-iopsq.html">DSO plugins and IOP²</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/bindings.html">Language bindings: IOPy, TypeScript and Rust</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopy.html">IOPy: the Python binding</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/generators.html">OpenAPI, WSDL and SNMP MIB generation</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="nav-panel-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <div class="title"><a href="../../index.html">Lib-common Documentation</a></div>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+<main class="article">
+<div class="toolbar" role="navigation">
+<button class="nav-toggle"></button>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="../../index.html">Lib-common Documentation</a></li>
+    <li>IOP</li>
+    <li>IOP specification</li>
+    <li>Serialization formats</li>
+    <li><a href="xml.html">XML and SOAP representation</a></li>
+  </ul>
+</nav>
+</div>
+  <div class="content">
+<aside class="toc sidebar" data-title="Contents" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
+<article
+class="doc"
+>
+<h1 class="page">XML and SOAP representation</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_document_model">1. Document model</a></li>
+<li><a href="#_value_mapping">2. Value mapping</a></li>
+<li><a href="#_presence_repeated_fields_defaults">3. Presence, repeated fields, defaults</a></li>
+<li><a href="#_unions">4. Unions</a></li>
+<li><a href="#_classes">5. Classes</a></li>
+<li><a href="#_parser_requirements">6. Parser requirements</a>
+<ul class="sectlevel2">
+<li><a href="#_multipart_attachments">6.1. Multipart attachments</a></li>
+</ul>
+</li>
+<li><a href="#_soap_usage">7. SOAP usage</a></li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>The XML representation is used for SOAP web services (described by
+generated <a href="../impl/generators.html" class="xref page">WSDL</a>) and legacy integrations.
+Identity of fields is by <strong>name</strong>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_document_model"><a class="anchor" href="#_document_model"></a>1. Document model</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>A struct value is a <strong>sequence of elements, one per present field, in
+declaration order</strong>, with the element&#8217;s local name equal to the field
+name. The serialization itself produces no wrapper element and no
+namespace declarations: the enclosing document (for instance the SOAP
+envelope) provides the root element, which must declare
+<code>xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"</code> (and
+<code>xmlns:xsd</code> when xsi-typed output is used).</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"&gt;
+  &lt;a&gt;20&lt;/a&gt;
+  &lt;b&gt;blah&lt;/b&gt;
+&lt;/root&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Symmetrically, the decoder starts on the first field element and
+consumes the parent&#8217;s closing tag.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_value_mapping"><a class="anchor" href="#_value_mapping"></a>2. Value mapping</h2>
+<div class="sectionbody">
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 16.6666%;">
+<col style="width: 33.3333%;">
+<col style="width: 50.0001%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">IOP type</th>
+<th class="tableblock halign-left valign-top">Output</th>
+<th class="tableblock halign-left valign-top">Accepted input</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">integers</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">decimal</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">C integer syntax: decimal, hex <code>0x…</code>, octal
+  <code>0…</code>; surrounding whitespace tolerated; range-checked</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>bool</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>1</code> / <code>0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>0</code>, <code>1</code>, <code>true</code>, <code>false</code> (case-insensitive)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>double</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>%.17g</code>; ±infinity as <code>INF</code>/<code>-INF</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>strtod</code> forms,
+  case-insensitive <code>inf</code>/<code>nan</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">XML-escaped (<code>&amp;</code> <code>&lt;</code> <code>&gt;</code> <code>&#39;</code> <code>&#34;</code>); tab,
+  CR, LF kept literal; other control characters are <strong>silently
+  dropped</strong> (invalid in XML 1.0)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">element text (entities resolved);
+  empty element → empty string</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code> with <code>@cdata</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">wrapped verbatim in <code>&lt;![CDATA[ … ]]&gt;</code>
+  (beware: content containing <code>]]&gt;</code> produces malformed XML)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">transparent (CDATA merges into text)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>bytes</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Base64</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Base64 (<code>value isn&#8217;t valid base64</code> otherwise)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>xml</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">the value inserted <strong>verbatim</strong> (must be well-formed)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">the
+  inner XML of the element, re-serialized into the string</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">enums</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">numeric value by default; the <strong>name</strong> in "literal enums"
+  mode</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">name or integer, both always accepted</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>void</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">empty element with <code>xsi:nil="true"</code> (mandatory void fields
+  are not emitted at all)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">content ignored</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>In <strong>verbose mode</strong>, each scalar element also carries an
+<code>xsi:type="xsd:…"</code> attribute (<code>xsd:int</code>, <code>xsd:string</code>,
+<code>xsd:base64Binary</code>, …); decoders ignore these attributes.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_presence_repeated_fields_defaults"><a class="anchor" href="#_presence_repeated_fields_defaults"></a>3. Presence, repeated fields, defaults</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Absent optional fields are omitted; there is no <code>xsi:nil</code>-based
+absence form — an optional scalar present as an <strong>empty element</strong> is
+an error (<code>node value is missing</code>), absence means omitting the
+element.</p>
+</li>
+<li>
+<p>A repeated field is a run of <strong>consecutive</strong> elements with the same
+name; an empty array emits nothing.</p>
+</li>
+<li>
+<p>Default-valued fields are always emitted; on input, an absent
+defaulted field takes its default.</p>
+</li>
+<li>
+<p>Field elements must appear in <strong>declaration order</strong>: the decoder scans
+forward only, so an element appearing before its declared position
+(or a repeated run split in two) is reported as an unknown tag.
+Skipped positions are treated as absent (error for mandatory
+scalars: <code>missing mandatory tag &lt;name&gt;</code>).</p>
+</li>
+<li>
+<p>Unknown elements are an error by default; in "ignore unknown" mode
+the whole subtree is skipped. A "forbid private" mode rejects input
+setting <code>@private</code> fields (<code>private tag &lt;name&gt;</code>).</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_unions"><a class="anchor" href="#_unions"></a>4. Unions</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>One element: the active member, inside the field&#8217;s wrapper element —</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;choice&gt;&lt;wantInt&gt;42&lt;/wantInt&gt;&lt;/choice&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The decoder requires exactly one child, matched against the member
+names (<code>unknown tag &lt;name&gt;</code> otherwise).</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_classes"><a class="anchor" href="#_classes"></a>5. Classes</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The element of a class-typed value carries the concrete class in an
+<code>xsi:type</code> attribute whose value is the fully-qualified IOP name, with
+a namespace prefix:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:type="n:test.B1"&gt;
+  &lt;a&gt;20&lt;/a&gt;
+  &lt;b&gt;blah&lt;/b&gt;
+&lt;/root&gt;</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Fields appear <strong>parents first</strong> (root ancestor down to the concrete
+class), and that order is required on input.</p>
+</li>
+<li>
+<p>On input the attribute is matched by local name <code>type</code> whatever its
+prefix, and the value&#8217;s prefix (before <code>:</code>) is ignored; the named
+class must exist (<code>class 'X' not found</code>), must be the expected class
+or one of its descendants (<code>class 'X' is not a child of 'Y'</code>), not
+abstract, and not <code>@private</code> (in forbid-private mode).</p>
+</li>
+<li>
+<p>The attribute may be <strong>omitted</strong> when the static type is concrete (the
+instance is then exactly of that type); it is mandatory when the
+static type is abstract.</p>
+</li>
+<li>
+<p>The reference encoder uses the prefix <code>n</code>, expected to be bound by
+the enclosing SOAP serializer.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_parser_requirements"><a class="anchor" href="#_parser_requirements"></a>6. Parser requirements</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The decoder operates on a stream with: whitespace-only text nodes
+dropped, CDATA merged into text, comments and processing instructions
+skipped, no network access for external entities, and <strong>no mixed
+content</strong> (text and elements as siblings is unsupported). Attributes
+other than <code>xsi:type</code> and <code>href</code> are ignored.</p>
+</div>
+<div class="sect2">
+<h3 id="_multipart_attachments"><a class="anchor" href="#_multipart_attachments"></a>6.1. Multipart attachments</h3>
+<div class="paragraph">
+<p>When decoding multipart messages (SOAP with attachments / XOP), a
+<code>string</code> or <code>bytes</code> field may reference a MIME part by Content-ID:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;doc href="cid:1234"/&gt;                       &lt;!-- SwA style --&gt;
+&lt;doc&gt;&lt;Include href="cid:1234"/&gt;&lt;/doc&gt;        &lt;!-- XOP style --&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>cid:</code> prefix is mandatory; unknown ids and <code>href</code> without an
+attachment table are errors. Part content is used as-is (not
+Base64-decoded).</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_soap_usage"><a class="anchor" href="#_soap_usage"></a>7. SOAP usage</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>RPC payloads travel inside a standard SOAP 1.1 envelope: the request
+body contains a <code>&lt;n:RpcReq&gt;</code>-style element wrapping the <code>in</code> payload,
+the response a <code>&lt;n:RpcRes&gt;</code> wrapping the <code>out</code> payload, and exceptions
+map to <code>&lt;s:Fault&gt;</code> with the <code>throw</code> payload under <code>&lt;detail&gt;</code>. The
+WSDL generator (<a href="../impl/generators.html" class="xref page">Part II</a>) publishes the
+matching document/literal contract.</p>
+</div>
+</div>
+</div>
+</article>
+  </div>
+</main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script id="site-script" src="../../../_/js/site.js" data-ui-root-path="../../../_"></script>
+<script async src="../../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

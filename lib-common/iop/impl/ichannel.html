@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>IChannel RPC protocol :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 3.1.2">
+    <link rel="stylesheet" href="../../../_/css/site.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.4">
+    <link rel="icon" href="../../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../../..">Intersec lib-common Documentation</a>
+      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
+    </div>
+  </nav>
+</header>
+<div class="body">
+<div class="nav-container" data-component="lib-common" data-version="master">
+  <aside class="nav">
+    <div class="panels">
+<div class="nav-panel-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
+    <h3 class="title"><a href="../../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/modules.html">Modules</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/threads.html">Thread jobs</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/prometheus-client.html">Prometheus client</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../index.html">Introduction</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP specification</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../spec/overview.html">Specification overview</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Language reference</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/lexical.html">Lexical structure</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/packages.html">Packages and imports</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/types.html">Types and fields</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/structs-unions-enums.html">Structs, unions and enums</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/classes.html">Classes and inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/attributes.html">Attributes and constraints</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/interfaces-modules.html">Interfaces, RPCs and modules</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/snmp.html">SNMP extensions</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/doc-comments.html">Documentation comments</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Serialization formats</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/wire-format.html">Binary wire format</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/json.html">JSON representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/yaml.html">YAML representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/xml.html">XML and SOAP representation</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../spec/compatibility.html">Backward-compatibility rules</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Reference implementation</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iopc.html">The iopc compiler</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iopc-backends.html">iopc backends: C, JSON, TypeScript, Python stubs</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="c-mapping.html">C language mapping</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="c-runtime.html">C runtime library</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="3">
+    <a class="nav-link" href="ichannel.html">IChannel RPC protocol</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="dso-iopsq.html">DSO plugins and IOP²</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="bindings.html">Language bindings: IOPy, TypeScript and Rust</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iopy.html">IOPy: the Python binding</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="generators.html">OpenAPI, WSDL and SNMP MIB generation</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="nav-panel-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <div class="title"><a href="../../index.html">Lib-common Documentation</a></div>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+<main class="article">
+<div class="toolbar" role="navigation">
+<button class="nav-toggle"></button>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="../../index.html">Lib-common Documentation</a></li>
+    <li>IOP</li>
+    <li>Reference implementation</li>
+    <li><a href="ichannel.html">IChannel RPC protocol</a></li>
+  </ul>
+</nav>
+</div>
+  <div class="content">
+<aside class="toc sidebar" data-title="Contents" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
+<article
+class="doc"
+>
+<h1 class="page">IChannel RPC protocol</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_part_a_protocol">1. Part A — Protocol</a>
+<ul class="sectlevel2">
+<li><a href="#_endianness_and_framing">1.1. Endianness and framing</a></li>
+<li><a href="#_queries">1.2. Queries</a></li>
+<li><a href="#_replies">1.3. Replies</a></li>
+<li><a href="#_stream_control">1.4. Stream control</a></li>
+<li><a href="#_version_handshake">1.5. Version handshake</a></li>
+<li><a href="#ic-hdr">1.6. The IC IOP header</a></li>
+<li><a href="#_limits">1.7. Limits</a></li>
+</ul>
+</li>
+<li><a href="#_part_b_c_api">2. Part B — C API</a>
+<ul class="sectlevel2">
+<li><a href="#_the_ichannel_t_object">2.1. The ichannel_t object</a></li>
+<li><a href="#_implementing_rpcs">2.2. Implementing RPCs</a></li>
+<li><a href="#_prepost_hooks">2.3. Pre/post hooks</a></li>
+<li><a href="#_client_setup">2.4. Client setup</a></li>
+<li><a href="#_server_and_local_channels">2.5. Server and local channels</a></li>
+</ul>
+</li>
+<li><a href="#_http_transport">3. HTTP transport</a></li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>IChannels are the native transport for IOP RPCs: TCP or Unix-domain
+connections carrying binary-packed queries and replies. This page first
+specifies the <strong>wire protocol</strong> (implementable without reading any C),
+then describes the C API.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_part_a_protocol"><a class="anchor" href="#_part_a_protocol"></a>1. Part A — Protocol</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Current protocol version: <strong>1</strong> (<code>IC_VERSION</code>).</p>
+</div>
+<div class="sect2">
+<h3 id="_endianness_and_framing"><a class="anchor" href="#_endianness_and_framing"></a>1.1. Endianness and framing</h3>
+<div class="paragraph">
+<p>All header words are encoded <strong>little-endian</strong> (not network byte order).
+A packet is a 12-byte header — three 32-bit little-endian words —
+followed by a payload:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre> 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|     Flags     |                   Reserved                    | } 32LE
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                            Command                            | } 32LE
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|0|                         Data length                         | } 32LE
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+| Payload...
++-+-+-+-+-+-+-</pre>
+</div>
+</div>
+<div class="paragraph">
+<p><strong>Flags</strong> (the 8 most significant bits of the first word):</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 66.6667%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Bit</th>
+<th class="tableblock halign-left valign-top">Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>IC_MSG_HAS_FD</code> (1 « 24)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">a file descriptor is passed along with the
+  message (Unix sockets only, using the kernel&#8217;s file-descriptor passing
+  mechanism)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>IC_MSG_HAS_HDR</code> (1 « 25)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">the payload starts with an IC IOP header
+  (see <a href="#ic-hdr">The IC IOP header</a>)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>IC_MSG_IS_TRACED</code> (1 « 26)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">tracing requested</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">priority (2 bits at 27)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">message priority; high-priority messages
+  are sent first, and the priority propagates to the response</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>The low 24 bits of the first word are the <strong>slot</strong> (query/reply
+correlation id) for queries and replies, or a type field for stream
+control.</p>
+</div>
+<div class="paragraph">
+<p><strong>Command</strong> selects the message kind:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>Command &gt; 0</code> — <strong>query</strong>;</p>
+</li>
+<li>
+<p><code>Command == 0x80000000</code> — <strong>stream control</strong>;</p>
+</li>
+<li>
+<p>otherwise — <strong>reply</strong> (Command = −status).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p><strong>Data length</strong> is the payload length; its sign bit must be 0.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_queries"><a class="anchor" href="#_queries"></a>1.2. Queries</h3>
+<div class="paragraph">
+<p>The Command word of a query packs the <strong>interface tag</strong> (15 bits, upper
+half) and the <strong>RPC tag</strong> (15 bits, lower half):</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>|0|         Interface           |0|           RPC               |</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>These are the module-member tag and RPC tag of the IOP definitions
+(<a href="../spec/interfaces-modules.html" class="xref page">Interfaces</a>). The payload is the
+binary-packed <code>in</code> payload of the RPC
+(<a href="../spec/wire-format.html" class="xref page">wire format</a>), optionally preceded by
+the IC header when <code>IC_MSG_HAS_HDR</code> is set. The <strong>slot</strong> identifies the
+query; the reply carries the same slot. Asynchronous RPCs (<code>out null</code>)
+send slot 0 and never receive a reply.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_replies"><a class="anchor" href="#_replies"></a>1.3. Replies</h3>
+<div class="paragraph">
+<p>The Command word is the negated status. Status codes (<code>ic_status_t</code>):</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 14.2857%;">
+<col style="width: 28.5714%;">
+<col style="width: 57.1429%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Value</th>
+<th class="tableblock halign-left valign-top">Name</th>
+<th class="tableblock halign-left valign-top">Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>IC_MSG_OK</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">success; payload = binary-packed <code>out</code> value</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>IC_MSG_EXN</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">RPC exception; payload = binary-packed <code>throw</code>
+  value</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>IC_MSG_RETRY</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">retry later</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">3</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>IC_MSG_ABORT</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">query aborted (e.g. connection lost)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">4</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>IC_MSG_INVALID</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">invalid query (e.g. constraint violation on
+  unpack)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">5</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>IC_MSG_UNIMPLEMENTED</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no such RPC registered</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">6</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>IC_MSG_SERVER_ERROR</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">internal server error</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">7</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>IC_MSG_PROXY_ERROR</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">proxying failure</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">8</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>IC_MSG_TIMEDOUT</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">query timeout</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">9</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>IC_MSG_CANCELED</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">query canceled</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>The payload is non-empty only for <code>OK</code> and <code>EXN</code>.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_stream_control"><a class="anchor" href="#_stream_control"></a>1.4. Stream control</h3>
+<div class="paragraph">
+<p><code>Command = 0x80000000</code>; the Reserved field carries the type:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Bye</strong> — the peer is about to shut down and will send nothing more;</p>
+</li>
+<li>
+<p><strong>Nop</strong> — must be silently ignored (sent by version 0 at connection
+establishment);</p>
+</li>
+<li>
+<p><strong>Version</strong> — see below.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_version_handshake"><a class="anchor" href="#_version_handshake"></a>1.5. Version handshake</h3>
+<div class="paragraph">
+<p>On <strong>network sockets</strong>, the very first message sent by both peers must be
+a Version stream-control message with a 2×16LE payload:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>|          Version = 1          |T|          Reserved           |</pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>T</code> (bit 15 of the second halfword) requires TLS: if either peer sets
+it, both proceed to a TLS handshake (or close). If a peer&#8217;s first
+message is not a Version message, that peer is version 0 and all
+version-1 features are disabled. Neither side may send anything else
+before having parsed the peer&#8217;s version message.</p>
+</div>
+<div class="paragraph">
+<p>On <strong>Unix-domain sockets</strong>, the handshake is skipped (same-host processes
+are assumed to run the same version). Both <code>SOCK_STREAM</code> and
+<code>SOCK_SEQPACKET</code> are usable; the latter allows file-descriptor passing.</p>
+</div>
+<div class="paragraph">
+<p>Extensibility rules: versions are strictly increasing and newer
+versions must not send messages older peers ignore; trailing payload
+data and Reserved fields are ignored, allowing extension.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="ic-hdr"><a class="anchor" href="#ic-hdr"></a>1.6. The IC IOP header</h3>
+<div class="paragraph">
+<p>When <code>IC_MSG_HAS_HDR</code> is set, the payload starts with a binary-packed
+<code>ic.Hdr</code> (defined in <code>ic.iop</code>) before the RPC payload — a union of:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>SimpleHdr</code> — credential/context fields (<code>login</code>, <code>password</code>,
+<code>kind</code>, <code>host</code>, <code>group</code>, <code>source</code>, <code>workspaceId</code>, <code>dealias</code>, and the
+byte offset of the actual payload);</p>
+</li>
+<li>
+<p><code>RoutingHdr</code> — routing information (<code>Route</code> class, <code>ttl</code>, priority,
+optional <code>Tracer</code>, original header) used by proxying
+infrastructures.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_limits"><a class="anchor" href="#_limits"></a>1.7. Limits</h3>
+<div class="paragraph">
+<p><code>IC_PKT_MAX</code> = 65536: maximum packet size used for buffering decisions;
+one RPC payload may span multiple TCP segments but <code>Data length</code> is
+bounded by the 31-bit rule.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_part_b_c_api"><a class="anchor" href="#_part_b_c_api"></a>2. Part B — C API</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The API lives in <code>lib-common/iop-rpc.h</code> (<code>ichannel_t</code>). The library is
+initialized through the <code>ic</code> module (<code>MODULE_REQUIRE(ic)</code>). A complete
+example is <code>examples/iop-tutorial/ex-iop.c</code>.</p>
+</div>
+<div class="sect2">
+<h3 id="_the_ichannel_t_object"><a class="anchor" href="#_the_ichannel_t_object"></a>2.1. The ichannel_t object</h3>
+<div class="paragraph">
+<p>Client and server connections use the same <code>ichannel_t</code>. By default an
+IChannel manages its own life cycle and reconnects automatically;
+properties set after <code>ic_new()</code>:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>iop_env</code> — the <a href="c-runtime.html#_iop_environment" class="xref page">IOP environment</a>
+used to (un)pack RPC payloads; must be set on every channel (the
+<code>ic_server_t</code> helpers propagate it to accepted channels);</p>
+</li>
+<li>
+<p><code>no_autodel</code> — keep ownership of the object;</p>
+</li>
+<li>
+<p><code>auto_reconn</code> — disable auto-reconnection;</p>
+</li>
+<li>
+<p><code>do_el_unref</code> — do not keep the event loop alive for this channel;</p>
+</li>
+<li>
+<p><code>on_event</code> — connection state callback (<code>IC_EVT_CONNECTED</code>,
+<code>IC_EVT_DISCONNECTED</code>, …).</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_implementing_rpcs"><a class="anchor" href="#_implementing_rpcs"></a>2.2. Implementing RPCs</h3>
+<div class="paragraph">
+<p>The implementation table maps RPCs to callbacks:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">qm_t(ic_cbs) ic_impl;
+qm_init(ic_cbs, &amp;ic_impl, false);
+
+static void IOP_RPC_IMPL(test__mod, foo, bar)
+{
+    ic_reply(ic, slot, test__mod, foo, bar, .res = 42);
+}
+
+ic_register(&amp;ic_impl, test__mod, foo, bar);
+
+ichannel_t *ic = ic_new();
+ic-&gt;impl = &amp;ic_impl;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>ic_reply()</code> answers with <code>IC_MSG_OK</code>; <code>ic_throw()</code>/<code>ic_throw_exn()</code>
+answer with <code>IC_MSG_EXN</code>; <code>ic_reply_err()</code> with any other status.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_prepost_hooks"><a class="anchor" href="#_prepost_hooks"></a>2.3. Pre/post hooks</h3>
+<div class="paragraph">
+<p><code>ic_register_pre_post_hook()</code> wraps an RPC implementation with shared
+code (authentication, audit logs…):</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>the <strong>pre-hook</strong> must allocate the query context with
+<code>ic_hook_ctx_new(slot, sz)</code> (retrievable in the implementation with
+<code>ic_hook_ctx_get()</code>); if it does not, the query is considered
+answered and the implementation is never called. To refuse a query,
+the pre-hook calls <code>ic_throw_exn()</code>;</p>
+</li>
+<li>
+<p>the <strong>post-hook</strong> runs at reply time with the final status; it requires
+the pre-hook&#8217;s context (a post-hook without pre-hook is invalid). It
+must not free the context (automatic), only what was stored inside;</p>
+</li>
+<li>
+<p>hook arguments are passed by reference at registration and must stay
+valid until unregistration.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_client_setup"><a class="anchor" href="#_client_setup"></a>2.4. Client setup</h3>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p><code>ic_new()</code>, set <code>on_event</code>, optionally <code>impl</code>;</p>
+</li>
+<li>
+<p>set the server address (<code>ic&#8594;su</code>);</p>
+</li>
+<li>
+<p><code>ic_connect()</code>;</p>
+</li>
+<li>
+<p>send queries only once <code>IC_EVT_CONNECTED</code> is notified.</p>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p>Queries are <code>ic_msg_t</code> objects (<code>ic_msg_new()</code>…), carrying optional
+private data, a timeout (timed-out queries complete with
+<code>IC_MSG_TIMEDOUT</code>) and the result callback; <code>ic_query()</code> sends them.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_server_and_local_channels"><a class="anchor" href="#_server_and_local_channels"></a>2.5. Server and local channels</h3>
+<div class="paragraph">
+<p>A server registers a listening socket with the same implementation
+table. A <strong>local</strong> IChannel is client and server in one process:
+set it up like a server, then call <code>ic_set_local()</code> instead of
+<code>ic_connect()</code> — useful to call local implementations through the
+standard RPC path.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_http_transport"><a class="anchor" href="#_http_transport"></a>3. HTTP transport</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>RPCs can also be transported over HTTP(S) (<code>src/iop/rpc-http-client.c</code>,
+<code>rpc-http-server.c</code>): queries map to HTTP requests (JSON or binary
+bodies), HTTP statuses map to <code>ic_status_t</code>, and the usual
+authentication schemes are supported. The IChannel-based API
+(<code>ichttp_*</code>) mirrors the native one; WSDL/SOAP interoperability is
+provided through the XML encoder/decoder
+(<a href="../spec/xml.html" class="xref page">XML representation</a>) and
+<a href="generators.html" class="xref page">WSDL generation</a>.</p>
+</div>
+</div>
+</div>
+</article>
+  </div>
+</main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script id="site-script" src="../../../_/js/site.js" data-ui-root-path="../../../_"></script>
+<script async src="../../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Packages and imports :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 3.1.2">
+    <link rel="stylesheet" href="../../../_/css/site.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.4">
+    <link rel="icon" href="../../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../../..">Intersec lib-common Documentation</a>
+      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
+    </div>
+  </nav>
+</header>
+<div class="body">
+<div class="nav-container" data-component="lib-common" data-version="master">
+  <aside class="nav">
+    <div class="panels">
+<div class="nav-panel-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
+    <h3 class="title"><a href="../../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/modules.html">Modules</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/threads.html">Thread jobs</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/prometheus-client.html">Prometheus client</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../index.html">Introduction</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP specification</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="overview.html">Specification overview</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Language reference</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="lexical.html">Lexical structure</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="4">
+    <a class="nav-link" href="packages.html">Packages and imports</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="types.html">Types and fields</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="structs-unions-enums.html">Structs, unions and enums</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="classes.html">Classes and inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="attributes.html">Attributes and constraints</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="interfaces-modules.html">Interfaces, RPCs and modules</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="snmp.html">SNMP extensions</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="doc-comments.html">Documentation comments</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Serialization formats</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="wire-format.html">Binary wire format</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="json.html">JSON representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="yaml.html">YAML representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="xml.html">XML and SOAP representation</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="compatibility.html">Backward-compatibility rules</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Reference implementation</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc.html">The iopc compiler</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc-backends.html">iopc backends: C, JSON, TypeScript, Python stubs</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-mapping.html">C language mapping</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-runtime.html">C runtime library</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/ichannel.html">IChannel RPC protocol</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/dso-iopsq.html">DSO plugins and IOP²</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/bindings.html">Language bindings: IOPy, TypeScript and Rust</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopy.html">IOPy: the Python binding</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/generators.html">OpenAPI, WSDL and SNMP MIB generation</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="nav-panel-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <div class="title"><a href="../../index.html">Lib-common Documentation</a></div>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+<main class="article">
+<div class="toolbar" role="navigation">
+<button class="nav-toggle"></button>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="../../index.html">Lib-common Documentation</a></li>
+    <li>IOP</li>
+    <li>IOP specification</li>
+    <li>Language reference</li>
+    <li><a href="packages.html">Packages and imports</a></li>
+  </ul>
+</nav>
+</div>
+  <div class="content">
+<aside class="toc sidebar" data-title="Contents" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
+<article
+class="doc"
+>
+<h1 class="page">Packages and imports</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_package_declaration">1. Package declaration</a></li>
+<li><a href="#_file_and_directory_mapping">2. File and directory mapping</a></li>
+<li><a href="#_cross_package_references">3. Cross-package references</a></li>
+<li><a href="#_name_resolution">4. Name resolution</a>
+<ul class="sectlevel2">
+<li><a href="#_namespaces">4.1. Namespaces</a></li>
+</ul>
+</li>
+<li><a href="#_dependencies_and_cycles">5. Dependencies and cycles</a></li>
+</ul>
+</div>
+<div class="sect1">
+<h2 id="_package_declaration"><a class="anchor" href="#_package_declaration"></a>1. Package declaration</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>A <code>.iop</code> file declares exactly one <strong>package</strong>, and the declaration must be
+the first statement of the file (only comments and documentation comments
+may precede it):</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">package foo;        /* file foo.iop */</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The package name is a dot-separated path of identifiers, each starting
+with a lowercase letter. A package may be a sub-package of another
+package; sub-packaging is purely a naming convention (it creates no
+visibility or dependency relation between <code>foo</code> and <code>foo.bar</code>).</p>
+</div>
+<div class="paragraph">
+<p>A missing or misspelled <code>package</code> keyword is an error (<code>package expected</code>).
+A file that does not contain a package statement is invalid (<code>unexpected
+end of file</code>).</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_file_and_directory_mapping"><a class="anchor" href="#_file_and_directory_mapping"></a>2. File and directory mapping</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The package name determines the file path: package <code>a.b.c</code> must live in
+the file <code>a/b/c.iop</code> relative to some root directory. Compilers must
+verify the correspondence between the declared package name and the actual
+file location, and reject mismatches (<code>incorrect package name</code>).</p>
+</div>
+<div class="paragraph">
+<p>This mapping is what makes cross-package references resolvable: given a
+set of include directories, the package <code>foo.bar</code> is found in
+<code>&lt;include-dir&gt;/foo/bar.iop</code>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_cross_package_references"><a class="anchor" href="#_cross_package_references"></a>3. Cross-package references</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>There is <strong>no import statement</strong> in the IOP language. A type from another
+package is referenced by its qualified name, which is also what makes the
+dependency explicit:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">package plop;
+
+struct Plop {
+    foo.bar.Bar bar;   /* type Bar from package foo.bar */
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>A qualified name is one or more lowercase path components followed by one
+uppercase type name. Encountering a qualified name makes the compiler
+locate and load the referenced package: the file is searched relative to
+the current package&#8217;s root directory, then in each include directory, in
+order. Failure to locate it is an error (<code>unable to find file '&lt;pkg&gt;.iop'
+in the include path</code>).</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<code>import</code> is a reserved keyword. Historic documentation described an
+<code>import</code> statement; it is not part of the language and is rejected. More
+generally, every top-level statement must be one of the allowed
+declarations, and anything else is an error (<code>unexpected keyword 'X'</code>,
+e.g. <code>unexpected keyword 'import'</code>).
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_name_resolution"><a class="anchor" href="#_name_resolution"></a>4. Name resolution</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>An <strong>unqualified</strong> type name is resolved in the current package only.</p>
+</li>
+<li>
+<p>Within a package, names are looked up among structs, unions, classes and
+SNMP objects first, then enums, then typedefs.</p>
+</li>
+<li>
+<p>A qualified name is resolved in the named package; failure yields
+<code>unable to find type 'X' in pkg 'Y'</code>, while an unresolvable unqualified
+name yields <code>unable to find any pkg providing type 'X'</code>.</p>
+</li>
+<li>
+<p>Interfaces and modules are resolved through the same rules but in their
+own namespace (see below); failures yield <code>unable to find any pkg
+providing interface/module 'X'</code>.</p>
+</li>
+</ul>
+</div>
+<div class="sect2">
+<h3 id="_namespaces"><a class="anchor" href="#_namespaces"></a>4.1. Namespaces</h3>
+<div class="paragraph">
+<p>A package has two declaration namespaces:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p><strong>types</strong>: structs, unions, classes, enums, typedefs, SNMP objects and
+tables share a single namespace — declaring two of them with the same
+name is an error (<code>something named 'X' already exists</code>);</p>
+</li>
+<li>
+<p><strong>interfaces and modules</strong>: interfaces, SNMP interfaces and modules share
+a second, independent namespace with the same uniqueness rule.</p>
+</li>
+</ol>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_dependencies_and_cycles"><a class="anchor" href="#_dependencies_and_cycles"></a>5. Dependencies and cycles</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Field types create dependencies between packages. Two kinds are
+distinguished:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>a <strong>strong</strong> dependency: a required (mandatory) field of struct, union or
+class type — the full definition of the target type is needed to lay
+out the dependent type;</p>
+</li>
+<li>
+<p>a <strong>weak</strong> dependency: an optional (<code>?</code>) or repeated (<code>[]</code>) field — the
+target type&#8217;s resolution can be deferred.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Rules:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Cycles of strong dependencies are rejected</strong>, both inside a package and
+across packages (<code>circular dependency</code>). The error message includes the
+dependency trail.</p>
+</li>
+<li>
+<p>A cycle is legal as soon as it is broken by at least one weak
+dependency, in the same package or across packages.</p>
+</li>
+<li>
+<p>A <strong>reference</strong> member (<code>Type&amp;</code>, see <a href="types.html#references" class="xref page">References</a>)
+is still a strong dependency, with one exception: a reference member of
+a <strong>union with at least two members</strong> breaks the cycle. This is the
+idiomatic way to declare recursive types:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">struct Leaf {
+    int value;
+};
+
+union Tree {
+    Tree&amp; node;   /* legal: reference member of a 2-member union */
+    Leaf  leaf;
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Errors in transitively loaded packages are reported like errors in the
+main package.</p>
+</div>
+</div>
+</div>
+</article>
+  </div>
+</main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script id="site-script" src="../../../_/js/site.js" data-ui-root-path="../../../_"></script>
+<script async src="../../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

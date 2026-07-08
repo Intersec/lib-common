@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Attributes and constraints :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 3.1.2">
+    <link rel="stylesheet" href="../../../_/css/site.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.4">
+    <link rel="icon" href="../../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../../..">Intersec lib-common Documentation</a>
+      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
+    </div>
+  </nav>
+</header>
+<div class="body">
+<div class="nav-container" data-component="lib-common" data-version="master">
+  <aside class="nav">
+    <div class="panels">
+<div class="nav-panel-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
+    <h3 class="title"><a href="../../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/modules.html">Modules</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/threads.html">Thread jobs</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/prometheus-client.html">Prometheus client</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../index.html">Introduction</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP specification</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="overview.html">Specification overview</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Language reference</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="lexical.html">Lexical structure</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="packages.html">Packages and imports</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="types.html">Types and fields</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="structs-unions-enums.html">Structs, unions and enums</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="classes.html">Classes and inheritance</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="4">
+    <a class="nav-link" href="attributes.html">Attributes and constraints</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="interfaces-modules.html">Interfaces, RPCs and modules</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="snmp.html">SNMP extensions</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="doc-comments.html">Documentation comments</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Serialization formats</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="wire-format.html">Binary wire format</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="json.html">JSON representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="yaml.html">YAML representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="xml.html">XML and SOAP representation</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="compatibility.html">Backward-compatibility rules</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Reference implementation</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc.html">The iopc compiler</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc-backends.html">iopc backends: C, JSON, TypeScript, Python stubs</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-mapping.html">C language mapping</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-runtime.html">C runtime library</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/ichannel.html">IChannel RPC protocol</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/dso-iopsq.html">DSO plugins and IOP²</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/bindings.html">Language bindings: IOPy, TypeScript and Rust</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopy.html">IOPy: the Python binding</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/generators.html">OpenAPI, WSDL and SNMP MIB generation</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="nav-panel-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <div class="title"><a href="../../index.html">Lib-common Documentation</a></div>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+<main class="article">
+<div class="toolbar" role="navigation">
+<button class="nav-toggle"></button>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="../../index.html">Lib-common Documentation</a></li>
+    <li>IOP</li>
+    <li>IOP specification</li>
+    <li>Language reference</li>
+    <li><a href="attributes.html">Attributes and constraints</a></li>
+  </ul>
+</nav>
+</div>
+  <div class="content">
+<aside class="toc sidebar" data-title="Contents" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
+<article
+class="doc"
+>
+<h1 class="page">Attributes and constraints</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_attribute_syntax">1. Attribute syntax</a></li>
+<li><a href="#_applicability_matrix">2. Applicability matrix</a></li>
+<li><a href="#_constraint_attributes">3. Constraint attributes</a>
+<ul class="sectlevel2">
+<li><a href="#_combining_constraints">3.1. Combining constraints</a></li>
+</ul>
+</li>
+<li><a href="#_behavior_attributes">4. Behavior attributes</a></li>
+<li><a href="#_backend_hint_attributes">5. Backend-hint attributes</a></li>
+<li><a href="#_generic_attributes">6. Generic attributes</a>
+<ul class="sectlevel2">
+<li><a href="#_reserved_namespaces">6.1. Reserved namespaces</a></li>
+</ul>
+</li>
+<li><a href="#_snmp_attributes">7. SNMP attributes</a></li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>Attributes annotate declarations and fields. They constrain values,
+alter the behavior of encoders and decoders, or carry metadata for code
+generators and applications.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_attribute_syntax"><a class="anchor" href="#_attribute_syntax"></a>1. Attribute syntax</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>An attribute is written before the element it annotates — the
+declaration keyword (<code>struct</code>, <code>enum</code>, …) or the field/RPC it applies
+to:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">@ctype(type = foo__t) @(test:gen1, 2)
+struct Foo {
+    @min(0) @max(1 &lt;&lt; 4)
+    int someField;
+};</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Arguments are given either <strong>positionally</strong> (declaration order) or all
+<strong>named</strong> (<code>name=value</code>); the two styles cannot be mixed. Unknown
+argument names (<code>incorrect argument name</code>), duplicate named arguments,
+and wrong argument counts (<code>attribute &lt;a&gt; expects &lt;n&gt; arguments, got
+&lt;m&gt;</code>, or <code>too many arguments</code>) are errors.</p>
+</li>
+<li>
+<p>Argument types are: integer/double (integer arguments accept
+<a href="lexical.html#_constant_expressions" class="xref page">constant expressions</a>, e.g.
+<code>@max(10*5)</code> or <code>@min(1 &lt;&lt; 5)</code>; double arguments also accept integers),
+strings (double-quoted), and identifiers (in attribute argument lists,
+identifiers may contain dots and a leading underscore, allowing
+qualified names).</p>
+</li>
+<li>
+<p>An attribute declared without arguments must be written without
+parentheses (<code>attribute should not have arguments</code>); conversely, an
+attribute that requires arguments cannot be written bare (<code>attribute
+arguments missing</code>) nor as <code>@attr()</code> (<code>attribute &lt;a&gt; expects at
+least one argument</code>).</p>
+</li>
+<li>
+<p><strong>Repeatable</strong> attributes (marked <em>multi</em> below) may be written several
+times and/or with several comma-separated values: <code>@allow(a, c)</code> ≡
+<code>@allow(a) @allow(c)</code>. Non-repeatable attributes must be unique
+(<code>attribute &lt;a&gt; must be unique</code>).</p>
+</li>
+<li>
+<p>An unknown attribute name is an error (<code>incorrect attribute name</code>).</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_applicability_matrix"><a class="anchor" href="#_applicability_matrix"></a>2. Applicability matrix</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>"Declarations" means the attribute is written before a type/interface
+declaration; "fields" means it is written before a field (with the
+cardinalities it accepts). Typedefs are governed by the <strong>fields</strong>
+column, checked against the resolved type and cardinality —
+declaration-only attributes are rejected on typedefs (<code>attribute ctype
+does not apply to typedefs</code>).</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 14.2857%;">
+<col style="width: 21.4285%;">
+<col style="width: 14.2857%;">
+<col style="width: 21.4285%;">
+<col style="width: 21.4285%;">
+<col style="width: 7.1431%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Attribute</th>
+<th class="tableblock halign-left valign-top">Purpose</th>
+<th class="tableblock halign-left valign-top">Arguments</th>
+<th class="tableblock halign-left valign-top">On declarations</th>
+<th class="tableblock halign-left valign-top">On fields</th>
+<th class="tableblock halign-left valign-top">Multi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@ctype</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">override the generated C type name</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ident (<code>…__t</code>), ≥1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">struct, union, enum, class</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">yes</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@nowarn</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">silence a warning category</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ident, ≥1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">all</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">all</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">yes</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@prefix</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">override the enum-constant prefix</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ident, 1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">enum</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@strict</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">reject undeclared enum values</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">enum</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@min</code> <code>@max</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">numeric value bounds</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">int/double</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">int and double
+  fields, any cardinality</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">yes</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@minLength</code> <code>@maxLength</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">string/bytes length bounds</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">int (non-zero)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">string and bytes fields, any cardinality</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">yes</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@length</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">exact string/bytes length</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">int (non-zero), 1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">string
+  and bytes fields, any cardinality</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@minOccurs</code> <code>@maxOccurs</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">array element-count bounds</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">int (non-zero)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>repeated</strong> fields only, any type</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">yes</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@cdata</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">XML packing hint</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">string fields</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@nonEmpty</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">forbid an empty value</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">string, bytes and xml
+  fields</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@nonZero</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">forbid the value zero</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">int and double fields</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@pattern</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">restrict the allowed character set</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">string, 1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">string fields</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@private</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">mark a field/class internal</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">class only</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">optional,
+  repeated and default-valued fields; mandatory <code>void</code> fields</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@alias</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">declare alternative names</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ident, ≥1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">RPCs; enum values</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">yes</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@noReorder</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">keep the declared field order in memory</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">struct,
+  class</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@allow</code> <code>@disallow</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">restrict union members / enum values at a use
+  site</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ident, ≥1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">fields of union or enum type, any cardinality</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">yes</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@deprecated</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">mark the element deprecated</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">all (including SNMP
+  objects)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">all</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@(ns:name, value)</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">attach arbitrary metadata</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">one value</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">all</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">all, and enum values</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">yes (one per name)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@snmpParamsFrom</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">SNMP (see <a href="snmp.html" class="xref page">SNMP</a>)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ident, ≥1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">snmpIface</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">yes</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@snmpParam</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">SNMP (see <a href="snmp.html" class="xref page">SNMP</a>)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">snmpObj</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@snmpIndex</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">SNMP (see <a href="snmp.html" class="xref page">SNMP</a>)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">fields of an
+  snmpTbl</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@typescriptNoCollection</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">TypeScript backend hint</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">struct,
+  union, class</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@forceFieldName</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">lift the field-naming rules</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">all fields</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Violations yield <code>attribute &lt;a&gt; does not apply to &lt;context&gt;</code> (e.g.
+<code>attribute ctype does not apply to fields</code>, <code>attribute private does not
+apply to required fields</code>, <code>attribute minOccurs does not apply to fields
+with default value</code>, <code>attribute noReorder does not apply to union</code>).</p>
+</div>
+<div class="paragraph">
+<p>On enum <strong>values</strong>, only <code>@alias</code> and generic attributes are allowed
+(<code>invalid attribute &lt;a&gt; on enum field</code>).</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_constraint_attributes"><a class="anchor" href="#_constraint_attributes"></a>3. Constraint attributes</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Constraints restrict the acceptable values of a field. A value violating
+a constraint is <strong>invalid</strong>: decoders must reject it (whatever the
+format), and encoders should refuse to produce it. Default values are
+checked against constraints at compile time (<code>violation of @min
+constraint</code>, …).</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>@min(v)</code> / <code>@max(v)</code></dt>
+<dd>
+<p>Inclusive bounds for integer and double fields. The bound must fit the
+field&#8217;s type range (<code>attribute min is lower than minimum value of type
+&lt;t&gt;</code>, <code>attribute max is larger than maximum value of type ubyte (256 &gt;
+255)</code>).</p>
+</dd>
+<dt class="hdlist1"><code>@nonZero</code></dt>
+<dd>
+<p>Zero is forbidden (integer and double fields).</p>
+</dd>
+<dt class="hdlist1"><code>@minLength(n)</code> / <code>@maxLength(n)</code> / <code>@length(n)</code></dt>
+<dd>
+<p>Inclusive bounds (or exact value) for the byte length of string and
+bytes fields. <code>@length(n)</code> is equivalent to <code>@minLength(n)
+@maxLength(n)</code>. The argument 0 is forbidden (use `@nonEmpty&#8217;s absence
+to permit empty values).</p>
+</dd>
+<dt class="hdlist1"><code>@nonEmpty</code></dt>
+<dd>
+<p>The string/bytes/xml value must not be empty.</p>
+</dd>
+<dt class="hdlist1"><code>@minOccurs(n)</code> / <code>@maxOccurs(n)</code></dt>
+<dd>
+<p>Inclusive bounds for the number of elements of a repeated field. The
+argument 0 is forbidden. On repeated fields, <code>@min</code>/<code>@max</code>/length
+constraints apply to <strong>each element</strong>.</p>
+</dd>
+<dt class="hdlist1"><code>@pattern("…")</code></dt>
+<dd>
+<p>Character-set restriction for string fields. The supported dialect is
+deliberately small — <strong>one character class applied to the whole
+string</strong>: <code>[&lt;set&gt;]*</code> or <code>[^&lt;set&gt;]*</code>, where <code>&lt;set&gt;</code> contains single
+characters and <code>a-b</code> ranges, and the characters <code>| . - ^ ? * + { } (
+) [ ]</code> and <code>\</code> must be backslash-escaped. Any other regular-expression
+construct must be rejected at compile time (<code>unsupported pattern</code>).
+Example: <code>@pattern("[a-zA-Z0-9_\-]*")</code>.</p>
+</dd>
+<dt class="hdlist1"><code>@allow(m, …)</code> / <code>@disallow(m, …)</code></dt>
+<dd>
+<p>For a field of union or enum type, restricts which members (union) or
+values (enum) are acceptable <strong>at this use site</strong>: <code>@allow</code> lists the
+only permitted ones, <code>@disallow</code> forbids the listed ones. The two are
+mutually exclusive on one field (<code>cannot use both @allow and @disallow
+on the same field</code>); every name must exist in the target type
+(<code>unknown field c in MyUnion</code>); a default value must satisfy the
+restriction (<code>invalid default value on enum field</code>, or <code>invalid
+default value on strict enum field</code> when the enum is <code>@strict</code>).</p>
+</dd>
+<dt class="hdlist1"><code>@strict</code> (enum declarations)</dt>
+<dd>
+<p>See <a href="structs-unions-enums.html#_enum_level_attributes" class="xref page">Enums</a>.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>Example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">struct User {
+    @minLength(5) @maxLength(128) @pattern("[a-zA-Z0-9_\-]*")
+    string login;
+
+    /* between 5 and 10 elements, each in [-5, 5] */
+    @minOccurs(5) @maxOccurs(10)
+    @min(-5) @max(5)
+    int[] intTab;
+
+    @allow(a, c)
+    MyUnion choice;
+};</code></pre>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_combining_constraints"><a class="anchor" href="#_combining_constraints"></a>3.1. Combining constraints</h3>
+<div class="paragraph">
+<p>Constraint attributes accumulate from three sources: the typedef chain
+(each typedef adds its attributes), and the use site. When the same
+bound is given several times, the <strong>strictest</strong> one wins: the highest
+<code>@min</code>/<code>@minLength</code>/<code>@minOccurs</code>, the lowest
+<code>@max</code>/<code>@maxLength</code>/<code>@maxOccurs</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">@max(42) @min(5)
+typedef uint Digit;
+
+struct Test {
+    @max(21) @min(7)
+    Digit a;          /* effective range: [7, 21] */
+
+    @max(45) @min(3)
+    Digit b;          /* effective range: [5, 42] (typedef is stricter) */
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Contradictory bounds (<code>@min</code> above <code>@max</code>) are not detected at compile
+time; they simply make every value invalid.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_behavior_attributes"><a class="anchor" href="#_behavior_attributes"></a>4. Behavior attributes</h2>
+<div class="sectionbody">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>@private</code></dt>
+<dd>
+<p>On a <strong>field</strong> (optional, repeated, default-valued, or mandatory
+<code>void</code>): the field is internal — it must not appear in public
+interface descriptions (WSDL, OpenAPI…), encoders must be able to
+omit it when producing data for external consumers, and decoders must
+be able to reject input that tries to set it. On a <strong>class</strong>
+declaration: see <a href="classes.html#_private_classes" class="xref page">Private classes</a>.</p>
+</dd>
+<dt class="hdlist1"><code>@alias(name, …)</code></dt>
+<dd>
+<p>On an RPC: declares alternative names under which the RPC is callable.
+On an enum value: declares alternative names accepted by the text
+(name-based) formats (<a href="structs-unions-enums.html#_aliases" class="xref page">Enums</a>).</p>
+</dd>
+<dt class="hdlist1"><code>@noReorder</code></dt>
+<dd>
+<p>On a struct: forbids implementations from reordering fields in memory
+(<a href="structs-unions-enums.html#_field_order_and_noreorder" class="xref page">Structs</a>).</p>
+</dd>
+<dt class="hdlist1"><code>@deprecated</code></dt>
+<dd>
+<p>Marks the element as deprecated. Carried through to generated code and
+interface descriptions; implementations should emit warnings on use.</p>
+</dd>
+<dt class="hdlist1"><code>@nowarn(category)</code></dt>
+<dd>
+<p>Suppresses the named compiler warning category for this element. The
+only defined category is <code>keyword</code>, which lifts the rejection of the
+names <code>class</code>, <code>new</code>, <code>delete</code> and <code>explicit</code>.</p>
+</dd>
+<dt class="hdlist1"><code>@forceFieldName</code></dt>
+<dd>
+<p>Lifts the field naming rules (lowercase first letter, no underscore)
+for this field, allowing names like <code>my_field</code>.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_backend_hint_attributes"><a class="anchor" href="#_backend_hint_attributes"></a>5. Backend-hint attributes</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The following attributes are part of the language (a conforming parser
+accepts them with the syntax and placement above) but their semantics
+belong to specific backends, documented in
+<a href="../impl/iopc-backends.html" class="xref page">Part II</a>:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>@ctype(name)</code></dt>
+<dd>
+<p>Alternative type name(s) for the C backend. Each argument must end in
+<code><em>t</code> (<code>invalid ctype 'user_t': missing </em>t suffix</code>).</p>
+</dd>
+<dt class="hdlist1"><code>@prefix(Name)</code></dt>
+<dd>
+<p>Replaces the enum constant prefix. Note that this has a
+language-visible effect: it changes the constant names used in
+<a href="lexical.html#_constant_expressions" class="xref page">constant expressions</a> and
+default values.</p>
+</dd>
+<dt class="hdlist1"><code>@cdata</code></dt>
+<dd>
+<p>Hint for the XML packer (<a href="xml.html" class="xref page">XML representation</a>).</p>
+</dd>
+<dt class="hdlist1"><code>@typescriptNoCollection</code></dt>
+<dd>
+<p>Hint for the TypeScript backend.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_generic_attributes"><a class="anchor" href="#_generic_attributes"></a>6. Generic attributes</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>A <strong>generic attribute</strong> attaches an arbitrary named value to an element;
+it has no meaning for the IOP engine itself and is exposed through
+runtime introspection:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>@(&lt;namespace&gt;:&lt;name&gt;, &lt;value&gt;)</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The name has at least one namespace segment (<code>@(testgen, 1)</code> is an
+error: <code>generic attribute name (namespaces:id) expected</code>); multiple
+segments are allowed (<code>@(ns:sub:attr, true)</code>). The character <code>=</code> is
+forbidden in the name (<code>invalid name for generic attribute: '=' is
+forbidden</code>).</p>
+</li>
+<li>
+<p>The value is a string, an integer (constant expressions allowed), a
+double, a boolean, or an inline <strong>JSON object</strong> written either with
+braces or as a brace-less <code>key: value</code> list; <code>=</code> is accepted in place
+of <code>:</code> and trailing commas are tolerated. A value that cannot be
+parsed is an error (<code>unable to parse value for generic argument
+'&lt;x&gt;'</code>). With no value at all, <code>@(ns:name)</code> records the empty object
+<code>{}</code>.</p>
+</li>
+<li>
+<p>Exactly one value is allowed (<code>')' expected, but got ','</code>).</p>
+</li>
+<li>
+<p>A given generic attribute name can appear only once per element
+(<code>generic attribute 'x:y' must be unique for each IOP object</code>).</p>
+</li>
+<li>
+<p>Generic attributes may be placed on every declaration kind, on fields,
+and on enum values.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">@(test:gen1, 2)
+struct MyStruct {
+    @(test:gen2, "toto")
+    @(test:gen3, min = 1, max = 2)
+    int field;
+};</code></pre>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_reserved_namespaces"><a class="anchor" href="#_reserved_namespaces"></a>6.1. Reserved namespaces</h3>
+<div class="paragraph">
+<p>The <code>compat:</code> namespace is reserved for the backward-compatibility
+checker: <code>@(compat:ignore, true)</code>, <code>@(compat:ignoreJson, true)</code> and
+<code>@(compat:ignoreBin, true)</code> on a struct/union/class, interface or RPC
+disable the corresponding checks — see
+<a href="compatibility.html#_escape_hatches" class="xref page">Backward compatibility</a>.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_snmp_attributes"><a class="anchor" href="#_snmp_attributes"></a>7. SNMP attributes</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><code>@snmpParam</code>, <code>@snmpParamsFrom</code> and <code>@snmpIndex</code> are specified with the
+SNMP constructs in <a href="snmp.html" class="xref page">SNMP extensions</a>.</p>
+</div>
+</div>
+</div>
+</article>
+  </div>
+</main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script id="site-script" src="../../../_/js/site.js" data-ui-root-path="../../../_"></script>
+<script async src="../../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

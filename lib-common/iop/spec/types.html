@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Types and fields :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 3.1.2">
+    <link rel="stylesheet" href="../../../_/css/site.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.4">
+    <link rel="icon" href="../../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../../..">Intersec lib-common Documentation</a>
+      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
+    </div>
+  </nav>
+</header>
+<div class="body">
+<div class="nav-container" data-component="lib-common" data-version="master">
+  <aside class="nav">
+    <div class="panels">
+<div class="nav-panel-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
+    <h3 class="title"><a href="../../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/modules.html">Modules</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/threads.html">Thread jobs</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/prometheus-client.html">Prometheus client</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../index.html">Introduction</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP specification</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="overview.html">Specification overview</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Language reference</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="lexical.html">Lexical structure</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="packages.html">Packages and imports</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="4">
+    <a class="nav-link" href="types.html">Types and fields</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="structs-unions-enums.html">Structs, unions and enums</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="classes.html">Classes and inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="attributes.html">Attributes and constraints</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="interfaces-modules.html">Interfaces, RPCs and modules</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="snmp.html">SNMP extensions</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="doc-comments.html">Documentation comments</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Serialization formats</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="wire-format.html">Binary wire format</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="json.html">JSON representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="yaml.html">YAML representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="xml.html">XML and SOAP representation</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="compatibility.html">Backward-compatibility rules</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Reference implementation</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc.html">The iopc compiler</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc-backends.html">iopc backends: C, JSON, TypeScript, Python stubs</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-mapping.html">C language mapping</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-runtime.html">C runtime library</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/ichannel.html">IChannel RPC protocol</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/dso-iopsq.html">DSO plugins and IOP²</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/bindings.html">Language bindings: IOPy, TypeScript and Rust</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopy.html">IOPy: the Python binding</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/generators.html">OpenAPI, WSDL and SNMP MIB generation</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="nav-panel-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <div class="title"><a href="../../index.html">Lib-common Documentation</a></div>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+<main class="article">
+<div class="toolbar" role="navigation">
+<button class="nav-toggle"></button>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="../../index.html">Lib-common Documentation</a></li>
+    <li>IOP</li>
+    <li>IOP specification</li>
+    <li>Language reference</li>
+    <li><a href="types.html">Types and fields</a></li>
+  </ul>
+</nav>
+</div>
+  <div class="content">
+<aside class="toc sidebar" data-title="Contents" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
+<article
+class="doc"
+>
+<h1 class="page">Types and fields</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_primitive_types">1. Primitive types</a></li>
+<li><a href="#_field_declarations">2. Field declarations</a>
+<ul class="sectlevel2">
+<li><a href="#_cardinality">2.1. Cardinality</a></li>
+</ul>
+</li>
+<li><a href="#_default_values">3. Default values</a></li>
+<li><a href="#_tags">4. Tags</a></li>
+<li><a href="#references">5. References</a></li>
+<li><a href="#_typedefs">6. Typedefs</a></li>
+<li><a href="#_the_void_type">7. The void type</a></li>
+</ul>
+</div>
+<div class="sect1">
+<h2 id="_primitive_types"><a class="anchor" href="#_primitive_types"></a>1. Primitive types</h2>
+<div class="sectionbody">
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 14.2857%;">
+<col style="width: 42.8571%;">
+<col style="width: 42.8572%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Type</th>
+<th class="tableblock halign-left valign-top">Definition</th>
+<th class="tableblock halign-left valign-top">Value range</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>byte</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">8-bit signed integer</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-128 … 127</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ubyte</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">8-bit unsigned integer</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0 … 255</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>short</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">16-bit signed integer</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-32 768 … 32 767</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ushort</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">16-bit unsigned integer</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0 … 65 535</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>int</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">32-bit signed integer</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-2<sup>31</sup> … 2<sup>31</sup>-1</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>uint</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">32-bit unsigned integer</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0 … 2<sup>32</sup>-1</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>long</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">64-bit signed integer</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-2<sup>63</sup> … 2<sup>63</sup>-1</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ulong</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">64-bit unsigned integer</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0 … 2<sup>64</sup>-1</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>bool</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">boolean</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code>, <code>false</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>double</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">IEEE-754 double-precision floating point</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">character string (text, by convention UTF-8)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>bytes</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">binary blob</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>xml</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">string carrying an XML fragment (affects only the XML
+             representation)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>void</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no data; indicates a presence without an associated value</p></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Field types can also be any named type: a struct, union, class, enum or
+typedef, possibly qualified with its package name
+(<a href="packages.html" class="xref page">Packages</a>).</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_field_declarations"><a class="anchor" href="#_field_declarations"></a>2. Field declarations</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Fields of structs, unions and classes share one declaration syntax:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>[&lt;tag&gt;:] &lt;type&gt;[? | [] | &amp;] &lt;name&gt; [= &lt;default&gt;] ;</pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>&lt;name&gt;</code> starts with a lowercase letter and contains no underscore (unless
+the field carries <code>@forceFieldName</code>). Two fields of the same structure can
+share neither their name (<code>field name 'x' is already in use</code>) nor their
+tag (<code>tag &lt;n&gt; is used twice</code>).</p>
+</div>
+<div class="sect2">
+<h3 id="_cardinality"><a class="anchor" href="#_cardinality"></a>2.1. Cardinality</h3>
+<div class="paragraph">
+<p>Every field has one of four cardinalities:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Mandatory (required)</dt>
+<dd>
+<p>The default. The field must be present for an instance to be valid.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">struct Foo {
+    int      mandatoryInteger;
+    MyStruct mandatoryStruct;
+};</code></pre>
+</div>
+</div>
+</dd>
+<dt class="hdlist1">Optional — <code>?</code></dt>
+<dd>
+<p>The field may be absent. Codecs accept its absence without error.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">struct Foo {
+    int? optionalMember;
+    Bar? optionalStruct;
+};</code></pre>
+</div>
+</div>
+</dd>
+<dt class="hdlist1">Repeated — <code>[]</code></dt>
+<dd>
+<p>The field is a list of zero or more values. An absent repeated field is
+the empty list.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">struct Foo {
+    int[] repeatedInteger;
+};</code></pre>
+</div>
+</div>
+</dd>
+<dt class="hdlist1">With default value — <code>=</code></dt>
+<dd>
+<p>A mandatory field that is allowed to be absent in serialized data; the
+decoder then sets it to the declared default. A default value may only
+be attached to an otherwise mandatory field: combining <code>=</code> with <code>?</code> or
+<code>[]</code> is an error (<code>default values for non required fields makes no
+sense</code>).</p>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">struct Foo {
+    int val = 42;
+};</code></pre>
+</div>
+</div>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_default_values"><a class="anchor" href="#_default_values"></a>3. Default values</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The default value must be compatible with the field type:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>integer fields</strong>: an integer <a href="lexical.html#_constant_expressions" class="xref page">constant
+expression</a> (literals with optional unit suffixes, arithmetic
+operators, enum value constants) or a character literal <code>c"x"</code>; any
+other kind is an error (<code>invalid default value on integer field</code>). The
+value must fit the field type&#8217;s range; a negative value on an unsigned
+field is an error (<code>invalid default value on unsigned integer field</code>);</p>
+</li>
+<li>
+<p><strong>double fields</strong>: a floating-point or integer literal. A string default
+on a double field is an error (<code>string default value on double field</code>);</p>
+</li>
+<li>
+<p><strong>bool fields</strong>: <code>true</code> or <code>false</code> (an integer expression is also
+accepted; any other kind is <code>invalid default value on bool field</code>);</p>
+</li>
+<li>
+<p><strong>string and bytes fields</strong>: a string literal; any other kind is an error
+(<code>invalid default value on string field</code>);</p>
+</li>
+<li>
+<p><strong>enum fields</strong>: the constant name of one of the enum&#8217;s values, written
+with the enum&#8217;s prefix: the enum type name converted to
+<code>UPPER_SNAKE_CASE</code> (or the <code>@prefix</code> override), an underscore, and the
+value name:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">enum MyEnum {
+    VAL_1 = 1,
+    VAL_2 = 2,
+};
+
+struct Foo {
+    MyEnum foo = MY_ENUM_VAL_1;
+};</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p><strong>struct, union, class fields</strong>: cannot have default values;</p>
+</li>
+<li>
+<p><strong>void fields</strong>: cannot have default values (<code>default values are
+forbidden for void types</code>).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The default value must also satisfy the field&#8217;s
+<a href="attributes.html" class="xref page">constraint attributes</a> (<code>violation of @min
+constraint</code>, <code>violation of @max constraint</code>, <code>violation of @nonZero
+constraint</code>, <code>violation of @maxLength constraint</code>, …), and for a
+<code>@strict</code> enum it must be one of the declared values (<code>invalid default
+value on strict enum field</code>).</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_tags"><a class="anchor" href="#_tags"></a>4. Tags</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Every field of a struct, union or class carries a <strong>tag</strong>: a small integer
+that identifies the field in the binary representation
+(<a href="wire-format.html" class="xref page">wire format</a>) and that, together with the rules of
+<a href="compatibility.html" class="xref page">backward compatibility</a>, constitutes the stable
+identity of the field.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Valid tags range from <strong>1 to 32767</strong> (0x7FFF) inclusive. Out-of-range
+explicit tags are errors (<code>tag is too small (must be &gt;= 1)</code>, <code>tag is
+too large (must be &lt; 0x8000)</code>).</p>
+</li>
+<li>
+<p>Tags are assigned implicitly by a counter starting at 1: the first
+field gets tag 1, the next tag 2, and so on.</p>
+</li>
+<li>
+<p>An explicit tag may be given as an integer prefix <code>N:</code>; it sets the
+field&#8217;s tag to N and resets the counter so that the next untagged field
+gets N+1.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">struct Foo {
+1:    int a;
+2:    int b;
+3:    int c;
+      int d; /*&lt; implicitly tag 4 */
+5:    int e;
+1024: int f; /*&lt; legal, but small tags encode smaller */
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Tags below 30 occupy a single byte in the binary encoding; prefer small
+tags.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="references"><a class="anchor" href="#references"></a>5. References</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>A <strong>reference</strong> field is declared with <code>&amp;</code> after the type:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">struct Foo {
+    MyStruct&amp; referencedStruct;  /* mandatory, held by reference */
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>A reference is semantically a mandatory field; the <code>&amp;</code> only changes the
+in-memory representation (the value is pointed to rather than inlined) and
+the dependency rules. Restrictions:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>the type must be a <strong>struct or union</strong> — scalars, enums and classes
+cannot be referenced (<code>references can only be applied to structures or
+unions</code>); classes need no <code>&amp;</code>, they are always held by reference;</p>
+</li>
+<li>
+<p>only <strong>mandatory</strong> fields can be references: <code>&amp;</code> combines with neither
+<code>?</code> nor <code>[]</code> nor a default value (<code>references can only be applied to
+required fields</code>, <code>only mandatory fields can be references</code>). The forms
+<code>Type&amp;?</code> and <code>Type?&amp;</code> are syntax errors;</p>
+</li>
+<li>
+<p>static class fields cannot be references (<code>referenced static members
+are forbidden</code>).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>A reference field is a strong dependency for the circular-dependency
+check, except as a member of a union with at least two members — the
+construct that makes recursive types possible
+(<a href="packages.html#_dependencies_and_cycles" class="xref page">Dependencies and cycles</a>).</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_typedefs"><a class="anchor" href="#_typedefs"></a>6. Typedefs</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>A <strong>typedef</strong> creates a new name for a type, with optional cardinality
+modifiers and attributes:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>[&lt;attributes&gt;] typedef &lt;type&gt;[? | [] | &amp;] &lt;UpperName&gt; ;</pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">typedef int MyInt;
+
+@min(3)
+typedef int MyIntMin3;
+
+typedef string[] MyStringArray;
+
+@allow(a)
+typedef MyUnion MyUnionA;
+
+typedef otherPkg.OtherStruct ExternalStruct;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Rules:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>anything can be typedef&#8217;d: primitive types, enums, structs, unions,
+classes, and other typedefs (chains are allowed and attributes
+accumulate along the chain);</p>
+</li>
+<li>
+<p>the typedef name follows type-name rules (uppercase first letter, no
+underscore);</p>
+</li>
+<li>
+<p>using a typedef applies its kind, target type and attributes to the
+use site. Constraint attributes from the typedef chain and from the use
+site accumulate;</p>
+</li>
+<li>
+<p><strong>cardinality merge</strong>: if both the typedef and the use site specify a
+non-mandatory cardinality and they differ, the use is an error (<code>cannot
+declare repeated optional fields</code>) — e.g. an optional typedef used as a
+repeated field, or an array typedef used with <code>?</code>. Otherwise the
+typedef&#8217;s cardinality applies;</p>
+</li>
+<li>
+<p>typedef cycles are errors (<code>recursive typedef for type 'X' in pkg
+'Y'</code>);</p>
+</li>
+<li>
+<p>attributes attached to a typedef must be applicable to the resolved
+type and cardinality (e.g. <code>@minOccurs</code> on a non-repeated typedef is
+<code>attribute minOccurs does not apply to required typedefs</code>; <code>@pattern</code>
+on an integer typedef is <code>attribute pattern does not apply to
+integer</code>);</p>
+</li>
+<li>
+<p>a class may inherit from a typedef that resolves to a class.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Typedefs also serve to <strong>move types across packages</strong> without breaking the
+name-based (JSON/YAML/XML) representations: after moving a type to
+another package, leave behind a typedef with the original name pointing at
+the new location (see <a href="compatibility.html" class="xref page">Backward compatibility</a>).</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_the_void_type"><a class="anchor" href="#_the_void_type"></a>7. The void type</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><code>void</code> denotes presence without data. Its allowed contexts:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 42.8571%;">
+<col style="width: 14.2857%;">
+<col style="width: 42.8572%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Context</th>
+<th class="tableblock halign-left valign-top">Legal</th>
+<th class="tableblock halign-left valign-top">Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">union member <code>void v;</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">distinguishes a case carrying no data</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">mandatory struct field <code>void f;</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">carries no information;
+  idiomatic replacement for a removed field (keeps its tag reserved)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">optional struct field <code>void? f;</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">a pure presence flag</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@private void f;</code> (mandatory)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">the one case where <code>@private</code>
+  applies to a mandatory field</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">repeated <code>void[] f;</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>repeated void types are forbidden</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>void f = …;</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>default values are forbidden for void types</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">RPC argument fields <code>in (void a, int b)</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">including optional
+  <code>void? a</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>in void</code> / <code>out void</code> / <code>throw void</code> clauses</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">declares the
+  payload empty — see <a href="interfaces-modules.html" class="xref page">Interfaces</a></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">anywhere in SNMP interfaces</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>void is not supported by snmpIface
+  RPCs</code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</article>
+  </div>
+</main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script id="site-script" src="../../../_/js/site.js" data-ui-root-path="../../../_"></script>
+<script async src="../../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

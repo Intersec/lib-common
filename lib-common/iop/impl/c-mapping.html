@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>C language mapping :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 3.1.2">
+    <link rel="stylesheet" href="../../../_/css/site.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.4">
+    <link rel="icon" href="../../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../../..">Intersec lib-common Documentation</a>
+      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
+    </div>
+  </nav>
+</header>
+<div class="body">
+<div class="nav-container" data-component="lib-common" data-version="master">
+  <aside class="nav">
+    <div class="panels">
+<div class="nav-panel-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
+    <h3 class="title"><a href="../../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/modules.html">Modules</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/threads.html">Thread jobs</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/prometheus-client.html">Prometheus client</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../index.html">Introduction</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP specification</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../spec/overview.html">Specification overview</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Language reference</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/lexical.html">Lexical structure</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/packages.html">Packages and imports</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/types.html">Types and fields</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/structs-unions-enums.html">Structs, unions and enums</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/classes.html">Classes and inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/attributes.html">Attributes and constraints</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/interfaces-modules.html">Interfaces, RPCs and modules</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/snmp.html">SNMP extensions</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/doc-comments.html">Documentation comments</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Serialization formats</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/wire-format.html">Binary wire format</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/json.html">JSON representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/yaml.html">YAML representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/xml.html">XML and SOAP representation</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../spec/compatibility.html">Backward-compatibility rules</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Reference implementation</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iopc.html">The iopc compiler</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iopc-backends.html">iopc backends: C, JSON, TypeScript, Python stubs</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="3">
+    <a class="nav-link" href="c-mapping.html">C language mapping</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="c-runtime.html">C runtime library</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="ichannel.html">IChannel RPC protocol</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="dso-iopsq.html">DSO plugins and IOP²</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="bindings.html">Language bindings: IOPy, TypeScript and Rust</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iopy.html">IOPy: the Python binding</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="generators.html">OpenAPI, WSDL and SNMP MIB generation</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="nav-panel-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <div class="title"><a href="../../index.html">Lib-common Documentation</a></div>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+<main class="article">
+<div class="toolbar" role="navigation">
+<button class="nav-toggle"></button>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="../../index.html">Lib-common Documentation</a></li>
+    <li>IOP</li>
+    <li>Reference implementation</li>
+    <li><a href="c-mapping.html">C language mapping</a></li>
+  </ul>
+</nav>
+</div>
+  <div class="content">
+<aside class="toc sidebar" data-title="Contents" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
+<article
+class="doc"
+>
+<h1 class="page">C language mapping</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_generated_files">1. Generated files</a></li>
+<li><a href="#_naming_conventions">2. Naming conventions</a></li>
+<li><a href="#_enums">3. Enums</a></li>
+<li><a href="#_scalar_fields">4. Scalar fields</a></li>
+<li><a href="#_strings_bytes_xml">5. Strings, bytes, xml</a></li>
+<li><a href="#_repeated_fields">6. Repeated fields</a></li>
+<li><a href="#_struct_union_and_class_fields">7. Struct, union and class fields</a></li>
+<li><a href="#_unions">8. Unions</a></li>
+<li><a href="#_classes">9. Classes</a>
+<ul class="sectlevel2">
+<li><a href="#_casts_and_type_tests">9.1. Casts and type tests</a></li>
+<li><a href="#_switch_on_dynamic_type">9.2. Switch on dynamic type</a></li>
+<li><a href="#_static_fields">9.3. Static fields</a></li>
+</ul>
+</li>
+<li><a href="#_attribute_effects_in_c">10. Attribute effects in C</a></li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>This page describes the C code generated by <code>iopc -l c</code>: how IOP types
+map to C types. The runtime APIs that operate on these types are
+documented in <a href="c-runtime.html" class="xref page">C runtime library</a>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_generated_files"><a class="anchor" href="#_generated_files"></a>1. Generated files</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Each IOP package <code>&lt;pkg&gt;</code> produces four files:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;pkg&gt;-t.iop.h</code></dt>
+<dd>
+<p>The C structures corresponding to the IOP types. Never include it
+directly — include <code>&lt;pkg&gt;.iop.h</code>.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;pkg&gt;-tdef.iop.h</code></dt>
+<dd>
+<p>The C typedefs for the types and their array types, and the enum
+definitions. Never include it directly either.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;pkg&gt;.iop.h</code></dt>
+<dd>
+<p>The public header: includes the two others and declares the
+descriptors and helpers.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;pkg&gt;.iop.c</code></dt>
+<dd>
+<p>The type <strong>descriptions</strong> (reflection data) used by the IOP runtime.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_naming_conventions"><a class="anchor" href="#_naming_conventions"></a>2. Naming conventions</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>C identifiers are derived by converting CamelCase to snake_case and
+prefixing with the package name and two underscores:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>type <code>FooBar</code> of package <code>test</code> → <code>test<em>foo_bar</em>t</code>;</p>
+</li>
+<li>
+<p>its <strong>descriptor</strong> (reflection object) → <code>test<em>foo_bar</em>s</code>
+(<code>__e</code> for enum descriptors);</p>
+</li>
+<li>
+<p>enum values are prefixed with the upper-snake-case enum name (or the
+<code>@prefix</code> value): <code>MyEnum.VAL_1</code> → <code>MY_ENUM_VAL_1</code>.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The <code>@ctype(other__t)</code> attribute additionally emits <code>typedef</code> aliases
+(and helper-macro aliases) under the given name:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">typedef foo__my_enum_a__t e_a__t;       /* from @ctype(e_a__t) */
+#define e_a_to_str(...)  foo__my_enum_a__to_str(__VA_ARGS__)</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_enums"><a class="anchor" href="#_enums"></a>3. Enums</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">package test;
+
+enum MyEnum {
+    VAL_1,
+    VAL_2,
+};</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">typedef enum test__my_enum__t {
+    MY_ENUM_VAL_1,
+    MY_ENUM_VAL_2,
+} test__my_enum__t;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Utility helpers are generated/available for conversions, e.g.
+<code>iop_enum_to_str(test__my_enum, 1)</code> → <code>"VAL_2"</code> (see <code>lib-common/iop.h</code>
+and <code>iop-macros.h</code>).</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_scalar_fields"><a class="anchor" href="#_scalar_fields"></a>4. Scalar fields</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Mandatory scalars map directly:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 25%;">
+<col style="width: 25%;">
+<col style="width: 25%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">IOP</th>
+<th class="tableblock halign-left valign-top">C</th>
+<th class="tableblock halign-left valign-top">IOP</th>
+<th class="tableblock halign-left valign-top">C</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>byte</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>int8_t</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ubyte</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>uint8_t</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>short</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>int16_t</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ushort</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>uint16_t</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>int</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>int32_t</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>uint</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>uint32_t</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>long</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>int64_t</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ulong</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>uint64_t</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>bool</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>bool</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>double</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>double</code></p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p><strong>Optional scalars</strong> use opaque option types manipulated through the
+<code>OPT_*</code> macros of <code>lib-common/iop-macros.h</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">if (OPT_ISSET(st.my_opt_int)) {
+    printf("set: %d\n", OPT_VAL(st.my_opt_int));
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_strings_bytes_xml"><a class="anchor" href="#_strings_bytes_xml"></a>5. Strings, bytes, xml</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>All three map to <code>lstr_t</code> (<code>lib-common/str-l.h</code>). A <strong>mandatory</strong>
+string/bytes/xml must not hold a NULL pointer — use <code>LSTR_EMPTY_V</code> for
+the empty value. For an <strong>optional</strong> field, <code>LSTR_NULL_V</code> (NULL <code>.s</code>
+pointer) means absent, which is distinct from empty:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">test__my_struct__t foo = {
+    .a = LSTR_IMMED("plop"),   /* mandatory string */
+    .b = LSTR_NULL_V,          /* optional bytes, absent */
+};</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_repeated_fields"><a class="anchor" href="#_repeated_fields"></a>6. Repeated fields</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Arrays are structures with two public fields: <code>tab</code> (pointer to the
+elements — pointers to instances for class element types) and <code>len</code>.
+Typedefs are provided: <code>iop_array_&lt;type&gt;_t</code> for scalar element types,
+<code>&lt;pkg&gt;<em>&lt;type&gt;</em>array_t</code> (or <code>IOP_ARRAY_T(pkg__type)</code>) for named types.
+The containers are <code>tab_for_each_*</code>-compatible. The runtime never
+reallocates or frees an array it did not allocate; emptiness is
+<code>len == 0</code>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_struct_union_and_class_fields"><a class="anchor" href="#_struct_union_and_class_fields"></a>7. Struct, union and class fields</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>mandatory struct/union field → <strong>inlined</strong> value;</p>
+</li>
+<li>
+<p>mandatory <strong>reference</strong> field (<code>Type&amp;</code>) → pointer, never NULL once the
+object is built;</p>
+</li>
+<li>
+<p>optional struct/union field → pointer, NULL = absent;</p>
+</li>
+<li>
+<p><strong>class-typed</strong> field → always a pointer, whatever the cardinality
+(NULL = absent for optional fields, invalid-but-transitory for
+mandatory ones);</p>
+</li>
+<li>
+<p>mandatory <code>void</code> fields do not exist in the C struct; optional <code>void</code>
+fields are a presence boolean.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_unions"><a class="anchor" href="#_unions"></a>8. Unions</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>A union maps to a tagged struct that must be manipulated through the
+union macros (<code>lib-common/iop-macros.h</code>):</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">test__my_union__t u = IOP_UNION_CST(test__my_union, c, LSTR_IMMED("plop"));
+
+IOP_UNION_SWITCH(&amp;u) {
+  IOP_UNION_CASE_P(test__my_union, &amp;u, a, vp) {
+      printf("a: %d\n", *vp);
+  }
+  IOP_UNION_CASE(test__my_union, &amp;u, b, v) {
+      printf("b: %jd\n", v);
+  }
+  IOP_UNION_CASE(test__my_union, &amp;u, c, v) {
+      printf("c: %*pM\n", LSTR_FMT_ARG(v));
+  }
+}</code></pre>
+</div>
+</div>
+<div class="admonitionblock caution">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-caution" title="Caution"></i>
+</td>
+<td class="content">
+<code>IOP_UNION_CASE</code> expands to a <code>for</code> construct: never <code>break</code>
+or <code>continue</code> out of an <code>IOP_UNION_SWITCH</code>.
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Selection and extraction helpers include <code>IOP_UNION_SET</code>,
+<code>IOP_UNION_GET</code>, <code>IOP_UNION_CST</code>, …</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_classes"><a class="anchor" href="#_classes"></a>9. Classes</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">package test;
+
+class A1 {
+    static string name = "a1";
+    int a = 10;
+};
+
+class B1 : 1 : A1 {
+    string b;
+};</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">typedef struct test__a1__t {
+    const iop_struct_t *__vptr;
+    int32_t a;
+} test__a1__t;
+IOP_CLASS(test__a1);
+
+typedef struct test__b1__t {
+    struct {
+        const iop_struct_t *__vptr;
+        int32_t a;            /* fields of test__a1__t */
+    };
+    lstr_t b;
+} test__b1__t;
+IOP_CLASS(test__b1);</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code><em>vptr</code> points to the descriptor of the instance&#8217;s <strong>concrete</strong> class;
+never modify it. <code>iop_init(test</em>b1, &amp;v)</code> sets both the defaults and
+<code>__vptr</code>.</p>
+</li>
+<li>
+<p>Parent fields are embedded in a leading anonymous struct, making a
+child pointer layout-compatible with its ancestors.</p>
+</li>
+<li>
+<p><code>IOP_CLASS(&#8230;&#8203;)</code> generates the class helpers (structs and unions use
+<code>IOP_GENERIC(&#8230;&#8203;)</code>).</p>
+</li>
+<li>
+<p>Beware of class <strong>containers</strong>: class fields are pointers, so
+<code>iop_init</code> of the container leaves them NULL; mandatory ones must be
+set before packing.</p>
+</li>
+</ul>
+</div>
+<div class="sect2">
+<h3 id="_casts_and_type_tests"><a class="anchor" href="#_casts_and_type_tests"></a>9.1. Casts and type tests</h3>
+<div class="paragraph">
+<p><code>iop_obj_is_a(ptr, test<em>b1)</code> tests the dynamic type;
+<code>iop_obj_vcast(test</em>b2, ptr)</code> / <code>iop_obj_ccast(test__b2, ptr)</code>
+(non-const/const) downcast with runtime checking:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">if (iop_obj_is_a(a1, test__b2)) {
+    const test__b2__t *b2 = iop_obj_ccast(test__b2, a1);
+    ...
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_switch_on_dynamic_type"><a class="anchor" href="#_switch_on_dynamic_type"></a>9.2. Switch on dynamic type</h3>
+<div class="paragraph">
+<p><code>IOP_CLASS_SWITCH(name, obj)</code> matches the nearest ancestor case;
+<code>IOP_CLASS_EXACT_SWITCH(obj)</code> matches the exact class only. Cases use
+<code>IOP_CLASS_CASE(type, obj, var)</code> / <code>IOP_CLASS_CASE_CONST</code>, or plain
+<code>case IOP_CLASS_ID(type):</code>. Every <code>IOP_CLASS_SWITCH</code> must contain
+<code>IOP_CLASS_DEFAULT(name)</code>; <code>IOP_CLASS_EXACT_DEFAULT()</code> is optional for
+the exact variant. The switch may only contain classes of the
+instance&#8217;s inheritance tree.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_static_fields"><a class="anchor" href="#_static_fields"></a>9.3. Static fields</h3>
+<div class="paragraph">
+<p>Read class constants with <code>iop_get_cvar(obj, "name")</code> and its variants
+(<code>iop_get_cvar_cst</code>, …); lookup walks up the inheritance chain.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_attribute_effects_in_c"><a class="anchor" href="#_attribute_effects_in_c"></a>10. Attribute effects in C</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p><code>@ctype(x<em>t)</code>: emits typedef + macro aliases under <code>x</code> (the argument
+must end in <code></em>t</code>);</p>
+</li>
+<li>
+<p><code>@prefix(A)</code>: the enum constants are emitted as <code>A_*</code> (the C type
+name is unchanged);</p>
+</li>
+<li>
+<p><code>@private</code> on a field: the field exists in C like any other (privacy
+is enforced by the encoders and decoders);</p>
+</li>
+<li>
+<p><code>@noReorder</code>: prevents iopc from reordering the C struct members to
+reduce padding;</p>
+</li>
+<li>
+<p>constraint attributes: generate per-field check functions registered
+in the descriptors (used by <code>iop_check_constraints</code>, see
+<a href="c-runtime.html" class="xref page">C runtime library</a>).</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</article>
+  </div>
+</main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script id="site-script" src="../../../_/js/site.js" data-ui-root-path="../../../_"></script>
+<script async src="../../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

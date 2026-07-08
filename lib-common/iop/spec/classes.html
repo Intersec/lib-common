@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Classes and inheritance :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 3.1.2">
+    <link rel="stylesheet" href="../../../_/css/site.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.4">
+    <link rel="icon" href="../../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../../..">Intersec lib-common Documentation</a>
+      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
+    </div>
+  </nav>
+</header>
+<div class="body">
+<div class="nav-container" data-component="lib-common" data-version="master">
+  <aside class="nav">
+    <div class="panels">
+<div class="nav-panel-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
+    <h3 class="title"><a href="../../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/modules.html">Modules</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/threads.html">Thread jobs</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/prometheus-client.html">Prometheus client</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../index.html">Introduction</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP specification</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="overview.html">Specification overview</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Language reference</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="lexical.html">Lexical structure</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="packages.html">Packages and imports</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="types.html">Types and fields</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="structs-unions-enums.html">Structs, unions and enums</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="4">
+    <a class="nav-link" href="classes.html">Classes and inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="attributes.html">Attributes and constraints</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="interfaces-modules.html">Interfaces, RPCs and modules</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="snmp.html">SNMP extensions</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="doc-comments.html">Documentation comments</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Serialization formats</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="wire-format.html">Binary wire format</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="json.html">JSON representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="yaml.html">YAML representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="xml.html">XML and SOAP representation</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="compatibility.html">Backward-compatibility rules</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Reference implementation</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc.html">The iopc compiler</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc-backends.html">iopc backends: C, JSON, TypeScript, Python stubs</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-mapping.html">C language mapping</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-runtime.html">C runtime library</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/ichannel.html">IChannel RPC protocol</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/dso-iopsq.html">DSO plugins and IOP²</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/bindings.html">Language bindings: IOPy, TypeScript and Rust</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopy.html">IOPy: the Python binding</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/generators.html">OpenAPI, WSDL and SNMP MIB generation</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="nav-panel-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <div class="title"><a href="../../index.html">Lib-common Documentation</a></div>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+<main class="article">
+<div class="toolbar" role="navigation">
+<button class="nav-toggle"></button>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="../../index.html">Lib-common Documentation</a></li>
+    <li>IOP</li>
+    <li>IOP specification</li>
+    <li>Language reference</li>
+    <li><a href="classes.html">Classes and inheritance</a></li>
+  </ul>
+</nav>
+</div>
+  <div class="content">
+<aside class="toc sidebar" data-title="Contents" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
+<article
+class="doc"
+>
+<h1 class="page">Classes and inheritance</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_concepts">1. Concepts</a></li>
+<li><a href="#_declaration_syntax">2. Declaration syntax</a></li>
+<li><a href="#_class_ids">3. Class ids</a></li>
+<li><a href="#_abstract_classes">4. Abstract classes</a></li>
+<li><a href="#_local_classes">5. Local classes</a></li>
+<li><a href="#_static_fields">6. Static fields</a></li>
+<li><a href="#_private_classes">7. Private classes</a></li>
+<li><a href="#_typing_rules">8. Typing rules</a></li>
+</ul>
+</div>
+<div class="sect1">
+<h2 id="_concepts"><a class="anchor" href="#_concepts"></a>1. Concepts</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>A <strong>class</strong> is a struct that takes part in single inheritance: a class
+either has exactly one parent class — and then inherits all the fields of
+its ancestors — or is a <strong>master class</strong> (the root of its hierarchy). A
+field declared with a class type is <strong>polymorphic</strong>: at runtime it may hold
+an instance of that class or of any of its descendants, and every
+serialization format encodes which concrete class an instance has (the
+<strong>class id</strong> in the binary format, the class name in the text formats).</p>
+</div>
+<div class="paragraph">
+<p>Classes have no methods. They may carry <strong>static fields</strong>, which are
+per-class constants, not instance data.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_declaration_syntax"><a class="anchor" href="#_declaration_syntax"></a>2. Declaration syntax</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>[abstract] [local] class &lt;Name&gt; [: &lt;classId&gt; [: &lt;ParentRef&gt;]] {
+    &lt;static-field&gt;*
+    &lt;field&gt;*
+};</pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">package test;
+
+class A1 {
+    static string name = "a1";
+    int a = 10;
+};
+
+class B1 : 1 : A1 {
+    string b;
+};
+
+class B2 : 2 : A1 {
+    static string name = "b2";
+    bool b;
+};</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>abstract</code> and <code>local</code> may appear in either order, each at most once
+(<code>repetition of 'abstract' keyword</code>). They apply only to classes (<code>only
+classes can be abstract/local</code>).</p>
+</li>
+<li>
+<p>The first <code>:</code> introduces the integer <strong>class id</strong>. It is optional for a
+parentless class (defaulting to 0), but a parent can only be specified
+after an explicit id: <code>class B : A</code> is a syntax error (<code>integer
+expected, but got identifier instead</code>).</p>
+</li>
+<li>
+<p>The parent must itself be a class — inheriting from a struct or union
+is an error (<code>parent object 'X' is not a class</code>) — or a typedef
+resolving to a class. Multiple inheritance is not supported (<code>multiple
+inheritance is not supported</code>).</p>
+</li>
+<li>
+<p>Instance fields are declared exactly as in structs, with one extra
+rule: a field may not have the same name as any field of an ancestor
+<strong>or descendant</strong> (<code>field name 'a' is also used in child 'C'</code>). Tags only
+need to be unique within each class, not across the hierarchy.</p>
+</li>
+<li>
+<p>Inheritance cycles are rejected (<code>circular dependency</code>, with the
+inheritance trail in the message).</p>
+</li>
+<li>
+<p>A class can be used as a field type in structs, unions and other
+classes, with any cardinality; class-typed fields need no <code>&amp;</code> (classes
+are always held by reference).</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_class_ids"><a class="anchor" href="#_class_ids"></a>3. Class ids</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The class id is the identity of the class in the binary format
+(<a href="wire-format.html" class="xref page">wire format</a>), playing the role tags play for
+fields.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Range: <strong>0 to 65535</strong> inclusive (<code>id is too small</code>, <code>id is too large</code>).</p>
+</li>
+<li>
+<p>Ids must be <strong>unique within an entire inheritance tree</strong> (all classes
+sharing a master class), whatever package each class lives in: <code>id 3 is
+also used by class 'C1'</code>. A compiler can only verify this for the trees
+it sees entirely; implementations must detect remaining collisions when
+the type descriptions are assembled at runtime.</p>
+</li>
+<li>
+<p>An implementation may let a build restrict the authorized id range for
+the package being compiled (in the reference implementation:
+<code>--class-id-range</code>, see <a href="../impl/iopc.html" class="xref page">the iopc compiler</a>); ids
+outside the configured range are then rejected with the same errors.</p>
+</li>
+<li>
+<p>Changing the id of an existing class is a
+<a href="compatibility.html" class="xref page">backward-compatibility</a> break.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_abstract_classes"><a class="anchor" href="#_abstract_classes"></a>4. Abstract classes</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>An <code>abstract</code> class cannot be instantiated: encoders and decoders must
+refuse to encode or decode a value whose <strong>concrete</strong> class is abstract (an
+abstract class appearing as an ancestor of the concrete class is of course
+fine).
+Abstract classes typically anchor a hierarchy and may declare static
+fields without values (see below).</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_local_classes"><a class="anchor" href="#_local_classes"></a>5. Local classes</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>A <code>local</code> class can only be inherited from within its own package:
+declaring a child of a local class in another package is an error (<code>as
+the parent class 'X' of class 'Y' is 'local', both classes need to be in
+the same package</code>). Local classes can still be <strong>used</strong> (as field types,
+RPC payloads…) from any package.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_static_fields"><a class="anchor" href="#_static_fields"></a>6. Static fields</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>static &lt;type&gt; &lt;name&gt; [= &lt;value&gt;] ;</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Static fields are class constants, attached to the class itself. The
+<code>static</code> keyword is only valid inside a class; using it on a field of a
+struct or union is an error (<code>static keyword is only authorized for
+class fields</code>):</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>they must all be declared <strong>before</strong> the instance fields (<code>all static
+attributes must be declared first</code>);</p>
+</li>
+<li>
+<p>they carry no tag (<code>tag is not authorized for static class fields</code>) and
+are never serialized with instances;</p>
+</li>
+<li>
+<p>they cannot be optional, repeated or references
+(<code>optional/repeated/referenced static members are forbidden</code>);</p>
+</li>
+<li>
+<p>in a <strong>non-abstract</strong> class, every static field must have a value
+(<code>static fields of non-abstract classes must have a default value</code>);</p>
+</li>
+<li>
+<p>an <strong>abstract</strong> class may declare a static field without a value; every
+non-abstract descendant must then define it (<code>class 'D1' must define a
+static field named 'x'</code>);</p>
+</li>
+<li>
+<p>a class may redefine an ancestor&#8217;s static field with a new value; the
+type must be identical (<code>incompatible type for static field 'x':
+should be 'int'</code>). Redefining it <strong>without</strong> a value is an error (<code>field
+'x' already defined by parent 'A'</code>);</p>
+</li>
+<li>
+<p>static values follow the default-value rules of
+<a href="types.html#_default_values" class="xref page">Types and fields</a>, including enum
+constants from other packages.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Statics are inherited: looking up a static on a class searches the class
+then its ancestors.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_private_classes"><a class="anchor" href="#_private_classes"></a>7. Private classes</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The declaration attribute <code>@private</code> (valid on classes only — on a
+struct, union or enum it is <code>attribute private does not apply to
+struct/union/enum</code>) marks a class as internal: it must not be exposed in
+public interface descriptions, and decoders must refuse to <strong>decode</strong> an
+instance of a private class from untrusted input while still being able
+to encode and re-decode it internally (see the per-format pages for the
+exact behavior).</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_typing_rules"><a class="anchor" href="#_typing_rules"></a>8. Typing rules</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>The static type of a class-typed field is an upper bound: any
+descendant class instance is acceptable at that position
+(assignability).</p>
+</li>
+<li>
+<p>The <strong>master class</strong> of a hierarchy is the ancestor with no parent;
+class-id uniqueness is defined per master class.</p>
+</li>
+<li>
+<p>When decoding, the concrete class conveyed by the data (class id or
+class name) must be the declared class or one of its descendants;
+anything else is an error.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</article>
+  </div>
+</main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script id="site-script" src="../../../_/js/site.js" data-ui-root-path="../../../_"></script>
+<script async src="../../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

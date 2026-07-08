@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>C runtime library :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 3.1.2">
+    <link rel="stylesheet" href="../../../_/css/site.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.4">
+    <link rel="icon" href="../../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../../..">Intersec lib-common Documentation</a>
+      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
+    </div>
+  </nav>
+</header>
+<div class="body">
+<div class="nav-container" data-component="lib-common" data-version="master">
+  <aside class="nav">
+    <div class="panels">
+<div class="nav-panel-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
+    <h3 class="title"><a href="../../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/modules.html">Modules</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/threads.html">Thread jobs</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/prometheus-client.html">Prometheus client</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../index.html">Introduction</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP specification</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../spec/overview.html">Specification overview</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Language reference</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/lexical.html">Lexical structure</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/packages.html">Packages and imports</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/types.html">Types and fields</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/structs-unions-enums.html">Structs, unions and enums</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/classes.html">Classes and inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/attributes.html">Attributes and constraints</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/interfaces-modules.html">Interfaces, RPCs and modules</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/snmp.html">SNMP extensions</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/doc-comments.html">Documentation comments</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Serialization formats</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/wire-format.html">Binary wire format</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/json.html">JSON representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/yaml.html">YAML representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/xml.html">XML and SOAP representation</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../spec/compatibility.html">Backward-compatibility rules</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Reference implementation</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iopc.html">The iopc compiler</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iopc-backends.html">iopc backends: C, JSON, TypeScript, Python stubs</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="c-mapping.html">C language mapping</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="3">
+    <a class="nav-link" href="c-runtime.html">C runtime library</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="ichannel.html">IChannel RPC protocol</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="dso-iopsq.html">DSO plugins and IOP²</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="bindings.html">Language bindings: IOPy, TypeScript and Rust</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iopy.html">IOPy: the Python binding</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="generators.html">OpenAPI, WSDL and SNMP MIB generation</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="nav-panel-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <div class="title"><a href="../../index.html">Lib-common Documentation</a></div>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+<main class="article">
+<div class="toolbar" role="navigation">
+<button class="nav-toggle"></button>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="../../index.html">Lib-common Documentation</a></li>
+    <li>IOP</li>
+    <li>Reference implementation</li>
+    <li><a href="c-runtime.html">C runtime library</a></li>
+  </ul>
+</nav>
+</div>
+  <div class="content">
+<aside class="toc sidebar" data-title="Contents" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
+<article
+class="doc"
+>
+<h1 class="page">C runtime library</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_runtime_descriptors">1. Runtime descriptors</a></li>
+<li><a href="#_iop_environment">2. IOP environment</a></li>
+<li><a href="#_binary_packing_and_unpacking">3. Binary packing and unpacking</a></li>
+<li><a href="#_text_formats">4. Text formats</a></li>
+<li><a href="#_generic_object_helpers">5. Generic object helpers</a></li>
+<li><a href="#_constraint_checking">6. Constraint checking</a></li>
+<li><a href="#_backward_compatibility_checking">7. Backward-compatibility checking</a></li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>The IOP C runtime (<code>lib-common/iop.h</code> and friends) operates on the
+generated types of the <a href="c-mapping.html" class="xref page">C language mapping</a> through
+their <strong>descriptors</strong> — the reflection data emitted in <code>&lt;pkg&gt;.iop.c</code>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_runtime_descriptors"><a class="anchor" href="#_runtime_descriptors"></a>1. Runtime descriptors</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Every construct has a runtime description (defined in
+<code>lib-common/iop/internals.h</code>):</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>iop_struct_t</code> — structs, unions and classes: fullname, field array
+(<code>iop_field_t</code>: name, tag, type, cardinality, offset, default value),
+tag-range index for binary lookup, flags (union? class? constraints?),
+attributes, and for classes an <code>iop_class_attrs_t</code> (parent pointer,
+class id, static fields, abstract/private bits);</p>
+</li>
+<li>
+<p><code>iop_enum_t</code> — names, values, ranges, strictness, aliases;</p>
+</li>
+<li>
+<p><code>iop_iface_t</code> / <code>iop_rpc_t</code> / <code>iop_mod_t</code> — interfaces, RPCs
+(argument/result/exception struct descriptors, tag, async flag),
+modules;</p>
+</li>
+<li>
+<p><code>iop_pkg_t</code> — the package: arrays of the above plus package
+dependencies.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>These descriptors drive every generic operation: packing, equality,
+introspection… The generated descriptor for type <code>Foo</code> of package
+<code>test</code> is <code>test<em>foo</em>s</code> (<code>__e</code> for enums).</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_iop_environment"><a class="anchor" href="#_iop_environment"></a>2. IOP environment</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Descriptors that must be resolved by fullname or by class id — every
+class, and any type looked up by name — are registered in an <strong>IOP
+environment</strong>, <code>iop_env_t</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">iop_env_t *iop_env = iop_env_new();
+
+IOP_REGISTER_PACKAGES(iop_env, &amp;test__pkg);
+/* … use the environment … */
+iop_env_delete(&amp;iop_env);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>IOP_REGISTER_PACKAGES()</code> (or <code>iop_register_packages(env, pkgs, n)</code>)
+must be called for packages containing classes before any class is
+(un)packed; it also performs the cross-package class-id collision
+checks. The environment is reference-counted (<code>iop_env_retain()</code>).</p>
+</div>
+<div class="paragraph">
+<p><code>iop_env_t</code> itself is <strong>not</strong> thread-safe: registration and its refcount
+are main-thread-only. The thread-safe unit is a <strong>context snapshot</strong>,
+<code>iop_env_ctx_t</code> — an immutable, atomically reference-counted view of the
+registered objects. Acquire one with the <code>iop_env_ctx_scope</code> macro (or
+<code>iop_env_ctx_acquire()</code> / <code>iop_env_ctx_release()</code>) and share it across
+threads for read-only operations; it stays valid even if the main thread
+registers or unregisters packages concurrently:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">iop_env_ctx_scope(iop_env, ctx);      /* ctx released at scope exit */</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The snapshot storage is backed by a lock-free <code>ArcSwap</code> implemented in
+Rust (<code>libcommon-iop-arcswap</code>, see
+<a href="bindings.html" class="xref page">Language bindings</a>).</p>
+</div>
+<div class="paragraph">
+<p>Packing never needs the environment. Unpacking (class resolution) and
+by-name lookups do: the convenience macros take the <code>iop_env</code>, the
+low-level functions take a context snapshot.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_binary_packing_and_unpacking"><a class="anchor" href="#_binary_packing_and_unpacking"></a>3. Binary packing and unpacking</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">t_scope;
+test__my_struct__t foo = { .a = 42, .b = LSTR_IMMED("foo") };
+lstr_t out = t_iop_bpack(test, my_struct, &amp;foo);</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">t_scope;
+test__my_struct__t foo;
+lstr_t input = &lt;packed data&gt;;
+
+if (t_iop_bunpack(iop_env, &amp;input, test, my_struct, &amp;foo) &lt; 0) {
+    /* error handling */
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Lower-level entry points take descriptors explicitly:
+<code>iop_bpack_size()</code> + <code>iop_bpack()</code> (two-phase packing into a
+caller-provided buffer), <code>mp_iop_bpack_struct_flags()</code> (one call,
+allocator-based), <code>iop_bunpack_flags()</code>, <code>iop_bunpack_multi()</code> (stream
+of concatenated structures).</p>
+</div>
+<div class="paragraph">
+<p>Classes must be unpacked through the <code>_ptr</code> variants, which take a
+<strong>double pointer</strong> and allocate the concrete type:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">test__a1__t *obj = NULL;
+iop_env_ctx_scope(iop_env, ctx);
+iop_bunpack_ptr(t_pool(), ctx, &amp;test__a1__s, (void **)&amp;obj, input, false);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Packing flags: <code>IOP_BPACK_SKIP_DEFVAL</code> (omit fields equal to their
+default), <code>IOP_BPACK_STRICT</code> (check constraints while packing),
+<code>IOP_BPACK_SKIP_PRIVATE</code> (omit <code>@private</code> fields). Unpacking flags:
+<code>IOP_UNPACK_COPY_STRINGS</code> (copy instead of pointing into the input
+buffer), <code>IOP_UNPACK_FORBID_PRIVATE</code> (reject input setting <code>@private</code>
+fields).</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_text_formats"><a class="anchor" href="#_text_formats"></a>4. Text formats</h2>
+<div class="sectionbody">
+<div class="dlist">
+<dl>
+<dt class="hdlist1">JSON (<code>lib-common/iop-json.h</code>)</dt>
+<dd>
+<p><code>t_iop_junpack_ps()</code> / <code>t_iop_junpack_file()</code> (and <code>_ptr</code> variants
+for classes), <code>iop_jpack()</code> / <code>t_iop_sb_jpack()</code>. Pack flags select
+compact/pretty output, private-field skipping, etc.; unpack flags
+include <code>IOP_UNPACK_IGNORE_UNKNOWN</code>. Detailed format:
+<a href="../spec/json.html" class="xref page">JSON representation</a>.</p>
+</dd>
+<dt class="hdlist1">YAML (<code>lib-common/iop-yaml.h</code>)</dt>
+<dd>
+<p><code>t_iop_yunpack_ps()</code> / <code>t_iop_yunpack_file()</code>, <code>t_iop_ypack()</code> /
+<code>iop_ypack_file()</code>; <strong>presentation data</strong>
+(<code>yaml<em>document_presentation</em>t</code>) captures comments/formatting and
+the <code>!include</code> graph so that a re-pack round-trips the document.
+Detailed format: <a href="../spec/yaml.html" class="xref page">YAML representation</a>.</p>
+</dd>
+<dt class="hdlist1">XML (<code>lib-common/iop/xml.h</code>)</dt>
+<dd>
+<p><code>iop_xunpack_flags()</code> (within an open <code>xml_reader_t</code>),
+<code>iop_xpack_flags()</code>; flags include <code>IOP_XPACK_VERBOSE</code> (xsi:types),
+<code>IOP_XPACK_LITERAL_ENUMS</code>, <code>IOP_XPACK_SKIP_PRIVATE</code>. Detailed
+format: <a href="../spec/xml.html" class="xref page">XML and SOAP representation</a>.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>Like binary unpacking, every text unpacker needs the
+<a href="#_iop_environment">IOP environment</a> to resolve classes and named
+types — the JSON entry points take an <code>iop_env</code>, the YAML/XML ones a
+context snapshot (<code>iop_env_ctx_t</code>). Constraint violations and unpack
+errors are reported through <code>iop_get_err()</code> / <code>iop_get_err_lstr()</code>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_generic_object_helpers"><a class="anchor" href="#_generic_object_helpers"></a>5. Generic object helpers</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>All take a descriptor (or use the <code>pkg, type</code> convenience macros):</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>iop_init(pkg<em>type, &amp;v)</code> — set defaults (and <code></em>vptr</code> for classes);
+<code>iop_new()</code> / <code>t_iop_new()</code> / <code>r_iop_new()</code> allocate + init;</p>
+</li>
+<li>
+<p><code>iop_dup()</code> / <code>iop_copy()</code> — deep duplication (into a new allocation
+/ an existing object), with <code>mp_</code>/<code>t_</code>/<code>r_</code> allocator variants and
+flags for shallow/multi-allocation copies;</p>
+</li>
+<li>
+<p><code>iop_equals()</code> — deep equality, polymorphism-aware;</p>
+</li>
+<li>
+<p><code>iop_hash_sha1()</code> and friends — stable hashing;</p>
+</li>
+<li>
+<p><code>iop_sort()</code> / <code>iop_multisort()</code> — sort repeated fields by <strong>field
+path</strong>; <code>iop_filter()</code> / <code>iop_filter_bitmap()</code> — filter arrays on
+expressed conditions;</p>
+</li>
+<li>
+<p><code>iop_for_each_field()</code> / <code>iop_for_each_st()</code> / <code>iop_for_each_obj()</code> —
+recursive traversal callbacks (with <code>_fast</code> variants without path
+tracking);</p>
+</li>
+<li>
+<p>field paths: <code>iop_field_path_compile()</code> + <code>iop_field_path_get_type()</code>
+/ <code>iop_field_path_for_each_value()</code> — compiled accessors supporting
+<code>a.b</code>, <code>arr[0]</code>, <code>arr[-1]</code>, <code>arr[*].f</code>, <code>arr.len</code>, <code>obj._class</code> and
+explicit class casts;</p>
+</li>
+<li>
+<p>introspection: <code>iop_field_find_by_name()</code>, <code>iop_get_field()</code>,
+<code>iop_value_from_field()</code>, generic-attribute getters
+(<code>iop_field_get_gen_attr()</code>, <code>iop_rpc_get_gen_attr()</code>, …), RPC/iface
+lookup by tag (<code>iop_mod_find_iface()</code>, <code>iop_iface_find_rpc()</code>).</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_constraint_checking"><a class="anchor" href="#_constraint_checking"></a>6. Constraint checking</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Constraints (<a href="../spec/attributes.html" class="xref page">attributes</a>) are checked
+automatically at unpacking time, whatever the input format — an invalid
+RPC query makes the server reply <code>IC_MSG_INVALID</code>. At packing time it
+is up to the developer:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">int iop_check_constraints(const iop_struct_t *desc, const void *val);
+/* or the generated shortcut */
+int pfx##__check(pfx##__t *v);</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_backward_compatibility_checking"><a class="anchor" href="#_backward_compatibility_checking"></a>7. Backward-compatibility checking</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><code>iop_struct_check_backward_compat()</code> and
+<code>iop_pkg_check_backward_compat()</code> implement the rules of
+<a href="../spec/compatibility.html" class="xref page">Backward compatibility</a>, with flags
+<code>IOP_COMPAT_BIN</code>, <code>IOP_COMPAT_JSON</code>, <code>IOP_COMPAT_ALL</code>. The
+<code>dso-compatibility-check</code> tool compares two IOP
+<a href="dso-iopsq.html" class="xref page">DSOs</a>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>dso-compatibility-check -o old.so -n new.so -m ALL</pre>
+</div>
+</div>
+</div>
+</div>
+</article>
+  </div>
+</main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script id="site-script" src="../../../_/js/site.js" data-ui-root-path="../../../_"></script>
+<script async src="../../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

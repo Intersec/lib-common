@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>JSON representation :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 3.1.2">
+    <link rel="stylesheet" href="../../../_/css/site.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.4">
+    <link rel="icon" href="../../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../../..">Intersec lib-common Documentation</a>
+      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
+    </div>
+  </nav>
+</header>
+<div class="body">
+<div class="nav-container" data-component="lib-common" data-version="master">
+  <aside class="nav">
+    <div class="panels">
+<div class="nav-panel-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
+    <h3 class="title"><a href="../../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/modules.html">Modules</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/threads.html">Thread jobs</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/prometheus-client.html">Prometheus client</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../index.html">Introduction</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP specification</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="overview.html">Specification overview</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Language reference</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="lexical.html">Lexical structure</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="packages.html">Packages and imports</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="types.html">Types and fields</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="structs-unions-enums.html">Structs, unions and enums</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="classes.html">Classes and inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="attributes.html">Attributes and constraints</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="interfaces-modules.html">Interfaces, RPCs and modules</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="snmp.html">SNMP extensions</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="doc-comments.html">Documentation comments</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Serialization formats</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="wire-format.html">Binary wire format</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="4">
+    <a class="nav-link" href="json.html">JSON representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="yaml.html">YAML representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="xml.html">XML and SOAP representation</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="compatibility.html">Backward-compatibility rules</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Reference implementation</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc.html">The iopc compiler</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc-backends.html">iopc backends: C, JSON, TypeScript, Python stubs</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-mapping.html">C language mapping</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-runtime.html">C runtime library</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/ichannel.html">IChannel RPC protocol</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/dso-iopsq.html">DSO plugins and IOP²</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/bindings.html">Language bindings: IOPy, TypeScript and Rust</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopy.html">IOPy: the Python binding</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/generators.html">OpenAPI, WSDL and SNMP MIB generation</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="nav-panel-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <div class="title"><a href="../../index.html">Lib-common Documentation</a></div>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+<main class="article">
+<div class="toolbar" role="navigation">
+<button class="nav-toggle"></button>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="../../index.html">Lib-common Documentation</a></li>
+    <li>IOP</li>
+    <li>IOP specification</li>
+    <li>Serialization formats</li>
+    <li><a href="json.html">JSON representation</a></li>
+  </ul>
+</nav>
+</div>
+  <div class="content">
+<aside class="toc sidebar" data-title="Contents" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
+<article
+class="doc"
+>
+<h1 class="page">JSON representation</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_canonical_output">1. Canonical output</a>
+<ul class="sectlevel2">
+<li><a href="#_value_mapping">1.1. Value mapping</a></li>
+<li><a href="#_presence">1.2. Presence</a></li>
+<li><a href="#_unions">1.3. Unions</a></li>
+<li><a href="#_classes">1.4. Classes</a></li>
+</ul>
+</li>
+<li><a href="#_lenient_input">2. Lenient input</a>
+<ul class="sectlevel2">
+<li><a href="#_accepted_coercions">2.1. Accepted coercions</a></li>
+<li><a href="#_enums">2.2. Enums</a></li>
+<li><a href="#_field_matching_unknown_and_missing_fields">2.3. Field matching, unknown and missing fields</a></li>
+<li><a href="#_classes_2">2.4. Classes</a></li>
+<li><a href="#_file_inclusion">2.5. File inclusion</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>The JSON representation of IOP values has two faces: a <strong>canonical
+output</strong> produced by encoders, and a deliberately <strong>lenient input
+grammar</strong> accepted by decoders (a superset of RFC 8259 JSON). Identity
+of fields is by <strong>name</strong>; the <a href="compatibility.html" class="xref page">compatibility</a>
+rules of the JSON family apply.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_canonical_output"><a class="anchor" href="#_canonical_output"></a>1. Canonical output</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Member names are the field names as declared (camelCase), always
+double-quoted, in <strong>declaration order</strong>.</p>
+</li>
+<li>
+<p>Pretty layout by default: 4-space indentation, <code>": "</code> after keys,
+one field per line, and a trailing newline; encoders also provide a
+compact mode (no whitespace).</p>
+</li>
+</ul>
+</div>
+<div class="sect2">
+<h3 id="_value_mapping"><a class="anchor" href="#_value_mapping"></a>1.1. Value mapping</h3>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 20%;">
+<col style="width: 80%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">IOP type</th>
+<th class="tableblock halign-left valign-top">JSON output</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">integers</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">bare decimal numbers — except that values whose magnitude
+  is ≥ 2<sup>53</sup> are emitted as <strong>quoted decimal strings</strong> so that
+  JavaScript readers do not lose precision (encoders may offer an
+  "unsafe integers" mode that always emits bare numbers)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>double</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>%.17g</code> decimal; <strong>NaN and ±Infinity are emitted as
+  <code>null</code></strong></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>bool</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code> / <code>false</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code>, <code>xml</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">quoted string; printable ASCII except <code>"</code> and <code>\</code>
+  is emitted raw, everything else (control characters, <code>"</code>, <code>\</code>,
+  non-ASCII) as <code>\uXXXX</code> escapes, with surrogate pairs beyond the BMP.
+  Input text is treated as UTF-8 (invalid bytes as Latin-1)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>bytes</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Base64 in a quoted string, unwrapped</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">enums</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">the value&#8217;s <strong>name</strong> as a string; an undeclared numeric value
+  falls back to the bare integer</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>void</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>null</code> (union members and present optional voids); a
+  mandatory void field of a struct is never emitted</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">structs</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">nested objects</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect2">
+<h3 id="_presence"><a class="anchor" href="#_presence"></a>1.2. Presence</h3>
+<div class="ulist">
+<ul>
+<li>
+<p>Absent optional fields are <strong>omitted</strong> (never <code>null</code>).</p>
+</li>
+<li>
+<p>Repeated fields are always arrays (<code>[]</code> when empty); single-line
+format <code>[ v1, v2 ]</code>.</p>
+</li>
+<li>
+<p>Default-valued fields are emitted, even when equal to their default.</p>
+</li>
+<li>
+<p>Encoders provide lossless reduction modes — skip fields equal to
+their default, skip empty arrays, skip empty sub-structs, skip the
+<code>_class</code> of instances whose dynamic type equals the static type —
+and lossy ones — skip <code>@private</code> fields, never emit <code>_class</code>,
+truncate long Base64 values.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_unions"><a class="anchor" href="#_unions"></a>1.3. Unions</h3>
+<div class="paragraph">
+<p>A union is an object with the single active member, on one line:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{ "wantInt": 42 }</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_classes"><a class="anchor" href="#_classes"></a>1.4. Classes</h3>
+<div class="paragraph">
+<p>A class instance is an object whose <strong>first</strong> member is <code>"_class"</code>, the
+fully-qualified name of the concrete class; the fields follow from the
+<strong>root ancestor down</strong> to the concrete class:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+    "_class": "test.B1",
+    "a": 20,
+    "b": "blah"
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Encoding an abstract concrete class is an error.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_lenient_input"><a class="anchor" href="#_lenient_input"></a>2. Lenient input</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Decoders accept the following extensions over strict JSON:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>comments</strong>: <code>/* … <strong>/</code> (non-nesting), <code>// …</code> and <code># …</code> to end of
+line (an unterminated <code>/</strong> … */</code> comment is an error);</p>
+</li>
+<li>
+<p><strong>unquoted member names</strong>: identifiers <code>[A-Za-z][A-Za-z0-9_]*</code>;</p>
+</li>
+<li>
+<p><strong>single-quoted strings</strong> wherever double-quoted ones are accepted;</p>
+</li>
+<li>
+<p><code>=</code> as an alias for <code>:</code>, <code>;</code> as an alias for <code>,</code>;</p>
+</li>
+<li>
+<p><strong>trailing separators</strong> in arrays and objects (separators between
+members remain mandatory);</p>
+</li>
+<li>
+<p><strong>integer literals</strong> in C syntax: decimal, hex <code>0x…</code>, octal <code>0…</code>, with
+the optional <a href="lexical.html#_unit_suffixes" class="xref page">unit suffixes</a>
+(<code>s m h d w</code>, <code>K M G T</code>) — a literal that overflows or falls outside
+the field&#8217;s range, or that carries an unrecognized unit suffix, is an
+error;</p>
+</li>
+<li>
+<p><strong>arithmetic constant expressions</strong> on integers, with the
+<a href="lexical.html#_constant_expressions" class="xref page">constant-folder operators</a>
+(<code>-0x7fffffffffffffff + (-1)</code> is valid input); quoted enum names may
+be operands; a malformed expression is an error;</p>
+</li>
+<li>
+<p><strong>character literals</strong> <code>c&#8217;x'</code> / <code>c"x"</code> (with the string escape set)
+as integer values;</p>
+</li>
+<li>
+<p>keyword aliases: <code>yes</code>/<code>no</code> for <code>true</code>/<code>false</code>, <code>nil</code> for <code>null</code> —
+all accepted for booleans and numeric coercions;</p>
+</li>
+<li>
+<p>doubles with leading dot (<code>.42</code>) and exponents; quoted <code>"inf"</code>,
+<code>"nan"</code> strings coerce into double fields;</p>
+</li>
+<li>
+<p>a <strong>repeated field may be given a single value</strong> without brackets
+(one-element array);</p>
+</li>
+<li>
+<p>string escapes: the C set plus <code>\'</code>, <code>\/</code>, octal <code>\NNN</code>, <code>\xHH</code>,
+<code>\uHHHH</code> with surrogate-pair recombination; unknown escapes are kept
+literally; a raw newline inside a string, or a string that is never
+closed, is an error.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The top-level value must be an object (<code>{…}</code>).</p>
+</div>
+<div class="paragraph">
+<p>Decoding errors are reported with <code>line:col:</code> positions; an unexpected
+token, or an invalid identifier or value, is an error.</p>
+</div>
+<div class="sect2">
+<h3 id="_accepted_coercions"><a class="anchor" href="#_accepted_coercions"></a>2.1. Accepted coercions</h3>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 25%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Input</th>
+<th class="tableblock halign-left valign-top">Field type</th>
+<th class="tableblock halign-left valign-top">Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code>/<code>false</code> (and quoted forms)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">integers, double, enum</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1 / 0</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">integer</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">double</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">exact conversion</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">integer</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">bool</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">only 0 or 1</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">quoted string</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">integer types</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">parsed as a C integer (hex/octal
+  allowed, <strong>no</strong> unit suffixes)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">quoted string</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">double</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">parsed with <code>strtod</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">quoted string</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">bytes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Base64-decoded</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>null</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">string/bytes/xml</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">the null (absent) string value</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>null</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">optional field</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">field absent — except <strong>optional void</strong>,
+  which <code>null</code> marks as <strong>present</strong></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">double literal</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">integer types</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>rejected</strong></p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Constraints (<a href="attributes.html" class="xref page">attributes</a>) are checked field by
+field during decoding; a violation is an error.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_enums"><a class="anchor" href="#_enums"></a>2.2. Enums</h3>
+<div class="paragraph">
+<p>Enum values are matched by <strong>name, ASCII case-insensitively</strong>, including
+<code>@alias</code> names (a name matching no declared value is an error). A
+quoted integer, a bare integer or an expression is also accepted with
+only an int32 range check — <strong>undeclared values are
+accepted even for <code>@strict</code> enums</strong>; this is an implementation quirk of
+the reference decoder: do not rely on it, strict enums should be fed
+declared values only.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_field_matching_unknown_and_missing_fields"><a class="anchor" href="#_field_matching_unknown_and_missing_fields"></a>2.3. Field matching, unknown and missing fields</h3>
+<div class="ulist">
+<ul>
+<li>
+<p>Member names match the declared field names <strong>case-sensitively</strong> (the
+reference implementation offers a <code>USE_C_CASE</code> option matching
+snake_case input instead). Duplicate members are an error.</p>
+</li>
+<li>
+<p>Unknown members are an error by default; decoders provide an
+"ignore unknown" mode that skips the value (with full lenient
+syntax). An input setting a <code>@private</code> field can be rejected
+("forbid private" mode).</p>
+</li>
+<li>
+<p>Missing fields: optional → absent; defaulted → default; repeated →
+empty; mandatory struct/class → recursively default-constructed when
+possible; mandatory void → fine; any other mandatory field → error.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_classes_2"><a class="anchor" href="#_classes_2"></a>2.4. Classes</h3>
+<div class="paragraph">
+<p><code>"_class"</code> may appear <strong>anywhere</strong> in the object (decoders re-scan, so
+first position is fastest). It must be a string holding the
+fully-qualified name of the expected class or one of its descendants;
+unknown names, non-descendants and abstract classes are errors. It may
+be <strong>omitted</strong> when the static type is concrete — the instance is then
+of exactly that type — and is <strong>mandatory</strong> when the static type is
+abstract.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_file_inclusion"><a class="anchor" href="#_file_inclusion"></a>2.5. File inclusion</h3>
+<div class="paragraph">
+<p>When decoding <strong>from a file</strong>, a value may be replaced by
+<code>@include("relative/path")</code>:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>for <code>string</code>/<code>bytes</code>/<code>xml</code> fields, the raw file content becomes the
+value (bytes are <strong>not</strong> Base64-decoded);</p>
+</li>
+<li>
+<p>for struct/union/class fields, the file is parsed as the JSON
+representation of that type;</p>
+</li>
+<li>
+<p>paths are relative to the including file; includes nest to arbitrary
+depth with cycle detection. An unreadable file, an <code>@include</code> on a
+field type that does not support it, or a recursive include is an
+error.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Encoders can reverse the operation: given a list of (IOP path, file
+path) pairs, matching sub-values are written to their own files and
+replaced by <code>@include(…)</code> (one level deep).</p>
+</div>
+</div>
+</div>
+</div>
+</article>
+  </div>
+</main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script id="site-script" src="../../../_/js/site.js" data-ui-root-path="../../../_"></script>
+<script async src="../../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

@@ -6,7 +6,7 @@
     <title>Thread Jobs :: Intersec lib-common Documentation</title>
     <meta name="generator" content="Antora 3.1.2">
     <link rel="stylesheet" href="../../_/css/site.css">
-    <script>var uiRootPath = '../../_'</script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.4">
     <link rel="icon" href="../../_/img/favicon.png" type="image/png">
   </head>
   <body class="article">
@@ -15,15 +15,13 @@
     <div class="navbar-brand">
       <img class="navbar-logo" src="../../_/img/logo_intersec.png" alt="Intersec" />
       <a class="navbar-item" href="../..">Intersec lib-common Documentation</a>
-      <button class="navbar-burger" data-target="topbar-nav">
+      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
         <span></span>
         <span></span>
         <span></span>
       </button>
     </div>
     <div id="topbar-nav" class="navbar-menu">
-      <div class="navbar-end">
-            </div>
     </div>
   </nav>
 </header>
@@ -33,6 +31,7 @@
     <div class="panels">
 <div class="nav-panel-menu is-active" data-panel="menu">
   <nav class="nav-menu">
+    <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
     <h3 class="title"><a href="../index.html">Lib-common Documentation</a></h3>
 <ul class="nav-list">
   <li class="nav-item" data-depth="0">
@@ -110,19 +109,103 @@
     <span class="nav-text">IOP</span>
 <ul class="nav-list">
   <li class="nav-item" data-depth="2">
-    <a class="nav-link" href="../iop/base.html">IOP Basics</a>
+    <a class="nav-link" href="../iop/index.html">Introduction</a>
   </li>
   <li class="nav-item" data-depth="2">
-    <a class="nav-link" href="../iop/wire-format.html">Wire format</a>
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP specification</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/spec/overview.html">Specification overview</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Language reference</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/lexical.html">Lexical structure</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/packages.html">Packages and imports</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/types.html">Types and fields</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/structs-unions-enums.html">Structs, unions and enums</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/classes.html">Classes and inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/attributes.html">Attributes and constraints</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/interfaces-modules.html">Interfaces, RPCs and modules</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/snmp.html">SNMP extensions</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/doc-comments.html">Documentation comments</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Serialization formats</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/wire-format.html">Binary wire format</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/json.html">JSON representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/yaml.html">YAML representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/xml.html">XML and SOAP representation</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/spec/compatibility.html">Backward-compatibility rules</a>
+  </li>
+</ul>
   </li>
   <li class="nav-item" data-depth="2">
-    <a class="nav-link" href="../iop/inheritance.html">Class inheritance</a>
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Reference implementation</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/impl/iopc.html">The iopc compiler</a>
   </li>
-  <li class="nav-item" data-depth="2">
-    <a class="nav-link" href="../iop/iop-attributes.html">IOP attributes</a>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/impl/iopc-backends.html">iopc backends: C, JSON, TypeScript, Python stubs</a>
   </li>
-  <li class="nav-item" data-depth="2">
-    <a class="nav-link" href="../iop/library-c.html">C library</a>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/impl/c-mapping.html">C language mapping</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/impl/c-runtime.html">C runtime library</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/impl/ichannel.html">IChannel RPC protocol</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/impl/dso-iopsq.html">DSO plugins and IOP²</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/impl/bindings.html">Language bindings: IOPy, TypeScript and Rust</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/impl/iopy.html">IOPy: the Python binding</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/impl/generators.html">OpenAPI, WSDL and SNMP MIB generation</a>
+  </li>
+</ul>
   </li>
 </ul>
   </li>
@@ -138,7 +221,7 @@
   </div>
   <ul class="components">
     <li class="component is-current">
-      <a class="title" href="../index.html">Lib-common Documentation</a>
+      <div class="title"><a href="../index.html">Lib-common Documentation</a></div>
       <ul class="versions">
         <li class="version is-current is-latest">
           <a href="../index.html">master</a>
@@ -290,15 +373,14 @@ how both approach differ.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">struct apply_to_map_ctx_t {
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">typedef struct apply_to_map_ctx_t {
     thr_job_t job;
     mapt_t *map;
-};
+} apply_to_map_ctx_t;
 
 static void apply_to_map_job(thr_job_t *job)
 {
-    struct apply_to_map_ctx_t *ctx
-        = container_of(job, struct apply_to_map_ctx_t, job);
+    apply_to_map_ctx_t *ctx = container_of(job, apply_to_map_ctx_t, job);
 
     do_something1(ctx-&gt;map);
     do_something2(ctx-&gt;map);
@@ -315,8 +397,7 @@ void apply_to_all_map(qv_t(map) *maps)
          * to persists until the job is executed
          * (with is out of scope of the loop.
          */
-        struct apply_to_map_ctx_t *ctx
-            = p_new(struct apply_to_map_ctx_t, 1);
+        apply_to_map_ctx_t *ctx = p_new(apply_to_map_ctx_t, 1);
 
         ctx-&gt;job.run = &amp;apply_to_map_job;
         ctx-&gt;map = maps-&gt;tab[pos];

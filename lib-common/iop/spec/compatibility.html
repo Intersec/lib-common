@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Backward-compatibility rules :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 3.1.2">
+    <link rel="stylesheet" href="../../../_/css/site.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.4">
+    <link rel="icon" href="../../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../../..">Intersec lib-common Documentation</a>
+      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
+    </div>
+  </nav>
+</header>
+<div class="body">
+<div class="nav-container" data-component="lib-common" data-version="master">
+  <aside class="nav">
+    <div class="panels">
+<div class="nav-panel-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
+    <h3 class="title"><a href="../../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/modules.html">Modules</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/threads.html">Thread jobs</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/prometheus-client.html">Prometheus client</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../index.html">Introduction</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP specification</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="overview.html">Specification overview</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Language reference</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="lexical.html">Lexical structure</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="packages.html">Packages and imports</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="types.html">Types and fields</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="structs-unions-enums.html">Structs, unions and enums</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="classes.html">Classes and inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="attributes.html">Attributes and constraints</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="interfaces-modules.html">Interfaces, RPCs and modules</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="snmp.html">SNMP extensions</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="doc-comments.html">Documentation comments</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Serialization formats</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="wire-format.html">Binary wire format</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="json.html">JSON representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="yaml.html">YAML representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="xml.html">XML and SOAP representation</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item is-current-page" data-depth="3">
+    <a class="nav-link" href="compatibility.html">Backward-compatibility rules</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Reference implementation</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc.html">The iopc compiler</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc-backends.html">iopc backends: C, JSON, TypeScript, Python stubs</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-mapping.html">C language mapping</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-runtime.html">C runtime library</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/ichannel.html">IChannel RPC protocol</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/dso-iopsq.html">DSO plugins and IOP²</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/bindings.html">Language bindings: IOPy, TypeScript and Rust</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopy.html">IOPy: the Python binding</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/generators.html">OpenAPI, WSDL and SNMP MIB generation</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="nav-panel-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <div class="title"><a href="../../index.html">Lib-common Documentation</a></div>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+<main class="article">
+<div class="toolbar" role="navigation">
+<button class="nav-toggle"></button>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="../../index.html">Lib-common Documentation</a></li>
+    <li>IOP</li>
+    <li>IOP specification</li>
+    <li><a href="compatibility.html">Backward-compatibility rules</a></li>
+  </ul>
+</nav>
+</div>
+  <div class="content">
+<aside class="toc sidebar" data-title="Contents" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
+<article
+class="doc"
+>
+<h1 class="page">Backward-compatibility rules</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_compatibility_model">1. Compatibility model</a></li>
+<li><a href="#_rules_for_fields">2. Rules for fields</a>
+<ul class="sectlevel2">
+<li><a href="#_type_changes">2.1. Type changes</a></li>
+<li><a href="#_repeated_fields_the_small_scalar_exception">2.2. Repeated fields: the small-scalar exception</a></li>
+<li><a href="#_cardinality_changes">2.3. Cardinality changes</a></li>
+<li><a href="#_renaming_and_retagging">2.4. Renaming and retagging</a></li>
+</ul>
+</li>
+<li><a href="#_rules_for_structs_and_unions">3. Rules for structs and unions</a></li>
+<li><a href="#_rules_for_enums">4. Rules for enums</a></li>
+<li><a href="#_rules_for_classes">5. Rules for classes</a></li>
+<li><a href="#_rules_for_interfaces_rpcs_and_modules">6. Rules for interfaces, RPCs and modules</a></li>
+<li><a href="#_renaming_or_moving_types">7. Renaming or moving types</a></li>
+<li><a href="#_escape_hatches">8. Escape hatches</a></li>
+<li><a href="#_authoring_guidelines">9. Authoring guidelines</a></li>
+<li><a href="#_checking">10. Checking</a></li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>IOP is designed so that independently deployed producers and consumers
+keep interoperating while the <code>.iop</code> definitions evolve. This page is
+the normative list of which changes are compatible and which are
+breaking — the ruleset a compatibility checker implements, and the
+contract <code>.iop</code> authors rely on.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_compatibility_model"><a class="anchor" href="#_compatibility_model"></a>1. Compatibility model</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The question asked throughout this page is:</p>
+</div>
+<div class="quoteblock">
+<blockquote>
+<div class="paragraph">
+<p>Can data produced with the <strong>old</strong> definition still be decoded with the
+<strong>new</strong> definition?</p>
+</div>
+</blockquote>
+</div>
+<div class="paragraph">
+<p>A change is compatible when the answer is yes for every possible old
+value. Compatibility is checked per <strong>format family</strong> — there are two of
+them — because the formats identify things differently:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Binary (<code>BIN</code>)</dt>
+<dd>
+<p>Identity is structural: field <strong>tags</strong>, class <strong>ids</strong>, enum <strong>numeric
+values</strong>. Names are irrelevant.</p>
+</dd>
+<dt class="hdlist1">JSON/YAML/XML (<code>JSON</code>)</dt>
+<dd>
+<p>Identity is nominal: field/RPC/interface <strong>names</strong>, class <strong>fullnames</strong>,
+enum <strong>value names</strong>. This one family covers all the name-based text
+formats — JSON, YAML and XML; the reference checker labels it <code>JSON</code>.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>When both format families are checked together, an additional <strong>cross-
+consistency</strong> rule applies: where both a name match and a tag/value match
+exist, they must designate the same entity ("name and tag lookups
+mismatch", "name and value lookups mismatch") — otherwise binary and
+text decoders would disagree on the meaning of old data.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+There is no XML-specific checking code; XML is validated by the
+same nominal (name-based) rules as JSON and YAML.
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>A checker compares whole packages: every struct, union, class,
+interface and module of the old package must still exist under the
+same name in the new one (removal or rename is a break in both format
+families — see <a href="#_renaming_or_moving_types">Renaming or moving types</a> for the typedef escape,
+which applies to structs/unions/classes only). Package-level <strong>enums</strong>
+and <strong>typedefs</strong> are not existence-checked as such; enum changes are
+detected where an enum is referenced by a checked field.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_rules_for_fields"><a class="anchor" href="#_rules_for_fields"></a>2. Rules for fields</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_type_changes"><a class="anchor" href="#_type_changes"></a>2.1. Type changes</h3>
+<div class="paragraph">
+<p>The allowed type changes follow conversion tables. Base rule: every
+type may stay itself, and (with the repeated-field exception below)
+every type may become <code>void</code> — the idiomatic way to retire a field
+while keeping its tag reserved.</p>
+</div>
+<div class="paragraph">
+<p><strong>Numeric widenings</strong> — a smaller integer type may grow into a larger one,
+in both format families. The checker accepts the widening whatever the
+<strong>sign</strong> of the target type, but that is not always value-preserving (see
+the caution), so the safe widenings are the same-sign ones and
+unsigned→signed:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 75%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Old type</th>
+<th class="tableblock halign-left valign-top">May become</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>bool</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">any integer type</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>byte</code>, <code>ubyte</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>short</code>, <code>ushort</code>, <code>int</code>, <code>uint</code>, <code>long</code>, <code>ulong</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>short</code>, <code>ushort</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>int</code>, <code>uint</code>, <code>long</code>, <code>ulong</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>int</code>, <code>uint</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>long</code>, <code>ulong</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>long</code>, <code>ulong</code>, <code>double</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">— (nothing but itself and <code>void</code>)</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock caution">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-caution" title="Caution"></i>
+</td>
+<td class="content">
+Widening a <strong>signed</strong> type into an <strong>unsigned</strong> one passes the
+checker but does not round-trip a negative old value: it fails to decode
+into <code>ushort</code>/<code>uint</code> (the value is out of range) or is silently
+reinterpreted as a large positive number in <code>ulong</code>. Widening an
+<strong>unsigned</strong> type into a wider <strong>signed</strong> one is always safe, since the old
+range always fits. Keep the sign whenever possible.
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p><strong>Binary-only</strong> conversions (forbidden in the JSON/YAML/XML family, where
+the textual representations differ):</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>enum</code> → <code>int</code>, <code>long</code> or <code>ulong</code> (an enum travels as its numeric
+value in binary, as its name in JSON/YAML/XML);</p>
+</li>
+<li>
+<p><code>string</code> ↔ <code>bytes</code> ↔ <code>xml</code> (all three are NUL-terminated blocks in
+binary; their JSON/YAML/XML representations differ).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p><strong>Struct/union/enum-typed fields</strong>: the old and new type must be of the
+same kind (struct→struct, enum→enum…), and the two definitions are then
+checked recursively (recursion through self-referencing types is safe —
+a checker must memoize visited pairs).</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_repeated_fields_the_small_scalar_exception"><a class="anchor" href="#_repeated_fields_the_small_scalar_exception"></a>2.2. Repeated fields: the small-scalar exception</h3>
+<div class="paragraph">
+<p>When <strong>both</strong> the old and the new field are repeated, the binary rules
+tighten for the element types that use the
+<a href="wire-format.html#optimized-arrays" class="xref page">optimized raw-array encoding</a>
+(<code>bool</code>, <code>byte</code>, <code>ubyte</code>, <code>short</code>, <code>ushort</code>): the element size is part
+of the wire format, so:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>byte[]</code>, <code>ubyte[]</code>, <code>short[]</code>, <code>ushort[]</code> may not change element
+type <strong>at all</strong> in binary while the field stays repeated;</p>
+</li>
+<li>
+<p><code>bool[]</code> may only become <code>byte[]</code> or <code>ubyte[]</code> (same element size);</p>
+</li>
+<li>
+<p><code>int[]</code>/<code>uint[]</code> → <code>long[]</code>/<code>ulong[]</code> remains allowed (32-bit arrays
+are encoded element-wise).</p>
+</li>
+</ul>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+These freezes only apply while the field <strong>stays</strong> repeated. Retiring
+one of these fields the usual way — changing it to a <strong>non-repeated</strong>
+<code>void</code> (dropping the <code>[]</code>) — is always allowed and decodes correctly, as
+the whole packed array block is dropped on read.
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>The JSON/YAML/XML family does not have this exception: all numeric
+widenings remain valid for repeated fields.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_cardinality_changes"><a class="anchor" href="#_cardinality_changes"></a>2.3. Cardinality changes</h3>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 42.8571%;">
+<col style="width: 14.2857%;">
+<col style="width: 42.8572%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Change</th>
+<th class="tableblock halign-left valign-top">Verdict</th>
+<th class="tableblock halign-left valign-top">Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">mandatory → optional / with-default / repeated</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">OK</p></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">optional / with-default → mandatory</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>break</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">unless the new type
+  is <code>void</code>, or an <em>optional struct</em> — one that decodes from nothing
+  (defined below)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">repeated → non-repeated</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>break</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">unless the new type is <code>void</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">non-repeated → repeated</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">OK</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">an old single value decodes as a
+  one-element array</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">changing the default <strong>value</strong> (keeping <code>=</code>)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">OK</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">default values are
+  not part of the compatibility contract. What old data then decodes to
+  depends on the packing flags: a field omitted because it equalled the
+  old default (only when packed with skip-default-values) reads back as
+  the new default; a field packed explicitly keeps its written value</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>An <strong>optional struct</strong> is a struct (or non-abstract class — its
+ancestors, abstract or not, are included in the test) none of whose
+fields is mandatory with a type other than <code>void</code> or an optional
+struct — i.e. a struct that decodes successfully from nothing.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_renaming_and_retagging"><a class="anchor" href="#_renaming_and_retagging"></a>2.4. Renaming and retagging</h3>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 60%;">
+<col style="width: 20%;">
+<col style="width: 20%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Change</th>
+<th class="tableblock halign-left valign-top">BIN</th>
+<th class="tableblock halign-left valign-top">JSON/YAML/XML</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">rename a field, keep its tag</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">OK</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>break</strong></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">change a field&#8217;s tag, keep its name</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>break</strong> for mandatory fields
+  (equivalent to removing it and adding a new mandatory one); OK for
+  optional/defaulted/repeated</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">OK</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">rename <strong>and</strong> retag so the name match and the tag match designate
+  different fields</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>break</strong> when both format families are checked
+  (cross-consistency)</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock caution">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-caution" title="Caution"></i>
+</td>
+<td class="content">
+When both format families are checked <strong>together</strong>, the reference
+checker additionally reports any vanished tag of a struct as a binary
+break ("field with tag N does not exist anymore") — so retagging even
+an optional/defaulted/repeated field fails a combined check, although
+it passes the binary-only and JSON/YAML/XML-only checks taken
+separately.
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_rules_for_structs_and_unions"><a class="anchor" href="#_rules_for_structs_and_unions"></a>3. Rules for structs and unions</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Removing a field</strong>: from a <strong>struct or class</strong> — OK in binary (decoders
+skip unknown tags), <strong>break</strong> in JSON/YAML/XML ("field <code>x</code> does not
+exist anymore"). From a <strong>union</strong> — break in both format families.</p>
+<div class="paragraph">
+<p>Even the binary case holds only if the <strong>following fields keep their
+tags</strong>: delete the field but tag the survivors explicitly, otherwise the
+implicit tags shift and break. The recommended alternative is to retire
+the field as a <code>void</code> rather than remove it — the tag stays reserved and
+it stays compatible in both families (see <a href="#_authoring_guidelines">Authoring guidelines</a>).</p>
+</div>
+</li>
+<li>
+<p><strong>Adding a field</strong>: OK if the new field is optional, repeated,
+defaulted, <code>void</code>, a member of a union, or a mandatory field whose
+type is an optional struct. Adding any other mandatory field is a
+break ("new field <code>x</code> must not be required").</p>
+</li>
+<li>
+<p><strong>Kind transitions</strong>:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>struct ↔ union: break;</p>
+</li>
+<li>
+<p>class → struct: break;</p>
+</li>
+<li>
+<p>struct → <strong>parentless, non-abstract class</strong>: OK (the binary decoder
+accepts the old plain-struct encoding);</p>
+</li>
+<li>
+<p>struct → abstract class or child class: break;</p>
+</li>
+<li>
+<p>non-abstract class → abstract: break; abstract → non-abstract: OK.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Shuffling field declaration order while keeping names and tags: OK
+(matching is by tag/name, never by position; <code>@noReorder</code> plays no
+role here). Note that raw XML/SOAP consumers may still be
+order-sensitive on the wire, which is outside the checker&#8217;s scope.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_rules_for_enums"><a class="anchor" href="#_rules_for_enums"></a>4. Rules for enums</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Making a non-strict enum <code>@strict</code>: <strong>break</strong> (old data may carry
+undeclared values). Strict → non-strict: OK.</p>
+</li>
+<li>
+<p>Removing a numeric value: <strong>break in binary</strong> (deliberately, even for
+non-strict enums). The JSON/YAML/XML family only detects the
+disappearance of the <strong>name</strong>: changing a value&#8217;s number while keeping
+its name passes a JSON/YAML/XML-only check.</p>
+</li>
+<li>
+<p>Removing or renaming a value <strong>name</strong>: break in JSON/YAML/XML — unless
+the old name survives as an <code>@alias</code> of some value (name matching is
+case-insensitive and includes aliases).</p>
+</li>
+<li>
+<p>Swapping the names/values of two members so that the name lookup and
+the value lookup disagree: break under cross-consistency.</p>
+</li>
+<li>
+<p>Adding new values: OK.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_rules_for_classes"><a class="anchor" href="#_rules_for_classes"></a>5. Rules for classes</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Changing a <strong>class id</strong>: break in binary.</p>
+</li>
+<li>
+<p>Changing a class <strong>fullname</strong> (renaming or moving it): break in
+JSON/YAML/XML — unless the old fullname still resolves to the class
+through a typedef (<a href="#_renaming_or_moving_types">Renaming or moving types</a>).</p>
+</li>
+<li>
+<p>Gaining <code>abstract</code>: break. Losing it: OK.</p>
+</li>
+<li>
+<p><strong>Parent chain</strong>: every old ancestor must still be found in the new
+chain — matched by class id in binary, by fullname in JSON/YAML/XML
+(the JSON/YAML/XML match is waived when every ancestor on both sides
+carries no fields). Classes <strong>newly inserted</strong> into the chain (including
+above a previously parentless class) must contain no mandatory field
+other than optional-struct typed ones (note: unlike the new-field
+rule, the inserted-parent check grants <strong>no</strong> exemption to mandatory
+<code>void</code> fields). The matched ancestor pair is then checked recursively
+like a struct.</p>
+</li>
+<li>
+<p>Checking a class does not implicitly check its descendants — a
+package-level check is needed to cover a whole hierarchy.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_rules_for_interfaces_rpcs_and_modules"><a class="anchor" href="#_rules_for_interfaces_rpcs_and_modules"></a>6. Rules for interfaces, RPCs and modules</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Removing an RPC from an interface: break (by tag in binary, by name
+in JSON/YAML/XML). Renaming an RPC: break in JSON/YAML/XML only.
+Retagging: break in binary only. Adding an RPC: OK.</p>
+</li>
+<li>
+<p>Changing an RPC&#8217;s <code>in</code>/<code>out</code>/<code>throw</code> payload: checked with the struct
+rules above.</p>
+</li>
+<li>
+<p>Toggling an RPC between synchronous and asynchronous (<code>out null</code>):
+break in <strong>both directions</strong>.</p>
+</li>
+<li>
+<p>Removing an interface instance from a module, or renaming/retagging
+it: break (name in JSON/YAML/XML, tag in binary). The module check is
+shallow: the interfaces themselves are checked through the
+package-level interface list.</p>
+</li>
+<li>
+<p>Removing an interface or a module from a package: break.</p>
+</li>
+<li>
+<p><strong>SNMP carve-outs</strong>: when both the old and new interface are SNMP
+interfaces, the checker skips them entirely, and enum-typed SNMP
+trap parameters without a resolved enum description are skipped in
+field checks.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_renaming_or_moving_types"><a class="anchor" href="#_renaming_or_moving_types"></a>7. Renaming or moving types</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Renaming a type, or moving it to another package, breaks the
+JSON/YAML/XML family (and the package-level existence check). The
+supported escape is a <strong>typedef left at the old location</strong>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">package pkgA;
+
+/* MyStruct moved to pkgB */
+typedef pkgB.MyStruct MyStruct;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>A checker must accept a typedef with the old name resolving to the
+moved type as satisfying the existence and fullname rules. Old JSON,
+YAML and XML documents naming <code>pkgA.MyStruct</code> remain decodable.</p>
+</div>
+<div class="paragraph">
+<p>Two caveats: the escape exists for <strong>structs, unions and classes</strong> only
+(not interfaces or modules), and when checking compiled
+<a href="../impl/dso-iopsq.html" class="xref page">DSOs</a>, it requires the new DSO to be
+recent enough to carry typedef tables.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_escape_hatches"><a class="anchor" href="#_escape_hatches"></a>8. Escape hatches</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Three boolean <a href="attributes.html#_generic_attributes" class="xref page">generic
+attributes</a>, read on the <strong>new</strong> definition, disable checks:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 40%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Attribute</th>
+<th class="tableblock halign-left valign-top">Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@(compat:ignore, true)</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">disables all compatibility checks for the
+  element</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@(compat:ignoreJson, true)</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">disables the JSON/YAML/XML-family
+  checks only</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@(compat:ignoreBin, true)</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">disables the binary checks only</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>They may be placed on <strong>structs/unions/classes</strong>, on <strong>interfaces</strong> (which
+also covers their RPCs), and on individual <strong>RPCs</strong> — not on fields,
+enums or modules. On a type they take effect when that type is the
+<strong>root</strong> of a check (e.g. checked from the package level); they are <strong>not</strong>
+honored when the type is reached through the recursion from another,
+non-ignored type.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_authoring_guidelines"><a class="anchor" href="#_authoring_guidelines"></a>9. Authoring guidelines</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The rules above condense into habits:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>always preserve existing tags</strong>, even implicit ones. When removing a
+field, either explicitly tag the surrounding fields (and ideally the
+whole struct), or — preferred — keep the field, change its type to
+<code>void</code> and mark it <code>@deprecated</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">struct Foo {
+    int    foo;
+    @deprecated
+    void   b;   /* removed in v2 (was: string, tag 2) */
+    bool   c;
+    double? d;  /* added in v2 */
+};</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p><strong>never add a mandatory member</strong> to an existing type, and never make an
+optional member mandatory; new fields are optional, repeated or
+defaulted;</p>
+</li>
+<li>
+<p><strong>do not change field types</strong>, outside the widenings listed above;</p>
+</li>
+<li>
+<p><strong>avoid renaming</strong> fields, types, enum values and RPCs — it breaks
+every name-based format; use typedefs and <code>@alias</code> when renaming is
+unavoidable;</p>
+</li>
+<li>
+<p>in one sentence: compatible changes are — adding an optional /
+defaulted / repeated field, adding a union member, adding an enum
+value, adding an RPC, widening an integer type, relaxing
+<code>mandatory</code> to <code>optional</code>, turning a struct into a master class, and
+retiring fields as <code>void</code>.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_checking"><a class="anchor" href="#_checking"></a>10. Checking</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Verifying these rules by hand is error-prone; implementations should
+provide a checker that compares two versions of a package set and
+reports every violation with the rule it breaks (in the reference
+implementation: <code>iop_struct_check_backward_compat</code>,
+<code>iop_pkg_check_backward_compat</code> and the <code>dso-compatibility-check</code> tool
+— see <a href="../impl/c-runtime.html" class="xref page">Part II</a>). A useful checker property,
+used by the reference test suite: for every verdict, actually encoding
+a value with the old definition and decoding it with the new one agrees
+with the verdict.</p>
+</div>
+</div>
+</div>
+</article>
+  </div>
+</main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script id="site-script" src="../../../_/js/site.js" data-ui-root-path="../../../_"></script>
+<script async src="../../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

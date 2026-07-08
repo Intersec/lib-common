@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>SNMP extensions :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 3.1.2">
+    <link rel="stylesheet" href="../../../_/css/site.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.4">
+    <link rel="icon" href="../../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../../..">Intersec lib-common Documentation</a>
+      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
+    </div>
+  </nav>
+</header>
+<div class="body">
+<div class="nav-container" data-component="lib-common" data-version="master">
+  <aside class="nav">
+    <div class="panels">
+<div class="nav-panel-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
+    <h3 class="title"><a href="../../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/modules.html">Modules</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/threads.html">Thread jobs</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/prometheus-client.html">Prometheus client</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../index.html">Introduction</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP specification</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="overview.html">Specification overview</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Language reference</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="lexical.html">Lexical structure</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="packages.html">Packages and imports</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="types.html">Types and fields</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="structs-unions-enums.html">Structs, unions and enums</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="classes.html">Classes and inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="attributes.html">Attributes and constraints</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="interfaces-modules.html">Interfaces, RPCs and modules</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="4">
+    <a class="nav-link" href="snmp.html">SNMP extensions</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="doc-comments.html">Documentation comments</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Serialization formats</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="wire-format.html">Binary wire format</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="json.html">JSON representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="yaml.html">YAML representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="xml.html">XML and SOAP representation</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="compatibility.html">Backward-compatibility rules</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Reference implementation</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc.html">The iopc compiler</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc-backends.html">iopc backends: C, JSON, TypeScript, Python stubs</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-mapping.html">C language mapping</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-runtime.html">C runtime library</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/ichannel.html">IChannel RPC protocol</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/dso-iopsq.html">DSO plugins and IOP²</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/bindings.html">Language bindings: IOPy, TypeScript and Rust</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopy.html">IOPy: the Python binding</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/generators.html">OpenAPI, WSDL and SNMP MIB generation</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="nav-panel-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <div class="title"><a href="../../index.html">Lib-common Documentation</a></div>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+<main class="article">
+<div class="toolbar" role="navigation">
+<button class="nav-toggle"></button>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="../../index.html">Lib-common Documentation</a></li>
+    <li>IOP</li>
+    <li>IOP specification</li>
+    <li>Language reference</li>
+    <li><a href="snmp.html">SNMP extensions</a></li>
+  </ul>
+</nav>
+</div>
+  <div class="content">
+<aside class="toc sidebar" data-title="Contents" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
+<article
+class="doc"
+>
+<h1 class="page">SNMP extensions</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_common_shape">1. Common shape</a></li>
+<li><a href="#_snmp_objects">2. SNMP objects</a></li>
+<li><a href="#_snmp_tables">3. SNMP tables</a></li>
+<li><a href="#_snmp_interfaces_notifications">4. SNMP interfaces (notifications)</a></li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>IOP includes dedicated constructs to describe an SNMP instrumentation:
+<strong>SNMP objects</strong> (groups of scalar variables), <strong>SNMP tables</strong> and <strong>SNMP
+interfaces</strong> (notifications/traps). They are part of the language — a
+conforming parser must accept them — and they map onto MIB concepts; the
+generation of actual MIB files is implementation territory
+(<a href="../impl/generators.html" class="xref page">Part II</a>).</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_common_shape"><a class="anchor" href="#_common_shape"></a>1. Common shape</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The three constructs share the class-like declaration syntax, with an
+<strong>OID</strong> in place of the class id and a mandatory parent:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>snmpObj   &lt;Name&gt; : &lt;oid&gt; : &lt;Parent&gt; { &lt;field&gt;* };
+snmpTbl   &lt;Name&gt; : &lt;oid&gt; : &lt;Parent&gt; { &lt;field&gt;* };
+snmpIface &lt;Name&gt; : &lt;oid&gt; : &lt;Parent&gt; { &lt;notification&gt;* };</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The parent is mandatory (<code>snmpObj/snmpTbl 'X' needs a snmpObj
+parent</code>, <code>snmpIface 'X' needs a snmpObj parent</code>) and may be qualified
+(<code>pkg.Obj</code>). The root of the hierarchy is the built-in parent name
+<strong><code>Intersec</code></strong>, which is not a declared type; only <code>snmpObj</code> and
+<code>snmpTbl</code> declarations may use it directly — a <code>snmpIface&#8217;s parent
+must be a declared `snmpObj</code> (<code>pkg 'X' does not provide snmpObj
+'Intersec' when resolving inheritance of snmpIface 'Y'</code>).</p>
+</li>
+<li>
+<p>Single inheritance only.</p>
+</li>
+<li>
+<p>OID ranges: 1–65535 for <code>snmpObj</code> and <code>snmpTbl</code>, 0–65535 for
+<code>snmpIface</code> (<code>id is too small (must be &gt;= 1)</code> / <code>id is too large
+(must be &#8656; 65535)</code>).</p>
+</li>
+<li>
+<p><strong>Documentation briefs are mandatory</strong> — they become the <code>DESCRIPTION</code>
+clauses of the generated MIB: every <code>snmpObj</code>/<code>snmpTbl</code> field needs
+one (<code>field 'a' needs a brief that would be used as a description in
+the generated MIB</code>), every <code>snmpTbl</code> declaration needs one, and every
+notification needs one (<code>notification 'notif' needs a brief…</code>). See
+<a href="doc-comments.html" class="xref page">Documentation comments</a>.</p>
+</li>
+<li>
+<p><code>@deprecated</code> is allowed on all three declaration kinds.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_snmp_objects"><a class="anchor" href="#_snmp_objects"></a>2. SNMP objects</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">/** Statistics about the frobnicator. */
+snmpObj Stats : 42 : Intersec {
+    /** Number of active connections. */
+1:  int activeConnections;
+
+    /** Name of the current leader. */
+2:  string leaderName;
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Field rules:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>allowed field types: integer types up to 32 bits, <code>bool</code>, <code>string</code>,
+and enums — 64-bit integers and <code>double</code> are rejected (<code>only
+int/string/boolean/enum types are handled for snmp objects' fields</code>);</p>
+</li>
+<li>
+<p>fields follow normal tag rules;</p>
+</li>
+<li>
+<p>an SNMP object cannot itself be used as a field type elsewhere (<code>snmp
+objects cannot be used to define a field type</code>); the hierarchy exists
+only to structure the OID tree.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_snmp_tables"><a class="anchor" href="#_snmp_tables"></a>3. SNMP tables</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>A <code>snmpTbl</code> describes a table of conceptual rows. Its parent must be a
+<code>snmpObj</code>. At least one field must be marked as an <strong>index</strong> with
+<code>@snmpIndex</code>, and indexes must be of type <code>uint</code> or <code>string</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">/** Connection table. */
+snmpTbl Connections : 1 : Stats {
+    /** Connection identifier. */
+    @snmpIndex
+1:  uint connId;
+
+    /** Remote host. */
+2:  string remoteHost;
+};</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>@snmpIndex</code> outside a <code>snmpTbl</code> is an error (<code>field '&lt;x&gt;' does not
+support @snmpIndex attribute</code>);</p>
+</li>
+<li>
+<p>an index of another type is <code>a snmp index should be declared with the
+'uint' or 'string' type</code>;</p>
+</li>
+<li>
+<p>a table without any index is <code>each snmp table must contain at least
+one field that has attribute @snmpIndex of type 'uint' or 'string'</code>.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_snmp_interfaces_notifications"><a class="anchor" href="#_snmp_interfaces_notifications"></a>4. SNMP interfaces (notifications)</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>A <code>snmpIface</code> declares notifications (traps). Notification parameters
+are not declared inline: they <strong>refer by name</strong> to fields of <code>snmpObj</code>
+declarations marked <code>@snmpParam</code>, listed in the interface&#8217;s
+<code>@snmpParamsFrom</code> attribute:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">/** Parameters available to notifications. */
+@snmpParam
+snmpObj Params : 80 : Intersec {
+    /** Description. */
+1:  int a;
+
+    /** Description. */
+2:  string b;
+};
+
+/** Notifications of the frobnicator. */
+@snmpParamsFrom(Params)
+snmpIface Notifications : 81 : Stats {
+    /** Frobnication started. */
+    started
+        in (a, b);
+
+    /** Frobnication finished (no parameters). */
+    finished;
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Rules:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>a notification has the shape <code>[&lt;tag&gt;:] &lt;name&gt; [in ( &lt;paramName&gt;, … )]
+;</code> — the <code>in</code> list contains <strong>names only</strong> (no types), and may be empty
+(<code>in ()</code>) or absent;</p>
+</li>
+<li>
+<p>the argument list must be anonymous: a named type is <code>snmpIface RPC
+argument must be anonymous. example 'in (a, b, c);'</code>;</p>
+</li>
+<li>
+<p><code>out</code> and <code>throw</code> are forbidden (<code>snmpIface cannot out and/or
+throw</code>), as are <code>void</code> and <code>null</code> (<code>void is not supported by snmpIface
+RPCs</code>);</p>
+</li>
+<li>
+<p>every parameter name must resolve to exactly one field among the
+<code>@snmpParamsFrom</code> objects: a missing attribute is <code>snmpIface should
+have an attribute snmpParamsFrom</code>; an unknown name is <code>field 'x' is
+not found in any of the snmpObjs given by the attribute
+snmpParamsFrom</code>; a name found in several objects is <code>several snmpObjs
+given by the attribute snmpParamsFrom have a field with the same name
+'x'</code>;</p>
+</li>
+<li>
+<p><code>@snmpParamsFrom</code> arguments must name resolvable <code>snmpObj</code>
+declarations (<code>pkg 'X' does not provide snmpObj 'Y' when resolving
+snmp params of snmpIface 'Z'</code>); a malformed dotted argument is
+<code>invalid snmpParamsFrom '&lt;arg&gt;'</code>;</p>
+</li>
+<li>
+<p>a <code>snmpIface</code> has exactly one parent.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</article>
+  </div>
+</main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script id="site-script" src="../../../_/js/site.js" data-ui-root-path="../../../_"></script>
+<script async src="../../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

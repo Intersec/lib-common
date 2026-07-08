@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>DSO plugins and IOP² :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 3.1.2">
+    <link rel="stylesheet" href="../../../_/css/site.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.4">
+    <link rel="icon" href="../../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../../..">Intersec lib-common Documentation</a>
+      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
+    </div>
+  </nav>
+</header>
+<div class="body">
+<div class="nav-container" data-component="lib-common" data-version="master">
+  <aside class="nav">
+    <div class="panels">
+<div class="nav-panel-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
+    <h3 class="title"><a href="../../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/modules.html">Modules</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/threads.html">Thread jobs</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/prometheus-client.html">Prometheus client</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../index.html">Introduction</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP specification</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../spec/overview.html">Specification overview</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Language reference</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/lexical.html">Lexical structure</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/packages.html">Packages and imports</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/types.html">Types and fields</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/structs-unions-enums.html">Structs, unions and enums</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/classes.html">Classes and inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/attributes.html">Attributes and constraints</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/interfaces-modules.html">Interfaces, RPCs and modules</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/snmp.html">SNMP extensions</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/doc-comments.html">Documentation comments</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Serialization formats</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/wire-format.html">Binary wire format</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/json.html">JSON representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/yaml.html">YAML representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../spec/xml.html">XML and SOAP representation</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../spec/compatibility.html">Backward-compatibility rules</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Reference implementation</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iopc.html">The iopc compiler</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iopc-backends.html">iopc backends: C, JSON, TypeScript, Python stubs</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="c-mapping.html">C language mapping</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="c-runtime.html">C runtime library</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="ichannel.html">IChannel RPC protocol</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="3">
+    <a class="nav-link" href="dso-iopsq.html">DSO plugins and IOP²</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="bindings.html">Language bindings: IOPy, TypeScript and Rust</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="iopy.html">IOPy: the Python binding</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="generators.html">OpenAPI, WSDL and SNMP MIB generation</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="nav-panel-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <div class="title"><a href="../../index.html">Lib-common Documentation</a></div>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+<main class="article">
+<div class="toolbar" role="navigation">
+<button class="nav-toggle"></button>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="../../index.html">Lib-common Documentation</a></li>
+    <li>IOP</li>
+    <li>Reference implementation</li>
+    <li><a href="dso-iopsq.html">DSO plugins and IOP²</a></li>
+  </ul>
+</nav>
+</div>
+  <div class="content">
+<aside class="toc sidebar" data-title="Contents" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
+<article
+class="doc"
+>
+<h1 class="page">DSO plugins and IOP²</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_iop_dso_plugins">1. IOP DSO plugins</a>
+<ul class="sectlevel2">
+<li><a href="#_building_a_dso">1.1. Building a DSO</a></li>
+<li><a href="#_what_a_dso_exports">1.2. What a DSO exports</a></li>
+<li><a href="#_loading_and_registration">1.3. Loading and registration</a></li>
+<li><a href="#_dso_resources">1.4. DSO resources</a></li>
+</ul>
+</li>
+<li><a href="#_iop_iopsq">2. IOP² (iopsq)</a>
+<ul class="sectlevel2">
+<li><a href="#_the_meta_model">2.1. The meta-model</a></li>
+<li><a href="#_api">2.2. API</a></li>
+<li><a href="#_limitations">2.3. Limitations</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>Two mechanisms make IOP types available <strong>dynamically</strong>, without linking
+the generated C statically: <strong>IOP DSOs</strong> (shared objects embedding
+compiled packages) and <strong>IOP²</strong> (building runtime type descriptors from
+IOP-described data).</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_iop_dso_plugins"><a class="anchor" href="#_iop_dso_plugins"></a>1. IOP DSO plugins</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>An IOP DSO is a shared object containing the compiled descriptors of
+one or more IOP packages, loadable at runtime by any lib-common
+program (and by the language bindings, e.g. IOPy).</p>
+</div>
+<div class="sect2">
+<h3 id="_building_a_dso"><a class="anchor" href="#_building_a_dso"></a>1.1. Building a DSO</h3>
+<div class="paragraph">
+<p><code>iopc_dso_build()</code> (<code>src/iopc/iopc-dso.c</code>) runs the iopc pipeline
+in-process on a <code>.iop</code> file (dependencies provided as in-memory
+buffers), generates self-contained C (the runtime internals are
+embedded so the DSO needs no lib-common headers at build time), emits
+the package JSON description next to the result, synthesizes a plugin
+stub —</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#include "&lt;pkg&gt;.h"
+IOP_EXPORT_PACKAGES_COMMON;
+IOP_USE_EXTERNAL_PACKAGES;
+IOP_EXPORT_PACKAGES(&amp;&lt;pkg&gt;__pkg);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>— and compiles everything with <code>cc -shared -fPIC</code> into <code>&lt;pkg&gt;.iop.so</code>.
+<code>iopc_dso_set_class_id_range()</code> applies the same restriction as
+<code>iopc --class-id-range</code>.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_what_a_dso_exports"><a class="anchor" href="#_what_a_dso_exports"></a>1.2. What a DSO exports</h3>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 66.6667%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Symbol</th>
+<th class="tableblock halign-left valign-top">Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>iop_packages[]</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">NULL-terminated array of <code>iop_pkg_t *</code> —
+  mandatory, the loader fails without it (<code>IOP_EXPORT_PACKAGES</code>)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>iop_dso_version</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ABI version stamp (<code>IOP_EXPORT_DSO_VERSION</code>);
+  gates newer features such as the typedef tables</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>iop_vtable</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">lets the host inject its error reporting so
+  constraint errors raised inside the DSO reach the host</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>iop_use_external_packages</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">opt-in to <strong>fixup</strong>: type references are
+  re-pointed at packages already registered in the host</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>iop_dso_ressources_&lt;category&gt;[]</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">optional resource arrays (below)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect2">
+<h3 id="_loading_and_registration"><a class="anchor" href="#_loading_and_registration"></a>1.3. Loading and registration</h3>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">iop_dso_t *dso = iop_dso_open(iop_env, "/path/pkg.iop.so", &amp;err);
+...
+iop_dso_close(&amp;dso);</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The packages are registered in the <code>iop_env</code> passed to
+<code>iop_dso_open()</code> (<code>iop_dso_close()</code> unregisters them). Loading uses
+<code>dlmopen()</code>: the link-map namespace is configured on the environment
+(<code>iop_env_set_dso_lmid()</code>); a dedicated namespace (<code>LM_ID_NEWLM</code>)
+isolates the DSO, allowing the same package to be loaded several
+times, while <code>RTLD_GLOBAL</code> only applies in the base namespace.</p>
+</li>
+<li>
+<p>Registration walks the exported packages and their dependencies,
+performs the <strong>fixup</strong> against already-registered packages, and runs
+the <strong>class-id collision checks</strong>: two distinct classes with the same
+id under one master class are rejected (<code>conflicting class id …</code>),
+and every parent of a registered class must be registered.</p>
+</li>
+<li>
+<p><code>iop_dso_t</code> is reference-counted (<code>iop_dso_dup</code>); reopening the same
+handle reuses it. Unloading unregisters the DSO and every DSO that
+depends on it, then re-opens the dependents so their fixups
+re-resolve.</p>
+</li>
+<li>
+<p>Lookups: <code>iop_dso_find_type(dso, LSTR("pkg.Type"))</code> resolves
+fullnames, typedefs and the synthetic RPC payload names
+(<code>pkg.Iface.funArgs</code>…); <code>iop_dso_find_enum()</code> similarly.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_dso_resources"><a class="anchor" href="#_dso_resources"></a>1.4. DSO resources</h3>
+<div class="paragraph">
+<p>A <strong>resource category</strong> is declared by the host application —
+<code>IOP_DSO_DECLARE_RESSOURCE_CATEGORY(category, type)</code> — and plugins
+export entries with <code>IOP_DSO_EXPORT_RESSOURCES(category, &amp;r1, &amp;r2)</code>.
+The host retrieves them with <code>iop_dso_get_ressources(dso,
+LSTR("category"))</code> / <code>IOP_DSO_GET_RESSOURCES()</code>. Example: IOPy declares
+the <code>iopy_on_register</code> category, whose entries are Python snippets run
+when the plugin is loaded.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_iop_iopsq"><a class="anchor" href="#_iop_iopsq"></a>2. IOP² (iopsq)</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>IOP² generates <strong>runtime type descriptors from data</strong>: a type described
+as an IOP value (package <code>iopsq</code>, file <code>src/iopc/iopsq.iop</code>) — for
+instance unpacked from JSON — is turned directly into in-memory
+<code>iop_pkg_t</code>/<code>iop_struct_t</code> descriptors, without running iopc or
+building a DSO.</p>
+</div>
+<div class="sect2">
+<h3 id="_the_meta_model"><a class="anchor" href="#_the_meta_model"></a>2.1. The meta-model</h3>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">union Type {
+    IntType    i;          /* integer: signedness + size (S8…S64) */
+    void       b;          /* bool                                */
+    void       d;          /* double                              */
+    StringType s;          /* STRING | BYTES | XML                */
+    void       v;          /* void                                */
+    string     typeName;   /* named type from the environment     */
+    Type&amp;      array;      /* repeated                            */
+    uint       typeId;     /* reference handed out by a type table */
+};
+
+struct Field {
+    string   name;
+    Type     type;
+    OptInfo? optional;     /* presence + optional default value   */
+    ushort?  tag;
+    void?    isReference;
+};
+
+struct Package {
+    string        name;
+    PackageElem[] elems;   /* Struct, Union, Enum classes         */
+};</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_api"><a class="anchor" href="#_api"></a>2.2. API</h3>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">iop_pkg_t *mp_iopsq_build_pkg(mem_pool_t *mp,
+                              const iop__package__t *pkg_desc,
+                              const iopsq_type_table_t *type_table,
+                              sb_t *err);
+const iop_struct_t *mp_iopsq_build_struct(mem_pool_t *mp,
+                              const iopsq__structure__t *st_desc, ...);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>(<code>src/iopc/iopc-iopsq.h</code>.) The descriptors are allocated on the given
+memory pool; they may point into the current IOP environment, which
+must not change during their lifetime. A <strong>type table</strong>
+(<code>IOPSQ_TYPE_TABLE()</code> + <code>iopsq_type_table_fill_type()</code>) registers types
+not present in the environment and yields <code>typeId</code> references —
+the bridge for composing generated types.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_limitations"><a class="anchor" href="#_limitations"></a>2.3. Limitations</h3>
+<div class="paragraph">
+<p>Documented in <code>iopc-iopsq.h</code>: classes, attributes, modules,
+interfaces, typedefs, RPCs and SNMP objects are not supported; default
+values are parsed but not yet emitted into the runtime descriptors;
+environment typedefs cannot be referenced by <code>typeName</code>; there is no
+reverse conversion (descriptor → IOP² value) and no sub-packages.</p>
+</div>
+<div class="paragraph">
+<p>Tests and examples: <code>tests/iopc/iopsq-tests/*.json</code> (JSON-packed
+<code>iopsq.Package</code> values) driven by <code>tests/iopc/zchk.c</code>.</p>
+</div>
+</div>
+</div>
+</div>
+</article>
+  </div>
+</main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script id="site-script" src="../../../_/js/site.js" data-ui-root-path="../../../_"></script>
+<script async src="../../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

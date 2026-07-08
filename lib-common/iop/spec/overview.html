@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Specification overview :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 3.1.2">
+    <link rel="stylesheet" href="../../../_/css/site.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.4">
+    <link rel="icon" href="../../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../../..">Intersec lib-common Documentation</a>
+      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
+    </div>
+  </nav>
+</header>
+<div class="body">
+<div class="nav-container" data-component="lib-common" data-version="master">
+  <aside class="nav">
+    <div class="panels">
+<div class="nav-panel-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
+    <h3 class="title"><a href="../../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/modules.html">Modules</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/threads.html">Thread jobs</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/prometheus-client.html">Prometheus client</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../index.html">Introduction</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP specification</span>
+<ul class="nav-list">
+  <li class="nav-item is-current-page" data-depth="3">
+    <a class="nav-link" href="overview.html">Specification overview</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Language reference</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="lexical.html">Lexical structure</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="packages.html">Packages and imports</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="types.html">Types and fields</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="structs-unions-enums.html">Structs, unions and enums</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="classes.html">Classes and inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="attributes.html">Attributes and constraints</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="interfaces-modules.html">Interfaces, RPCs and modules</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="snmp.html">SNMP extensions</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="doc-comments.html">Documentation comments</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Serialization formats</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="wire-format.html">Binary wire format</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="json.html">JSON representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="yaml.html">YAML representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="xml.html">XML and SOAP representation</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="compatibility.html">Backward-compatibility rules</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Reference implementation</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc.html">The iopc compiler</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc-backends.html">iopc backends: C, JSON, TypeScript, Python stubs</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-mapping.html">C language mapping</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-runtime.html">C runtime library</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/ichannel.html">IChannel RPC protocol</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/dso-iopsq.html">DSO plugins and IOP²</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/bindings.html">Language bindings: IOPy, TypeScript and Rust</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopy.html">IOPy: the Python binding</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/generators.html">OpenAPI, WSDL and SNMP MIB generation</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="nav-panel-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <div class="title"><a href="../../index.html">Lib-common Documentation</a></div>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+<main class="article">
+<div class="toolbar" role="navigation">
+<button class="nav-toggle"></button>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="../../index.html">Lib-common Documentation</a></li>
+    <li>IOP</li>
+    <li>IOP specification</li>
+    <li><a href="overview.html">Specification overview</a></li>
+  </ul>
+</nav>
+</div>
+  <div class="content">
+<aside class="toc sidebar" data-title="Contents" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
+<article
+class="doc"
+>
+<h1 class="page">Specification overview</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_conformance_and_terminology">1. Conformance and terminology</a></li>
+<li><a href="#_data_model">2. Data model</a></li>
+<li><a href="#_compilation_model">3. Compilation model</a></li>
+<li><a href="#_serializations_at_a_glance">4. Serializations at a glance</a></li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>This part of the documentation is the <strong>IOP specification</strong>: a normative
+description of the IOP language, of its serialization formats and of its
+compatibility rules, written independently of the Intersec implementation.
+An implementation written from these pages alone must interoperate with any
+existing IOP implementation.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_conformance_and_terminology"><a class="anchor" href="#_conformance_and_terminology"></a>1. Conformance and terminology</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>In the specification pages:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>must</strong> / <strong>is rejected</strong> / <strong>is an error</strong> describe mandatory behavior: a
+conforming compiler refuses the construct, or a conforming encoder or
+decoder fails the operation;</p>
+</li>
+<li>
+<p><strong>should</strong> describes recommended behavior that does not affect
+interoperability;</p>
+</li>
+<li>
+<p><strong>implementation-defined</strong> explicitly marks the points where behavior is
+delegated to a backend or an implementation (these are documented for the
+Intersec implementation in Part II).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>A complete IOP implementation consists of:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>a <strong>parser/compiler</strong> for the IOP language: it reads packages of <code>.iop</code>
+files, validates them, and produces type descriptions usable by the
+encoders/decoders and code generators (<a href="lexical.html" class="xref page">lexical structure</a>
+through
+<a href="doc-comments.html" class="xref page">documentation comments</a>);</p>
+</li>
+<li>
+<p>the <strong>binary encoder/decoder</strong>, the reference serialization
+(<a href="wire-format.html" class="xref page">binary wire format</a>);</p>
+</li>
+<li>
+<p>optionally, the <strong>text encoders/decoders</strong>: <a href="json.html" class="xref page">JSON</a>,
+<a href="yaml.html" class="xref page">YAML</a> and <a href="xml.html" class="xref page">XML</a> representations;</p>
+</li>
+<li>
+<p>optionally, a <strong>compatibility checker</strong> implementing the
+<a href="compatibility.html" class="xref page">backward-compatibility rules</a>.</p>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_data_model"><a class="anchor" href="#_data_model"></a>2. Data model</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>An IOP <strong>package</strong> contains named declarations:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>structs</strong> — records of typed, tagged fields;</p>
+</li>
+<li>
+<p><strong>unions</strong> — a choice of exactly one among a set of tagged fields;</p>
+</li>
+<li>
+<p><strong>enums</strong> — named integer constants;</p>
+</li>
+<li>
+<p><strong>classes</strong> — structs with single inheritance, identified by a <em>class id</em>,
+supporting polymorphism in all serialization formats;</p>
+</li>
+<li>
+<p><strong>typedefs</strong> — named aliases of types, possibly carrying attributes;</p>
+</li>
+<li>
+<p><strong>interfaces</strong> — named sets of RPCs, each RPC having <code>in</code>, <code>out</code> and
+<code>throw</code> payloads;</p>
+</li>
+<li>
+<p><strong>modules</strong> — named sets of interface instances;</p>
+</li>
+<li>
+<p><strong>SNMP objects, tables and interfaces</strong> — declarations dedicated to SNMP
+instrumentation.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Every field has:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>a <strong>type</strong>: one of the fourteen primitive types (<code>byte</code>, <code>ubyte</code>, <code>short</code>,
+<code>ushort</code>, <code>int</code>, <code>uint</code>, <code>long</code>, <code>ulong</code>, <code>bool</code>, <code>double</code>, <code>string</code>,
+<code>bytes</code>, <code>xml</code>, <code>void</code>) or a named struct/union/enum/class type;</p>
+</li>
+<li>
+<p>a <strong>cardinality</strong>: mandatory, optional (<code>?</code>), repeated (<code>[]</code>), or mandatory
+with a default value (<code>=</code>);</p>
+</li>
+<li>
+<p>a <strong>tag</strong>: a small integer, unique within the enclosing structure, that
+identifies the field in serialized data. Field names matter to the text
+formats; tags are the identity of fields in the binary format;</p>
+</li>
+<li>
+<p>optionally, <strong>attributes</strong> that constrain its values or alter its handling.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_compilation_model"><a class="anchor" href="#_compilation_model"></a>3. Compilation model</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>One <code>.iop</code> file declares exactly one package, and the package name
+determines the file path (package <code>a.b.c</code> lives in <code>a/b/c.iop</code>). Types from
+other packages are referenced with their qualified name (<code>pkg.Type</code>), which
+makes the dependencies of a file explicit; circular dependencies between
+packages are rejected, while circular type references inside a package are
+legal where semantically possible.</p>
+</div>
+<div class="paragraph">
+<p>Compiling a package requires the full transitive closure of the packages it
+references. A compiler validates, for each package: lexical and syntactic
+correctness, name resolution, tag consistency, attribute applicability, and
+the structural rules of every construct. The specification pages list the
+mandatory error conditions construct by construct.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_serializations_at_a_glance"><a class="anchor" href="#_serializations_at_a_glance"></a>4. Serializations at a glance</h2>
+<div class="sectionbody">
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 16.6666%;">
+<col style="width: 33.3333%;">
+<col style="width: 50.0001%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Format</th>
+<th class="tableblock halign-left valign-top">Identity of fields</th>
+<th class="tableblock halign-left valign-top">Typical use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="wire-format.html" class="xref page">Binary</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">tags</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Network protocols, storage. Compact TLV encoding; unknown fields are
+  skippable, making it the reference format for compatibility.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="json.html" class="xref page">JSON</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">names</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Configuration files, web APIs, debugging. Canonical output plus a lenient
+  input grammar (comments, unquoted keys…).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="yaml.html" class="xref page">YAML</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">names</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Configuration files with includes, overrides and round-trip preservation
+  of presentation.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="xml.html" class="xref page">XML</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">names</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">SOAP web services (WSDL), legacy integrations.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>All formats share the same data model; a value packed in one format and
+unpacked from it is identical to the same value transported through another
+format. The <a href="compatibility.html" class="xref page">compatibility rules</a> differ by format,
+however: the binary format relies on tags and value encodings, while the
+text formats rely on field names — so a change can be safe in one format and
+breaking in another.</p>
+</div>
+</div>
+</div>
+</article>
+  </div>
+</main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script id="site-script" src="../../../_/js/site.js" data-ui-root-path="../../../_"></script>
+<script async src="../../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

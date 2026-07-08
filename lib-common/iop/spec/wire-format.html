@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Binary wire format :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 3.1.2">
+    <link rel="stylesheet" href="../../../_/css/site.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.4">
+    <link rel="icon" href="../../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../../..">Intersec lib-common Documentation</a>
+      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
+    </div>
+  </nav>
+</header>
+<div class="body">
+<div class="nav-container" data-component="lib-common" data-version="master">
+  <aside class="nav">
+    <div class="panels">
+<div class="nav-panel-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
+    <h3 class="title"><a href="../../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/modules.html">Modules</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/threads.html">Thread jobs</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../base/prometheus-client.html">Prometheus client</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../index.html">Introduction</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP specification</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="overview.html">Specification overview</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Language reference</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="lexical.html">Lexical structure</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="packages.html">Packages and imports</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="types.html">Types and fields</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="structs-unions-enums.html">Structs, unions and enums</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="classes.html">Classes and inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="attributes.html">Attributes and constraints</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="interfaces-modules.html">Interfaces, RPCs and modules</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="snmp.html">SNMP extensions</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="doc-comments.html">Documentation comments</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Serialization formats</span>
+<ul class="nav-list">
+  <li class="nav-item is-current-page" data-depth="4">
+    <a class="nav-link" href="wire-format.html">Binary wire format</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="json.html">JSON representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="yaml.html">YAML representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="xml.html">XML and SOAP representation</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="compatibility.html">Backward-compatibility rules</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Reference implementation</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc.html">The iopc compiler</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopc-backends.html">iopc backends: C, JSON, TypeScript, Python stubs</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-mapping.html">C language mapping</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/c-runtime.html">C runtime library</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/ichannel.html">IChannel RPC protocol</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/dso-iopsq.html">DSO plugins and IOP²</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/bindings.html">Language bindings: IOPy, TypeScript and Rust</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/iopy.html">IOPy: the Python binding</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../impl/generators.html">OpenAPI, WSDL and SNMP MIB generation</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="nav-panel-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <div class="title"><a href="../../index.html">Lib-common Documentation</a></div>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+<main class="article">
+<div class="toolbar" role="navigation">
+<button class="nav-toggle"></button>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="../../index.html">Lib-common Documentation</a></li>
+    <li>IOP</li>
+    <li>IOP specification</li>
+    <li>Serialization formats</li>
+    <li><a href="wire-format.html">Binary wire format</a></li>
+  </ul>
+</nav>
+</div>
+  <div class="content">
+<aside class="toc sidebar" data-title="Contents" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
+<article
+class="doc"
+>
+<h1 class="page">Binary wire format</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_tlv_model">1. TLV model</a></li>
+<li><a href="#_wire_types">2. Wire types</a></li>
+<li><a href="#_tag_encoding">3. Tag encoding</a></li>
+<li><a href="#_scalar_value_encoding">4. Scalar value encoding</a>
+<ul class="sectlevel2">
+<li><a href="#_integers_booleans_enums">4.1. Integers, booleans, enums</a></li>
+<li><a href="#_doubles">4.2. Doubles</a></li>
+<li><a href="#_strings_bytes_xml">4.3. Strings, bytes, xml</a></li>
+<li><a href="#_void">4.4. Void</a></li>
+</ul>
+</li>
+<li><a href="#_field_presence">5. Field presence</a></li>
+<li><a href="#_structs">6. Structs</a></li>
+<li><a href="#_unions">7. Unions</a></li>
+<li><a href="#repeated-fields">8. Repeated fields</a>
+<ul class="sectlevel2">
+<li><a href="#optimized-arrays">8.1. Optimized small-scalar arrays</a></li>
+</ul>
+</li>
+<li><a href="#_classes">9. Classes</a></li>
+<li><a href="#_decoder_obligations">10. Decoder obligations</a></li>
+<li><a href="#_worked_examples">11. Worked examples</a>
+<ul class="sectlevel2">
+<li><a href="#_scalars_and_width_selection">11.1. Scalars and width selection</a></li>
+<li><a href="#_optional_fields_and_unions">11.2. Optional fields and unions</a></li>
+<li><a href="#_repeated_fields">11.3. Repeated fields</a></li>
+<li><a href="#_nested_structs">11.4. Nested structs</a></li>
+<li><a href="#_classes_2">11.5. Classes</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>This page is the normative definition of the IOP binary serialization.
+It is self-contained: an encoder and decoder can be implemented from this
+page alone.
+All multi-byte quantities are <strong>little-endian</strong> (one documented exception
+in <a href="#optimized-arrays">Optimized small-scalar arrays</a>).</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_tlv_model"><a class="anchor" href="#_tlv_model"></a>1. TLV model</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>A serialized structure is a concatenation of <strong>TLV records</strong> (tag, length,
+value), one per present field, in ascending tag order. Each record
+starts with a <strong>leading octet</strong> combining a <strong>wire type</strong> (3 most
+significant bits) and a <strong>tag</strong> (5 least significant bits):</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre> 7  6  5  4  3  2  1  0
++--------+--------------+
+| wire   |    tag       |
+| type   |  (0 … 31)    |
++--------+--------------+</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The wire type tells a decoder how to compute the size of the value —
+even for fields it does not know. The tag identifies the field.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_wire_types"><a class="anchor" href="#_wire_types"></a>2. Wire types</h2>
+<div class="sectionbody">
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 12.5%;">
+<col style="width: 25%;">
+<col style="width: 62.5%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Code</th>
+<th class="tableblock halign-left valign-top">Name</th>
+<th class="tableblock halign-left valign-top">Value layout after the tag</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>BLK1</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1 octet of length <em>L</em>, then <em>L</em> octets of data</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>BLK2</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2 octets of length <em>L</em> (LE), then <em>L</em> octets</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>BLK4</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">4 octets of length <em>L</em> (LE), then <em>L</em> octets</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">3</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>QUAD</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">8 octets of data, no length</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">4</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>INT1</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1-octet integer</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">5</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>INT2</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2-octet integer (LE)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">6</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>INT4</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">4-octet integer (LE)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">7</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>REPEAT</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">repetition header for the current tag (see
+                <a href="#repeated-fields">Repeated fields</a>)</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>The block length chosen by an encoder is the smallest that fits: <code>BLK1</code>
+for lengths ≤ 255, <code>BLK2</code> ≤ 65535, <code>BLK4</code> beyond. Decoders accept any of
+the three for any block-typed value.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_tag_encoding"><a class="anchor" href="#_tag_encoding"></a>3. Tag encoding</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Tags <strong>1 to 29</strong> are encoded inline in the 5 low bits of the leading
+octet.</p>
+</li>
+<li>
+<p>Tags <strong>30 to 255</strong>: the 5 low bits hold the marker value <strong>30</strong>, and the
+tag follows in <strong>1 extra octet</strong>.</p>
+</li>
+<li>
+<p>Tags <strong>256 to 65535</strong>: the 5 low bits hold the marker value <strong>31</strong>, and
+the tag follows in <strong>2 extra octets, little-endian</strong>.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The language restricts user tags to <strong>1–32767</strong>
+(<a href="types.html#_tags" class="xref page">Types and fields</a>); the format itself can carry
+up to 65535.</p>
+</div>
+<div class="paragraph">
+<p><strong>Tag 0</strong> never identifies a user field. It has exactly two roles on the
+wire: introducing each element of a <code>REPEAT</code> sequence, and carrying
+class ids inside class encodings (see below). Anywhere else, a tag-0
+record is a decoding error.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_scalar_value_encoding"><a class="anchor" href="#_scalar_value_encoding"></a>4. Scalar value encoding</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_integers_booleans_enums"><a class="anchor" href="#_integers_booleans_enums"></a>4.1. Integers, booleans, enums</h3>
+<div class="paragraph">
+<p>The payload of <code>INT1</code>/<code>INT2</code>/<code>INT4</code>/<code>QUAD</code> is the value in <strong>truncated
+two&#8217;s complement, little-endian</strong> (not zigzag). Encoders choose the
+smallest width in which the value fits as a <strong>signed</strong> quantity:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 75%;">
+<col style="width: 25%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Value (as signed 64-bit)</th>
+<th class="tableblock halign-left valign-top">Wire type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-128 … 127</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>INT1</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-32768 … 32767</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>INT2</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-2<sup>31</sup> … 2<sup>31</sup>-1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>INT4</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">otherwise</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>QUAD</code> (8 octets LE)</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Decoders <strong>sign-extend</strong> the payload to 64 bits, then range-check it
+against the declared field type (e.g. a value 300 decoded into a <code>byte</code>
+field is an error) — except for <code>long</code>/<code>ulong</code> fields, whose 64 raw bits
+are taken as-is. Any of the four integer wire types is acceptable for
+any integer, boolean or enum field, whatever width the encoder picked.</p>
+</div>
+<div class="paragraph">
+<p>Consequences of the signed interpretation:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>unsigned values are reinterpreted as signed 64-bit before width
+selection: a <code>ulong</code> in [2<sup>63</sup>, 2<sup>64</sup>−2<sup>31</sup>) uses <code>QUAD</code>, while
+values within 2<sup>31</sup> of 2<sup>64</sup> reinterpret to small negatives and use
+the narrower widths — the <code>ulong</code> value 2<sup>64</sup>-1 is encoded as
+<code>INT1 FF</code> (one octet);</p>
+</li>
+<li>
+<p><code>uint</code> values above 2<sup>31</sup>-1 use <code>QUAD</code> (they do not fit <code>INT4</code> as
+signed).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Booleans are encoded as <code>INT1</code> with value 0 or 1. Enum values are
+encoded exactly like <code>int</code> (their 32-bit numeric value).</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_doubles"><a class="anchor" href="#_doubles"></a>4.2. Doubles</h3>
+<div class="paragraph">
+<p>Always <code>QUAD</code>: the IEEE-754 double representation, little-endian.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_strings_bytes_xml"><a class="anchor" href="#_strings_bytes_xml"></a>4.3. Strings, bytes, xml</h3>
+<div class="paragraph">
+<p>A block (<code>BLK1</code>/<code>BLK2</code>/<code>BLK4</code>) whose payload is the content <strong>followed by
+one NUL octet</strong>, and whose length <strong>counts that NUL</strong> (a length of <em>n</em>+1
+for <em>n</em> content octets). This applies to <code>bytes</code> as well as <code>string</code> and
+<code>xml</code>. Decoders must expose the content without the trailing NUL
+(length − 1 octets); a block of length 0 on such a field is invalid
+input and must be rejected. The trailing-NUL rule binds encoders;
+decoders are not required to verify that the final octet is NUL.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_void"><a class="anchor" href="#_void"></a>4.4. Void</h3>
+<div class="paragraph">
+<p>A mandatory <code>void</code> field of a struct is <strong>never written</strong> (it carries no
+information). A <code>void</code> union member, or an optional <code>void</code> field that is
+present, is written as a block of length 0 (<code>BLK1</code>, length 0). When
+decoding into a <code>void</code> field, any INT/QUAD/BLK value is accepted and its
+content discarded.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_field_presence"><a class="anchor" href="#_field_presence"></a>5. Field presence</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>An <strong>absent optional</strong> field is simply omitted.</p>
+</li>
+<li>
+<p>An <strong>empty repeated</strong> field is omitted.</p>
+</li>
+<li>
+<p>A <strong>field with a default value</strong> is written like a mandatory field, even
+when it equals the default. Encoders may offer a mode that omits
+fields equal to their default — decoders cannot tell the difference,
+since an absent defaulted field decodes to its default.</p>
+</li>
+<li>
+<p>A mandatory <code>void</code> field is never written.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>On the decoding side, an absent field is handled per its declaration:
+optional → unset; repeated → empty (an error if the field carries
+<code>@minOccurs</code>); default → the default value; mandatory <code>void</code> →
+nothing; mandatory <strong>struct or class</strong> → tolerated and recursively
+default-initialized — this succeeds only if no transitive field is a
+mandatory scalar or mandatory union, and fails if the declared class
+is abstract; mandatory scalar or union → <strong>error</strong>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_structs"><a class="anchor" href="#_structs"></a>6. Structs</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>A struct value is the concatenation of its present fields' TLVs in
+ascending tag order.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+Precisely, fields are written in <strong>descriptor order</strong>, which the
+compiler normally sorts by ascending tag whatever the declaration
+order; dynamically built type descriptions (IOP²) may keep declaration
+order, in which case pack order and the decode cursor follow it.
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>As a <strong>top-level</strong> value, a struct has no wrapper: the stream is the
+concatenation itself.</p>
+</li>
+<li>
+<p>As a <strong>member</strong> of another structure, the concatenation is wrapped in a
+block (<code>BLK*</code>) carrying the member&#8217;s tag; the block length is the
+size of the inner encoding.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_unions"><a class="anchor" href="#_unions"></a>7. Unions</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>A union value is <strong>one single TLV</strong>: the active member with its own tag.
+At top level it appears bare; as a member it is wrapped in a block like
+a struct. A <code>REPEAT</code> wire type is forbidden as the member of a union.
+When decoding a top-level union, trailing octets after the single TLV
+are an error.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="repeated-fields"><a class="anchor" href="#repeated-fields"></a>8. Repeated fields</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>For a repeated field with <em>n</em> elements:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>n = 0</strong>: nothing is written.</p>
+</li>
+<li>
+<p><strong>n = 1</strong>: the element is written as a plain field TLV with the field&#8217;s
+own tag (indistinguishable from a non-repeated field).</p>
+</li>
+<li>
+<p><strong>n ≥ 2</strong>: a <strong>repeat header</strong>, then the elements:</p>
+<div class="listingblock">
+<div class="content">
+<pre>[REPEAT«5 | tag]  count(4 octets LE)  elem₀ elem₁ … elemₙ₋₁</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Every element — including the first — is a complete TLV whose tag is
+<strong>0</strong>. A decoded count must be ≥ 1, and every element must carry tag 0.</p>
+</div>
+</li>
+</ul>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+The reference decoder also tolerates a <code>REPEAT</code> sequence on a
+<strong>non-repeated</strong> field: the elements are skipped and the last one is
+decoded into the field. Encoders must never produce this; new decoders
+may treat it as an error.
+</td>
+</tr>
+</table>
+</div>
+<div class="sect2">
+<h3 id="optimized-arrays"><a class="anchor" href="#optimized-arrays"></a>8.1. Optimized small-scalar arrays</h3>
+<div class="paragraph">
+<p>Exception: arrays (n ≥ 2) of the 1- and 2-octet scalar types — <code>byte</code>,
+<code>ubyte</code>, <code>short</code>, <code>ushort</code>, <code>bool</code> — are written as <strong>one block</strong> with the
+field&#8217;s tag whose payload is the raw concatenation of the elements
+(<em>n</em> × element size octets, no per-element tags or lengths). For
+2-octet elements the payload is in native memory order, little-endian on
+all supported platforms. Decoders must accept, for such fields, either
+this block form (whose length must be a multiple of the element size) or
+the generic <code>REPEAT</code> form, or a single plain TLV for one-element arrays.</p>
+</div>
+<div class="paragraph">
+<p>Because the element <strong>size</strong> is part of this encoding, widening the
+element type of such an array is not a compatible change
+(<a href="compatibility.html" class="xref page">Backward compatibility</a>).</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_classes"><a class="anchor" href="#_classes"></a>9. Classes</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>A class instance is encoded as a flat sequence inside one block (or bare
+at top level): for each level of the inheritance chain, starting at the
+<strong>most-derived</strong> class and walking up to the root:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>a <strong>class-id marker</strong>: an INT TLV with tag 0 whose value is that level&#8217;s
+class id (<code>INT1</code>/<code>INT2</code>/<code>INT4</code> per the integer width rules). When
+decoding, the payload is sign-extended and <strong>truncated to 16 bits</strong>
+(an <code>INT1</code> payload <code>85</code> yields id 0xFF85; excess high bits of an
+<code>INT4</code> marker are silently dropped);</p>
+</li>
+<li>
+<p>the TLVs of the fields declared at that level, in ascending tag order.</p>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p>The marker of the most-derived level is always written; the marker of an
+ancestor level may be omitted (together with nothing) when that level
+contributes no field, in which case the next written marker implicitly
+covers it.</p>
+</div>
+<div class="paragraph">
+<p>Attempting to encode an instance whose concrete class is abstract is a
+programming error (the reference implementation aborts), not a
+recoverable encoding failure.</p>
+</div>
+<div class="paragraph">
+<p>Decoding rules:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>a tag-0 record inside a class means "change of level": the remaining
+unseen fields of the current level are treated as absent;</p>
+</li>
+<li>
+<p>the <strong>first</strong> class id met must identify the concrete class, which must
+be the declared class or one of its descendants, and must not be
+abstract; unknown ids are an error;</p>
+</li>
+<li>
+<p>levels whose markers were skipped must only have fields that may be
+absent;</p>
+</li>
+<li>
+<p>if the buffer ends before the root level, the remaining levels'
+fields are treated as absent;</p>
+</li>
+<li>
+<p>compatibility case: a <strong>parentless</strong> class may be decoded from a plain
+struct encoding with no class-id marker at all (this is what keeps
+"struct turned into master class" a compatible change).</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_decoder_obligations"><a class="anchor" href="#_decoder_obligations"></a>10. Decoder obligations</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Decoders walk the declared fields with a forward-only cursor while
+reading TLVs:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>TLV tag <strong>greater</strong> than the current field&#8217;s tag → the current field is
+absent (apply <a href="#_field_presence">Field presence</a>), advance the cursor;</p>
+</li>
+<li>
+<p>TLV tag <strong>less</strong> than the current field&#8217;s tag → the TLV is <strong>unknown
+data</strong>: skip it silently using its wire type (BLK: read the length and
+skip; INT1/2/4: skip 1/2/4; QUAD: skip 8; REPEAT: read the count and
+recursively skip that many tag-0 TLVs);</p>
+</li>
+<li>
+<p>consequence: duplicate tags and out-of-order records are not errors —
+they are skipped as unknown data;</p>
+</li>
+<li>
+<p>once the last declared field has been passed, trailing records with
+tags <strong>above</strong> the last declared tag are skipped using their wire type
+(fields added by newer versions); on meeting a trailing record whose
+tag is ≤ the last declared tag, the reference decoder stops and
+silently ignores the <strong>entire remainder</strong> of the buffer without
+validating it — the wire-type skipping guarantee only holds before
+that point;</p>
+</li>
+<li>
+<p>unknown-field skipping is unconditional — the binary decoder needs no
+"ignore unknown" option;</p>
+</li>
+<li>
+<p>decoded values must satisfy the field&#8217;s declared range and the
+<a href="attributes.html" class="xref page">constraint attributes</a> — on the encoding side, a
+constraint violation detected by an encoder that validates (strict
+mode) is the only recoverable error, as out-of-range values cannot
+arise from correctly typed storage;</p>
+</li>
+<li>
+<p>implementations should provide a mode that rejects input setting
+<code>@private</code> fields.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Error conditions: truncated input; wire type incompatible with the field
+type; integer out of the declared type&#8217;s range; zero-length block on a
+string/bytes/xml field; <code>REPEAT</code> count of 0 or missing tag-0 element
+introducer; <code>REPEAT</code> as union member; union TLV whose tag matches no
+member; absent mandatory scalar or union; tag-0 record outside
+<code>REPEAT</code>/class contexts; constraint violations; class errors (unknown
+id, abstract concrete class, id not a descendant of the declared
+class).</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_worked_examples"><a class="anchor" href="#_worked_examples"></a>11. Worked examples</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>All byte sequences below were produced by the reference implementation.</p>
+</div>
+<div class="sect2">
+<h3 id="_scalars_and_width_selection"><a class="anchor" href="#_scalars_and_width_selection"></a>11.1. Scalars and width selection</h3>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">struct Error {
+    int    code;   /* tag 1 */
+    string desc;   /* tag 2 */
+};</code></pre>
+</div>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 42.8571%;">
+<col style="width: 57.1429%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Value</th>
+<th class="tableblock halign-left valign-top">Encoding</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>{code: 1, desc: ""}</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>81 01  02 01 00</code> — <code>81</code> = INT1, tag 1; <code>01</code> =
+  1; <code>02</code> = BLK1 tag 2; length <code>01</code>; content = the lone NUL</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>{code: -1, desc: ""}</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>81 FF  02 01 00</code> — -1 fits INT1</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>{code: 300, desc: ""}</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>A1 2C 01  02 01 00</code> — <code>A1</code> = INT2 tag 1;
+  <code>2C 01</code> = 300 LE</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>{code: -300, desc: ""}</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>A1 D4 FE  02 01 00</code> — <code>D4 FE</code> = -300</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>{code: 70000, desc: ""}</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>C1 70 11 01 00  02 01 00</code> — INT4</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>{code: 1, desc: "Hello"}</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>81 01  02 06 48 65 6C 6C 6F 00</code> —
+  length 6 = 5 content octets + NUL</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>A <code>ulong</code> field <code>u</code> (tag 1) holding 2<sup>64</sup>-1 encodes as <code>81 FF</code> — one
+octet, via the signed reinterpretation; holding 5 000 000 000 it encodes
+as <code>61 00 F2 05 2A 01 00 00 00</code> (<code>61</code> = QUAD tag 1).</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_optional_fields_and_unions"><a class="anchor" href="#_optional_fields_and_unions"></a>11.2. Optional fields and unions</h3>
+<div class="paragraph">
+<p>A struct whose optional/repeated fields are all absent encodes as <strong>zero
+octets</strong>.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">union MyUnion {
+    int    i;   /* tag 1 */
+    Other  a;   /* tag 2 */
+    Tab    t;   /* tag 3 */
+    string s;   /* tag 4 */
+    double d;   /* tag 5 */
+};</code></pre>
+</div>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 66.6667%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Value</th>
+<th class="tableblock halign-left valign-top">Encoding (top level)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>{i: 0x55}</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>81 55</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>{s: "hi"}</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>04 03 68 69 00</code> — BLK1 tag 4, length 3 = "hi" + NUL</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>{d: 1.0}</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>65 00 00 00 00 00 00 F0 3F</code> — QUAD tag 5, IEEE-754 LE</p></td>
+</tr>
+</tbody>
+</table>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">union VoidUnion {
+    void a;   /* tag 1 */
+    int  b;   /* tag 2 */
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>{a: &lt;void&gt;}</code> → <code>01 00</code> (BLK1 tag 1, length 0); <code>{b: 3}</code> → <code>82 03</code>.
+A struct <code>{ void a; }</code> encodes as zero octets; a struct <code>{ void? a; }</code>
+with <code>a</code> present encodes as <code>01 00</code>.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_repeated_fields"><a class="anchor" href="#_repeated_fields"></a>11.3. Repeated fields</h3>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">struct StructF {
+    string s;   /* tag 1 */
+    int[]  i;   /* tag 2 */
+};</code></pre>
+</div>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 42.8571%;">
+<col style="width: 57.1429%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Value</th>
+<th class="tableblock halign-left valign-top">Encoding</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>{s: "", i: [7]}</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>01 01 00  82 07</code> — single element written as a
+  plain INT1 TLV with the field&#8217;s tag</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>{s: "", i: [1, 2, 3]}</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>01 01 00  E2 03 00 00 00 80 01 80 02 80
+  03</code> — <code>E2</code> = REPEAT tag 2; count 3 (LE32); three elements <code>80 nn</code> =
+  INT1 <strong>tag 0</strong></p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>A repeated string field (tag 3) holding <code>["x", "y"]</code>:
+<code>E3 02 00 00 00  00 02 78 00  00 02 79 00</code> — each element is a BLK1
+with tag 0 and a NUL-counted length.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_nested_structs"><a class="anchor" href="#_nested_structs"></a>11.4. Nested structs</h3>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">struct StructD {
+    StructA a;       /* tag 1, all-optional struct */
+    int     i = 0;   /* tag 2 */
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>{a: {}, i: 1}</code> → <code>01 00  82 01</code>: the nested struct is a BLK1 of length
+0; the defaulted field is written although a "skip defaults" encoder
+mode could omit it.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_classes_2"><a class="anchor" href="#_classes_2"></a>11.5. Classes</h3>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">class ClassA : 1 {           /* master class            */
+    int     field1 = 0;      /* tag 1                   */
+    int?    optField;        /* tag 2                   */
+    string? strField;        /* tag 3                   */
+};
+
+class ClassB : 2 : ClassA {
+    int field2 = 0;          /* tag 1 (of this level)   */
+};</code></pre>
+</div>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 42.8571%;">
+<col style="width: 57.1429%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Value</th>
+<th class="tableblock halign-left valign-top">Encoding (top level)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ClassA{field1: 5}</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>80 01  81 05</code> — <code>80 01</code> = INT1 <strong>tag 0</strong>
+  carrying class id 1; then field1</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ClassB{field1: 5, field2: 9}</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>80 02  81 09  80 01  81 05</code> —
+  most-derived level first: id 2, field2; then the parent level: id 1,
+  field1</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ClassB{}</code> (all defaults)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>80 02 81 00 80 01 81 00</code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</article>
+  </div>
+</main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script id="site-script" src="../../../_/js/site.js" data-ui-root-path="../../../_"></script>
+<script async src="../../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>
