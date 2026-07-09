@@ -2333,7 +2333,12 @@ void ic_disconnect(ichannel_t *ic)
     }
 
     if (ic_should_be_autodel(ic)) {
-        ic_smart_delete(&ic);
+        if (!ic_smart_delete(&ic)) {
+            /* Deletion is deferred: drop the unprocessed input, it would
+             * be discarded with the channel anyway and ic_read() asserts
+             * the buffer is empty once the channel is closed. */
+            sb_reset(&ic->rbuf);
+        }
     } else {
         ic_choose_id(ic);
         qv_clear(&ic->iov);
