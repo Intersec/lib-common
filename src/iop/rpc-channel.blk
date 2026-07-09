@@ -3693,7 +3693,10 @@ ev_priority_t ic_set_priority(ichannel_t *ic, ev_priority_t prio)
 
     ic->priority = prio;
 
-    if (ic->elh) {
+    /* XXX: during an asynchronous address resolution, elh is borrowed from
+     * the DNS context and must not be modified; the priority will be
+     * applied on the socket handler by __ic_trigger_connection(). */
+    if (ic->elh && !ic->dns_ctx) {
         ev_priority_t elprev = (el_fd_set_priority)(ic->elh, prio);
         assert(elprev == prev);
     }
