@@ -1669,7 +1669,9 @@ static ALWAYS_INLINE __must_check__ int ic_read_process_query(
             ic_report_unimplemented_rpc(iop_env_ctx, cmd);
         }
         if (slot) {
-            ic_reply_err(ic, MAKE64(ic->id, slot), IC_MSG_UNIMPLEMENTED);
+            ic_reply_err(
+                ic, MAKE64(ic->id, slot | flags), IC_MSG_UNIMPLEMENTED
+            );
         }
         return 0;
     }
