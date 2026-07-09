@@ -3514,8 +3514,11 @@ __ic_trigger_connection(ichannel_t *ic, int flags, int type, int timeout)
         ic->elh = el_fd_register(sock, true, POLLOUT, &ic_connecting, ic);
         ic->queuable = true;
     } else if (ic->is_unix) {
+        /* XXX: POLLIN only: the version banner is written synchronously
+         * below, so waiting for POLLOUT on the (always writable) socket would
+         * make the event loop spin at 100% CPU until the peer replies. */
         ic->elh =
-            el_fd_register(sock, true, POLLINOUT, &ic_version_handshake, ic);
+            el_fd_register(sock, true, POLLIN, &ic_version_handshake, ic);
         if (ic_version_write(ic, sock) < 0) {
             ic_mark_disconnected(ic);
             return -1;
@@ -3527,7 +3530,7 @@ __ic_trigger_connection(ichannel_t *ic, int flags, int type, int timeout)
         data_t priv;
         struct timeval tv = {.tv_sec = 0};
 
-        ic->elh = el_fd_register(sock, true, POLLINOUT, &ic_event, ic);
+        ic->elh = el_fd_register(sock, true, POLLIN, &ic_event, ic);
         if (ic_version_write(ic, sock) < 0) {
             ic_mark_disconnected(ic);
             return -1;
