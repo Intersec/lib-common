@@ -2331,6 +2331,7 @@ void ic_disconnect(ichannel_t *ic)
         ic->is_closing = false;
         ic->fd_overflow = false;
         ic->iov_total_len = 0;
+        ic->pending = 0;
         sb_reset(&ic->rbuf);
     }
 }
