@@ -1102,6 +1102,12 @@ ssl_handshake_status_t ssl_do_handshake(SSL *ssl, el_t ev, int fd, sb_t *rbuf)
         el_fd_set_mask(ev, POLLIN);
         return SSL_HANDSHAKE_PENDING;
     case SSL_ERROR_WANT_WRITE:
+        if (unlikely(!ev)) {
+            /* Blocking callers cannot wait for POLLOUT; a retriable
+             * write can only come from a send timeout on the socket. */
+            errno = ETIMEDOUT;
+            return SSL_HANDSHAKE_ERROR;
+        }
         el_fd_set_mask(ev, POLLOUT);
         return SSL_HANDSHAKE_PENDING;
     default:
