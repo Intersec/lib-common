@@ -980,6 +980,13 @@ static void ic_drop_id(ichannel_t *ic)
 
 /*----- binary protocol handling -----*/
 
+static ALWAYS_INLINE void ic_queue_len_decrement(ichannel_t *ic)
+{
+    if (expect(ic->queue_len > 0)) {
+        ic->queue_len--;
+    }
+}
+
 static ic_msg_t *ic_query_take(ichannel_t *ic, uint32_t slot)
 {
     int32_t pos = qm_del_key(ic_msg, &ic->queries, slot);
@@ -990,7 +997,7 @@ static ic_msg_t *ic_query_take(ichannel_t *ic, uint32_t slot)
         ic_msg_t *msg = ic->queries.values[pos];
 
         if (!msg->canceled) {
-            ic->queue_len--;
+            ic_queue_len_decrement(ic);
         }
         return msg;
     }
@@ -2552,9 +2559,9 @@ void ic_msg_cancel(ic_msg_t *msg)
     assert(!msg->canceled);
     if (expect(!msg->async)) {
         __ic_msg_reply_err(msg->ic, msg, IC_MSG_CANCELED);
+        ic_queue_len_decrement(msg->ic);
     }
     msg->canceled = true;
-    msg->ic->queue_len--;
 }
 
 static void ic_msg_on_timeout(el_t ev, el_data_t data)
@@ -2565,11 +2572,11 @@ static void ic_msg_on_timeout(el_t ev, el_data_t data)
 
     if (!msg->async) {
         __ic_msg_reply_err(msg->ic, msg, IC_MSG_TIMEDOUT);
+        ic_queue_len_decrement(msg->ic);
     }
 
     msg->timeout_timer = NULL;
     msg->canceled = true;
-    msg->ic->queue_len--;
 
     while (!htlist_is_empty(queue) &&
            (htlist_first_entry(queue, ic_msg_t, msg_link)->canceled))
