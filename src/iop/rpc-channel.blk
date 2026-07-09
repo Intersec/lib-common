@@ -889,7 +889,7 @@ static void ic_add_msg_tail(ichannel_t *ic, ic_msg_t *msg)
 {
     htlist_add_tail(&ic->msg_list, &msg->msg_link);
     if (msg->priority == EV_PRIORITY_NORMAL) {
-        ic->last_normal_prio_msg = ic->msg_list.head;
+        ic->last_normal_prio_msg = &msg->msg_link;
     }
 }
 
