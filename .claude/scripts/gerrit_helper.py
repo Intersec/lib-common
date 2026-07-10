@@ -42,6 +42,7 @@ import json
 import os
 import subprocess
 import sys
+import urllib.parse
 from typing import Any
 
 import requests
@@ -215,6 +216,9 @@ def _change_ref(commit: str = 'HEAD', branch: str | None = None) -> str:
     change_id = _get_change_id_from_commit(commit)
     project = _get_project_name()
     branch = branch or _get_branch(commit)
+    # The branch goes in the URL path: a '/' in its name (e.g.
+    # f/r2026/foo) must be percent-encoded or Gerrit 404s.
+    branch = urllib.parse.quote(branch, safe='')
     return f'{project}~{branch}~{change_id}'
 
 
