@@ -16,6 +16,15 @@
 /*                                                                         */
 /***************************************************************************/
 
+//! Infrastructure to send an `IChannel` query from Rust code.
+//!
+//! This provides an [`ICQuery`] struct with the information needed for an
+//! `IChannel` query.
+//!
+//! It also provides the [`ic_query`] function which takes the [`ICQuery`] as
+//! input and launches it on an `IChannel`, sending back a [`CallbackFut`] with
+//! either the result or the [`IcError`] resulting from the query.
+
 use crate::{
     bindings::{__ic_msg_build, ic__ic_status__t, ic_is_local, iop_rpc_t},
     ic__ic_status__t::{IC_MSG_EXN, IC_MSG_OK},
@@ -35,6 +44,15 @@ pub mod bindings {
 
 // {{{ ICQuery builder
 
+/// A structure to hold message payload data and a target `IChannel`.
+///
+/// # Fields
+///
+/// - `ic` - the target [`ichannel_t`]
+/// - `rpc` - the [`iop_rpc_t`] descriptor
+/// - `hdr` - the optional query [`ic__hdr__t`] (null means none)
+/// - `args` - an owned deep copy of the IOP arg struct, packed when the query is launched
+/// - `cmd` - the RPC command id (`IOP_RPC_CMD`), stored in [`ic_msg_t`]'s `.cmd` field.
 pub struct ICQuery<A: IopDup> {
     pub ic: *mut ichannel_t,
     pub rpc: *const iop_rpc_t,
@@ -43,19 +61,55 @@ pub struct ICQuery<A: IopDup> {
     pub cmd: i32,
 }
 
+// SAFETY: `args` is an owned deep copy in the process-global libc pool and
+// `Owned<A>` is `Send` by construction; what blocks the auto impl is the raw
+// pointers. `ic`, `rpc` and `hdr` are only dereferenced on the main C event
+// loop, when the query is launched, and the caller guarantees they stay
+// valid until then. Transferring the `ICQuery` between threads is therefore
+// safe.
 unsafe impl<A: IopDup> Send for ICQuery<A> {}
 
 // }}}
 // {{{ Error Handler
 
+/// Error returned by an `IChannel` query.
 pub enum IcError<E> {
+    /// A modeled IOP exception returned by the RPC (`IC_MSG_EXN`).
     Exn(E),
+    /// A status failure with no modeled exception - e.g. timeout, canceled,
+    /// or unimplemented RPC (any status other than OK/EXN).
     Status(ic__ic_status__t),
 }
 
 // }}}
 // {{{ Macro equivalent
 
+/// C completion callback: reads the Rust [`Callback`] from `msg.priv_` and
+/// resolves it with the decoded reply ([`IC_MSG_OK`]), IOP exception
+/// ([`IC_MSG_EXN`]), or transport status (anything else).
+///
+/// # Safety
+///
+/// Must only be installed as `msg.cb` by [`ic_prepare_msg`] and invoked by the
+/// `IChannel` core, which must guarantee that:
+/// - `msg_p` is a valid, non-null, properly aligned pointer to the `ic_msg_t`
+/// - `msg.priv_` holds an initialized `Callback<Result<Owned<R>,
+///   IcError<Owned<E>>>>` written by `ic_prepare_msg` with the *same* `R` and
+///   `E`.
+/// - `msg.rpc` is a valid `iop_rpc_t` whose `result` and `exn` descriptors
+///   match `R` and `E` respectively.
+/// - On [`IC_MSG_OK`], `res` points to a value described by `rpc.result`; on
+///   [`IC_MSG_EXN`], `exn` points to a value described by `rpc.exn`.
+///
+/// # Panics
+///
+/// Debug-only :
+/// Panics if `msg.priv_` is not properly aligned for the expected
+/// `Callback<...>`, if `status` is [`IC_MSG_OK`] but `res` is null, or if
+/// `status` is [`IC_MSG_EXN`] but `exn` is null. Each of these conditions
+/// means the safety contract above was violated.
+///
+/// `_ic` is unused and imposes no requirement.
 unsafe extern "C" fn cb_func<R, E>(
     _ic: *mut ichannel_t,
     msg_p: *mut ic_msg_t,
@@ -66,8 +120,6 @@ unsafe extern "C" fn cb_func<R, E>(
     R: IopDup + 'static,
     E: IopDup + 'static,
 {
-    // `ic` is unused: everything we need is available on `msg`/`status`/`res`/`exn`
-
     let msg = unsafe { &mut *msg_p };
 
     let ptr = (&raw mut msg.priv_) as *mut Callback<Result<Owned<R>, IcError<Owned<E>>>>;
@@ -89,6 +141,8 @@ unsafe extern "C" fn cb_func<R, E>(
     }
 }
 
+/// Writes and wires the elements needed to send a `msg` on an `IChannel` and
+/// links a callback function.
 fn ic_prepare_msg<R, E>(
     msg: &mut ic_msg_t,
     rpc: *const iop_rpc_t,
@@ -115,9 +169,12 @@ fn ic_prepare_msg<R, E>(
 // }}}
 // {{{ Rust IChannel query
 
+/// Allocates a `msg`, decides whether to `do_bpack`, packs the args via
+/// [`__ic_msg_build`], then calls [`__ic_query`] to send the query on the
+/// `IChannel`.
 fn call_ic_query<A, R, E>(cb: Callback<Result<Owned<R>, IcError<Owned<E>>>>, ic_query: &ICQuery<A>)
 where
-    A: IopDup,
+    A: IopDup + 'static,
     R: IopDup + 'static,
     E: IopDup + 'static,
 {
@@ -135,6 +192,16 @@ where
     }
 }
 
+/// `ic_query` allows the user to launch an `IChannel` query from Rust.
+///
+/// # Arguments
+///
+/// - `ic_query` - an [`ICQuery`] holding message payload and the target
+///   `IChannel`
+///
+/// # Returns
+///
+/// a [`CallbackFut`] with either the result or the error produced.
 pub fn ic_query<A, R, E>(ic_query: ICQuery<A>) -> CallbackFut<Result<Owned<R>, IcError<Owned<E>>>>
 where
     A: IopDup + 'static,
