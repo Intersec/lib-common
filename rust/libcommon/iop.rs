@@ -233,7 +233,7 @@ impl IopDup for GenericStructUnion<'_> {
             mp_iop_dup_desc_sz(&raw mut mem_pool_libc, cdesc, self.cptr, ptr::null_mut())
         };
         let cptr = ptr::NonNull::new(raw)
-            .expect("failed allocation for IOP dup")
+            .expect("IOP dup returned null (null source or allocation failure)")
             .as_ptr();
 
         // Rebuild the handle over the owned blob, cloning the ctx (bumping its
@@ -422,7 +422,8 @@ impl<T: CStructUnion> IopDup for T {
         // duplicated straight through `T::CDESC` and reinterpreted as `T`.
         let raw =
             unsafe { mp_iop_dup_desc_sz(&raw mut mem_pool_libc, T::CDESC, blob, ptr::null_mut()) };
-        let ptr = ptr::NonNull::new(raw.cast::<T>()).expect("failed allocation for IOP dup");
+        let ptr = ptr::NonNull::new(raw.cast::<T>())
+            .expect("IOP dup returned null (null source or allocation failure)");
         OwnedStruct { ptr }
     }
 }

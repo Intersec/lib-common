@@ -30,7 +30,8 @@ pub mod bindings {
 #[cfg(test)]
 mod iop_tests {
     use libcommon::iop::{
-        CEnum, CStruct, CStructUnion as _, CUnion, Enum as _, Env, EnvCtx, StructUnion as _,
+        CEnum, CStruct, CStructUnion as _, CUnion, Enum as _, Env, EnvCtx, IopDup as _,
+        StructUnion as _,
     };
     use libcommon::mem_stack::TScope;
     use libcommon::{iop_get, iop_new, iop_set, lstr};
@@ -797,6 +798,50 @@ mod iop_tests {
         });
         assert!(matches!(un.iop_match(),
                          tstiop__get_bpack_sz_u__variant::st(val) if iop_get!(val, a) == 42));
+    }
+
+    // }}}
+    // {{{ IOP dup / Owned tests
+
+    #[test]
+    fn dup_compiled_struct() {
+        // A compiled (`CStructUnion`) value dups into a one-pointer
+        // `OwnedStruct` that derefs straight to the concrete type and owns its
+        // own deep copy of the blob.
+        let src = ic__simple_hdr__t::new();
+        let owned = src.dup();
+
+        // Deref exposes the concrete fields directly.
+        assert_eq!(owned.payload, -1);
+        // The owned copy is content-equal to the source.
+        assert_eq!(owned.as_json(), src.as_json());
+    }
+
+    #[test]
+    fn dup_generic_outlives_source() {
+        // `dup` on a `GenericStructUnion` yields a lifetime-free `OwnedGeneric`
+        // that clones the `EnvCtx`, so it stays valid after both the source
+        // handle, its `t_scope`, and the ctx it was resolved from are gone.
+        let owned = {
+            let ctx = setup_env_with_packages();
+            let t_scope = TScope::new_scope();
+            let desc = ctx
+                .get_struct_desc("ic.Tracer")
+                .expect("ic.Tracer should exist");
+            let obj = ctx
+                .t_junpack_desc(&t_scope, r#"{"token": 1, "epoch": 2}"#, desc, 0)
+                .expect("valid JSON should unpack");
+
+            obj.dup()
+            // `obj`, `t_scope` and `ctx` are all dropped here.
+        };
+
+        // Descriptor kept alive through the cloned ctx: still packable, and its
+        // deep-copied content survived the source going away (ASAN-checked).
+        assert_eq!(
+            owned.as_json(),
+            "{\n    \"token\": 1,\n    \"epoch\": 2\n}\n"
+        );
     }
 
     // }}}
