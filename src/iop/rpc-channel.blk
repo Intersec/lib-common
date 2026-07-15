@@ -546,10 +546,14 @@ static void ic_blk_cb(
 {
     ic_msg_cb_b blk = *(ic_msg_cb_b *)msg->priv;
 
-    ic->cb_level++;
+    if (ic) {
+        ic->cb_level++;
+    }
     blk(ic, status, res, exn);
-    ic->cb_level--;
-    assert(ic->cb_level >= 0);
+    if (ic) {
+        ic->cb_level--;
+        assert(ic->cb_level >= 0);
+    }
     Block_release(blk);
 }
 

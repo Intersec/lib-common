@@ -342,6 +342,25 @@ static int z_connect_ics_from_addr_and_wait(
 }
 
 /* }}} */
+/* {{{ Block callback abort */
+
+static bool z_blk_cb_called_g;
+static ic_status__t z_blk_cb_status_g;
+
+static ic_msg_t *z_blk_abort_msg_new(void)
+{
+    z_blk_cb_called_g = false;
+    z_blk_cb_status_g = IC_MSG_OK;
+
+    return ic_msg_new_blk(
+        ^(ichannel_t *ic, ic_status__t status, void *res, void *exn) {
+            z_blk_cb_called_g = true;
+            z_blk_cb_status_g = status;
+        }
+    );
+}
+
+/* }}} */
 /* {{{ Tests */
 
 Z_GROUP_EXPORT(iop_rpc)
@@ -532,6 +551,41 @@ Z_GROUP_EXPORT(iop_rpc)
          * wiped.
          */
         el_loop_timeout(0);
+    }
+    Z_TEST_END;
+
+    Z_TEST(ic_blk_cb_abort_no_ic) {
+        /* A query carrying a block callback can be aborted before ever
+         * being sent, e.g. when no connection is available: the caller
+         * then replies the error with a NULL ichannel. ic_blk_cb() must
+         * tolerate this NULL `ic` instead of crashing on its cb_level
+         * bookkeeping (#123219). */
+        ic_msg_t *msg = z_blk_abort_msg_new();
+
+        Z_TEST_FLAGS("redmine_123219");
+
+        __ic_msg_reply_err(NULL, msg, IC_MSG_ABORT);
+        Z_ASSERT(z_blk_cb_called_g, "block callback was not called");
+        Z_ASSERT_EQ(
+            z_blk_cb_status_g, (ic_status__t)IC_MSG_ABORT,
+            "block callback got an unexpected status"
+        );
+        ic_msg_delete(&msg);
+
+        /* A non-NULL `ic` must still work and keep cb_level balanced. */
+        {
+            ichannel_t ic;
+
+            ic_init(&ic);
+            ic_set_local(&ic, false);
+            msg = z_blk_abort_msg_new();
+            __ic_msg_reply_err(&ic, msg, IC_MSG_ABORT);
+            Z_ASSERT(z_blk_cb_called_g);
+            Z_ASSERT_EQ(z_blk_cb_status_g, (ic_status__t)IC_MSG_ABORT);
+            Z_ASSERT_EQ(ic.cb_level, 0, "cb_level not balanced");
+            ic_msg_delete(&msg);
+            ic_wipe(&ic);
+        }
     }
     Z_TEST_END;
 

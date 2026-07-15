@@ -57,7 +57,7 @@ ctx.program(
         'zchk-iop.c',
         'zchk-iop-env.c',
         'zchk-iop-core-obj.blk',
-        'zchk-iop-rpc.c',
+        'zchk-iop-rpc.blk',
         'zchk-iop-yaml.c',
         'zchk-iop-openapi.c',
         'zchk-iop-http.c',
