@@ -597,6 +597,11 @@ def run_pyrefly(ctx: BuildContext) -> None:
         for pattern in _read_pyrefly_project_excludes(pyproject_path):
             cmd += ['--project-excludes', os.path.join(config_dir, pattern)]
 
+    # pyrefly adds `PYTHONPATH` to its import-search roots, so an ambient
+    # `PYTHONPATH` pointing at unrelated trees yields spurious errors. Drop
+    # it so the check depends only on the config `search-path`.
+    os.environ.pop('PYTHONPATH', None)
+
     # Pyrefly's `project-includes` only matches `.py`/`.pyi` paths, so
     # `wscript*` files are silently skipped in project-checking mode. The
     # file list passed by `run_python_checker` includes them explicitly.
