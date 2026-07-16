@@ -741,6 +741,15 @@ struct StructWithOptionalObject {
     int i2;
 };
 
+/** Like StructWithMandatoryObject, but with an abstract-class object that
+ * cannot be synthesized. Used to check that a missing mandatory field is
+ * reported as a validation error instead of a corrupt-stream error. */
+struct StructWithMandatoryAbstractObject {
+    int i1;
+    TestClass o;
+    int i2;
+};
+
 
 /* }}} */
 /* {{{ zchk iop.json_yaml_struct_unpacking_child_class */

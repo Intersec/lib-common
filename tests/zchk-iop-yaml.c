@@ -798,7 +798,8 @@ Z_GROUP_EXPORT(iop_yaml)
             0, "st: i: 42",
             "<string>:1:5: " ERR_COMMON ": cannot set field `st`: "
             "cannot unpack YAML as a `tstiop.TestStruct` IOP struct: "
-            "missing field `s`\n"
+            "field `s` is invalid: missing mandatory field `s` in "
+            "struct `tstiop.TestStruct`\n"
             "st: i: 42\n"
             "    ^^^^^"
         );
@@ -894,6 +895,23 @@ Z_GROUP_EXPORT(iop_yaml)
             "or not a child of `tstiop.TestClass`\n"
             "o: !tstiop.MyClass1\n"
             "   ^^^^^^^^^^^^^^^^"
+        );
+
+        st = &tstiop__struct_with_mandatory_abstract_object__s;
+#undef ERR_COMMON
+#define ERR_COMMON                                                           \
+    "cannot unpack YAML as a `tstiop.StructWithMandatoryAbstractObject` "    \
+    "IOP struct"
+
+        /* missing mandatory (abstract) class field: reported as a validation
+         * error, not a corrupt-stream error */
+        TST_ERROR(
+            0, "i1: 42",
+            "<string>:1:1: " ERR_COMMON ": field `o` is invalid: "
+            "missing mandatory field `o` in struct "
+            "`tstiop.StructWithMandatoryAbstractObject`\n"
+            "i1: 42\n"
+            "^^^^^^"
         );
 
         st = &tstiop__my_class2__s;

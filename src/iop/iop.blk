@@ -5240,15 +5240,32 @@ int iop_skip_absent_field_desc(
             return 0;
         }
 
-        /* For a required field, only structs can be absents, be careful that
-         * union must be present */
-        PS_WANT(fdesc->type == IOP_T_STRUCT);
+        /* For a required field, only a struct (or class) may be absent; a
+         * scalar or union must be present. Set an explicit error so that a
+         * missing mandatory field is reported as a validation failure, not as
+         * a corrupt-stream error. */
+        if (fdesc->type != IOP_T_STRUCT) {
+            iop_set_err(
+                "missing mandatory field `%*pM` in struct `%*pM`",
+                LSTR_FMT_ARG(fdesc->name), LSTR_FMT_ARG(sdesc->fullname)
+            );
+            return -1;
+        }
 
         if ((is_class = iop_field_is_class(fdesc))) {
             /* For classes, we consider that the absent object is of the
-             * expected type, and not a child.
-             * We have to allocate it since it's pointed. */
-            PS_WANT(!desc->class_attrs->is_abstract);
+             * expected type, and not a child. An abstract class cannot be
+             * instantiated, so an absent one is reported as a missing
+             * mandatory field (a validation failure) rather than a
+             * corrupt-stream error. */
+            if (desc->class_attrs->is_abstract) {
+                iop_set_err(
+                    "missing mandatory field `%*pM` in struct `%*pM`",
+                    LSTR_FMT_ARG(fdesc->name), LSTR_FMT_ARG(sdesc->fullname)
+                );
+                return -1;
+            }
+            /* We have to allocate it since it's pointed. */
             *(void **)ptr = mp_imalloc(mp, desc->size, 8, MEM_RAW);
             ptr = *(void **)ptr;
             *(const iop_struct_t **)ptr = desc;
