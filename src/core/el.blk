@@ -1536,6 +1536,9 @@ static void el_fd_process_fired(void)
 
     dlist_init(&_G.fired);
     tab_for_each_entry(ev, &_G.cache) {
+        /* Reinit the node: a stale ev_list would corrupt the fired list
+         * when a later el_destroy() unlinks through it. */
+        dlist_init(&ev->ev_list);
         EV_FLAG_RST(ev, FD_FIRED);
     }
     tab_for_each_entry(ev, &_G.cache) {

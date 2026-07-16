@@ -65,6 +65,12 @@ static int writeall(el_t el, int fd, short ev, data_t priv)
     return 0;
 }
 
+static int count_fired(el_t el, int fd, short ev, data_t priv)
+{
+    (*(int *)priv.ptr)++;
+    return 0;
+}
+
 #ifdef HAVE_SYS_INOTIFY_H
 static void
 fs_notify(el_t el, uint32_t event, uint32_t cookie, lstr_t name, data_t data)
@@ -277,6 +283,43 @@ Z_GROUP_EXPORT(el)
 
         for (int i = 0; i < 6; i++) {
             el_fd_unregister(&els[i]);
+        }
+    }
+    Z_TEST_END;
+
+    Z_TEST(fd_mark_fired_unregister, "el: unregister after mark_fired") {
+        el_t els[4];
+        int fds[4][2];
+        int calls[4] = {0, 0, 0, 0};
+
+        for (int i = 0; i < countof(els); i++) {
+            socketpairx(AF_UNIX, SOCK_STREAM, 0, O_NONBLOCK, fds[i]);
+            els[i] = el_fd_register(
+                fds[i][0], true, POLLIN, &count_fired, &calls[i]
+            );
+        }
+
+        /* A batch of marks consumed by a single loop iteration. */
+        el_fd_mark_fired(els[0]);
+        el_fd_mark_fired(els[1]);
+        el_fd_mark_fired(els[2]);
+        el_loop_timeout(100);
+        Z_ASSERT_EQ(calls[0], 1);
+        Z_ASSERT_EQ(calls[1], 1);
+        Z_ASSERT_EQ(calls[2], 1);
+
+        /* Unregistering an ev from the consumed batch must neither drop
+         * marks still pending nor re-fire consumed ones. */
+        el_fd_mark_fired(els[3]);
+        el_fd_unregister(&els[2]);
+        el_loop_timeout(100);
+        Z_ASSERT_EQ(calls[0], 1);
+        Z_ASSERT_EQ(calls[1], 1);
+        Z_ASSERT_EQ(calls[3], 1);
+
+        for (int i = 0; i < countof(els); i++) {
+            el_fd_unregister(&els[i]);
+            p_close(&fds[i][1]);
         }
     }
     Z_TEST_END;
