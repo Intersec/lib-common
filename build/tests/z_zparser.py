@@ -42,6 +42,8 @@ import zparser  # noqa: E402
 
 import zpycore as z  # noqa: E402
 
+ARGV_RETRY = "argv: [b'waf', b'check-retry']"
+ARGV_CHECK = "argv: [b'waf', b'check']"
 SUITE = 'starting suite prod/behave...'
 GROUP = '1..2 G'
 PASS1 = '1 pass t1   # (0.10s)'
@@ -82,6 +84,16 @@ class ZParserCompatTest(z.TestCase):
         # trailing spaces are part of the production value; consumers
         # rstrip when they need a key (e.g. RFA on full_name)
         self.assertEqual(err.testName, 't2  ')
+
+    # CT5
+    def test_step_kind_and_retry(self) -> None:
+        rep = parse([ARGV_RETRY, SUITE, GROUP, PASS1, PASS2, DONE, TOTAL])
+        self.assertEqual(rep.step_kind, 'check-retry')
+        self.assertIs(rep.retry, True)
+
+        rep = parse([ARGV_CHECK, SUITE, GROUP, PASS1, PASS2, DONE, TOTAL])
+        self.assertEqual(rep.step_kind, 'check')
+        self.assertIs(rep.retry, False)
 
     # CT6
     def test_cli_contract(self) -> None:

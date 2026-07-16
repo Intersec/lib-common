@@ -556,6 +556,8 @@ class StreamParser:
             if not line:
                 continue
 
+            # Step kind
+            # ---------
             # Identify the type of step by parsing the waf command argument.
             # This approach relies on the fact that argv is printed to
             # the console/log.
