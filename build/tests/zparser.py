@@ -308,6 +308,10 @@ class Global(Result):
         self.products: OrderedDict[str, Product] = OrderedDict()
         self.errors: deque[Error] = fixed_list()
         self.timeout = True
+        # Separate from `timeout` on purpose: consumers overwrite
+        # `timeout` with their own display status, so the parser must
+        # write both together to keep this fact readable.
+        self.log_end_missing = True
         self.additionals: deque[str] = fixed_list()
 
     @override
@@ -462,6 +466,29 @@ class Error:
         self.status = status
         self.test_filename = test_filename
 
+    # New-API names for the fields above. Read-only on purpose: no
+    # consumer assigns them, and a second writable name for the same
+    # value would allow the two spellings to diverge.
+    @property
+    def product_name(self) -> str:
+        return self.productName
+
+    @property
+    def suite_name(self) -> str:
+        return self.suiteName
+
+    @property
+    def group_name(self) -> str:
+        return self.groupName
+
+    @property
+    def test_name(self) -> str:
+        return self.testName
+
+    @property
+    def group_filename(self) -> str:
+        return self.test_filename
+
     @property
     def context(self) -> str:
         return '\n'.join([line[1] for line in self.context_l])
@@ -575,6 +602,7 @@ class StreamParser:
             r = RE_END.match(line)
             if r is not None:
                 self.res.timeout = False
+                self.res.log_end_missing = False
                 self.do_break = True
                 return
 

@@ -64,18 +64,26 @@ def parse(lines: list[str]) -> zparser.Global:
 
 @z.ZGroup
 class ZParserCompatTest(z.TestCase):
-    # CT1
     def test_timeout_true_without_total(self) -> None:
         rep = parse([SUITE, GROUP, PASS1, PASS2, DONE])
         self.assertIs(rep.timeout, True)
+        self.assertIs(rep.log_end_missing, True)
 
-    # CT2
     def test_timeout_cleared_by_total(self) -> None:
         rep = parse([SUITE, GROUP, PASS1, PASS2, DONE, TOTAL])
         self.assertIs(rep.timeout, False)
+        self.assertIs(rep.log_end_missing, False)
 
-    # CT3
-    def test_error_name_values(self) -> None:
+    def test_consumer_write_does_not_desync(self) -> None:
+        rep = parse([SUITE, GROUP, PASS1, PASS2, DONE])
+        rep.timeout = False
+        self.assertIs(rep.log_end_missing, True)
+
+        rep = parse([SUITE, GROUP, PASS1, PASS2, DONE, TOTAL])
+        rep.timeout = True
+        self.assertIs(rep.log_end_missing, False)
+
+    def test_error_name_aliases(self) -> None:
         rep = parse([SUITE, GROUP, PASS1, FAIL2, SUITE_FAILED, TOTAL])
         self.assertEqual(len(rep.errors), 1)
         err = rep.errors[0]
@@ -85,16 +93,19 @@ class ZParserCompatTest(z.TestCase):
         # trailing spaces are part of the production value; consumers
         # rstrip when they need a key (e.g. RFA on full_name)
         self.assertEqual(err.testName, 't2  ')
+        self.assertEqual(err.product_name, err.productName)
+        self.assertEqual(err.suite_name, err.suiteName)
+        self.assertEqual(err.group_name, err.groupName)
+        self.assertEqual(err.test_name, err.testName)
 
-    # CT4
-    def test_test_filename(self) -> None:
+    def test_group_filename_alias(self) -> None:
         rep = parse(
             [SUITE, GROUP, PASS1, STEP_FAIL, FAIL2, SUITE_FAILED, TOTAL]
         )
         err = rep.errors[0]
         self.assertEqual(err.test_filename, 'f.feature')
+        self.assertEqual(err.group_filename, err.test_filename)
 
-    # CT5
     def test_step_kind_and_retry(self) -> None:
         rep = parse([ARGV_RETRY, SUITE, GROUP, PASS1, PASS2, DONE, TOTAL])
         self.assertEqual(rep.step_kind, 'check-retry')
@@ -104,7 +115,6 @@ class ZParserCompatTest(z.TestCase):
         self.assertEqual(rep.step_kind, 'check')
         self.assertIs(rep.retry, False)
 
-    # CT6
     def test_cli_contract(self) -> None:
         zparser_py = os.path.join(SELF_PATH, 'zparser.py')
 
@@ -134,14 +144,12 @@ class ZParserCompatTest(z.TestCase):
         self.assertEqual(failed.returncode, 255)
         self.assertIn(b': ERRORS', failed.stdout)
 
-    # CT7
     def test_full_name_format(self) -> None:
         rep = parse([SUITE, GROUP, PASS1, FAIL2, SUITE_FAILED, TOTAL])
         # exact production value, including the trailing whitespace
         # inherited from testName: this string is the BugsDb/RFA identity
         self.assertEqual(rep.errors[0].full_name, 'prod → behave → G → t2  ')
 
-    # CT8
     def test_total_stops_parsing(self) -> None:
         rep = parse(
             [
