@@ -49,6 +49,7 @@ GROUP = '1..2 G'
 PASS1 = '1 pass t1   # (0.10s)'
 PASS2 = '2 pass t2   # (0.10s)'
 FAIL2 = '2 fail t2   # (0.20s)'
+STEP_FAIL = '#  2-1  fail <given x> f.feature:3    # (0.010s)'
 SUITE_FAILED = 'TEST SUITE prod/behave FAILED (3 seconds)'
 DONE = 'done (3 seconds)'
 TOTAL = '# TOTAL'
@@ -84,6 +85,14 @@ class ZParserCompatTest(z.TestCase):
         # trailing spaces are part of the production value; consumers
         # rstrip when they need a key (e.g. RFA on full_name)
         self.assertEqual(err.testName, 't2  ')
+
+    # CT4
+    def test_test_filename(self) -> None:
+        rep = parse(
+            [SUITE, GROUP, PASS1, STEP_FAIL, FAIL2, SUITE_FAILED, TOTAL]
+        )
+        err = rep.errors[0]
+        self.assertEqual(err.test_filename, 'f.feature')
 
     # CT5
     def test_step_kind_and_retry(self) -> None:
