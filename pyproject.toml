@@ -224,6 +224,7 @@ search-path = [
     "./src/iopy",
     "./src/pystubs",
     "./tests/iopy/pystubs",
+    "./build/tests",
 ]
 ignore-missing-imports = [
     "waflib",
