@@ -684,6 +684,7 @@ typedef iop_array_lstr_t lstr__array_t;
 /*}}}*/
 /*{{{ iop__void__t */
 
+/// @iop struct { }
 typedef struct iop__void__t {
 } iop__void__t;
 EXPORT iop_struct_t const iop__void__s;

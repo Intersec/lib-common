@@ -252,6 +252,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ichannel-rust-tests"
+version = "0.0.0"
+dependencies = [
+ "ichannel",
+ "libcommon",
+ "libcommon-core",
+ "tokio-c-mod",
+ "waf-cargo-build",
+]
+
+[[package]]
 name = "iop-rust-tests"
 version = "0.0.0"
 dependencies = [

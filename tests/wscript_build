@@ -170,6 +170,7 @@ ctx.program(
 
 ctx.recurse(
     [
+        'ichannel-rust',
         'iop',
         'iop-rust',
         'iopc',
