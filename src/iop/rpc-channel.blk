@@ -2568,7 +2568,10 @@ void ic_msg_cancel(ic_msg_t *msg)
     assert(!msg->canceled);
     if (expect(!msg->async)) {
         __ic_msg_reply_err(msg->ic, msg, IC_MSG_CANCELED);
-        ic_queue_len_decrement(msg->ic);
+        if (msg->slot) {
+            /* Only slotted queries were counted in queue_len. */
+            ic_queue_len_decrement(msg->ic);
+        }
     }
     msg->canceled = true;
 }
@@ -2581,7 +2584,10 @@ static void ic_msg_on_timeout(el_t ev, el_data_t data)
 
     if (!msg->async) {
         __ic_msg_reply_err(msg->ic, msg, IC_MSG_TIMEDOUT);
-        ic_queue_len_decrement(msg->ic);
+        if (msg->slot) {
+            /* Only slotted queries were counted in queue_len. */
+            ic_queue_len_decrement(msg->ic);
+        }
     }
 
     msg->timeout_timer = NULL;

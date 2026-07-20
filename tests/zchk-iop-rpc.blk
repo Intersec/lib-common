@@ -855,6 +855,37 @@ Z_GROUP_EXPORT(iop_rpc)
     Z_TEST_END;
     /* }}} */
 
+    Z_TEST(
+        ic_cancel_slotless, "iop-rpc: cancelling a slot-less query keeps "
+                            "queue_len"
+    )
+    {
+        /* queue_len only counts queries that own a slot. The master-worker
+         * layer sends a slotted copy of a query and parks the original
+         * caller-side handle with no slot; cancelling that original must
+         * not touch queue_len (else it goes negative). */
+        ichannel_t ic;
+        ic_msg_t *msg = ic_msg_new(0);
+
+        ic_init(&ic);
+        ic_set_local(&ic, false);
+
+        msg->ic = &ic;
+        msg->cb = &ic_drop_ans_cb;
+        /* slot stays 0, async stays false */
+
+        Z_ASSERT_EQ(ic_queue_len(&ic), 0);
+        ic_msg_cancel(msg);
+        Z_ASSERT_EQ(
+            ic_queue_len(&ic), 0,
+            "cancelling a slot-less query changed queue_len"
+        );
+
+        ic_msg_delete(&msg);
+        ic_wipe(&ic);
+    }
+    Z_TEST_END;
+
     MODULE_RELEASE(ic);
     iop_env_delete(&_G.iop_env);
 }
