@@ -18,9 +18,23 @@
 
 use std::env;
 use std::error;
-use std::fs;
 use std::path::Path;
 use waf_cargo_build::WafBuild;
+
+mod native_iop_bindings;
+
+/// IOP packages this crate generates itself via `iopc --language rust` and
+/// splices into its own `bindings.rs` (see
+/// [`WafBuild::splice_native_iop_bindings`]).
+const NATIVE_IOP_PKG: &[&str] = &[
+    "core",
+    // "ic",
+    "yaml",
+    // "tstiop",
+    "tstiop_void_type",
+    "tstiop_inheritance",
+    "tstiop_backward_compat_deleted_struct_1",
+];
 
 fn main() -> Result<(), Box<dyn error::Error>> {
     let waf_build = WafBuild::read_build_env()?;
@@ -28,48 +42,22 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     waf_build.print_cargo_instructions();
 
     println!("cargo::rustc-check-cfg=cfg(iop_rust_gen_tests)");
-    if copy_iop_tests_to_out_dir()? {
+    if native_iop_bindings::copy_iop_tests_to_out_dir()? {
         println!("cargo::rustc-cfg=iop_rust_gen_tests");
     }
 
-    waf_build.generate_bindings(|builder| Ok(builder.header("wrapper.h")))?;
-
-    Ok(())
-}
-
-/// Returns whether any file was found: `iopc` only writes these when
-/// `IOPC_RUST_GEN_TESTS` was set for the `waf` build that generated them,
-/// so their absence here means that env var wasn't set back then.
-fn copy_iop_tests_to_out_dir() -> Result<bool, Box<dyn error::Error>> {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR")?;
     let iop_rust_dir = Path::new(&manifest_dir).join("../../src/iop-rust");
-    let out_dir = env::var("OUT_DIR")?;
 
-    println!("cargo:rerun-if-changed={}", iop_rust_dir.display());
-
-    let suffix = ".iop.tests.rs";
-    let mut pkgs: Vec<String> = Vec::new();
-
-    for entry in fs::read_dir(&iop_rust_dir)? {
-        let entry = entry?;
-        let file_name = entry.file_name();
-        let Some(name) = file_name.to_str() else {
-            continue;
-        };
-
-        if let Some(pkg) = name.strip_suffix(suffix) {
-            pkgs.push(pkg.to_owned());
+    waf_build.generate_bindings(|builder| {
+        let mut b = builder.header("wrapper.h");
+        for pkg in NATIVE_IOP_PKG {
+            b = b.blocklist_file(format!(r".*/{pkg}(-t|-tdef)?\.iop\.h$"));
         }
-    }
+        Ok(b)
+    })?;
 
-    for pkg in &pkgs {
-        let src = iop_rust_dir.join(format!("{pkg}{suffix}"));
-        let dst = Path::new(&out_dir).join(format!("{pkg}{suffix}"));
+    waf_build.splice_native_iop_bindings(NATIVE_IOP_PKG, &iop_rust_dir)?;
 
-        let content = fs::read_to_string(&src)
-            .map_err(|e| format!("cannot read `{}`: {e}", src.display()))?;
-
-        fs::write(&dst, content)?;
-    }
-    Ok(!pkgs.is_empty())
+    Ok(())
 }

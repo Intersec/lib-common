@@ -249,6 +249,23 @@ fn process_bindings(content: &str) -> ProcessedBindings {
     }
 }
 
+/// Parse `content` (a natively-generated `<pkg>.iop.rs`) as Rust source and
+/// return the top-level item names it declares, using the same visitor
+/// bindgen output is scanned with. Unlike [`process_bindings`], this does
+/// NOT run [`iop_bindgen::IopBindingsGenerator`]: natively-generated types
+/// already expose plain `pub` fields and don't need synthesized accessors.
+fn extract_item_names(content: &str) -> Vec<String> {
+    let file =
+        parse_str::<SynFile>(content).expect("iopc-generated .iop.rs file should be valid rust");
+    let mut generated_items = GeneratedItemsVisitor(Vec::new());
+
+    for item in &file.items {
+        generated_items.visit_item(item);
+    }
+
+    generated_items.0
+}
+
 // }}}
 // {{{ Buildgen parse callbacks
 
@@ -622,6 +639,70 @@ impl WafBuild {
         // Generate the binding items file
         write_read_only_file(&binding_items_file, || {
             let json_data = serde_json::to_string_pretty(&processed_bindings.generated_items)?;
+            let mut file = File::create(&binding_items_file)?;
+            file.write_all(json_data.as_bytes())?;
+            Ok(())
+        })?;
+
+        Ok(())
+    }
+
+    /// Splice the natively-generated `.iop.rs` file of each package in
+    /// `native_iop_pkgs` (read from `iop_rust_dir`) into the `bindings.rs`
+    /// that [`Self::generate_bindings`] already wrote, and register their
+    /// item names in `bindings_items.json` alongside bindgen's own so that
+    /// dependent crates can blocklist them too.
+    ///
+    /// Call this *after* `generate_bindings`, once bindgen has been told
+    /// (via `.blocklist_file`) to skip the corresponding C headers.
+    ///
+    /// # Errors
+    ///
+    /// I/O errors, missing file, or invalid JSON in `bindings_items.json`.
+    pub fn splice_native_iop_bindings(
+        &self,
+        native_iop_pkgs: &[&str],
+        iop_rust_dir: &Path,
+    ) -> Result<(), Box<dyn error::Error>> {
+        if native_iop_pkgs.is_empty() {
+            return Ok(());
+        }
+
+        let binding_gen_file = self.pkg_waf_build_dir.join("bindings.rs");
+        let binding_items_file = self.pkg_waf_build_dir.join("bindings_items.json");
+
+        let mut native_iop_bindings = String::new();
+        let mut new_items: Vec<String> = Vec::new();
+
+        for pkg in native_iop_pkgs {
+            let path = iop_rust_dir.join(format!("{pkg}.iop.rs"));
+            let content = fs::read_to_string(&path)
+                .map_err(|e| format!("cannot read `{}`: {e}", path.display()))?;
+
+            new_items.extend(extract_item_names(&content));
+
+            native_iop_bindings
+                .push_str("\n// {{{ Native Rust IOP bindings (iopc --language rust)\n\n");
+            native_iop_bindings.push_str(&content);
+            native_iop_bindings.push_str("\n// }}}\n");
+        }
+
+        // Append the native bindings to the already-generated bindings.rs.
+        set_readonly(&binding_gen_file, false)?;
+        {
+            let mut file = fs::OpenOptions::new()
+                .append(true)
+                .open(&binding_gen_file)?;
+            file.write_all(native_iop_bindings.as_bytes())?;
+        }
+        set_readonly(&binding_gen_file, true)?;
+
+        // Merge the native items into the already-generated bindings_items.json.
+        let mut items: Vec<String> = read_json_file(&binding_items_file)?;
+        items.extend(new_items);
+
+        write_read_only_file(&binding_items_file, || {
+            let json_data = serde_json::to_string_pretty(&items)?;
             let mut file = File::create(&binding_items_file)?;
             file.write_all(json_data.as_bytes())?;
             Ok(())
