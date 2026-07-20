@@ -2566,6 +2566,9 @@ void ic_msg_cancel(ic_msg_t *msg)
     thr_assert_is_main_thread();
 
     assert(!msg->canceled);
+    /* Disarm the timeout: a canceled message must not fire ic_msg_on_timeout
+     * later, which would decrement queue_len a second time. */
+    el_unregister(&msg->timeout_timer);
     if (expect(!msg->async)) {
         __ic_msg_reply_err(msg->ic, msg, IC_MSG_CANCELED);
         if (msg->slot) {
