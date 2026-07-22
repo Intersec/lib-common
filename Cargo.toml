@@ -21,6 +21,7 @@
 [workspace]
 members = [
     "rust/deps-workspace-hack",
+    "rust/examples",
     "rust/farchc",
     "rust/libcommon",
     "rust/libcommon-core",

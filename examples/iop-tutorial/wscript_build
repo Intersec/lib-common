@@ -21,11 +21,22 @@ from waflib.Build import BuildContext
 bld: BuildContext
 
 
+bld.IopcOptions(bld)
+
+# Compile the IOP package once into a reusable static library so that both the
+# C example (`ex-iop`) and the Rust example (`rust/examples`) can link it.
+bld.stlib(
+    target='exiop',
+    features='c cstlib',
+    source=[
+        'exiop.iop',
+    ],
+)
+
 bld.program(
     target='ex-iop',
     source=[
         'ex-iop.c',
-        'exiop.iop',
     ],
-    use='libcommon',
+    use=['libcommon', 'exiop'],
 )
