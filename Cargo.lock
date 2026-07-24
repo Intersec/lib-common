@@ -278,6 +278,7 @@ version = "0.0.0"
 dependencies = [
  "libcommon",
  "libcommon-core",
+ "paste",
  "waf-cargo-build",
 ]
 

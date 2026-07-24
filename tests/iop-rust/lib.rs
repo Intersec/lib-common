@@ -28,6 +28,9 @@ pub mod bindings {
     // output in `bindings.rs` (see `splice_native_iop_bindings` in
     // waf-cargo-build).
     use crate::{IopArray, IopOption};
+    use libcommon::iop::{
+        Base, CEnum, CStruct, CStructUnion, CUnion, Enum, Struct, StructUnion, Union,
+    };
     use libcommon_core::lstr::{BorrowedBytesLstr, BorrowedUtf8Lstr};
     waf_cargo_build::include_bindings!();
 }
@@ -64,48 +67,25 @@ impl<T> IopArray<T> {
 pub mod modules {
     pub use crate::bindings::{data_t, iop_enum_t, iop_struct_t};
     pub use crate::{IopArray, IopOption};
+    pub use libcommon::iop::{
+        Base, CEnum, CStruct, CStructUnion, CUnion, Enum, Struct, StructUnion, Union,
+    };
     pub use libcommon_core::lstr::{BorrowedBytesLstr, BorrowedUtf8Lstr};
     pub use libcommon_core::{farch, helpers, lstr, mem_stack, pstream, sb, thr};
     pub use std::mem::*;
 }
 
-/// Generated Rust for each in-tree IOP package, compiled here to check that
-/// `iopc` produces valid, ABI-compatible Rust. Layout assertions live in
-/// the (manually run) layout tests.
-///
-/// `iopc` no longer nests a package's dependencies in its `.iop.rs`: types
-/// referencing another package use its bare (already globally-unique) type
-/// name, so this macro must be given the already-instantiated `_iop_module`
-/// of every dependency to bring those names into scope.
-macro_rules! iop_module {
-    ($name:ident, $pkg:literal) => {
-        iop_module!($name, $pkg, []);
-    };
-    ($name:ident, $pkg:literal, [$($dep:ident),* $(,)?]) => {
-        #[cfg(test)]
-        pub mod $name {
-            include!(concat!("../../src/iop-rust/", $pkg, ".iop.rs"));
-            pub use crate::modules::*;
-            $( pub use crate::$dep::*; )*
-        }
-    };
-}
-
-iop_module!(core_iop_module, "core");
-iop_module!(yaml_iop_module, "yaml");
-iop_module!(ic_iop_module, "ic");
-iop_module!(tstiop_void_type_iop_module, "tstiop_void_type");
-iop_module!(tstiop_inheritance_iop_module, "tstiop_inheritance");
-iop_module!(
-    tstiop_backward_compat_deleted_struct_1_iop_module,
-    "tstiop_backward_compat_deleted_struct_1"
-);
-iop_module!(tstiop_iop_module, "tstiop", [tstiop_void_type_iop_module]);
-
-/// Layout assertions for the generated types, `include!`d from the
-/// `iopc`-generated `.iop.tests.rs` files copied to `OUT_DIR` by `build.rs`.
-#[cfg(all(test, iop_rust_gen_tests))]
-mod layout_tests;
+// Generated Rust for each in-tree IOP package (compile-check), plus the
+// hard-coded layout assertions for the same packages, when available. See
+// `layout_tests.rs` for the single place that lists which packages are
+// wired in and how the two are gated separately.
+//
+// Included with `include!`, not declared with `mod`, so that the
+// `<pkg>_iop_module` modules it defines land at the crate root
+// (`crate::<pkg>_iop_module`) — required because the `.iop.tests.rs` files
+// `iopc` generates hardcode `use crate::<pkg>_iop_module::*;`.
+#[cfg(test)]
+include!("layout_tests.rs");
 
 #[cfg(test)]
 mod iop_tests {
