@@ -384,10 +384,8 @@ void unlockdir(dir_lock_t *dlock)
 int tmpfd(void)
 {
     char path[PATH_MAX] = "/tmp/XXXXXX";
-    mode_t mask = umask(0177);
-    int fd = mkstemp(path);
-    umask(mask);
-    RETHROW(fd);
+    int fd = RETHROW(mkstemp(path));
+
     unlink(path);
     return fd;
 }
