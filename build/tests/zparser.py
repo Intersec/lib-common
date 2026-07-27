@@ -25,9 +25,22 @@ import sys
 from collections import OrderedDict, deque
 from collections.abc import Iterable
 from logging import NullHandler
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
-from typing_extensions import override
+if TYPE_CHECKING:
+    from typing_extensions import override
+else:
+    try:
+        from typing_extensions import override
+    except ImportError:
+        # zparser runs standalone with the worker/master interpreter,
+        # outside the repo environment: typing_extensions may be absent
+        # there. @override is purely declarative, so the fallback is a
+        # no-op; the TYPE_CHECKING branch keeps the real decorator's
+        # typing semantics for pyrefly.
+        def override(func):
+            return func
+
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(NullHandler())
