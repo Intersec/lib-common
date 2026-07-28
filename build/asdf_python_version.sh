@@ -30,10 +30,13 @@ tool_versions_debug_log() {
 tool_versions_get_python3_system_version() {
     # Use a subshell here to avoid modifying the current shell environment
     (
-        # If we already are in a subshell, remove it from the PATH
+        # Remove any repository virtual environment from the PATH: VIRTUAL_ENV
+        # is not always set, and when it is, its bin directory is not
+        # necessarily the first PATH entry.
         if [[ -n "${VIRTUAL_ENV:-}" ]]; then
-            PATH="${PATH##"$VIRTUAL_ENV"/bin:}"
+            PATH="${PATH//"$VIRTUAL_ENV/bin:"/}"
         fi
+        PATH="$(echo "$PATH" | sed -E 's|[^:]*/\.venv/bin:||g')"
 
         # Remove the potential ASDF python plugin and install directories
         # '.asdf/*/python/*' from the PATH.

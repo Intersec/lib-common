@@ -15,6 +15,7 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
+# ruff: noqa: UP006, UP045
 
 import json
 import os
@@ -23,6 +24,15 @@ import re
 import shlex
 import shutil
 import sys
+from typing import (  # noqa: UP035 (deprecated-import)
+    # We still need the typing aliases here, and Optional rather than
+    # `X | None`, because this file is read by waf with the system Python,
+    # which is 3.6 on the oldest supported OS, before switching to the
+    # version the project targets. That is also too old for
+    # `from __future__ import annotations`, which needs 3.7.
+    Optional,
+    Tuple,
+)
 
 from waflib import Errors, Logs, Options
 from waflib.Build import BuildContext
@@ -61,7 +71,148 @@ def load_tools(ctx: Context) -> None:
 # {{{ Tool Managers
 
 
+REQUIRES_PYTHON_RE = re.compile(
+    r'^\s*requires-python\s*=\s*["\']([^"\']+)["\']', re.MULTILINE
+)
+VERSION_BOUND_RE = re.compile(r'(>=|<)\s*(\d+)\.(\d+)(?:\.\d+)?')
+
+
+def requires_python_bounds(
+    ctx: BuildContext,
+) -> Tuple[Optional[Tuple[int, int]], Optional[Tuple[int, int]]]:
+    # Return the (minimum, maximum) Python versions supported by the project,
+    # as (major, minor) tuples, the maximum being excluded. Either is None
+    # when the corresponding bound is absent.
+    #
+    # pyproject.toml is parsed with a regexp on purpose: this runs before the
+    # uv environment exists, so no TOML parser is available yet.
+    pyproject = ctx.srcnode.find_node('pyproject.toml')
+    if pyproject is None:
+        return None, None
+
+    match = REQUIRES_PYTHON_RE.search(pyproject.read())
+    if match is None:
+        return None, None
+
+    minimum = maximum = None
+    for part in match.group(1).split(','):
+        spec = part.strip()
+        bound = VERSION_BOUND_RE.fullmatch(spec)
+        if bound is None:
+            # Warn rather than fail: an unknown bound only makes the choice of
+            # the interpreter less accurate, and uv checks requires-python by
+            # itself anyway.
+            Logs.warn(
+                f'Waf: ignoring requires-python bound {spec} of '
+                'pyproject.toml: only `>=X.Y` and `<X.Y` are understood'
+            )
+            continue
+
+        operator, major, minor = bound.groups()
+        if operator == '>=':
+            minimum = (int(major), int(minor))
+        else:
+            maximum = (int(major), int(minor))
+
+    return minimum, maximum
+
+
+def system_python_version(ctx: BuildContext) -> Optional[Tuple[int, int]]:
+    # Return the (major, minor) version of the system Python, or None when
+    # there is none.
+    #
+    # The interpreters of a virtual environment or of a tool manager are
+    # removed from the PATH: they are precisely what we are about to decide to
+    # use or not, so taking one of them for the system Python would make the
+    # decision depend on the result of the previous configure.
+    #
+    # Both tool managers are cleaned up, whichever one we use: a machine
+    # migrating from ASDF to Mise has both, and the shims of the unused one
+    # shadow the system interpreter just as well.
+    mise_dir = ctx.env.MISE_DATA_DIR
+    asdf_dir = ctx.env.ASDF_DATA_DIR
+    virtual_env = os.environ.get('VIRTUAL_ENV')
+
+    path = []
+    for entry in os.environ['PATH'].split(os.pathsep):
+        if entry.endswith('/.venv/bin') or entry == f'{mise_dir}/shims':
+            continue
+        if entry == f'{asdf_dir}/shims':
+            continue
+        if virtual_env is not None and entry == f'{virtual_env}/bin':
+            continue
+        if entry.startswith(f'{mise_dir}/installs/python/'):
+            continue
+        if entry.startswith(asdf_dir) and '/python/' in entry:
+            continue
+        path.append(entry)
+
+    env = dict(os.environ, PATH=os.pathsep.join(path))
+    env.pop('VIRTUAL_ENV', None)
+    # Make any ASDF shim left in the PATH dispatch to the system Python, like
+    # build/asdf_python_version.sh does.
+    env['ASDF_PYTHON_VERSION'] = 'system'
+
+    try:
+        version = ctx.cmd_and_log(
+            [
+                'python3',
+                '-c',
+                'import sys; print("%d.%d" % sys.version_info[:2])',
+            ],
+            env=env,
+        )
+    except Errors.WafError:
+        return None
+
+    major, _, minor = version.strip().partition('.')
+    return int(major), int(minor)
+
+
+def mise_python_version(ctx: BuildContext) -> Optional[str]:
+    # Return the Python version mise must provide, or None when the system one
+    # must be used.
+    #
+    # mise cannot express "the system Python, but only if its version is
+    # supported", so the decision is taken here, from the requires-python of
+    # pyproject.toml. That range is the set of Python versions shipped by the
+    # OSes supported by the branch, hence the system Python of any of them is
+    # suitable. Production platforms depend on that, since they must use their
+    # system interpreter for performance reasons.
+    minimum, maximum = requires_python_bounds(ctx)
+    if minimum is None:
+        return None
+
+    system = system_python_version(ctx)
+    if (
+        system is not None
+        and system >= minimum
+        and (maximum is None or system < maximum)
+    ):
+        return None
+
+    # Fall back on the oldest supported version, the one common to every
+    # supported OS. Only the major and minor versions are requested: mise
+    # downloads prebuilt archives, which only exist for recent patch versions.
+    return '{}.{}'.format(*minimum)
+
+
 def configure_tool_manager(ctx: BuildContext) -> None:
+    # The data directories of both tool managers, resolved here once and for
+    # all: they are needed whichever manager is in use, since a machine can
+    # have both installed.
+    # https://mise.jdx.dev/directories.html
+    # https://asdf-vm.com/manage/configuration.html#asdf-data-dir
+    xdg_data_home = os.environ.get(
+        'XDG_DATA_HOME', osp.expanduser('~/.local/share')
+    )
+    ctx.env.MISE_DATA_DIR = os.environ.get(
+        'MISE_DATA_DIR', osp.join(xdg_data_home, 'mise')
+    )
+    ctx.env.ASDF_DATA_DIR = os.environ.get(
+        'ASDF_DATA_DIR', osp.expanduser('~/.asdf')
+    )
+
     # For ASDF/Mise users, we first ensure that all plugins and tool versions
     # are installed before continuing the configuration.
     if (
@@ -72,10 +223,6 @@ def configure_tool_manager(ctx: BuildContext) -> None:
         ctx.env.TOOL_MANAGER = 'mise'
     elif 'ASDF_DIR' in os.environ:
         ctx.env.TOOL_MANAGER = 'asdf'
-        # https://asdf-vm.com/manage/configuration.html#asdf-data-dir
-        ctx.env.ASDF_DATA_DIR = os.environ.get(
-            'ASDF_DATA_DIR', os.environ['HOME'] + '/.asdf'
-        )
         ctx.env.ASDF_SHIMS = ctx.env.ASDF_DATA_DIR + '/shims'
     else:
         ctx.msg('Using tool manager', 'no')
@@ -87,6 +234,27 @@ def configure_tool_manager(ctx: BuildContext) -> None:
 
     ctx.msg('Using tool manager', ctx.env.TOOL_MANAGER)
     if ctx.env.TOOL_MANAGER == 'mise':
+        # Let MISE_PYTHON_VERSION win when it is already set, so that another
+        # Python version can be tried without touching the repository.
+        python_version = os.environ.get('MISE_PYTHON_VERSION')
+        if python_version is None:
+            python_version = mise_python_version(ctx)
+            if python_version is None:
+                # Prevent mise from providing any Python, so that uv falls
+                # back on the system one (cf. python-preference in
+                # pyproject.toml). This also neutralizes a `python system`
+                # entry coming from a legacy ASDF ~/.tool-versions file,
+                # which mise cannot resolve.
+                disabled = os.environ.get('MISE_DISABLE_TOOLS', '')
+                tools = [tool for tool in disabled.split(',') if tool]
+                if 'python' not in tools:
+                    tools.append('python')
+                os.environ['MISE_DISABLE_TOOLS'] = ','.join(tools)
+            else:
+                os.environ['MISE_PYTHON_VERSION'] = python_version
+        ctx.msg('Python version', python_version or 'system')
+        ctx.env.UV_PYTHON_VERSION = python_version
+
         cmd = ['mise', 'install']
         if ctx.exec_command(cmd, stdout=None, stderr=None, cwd=ctx.srcnode):
             ctx.fatal('Mise installation failed')
@@ -184,6 +352,12 @@ def uv_sync(ctx: BuildContext) -> None:
         before_uv_sync(ctx)
 
     uv_args = ['sync', '--locked']
+
+    if ctx.env.UV_PYTHON_VERSION:
+        # Force the interpreter selected by the tool manager: without it, uv
+        # keeps the venv of a previous configure as long as its version
+        # satisfies requires-python, so a change of version would be ignored.
+        uv_args += ['--python', ctx.env.UV_PYTHON_VERSION]
 
     if ctx.env.UV_EXTRA:
         extras = set(re.split(r'[ ,]+', ctx.env.UV_EXTRA))

@@ -3,11 +3,19 @@
 # https://mise.jdx.dev/configuration.html
 
 [tools]
+# Python is intentionally absent: the version cannot be expressed statically
+# here, since it depends on the system Python. It is resolved by
+# configure_tool_manager() in the wscript, which exports MISE_PYTHON_VERSION
+# or MISE_DISABLE_TOOLS.
 uv = '0.7.2'
 rust = '1.92.0'
 
 [settings]
-python.uv_venv_auto = 'create|source'
+# Only source the virtual environment, never create it: creating it is the
+# job of `waf configure`, which knows the interpreter and the packages the
+# project needs. Letting mise do it first makes entering the repository
+# fail on a fresh clone, since no Python is configured yet.
+python.uv_venv_auto = 'source'
 
 [tasks.configure]
 alias = "cfg"
