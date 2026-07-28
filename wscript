@@ -30,6 +30,7 @@ from typing import (  # noqa: UP035 (deprecated-import)
     # which is 3.6 on the oldest supported OS, before switching to the
     # version the project targets. That is also too old for
     # `from __future__ import annotations`, which needs 3.7.
+    List,
     Optional,
     Tuple,
 )
@@ -37,7 +38,7 @@ from typing import (  # noqa: UP035 (deprecated-import)
 from waflib import Errors, Logs, Options
 from waflib.Build import BuildContext
 from waflib.Configure import ConfigurationContext
-from waflib.Context import Context
+from waflib.Context import BOTH, Context
 from waflib.Options import OptionsContext
 
 waftoolsdir = os.path.join(os.getcwd(), 'build', 'waftools')
@@ -343,6 +344,21 @@ def uv_no_srv_tools(ctx: BuildContext) -> None:
         )
 
 
+def uv_sync_args(ctx: BuildContext) -> List[str]:
+    # The arguments describing the environment uv must produce. Shared with
+    # uv_environment_is_synced(): the check has to request the very same
+    # environment, or it reports a difference on every build.
+    uv_args = ['sync', '--locked']
+
+    if ctx.env.UV_EXTRA:
+        extras = set(re.split(r'[ ,]+', ctx.env.UV_EXTRA))
+
+        for extra in extras:
+            uv_args += ['--extra', extra]
+
+    return uv_args
+
+
 def uv_sync(ctx: BuildContext) -> None:
     if ctx.env.TOOL_MANAGER == 'asdf':
         python_asdf_cleanup_prev_venv(ctx)
@@ -351,19 +367,13 @@ def uv_sync(ctx: BuildContext) -> None:
     if before_uv_sync is not None:
         before_uv_sync(ctx)
 
-    uv_args = ['sync', '--locked']
+    uv_args = uv_sync_args(ctx)
 
     if ctx.env.UV_PYTHON_VERSION:
         # Force the interpreter selected by the tool manager: without it, uv
         # keeps the venv of a previous configure as long as its version
         # satisfies requires-python, so a change of version would be ignored.
         uv_args += ['--python', ctx.env.UV_PYTHON_VERSION]
-
-    if ctx.env.UV_EXTRA:
-        extras = set(re.split(r'[ ,]+', ctx.env.UV_EXTRA))
-
-        for extra in extras:
-            uv_args += ['--extra', extra]
 
     # Sync uv environment
     if ctx.exec_command(ctx.env.UV + uv_args, stdout=None, stderr=None):
@@ -379,7 +389,14 @@ def uv_sync(ctx: BuildContext) -> None:
 
 def uv_environment_is_active(ctx: BuildContext) -> bool:
     # Consider the UV environment is active if the VIRTUAL_ENV variable is set
-    # to the venv path of the project (resolving symlinks)
+    # to the venv path of the project (resolving symlinks), if the PATH
+    # resolves python3 to that venv, and if the interpreter running waf comes
+    # from it.
+    #
+    # The PATH matters as much as VIRTUAL_ENV, because that is what `uv run`
+    # changes: it prepends the venv bin directory, which decides every program
+    # waf resolves. VIRTUAL_ENV alone can be exported to designate an
+    # environment to uv, without the PATH.
     virtual_env = os.environ.get('VIRTUAL_ENV', None)
     if not virtual_env:
         return False
@@ -388,7 +405,50 @@ def uv_environment_is_active(ctx: BuildContext) -> bool:
     project_venv_node = ctx.srcnode.make_node('.venv')
     project_venv_path: str = os.path.realpath(project_venv_node.abspath())
 
-    return venv_path == project_venv_path
+    if venv_path != project_venv_path:
+        return False
+
+    python3 = shutil.which('python3')
+    if python3 is None:
+        return False
+
+    # Resolve the bin directory, not python3 itself: the interpreter of a venv
+    # is a symlink to the one it was created from.
+    python3_dir: str = os.path.realpath(os.path.dirname(python3))
+
+    if python3_dir != os.path.join(project_venv_path, 'bin'):
+        return False
+
+    # The interpreter running waf itself must also come from the venv: the
+    # mise shim execs the system python while exporting VIRTUAL_ENV and the
+    # venv PATH (python.uv_venv_auto sourcing), so the environment can look
+    # active around an interpreter that is not. Re-running through `uv run`
+    # is not a no-op then: with the venv at the head of the PATH, the
+    # launcher's `#!/usr/bin/env python3` shebang resolves the venv
+    # interpreter instead.
+    executable_dir: str = os.path.realpath(os.path.dirname(sys.executable))
+
+    return executable_dir == os.path.join(project_venv_path, 'bin')
+
+
+def uv_environment_is_synced(ctx: BuildContext) -> bool:
+    # `uv sync --check` reports whether the venv matches the lockfile without
+    # touching it.
+    #
+    # `--python` is deliberately left out: the recursion this gates syncs
+    # through `uv run`, which cannot select an interpreter, so an interpreter
+    # mismatch would be reported forever and re-exec on every build. The
+    # version belongs to configure, which passes it to uv_sync().
+    try:
+        ctx.cmd_and_log(
+            ctx.env.UV + uv_sync_args(ctx) + ['--check'],
+            cwd=ctx.srcnode,
+            quiet=BOTH,
+        )
+    except Errors.WafError:
+        return False
+
+    return True
 
 
 def rerun_waf_configure_with_uv(ctx: BuildContext) -> None:
@@ -396,12 +456,11 @@ def rerun_waf_configure_with_uv(ctx: BuildContext) -> None:
         # We are already in a recursion with uv, do nothing.
         return
 
-    if uv_environment_is_active(ctx) and not ctx.env.TOOL_MANAGER:
-        # If uv is already activated and a tool manager is not in use we do
-        # nothing.
-        # However if a tool manager is in use, the python version that will be
-        # loaded by it may differ from the current active venv, and thus we
-        # need to recurse anyway to use the right python version.
+    if uv_environment_is_active(ctx):
+        # The uv environment is already active: re-running waf through `uv run`
+        # would only set up the very same environment again. uv_sync() has
+        # already synced the venv with the python version selected by the tool
+        # manager (`uv sync --python`), so the active venv is the right one.
         return
 
     # Set _IN_UV_WAF_CONFIGURE to avoid doing the uv configuration twice.
@@ -464,9 +523,14 @@ def rerun_waf_build_with_uv(ctx: BuildContext) -> None:
     if ctx.get_env_bool('_IN_UV_WAF_BUILD'):
         # We are already in a recursion with uv, do nothing.
         return
-    if uv_environment_is_active(ctx) and not ctx.env.TOOL_MANAGER:
-        # uv environment is activated and a tool manager is not in use, do
-        # nothing.
+    if uv_environment_is_active(ctx) and uv_environment_is_synced(ctx):
+        # The uv environment is already active and up to date, do nothing.
+        #
+        # Being active is not enough here: unlike configure, build never calls
+        # uv_sync(), so the only sync of this path is the implicit one of
+        # `uv run`. And relying on that one would not be safe anyway: when it
+        # recreates the venv, the `.pth` file of uv_no_srv_tools() goes with
+        # it, and only uv_sync() writes it back.
         return
 
     # Set _IN_UV_WAF_BUILD to avoid doing the recursion twice.
