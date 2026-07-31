@@ -867,28 +867,65 @@ def coverage_end_cmd(ctx: BuildContext) -> None:
     # The following code is adapted from
     # http://bind10.isc.org/wiki/TestCodeCoverage
 
-    # Create empty gcda files for every gcno file if they do not exist
-    gcno_nodes = ctx.bldnode.ant_glob('**/*.gcno', excl='*.pic.*', quiet=True)
-    for gcno_node in gcno_nodes:
-        gcda_node = gcno_node.change_ext('.gcda')
-        if not gcda_node.exists():
-            os.mknod(gcda_node.abspath())
+    # Empty gcda files (previously created here so that never-executed
+    # files appear in the report) make gcov 13+/lcov 2 fail; remove them.
+    for gcda_node in ctx.bldnode.ant_glob('**/*.gcda', quiet=True):
+        if os.path.getsize(gcda_node.abspath()) == 0:
+            os.remove(gcda_node.abspath())
 
-    # Generate the lcov trace file.
-    lcov_all_file = ctx.bldnode.make_node('lcov-all.info')
+    ignore = (
+        'gcov,source,mismatch,inconsistent,negative,empty,unused,version'
+    )
+
+    # Capture a zero-coverage baseline from the gcno files so that
+    # never-executed files still appear in the report.
+    lcov_base_file = ctx.bldnode.make_node('lcov-baseline.info')
     cmd = (
-        '{0} --capture --ignore-errors gcov,source --directory {1} '
-        '--base-directory {2} --output-file {3}'
+        '{0} --capture --initial --ignore-errors {1} '
+        '--directory {2} --base-directory {3} --output-file {4}'
     )
     if ctx.exec_command(
         cmd.format(
             ctx.env.LCOV[0],
+            ignore,
             ctx.bldnode.abspath(),
             ctx.srcnode.abspath(),
-            lcov_all_file.abspath(),
+            lcov_base_file.abspath(),
+        )
+    ):
+        ctx.fatal('failed to generate lcov baseline file')
+
+    # Capture the test coverage.
+    lcov_test_file = ctx.bldnode.make_node('lcov-test.info')
+    cmd = (
+        '{0} --capture --ignore-errors {1} --directory {2} '
+        '--base-directory {3} --output-file {4}'
+    )
+    if ctx.exec_command(
+        cmd.format(
+            ctx.env.LCOV[0],
+            ignore,
+            ctx.bldnode.abspath(),
+            ctx.srcnode.abspath(),
+            lcov_test_file.abspath(),
         )
     ):
         ctx.fatal('failed to generate lcov trace file')
+
+    # Merge both into the full trace file.
+    lcov_all_file = ctx.bldnode.make_node('lcov-all.info')
+    cmd = '{0} -a {1} -a {2} --output-file {3}'
+    if ctx.exec_command(
+        cmd.format(
+            ctx.env.LCOV[0],
+            lcov_base_file.abspath(),
+            lcov_test_file.abspath(),
+            lcov_all_file.abspath(),
+        )
+    ):
+        ctx.fatal('failed to merge lcov trace files')
+    lcov_base_file.delete()
+    lcov_test_file.delete()
 
     # Remove files not needed in the report
     lcov_file = ctx.bldnode.make_node('lcov.info')
@@ -906,7 +943,10 @@ def coverage_end_cmd(ctx: BuildContext) -> None:
     report_dir_name = f'coverage-report-{now:%Y%m%d-%H%M%S}'
     report_dir = ctx.srcnode.make_node(report_dir_name)
     report_dir.delete(evict=False)
-    cmd = '{0} -o {1} {2}'
+    cmd = (
+        '{0} --ignore-errors unmapped,inconsistent,mismatch,category,'
+        'source --synthesize-missing -o {1} {2}'
+    )
     if ctx.exec_command(
         cmd.format(
             ctx.env.GENHTML[0], report_dir.abspath(), lcov_file.abspath()
