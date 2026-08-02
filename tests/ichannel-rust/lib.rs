@@ -27,14 +27,41 @@
 #[waf_cargo_build::bindings_mod]
 pub mod bindings {
     pub use ichannel::bindings::*;
+    use libcommon::iop::{Base, CStruct, CStructUnion, Struct, StructUnion};
     waf_cargo_build::include_bindings!();
+
+    // `tstiop_rpc` is still described by bindgen, so its structs get the
+    // IOP traits by hand.
+    impl Base for tstiop_rpc__test__echo_args__t {}
+    impl StructUnion for tstiop_rpc__test__echo_args__t {
+        fn get_cdesc(&self) -> *const iop_struct_t {
+            &raw const tstiop_rpc__test__echo_args__s
+        }
+    }
+    impl CStructUnion for tstiop_rpc__test__echo_args__t {
+        const CDESC: *const iop_struct_t = &raw const tstiop_rpc__test__echo_args__s;
+    }
+    impl Struct for tstiop_rpc__test__echo_args__t {}
+    impl CStruct for tstiop_rpc__test__echo_args__t {}
+
+    impl Base for tstiop_rpc__test__echo_res__t {}
+    impl StructUnion for tstiop_rpc__test__echo_res__t {
+        fn get_cdesc(&self) -> *const iop_struct_t {
+            &raw const tstiop_rpc__test__echo_res__s
+        }
+    }
+    impl CStructUnion for tstiop_rpc__test__echo_res__t {
+        const CDESC: *const iop_struct_t = &raw const tstiop_rpc__test__echo_res__s;
+    }
+    impl Struct for tstiop_rpc__test__echo_res__t {}
+    impl CStruct for tstiop_rpc__test__echo_res__t {}
 }
 
 #[cfg(test)]
 mod tests {
     use crate::bindings::{
-        __ic_reply, __socket_type::SOCK_SEQPACKET, AF_UNIX, O_NONBLOCK, ic__hdr__t,
-        ic__ic_status__t, ic_delete, ic_event_t, ic_get_module, ic_new, ic_set_local, ic_spawn,
+        __ic_reply, __socket_type::SOCK_SEQPACKET, AF_UNIX, O_NONBLOCK, ic__hdr__t_raw,
+        ic__ic_status__e, ic_delete, ic_event_t, ic_get_module, ic_new, ic_set_local, ic_spawn,
         ichannel_t, qm_ic_cbs_t, socketpairx, tstiop_rpc__pkg, tstiop_rpc__test__echo_args__t,
         tstiop_rpc__test__echo_exn__t, tstiop_rpc__test__echo_res__t, z_echo_cmd, z_echo_rpc,
         z_ic_cbs_init, z_ic_cbs_wipe, z_ic_register_echo,
@@ -64,7 +91,7 @@ mod tests {
         ic: *mut ichannel_t,
         slot: u64,
         arg: *mut tstiop_rpc__test__echo_args__t,
-        _hdr: *const ic__hdr__t,
+        _hdr: *const ic__hdr__t_raw,
     ) {
         let res = tstiop_rpc__test__echo_res__t {
             i: unsafe { (*arg).i },
@@ -74,7 +101,7 @@ mod tests {
             __ic_reply(
                 ic,
                 slot,
-                ic__ic_status__t::IC_MSG_OK as i32,
+                ic__ic_status__e::OK as i32,
                 -1,
                 (*rpc).result,
                 ptr::from_ref(&res).cast::<c_void>(),

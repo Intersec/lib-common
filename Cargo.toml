@@ -60,15 +60,13 @@ rand = "0.9.1"
 
 # Used by waf-cargo-build
 quote = "1.0"
+prettyplease = "0.2"
 
 # Used by modules
 paste = "1.0.15"
 
 # Lock-free atomic Arc swap for fast thread-safe container.
 arc-swap = "1.8.0"
-
-# Used by waf-cargo-build for IOP code generation
-prettyplease = "0.2"
 
 # Used by tokio_c_mod
 tokio = {version = "1.52.1", features = ["sync","rt-multi-thread","time"]}

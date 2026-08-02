@@ -71,7 +71,6 @@ use std::{env, error, fs, io};
 use syn::ext::IdentExt as _;
 use syn::{File as SynFile, ForeignItem, Ident, Item, ItemUse, UseTree, parse_str};
 
-mod iop_bindgen;
 mod qhash_bindgen;
 mod qvector_bindgen;
 
@@ -222,7 +221,6 @@ impl GeneratedItemsVisitor {
 
 struct ProcessedBindings {
     generated_items: Vec<String>,
-    extra_iop_bindings: String,
     extra_qvector_bindings: String,
     extra_qhash_bindings: String,
 }
@@ -230,20 +228,17 @@ struct ProcessedBindings {
 fn process_bindings(content: &str) -> ProcessedBindings {
     let file = parse_str::<SynFile>(content).expect("bindgen should generate a valid rust file");
     let mut generated_items = GeneratedItemsVisitor(Vec::new());
-    let mut iop_bindings = iop_bindgen::IopBindingsGenerator::new();
     let mut qvector_bindings = qvector_bindgen::QVectorBindingsGenerator::new();
     let mut qhash_bindings = qhash_bindgen::QHashBindingsGenerator::new();
 
     for item in &file.items {
         generated_items.visit_item(item);
-        iop_bindings.visit_item(item);
         qvector_bindings.visit_item(item);
         qhash_bindings.visit_item(item);
     }
 
     ProcessedBindings {
         generated_items: generated_items.0,
-        extra_iop_bindings: iop_bindings.into_bindings(),
         extra_qvector_bindings: qvector_bindings.into_bindings(),
         extra_qhash_bindings: qhash_bindings.into_bindings(),
     }
@@ -251,9 +246,7 @@ fn process_bindings(content: &str) -> ProcessedBindings {
 
 /// Parse `content` (a natively-generated `<pkg>.iop.rs`) as Rust source and
 /// return the top-level item names it declares, using the same visitor
-/// bindgen output is scanned with. Unlike [`process_bindings`], this does
-/// NOT run [`iop_bindgen::IopBindingsGenerator`]: natively-generated types
-/// already expose plain `pub` fields and don't need synthesized accessors.
+/// bindgen output is scanned with.
 fn extract_item_names(content: &str) -> Vec<String> {
     let file =
         parse_str::<SynFile>(content).expect("iopc-generated .iop.rs file should be valid rust");
@@ -286,6 +279,66 @@ impl ParseCallbacks for LibcommonParseCallbacks {
         self.blocked_items
             .contains(item_info.name)
             .then_some(AllowOrBlockItem::Block)
+    }
+}
+
+/// IOP packages `iopc --language rust` generates natively and that
+/// `rust/libcommon` splices into its own `bindings.rs`, instead of letting
+/// bindgen produce them from the raw C headers.
+pub const NATIVE_IOP_PKG: &[&str] = &["core", "ic", "yaml"];
+
+/// Hides from `builder` every declaration a package of [`NATIVE_IOP_PKG`]
+/// owns, and renames the cross-references the other headers still make to
+/// them (see [`NativeIopPkgRename`]).
+///
+/// Every crate whose bindgen run parses those headers must do this, not
+/// only the one that splices the native files in: the native types are
+/// re-exported repository-wide through `libcommon::bindings`, so a crate
+/// leaving bindgen's raw output alone would end up with two incompatible
+/// definitions under the same name.
+#[must_use]
+pub fn hide_native_iop_pkgs(builder: Builder) -> Builder {
+    let mut builder = builder.parse_callbacks(Box::new(NativeIopPkgRename::new(NATIVE_IOP_PKG)));
+
+    for pkg in NATIVE_IOP_PKG {
+        builder = builder.blocklist_file(format!(r".*/{pkg}(-t|-tdef)?\.iop\.h$"));
+    }
+    builder
+}
+
+/// Renames bindgen's own reference to any C identifier belonging to a
+/// natively-generated IOP package (see [`WafBuild::splice_native_iop_bindings`])
+/// by appending `_raw` to it.
+///
+/// Every such identifier follows the `<pkg>__<name>__[teu]` naming
+/// convention exclusively used by iopc's Rust codegen, and its *own*
+/// definition is always blocklisted (via [`WafBuild::generate_bindings`]'s
+/// `blocklist_file` on that package's headers) in favor of the native
+/// splice -- so any occurrence bindgen still emits is, by construction, a
+/// cross-reference from some other (non-IOP) header it keeps parsing raw
+/// (e.g. a raw pointer field). Since the native type may carry a lifetime
+/// bindgen's raw reference has no notion of, the two can't share the same
+/// name; renaming frees it up for a manual `'static`-pinned type alias
+/// bridging back to the native type where such a cross-reference exists.
+#[derive(Debug)]
+pub struct NativeIopPkgRename {
+    prefixes: Vec<String>,
+}
+
+impl NativeIopPkgRename {
+    pub fn new(native_pkgs: &[&str]) -> Self {
+        Self {
+            prefixes: native_pkgs.iter().map(|pkg| format!("{pkg}__")).collect(),
+        }
+    }
+}
+
+impl ParseCallbacks for NativeIopPkgRename {
+    fn item_name(&self, item_info: ItemInfo<'_>) -> Option<String> {
+        self.prefixes
+            .iter()
+            .any(|prefix| item_info.name.starts_with(prefix.as_str()))
+            .then(|| format!("{}_raw", item_info.name))
     }
 }
 
@@ -549,7 +602,7 @@ impl WafBuild {
         // Finish the builder and generate the bindings.
         let bindings_str = builder.generate()?.to_string();
 
-        // Process bindings, to get generated items and extra IOP bindings
+        // Process bindings, to get the generated item names.
         let processed_bindings = process_bindings(&bindings_str);
 
         // Write the binding to the files.
@@ -559,14 +612,6 @@ impl WafBuild {
             file.write_all("// {{{ Bindings generated by bindgen\n\n".as_bytes())?;
             file.write_all(bindings_str.as_bytes())?;
             file.write_all("\n// }}}".as_bytes())?;
-
-            if !processed_bindings.extra_iop_bindings.is_empty() {
-                file.write_all(
-                    "\n// {{{ IOP bindings generated by waf-cargo-build\n\n".as_bytes(),
-                )?;
-                file.write_all(processed_bindings.extra_iop_bindings.as_bytes())?;
-                file.write_all("\n// }}}".as_bytes())?;
-            }
 
             if !processed_bindings.extra_qvector_bindings.is_empty() {
                 file.write_all(

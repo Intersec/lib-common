@@ -28,7 +28,7 @@
 
 use crate::{
     bindings::{__ic_msg_build, ic__ic_status__e, ic_is_local, iop_rpc_t},
-    ic__ic_status__e::{IC_MSG_EXN, IC_MSG_OK},
+    ic__ic_status__e::{EXN as IC_MSG_EXN, OK as IC_MSG_OK},
 };
 use libcommon::iop::{IopDup, Owned, OwnedIop as _};
 use libcommon::run_callback::{Callback, CallbackFut, run_callback};
@@ -42,11 +42,20 @@ pub mod bindings {
     pub use libcommon::bindings::*;
     waf_cargo_build::include_bindings!();
 
-    // XXX Temporary: this crate still gets its IOP types from bindgen, so
-    // bridge the names of the native `*.iop.rs` generation onto them. Both
-    // aliases go away with the commit that includes the native files.
-    pub use ic__ic_status__t as ic__ic_status__e;
-    pub type ic__hdr__t_raw = ic__hdr__t;
+    // Two families of aliases bridge back to the natively-generated types:
+    //
+    //  - the short names are the convenience typedefs of `<pkg>-t.iop.h`,
+    //    which is blocklisted as a whole and whose Rust counterpart iopc
+    //    does not emit;
+    //  - the `_raw` ones take the name bindgen freed while renaming its
+    //    own cross-references (see `hide_native_iop_pkgs`), and pin to
+    //    `'static` the lifetime of the memory the native type borrows
+    //    from, which bindgen had no notion of.
+    pub type ic_status__t = ic__ic_status__e;
+    pub type http_code__t = core__http_code__e;
+    pub type ic__hdr__t_raw = ic__hdr__u<'static>;
+    pub type core__httpc_cfg__t_raw = core__httpc_cfg__t<'static>;
+    pub type core__httpd_cfg__t_raw = core__httpd_cfg__t<'static>;
 }
 
 // {{{ ICQuery builder

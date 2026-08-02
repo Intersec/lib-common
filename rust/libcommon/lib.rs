@@ -160,8 +160,48 @@ pub mod run_callback;
 #[waf_cargo_build::bindings_mod]
 pub mod bindings {
     use crate::iop;
+    use crate::iop::{
+        Base, CEnum, CStruct, CStructUnion, CUnion, Enum, IopArray, IopOption, Struct, StructUnion,
+        Union,
+    };
     pub use libcommon_core::bindings::*;
+    use libcommon_core::lstr::{BorrowedBytesLstr, BorrowedUtf8Lstr};
     waf_cargo_build::include_bindings!();
+
+    // Two families of aliases bridge back to the natively-generated types:
+    //
+    //  - the short names are the convenience typedefs of `<pkg>-t.iop.h`,
+    //    which is blocklisted as a whole and whose Rust counterpart iopc
+    //    does not emit;
+    //  - the `_raw` ones take the name bindgen freed while renaming its
+    //    own cross-references (see `hide_native_iop_pkgs`).
+    //
+    // Both pin to `'static` the lifetime of the memory the native type
+    // borrows from, which the C headers have no notion of.
+    pub type iop_json_subfile__t = core__iop_json_subfile__t<'static>;
+    pub type iop_json_subfile__array_t = IopArray<'static, core__iop_json_subfile__t<'static>>;
+
+    pub type yaml__presentation_node__t_raw = yaml__presentation_node__t<'static>;
+    pub type yaml__document_presentation__t_raw = yaml__document_presentation__t<'static>;
+
+    unsafe extern "C" {
+        pub static ic__pkg: iop_pkg_t;
+        pub static core__pkg: iop_pkg_t;
+    }
+
+    // `iop.Void` has no `.iop` file of its own, so iopc emits no native
+    // Rust for it; implement its traits by hand on bindgen's type.
+    impl Base for iop__void__t {}
+    impl StructUnion for iop__void__t {
+        fn get_cdesc(&self) -> *const iop_struct_t {
+            &raw const iop__void__s
+        }
+    }
+    impl CStructUnion for iop__void__t {
+        const CDESC: *const iop_struct_t = &raw const iop__void__s;
+    }
+    impl Struct for iop__void__t {}
+    impl CStruct for iop__void__t {}
 }
 
 // Reexport `libcommon_core` types.

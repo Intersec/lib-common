@@ -341,7 +341,6 @@ dependencies = [
 name = "libcommon-test-macros"
 version = "0.0.0"
 dependencies = [
- "proc-macro2",
  "quote",
  "syn",
 ]
@@ -648,7 +647,6 @@ version = "0.0.0"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
 ]
 
 [[package]]

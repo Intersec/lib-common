@@ -31,6 +31,6 @@ path = "ichannel.rs"
 waf-cargo-build = { path = "../waf-cargo-build" }
 
 [dependencies]
-libcommon-core = { path = "../libcommon-core" }
 libcommon = { path = "../libcommon" }
+libcommon-core = { path = "../libcommon-core" }
 waf-cargo-build = { path = "../waf-cargo-build" }

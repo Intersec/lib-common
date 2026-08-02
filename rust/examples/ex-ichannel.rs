@@ -58,15 +58,53 @@ use crate::bindings::{
     exiop__hello_iface__send_async_args__t, exiop__hello_iface__send_exn__t,
     exiop__hello_iface__send_res__t, exiop__pkg, exiop_ic_cbs_init, exiop_ic_cbs_wipe,
     exiop_proto_tcp, exiop_register_send, exiop_register_send_async, exiop_reply_send,
-    exiop_send_async_query, exiop_send_cmd, exiop_send_rpc, exiop_sock_stream, ic__hdr__t, ic_bye,
-    ic_connect, ic_event_t, ic_get_module, ic_init, ic_listento, ic_new, ic_spawn, ic_wipe,
+    exiop_send_async_query, exiop_send_cmd, exiop_send_rpc, exiop_sock_stream, ic__hdr__t_raw,
+    ic_bye, ic_connect, ic_event_t, ic_get_module, ic_init, ic_listento, ic_new, ic_spawn, ic_wipe,
     in_port_t, iop_env_t, ps_initlstr, pstream_t, qm_ic_cbs_t, sa_family_t, sockunion_t,
 };
 
 #[waf_cargo_build::bindings_mod]
 pub mod bindings {
     pub use ichannel::bindings::*;
+    use libcommon::iop::{
+        Base, CEnum, CStruct, CStructUnion, CUnion, Enum, IopArray, IopOption, Struct, StructUnion,
+        Union,
+    };
+    use libcommon_core::lstr::{BorrowedBytesLstr, BorrowedUtf8Lstr};
     waf_cargo_build::include_bindings!();
+
+    // iopc names an RPC argument after the struct it reuses, where bindgen
+    // synthesized a distinct type per RPC; bridge the two namings.
+    pub type exiop__hello_iface__send_args__t = exiop__hello_msg__t<'static>;
+    pub type exiop__hello_iface__send_args__t_raw = exiop__hello_msg__t<'static>;
+    pub type exiop__hello_iface__send_async_args__t = exiop__hello_msg__t<'static>;
+    pub type exiop__hello_iface__send_async_args__t_raw = exiop__hello_msg__t<'static>;
+    pub type exiop__hello_iface__send_exn__t = exiop__hello_exception__t<'static>;
+
+    unsafe extern "C" {
+        pub static exiop__pkg: iop_pkg_t;
+        pub static exiop__hello_iface__send_res__s: iop_struct_t;
+    }
+
+    // An anonymous RPC result has no IOP declaration of its own, so iopc
+    // emits no native Rust for it: mirror the C struct by hand.
+    #[repr(C)]
+    #[allow(nonstandard_style)]
+    pub struct exiop__hello_iface__send_res__t {
+        pub res: i32,
+    }
+
+    impl Base for exiop__hello_iface__send_res__t {}
+    impl StructUnion for exiop__hello_iface__send_res__t {
+        fn get_cdesc(&self) -> *const iop_struct_t {
+            &raw const exiop__hello_iface__send_res__s
+        }
+    }
+    impl CStructUnion for exiop__hello_iface__send_res__t {
+        const CDESC: *const iop_struct_t = &raw const exiop__hello_iface__send_res__s;
+    }
+    impl Struct for exiop__hello_iface__send_res__t {}
+    impl CStruct for exiop__hello_iface__send_res__t {}
 }
 
 /// Gathers the "global" state of the example in a single place.
@@ -161,13 +199,12 @@ unsafe extern "C" fn exiop_send_async_impl(
     _ic: *mut ichannel_t,
     _slot: u64,
     arg: *mut exiop__hello_iface__send_async_args__t,
-    _hdr: *const ic__hdr__t,
+    _hdr: *const ic__hdr__t_raw,
 ) {
     let arg = unsafe { &*arg };
     eprintln!(
         "received: msg = '{}', from client = {}",
-        arg.msg__get(),
-        arg.seqnum
+        arg.msg, arg.seqnum
     );
 }
 
@@ -184,7 +221,7 @@ unsafe extern "C" fn exiop_client_on_event(ic: *mut ichannel_t, evt: ic_event_t)
                 let icq = {
                     let args = exiop__hello_iface__send_args__t {
                         seqnum: 1,
-                        msg: lstr::raw("From client : Hello (1)"),
+                        msg: lstr::from_str("From client : Hello (1)"),
                     };
                     ICQuery {
                         ic: ic.0,
@@ -207,7 +244,7 @@ unsafe extern "C" fn exiop_client_on_event(ic: *mut ichannel_t, evt: ic_event_t)
             run_future(future, |result| match result {
                 Ok(res) => eprintln!("helloworld: res = {}", res.res),
                 Err(IcError::Exn(exn)) => {
-                    eprintln!("cannot send (exception {}): {}", exn.code, exn.desc__get());
+                    eprintln!("cannot send (exception {}): {}", exn.code, exn.desc);
                 }
                 Err(IcError::Status(status)) => {
                     eprintln!("cannot send: query failed with status {status:?}");
@@ -258,14 +295,10 @@ unsafe extern "C" fn exiop_send_impl(
     ic: *mut ichannel_t,
     slot: u64,
     arg: *mut exiop__hello_iface__send_args__t,
-    _hdr: *const ic__hdr__t,
+    _hdr: *const ic__hdr__t_raw,
 ) {
     let arg = unsafe { &*arg };
-    eprintln!(
-        "helloworld: msg = '{}', seqnum = {}",
-        arg.msg__get(),
-        arg.seqnum
-    );
+    eprintln!("helloworld: msg = '{}', seqnum = {}", arg.msg, arg.seqnum);
 
     unsafe {
         exiop_reply_send(ic, slot, 1);
@@ -276,7 +309,7 @@ unsafe extern "C" fn exiop_send_impl(
         for &client in &g.clients {
             if client != ic {
                 unsafe {
-                    exiop_send_async_query(client, 0, arg.msg);
+                    exiop_send_async_query(client, 0, arg.msg.as_raw());
                 }
             }
         }

@@ -71,11 +71,12 @@ mod iop_tests {
     use std::ptr;
 
     use crate::bindings::{
-        core__pkg, ic__hdr__u, ic__ic_priority__e, ic__ic_priority__t, ic__pkg, ic__simple_hdr__t,
-        tstiop__full_opt__t, tstiop__full_ref__t, tstiop__full_repeated__t,
-        tstiop__full_required__t, tstiop__get_bpack_sz_en__e, tstiop__get_bpack_sz_st__t,
-        tstiop__get_bpack_sz_u__u, tstiop__my_ref_union__u, tstiop__my_referenced_struct__t,
-        tstiop__my_referenced_union__u, tstiop__my_union_c__u, tstiop__test_class__t,
+        core__pkg, ic__hdr__u, ic__ic_priority__e, ic__ic_priority__edesc, ic__pkg,
+        ic__simple_hdr__t, ic__tracer__t, tstiop__full_opt__t, tstiop__full_ref__t,
+        tstiop__full_repeated__t, tstiop__full_required__t, tstiop__get_bpack_sz_en__e,
+        tstiop__get_bpack_sz_st__t, tstiop__get_bpack_sz_u__u, tstiop__my_ref_union__u,
+        tstiop__my_referenced_struct__t, tstiop__my_referenced_union__u, tstiop__my_union_a__u,
+        tstiop__my_union_b__u, tstiop__my_union_c__u, tstiop__test_class__t,
         tstiop__test_class_child__t, tstiop__test_class_child2__t, tstiop__test_enum__e,
         tstiop__test_struct__t, tstiop__test_union__u,
     };
@@ -371,11 +372,11 @@ mod iop_tests {
     fn iop_enum_trait() {
         // Test a C IOP enum implement the CEnum trait
         fn assert_impl_enum<T: CEnum>() {}
-        assert_impl_enum::<ic__ic_priority__t>();
+        assert_impl_enum::<ic__ic_priority__e>();
 
         // Test the get_cdesc method
-        let prio = ic__ic_priority__t::IC_PRIORITY_NORMAL;
-        assert!(ptr::eq(prio.get_cdesc(), &raw const ic__ic_priority__e));
+        let prio = ic__ic_priority__e::NORMAL;
+        assert!(ptr::eq(prio.get_cdesc(), &raw const ic__ic_priority__edesc));
     }
 
     // }}}
@@ -450,9 +451,8 @@ mod iop_tests {
         // FIXME: we should not have to make all these unsafe conversions manually
         let mut child = iop_new!(tstiop__test_class_child2, { u: 5 });
         iop_set!(obj, { o: unsafe { &mut *ptr::from_mut(&mut child).cast::<tstiop__test_class__t>() } });
-        let o = iop_get!(obj, o);
         let child2: &tstiop__test_class_child2__t =
-            unsafe { &*ptr::from_ref(&*o).cast::<tstiop__test_class_child2__t>() };
+            unsafe { &*ptr::from_ref(iop_get!(obj, o)).cast::<tstiop__test_class_child2__t>() };
         assert!(ptr::eq(child2, &raw const child));
         assert_eq!(iop_get!(child2, u), 5);
 
@@ -617,15 +617,14 @@ mod iop_tests {
         })});
         if let Some(val) = iop_get!(obj, o) {
             let child2: &tstiop__test_class_child2__t =
-                unsafe { &*ptr::from_ref(&*val).cast::<tstiop__test_class_child2__t>() };
+                unsafe { &*ptr::from_ref(val).cast::<tstiop__test_class_child2__t>() };
             assert!(ptr::eq(child2, &raw const child));
             assert_eq!(iop_get!(child2, u), 5);
         } else {
             panic!("expected Some for class field");
         }
         iop_set!(obj, { o: None });
-        let o_field: Option<&mut tstiop__test_class__t> = iop_get!(obj, o);
-        assert!(o_field.is_none());
+        assert!(iop_get!(obj, o).is_none());
 
         // union field
         assert!(iop_get!(obj, un).is_none());
@@ -857,8 +856,8 @@ mod iop_tests {
     #[test]
     fn iop_union_value_variants() {
         // scalar field
-        let un = tstiop__get_bpack_sz_u__u::i8__var(12);
-        assert!(matches!(un, tstiop__get_bpack_sz_u__u::i8__var(val) if val == 12));
+        let un = tstiop__get_bpack_sz_u__u::i8(12);
+        assert!(matches!(un, tstiop__get_bpack_sz_u__u::i8(val) if val == 12));
 
         // string field
         let un = tstiop__get_bpack_sz_u__u::s(lstr::from_str("coucou world"));
@@ -875,6 +874,108 @@ mod iop_tests {
         // struct field
         let un = tstiop__get_bpack_sz_u__u::st(iop_new!(tstiop__get_bpack_sz_st, { a: 42 }));
         assert!(matches!(un, tstiop__get_bpack_sz_u__u::st(val) if iop_get!(val, a) == 42));
+    }
+
+    /// Test reassigning a union to a different variant: the old value must
+    /// be dropped correctly. With the union represented as a real Rust
+    /// `enum`, this is now compiler-guaranteed by ordinary move/assignment
+    /// semantics — no manual drop bookkeeping needed, even for a nested
+    /// union-typed variant.
+    #[test]
+    // Several `un = Variant(...)` assignments below exist purely to be
+    // immediately overwritten, exercising the drop of the previous value —
+    // the lint can't tell that from a data-flow read.
+    #[allow(unused_assignments)]
+    fn iop_union_set_variant() {
+        // Primitive fields: plain reassignment.
+        let mut un = tstiop__test_union__u::i(1);
+        assert!(matches!(un, tstiop__test_union__u::i(v) if v == 1));
+
+        un = tstiop__test_union__u::s(lstr::from_str("hello"));
+        assert!(matches!(un, tstiop__test_union__u::s(v) if v == lstr::from_str("hello")));
+
+        un = tstiop__test_union__u::i(42);
+        assert!(matches!(un, tstiop__test_union__u::i(v) if v == 42));
+
+        // Nested union field: switching away from it must drop the old
+        // value without leaking or double-freeing.
+        let mut un = tstiop__my_union_b__u::bval(10);
+        un = tstiop__my_union_b__u::a(tstiop__my_union_a__u::us(lstr::from_str("nested")));
+        assert!(matches!(un, tstiop__my_union_b__u::a(v) if
+            matches!(v, tstiop__my_union_a__u::us(s) if s == lstr::from_str("nested"))));
+
+        un = tstiop__my_union_b__u::bval(99);
+        assert!(matches!(un, tstiop__my_union_b__u::bval(v) if v == 99));
+
+        // Switch back to the union-typed variant, then overwrite it again
+        // while already active: the old nested value must still be dropped.
+        un = tstiop__my_union_b__u::a(tstiop__my_union_a__u::ua(7));
+        un = tstiop__my_union_b__u::a(tstiop__my_union_a__u::ua(8));
+        assert!(matches!(un, tstiop__my_union_b__u::a(v) if
+            matches!(v, tstiop__my_union_a__u::ua(i) if i == 8)));
+
+        // Escaped field names: the enum variant keeps the natural name
+        // (`i8`) even though the underlying field is `i8__var` in the IOP
+        // source.
+        let mut un = tstiop__get_bpack_sz_u__u::i8(1);
+        un = tstiop__get_bpack_sz_u__u::i8(5);
+        assert!(matches!(un, tstiop__get_bpack_sz_u__u::i8(v) if v == 5));
+
+        un = tstiop__get_bpack_sz_u__u::u8(6);
+        assert!(matches!(un, tstiop__get_bpack_sz_u__u::u8(v) if v == 6));
+
+        // Ref-like fields: the variant just holds a `&mut T`; the
+        // referenced value is borrowed, never owned or dropped by the
+        // union itself.
+        let mut st = iop_new!(tstiop__my_referenced_struct, { a: 1 });
+        let mut run = tstiop__my_referenced_union__u::b(2);
+        let mut un = tstiop__my_ref_union__u::s(&mut st);
+        un = tstiop__my_ref_union__u::u(&mut run);
+        assert!(matches!(un, tstiop__my_ref_union__u::u(v) if
+            matches!(&*v, tstiop__my_referenced_union__u::b(b) if *b == 2)));
+    }
+
+    /// Test the `iop_new!`/`iop_set!`/`iop_get!` macro plumbing against the
+    /// `ic` package: so far it had only been exercised on `tstiop`, so this
+    /// makes sure it isn't package-specific.
+    #[test]
+    fn iop_ic_package_get_set_new() {
+        // Plain struct, required scalar fields.
+        let mut tracer = iop_new!(ic__tracer, { token: 1, epoch: 2 });
+        assert_eq!(iop_get!(tracer, token), 1);
+        assert_eq!(iop_get!(tracer, epoch), 2);
+        iop_set!(tracer, { token: 10 });
+        assert_eq!(iop_get!(tracer, token), 10);
+
+        // Struct with a default value (`payload`), plus optional
+        // string/bool/u64 fields.
+        let mut hdr = iop_new!(ic__simple_hdr);
+        assert_eq!(iop_get!(hdr, payload), -1);
+        iop_set!(hdr, { payload: 42 });
+        assert_eq!(iop_get!(hdr, payload), 42);
+
+        assert!(iop_get!(hdr, login).is_null());
+        iop_set!(hdr, { login: lstr::from_str("bob") });
+        assert_eq!(iop_get!(hdr, login), lstr::from_str("bob"));
+
+        let dealias_opt: Option<bool> = iop_get!(hdr, dealias).into();
+        assert_eq!(dealias_opt, None);
+        iop_set!(hdr, { dealias: Some(true) });
+        let dealias_opt: Option<bool> = iop_get!(hdr, dealias).into();
+        assert_eq!(dealias_opt, Some(true));
+
+        let workspace_id_opt: Option<u64> = iop_get!(hdr, workspace_id).into();
+        assert_eq!(workspace_id_opt, None);
+        iop_set!(hdr, { workspace_id: Some(7) });
+        let workspace_id_opt: Option<u64> = iop_get!(hdr, workspace_id).into();
+        assert_eq!(workspace_id_opt, Some(7));
+
+        // Union: reassigning to the `simple` variant drops whatever variant
+        // was active before.
+        let mut un = ic__hdr__u::simple(iop_new!(ic__simple_hdr, { payload: 1 }));
+        assert!(matches!(un, ic__hdr__u::simple(v) if v.payload == 1));
+        un = ic__hdr__u::simple(iop_new!(ic__simple_hdr, { payload: 2 }));
+        assert!(matches!(un, ic__hdr__u::simple(v) if v.payload == 2));
     }
 
     // }}}
