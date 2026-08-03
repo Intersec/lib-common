@@ -21,11 +21,6 @@
 #else
 #  define IS_LIB_COMMON_THR_MPSC_H
 
-#  if !defined(__x86_64__) && !defined(__i386__)
-#    error                                                                   \
-        "this file assumes a strict memory model and is probably buggy on !x86"
-#  endif
-
 /*
  * This file provides an implementation of lock-free intrusive MPSC queue.
  *
@@ -34,6 +29,11 @@
  * It means that it's possible to concurently add elements to these queues
  * without taking any locks, but that only one single consumer is allowed at
  * any time.
+ *
+ * The ordering discipline, which does not rely on a strict memory model: a
+ * producer publishes a node with a release, and every load that returns a
+ * node to the consumer is an acquire. Loads used to take a decision that an
+ * atomic read-modify-write validates afterwards are relaxed on purpose.
  */
 
 typedef struct mpsc_node_t mpsc_node_t;
@@ -243,6 +243,9 @@ static inline bool __mpsc_queue_drain_end(
 static inline __attr_cold__ bool
 mpsc_queue_pop_slow(mpsc_queue_t *q, mpsc_node_t *head, bool block)
 {
+    /* XXX the tail is only a hint here: the exchange below is what really
+     * decides whether the queue was emptied, so a stale value is harmless.
+     */
     mpsc_node_t *tail = atomic_load_explicit(&q->tail, memory_order_relaxed);
     mpsc_node_t *next;
 
@@ -254,13 +257,13 @@ mpsc_queue_pop_slow(mpsc_queue_t *q, mpsc_node_t *head, bool block)
         atomic_store_explicit(&q->head.next, head, memory_order_relaxed);
     }
 
-    next = atomic_load_explicit(&head->next, memory_order_relaxed);
+    next = atomic_load_explicit(&head->next, memory_order_acquire);
     if (next == NULL) {
         if (!block) {
             return false;
         }
         while ((next = atomic_load_explicit(
-                    &head->next, memory_order_relaxed
+                    &head->next, memory_order_acquire
                 )) == NULL)
         {
             cpu_relax();
@@ -286,8 +289,12 @@ mpsc_queue_pop_slow(mpsc_queue_t *q, mpsc_node_t *head, bool block)
  */
 static inline mpsc_node_t *mpsc_queue_pop(mpsc_queue_t *q, bool block)
 {
+    /* XXX both loads must be acquire: the nodes they return are handed to the
+     * caller, which reads the object they are embedded in. They pair with the
+     * release of mpsc_queue_push(), which is what publishes that object.
+     */
     mpsc_node_t *head =
-        atomic_load_explicit(&q->head.next, memory_order_relaxed);
+        atomic_load_explicit(&q->head.next, memory_order_acquire);
     mpsc_node_t *next;
 
     if (head == NULL) {
@@ -295,7 +302,7 @@ static inline mpsc_node_t *mpsc_queue_pop(mpsc_queue_t *q, bool block)
     }
 
     if (likely(
-            next = atomic_load_explicit(&head->next, memory_order_relaxed)
+            next = atomic_load_explicit(&head->next, memory_order_acquire)
         ))
     {
         atomic_store_explicit(&q->head.next, next, memory_order_relaxed);
