@@ -61,6 +61,23 @@ is_cpp()
     esac
 }
 
+# Ask the compiler rather than uname, so that this stays correct when
+# cross-compiling.
+target_arch="$("$cc" -dumpmachine | cut -d- -f1)"
+
+# Baseline architecture profile.
+#
+# Both profiles below are deliberately recent: x86-64-v3 requires AVX2
+# (Haswell, 2013) and armv8.2-a dates from 2016, which covers every Neoverse
+# core. Lower them if support for older hardware is ever needed.
+echo_march()
+{
+    case "$target_arch" in
+        x86_64) echo -march=x86-64-v3;;
+        aarch64) echo -march=armv8.2-a;;
+    esac
+}
+
 get_internal_clang_args()
 {
     while test $# != 0; do
@@ -170,8 +187,7 @@ EOF
         fi
         if clang_prereq 12.0; then
             if test "$2" != "rewrite"; then
-                # Enable x86-64-v3 architecture profile
-                echo -march=x86-64-v3
+                echo_march
             fi
         fi
         if is_cpp && clang_prereq 20.0; then
@@ -237,8 +253,7 @@ EOF
         # false-positive, see
         # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=97048
         echo -Wno-stringop-overread
-        # Enable x86-64-v3 architecture profile
-        echo -march=x86-64-v3
+        echo_march
     fi
 
     if is_cpp; then
