@@ -332,7 +332,7 @@ class CargoBuildBase(Task.Task):  # type: ignore[misc]
         # - Set the environment variable 'RUSTFLAGS' and 'RUSTDOCFLAGS' to
         #   '-Zsanitizer={sanitizer}'.
         # - Build the standard Rust library itself with '-Z build-std'.
-        # - Set the explicit target 'x86_64-unknown-linux-gnu'.
+        # - Set the explicit target to the rust host triple.
         if self.env.USE_SANITIZER and not self.env.USE_PIC:
             sanitizer = self.env.SANITIZER
             old_rustflags = os.environ.get('RUSTFLAGS', '')
@@ -355,7 +355,7 @@ class CargoBuildBase(Task.Task):  # type: ignore[misc]
             cargo_exec_cmd += [
                 '-Zbuild-std=panic_abort,std',
                 '--target',
-                'x86_64-unknown-linux-gnu',
+                self.env.RUST_HOST_TRIPLE,
             ]
 
         cargo_exec_cmd += [
@@ -443,13 +443,13 @@ def rust_create_task(self: TaskGen) -> None:
         cargo_build_dir = osp.join(osp.dirname(cargo_build_dir), 'dev')
 
     # Special case for sanitizers + not pic.
-    # In that case, the target build is located in a
-    # 'x86_64-unknown-linux-gnu' sub directory
+    # In that case, the target build is located in a sub directory named after
+    # the target triple passed to cargo.
     if not use_pic and ctx.env.USE_SANITIZER:
         profile_dir = osp.basename(cargo_build_dir)
         target_dir = osp.dirname(cargo_build_dir)
         cargo_build_dir = osp.join(
-            target_dir, 'x86_64-unknown-linux-gnu', profile_dir
+            target_dir, ctx.env.RUST_HOST_TRIPLE, profile_dir
         )
 
     cargo_bld_name = cargo_build_dir + target_profile_suffix
@@ -582,6 +582,22 @@ def rust_add_dep_task(self: TaskGen) -> None:
 # {{{ configure
 
 
+def get_rust_host_triple(ctx: ConfigurationContext) -> str:
+    """Get the target triple rustc builds for by default."""
+    ctx.start_msg('Checking for rust host triple')
+
+    out = ctx.cmd_and_log(ctx.env.RUSTC + ['-vV'])
+    for line in out.splitlines():
+        if line.startswith('host:'):
+            triple = line.split(':', 1)[1].strip()
+            ctx.end_msg(triple)
+            return triple
+
+    ctx.end_msg('not found', color='RED')
+    ctx.fatal('unable to read the host triple from `rustc -vV`')
+    return ''  # Dummy return
+
+
 def sanitizer_add_toolchain(ctx: ConfigurationContext) -> None:
     if not ctx.env.USE_SANITIZER:
         # Nothing to do
@@ -606,6 +622,9 @@ def configure(ctx: ConfigurationContext) -> None:
 
     ctx.find_program('cargo', var='CARGO')
     ctx.find_program('rustup', var='RUSTUP')
+    ctx.find_program('rustc', var='RUSTC')
+
+    ctx.env.RUST_HOST_TRIPLE = get_rust_host_triple(ctx)
 
     if ctx.exec_command(
         ctx.env.CARGO + ['tree', '--quiet', '--locked'],

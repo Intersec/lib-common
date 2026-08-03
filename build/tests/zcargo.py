@@ -277,6 +277,22 @@ class TestSuite:
         return f'{s:.0f}% skipped {p:.0f}% passed {f:.0f}% failed'
 
 
+def get_rust_host_triple() -> str:
+    """Get the target triple rustc builds for by default."""
+    out = subprocess.run(
+        [os.environ.get('RUSTC', 'rustc'), '-vV'],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+
+    for line in out.splitlines():
+        if line.startswith('host:'):
+            return line.split(':', 1)[1].strip()
+
+    raise RuntimeError('unable to read the host triple from `rustc -vV`')
+
+
 def get_cargo_test_cmd(pkg: str, argv: list[str]) -> list[str]:
     # Build cargo command: forward arguments after --
     # Ask for no colored output, however we will strip ansi control sequences
@@ -293,7 +309,7 @@ def get_cargo_test_cmd(pkg: str, argv: list[str]) -> list[str]:
     cmd.append('test')
 
     if 'USE_SANITIZER' in os.environ:
-        cmd.extend(['--target', 'x86_64-unknown-linux-gnu'])
+        cmd.extend(['--target', get_rust_host_triple()])
 
     if 'CARGO_PROFILE' in os.environ:
         cmd.extend(['--profile', os.environ['CARGO_PROFILE']])
