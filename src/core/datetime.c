@@ -121,6 +121,25 @@ unsigned long hardclock(void)
     asm("mov %0 = ar.itc" : "=r"(itc));
     return itc;
 }
+
+#  elif defined(__aarch64__)
+
+/* XXX: unlike the other architectures here, this is not a core cycle counter.
+ *      CNTVCT_EL0 counts at the fixed frequency reported by CNTFRQ_EL0,
+ *      usually between 24 and 100MHz, so its values are one to two orders of
+ *      magnitude smaller than the ones RDTSC returns. All the callers only
+ *      compute differences or ratios, so this only shows up in the magnitude
+ *      of the thr_acc debug traces.
+ *
+ *      No `isb` is emitted before the read, which leaves it as un-serialising
+ *      as the RDTSC above.
+ */
+unsigned long hardclock(void)
+{
+    unsigned long cnt;
+    asm volatile("mrs %0, cntvct_el0" : "=r"(cnt));
+    return cnt;
+}
 #  else
 #    error unimplemented for your arch
 #  endif
