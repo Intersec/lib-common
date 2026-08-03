@@ -23,7 +23,19 @@
 
 /* Spinlock {{{ */
 
-#  define cpu_relax() asm volatile("rep; nop" ::: "memory")
+/* Hint to the core that we are in a spin loop.
+ *
+ * On aarch64 `isb sy` is used rather than `yield`: yield is a no-op on
+ * most implementations, while the pipeline flush of isb gives the delay
+ * a spin loop actually wants.
+ */
+#  if defined(__x86_64__) || defined(__i386__)
+#    define cpu_relax() asm volatile("rep; nop" ::: "memory")
+#  elif defined(__aarch64__)
+#    define cpu_relax() asm volatile("isb sy" ::: "memory")
+#  else
+#    error "cpu_relax() is unimplemented for your arch"
+#  endif
 
 typedef int spinlock_t;
 
