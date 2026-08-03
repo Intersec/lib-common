@@ -74,10 +74,17 @@
 //! An object allocated on a [`TScope`] dies with it. [`IopDup::dup`] makes a deep copy that
 //! the caller owns, and that can move to another thread.
 
+// `Iop*` is the established naming convention for these public types
+// (`IopOption`, `IopArray`) and matches how the native `iopc`-generated
+// code references them; renaming away from the module's own `iop` name
+// isn't desirable just to please this lint.
+#![allow(clippy::module_name_repetitions)]
+
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::os::raw::c_void;
 use std::ptr;
+use std::slice::from_raw_parts;
 
 use crate::bindings::{
     iop_enum_t, iop_env_ctx_acquire, iop_env_ctx_dup, iop_env_ctx_get_struct, iop_env_ctx_guard_t,
@@ -727,6 +734,100 @@ impl Drop for Env {
     }
 }
 
+// {{{ Rust IOP-Option and IOP-Array
+
+/// Mirror of the C `iop_option__t` layout, referenced by the generated
+/// `*.iop.rs` files for optional scalar fields.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct IopOption<T> {
+    v: T,
+    has_field: bool,
+}
+
+impl<T> From<IopOption<T>> for Option<T> {
+    fn from(value: IopOption<T>) -> Self {
+        value.has_field.then_some(value.v)
+    }
+}
+
+impl<T: Default> From<Option<T>> for IopOption<T> {
+    fn from(value: Option<T>) -> Self {
+        match value {
+            Some(v) => IopOption { v, has_field: true },
+            None => IopOption {
+                v: T::default(),
+                has_field: false,
+            },
+        }
+    }
+}
+
+/// Mirror of the C `IOP_ARRAY_OF(T)` layout, referenced by the generated
+/// `*.iop.rs` files for repeated fields.
+///
+/// The array is a *shared* borrow: it is only ever built from a `&[T]`
+/// and only ever read back as a `&[T]`. `v` is a `*mut T` because the C
+/// layout declares `T *tab`, not because anything writes through it; the
+/// C side only reads the array (packing, JSON export). This is why the
+/// marker borrows `&'a [T]` and not `&'a mut [T]`, which in turn is what
+/// makes `Copy` sound.
+///
+/// Should a repeated field ever need to be mutated from Rust, this model
+/// must change as a whole: the constructor must take a `&'a mut [T]`,
+/// the marker must become `PhantomData<&'a mut [T]>` and `Copy` must go.
+#[repr(C)]
+pub struct IopArray<'a, T> {
+    v: *mut T,
+    len: i32,
+    flags: u32,
+    _marker: PhantomData<&'a [T]>,
+}
+
+impl<T> Clone for IopArray<'_, T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<T> Copy for IopArray<'_, T> {}
+
+impl<'a, T> From<&'a IopArray<'a, T>> for &'a [T] {
+    fn from(value: &'a IopArray<'a, T>) -> Self {
+        value.as_slice()
+    }
+}
+
+impl<'a, T> From<IopArray<'a, T>> for &'a [T] {
+    fn from(value: IopArray<'a, T>) -> Self {
+        if value.len == 0 {
+            &[]
+        } else {
+            unsafe { from_raw_parts(value.v, value.len as usize) }
+        }
+    }
+}
+
+impl<'a, T> From<&'a [T]> for IopArray<'a, T> {
+    fn from(value: &'a [T]) -> Self {
+        Self {
+            v: value.as_ptr().cast_mut(),
+            len: i32::try_from(value.len()).expect("IOP array is too large"),
+            flags: 0,
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<T> IopArray<'_, T> {
+    pub fn as_slice(&self) -> &[T] {
+        if self.len == 0 {
+            &[]
+        } else {
+            unsafe { from_raw_parts(self.v, self.len as usize) }
+        }
+    }
+}
 // }}}
 // {{{ Macros
 

@@ -106,20 +106,15 @@ static bool iopc_rust_field_has_struct_def(const iopc_field_t *f)
            f->struct_def;
 }
 
-/* FIXME: This function doesn't support lifetime addition in some weird cases
- * (like struct repeated field depending on another struct with repeated
- * field). For example this case doesn't produce the right output :
+/* Tells whether the Rust type generated for `st` borrows `'a`, that is
+ * whether any of its fields is emitted as a borrowing wrapper.
  *
- * struct A {
- *     B[] b_st;
- *     C[] c_st;
- * }
- *
- * struct B {
- *     A[] a_st;
- * }
- * This correction will be part of a later patch !
- */
+ * The result is memoized in `_G.map`: the entry is written up-front as
+ * `false` and overwritten as soon as the walk finds a reason. That is
+ * safe because the walk only recurses through required by-value
+ * struct/union fields, which cannot form a cycle -- a type would have
+ * to contain itself -- so no entry is ever read back while it is still
+ * being computed. */
 static bool iopc_rust_struct_needs_lifetime(iopc_struct_t *st)
 {
     uint32_t pos;
@@ -134,7 +129,10 @@ static bool iopc_rust_struct_needs_lifetime(iopc_struct_t *st)
     tab_for_each_entry(f, &st->fields_in_c_struct_order) {
         bool needs_lt = false;
 
-        if (iopc_rust_field_is_string(f)) {
+        if (!iopc_rust_field_is_emitted(f)) {
+            continue;
+        }
+        if (f->repeat == IOP_R_REPEATED || iopc_rust_field_is_string(f)) {
             needs_lt = true;
         } else if (iopc_rust_field_has_struct_def(f)) {
             needs_lt = f->repeat == IOP_R_OPTIONAL ||
@@ -354,14 +352,14 @@ static void iopc_rust_repeat_dump(
 {
     if (iopc_rust_field_is_class(f)) {
         sb_addf(
-            buf, "    pub %pL: IopArray<&%smut %pL>, // repeated\n",
+            buf, "    pub %pL: IopArray<'a, &%smut %pL>, // repeated\n",
             &field_name, lt, &rust_type
         );
     } else if (f->kind == IOP_T_VOID) {
         return;
     } else {
         sb_addf(
-            buf, "    pub %pL: IopArray<%pL>, // repeated\n", &field_name,
+            buf, "    pub %pL: IopArray<'a, %pL>, // repeated\n", &field_name,
             &rust_type
         );
     }
