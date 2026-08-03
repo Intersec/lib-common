@@ -23,11 +23,6 @@
 #include <lib-common/unix.h>
 #include <lib-common/thr.h>
 
-#if !defined(__x86_64__) && !defined(__i386__)
-#  error                                                                     \
-      "this file assumes a strict memory model and is probably buggy on !x86"
-#endif
-
 #if !defined(NDEBUG) && !defined(__has_tsan)
 #  define __has_thr_acc
 #endif
@@ -55,16 +50,18 @@ struct thr_info_t {
     int id;
 
     /** top of the deque.
-     * this variable is accessed through shared_read, and modified through
-     * atomic_bool_cas which ensure load/store consistency. Hence no barrier
-     * is needed to read it.
+     * This variable is only moved by a compare-and-swap, which any thread may
+     * perform: the thread winning the swap owns the job that was at the
+     * previous value. The swap is sequentially consistent because its order
+     * against the reads of 'bot' is what guarantees a single owner per job.
      */
     atomic_uint top;
     /** bottom of the deque.
-     * this variable is only modified by the current thread, hence it doesn't
-     * need read barriers to read it. Though other threads do need a read
-     * barrier before acces, and the owner of the deque must publish new
-     * values through a write barrier.
+     * This variable is only modified by the thread owning the deque, which
+     * therefore needs no ordering to read it back. The other threads must
+     * read it *after* 'top' and with a sequentially consistent fence in
+     * between, and the owner must publish a new value before it reads 'top'
+     * back.
      */
     atomic_uint bot;
     atomic_bool alive;
@@ -388,8 +385,13 @@ void thr_schedule(thr_job_t *job)
  */
 static bool thr_consume_top(thr_info_t *ti, unsigned top, unsigned count)
 {
+    /* XXX the success must be sequentially consistent: this swap is the
+     * arbiter deciding who owns a job, and the proof that a single thread
+     * wins needs it to be ordered against the reads of 'bot' and 'top' done
+     * by the other candidates. A failure changes nothing, hence relaxed.
+     */
     return atomic_compare_exchange_strong_explicit(
-        &ti->top, &top, top + count, memory_order_relaxed,
+        &ti->top, &top, top + count, memory_order_seq_cst,
         memory_order_relaxed
     );
 }
@@ -416,8 +418,13 @@ static bool thr_job_dequeue(void)
      * to reclaim the ownership of that job.
      */
     bot = atomic_load_explicit(&self_g->bot, memory_order_relaxed) - 1;
-    atomic_store_explicit(&self_g->bot, bot, memory_order_seq_cst);
-    atomic_thread_fence(memory_order_acq_rel);
+    atomic_store_explicit(&self_g->bot, bot, memory_order_relaxed);
+    /* XXX the fence must be sequentially consistent, an acquire-release one
+     * does not order a store before a later load, which is precisely the edge
+     * needed here. It is also what publishes 'bot' to the stealing threads,
+     * hence the plain store above.
+     */
+    atomic_thread_fence(memory_order_seq_cst);
 
     /* Read the top line. The memory barrier ensure that the read is
      * effectively done after updating bot and thus that other thread may have
@@ -476,9 +483,16 @@ static int thr_job_try_steal(thr_info_t *ti, int depth)
 
     /* Read the limits of the queue of the thread and fetch the top 'job' of
      * the queue.
+     *
+     * XXX 'top' must be read before 'bot', and the fence is what makes that
+     * order hold for the other threads too. Without it the owner may run the
+     * job at 'bot' through the fast path of thr_job_dequeue(), which does not
+     * swap 'top', while we read a 'bot' predating its decrement and swap
+     * 'top' up to that very job: it would then run twice.
      */
-    top = atomic_load_explicit(&ti->top, memory_order_relaxed);
-    bot = atomic_load_explicit(&ti->bot, memory_order_relaxed);
+    top = atomic_load_explicit(&ti->top, memory_order_acquire);
+    atomic_thread_fence(memory_order_seq_cst);
+    bot = atomic_load_explicit(&ti->bot, memory_order_acquire);
 
     /* If the queue does not seem to be empty, then we know we own the job if
      * and only if we can CAS top. This works because a concurrent
