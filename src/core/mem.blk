@@ -645,16 +645,36 @@ __attribute__((constructor)) static void core_versions_initialize(void)
     );
 
     /* check sanity of PAGE_SIZE */
-    if (sysconf(_SC_PAGESIZE) != PAGE_SIZE) {
-        e_panic("System page size is different from defined PAGE_SIZE");
+    {
+        long page_size = sysconf(_SC_PAGESIZE);
+
+        /* XXX: PAGE_SIZE is a compile-time constant that the memory pools and
+         *      the QPS on-disk format are both laid out on, so this cannot be
+         *      adapted at runtime. Kernels with 16K or 64K pages are simply
+         *      not supported yet.
+         */
+        if (page_size != (long)PAGE_SIZE) {
+            e_panic(
+                "unsupported system page size: got %ld, expected %ld",
+                page_size, (long)PAGE_SIZE
+            );
+        }
     }
 
     /* check cache line */
     {
-        int cache_line_size = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
+        long cache_line_size = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
 
-        if (cache_line_size && cache_line_size != CACHE_LINE_SIZE) {
-            e_panic("Cache line is different from defined CACHELINE");
+        /* XXX: CACHE_LINE_SIZE only drives how structures are padded to avoid
+         *      false sharing, so a mismatch costs performance and nothing
+         *      else. Cores reporting 128 bytes exist, and some report 0.
+         */
+        if (cache_line_size && cache_line_size != (long)CACHE_LINE_SIZE) {
+            e_warning(
+                "system cache line is %ld bytes but CACHE_LINE_SIZE is %ld, "
+                "expect false sharing",
+                cache_line_size, (long)CACHE_LINE_SIZE
+            );
         }
     }
 }
