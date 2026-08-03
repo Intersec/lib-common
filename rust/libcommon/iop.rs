@@ -736,8 +736,6 @@ impl Drop for Env {
 
 // {{{ Rust IOP-Option and IOP-Array
 
-/// Mirror of the C `iop_option__t` layout, referenced by the generated
-/// `*.iop.rs` files for optional scalar fields.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct IopOption<T> {
@@ -760,6 +758,65 @@ impl<T: Default> From<Option<T>> for IopOption<T> {
                 has_field: false,
             },
         }
+    }
+}
+
+/// Uniform read of an optional IOP field, whatever its Rust
+/// representation: `IopOption<T>` for a scalar, `Option<&mut T>` for a
+/// struct, a union or a reference field.
+///
+/// The associated type is what makes this unambiguous where a plain
+/// `Into<Option<_>>` is not: for `IopOption<T>` the custom conversion
+/// and std's blanket `From<T> for Option<T>` both apply, and for
+/// `Option<T>` the reflexive `From<T> for T` competes with the same
+/// blanket. A single `Inner` per type leaves inference nothing to
+/// guess.
+///
+/// Used by `iop_get!`, always through its fully qualified form so that
+/// callers do not have to bring the trait into scope.
+pub trait IopOpt {
+    type Inner;
+
+    fn iop_opt(self) -> Option<Self::Inner>;
+}
+
+impl<T> IopOpt for IopOption<T> {
+    type Inner = T;
+
+    fn iop_opt(self) -> Option<Self::Inner> {
+        self.has_field.then_some(self.v)
+    }
+}
+
+impl<T> IopOpt for Option<T> {
+    type Inner = T;
+
+    fn iop_opt(self) -> Option<Self::Inner> {
+        self
+    }
+}
+
+pub trait IopFrom<T> {
+    /// Convert `value` to the field type.
+    fn iop_from(value: T) -> Self;
+}
+
+/// The value already has the field type: a no-op.
+impl<T> IopFrom<T> for T {
+    fn iop_from(value: T) -> Self {
+        value
+    }
+}
+
+impl<T: Default> IopFrom<Option<T>> for IopOption<T> {
+    fn iop_from(value: Option<T>) -> Self {
+        value.into()
+    }
+}
+
+impl<'a, T> IopFrom<&'a [T]> for IopArray<'a, T> {
+    fn iop_from(value: &'a [T]) -> Self {
+        value.into()
     }
 }
 
@@ -828,51 +885,72 @@ impl<T> IopArray<'_, T> {
         }
     }
 }
+
 // }}}
 // {{{ Macros
 
-/// Create a new IOP struct/class with optional field initialization, or a union with a required
-/// variant.
+/// Create a new IOP struct, class or union.
 ///
 /// # Usage
 ///
 /// ```ignore
-/// // For structs: create with default values
+/// // Struct or class: default values
 /// let tracer = iop_new!(ic__tracer);
 ///
-/// // For structs: create with field initialization
+/// // Struct or class: with field initialization
 /// let tracer = iop_new!(ic__tracer, {
 ///     token: 123,
 ///     epoch: 456,
 /// });
 ///
-/// // For unions: must specify a variant (no-args form is a compile error)
-/// let scalar = iop_new!(yaml__scalar_value, { u: 123 });
+/// // Union: name the variant, as for a Rust enum
+/// let scalar = iop_new!(yaml__scalar_value::u, 123);
 /// ```
 ///
-/// The type name should be the IOP type name without the `__t` suffix (e.g., `ic__tracer`
-/// for `ic__tracer__t`).
+/// The type name is the IOP type name without its suffix: `ic__tracer`
+/// for `ic__tracer__t`, `yaml__scalar_value` for `yaml__scalar_value__u`.
+///
+/// A struct and a union do not share a shape, hence the two syntaxes: a
+/// struct is a Rust struct with `pub` fields, while a union is emitted as
+/// a `#[repr(C, u32)]` Rust enum, so that its layout matches the C tagged
+/// union. A union therefore has no default value, and the no-argument
+/// form does not apply to it.
+///
+/// Fields are public and plain, so these macros just do `.field` access,
+/// going through `IopFrom` for every value: it reduces to a no-op for an
+/// already-correctly-typed one, and otherwise does the real work —
+/// converting to `IopOption<T>`/`IopArray<T>` — so call sites never need
+/// to spell that out themselves. Being narrower than `Into`, it also lets
+/// an integer literal take the field's type: `token: 123` on a `ulong`
+/// field, not `token: 123u64`. It does not widen, though: writing a value
+/// of another width takes an explicit `x.into()`.
 #[macro_export]
 macro_rules! iop_new {
-    // No fields: only works for structs (unions don't implement default_new())
+    // Union: name the variant, as for a Rust enum.
+    ($type:ident :: $variant:ident, $value:expr) => {{
+        $crate::paste::paste! {
+            <[<$type __u>]>::$variant($crate::iop::IopFrom::iop_from($value))
+        }
+    }};
+    // Struct or class, default values.
     ($type:ident) => {{
         $crate::paste::paste! {
             <[<$type __t>]>::default_new()
         }
     }};
-    // With fields: works for both structs and unions
+    // Struct or class, with field initialization.
     ($type:ident, { $($field:ident : $value:expr),* $(,)? }) => {{
         $crate::paste::paste! {
             let mut obj = <[<$type __t>]>::new();
             $(
-                obj.[<$field __set>]($value);
+                obj.$field = $crate::iop::IopFrom::iop_from($value);
             )*
             obj
         }
     }};
 }
 
-/// Set multiple fields on an IOP struct or union.
+/// Set multiple fields on an IOP struct.
 ///
 /// # Usage
 ///
@@ -886,11 +964,9 @@ macro_rules! iop_new {
 #[macro_export]
 macro_rules! iop_set {
     ($obj:expr, { $($field:ident : $value:expr),* $(,)? }) => {{
-        $crate::paste::paste! {
-            $(
-                ($obj).[<$field __set>]($value);
-            )*
-        }
+        $(
+            ($obj).$field = $crate::iop::IopFrom::iop_from($value);
+        )*
     }};
 }
 
@@ -904,42 +980,38 @@ macro_rules! iop_set {
 macro_rules! __iop_get_opt {
     // Optional chain: field?.rest → and_then
     ($obj:expr, $field:ident ? . $($rest:tt)+) => {
-        $crate::paste::paste! {
-            ($obj).[<$field __get>]().and_then(|__iop_v| {
-                $crate::__iop_get_opt!(__iop_v, $($rest)+)
-            })
-        }
+        $crate::iop::IopOpt::iop_opt(($obj).$field).and_then(|__iop_v| {
+            $crate::__iop_get_opt!(__iop_v, $($rest)+)
+        })
     };
     // Unwrap chain: field!.rest → expect then continue
     ($obj:expr, $field:ident ! . $($rest:tt)+) => {
-        $crate::paste::paste! {
-            $crate::__iop_get_opt!(
-                ($obj).[<$field __get>]()
-                    .expect(concat!("IOP field '", stringify!($field), "' is None")),
-                $($rest)+
-            )
-        }
+        $crate::__iop_get_opt!(
+            $crate::iop::IopOpt::iop_opt(($obj).$field)
+                .expect(concat!("IOP field '", stringify!($field), "' is None")),
+            $($rest)+
+        )
     };
     // Plain chain: field.rest
     ($obj:expr, $field:ident . $($rest:tt)+) => {
-        $crate::paste::paste! {
-            $crate::__iop_get_opt!(($obj).[<$field __get>](), $($rest)+)
-        }
+        $crate::__iop_get_opt!(($obj).$field, $($rest)+)
     };
     // Terminal unwrap
     ($obj:expr, $field:ident !) => {
-        $crate::paste::paste! {
-            Some(($obj).[<$field __get>]()
-                .expect(concat!("IOP field '", stringify!($field), "' is None")))
-        }
+        Some($crate::iop::IopOpt::iop_opt(($obj).$field)
+            .expect(concat!("IOP field '", stringify!($field), "' is None")))
+    };
+    // Terminal optional: already an Option<T>, so it is not re-wrapped
+    ($obj:expr, $field:ident ?) => {
+        $crate::iop::IopOpt::iop_opt(($obj).$field)
     };
     // Terminal simple access
     ($obj:expr, $field:ident) => {
-        $crate::paste::paste! { Some(($obj).[<$field __get>]()) }
+        Some(($obj).$field)
     };
 }
 
-/// Get a field value from an IOP struct or union.
+/// Get a field value from an IOP struct.
 ///
 /// # Usage
 ///
@@ -952,6 +1024,9 @@ macro_rules! __iop_get_opt {
 /// // Chained access for nested structs
 /// let nested_val = iop_get!(obj, nested.field);
 ///
+/// // Optional field as an Option<T>
+/// let maybe_val = iop_get!(obj, optional_field?);
+///
 /// // Optional field unwrap (panics if None)
 /// let required_val = iop_get!(obj, optional_field!);
 ///
@@ -961,42 +1036,46 @@ macro_rules! __iop_get_opt {
 /// // Optional chaining (returns None if the optional field is None)
 /// let maybe_val: Option<i32> = iop_get!(obj, optional_struct?.field);
 /// ```
+///
+/// NOTE: reading a field is a plain place expression, so it copies for a
+/// `Copy` field and *moves* otherwise. A `&mut T` field, an
+/// `Option<&mut T>` one, or a union held by value are therefore moved out
+/// of the object, which then cannot be read again until the field is set
+/// back. This is not something the macro can paper over: a `&mut` cannot
+/// be duplicated. Read those through `&obj.field` when you only need to
+/// look at them.
 #[macro_export]
 macro_rules! iop_get {
     // Optional chain: field?.rest → transitions to __iop_get_opt
     ($obj:expr, $field:ident ? . $($rest:tt)+) => {
-        $crate::paste::paste! {
-            ($obj).[<$field __get>]().and_then(|__iop_v| {
-                $crate::__iop_get_opt!(__iop_v, $($rest)+)
-            })
-        }
+        $crate::iop::IopOpt::iop_opt(($obj).$field).and_then(|__iop_v| {
+            $crate::__iop_get_opt!(__iop_v, $($rest)+)
+        })
     };
     // Unwrap then chain: field!.rest
     ($obj:expr, $field:ident ! . $($rest:tt)+) => {
-        $crate::paste::paste! {
-            $crate::iop_get!(
-                ($obj).[<$field __get>]()
-                    .expect(concat!("IOP field '", stringify!($field), "' is None")),
-                $($rest)+
-            )
-        }
+        $crate::iop_get!(
+            $crate::iop::IopOpt::iop_opt(($obj).$field)
+                .expect(concat!("IOP field '", stringify!($field), "' is None")),
+            $($rest)+
+        )
     };
     // Chained access: field.rest
     ($obj:expr, $field:ident . $($rest:tt)+) => {
-        $crate::paste::paste! {
-            $crate::iop_get!(($obj).[<$field __get>](), $($rest)+)
-        }
+        $crate::iop_get!(($obj).$field, $($rest)+)
     };
     // Optional unwrap: field! (panics if None)
     ($obj:expr, $field:ident !) => {
-        $crate::paste::paste! {
-            ($obj).[<$field __get>]()
-                .expect(concat!("IOP field '", stringify!($field), "' is None"))
-        }
+        $crate::iop::IopOpt::iop_opt(($obj).$field)
+            .expect(concat!("IOP field '", stringify!($field), "' is None"))
+    };
+    // Optional field as an Option<T>: field?
+    ($obj:expr, $field:ident ?) => {
+        $crate::iop::IopOpt::iop_opt(($obj).$field)
     };
     // Simple field access
     ($obj:expr, $field:ident) => {
-        $crate::paste::paste! { ($obj).[<$field __get>]() }
+        ($obj).$field
     };
 }
 

@@ -28,9 +28,9 @@ mod native_iop_bindings;
 /// [`WafBuild::splice_native_iop_bindings`]).
 const NATIVE_IOP_PKG: &[&str] = &[
     "core",
-    // "ic",
+    "ic",
     "yaml",
-    // "tstiop",
+    "tstiop",
     "tstiop_void_type",
     "tstiop_inheritance",
     "tstiop_backward_compat_deleted_struct_1",

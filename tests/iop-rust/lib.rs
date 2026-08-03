@@ -71,15 +71,13 @@ mod iop_tests {
     use std::ptr;
 
     use crate::bindings::{
-        core__pkg, ic__hdr__t, ic__hdr__tag_t, ic__ic_priority__e, ic__ic_priority__t, ic__pkg,
-        ic__simple_hdr__t, tstiop__full_opt__t, tstiop__full_ref__t, tstiop__full_repeated__t,
-        tstiop__full_required__t, tstiop__get_bpack_sz_en__t, tstiop__get_bpack_sz_st__t,
-        tstiop__get_bpack_sz_u__t, tstiop__get_bpack_sz_u__variant, tstiop__my_ref_union__t,
-        tstiop__my_ref_union__variant, tstiop__my_referenced_struct__t,
-        tstiop__my_referenced_union__t, tstiop__my_referenced_union__variant,
-        tstiop__my_union_c__t, tstiop__my_union_c__variant, tstiop__test_class__t,
-        tstiop__test_class_child__t, tstiop__test_class_child2__t, tstiop__test_enum__t,
-        tstiop__test_struct__t, tstiop__test_union__t, tstiop__test_union__variant,
+        core__pkg, ic__hdr__u, ic__ic_priority__e, ic__ic_priority__t, ic__pkg, ic__simple_hdr__t,
+        tstiop__full_opt__t, tstiop__full_ref__t, tstiop__full_repeated__t,
+        tstiop__full_required__t, tstiop__get_bpack_sz_en__e, tstiop__get_bpack_sz_st__t,
+        tstiop__get_bpack_sz_u__u, tstiop__my_ref_union__u, tstiop__my_referenced_struct__t,
+        tstiop__my_referenced_union__u, tstiop__my_union_c__u, tstiop__test_class__t,
+        tstiop__test_class_child__t, tstiop__test_class_child2__t, tstiop__test_enum__e,
+        tstiop__test_struct__t, tstiop__test_union__u,
     };
 
     // {{{ Test helpers
@@ -338,10 +336,11 @@ mod iop_tests {
     // {{{ IOP traits on C objects
 
     #[test]
+    #[allow(elided_lifetimes_in_paths)]
     fn iop_struct_class_trait() {
         // Test a C IOP structure implements the CStruct trait
         fn assert_impl_struct<T: CStruct>() {}
-        assert_impl_struct::<ic__simple_hdr__t>();
+        assert_impl_struct::<ic__simple_hdr__t<'_>>();
 
         // Test IOP structs have a new() method, that set the default values
         let hdr = ic__simple_hdr__t::new();
@@ -356,20 +355,14 @@ mod iop_tests {
     }
 
     #[test]
+    #[allow(elided_lifetimes_in_paths)]
     fn iop_union_trait() {
         // Test a C IOP union implements the CUnion trait
         fn assert_impl_union<T: CUnion>() {}
-        assert_impl_union::<ic__hdr__t>();
-
-        // Test IOP unions have a new() method
-        // FIXME: we should not have to do all this manually
-        let mut hdr = ic__hdr__t::new();
-        hdr.iop_tag = ic__hdr__tag_t::ic__hdr__simple__ft;
-        unsafe {
-            *hdr.__bindgen_anon_1.simple.as_mut() = ic__simple_hdr__t::new();
-        }
+        assert_impl_union::<ic__hdr__u<'_>>();
 
         // Test they have a json packing method
+        let hdr = iop_new!(ic__hdr::simple, ic__simple_hdr__t::new());
         let json = hdr.as_json();
         assert_eq!(json, "{ \"simple\": {\n    \"payload\": -1\n}\n }\n");
     }
@@ -394,80 +387,78 @@ mod iop_tests {
         let mut obj = iop_new!(tstiop__full_required);
 
         // byte/ubyte field
-        iop_set!(obj, { i8: -1 });
-        assert_eq!(iop_get!(obj, i8), -1);
-        iop_set!(obj, { u8: 1 });
-        assert_eq!(iop_get!(obj, u8), 1);
+        iop_set!(obj, { i8__var: -1 });
+        assert_eq!(iop_get!(obj, i8__var), -1);
+        iop_set!(obj, { u8__var: 1 });
+        assert_eq!(iop_get!(obj, u8__var), 1);
 
         // short/ushort field
-        iop_set!(obj, { i16: -2 });
-        assert_eq!(iop_get!(obj, i16), -2);
-        iop_set!(obj, { u16: 2 });
-        assert_eq!(iop_get!(obj, u16), 2);
+        iop_set!(obj, { i16__var: -2 });
+        assert_eq!(iop_get!(obj, i16__var), -2);
+        iop_set!(obj, { u16__var: 2 });
+        assert_eq!(iop_get!(obj, u16__var), 2);
 
         // int/uint field
-        iop_set!(obj, { i32: -3 });
-        assert_eq!(iop_get!(obj, i32), -3);
-        iop_set!(obj, { u32: 3 });
-        assert_eq!(iop_get!(obj, u32), 3);
+        iop_set!(obj, { i32__var: -3 });
+        assert_eq!(iop_get!(obj, i32__var), -3);
+        iop_set!(obj, { u32__var: 3 });
+        assert_eq!(iop_get!(obj, u32__var), 3);
 
         // long/ulong field
-        iop_set!(obj, { i64: -2_147_483_650 });
-        assert_eq!(iop_get!(obj, i64), -2_147_483_650);
-        iop_set!(obj, { u64: 2_147_483_650 });
-        assert_eq!(iop_get!(obj, u64), 2_147_483_650);
+        iop_set!(obj, { i64__var: -2_147_483_650 });
+        assert_eq!(iop_get!(obj, i64__var), -2_147_483_650);
+        iop_set!(obj, { u64__var: 2_147_483_650 });
+        assert_eq!(iop_get!(obj, u64__var), 2_147_483_650);
 
         // bool field
         iop_set!(obj, { b: true });
-        assert!(iop_get!(obj, b));
+        let b: bool = iop_get!(obj, b);
+        assert!(b);
 
         // double field
         iop_set!(obj, { d: 0.2 });
         assert_eq!(iop_get!(obj, d), 0.2);
 
         // string field
-        assert_eq!(iop_get!(obj, s), lstr::null_utf8());
+        assert!(iop_get!(obj, s).is_null());
         let test_str = String::from("Hello world");
-        iop_set!(obj, { s: lstr::from_str(&test_str).into() });
-        assert_eq!(iop_get!(obj, s), lstr::from_str("Hello world").into());
+        iop_set!(obj, { s: lstr::from_str(&test_str) });
+        assert_eq!(iop_get!(obj, s), lstr::from_str("Hello world"));
 
         // xml field
-        assert_eq!(iop_get!(obj, xml), lstr::null_utf8());
-        iop_set!(obj, { xml: lstr::from_str("<a/>").into() });
-        assert_eq!(iop_get!(obj, xml), lstr::from_str("<a/>").into());
+        assert!(iop_get!(obj, xml).is_null());
+        iop_set!(obj, { xml: lstr::from_str("<a/>") });
+        assert_eq!(iop_get!(obj, xml), lstr::from_str("<a/>"));
 
         // bytes field
-        assert_eq!(iop_get!(obj, data), lstr::null_bytes());
+        assert!(iop_get!(obj, data).is_null());
         let test_data = lstr::from_bytes(b"hello world");
-        iop_set!(obj, { data: test_data.into() });
-        assert_eq!(iop_get!(obj, data), lstr::from_bytes(b"hello world").into());
+        iop_set!(obj, { data: test_data });
+        assert_eq!(iop_get!(obj, data), lstr::from_bytes(b"hello world"));
 
         // enum field
-        iop_set!(obj, { e: tstiop__test_enum__t::TEST_ENUM_B });
-        assert_eq!(iop_get!(obj, e), tstiop__test_enum__t::TEST_ENUM_B);
-        assert!(matches!(
-            iop_get!(obj, e),
-            tstiop__test_enum__t::TEST_ENUM_B
-        ));
+        iop_set!(obj, { e: tstiop__test_enum__e::B });
+        assert_eq!(iop_get!(obj, e), tstiop__test_enum__e::B);
+        assert!(matches!(iop_get!(obj, e), tstiop__test_enum__e::B));
 
         // struct field
         iop_set!(obj, { st: iop_new!(tstiop__test_struct, { i: 123 }) });
         assert_eq!(iop_get!(obj, st.i), 123);
-        assert_eq!(iop_get!(obj, st.s), lstr::null_utf8());
+        assert!(iop_get!(obj, st.s).is_null());
 
         // class field
         // FIXME: we should not have to make all these unsafe conversions manually
-        let child = iop_new!(tstiop__test_class_child2, { u: 5 });
-        iop_set!(obj, { o: unsafe { &*ptr::from_ref(&child).cast::<tstiop__test_class__t>() } });
+        let mut child = iop_new!(tstiop__test_class_child2, { u: 5 });
+        iop_set!(obj, { o: unsafe { &mut *ptr::from_mut(&mut child).cast::<tstiop__test_class__t>() } });
+        let o = iop_get!(obj, o);
         let child2: &tstiop__test_class_child2__t =
-            unsafe { &*ptr::from_ref(iop_get!(obj, o)).cast::<tstiop__test_class_child2__t>() };
+            unsafe { &*ptr::from_ref(&*o).cast::<tstiop__test_class_child2__t>() };
         assert!(ptr::eq(child2, &raw const child));
         assert_eq!(iop_get!(child2, u), 5);
 
         // union field
-        iop_set!(obj, { un: iop_new!(tstiop__test_union, { i: 56 }) });
-        assert!(matches!(iop_get!(obj, un).iop_match(),
-                         tstiop__test_union__variant::i(val) if val == 56));
+        iop_set!(obj, { un: iop_new!(tstiop__test_union::i, 56) });
+        assert!(matches!(iop_get!(obj, un), tstiop__test_union__u::i(val) if val == 56));
     }
 
     #[test]
@@ -477,147 +468,171 @@ mod iop_tests {
         let mut obj = iop_new!(tstiop__full_opt);
 
         // byte/ubyte field
-        assert_eq!(iop_get!(obj, i8), None);
-        iop_set!(obj, { i8: Some(-1) });
-        assert_eq!(iop_get!(obj, i8), Some(-1));
-        assert_eq!(iop_get!(obj, i8!), -1);
-        iop_set!(obj, { i8: None });
-        assert_eq!(iop_get!(obj, i8), None);
+        assert_eq!(iop_get!(obj, i8__var?), None);
+        iop_set!(obj, { i8__var: Some(-1) });
+        assert_eq!(iop_get!(obj, i8__var?), Some(-1));
+        let v: i8 = iop_get!(obj, i8__var!);
+        assert_eq!(v, -1);
+        iop_set!(obj, { i8__var: None });
+        assert_eq!(iop_get!(obj, i8__var?), None);
 
-        assert_eq!(iop_get!(obj, u8), None);
-        iop_set!(obj, { u8: Some(1) });
-        assert_eq!(iop_get!(obj, u8!), 1);
-        iop_set!(obj, { u8: None });
-        assert_eq!(iop_get!(obj, u8), None);
+        assert_eq!(iop_get!(obj, u8__var?), None);
+        iop_set!(obj, { u8__var: Some(1) });
+        let v: u8 = iop_get!(obj, u8__var!);
+        assert_eq!(v, 1);
+        iop_set!(obj, { u8__var: None });
+        assert_eq!(iop_get!(obj, u8__var?), None);
 
         // short/ushort field
-        assert_eq!(iop_get!(obj, i16), None);
-        iop_set!(obj, { i16: Some(-2) });
-        assert_eq!(iop_get!(obj, i16!), -2);
-        iop_set!(obj, { i16: None });
-        assert_eq!(iop_get!(obj, i16), None);
+        assert_eq!(iop_get!(obj, i16__var?), None);
+        iop_set!(obj, { i16__var: Some(-2) });
+        let v: i16 = iop_get!(obj, i16__var!);
+        assert_eq!(v, -2);
+        iop_set!(obj, { i16__var: None });
+        assert_eq!(iop_get!(obj, i16__var?), None);
 
-        assert_eq!(iop_get!(obj, u16), None);
-        iop_set!(obj, { u16: Some(2) });
-        assert_eq!(iop_get!(obj, u16!), 2);
-        iop_set!(obj, { u16: None });
-        assert_eq!(iop_get!(obj, u16), None);
+        assert_eq!(iop_get!(obj, u16__var?), None);
+        iop_set!(obj, { u16__var: Some(2) });
+        let v: u16 = iop_get!(obj, u16__var!);
+        assert_eq!(v, 2);
+        iop_set!(obj, { u16__var: None });
+        assert_eq!(iop_get!(obj, u16__var?), None);
 
         // int/uint field
-        assert_eq!(iop_get!(obj, i32), None);
-        iop_set!(obj, { i32: Some(-3) });
-        assert_eq!(iop_get!(obj, i32!), -3);
-        iop_set!(obj, { i32: None });
-        assert_eq!(iop_get!(obj, i32), None);
+        assert_eq!(iop_get!(obj, i32__var?), None);
+        iop_set!(obj, { i32__var: Some(-3) });
+        let v: i32 = iop_get!(obj, i32__var!);
+        assert_eq!(v, -3);
+        iop_set!(obj, { i32__var: None });
+        assert_eq!(iop_get!(obj, i32__var?), None);
 
-        assert_eq!(iop_get!(obj, u32), None);
-        iop_set!(obj, { u32: Some(3) });
-        assert_eq!(iop_get!(obj, u32!), 3);
-        iop_set!(obj, { u32: None });
-        assert_eq!(iop_get!(obj, u32), None);
+        assert_eq!(iop_get!(obj, u32__var?), None);
+        iop_set!(obj, { u32__var: Some(3) });
+        let v: u32 = iop_get!(obj, u32__var!);
+        assert_eq!(v, 3);
+        iop_set!(obj, { u32__var: None });
+        assert_eq!(iop_get!(obj, u32__var?), None);
 
         // long/ulong field
-        assert_eq!(iop_get!(obj, i64), None);
-        iop_set!(obj, { i64: Some(-2_147_483_650) });
-        assert_eq!(iop_get!(obj, i64!), -2_147_483_650);
-        iop_set!(obj, { i64: None });
-        assert_eq!(iop_get!(obj, i64), None);
+        assert_eq!(iop_get!(obj, i64__var?), None);
+        iop_set!(obj, { i64__var: Some(-2_147_483_650) });
+        let v: i64 = iop_get!(obj, i64__var!);
+        assert_eq!(v, -2_147_483_650);
+        iop_set!(obj, { i64__var: None });
+        assert_eq!(iop_get!(obj, i64__var?), None);
 
-        assert_eq!(iop_get!(obj, u64), None);
-        iop_set!(obj, { u64: Some(2_147_483_650) });
-        assert_eq!(iop_get!(obj, u64!), 2_147_483_650);
-        iop_set!(obj, { u64: None });
-        assert_eq!(iop_get!(obj, u64), None);
+        assert_eq!(iop_get!(obj, u64__var?), None);
+        iop_set!(obj, { u64__var: Some(2_147_483_650) });
+        let v: u64 = iop_get!(obj, u64__var!);
+        assert_eq!(v, 2_147_483_650);
+        iop_set!(obj, { u64__var: None });
+        assert_eq!(iop_get!(obj, u64__var?), None);
 
         // bool field
-        assert_eq!(iop_get!(obj, b), None);
+        assert_eq!(iop_get!(obj, b?), None);
         iop_set!(obj, { b: Some(false) });
-        assert!(!iop_get!(obj, b!));
+        let v: bool = iop_get!(obj, b!);
+        assert!(!v);
         iop_set!(obj, { b: None });
-        assert_eq!(iop_get!(obj, b), None);
+        assert_eq!(iop_get!(obj, b?), None);
         iop_set!(obj, { b: Some(true) });
-        assert!(iop_get!(obj, b!));
+        let v: bool = iop_get!(obj, b!);
+        assert!(v);
 
         // double field
-        assert_eq!(iop_get!(obj, d), None);
+        assert_eq!(iop_get!(obj, d?), None);
         iop_set!(obj, { d: Some(0.2) });
-        assert_eq!(iop_get!(obj, d!), 0.2);
+        let v: f64 = iop_get!(obj, d!);
+        assert_eq!(v, 0.2);
         iop_set!(obj, { d: None });
-        assert_eq!(iop_get!(obj, d), None);
+        assert_eq!(iop_get!(obj, d?), None);
 
-        // string field
-        assert!(iop_get!(obj, s).is_none());
+        // string field (no Option wrapper: a null lstr is the "unset"
+        // sentinel). `iop_init_desc` leaves those fields null, so a freshly
+        // built object carries the value that means "unset".
+        let unset = iop_new!(tstiop__full_opt);
+
+        assert!(iop_get!(obj, s).is_null());
         let test_str = String::from("Hello world");
-        iop_set!(obj, { s: Some(lstr::from_str(&test_str).into()) });
-        assert_eq!(iop_get!(obj, s!), lstr::from_str("Hello world").into());
-        iop_set!(obj, { s: None });
-        assert!(iop_get!(obj, s).is_none());
+        iop_set!(obj, { s: lstr::from_str(&test_str) });
+        assert_eq!(iop_get!(obj, s), lstr::from_str("Hello world"));
+        iop_set!(obj, { s: iop_get!(unset, s) });
+        assert!(iop_get!(obj, s).is_null());
 
         // xml field
-        assert!(iop_get!(obj, xml).is_none());
+        assert!(iop_get!(obj, xml).is_null());
         let test_xml = lstr::from_str("<a/>");
-        iop_set!(obj, { xml: Some(test_xml.into()) });
-        assert_eq!(iop_get!(obj, xml!), lstr::from_str("<a/>").into());
-        iop_set!(obj, { xml: None });
-        assert!(iop_get!(obj, xml).is_none());
+        iop_set!(obj, { xml: test_xml });
+        assert_eq!(iop_get!(obj, xml), lstr::from_str("<a/>"));
+        iop_set!(obj, { xml: iop_get!(unset, xml) });
+        assert!(iop_get!(obj, xml).is_null());
 
         // bytes field
-        assert!(iop_get!(obj, data).is_none());
+        assert!(iop_get!(obj, data).is_null());
         let test_data = lstr::from_bytes(b"hello world");
-        iop_set!(obj, { data: Some(test_data.into()) });
-        assert_eq!(
-            iop_get!(obj, data!),
-            lstr::from_bytes(b"hello world").into()
-        );
-        iop_set!(obj, { data: None });
-        assert!(iop_get!(obj, data).is_none());
+        iop_set!(obj, { data: test_data });
+        assert_eq!(iop_get!(obj, data), lstr::from_bytes(b"hello world"));
+        iop_set!(obj, { data: iop_get!(unset, data) });
+        assert!(iop_get!(obj, data).is_null());
 
         // enum field
-        assert_eq!(iop_get!(obj, e), None);
-        iop_set!(obj, { e: Some(tstiop__test_enum__t::TEST_ENUM_B) });
-        assert_eq!(iop_get!(obj, e!), tstiop__test_enum__t::TEST_ENUM_B);
+        assert_eq!(iop_get!(obj, e?), None);
+        iop_set!(obj, { e: Some(tstiop__test_enum__e::B) });
+        assert_eq!(iop_get!(obj, e!), tstiop__test_enum__e::B);
         iop_set!(obj, { e: None });
-        assert_eq!(iop_get!(obj, e), None);
+        assert_eq!(iop_get!(obj, e?), None);
 
-        // void field
-        assert_eq!(iop_get!(obj, v), None);
-        iop_set!(obj, { v: Some(()) });
-        assert_eq!(iop_get!(obj, v!), ());
+        // void field (stored as a plain bool, not an Option<()> wrapper)
+        let void_v: bool = iop_get!(obj, v);
+        assert!(!void_v);
+        iop_set!(obj, { v: true });
+        let void_v: bool = iop_get!(obj, v);
+        assert!(void_v);
 
         // struct field
+        // NOTE: `obj.st` is `Option<&mut T>` (not `Copy`), so each
+        // `iop_get!` read below moves it out of `obj` — it's re-assigned
+        // before every read to keep `obj` valid for the next one.
         assert!(iop_get!(obj, st).is_none());
-        let st = iop_new!(tstiop__test_struct, { i: 123 });
-        iop_set!(obj, { st: Some(&st) });
+        let mut st = iop_new!(tstiop__test_struct, { i: 123 });
+        iop_set!(obj, { st: Some(&mut st) });
         assert_eq!(iop_get!(obj, st!.i), 123);
+        // A second fresh binding is used here (rather than re-pointing `obj.st`
+        // at `st` again) since `obj`'s lifetime parameter stays tied to the
+        // first `&mut st` borrow for as long as `obj` is alive.
+        let mut st2 = iop_new!(tstiop__test_struct, { i: 123 });
+        iop_set!(obj, { st: Some(&mut st2) });
         assert_eq!(iop_get!(obj, st?.i), Some(123));
         iop_set!(obj, { st: None });
         assert!(iop_get!(obj, st).is_none());
+        iop_set!(obj, { st: None });
         assert_eq!(iop_get!(obj, st?.i), None);
 
         // class field
         // FIXME: we should not have to make all these unsafe conversions manually
         assert!(iop_get!(obj, o).is_none());
-        let child = iop_new!(tstiop__test_class_child2, { u: 5 });
+        let mut child = iop_new!(tstiop__test_class_child2, { u: 5 });
         iop_set!(obj, { o: Some(unsafe {
-            &*ptr::from_ref(&child).cast::<tstiop__test_class__t>()
+            &mut *ptr::from_mut(&mut child).cast::<tstiop__test_class__t>()
         })});
         if let Some(val) = iop_get!(obj, o) {
             let child2: &tstiop__test_class_child2__t =
-                unsafe { &*ptr::from_ref(val).cast::<tstiop__test_class_child2__t>() };
+                unsafe { &*ptr::from_ref(&*val).cast::<tstiop__test_class_child2__t>() };
             assert!(ptr::eq(child2, &raw const child));
             assert_eq!(iop_get!(child2, u), 5);
         } else {
             panic!("expected Some for class field");
         }
         iop_set!(obj, { o: None });
-        assert!(iop_get!(obj, o).is_none());
+        let o_field: Option<&mut tstiop__test_class__t> = iop_get!(obj, o);
+        assert!(o_field.is_none());
 
         // union field
         assert!(iop_get!(obj, un).is_none());
-        let un = iop_new!(tstiop__test_union, { i: 56 });
-        iop_set!(obj, { un: Some(&un) });
-        assert!(matches!(iop_get!(obj, un!).iop_match(),
-                         tstiop__test_union__variant::i(val) if val == 56));
+        let mut un = tstiop__test_union__u::i(56);
+        iop_set!(obj, { un: Some(&mut un) });
+        let v: &mut tstiop__test_union__u<'_> = iop_get!(obj, un!);
+        assert!(matches!(v, tstiop__test_union__u::i(val) if *val == 56));
         iop_set!(obj, { un: None });
         assert!(iop_get!(obj, un).is_none());
     }
@@ -629,73 +644,82 @@ mod iop_tests {
 
         // scalar fields (only test with a static slice and dynamic vector, don't bother test with
         // all field types because implementation is the same for all)
-        assert_eq!(iop_get!(obj, i32), &[] as &[i32]);
-        iop_set!(obj, { i32: &[1, 2, 3] });
-        assert_eq!(iop_get!(obj, i32), &[1, 2, 3]);
+        let i32_slice: &[i32] = iop_get!(obj, i32__var).into();
+        assert_eq!(i32_slice, &[] as &[i32]);
+        iop_set!(obj, { i32__var: [1, 2, 3].as_slice() });
+        let i32_slice: &[i32] = iop_get!(obj, i32__var).into();
+        assert_eq!(i32_slice, &[1, 2, 3]);
 
-        let vec = vec![4, 5];
-        iop_set!(obj, { u32: &vec });
-        assert_eq!(iop_get!(obj, u32), &[4, 5]);
+        let arr = [4, 5];
+        iop_set!(obj, { u32__var: arr.as_slice() });
+        let u32_slice: &[u32] = iop_get!(obj, u32__var).into();
+        assert_eq!(u32_slice, &[4, 5]);
 
         // string field (bytes/xml have the same implem)
-        assert_eq!(iop_get!(obj, s).len(), 0);
+        let str_slice: &[lstr::BorrowedUtf8Lstr<'_>] = iop_get!(obj, s).into();
+        assert_eq!(str_slice.len(), 0);
         let test_str = String::from("Hello world");
-        let vec = vec![lstr::from_str(&test_str).into()];
-        iop_set!(obj, { s: &vec });
-        assert_eq!(iop_get!(obj, s).len(), 1);
-        assert_eq!(iop_get!(obj, s)[0], lstr::from_str("Hello world").into());
+        let strs = [lstr::from_str(&test_str)];
+        iop_set!(obj, { s: strs.as_slice() });
+        let str_slice: &[lstr::BorrowedUtf8Lstr<'_>] = iop_get!(obj, s).into();
+        assert_eq!(str_slice.len(), 1);
+        assert_eq!(str_slice[0], lstr::from_str("Hello world"));
 
         // enum field
-        assert_eq!(iop_get!(obj, e), &[]);
-        iop_set!(obj, { e: &[
-            tstiop__test_enum__t::TEST_ENUM_B,
-            tstiop__test_enum__t::TEST_ENUM_A,
-        ]});
+        let enum_slice: &[tstiop__test_enum__e] = iop_get!(obj, e).into();
+        assert_eq!(enum_slice, &[]);
+        iop_set!(obj, { e: [
+            tstiop__test_enum__e::B,
+            tstiop__test_enum__e::A,
+        ].as_slice() });
+        let enum_slice: &[tstiop__test_enum__e] = iop_get!(obj, e).into();
         assert_eq!(
-            iop_get!(obj, e),
-            &[
-                tstiop__test_enum__t::TEST_ENUM_B,
-                tstiop__test_enum__t::TEST_ENUM_A
-            ]
+            enum_slice,
+            &[tstiop__test_enum__e::B, tstiop__test_enum__e::A]
         );
 
         // struct field
-        assert_eq!(iop_get!(obj, st).len(), 0);
+        let struct_slice: &[tstiop__test_struct__t<'_>] = iop_get!(obj, st).into();
+        assert_eq!(struct_slice.len(), 0);
         let structs = [
             iop_new!(tstiop__test_struct, { i: 123 }),
             iop_new!(tstiop__test_struct, { i: 1234 }),
         ];
-        iop_set!(obj, { st: &structs });
-        assert_eq!(iop_get!(obj, st).len(), 2);
-        assert_eq!(iop_get!(iop_get!(obj, st)[0], i), 123);
-        assert_eq!(iop_get!(iop_get!(obj, st)[1], i), 1234);
+        iop_set!(obj, { st: structs.as_slice() });
+        let struct_slice: &[tstiop__test_struct__t<'_>] = iop_get!(obj, st).into();
+        assert_eq!(struct_slice.len(), 2);
+        assert_eq!(iop_get!(struct_slice[0], i), 123);
+        assert_eq!(iop_get!(struct_slice[1], i), 1234);
 
         // class field
         // FIXME: we should not have to make all these unsafe conversions manually
-        assert_eq!(iop_get!(obj, o).len(), 0);
+        let class_slice: &[&mut tstiop__test_class__t] = iop_get!(obj, o).into();
+        assert_eq!(class_slice.len(), 0);
 
-        let cls1 = iop_new!(tstiop__test_class_child2, { u: 5 });
-        let cls2 = iop_new!(tstiop__test_class_child);
+        let mut cls1 = iop_new!(tstiop__test_class_child2, { u: 5 });
+        let mut cls2 = iop_new!(tstiop__test_class_child);
         let classes = [
-            unsafe { &*ptr::from_ref(&cls1).cast::<tstiop__test_class__t>() },
-            unsafe { &*ptr::from_ref(&cls2).cast::<tstiop__test_class__t>() },
+            unsafe { &mut *ptr::from_mut(&mut cls1).cast::<tstiop__test_class__t>() },
+            unsafe { &mut *ptr::from_mut(&mut cls2).cast::<tstiop__test_class__t>() },
         ];
-        iop_set!(obj, { o: &classes });
-        assert_eq!(iop_get!(obj, o).len(), 2);
+        iop_set!(obj, { o: classes.as_slice() });
+        let class_slice: &[&mut tstiop__test_class__t] = iop_get!(obj, o).into();
+        assert_eq!(class_slice.len(), 2);
 
         // union field
-        assert_eq!(iop_get!(obj, un).len(), 0);
-        let uns = [
-            iop_new!(tstiop__test_union, { i: 56 }),
-            iop_new!(tstiop__test_union, { s: lstr::from_str(&test_str).into() }),
-        ];
-        iop_set!(obj, { un: &uns });
-        assert_eq!(iop_get!(obj, un).len(), 2);
-        assert!(matches!(iop_get!(obj, un)[0].iop_match(),
-                     tstiop__test_union__variant::i(val) if val == 56));
-        assert!(matches!(iop_get!(obj, un)[1].iop_match(),
-                         tstiop__test_union__variant::s(val)
-                         if val == lstr::from_str("Hello world").into()));
+        let union_slice: &[tstiop__test_union__u<'_>] = iop_get!(obj, un).into();
+        assert_eq!(union_slice.len(), 0);
+        let un1 = iop_new!(tstiop__test_union::i, 56);
+        let un2 = iop_new!(tstiop__test_union::s, lstr::from_str(&test_str));
+        let uns = [un1, un2];
+        iop_set!(obj, { un: uns.as_slice() });
+        let union_slice: &[tstiop__test_union__u<'_>] = iop_get!(obj, un).into();
+        assert_eq!(union_slice.len(), 2);
+        assert!(matches!(&union_slice[0],
+                     tstiop__test_union__u::i(val) if *val == 56));
+        assert!(matches!(&union_slice[1],
+                         tstiop__test_union__u::s(val)
+                         if *val == lstr::from_str("Hello world")));
 
         // Final check on json representation
         assert_eq!(
@@ -739,98 +763,118 @@ mod iop_tests {
 
     #[test]
     fn iop_struct_accessors_ref() {
+        // NOTE: a ref field is generated as `&'a mut T<'a>`, which ties the
+        // borrow to the referenced value's own lifetime parameter: once
+        // lent, `st` and `un` can never be named again, not even after
+        // `obj` dies. Aliasing is therefore checked by address identity
+        // rather than by reading the referenced value back. Whole-value
+        // union access goes through the plain `obj.field` (not
+        // `iop_get!`), since `iop_get!` would try to move the `&mut`
+        // reference out of `obj`.
+        let mut st = iop_new!(tstiop__test_struct, { i: 123 });
+        let mut un = iop_new!(tstiop__test_union::i, 56);
+        let st_addr = ptr::from_ref(&st);
+        let un_addr = ptr::from_ref(&un);
         let mut obj = iop_new!(tstiop__full_ref);
 
-        // reference struct
-        let mut st = iop_new!(tstiop__test_struct, { i: 123 });
-        iop_set!(obj, { st: &st });
-        assert_eq!(iop_get!(obj, st.i), 123);
-        assert_eq!(iop_get!(obj, st.s), lstr::null_utf8());
-        iop_set!(st, { i: 124 });
-        assert_eq!(iop_get!(obj, st.i), 124);
+        iop_set!(obj, { st: &mut st, un: &mut un });
 
-        // reference union
-        let mut un = iop_new!(tstiop__test_union, { i: 56 });
-        iop_set!(obj, { un: &un });
-        assert!(matches!(iop_get!(obj, un).iop_match(),
-                     tstiop__test_union__variant::i(val) if val == 56));
-        iop_set!(un, { i: 57 });
-        assert!(matches!(iop_get!(obj, un).iop_match(),
-                     tstiop__test_union__variant::i(val) if val == 57));
+        // reference struct: the field points at `st` itself, not a copy.
+        assert!(ptr::eq(ptr::from_ref(&*obj.st), st_addr));
+        assert_eq!(iop_get!(obj.st, i), 123);
+        assert!(iop_get!(obj.st, s).is_null());
+        iop_set!(obj.st, { i: 124 });
+        assert_eq!(iop_get!(obj.st, i), 124);
+
+        // reference union: same, and re-pointing writes through the
+        // reference rather than replacing it.
+        assert!(ptr::eq(ptr::from_ref(&*obj.un), un_addr));
+        assert!(matches!(&*obj.un, tstiop__test_union__u::i(val)
+                         if *val == 56));
+        *obj.un = iop_new!(tstiop__test_union::i, 57);
+        assert!(ptr::eq(ptr::from_ref(&*obj.un), un_addr));
+        assert!(matches!(&*obj.un, tstiop__test_union__u::i(val)
+                         if *val == 57));
     }
 
     // }}}
     // {{{ Unions manipulation
 
-    /// Test union manipulation for unions represented as Rust unions
+    /// Test union variants holding a reference to the value they carry
     #[test]
     #[allow(clippy::float_cmp)]
-    fn iop_union_as_rust_union() {
+    fn iop_union_ref_variants() {
         // scalar fields
-        let un = iop_new!(tstiop__my_union_c, { i_of_c: 12 });
-        assert!(matches!(un.iop_match(), tstiop__my_union_c__variant::i_of_c(val) if val == 12));
+        let un = tstiop__my_union_c__u::i_of_c(12);
+        assert!(matches!(&un, tstiop__my_union_c__u::i_of_c(val) if *val == 12));
 
-        let un = iop_new!(tstiop__my_union_c, { d_of_c: 13. });
-        assert!(matches!(un.iop_match(), tstiop__my_union_c__variant::d_of_c(val) if val == 13.));
+        let un = tstiop__my_union_c__u::d_of_c(13.);
+        assert!(matches!(&un, tstiop__my_union_c__u::d_of_c(val) if *val == 13.));
 
-        match un.iop_match() {
-            tstiop__my_union_c__variant::i_of_c(_) => panic!("unexpected i_of_c"),
-            tstiop__my_union_c__variant::d_of_c(val) => assert_eq!(val, 13.),
+        match un {
+            tstiop__my_union_c__u::i_of_c(_) => panic!("unexpected i_of_c"),
+            tstiop__my_union_c__u::d_of_c(val) => assert_eq!(val, 13.),
         }
 
         // reference fields
+        // NOTE: each re-point of a ref-like union field below uses a fresh
+        // binding (rather than mutating the previously-referenced value in
+        // place) since the union holds a real `&mut` borrow of it for as
+        // long as the union itself is alive.
         let mut st = iop_new!(tstiop__my_referenced_struct, { a: 42 });
-        let mut un = iop_new!(tstiop__my_ref_union, { s: &st });
-        assert!(matches!(un.iop_match(),
-                         tstiop__my_ref_union__variant::s(val) if iop_get!(val, a) == 42));
-        iop_set!(st, { a: 43 });
-        assert!(matches!(un.iop_match(),
-                         tstiop__my_ref_union__variant::s(val) if iop_get!(val, a) == 43));
+        let st_addr = ptr::from_ref(&st);
+        let mut un = iop_new!(tstiop__my_ref_union::s, &mut st);
 
-        let mut run = iop_new!(tstiop__my_referenced_union, { b: 56 });
-        iop_set!(un, { u: &run });
-        if let tstiop__my_ref_union__variant::u(val_u) = un.iop_match() {
-            assert!(matches!(val_u.iop_match(),
-                             tstiop__my_referenced_union__variant::b(b) if b == 56));
+        // The variant aliases `st` itself, and writing through it is
+        // visible on the next read through the variant.
+        if let tstiop__my_ref_union__u::s(val) = &mut un {
+            assert!(ptr::eq(ptr::from_ref(&**val), st_addr));
+            iop_set!(**val, { a: 43 });
+        } else {
+            panic!("expected struct field");
+        }
+        assert!(matches!(&un, tstiop__my_ref_union__u::s(val) if val.a == 43));
+
+        let mut run = iop_new!(tstiop__my_referenced_union::b, 56);
+        let run_addr = ptr::from_ref(&run);
+        let mut un = iop_new!(tstiop__my_ref_union::u, &mut run);
+
+        if let tstiop__my_ref_union__u::u(val_u) = &mut un {
+            assert!(ptr::eq(ptr::from_ref(&**val_u), run_addr));
+            assert!(matches!(**val_u, tstiop__my_referenced_union__u::b(b)
+                             if b == 56));
+            **val_u = iop_new!(tstiop__my_referenced_union::b, 57);
         } else {
             panic!("expected union field");
         }
-        iop_set!(run, { b: 57 });
-        if let tstiop__my_ref_union__variant::u(val_u) = un.iop_match() {
-            assert!(matches!(val_u.iop_match(),
-                             tstiop__my_referenced_union__variant::b(b) if b == 57));
-        } else {
-            panic!("expected union field");
-        }
+        assert!(matches!(&un, tstiop__my_ref_union__u::u(val_u)
+                         if matches!(**val_u,
+                                     tstiop__my_referenced_union__u::b(b)
+                                     if b == 57)));
     }
 
-    /// Test union manipulation for unions represented as Rust structs
+    /// Test union variants holding their value directly
     #[test]
-    fn iop_union_as_rust_struct() {
+    fn iop_union_value_variants() {
         // scalar field
-        let un = iop_new!(tstiop__get_bpack_sz_u, { i8: 12 });
-        assert!(matches!(un.iop_match(), tstiop__get_bpack_sz_u__variant::i8(val) if val == 12));
+        let un = tstiop__get_bpack_sz_u__u::i8__var(12);
+        assert!(matches!(un, tstiop__get_bpack_sz_u__u::i8__var(val) if val == 12));
 
         // string field
-        let un = iop_new!(tstiop__get_bpack_sz_u, { s: lstr::from_str("coucou world").into() });
-        assert!(matches!(un.iop_match(),
-                         tstiop__get_bpack_sz_u__variant::s(val)
-                         if val == lstr::from_str("coucou world").into()));
+        let un = tstiop__get_bpack_sz_u__u::s(lstr::from_str("coucou world"));
+        assert!(matches!(un,
+                         tstiop__get_bpack_sz_u__u::s(val)
+                         if val == lstr::from_str("coucou world")));
 
         // enum field
-        let un = iop_new!(tstiop__get_bpack_sz_u, {
-            en: tstiop__get_bpack_sz_en__t::GET_BPACK_SZ_EN_B
-        });
-        assert!(matches!(un.iop_match(),
-                         tstiop__get_bpack_sz_u__variant::en(val)
-                         if val == tstiop__get_bpack_sz_en__t::GET_BPACK_SZ_EN_B));
+        let un = tstiop__get_bpack_sz_u__u::en(tstiop__get_bpack_sz_en__e::B);
+        assert!(matches!(un,
+                         tstiop__get_bpack_sz_u__u::en(val)
+                         if val == tstiop__get_bpack_sz_en__e::B));
 
         // struct field
-        let un = iop_new!(tstiop__get_bpack_sz_u, {
-            st: iop_new!(tstiop__get_bpack_sz_st, { a: 42 })
-        });
-        assert!(matches!(un.iop_match(),
-                         tstiop__get_bpack_sz_u__variant::st(val) if iop_get!(val, a) == 42));
+        let un = tstiop__get_bpack_sz_u__u::st(iop_new!(tstiop__get_bpack_sz_st, { a: 42 }));
+        assert!(matches!(un, tstiop__get_bpack_sz_u__u::st(val) if iop_get!(val, a) == 42));
     }
 
     // }}}
