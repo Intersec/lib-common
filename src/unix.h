@@ -19,6 +19,8 @@
 #ifndef IS_LIB_COMMON_UNIX_H
 #define IS_LIB_COMMON_UNIX_H
 
+#include <sys/eventfd.h>
+
 #include <lib-common/container-qvector.h>
 
 #if __has_feature(nullability)
@@ -311,10 +313,6 @@ typedef enum {
 } fd_features_flags_t;
 int fd_set_features(int fd, int flags);
 int fd_unset_features(int fd, int flags);
-
-/** Build an eventfd
- */
-int eventfd(int initialvalue, int flags);
 
 /** Get the path of the file opened by that file descriptor.
  *

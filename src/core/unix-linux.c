@@ -527,28 +527,6 @@ void close_fds(int fd_min, qv_t(u32) *nullable to_keep)
 }
 
 /* }}} */
-/* {{{ eventfd */
-
-#  ifdef SYS_eventfd
-
-int eventfd(int initialvalue, int flags)
-{
-    int fd = RETHROW(syscall(SYS_eventfd, initialvalue));
-
-    fd_set_features(fd, flags);
-    return fd;
-}
-
-#  else
-
-int eventfd(int initialvalue, int flags)
-{
-    return -1;
-}
-
-#  endif
-
-/* }}} */
 /* {{{ CGroups related functions */
 
 #  define CGROUPS_V2_CPUSET_PATH "/sys/fs/cgroup/cpuset.cpus"
