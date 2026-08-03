@@ -21,11 +21,6 @@
 #else
 #  define IS_LIB_COMMON_THR_SPSC_H
 
-#  if !defined(__x86_64__) && !defined(__i386__)
-#    error                                                                   \
-        "this file assumes a strict memory model and is probably buggy on !x86"
-#  endif
-
 /*
  * This file provides an implementation of:
  * - unbounded: means that the queue allocates as many nodes as its high
@@ -40,6 +35,12 @@
  *
  * The code is adapted from
  * http://www.1024cores.net/home/lock-free-algorithms/queues/unbounded-spsc-queue
+ *
+ * The queue does not rely on a strict memory model: the node links are
+ * published and read with the default sequentially consistent ordering, which
+ * is what orders the value of a node with the link that publishes it. Only
+ * the two loads of 'head' by its owner are relaxed, and an owner reading back
+ * its own last write needs no ordering.
  */
 
 /*
