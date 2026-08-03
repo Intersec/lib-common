@@ -4984,6 +4984,15 @@ int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
         iopc_path_slash(pkg->name)
     );
 #endif
+#ifdef __aarch64__
+    sb_addf(
+        &buf,
+        "#ifndef __aarch64__\n"
+        "#  warning \"%s assumed aarch64 alignments\"\n"
+        "#endif\n",
+        iopc_path_slash(pkg->name)
+    );
+#endif
     sb_addf(
         &buf,
         "\n"
