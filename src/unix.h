@@ -166,10 +166,15 @@ int which(const char *nonnull cmd, char cmd_path[static PATH_MAX]);
 
 #if defined(__linux__)
 
+/* Layout of the records returned by the getdents64 syscall. Unlike the legacy
+ * getdents, the type is a real field of the record instead of the byte
+ * following the name.
+ */
 typedef struct linux_dirent_t {
-    long d_ino;
-    off_t d_off;
+    uint64_t d_ino;
+    int64_t d_off;
     unsigned short d_reclen;
+    unsigned char d_type;
     char d_name[];
 } linux_dirent_t;
 
@@ -177,8 +182,8 @@ typedef struct linux_dirent_t {
  *      using D_TYPE() inside of a list_dir block call back is safe,
  *      list_dir will set the type for you.
  */
-#  define D_TYPE(ld) *((byte *)ld + ld->d_reclen - 1)
-#  define D_SET_TYPE(ld, type) *((byte *)ld + ld->d_reclen - 1) = type
+#  define D_TYPE(ld) ((ld)->d_type)
+#  define D_SET_TYPE(ld, type) ((ld)->d_type = (type))
 
 #else
 typedef struct dirent linux_dirent_t;

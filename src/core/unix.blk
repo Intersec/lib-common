@@ -508,7 +508,16 @@ static int __list_dir(
     byte *buf = p_new_raw(byte, LIST_DIR_BUF_SIZE);
     int tmp_res;
 
-    while ((nread = syscall(SYS_getdents, dfd, buf, LIST_DIR_BUF_SIZE)) > 0) {
+    /* the records read below are cast to linux_dirent_t, so its layout must
+     * match the one of struct linux_dirent64 */
+    STATIC_ASSERT(offsetof(linux_dirent_t, d_ino) == 0);
+    STATIC_ASSERT(offsetof(linux_dirent_t, d_off) == 8);
+    STATIC_ASSERT(offsetof(linux_dirent_t, d_reclen) == 16);
+    STATIC_ASSERT(offsetof(linux_dirent_t, d_type) == 18);
+    STATIC_ASSERT(offsetof(linux_dirent_t, d_name) == 19);
+
+    while ((nread = syscall(SYS_getdents64, dfd, buf, LIST_DIR_BUF_SIZE)) > 0)
+    {
         for (int i = 0; i < nread;) {
             linux_dirent_t *de = (linux_dirent_t *)(buf + i);
             char tmp_path[PATH_MAX];
