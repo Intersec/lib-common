@@ -2,6 +2,12 @@
 
 cc="$1"
 
+# Base name of the compiler, with any cross-compilation target prefix removed,
+# so that "aarch64-linux-gnu-gcc" is recognised the same way as "gcc".
+cc_name="$(
+    basename "$cc" | sed 's/^.*-\(gcc\|g++\|clang\|clang++\|cc\|c++\)/\1/'
+)"
+
 clang_version="$("$cc" --version | grep -o 'clang version [0-9.]\+' | cut -d ' ' -f 3)"
 version=$("$cc" -dumpfullversion -dumpversion)
 
@@ -26,7 +32,7 @@ prereq() {
 
 gcc_prereq()
 {
-    case "$(basename "$cc")" in
+    case "$cc_name" in
         cc*|gcc*|c++*|g++*) ;;
         *) return 1;
     esac
@@ -35,7 +41,7 @@ gcc_prereq()
 
 is_clang()
 {
-    case "$(basename "$cc")" in
+    case "$cc_name" in
         clang*|*c*-analyzer) return 0;;
         *) return 1;;
     esac
@@ -49,7 +55,7 @@ clang_prereq()
 
 is_cpp()
 {
-    case "$(basename "$cc")" in
+    case "$cc_name" in
         *++*) return 0;;
         *) return 1;;
     esac
