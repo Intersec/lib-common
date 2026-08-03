@@ -5,8 +5,10 @@ on: [push]
 jobs:
   tests:
     strategy:
+      # Do not let one architecture cancel the other, we want both results.
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, ubuntu-24.04-arm]
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.os }}
     defaults:
