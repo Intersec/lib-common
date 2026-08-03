@@ -38,9 +38,12 @@
 #  include <sys/syscall.h>
 #  include <linux/futex.h>
 
-#  if !defined(__x86_64__) && !defined(__i386__)
-#    error                                                                   \
-        "this file assumes a strict memory model and is probably buggy on !x86"
+/* futex(2) only compares 32 bits words, and thr_ec_timedwait() has it compare
+ * the low half of the 64 bits key through the address of the key itself,
+ * which only selects the low half on a little endian architecture.
+ */
+#  if __BYTE_ORDER != __LITTLE_ENDIAN
+#    error "the futex based eventcount requires a little endian architecture"
 #  endif
 
 #  define futex_wait_private(futex, val, ts)                                 \
