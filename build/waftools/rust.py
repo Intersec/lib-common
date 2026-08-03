@@ -266,9 +266,14 @@ class CargoBuildBase(Task.Task):  # type: ignore[misc]
         cargo_libs = Utils.to_list(self.env.STLIB) + Utils.to_list(
             self.env.LIB
         )
-        cargo_libpaths = Utils.to_list(self.env.STLIBPATH) + Utils.to_list(
+        # The lib paths are relative to the project root because waf runs the
+        # link commands from there (see `register_get_cwd()`), but cargo runs
+        # rustc from the cargo workspace root, which may be another directory.
+        # So make them absolute.
+        libpaths = Utils.to_list(self.env.STLIBPATH) + Utils.to_list(
             self.env.LIBPATH
         )
+        cargo_libpaths = [osp.abspath(libpath) for libpath in libpaths]
         cargo_rerun_libs = sorted(dep_stlibs)
         cargo_link_args = Utils.to_list(self.env.LDFLAGS).copy()
 
