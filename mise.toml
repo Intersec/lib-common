@@ -17,6 +17,21 @@ rust = '1.92.0'
 # fail on a fresh clone, since no Python is configured yet.
 python.uv_venv_auto = 'source'
 
+[hooks]
+# Since mise only sources the virtual environment, there is nothing to
+# source until `waf configure` has created one, and nothing tells that to
+# a developer entering the repository: mise stays silent and the next
+# command fails on its own. The interpreter is tested rather than the
+# directory, so that a venv left behind by a removed Python is reported
+# too.
+#
+# The absolute path is needed: the hook also runs when entering a
+# subdirectory directly, with that subdirectory as working directory.
+enter = '''
+test -x "$MISE_PROJECT_ROOT/.venv/bin/python" ||
+    echo 'lib-common: no usable virtual environment, run: waf configure'
+'''
+
 [tasks.configure]
 alias = "cfg"
 description = "Configure the build"
