@@ -208,4 +208,8 @@ size_t membitcount_ssse3(const void *nonnull ptr, size_t n);
 size_t membitcount_popcnt(const void *nonnull ptr, size_t n);
 #  endif
 
+#  ifdef __aarch64__
+size_t membitcount_neon(const void *nonnull ptr, size_t n);
+#  endif
+
 #endif

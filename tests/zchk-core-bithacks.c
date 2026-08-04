@@ -248,6 +248,16 @@ Z_GROUP_EXPORT(membitcount) {
         Z_SKIP("neither amd64 nor i386 or unsupported compiler");
 #endif
     } Z_TEST_END;
+
+    Z_TEST(neon) {
+#ifdef __aarch64__
+        /* Advanced SIMD is mandatory on aarch64, nothing to check. */
+        Z_HELPER_RUN(membitcount_check_rand(membitcount_neon));
+        Z_HELPER_RUN(membitcount_check_small(membitcount_neon));
+#else
+        Z_SKIP("not aarch64");
+#endif
+    } Z_TEST_END;
 } Z_GROUP_END;
 
 /* }}} */

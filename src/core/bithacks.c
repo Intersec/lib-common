@@ -516,6 +516,45 @@ size_t membitcount_ssse3(const void *ptr, size_t n)
 
 #endif
 
+#ifdef __aarch64__
+#  pragma push_macro("__attr_leaf__")
+#  undef __attr_leaf__
+#  include <arm_neon.h>
+#  pragma pop_macro("__attr_leaf__")
+
+/* Unlike the x86 implementations, this one reads nothing outside of [ptr,
+ * ptr + n[: the vector loads are unaligned on aarch64, so the bytes in excess
+ * are cheaper to count one by one than to mask out. Hence no __attr_noasan__.
+ */
+size_t membitcount_neon(const void *ptr, size_t n)
+{
+    const uint8_t *p = ptr;
+    size_t i = 0;
+    size_t res = 0;
+
+    /* 'cnt' counts the bits of each byte of the vector, and 'uaddlv' sums the
+     * bytes of a vector into a 16 bits scalar. Four vectors can be summed
+     * before the widening one: 4 * 8 bits per byte still fits in a byte.
+     */
+    for (; i + 64 <= n; i += 64) {
+        uint8x16_t acc = vcntq_u8(vld1q_u8(p + i));
+
+        acc = vaddq_u8(acc, vcntq_u8(vld1q_u8(p + i + 16)));
+        acc = vaddq_u8(acc, vcntq_u8(vld1q_u8(p + i + 32)));
+        acc = vaddq_u8(acc, vcntq_u8(vld1q_u8(p + i + 48)));
+        res += vaddlvq_u8(acc);
+    }
+    for (; i + 16 <= n; i += 16) {
+        res += vaddlvq_u8(vcntq_u8(vld1q_u8(p + i)));
+    }
+    for (; i < n; i++) {
+        res += bitcount8(p[i]);
+    }
+    return res;
+}
+
+#endif
+
 static size_t membitcount_resolve(const void *ptr, size_t n)
 {
     membitcount = &membitcount_c;
@@ -531,6 +570,11 @@ static size_t membitcount_resolve(const void *ptr, size_t n)
             membitcount = &membitcount_ssse3;
         }
     }
+#endif
+
+#ifdef __aarch64__
+    /* Advanced SIMD is mandatory on aarch64, nothing to check. */
+    membitcount = &membitcount_neon;
 #endif
 
     return membitcount(ptr, n);

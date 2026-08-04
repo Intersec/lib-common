@@ -218,6 +218,45 @@ ZBENCH_END
 #endif
 
 /* }}} */
+/* {{{ NEON */
+
+#ifdef __aarch64__
+
+ZBENCH(membitcount_neon_small){ZBENCH_LOOP(){size_t res = 0;
+
+ZBENCH_MEASURE()
+{
+    res = membitcount_check_small(&membitcount_neon);
+}
+ZBENCH_MEASURE_END
+
+if (res != small_res) {
+    e_fatal("expected: %zu, got: %zu", small_res, res);
+}
+}
+ZBENCH_LOOP_END
+}
+ZBENCH_END
+
+ZBENCH(membitcount_neon_big){ZBENCH_LOOP(){size_t res = 0;
+
+ZBENCH_MEASURE()
+{
+    res = membitcount_check_big(&membitcount_neon);
+}
+ZBENCH_MEASURE_END
+
+if (res != big_res) {
+    e_fatal("expected: %zu, got: %zu", big_res, res);
+}
+}
+ZBENCH_LOOP_END
+}
+ZBENCH_END
+
+#endif
+
+/* }}} */
 /* {{{ Auto deduction */
 
 ZBENCH(membitcount_auto_small){ZBENCH_LOOP(){size_t res = 0;
