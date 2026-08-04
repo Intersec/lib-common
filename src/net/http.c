@@ -855,6 +855,23 @@ __attribute__((format(printf, 4, 0))) static void httpd_notify_status(
     httpd_t *w, httpd_query_t *q, int handler, const char *fmt, va_list va
 );
 
+/* Notify a status whose format takes no argument.
+ *
+ * A va_list can only be started by a variadic function, hence this wrapper:
+ * handing over one that was merely declared is undefined, and on aarch64 it
+ * is a struct passed by value, so the compiler does reject it.
+ */
+__attribute__((format(printf, 4, 5))) static void httpd_notify_statusf(
+    httpd_t *nullable w, httpd_query_t *q, int handler, const char *fmt, ...
+)
+{
+    va_list va;
+
+    va_start(va, fmt);
+    httpd_notify_status(w, q, handler, fmt, va);
+    va_end(va);
+}
+
 static void httpd_trace_query_result(httpd_query_t *q)
 {
     if (q->qinfo && logger_is_traced(&_G.logger, 1)) {
@@ -879,7 +896,6 @@ static void httpd_trace_query_result(httpd_query_t *q)
 
 void httpd_reply_done(httpd_query_t *q)
 {
-    va_list va;
     outbuf_t *ob = httpd_get_ob(q);
 
     assert(q->hdrs_done && !q->answered && !q->chunk_started);
@@ -893,7 +909,7 @@ void httpd_reply_done(httpd_query_t *q)
         );
         q->clength_hack = false;
     }
-    httpd_notify_status(q->owner, q, HTTPD_QUERY_STATUS_ANSWERED, "", va);
+    httpd_notify_statusf(q->owner, q, HTTPD_QUERY_STATUS_ANSWERED, "");
     httpd_trace_query_result(q);
     httpd_mark_query_answered(q);
 }
@@ -977,7 +993,6 @@ void httpd_reject_unauthorized(httpd_query_t *q, lstr_t auth_realm)
         "<h1>401 - Authentication required</h1>"
         "</body></html>\r\n"
     );
-    va_list va;
     outbuf_t *ob;
 
     if (q->answered || q->hdrs_started) {
@@ -993,7 +1008,7 @@ void httpd_reject_unauthorized(httpd_query_t *q, lstr_t auth_realm)
     httpd_reply_hdrs_done(q, body.len, false);
     ob_add(ob, body.s, body.len);
 
-    httpd_notify_status(q->owner, q, HTTP_CODE_UNAUTHORIZED, "", va);
+    httpd_notify_statusf(q->owner, q, HTTP_CODE_UNAUTHORIZED, "");
     httpd_reply_done(q);
 }
 
@@ -1964,12 +1979,10 @@ static httpd_t *httpd_init(httpd_t *w)
 static void httpd_wipe(httpd_t *w)
 {
     if (w->on_status) {
-        va_list va;
-
         dlist_for_each(it, &w->query_list) {
-            httpd_notify_status(
+            httpd_notify_statusf(
                 w, dlist_entry(it, httpd_query_t, query_link),
-                HTTPD_QUERY_STATUS_CANCEL, "Query cancelled", va
+                HTTPD_QUERY_STATUS_CANCEL, "Query cancelled"
             );
         }
     }
