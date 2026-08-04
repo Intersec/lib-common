@@ -82,6 +82,23 @@ void t_iop_openapi_whitelist_rpc(
     iop_openapi_t *nonnull openapi, const lstr_t fullname
 );
 
+/** Blacklist a class in the IOP OpenAPI application.
+ *
+ * The class and all its children are excluded from the description: they are
+ * not listed in the "oneOf" of the class fields, and the fields directly
+ * typed with the class are dropped.
+ *
+ * This is meant for the classes whose children are contributed by every
+ * package of the binary, such as \ref platform.base.CustomValue: a single
+ * field using them drags the whole hierarchy of unrelated products into the
+ * description.
+ *
+ * \warning The name must be the fullname of a class of the IOP environment.
+ */
+void t_iop_openapi_blacklist_class(
+    iop_openapi_t *nonnull openapi, const lstr_t fullname
+);
+
 /** Add an IOP struct in the OpenAPI application.
  *
  * Its schema will be described in the app, as well as the schema of all

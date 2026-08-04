@@ -129,6 +129,39 @@ struct schema_object_t {
 qvector_t(schema_object, schema_object_t);
 qh_kvec_t(schemas, lstr_t, qhash_lstr_hash, qhash_lstr_equal);
 
+/** Inputs and outputs shared by all the schema generation functions. */
+typedef struct schema_ctx_t {
+    const iop_env_ctx_t *nonnull iop_env_ctx;
+
+    /** Fullnames of the classes to exclude from the description.
+     *
+     * See \ref t_iop_openapi_blacklist_class.
+     */
+    qh_t(schemas) *nonnull classes_blacklist;
+
+    /** Fullnames of the schemas already generated. */
+    qh_t(schemas) *nonnull existing_schemas;
+
+    qv_t(schema_object) *nonnull schemas;
+} schema_ctx_t;
+
+/** Tell whether a struct is a blacklisted class, or a child of one. */
+static bool
+class_is_blacklisted(const schema_ctx_t *ctx, const iop_struct_t *st)
+{
+    if (!qh_len(schemas, ctx->classes_blacklist) || !iop_struct_is_class(st))
+    {
+        return false;
+    }
+
+    for (; st; st = st->class_attrs->parent) {
+        if (qh_find(schemas, ctx->classes_blacklist, &st->fullname) >= 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static schema_object_t *nonnull add_schema_object(
     lstr_t name, openapi_type_t type, qv_t(schema_object) *nonnull schemas
 )
@@ -252,8 +285,21 @@ struct iop_openapi_t {
     /* whitelist of RPCs to expose, in the format "<iface_fullname>.<rpc>" */
     qm_t(whitelist) rpcs_whitelist;
 
+    /* fullnames of the classes to exclude from the description */
+    qh_t(schemas) classes_blacklist;
+
     const iop_mod_t *nullable module;
 };
+
+static schema_ctx_t schema_ctx_from_openapi(iop_openapi_t *nonnull oa)
+{
+    return (schema_ctx_t){
+        .iop_env_ctx = oa->iop_env_ctx,
+        .classes_blacklist = &oa->classes_blacklist,
+        .existing_schemas = &oa->components.existing_schemas,
+        .schemas = &oa->components.schemas,
+    };
+}
 
 /* }}} */
 /* {{{ Utils */
@@ -452,20 +498,18 @@ static void get_iface_help(
 /* }}} */
 /* {{{ Enums */
 
-static void t_iop_enum_to_schema_object(
-    const iop_enum_t *en, qh_t(schemas) *existing_schemas,
-    qv_t(schema_object) *schemas
-)
+static void
+t_iop_enum_to_schema_object(const iop_enum_t *en, schema_ctx_t *ctx)
 {
     schema_object_t *obj;
     const iop_help_t *help;
     bool is_v2 = false;
 
-    if (qh_add(schemas, existing_schemas, &en->fullname) < 0) {
+    if (qh_add(schemas, ctx->existing_schemas, &en->fullname) < 0) {
         return;
     }
 
-    obj = add_schema_object(en->fullname, TYPE_STRING, schemas);
+    obj = add_schema_object(en->fullname, TYPE_STRING, ctx->schemas);
     t_qv_init(&obj->enum_values, en->enum_len);
     for (int i = 0; i < en->enum_len; i++) {
         qv_append(&obj->enum_values, en->names[i]);
@@ -483,15 +527,11 @@ static void t_iop_enum_to_schema_object(
 /* }}} */
 /* {{{ Struct */
 
-static void t_iop_struct_to_schema_object(
-    const iop_env_ctx_t *iop_env_ctx, const iop_struct_t *st,
-    qh_t(schemas) *existing_schemas, qv_t(schema_object) *schemas
-);
+static void
+t_iop_struct_to_schema_object(const iop_struct_t *st, schema_ctx_t *ctx);
 
 static void t_class_field_to_schema_object(
-    const iop_env_ctx_t *iop_env_ctx, const iop_struct_t *class_desc,
-    qh_t(schemas) *existing_schemas, qv_t(schema_object) *schemas,
-    schema_object_t *out
+    const iop_struct_t *class_desc, schema_ctx_t *ctx, schema_object_t *out
 )
 {
     /* When using a class, it is not possible to point only to the class
@@ -501,6 +541,8 @@ static void t_class_field_to_schema_object(
      */
     qv_t(iop_struct) children;
     qv_t(iop_struct) *_children_p = &children;
+    const schema_ctx_t *_ctx_p = ctx;
+    const iop_env_ctx_t *iop_env_ctx = ctx->iop_env_ctx;
 
     out->type = TYPE_NONE;
     out->discriminator = LSTR("_class");
@@ -518,7 +560,8 @@ static void t_class_field_to_schema_object(
     /* add all children to the schemas, and build a list of them */
     iop_for_each_registered_classes(iop_env_ctx, ^(const iop_struct_t *st) {
         if (iop_class_is_a(st, class_desc) && !st->class_attrs->is_private &&
-            !st->class_attrs->is_abstract)
+            !st->class_attrs->is_abstract &&
+            !class_is_blacklisted(_ctx_p, st))
         {
             qv_t(iop_struct) *children_p = _children_p;
 
@@ -536,9 +579,7 @@ static void t_class_field_to_schema_object(
     tab_for_each_entry(st, &children) {
         schema_object_t *obj;
 
-        t_iop_struct_to_schema_object(
-            iop_env_ctx, st, existing_schemas, schemas
-        );
+        t_iop_struct_to_schema_object(st, ctx);
         obj = t_new(schema_object_t, 1);
         obj->type = TYPE_REF;
         obj->name = st->fullname;
@@ -729,9 +770,7 @@ static scalar_value_t *t_get_iop_field_defval(const iop_field_t *desc)
 }
 
 static schema_object_t *t_iop_field_to_schema_object(
-    const iop_env_ctx_t *iop_env_ctx, const iop_struct_t *st,
-    const iop_field_t *desc, qh_t(schemas) *existing_schemas,
-    qv_t(schema_object) *schemas
+    const iop_struct_t *st, const iop_field_t *desc, schema_ctx_t *ctx
 )
 {
     const iop_field_attrs_t *attrs = iop_field_get_attrs(st, desc);
@@ -741,6 +780,11 @@ static schema_object_t *t_iop_field_to_schema_object(
     bool has_update = false;
 
     if (attrs && TST_BIT(&attrs->flags, IOP_FIELD_PRIVATE)) {
+        return NULL;
+    }
+    if (desc->type == IOP_T_STRUCT &&
+        class_is_blacklisted(ctx, desc->u1.st_desc))
+    {
         return NULL;
     }
 
@@ -796,9 +840,7 @@ static schema_object_t *t_iop_field_to_schema_object(
         break;
 
     case IOP_T_ENUM:
-        t_iop_enum_to_schema_object(
-            desc->u1.en_desc, existing_schemas, schemas
-        );
+        t_iop_enum_to_schema_object(desc->u1.en_desc, ctx);
         schema->type = TYPE_REF;
         schema->name = desc->u1.en_desc->fullname;
         break;
@@ -808,14 +850,9 @@ static schema_object_t *t_iop_field_to_schema_object(
         if (iop_struct_is_class(desc->u1.st_desc)) {
             /* a class field needs to be expressed as a oneOf of all children.
              */
-            t_class_field_to_schema_object(
-                iop_env_ctx, desc->u1.st_desc, existing_schemas, schemas,
-                schema
-            );
+            t_class_field_to_schema_object(desc->u1.st_desc, ctx, schema);
         } else {
-            t_iop_struct_to_schema_object(
-                iop_env_ctx, desc->u1.st_desc, existing_schemas, schemas
-            );
+            t_iop_struct_to_schema_object(desc->u1.st_desc, ctx);
             schema->type = TYPE_REF;
             schema->name = desc->u1.st_desc->fullname;
         }
@@ -895,10 +932,8 @@ static bool field_is_required(
     return false;
 }
 
-static void t_iop_union_to_schema_object(
-    const iop_env_ctx_t *iop_env_ctx, const iop_struct_t *st,
-    qh_t(schemas) *existing_schemas, qv_t(schema_object) *schemas
-)
+static void
+t_iop_union_to_schema_object(const iop_struct_t *st, schema_ctx_t *ctx)
 {
     schema_object_t *obj;
     qv_t(schema_object_p) one_of;
@@ -910,9 +945,7 @@ static void t_iop_union_to_schema_object(
         schema_object_t *field_schema;
         schema_prop_t *prop;
 
-        field_schema = t_iop_field_to_schema_object(
-            iop_env_ctx, st, field_desc, existing_schemas, schemas
-        );
+        field_schema = t_iop_field_to_schema_object(st, field_desc, ctx);
         if (!field_schema) {
             continue;
         }
@@ -932,26 +965,25 @@ static void t_iop_union_to_schema_object(
         qv_append(&one_of, field_obj);
     }
 
-    obj = add_schema_object(st->fullname, TYPE_NONE, schemas);
+    obj = add_schema_object(st->fullname, TYPE_NONE, ctx->schemas);
     obj->one_of = one_of;
     t_add_struct_help(st, obj);
 }
 
-static void t_iop_struct_to_schema_object(
-    const iop_env_ctx_t *iop_env_ctx, const iop_struct_t *st,
-    qh_t(schemas) *existing_schemas, qv_t(schema_object) *schemas
-)
+static void
+t_iop_struct_to_schema_object(const iop_struct_t *st, schema_ctx_t *ctx)
 {
     schema_object_t *obj;
 
-    if (qh_add(schemas, existing_schemas, &st->fullname) < 0) {
+    if (class_is_blacklisted(ctx, st)) {
+        return;
+    }
+    if (qh_add(schemas, ctx->existing_schemas, &st->fullname) < 0) {
         return;
     }
 
     if (st->is_union) {
-        t_iop_union_to_schema_object(
-            iop_env_ctx, st, existing_schemas, schemas
-        );
+        t_iop_union_to_schema_object(st, ctx);
         return;
     }
 
@@ -980,9 +1012,7 @@ static void t_iop_struct_to_schema_object(
         schema_object_t *field_schema;
         schema_prop_t *prop;
 
-        field_schema = t_iop_field_to_schema_object(
-            iop_env_ctx, st, field_desc, existing_schemas, schemas
-        );
+        field_schema = t_iop_field_to_schema_object(st, field_desc, ctx);
         if (!field_schema) {
             continue;
         }
@@ -991,7 +1021,7 @@ static void t_iop_struct_to_schema_object(
         prop->field_name = field_desc->name;
         prop->schema = field_schema;
 
-        if (field_is_required(iop_env_ctx, field_desc, field_schema)) {
+        if (field_is_required(ctx->iop_env_ctx, field_desc, field_schema)) {
             qv_append(&obj->required, prop->field_name);
         }
     }
@@ -1001,13 +1031,11 @@ static void t_iop_struct_to_schema_object(
         schema_object_t *all;
         schema_object_t *parent;
 
-        t_iop_struct_to_schema_object(
-            iop_env_ctx, parent_st, existing_schemas, schemas
-        );
+        t_iop_struct_to_schema_object(parent_st, ctx);
 
         /* the class is a allOf of first the parent, then the details of
          * the current struct */
-        all = add_schema_object(st->fullname, TYPE_NONE, schemas);
+        all = add_schema_object(st->fullname, TYPE_NONE, ctx->schemas);
         t_qv_init(&all->all_of, 2);
 
         parent = t_new(schema_object_t, 1);
@@ -1017,7 +1045,7 @@ static void t_iop_struct_to_schema_object(
         qv_append(&all->all_of, obj);
     } else {
         obj->name = st->fullname;
-        qv_append(schemas, *obj);
+        qv_append(ctx->schemas, *obj);
     }
 }
 
@@ -1446,10 +1474,8 @@ static void get_rpc_help(
 }
 
 static void t_iop_rpc_to_operation_object(
-    const iop_env_ctx_t *nonnull iop_env_ctx, const iop_rpc_t *nonnull rpc,
-    const iop_iface_alias_t *nonnull alias,
-    qh_t(schemas) *nonnull existing_schemas,
-    qv_t(schema_object) *nonnull schemas, operation_object_t *nonnull op
+    const iop_rpc_t *nonnull rpc, const iop_iface_alias_t *nonnull alias,
+    schema_ctx_t *nonnull ctx, operation_object_t *nonnull op
 )
 {
     const iop_help_t *rpc_help;
@@ -1481,9 +1507,7 @@ static void t_iop_rpc_to_operation_object(
      * Calling an RPC always requires a JSON payload, even if it is only '{}',
      * so we still add the body content. */
     assert(rpc->args);
-    t_iop_struct_to_schema_object(
-        iop_env_ctx, rpc->args, existing_schemas, schemas
-    );
+    t_iop_struct_to_schema_object(rpc->args, ctx);
     op->request.json_content.schema.type = TYPE_REF;
     op->request.json_content.schema.name = rpc->args->fullname;
 
@@ -1497,9 +1521,7 @@ static void t_iop_rpc_to_operation_object(
     /* async response means no success response */
     if (!rpc->async) {
         op->ok_response = t_new(json_response_object_t, 1);
-        t_iop_struct_to_schema_object(
-            iop_env_ctx, rpc->result, existing_schemas, schemas
-        );
+        t_iop_struct_to_schema_object(rpc->result, ctx);
         op->ok_response->description = LSTR("RPC success");
         op->ok_response->json_content.schema.type = TYPE_REF;
         op->ok_response->json_content.schema.name = rpc->result->fullname;
@@ -1515,9 +1537,7 @@ static void t_iop_rpc_to_operation_object(
 
     if (rpc->exn != &iop__void__s) {
         op->exn_response = t_new(json_response_object_t, 1);
-        t_iop_struct_to_schema_object(
-            iop_env_ctx, rpc->exn, existing_schemas, schemas
-        );
+        t_iop_struct_to_schema_object(rpc->exn, ctx);
         op->exn_response->description = LSTR("RPC error");
         op->exn_response->json_content.schema.type = TYPE_REF;
         op->exn_response->json_content.schema.name = rpc->exn->fullname;
@@ -1597,6 +1617,7 @@ static bool t_iop_rpc_add(
 )
 {
     path_item_object_t *obj;
+    schema_ctx_t ctx;
 
     if (t_rpc_is_blacklisted(alias->iface, rpc, &oa->rpcs_whitelist)) {
         return false;
@@ -1604,10 +1625,8 @@ static bool t_iop_rpc_add(
 
     obj = qv_growlen0(&oa->paths, 1);
     obj->path = t_lstr_fmt("/%pL/%pL", &alias->name, &rpc->name);
-    t_iop_rpc_to_operation_object(
-        oa->iop_env_ctx, rpc, alias, &oa->components.existing_schemas,
-        &oa->components.schemas, &obj->post
-    );
+    ctx = schema_ctx_from_openapi(oa);
+    t_iop_rpc_to_operation_object(rpc, alias, &ctx, &obj->post);
     return true;
 }
 
@@ -1836,6 +1855,7 @@ iop_openapi_t *t_new_iop_openapi(
     t_qv_init(&oa->tags, 0);
 
     t_qm_init(whitelist, &oa->rpcs_whitelist, 0);
+    t_qh_init(schemas, &oa->classes_blacklist, 0);
 
     return oa;
 }
@@ -1884,12 +1904,27 @@ void t_iop_openapi_whitelist_rpc(
     qm_add(whitelist, &openapi->rpcs_whitelist, &name, false);
 }
 
+void t_iop_openapi_blacklist_class(
+    iop_openapi_t *openapi, const lstr_t fullname
+)
+{
+    const iop_struct_t *st;
+    lstr_t name;
+
+    st = iop_env_ctx_get_struct(openapi->iop_env_ctx, fullname);
+
+    /* catch typos: an unknown name would be silently ignored */
+    assert(st && iop_struct_is_class(st));
+
+    name = t_lstr_dup(fullname);
+    qh_add(schemas, &openapi->classes_blacklist, &name);
+}
+
 void t_iop_openapi_add_struct(iop_openapi_t *openapi, const iop_struct_t *st)
 {
-    t_iop_struct_to_schema_object(
-        openapi->iop_env_ctx, st, &openapi->components.existing_schemas,
-        &openapi->components.schemas
-    );
+    schema_ctx_t ctx = schema_ctx_from_openapi(openapi);
+
+    t_iop_struct_to_schema_object(st, &ctx);
 }
 
 int t_iop_openapi_to_yaml(iop_openapi_t *openapi, yaml_data_t *out, sb_t *err)

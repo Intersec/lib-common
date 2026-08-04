@@ -127,6 +127,26 @@ Z_GROUP_EXPORT(iop_openapi)
         t_iop_openapi_add_struct(oa, &tstiop__my_struct_f__s);
         Z_HELPER_RUN(z_check_yaml(oa, "classes.yml", false));
 
+        /* blacklisted class: MyClass2 and its child MyClass3 are dropped
+         * from the "oneOf" of the class fields */
+        oa = t_new_iop_openapi(
+            iop_env_ctx, LSTR("structs"), LSTR("2.3.1"), NULL, LSTR_NULL_V
+        );
+        t_iop_openapi_blacklist_class(oa, LSTR("tstiop.MyClass2"));
+        t_iop_openapi_add_struct(oa, &tstiop__struct_jpack_flags__s);
+        t_iop_openapi_add_struct(oa, &tstiop__my_struct_f__s);
+        Z_HELPER_RUN(z_check_yaml(oa, "classes_blacklist.yml", false));
+
+        /* blacklisting the declared type of the class fields drops the
+         * fields themselves */
+        oa = t_new_iop_openapi(
+            iop_env_ctx, LSTR("structs"), LSTR("2.3.1"), NULL, LSTR_NULL_V
+        );
+        t_iop_openapi_blacklist_class(oa, LSTR("tstiop.MyClass1"));
+        t_iop_openapi_add_struct(oa, &tstiop__struct_jpack_flags__s);
+        t_iop_openapi_add_struct(oa, &tstiop__my_struct_f__s);
+        Z_HELPER_RUN(z_check_yaml(oa, "classes_blacklist_root.yml", false));
+
         /* constraints */
         oa = t_new_iop_openapi(
             iop_env_ctx, LSTR("structs"), LSTR("2.3.1"), NULL, LSTR_NULL_V
