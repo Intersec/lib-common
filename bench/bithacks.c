@@ -145,6 +145,9 @@ ZBENCH_END
 /* }}} */
 /* {{{ SSSE3 */
 
+/* Those two implementations only exist where a cpuid can select them. */
+#ifdef __HAS_CPUID
+
 ZBENCH(membitcount_ssse3_small){ZBENCH_LOOP(){size_t res = 0;
 
 ZBENCH_MEASURE()
@@ -211,6 +214,8 @@ if (res != big_res) {
 ZBENCH_LOOP_END
 }
 ZBENCH_END
+
+#endif
 
 /* }}} */
 /* {{{ Auto deduction */
