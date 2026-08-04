@@ -70,6 +70,9 @@ target_arch="$("$cc" -dumpmachine | cut -d- -f1)"
 # Both profiles below are deliberately recent: x86-64-v3 requires AVX2
 # (Haswell, 2013) and armv8.2-a dates from 2016, which covers every Neoverse
 # core. Lower them if support for older hardware is ever needed.
+#
+# The Rust half of the library gets the same baseline from .cargo/config.toml:
+# keep both in sync.
 echo_march()
 {
     case "$target_arch" in

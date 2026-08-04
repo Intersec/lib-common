@@ -1,2 +1,28 @@
 [build]
 target-dir = ".cargo/target"
+
+# Baseline architecture profile, the counterpart of echo_march() in
+# build/cflags.sh: keep both in sync, or the Rust and the C halves of the
+# library end up compiled for different processors.
+#
+# The sections are keyed on the architecture rather than on a triple so that
+# they also apply to a target using another libc, and they apply to every
+# cargo invocation: build, test and clippy alike, hence a single set of
+# artifacts.
+#
+# XXX A sanitizer build does not get them: build/waftools/rust.py has to set
+# RUSTFLAGS to pass -Zsanitizer, and RUSTFLAGS makes cargo ignore the flags
+# configured here.
+
+[target.'cfg(target_arch = "x86_64")']
+rustflags = ["-Ctarget-cpu=x86-64-v3"]
+
+# There is no target-cpu spelling of an architecture level, and naming a core
+# would tune for it rather than only raise the baseline, so list the features
+# armv8.2-a brings instead. The '+v8.2a' spelling would say it in one word, but
+# the architecture levels are unstable and warn on every crate compiled. The
+# features left out, lor, pan, ras and vh, are system ones which do not change
+# the code generated for userland. '+lse' is the one that matters: it inlines
+# the atomics instead of the load/store exclusive loops.
+[target.'cfg(target_arch = "aarch64")']
+rustflags = ["-Ctarget-feature=+lse,+rdm,+crc,+dpb"]
