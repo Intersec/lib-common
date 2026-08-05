@@ -37,7 +37,16 @@
  */
 
 #include "crc.h"
-#include "crc32-table.in.c"
+
+/* Whether the CRC is computed by the Armv8 instructions rather than by the
+ * table below, see hw_icrc32(). */
+#if defined(__ARM_FEATURE_CRC32) && __BYTE_ORDER == __LITTLE_ENDIAN
+#  define ICRC32_USE_HW 1
+#endif
+
+#ifndef ICRC32_USE_HW
+
+#  include "crc32-table.in.c"
 
 /* Simplistic crc32 calculator, almost compatible with zlib version,
  * except for crc type as uint32_t instead of unsigned long
@@ -91,11 +100,52 @@ static uint32_t fast_icrc32(uint32_t crc, const uint8_t *buf, size_t size)
     return naive_icrc32(crc, buf, size & (size_t)7);
 }
 
+#else
+
+#  pragma push_macro("__attr_leaf__")
+#  undef __attr_leaf__
+#  include <arm_acle.h>
+#  pragma pop_macro("__attr_leaf__")
+
+/* The Armv8 CRC32 instructions compute this very CRC: same polynomial, same
+ * reflected convention. One instruction replaces the eight table lookups per
+ * eight bytes. They come with Armv8.1, and the feature macro follows the
+ * -march the build selects, so there is nothing to detect at runtime.
+ */
+static uint32_t hw_icrc32(uint32_t crc, const uint8_t *buf, size_t len)
+{
+    while (len && ((uintptr_t)buf & 7)) {
+        crc = __crc32b(crc, *buf++);
+        len--;
+    }
+    for (; len >= 8; buf += 8, len -= 8) {
+        crc = __crc32d(crc, *(const uint64_t *)buf);
+    }
+    if (len & 4) {
+        crc = __crc32w(crc, *(const uint32_t *)buf);
+        buf += 4;
+    }
+    if (len & 2) {
+        crc = __crc32h(crc, *(const uint16_t *)buf);
+        buf += 2;
+    }
+    if (len & 1) {
+        crc = __crc32b(crc, *buf);
+    }
+    return crc;
+}
+
+#endif
+
 __attr_flatten__ uint32_t icrc32(uint32_t crc, const void *data, ssize_t len)
 {
     crc = ~le_to_cpu32(crc);
+#ifdef ICRC32_USE_HW
+    return ~le_to_cpu32(hw_icrc32(crc, data, len));
+#else
     if (len < 64) {
         return ~le_to_cpu32(naive_icrc32(crc, data, len));
     }
     return ~le_to_cpu32(fast_icrc32(crc, data, len));
+#endif
 }

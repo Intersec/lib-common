@@ -44,6 +44,7 @@ ctx.program(
         'zchk-core-bithacks.c',
         'zchk-core-obj.c',
         'zchk-core-rand.c',
+        'zchk-crc32.c',
         'zchk-el.blk',
         'zchk-farch.c',
         'zchk-farch.fc',
