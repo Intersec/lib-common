@@ -4239,20 +4239,26 @@ Z_GROUP_EXPORT(iop) {
     Z_TEST(roptimized, "test IOP std: optimized repeated fields") { /* {{{ */
         t_scope;
         lstr_t path_curr_v;
-        lstr_t path_v3;
 
         path_curr_v = t_lstr_fmt(
             "%*pM/iop/zchk-tstiop-plugin" SO_FILEEXT, LSTR_FMT_ARG(z_cmddir_g)
         );
 
-        path_v3 = t_lstr_fmt(
-            "%*pM/test-data/test_v3_centos-5u4/"
-            "zchk-tstiop-plugin" SO_FILEEXT,
-            LSTR_FMT_ARG(z_cmddir_g)
-        );
-
         Z_HELPER_RUN(iop_check_retro_compat_roptimized(path_curr_v));
-        Z_HELPER_RUN(iop_check_retro_compat_roptimized(path_v3));
+
+        /* The v3 plugin is a prebuilt x86-64 shared object, it cannot be
+         * loaded anywhere else. */
+#if defined(__x86_64__)
+        {
+            lstr_t path_v3 = t_lstr_fmt(
+                "%*pM/test-data/test_v3_centos-5u4/"
+                "zchk-tstiop-plugin" SO_FILEEXT,
+                LSTR_FMT_ARG(z_cmddir_g)
+            );
+
+            Z_HELPER_RUN(iop_check_retro_compat_roptimized(path_v3));
+        }
+#endif
     } Z_TEST_END;
     /* }}} */
     Z_TEST(defval, "test IOP std: do not pack default values") { /* {{{ */
@@ -6260,20 +6266,26 @@ Z_GROUP_EXPORT(iop) {
     ) { /* {{{ */
         t_scope;
         lstr_t path_curr_v;
-        lstr_t path_v3;
 
         path_curr_v = t_lstr_fmt(
             "%*pM/iop/zchk-tstiop-plugin" SO_FILEEXT, LSTR_FMT_ARG(z_cmddir_g)
         );
 
-        path_v3 = t_lstr_fmt(
-            "%*pM/test-data/test_v3_centos-5u4/"
-            "zchk-tstiop-plugin" SO_FILEEXT,
-            LSTR_FMT_ARG(z_cmddir_g)
-        );
-
         Z_HELPER_RUN(iop_check_retro_compat_copy_inv_tab(path_curr_v));
-        Z_HELPER_RUN(iop_check_retro_compat_copy_inv_tab(path_v3));
+
+        /* The v3 plugin is a prebuilt x86-64 shared object, it cannot be
+         * loaded anywhere else. */
+#if defined(__x86_64__)
+        {
+            lstr_t path_v3 = t_lstr_fmt(
+                "%*pM/test-data/test_v3_centos-5u4/"
+                "zchk-tstiop-plugin" SO_FILEEXT,
+                LSTR_FMT_ARG(z_cmddir_g)
+            );
+
+            Z_HELPER_RUN(iop_check_retro_compat_copy_inv_tab(path_v3));
+        }
+#endif
     } Z_TEST_END;
     /* }}} */
     Z_TEST(
