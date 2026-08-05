@@ -11,6 +11,8 @@ jobs:
         os: [ubuntu-latest, ubuntu-24.04-arm]
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.os }}
+    # A deadlock must not burn the six hours of the default timeout.
+    timeout-minutes: 120
     defaults:
       run:
         shell: bash
@@ -76,6 +78,29 @@ jobs:
         run: waf check
         env:
           ASAN_OPTIONS: 'handle_segv=0:detect_leaks=1'
+
+      - name: Clean-up
+        run: waf clean
+
+      - name: Configure with Clang, TSan
+        run: waf configure
+        env:
+          CC: clang
+          CXX: clang++
+          P: tsan
+
+      - name: Compile with Clang, TSan
+        run: waf build
+
+      # This is what checks the lock-free code of the library against a weak
+      # memory model: TSan reasons about the orderings the code asks for, and
+      # aarch64 is the only architecture here that really reorders.
+      - name: Check with Clang, TSan
+        run: waf check
+        env:
+          TSAN_OPTIONS: >-
+            suppressions=${{ github.workspace }}/lib-common.tsan.supp
+            die_after_fork=0
 
       - name: Static checks
         run: uv run ./static-checks.py
