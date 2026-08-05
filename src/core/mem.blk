@@ -668,9 +668,16 @@ __attribute__((constructor)) static void core_versions_initialize(void)
         /* XXX: CACHE_LINE_SIZE only drives how structures are padded to avoid
          *      false sharing, so a mismatch costs performance and nothing
          *      else. Cores reporting 128 bytes exist, and some report 0.
+         *
+         *      This is a trace and not a warning on purpose: it is a property
+         *      of the build, reported by every single process at startup, and
+         *      nothing can act on it at runtime. As a warning it pollutes the
+         *      output of every tool, which breaks the tests checking that a
+         *      tool printed nothing.
          */
         if (cache_line_size && cache_line_size != (long)CACHE_LINE_SIZE) {
-            e_warning(
+            e_trace(
+                1,
                 "system cache line is %ld bytes but CACHE_LINE_SIZE is %ld, "
                 "expect false sharing",
                 cache_line_size, (long)CACHE_LINE_SIZE
