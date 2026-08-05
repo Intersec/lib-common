@@ -109,7 +109,7 @@ struct mem_stack_frame_t {
 /* all fields are annotated like this [offset (size) : usage] */
 typedef struct mem_stack_pool_t {
     /* hot data : align on cache boundary */
-    __attribute__((aligned(64)))
+    __attribute__((aligned(CACHE_LINE_SIZE)))
     mem_stack_frame_t *nonnull stack; /*<  0  (8) : everywhere */
     size_t alloc_sz;                  /*<  8  (8) : alloc */
     uint32_t alloc_nb;                /*< 16  (4) : alloc */

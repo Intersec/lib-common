@@ -73,7 +73,7 @@ struct thr_syn_t {
     /** Stack of thread data */
     _Atomic(struct thr_td_t *) head;
 #  endif
-} __attribute__((aligned(64)));
+} __attribute__((aligned(CACHE_LINE_SIZE)));
 
 #  ifdef __has_blocks
 static ALWAYS_INLINE thr_job_t *thr_job_from_blk(block_t blk)
