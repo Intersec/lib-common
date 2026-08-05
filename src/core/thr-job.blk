@@ -67,7 +67,13 @@ struct thr_info_t {
     atomic_bool alive;
     bool dequeue_all;
 
+    /** The worker thread, and whether it still has to be joined.
+     *
+     * Written by the thread creating the worker and not by the worker itself,
+     * so that the joiner reads it without racing.
+     */
     pthread_t thr;
+    bool joinable;
     atomic_thr_info_t next;
     char padding_0[CACHE_LINE_SIZE];
 
@@ -809,7 +815,6 @@ static void thr_info_init(thr_info_t *info)
     uint64_t key = thr_ec_get(&thr_job_g.start_bar_thr);
 
     self_g = info;
-    self_g->thr = pthread_self();
     self_g->dequeue_all = true;
     atomic_thread_fence(memory_order_acq_rel);
     atomic_store(&self_g->alive, true);
@@ -990,13 +995,48 @@ static void *thr_job_main(void *arg)
 /* }}} */
 /* Module init / shutdown {{{ */
 
+/* Wait for a worker to be really gone, but not forever.
+ *
+ * A worker of a process forked from a multithreaded one can get stuck in its
+ * own libc teardown, after our last exit hook cleared `alive`: waiting for it
+ * without a bound turns that into a deadlock. Past the bound, detach it and
+ * move on, which is what this code did all the time before.
+ */
+#define THR_REAP_TIMEOUT_MS 2000
+
+static void thr_reap(thr_info_t *info)
+{
+    struct timespec ts;
+
+    if (!info->joinable) {
+        return;
+    }
+    info->joinable = false;
+
+    if (clock_gettime(CLOCK_REALTIME, &ts) < 0 ||
+        pthread_timedjoin_np(
+            info->thr, NULL,
+            &(struct timespec){
+                .tv_sec = ts.tv_sec + (THR_REAP_TIMEOUT_MS / 1000),
+                .tv_nsec = ts.tv_nsec,
+            }
+        ) != 0)
+    {
+        e_trace(
+            1, "worker %d is still exiting, not waiting for it", info->id
+        );
+        pthread_detach(info->thr);
+    }
+}
+
 static void thr_fork_threads(void)
 {
     pthread_attr_t attr;
     uint64_t target_threads_gen = atomic_load(&_G.threads_count_gen);
 
     pthread_attr_init(&attr);
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    /* The workers are joined by thr_shutdown(), see the comment there. */
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 
     while (target_threads_gen != atomic_load(&_G.threads_gen) &&
            !atomic_load(&_G.stopping))
@@ -1022,9 +1062,13 @@ static void thr_fork_threads(void)
             {
                 assert(info->id > 0);
 
+                /* the thread which used that slot has exited on its own */
+                thr_reap(info);
                 if (thr_create(&tid, &attr, thr_job_main, info)) {
                     e_fatal("unable to create new thread: %m");
                 }
+                info->thr = tid;
+                info->joinable = true;
                 expected_key++;
             }
             last = &info->next;
@@ -1043,6 +1087,8 @@ static void thr_fork_threads(void)
                 if (thr_create(&tid, &attr, thr_job_main, info)) {
                     e_fatal("unable to create new thread: %m");
                 }
+                info->thr = tid;
+                info->joinable = true;
             }
             expected_key++;
         }
@@ -1242,6 +1288,17 @@ static int thr_shutdown(void)
                 thr_ec_broadcast(&_G.ec);
                 sched_yield();
             }
+
+            /* XXX 'alive' is cleared by an exit hook, so the worker is still
+             * inside its own teardown when we see it: it has to be joined for
+             * real. Without this, thr_shutdown() returns while the workers
+             * are still running libc code, and thr_wipe() below frees the
+             * very thr_info_t they run on. A fork() following the shutdown
+             * then has a fair chance of inheriting a libc lock held by a
+             * dying worker, and to deadlock in the child. The wait is
+             * bounded, see thr_reap().
+             */
+            thr_reap(thr);
         }
 
         thr_info_cleanup(NULL);
