@@ -161,7 +161,14 @@ __attr_nonnull__((1)) void murmur_hash3_x64_128_finish(
         method##_finish(&ctx->ctx, output);                                  \
     }
 
-#if defined(__x86_64__) || defined(__i386__)
+/* The "x86" of murmur_hash3_x86_32() names the variant of the algorithm, not
+ * an architecture: it reads its blocks through get_unaligned_cpu32(), so it
+ * is portable, and gives the same result on every little endian architecture.
+ * Selecting it on the endianness rather than on the instruction set is what
+ * makes hash32 and mem_hash32() agree between x86 and aarch64, and with them
+ * everything ordered by a qhash.
+ */
+#if __BYTE_ORDER == __LITTLE_ENDIAN
 HASH32_IMPL(murmur_hash3_x86_32, MEM_HASH32_MURMUR_SEED);
 #else
 HASH32_IMPL(jenkins);
@@ -203,7 +210,8 @@ static inline uint32_t mem_hash32(const void *nonnull data, ssize_t len)
     if (unlikely(len < 0)) {
         len = strlen((const char *)data);
     }
-#if defined(__x86_64__) || defined(__i386__)
+    /* see the comment on HASH32_IMPL above */
+#if __BYTE_ORDER == __LITTLE_ENDIAN
     return murmur_hash3_x86_32(data, len, MEM_HASH32_MURMUR_SEED);
 #else
     return jenkins_hash(data, len);
