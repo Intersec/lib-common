@@ -538,14 +538,15 @@ iopc_field_load_constraint(iopc_field_t *f, const iop__constraint__t *c)
     }
 }
 
-static void
-iopc_field_load_generic_attr(iopc_field_t *f, const iop__generic_attr__t *ga)
+static void iopsq_attrs_add_generic(
+    qv_t(iopc_attr) *attrs, const iop__generic_attr__t *ga
+)
 {
     iopc_attr_t *attr = iopsq_attr_new(IOPC_ATTR_GENERIC);
 
     attr->real_name = lstr_fmt("%pL:%pL", &ga->ns, &ga->id);
     iopsq_attr_add_value_arg(attr, &ga->value);
-    qv_append(&f->attrs, attr);
+    qv_append(attrs, attr);
 }
 
 static iopc_field_t *iopc_field_load(
@@ -620,7 +621,7 @@ static iopc_field_t *iopc_field_load(
         iopc_field_load_constraint(f, constraint);
     }
     tab_for_each_ptr(gen_attr, &field_desc->generic_attrs) {
-        iopc_field_load_generic_attr(f, gen_attr);
+        iopsq_attrs_add_generic(&f->attrs, gen_attr);
     }
 
     return f;
@@ -683,6 +684,10 @@ static iopc_struct_t *iopc_struct_load(
         }
 
         qv_append(&st->fields, f);
+    }
+
+    tab_for_each_ptr(gen_attr, &st_desc->generic_attrs) {
+        iopsq_attrs_add_generic(&st->attrs, gen_attr);
     }
 
     return st;

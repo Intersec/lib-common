@@ -5157,9 +5157,38 @@ mp_iop_field_attr(mem_pool_t *mp, unsigned type, iop_value_t v)
     return (iop_field_attr_t){.type = type, .args = arg};
 }
 
+/* Extract the IOP value carried by a generic attribute argument, following
+ * the same string/double/integer discrimination as the C-source generator
+ * (iopc_dump_gen_attr). */
+static iop_value_t
+iopc_gen_attr_arg_value(mem_pool_t *mp, const iopc_arg_t *arg)
+{
+    iop_value_t v = {.i64 = 0};
+
+    switch (arg->type) {
+    case ITOK_STRING:
+    case ITOK_IDENT:
+        v.s = mp_lstr_dup(mp, arg->v.s);
+        break;
+    case ITOK_DOUBLE:
+        v.d = arg->v.d;
+        break;
+    default:
+        v.i64 = arg->v.i64;
+        break;
+    }
+    return v;
+}
+
 qvector_t(iop_field_attr, iop_field_attr_t);
+qvector_t(iop_struct_attr, iop_struct_attr_t);
 
 static void iop_field_attr_vec_wipe(qv_t(iop_field_attr) *vec)
+{
+    qv_wipe(vec);
+}
+
+static void iop_struct_attr_vec_wipe(qv_t(iop_struct_attr) *vec)
 {
     qv_wipe(vec);
 }
@@ -5241,18 +5270,7 @@ static void mp_iopc_field_build_attrs(
             type = iopc_attr_kind_get_gen_type(
                 &iopc_attr_kind_field_g, attr->args.tab[0].type
             );
-            switch (attr->args.tab[0].type) {
-            case ITOK_STRING:
-            case ITOK_IDENT:
-                v.s = mp_lstr_dup(mp, attr->args.tab[0].v.s);
-                break;
-            case ITOK_DOUBLE:
-                v.d = attr->args.tab[0].v.d;
-                break;
-            default:
-                v.i64 = attr->args.tab[0].v.i64;
-                break;
-            }
+            v = iopc_gen_attr_arg_value(mp, &attr->args.tab[0]);
             break;
 
         /* Declaration attributes: they never apply to a field. */
@@ -5286,6 +5304,53 @@ static void mp_iopc_field_build_attrs(
     }
 }
 
+/* Build the IOP struct-level attributes from the iopc attributes, mirroring
+ * the generic-attribute half of iopc_dump_attr_table for the struct kind.
+ * Sets \p out to the built attributes, or to NULL when the struct carries no
+ * generic attribute.
+ *
+ * Only generic attributes are handled: the C-source generator also emits help
+ * attributes derived from doxygen comments, but IOP² descriptions carry no
+ * comments for now. Following the struct attr kind, the gen-attr type is not
+ * written to the 'flags' bitfield (write_gen_attr_flags is false), so flags
+ * stays 0.
+ */
+static void mp_iopc_struct_build_attrs(
+    mem_pool_t *mp, const iopc_struct_t *st, iop_struct_attrs_t **out
+)
+{
+    scoped(qv_t(iop_struct_attr), attrs, iop_struct_attr_vec_wipe) =
+        QV_INIT();
+    iop_struct_attrs_t *st_attrs;
+
+    *out = NULL;
+    tab_for_each_entry(attr, &st->attrs) {
+        iop_struct_attr_arg_t *arg;
+        iop_struct_attr_t st_attr;
+
+        if (attr->desc->id != IOPC_ATTR_GENERIC) {
+            continue;
+        }
+        arg = mp_new_raw(mp, iop_struct_attr_arg_t, 1);
+        arg->v = iopc_gen_attr_arg_value(mp, &attr->args.tab[0]);
+        st_attr = (iop_struct_attr_t){
+            .type = iopc_attr_kind_get_gen_type(
+                &iopc_attr_kind_struct_g, attr->args.tab[0].type
+            ),
+            .args = arg,
+        };
+        qv_append(&attrs, st_attr);
+    }
+    if (!attrs.len) {
+        return;
+    }
+
+    st_attrs = mp_new(mp, iop_struct_attrs_t, 1);
+    st_attrs->attrs_len = attrs.len;
+    st_attrs->attrs = mp_dup(mp, attrs.tab, attrs.len);
+    *out = st_attrs;
+}
+
 static iop_struct_t *mp_iopc_struct_to_desc(
     mem_pool_t *mp, iopc_struct_t *st, const iopc_pkg_t *pkg, sb_t *err
 )
@@ -5294,6 +5359,7 @@ static iop_struct_t *mp_iopc_struct_to_desc(
     iop_field_t *fields;
     iop_field_attrs_t *fields_attrs;
     bool has_fields_attrs = false;
+    iop_struct_attrs_t *st_attrs;
     unsigned flags;
     uint16_t offset = 0;
     iop_array_i32_t ranges;
@@ -5334,10 +5400,13 @@ static iop_struct_t *mp_iopc_struct_to_desc(
         has_fields_attrs |= !!f->attrs.len;
     }
 
+    /* Build the struct-level attributes (generic attributes). */
+    mp_iopc_struct_build_attrs(mp, st, &st_attrs);
+
     ranges = mp_iopc_struct_build_ranges(mp, st);
 
     flags = st->flags;
-    if (has_fields_attrs) {
+    if (has_fields_attrs || st_attrs) {
         SET_BIT(&flags, IOP_STRUCT_EXTENDED);
     }
 
@@ -5351,8 +5420,8 @@ static iop_struct_t *mp_iopc_struct_to_desc(
             .size = st->size, /* TODO Check correctness */
             .flags = flags,
             .is_union = (st->type == STRUCT_TYPE_UNION),
+            .st_attrs = st_attrs,
             .fields_attrs = has_fields_attrs ? fields_attrs : NULL,
-            /* TODO st_attrs */
             /* TODO class_attrs */
         };
 

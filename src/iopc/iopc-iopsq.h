@@ -44,8 +44,7 @@
  *
  * Limitations:
  *
- *    - Not supported yet: classes, struct-level attributes, modules,
- *    interfaces, RPCs, SNMP objects.
+ *    - Not supported yet: classes, modules, interfaces, RPCs, SNMP objects.
  *
  *    - Field constraints are described but never enforced: the IOP library
  *    only checks them through the check_constraints callback the C generator

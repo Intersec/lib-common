@@ -138,6 +138,7 @@ struct Field {
 
 @ctype(iop__structure__t)
 abstract local class Structure : 1 : PackageElem {
+    GenericAttr[] genericAttrs;
 };
 
 @ctype(iop__struct__t)

@@ -596,6 +596,49 @@ Z_GROUP_EXPORT(iopsq)
     }
     Z_TEST_END;
 
+    Z_TEST(struct_attrs, "struct-level generic attributes") {
+        t_scope;
+        iop_pkg_t *pkg;
+        const iop_struct_t *st;
+        const iop_struct_attrs_t *sa;
+
+        Z_HELPER_RUN(t_package_load(&pkg, iop_env, "struct-attrs.yml"));
+
+        /* S: three generic attributes, typed by their value. The struct attr
+         * kind does not mirror the gen-attr type into 'flags', so it stays 0.
+         */
+        st = pkg->structs[0];
+        Z_ASSERT_LSTREQUAL(st->fullname, LSTR("foo.S"));
+        Z_ASSERT(st->flags & (1U << IOP_STRUCT_EXTENDED));
+        Z_ASSERT_P(st->st_attrs);
+        sa = st->st_attrs;
+        Z_ASSERT_EQ(sa->flags, 0u);
+        Z_ASSERT_EQ(sa->attrs_len, 3);
+        Z_ASSERT(sa->attrs[0].type == IOP_STRUCT_GEN_ATTR_I);
+        Z_ASSERT_EQ(sa->attrs[0].args->v.i64, 42);
+        Z_ASSERT(sa->attrs[1].type == IOP_STRUCT_GEN_ATTR_S);
+        Z_ASSERT_LSTREQUAL(sa->attrs[1].args->v.s, LSTR("hello"));
+        Z_ASSERT(sa->attrs[2].type == IOP_STRUCT_GEN_ATTR_D);
+        Z_ASSERT_EQ(sa->attrs[2].args->v.d, 1.5);
+
+        /* U: unions inherit 'genericAttrs' from the Structure base class. */
+        st = pkg->structs[1];
+        Z_ASSERT_LSTREQUAL(st->fullname, LSTR("foo.U"));
+        Z_ASSERT(st->is_union);
+        Z_ASSERT(st->flags & (1U << IOP_STRUCT_EXTENDED));
+        Z_ASSERT_P(st->st_attrs);
+        Z_ASSERT_EQ(st->st_attrs->attrs_len, 1);
+        Z_ASSERT(st->st_attrs->attrs[0].type == IOP_STRUCT_GEN_ATTR_S);
+        Z_ASSERT_LSTREQUAL(st->st_attrs->attrs[0].args->v.s, LSTR("u"));
+
+        /* Plain: no attributes -> st_attrs is NULL and the flag is unset. */
+        st = pkg->structs[2];
+        Z_ASSERT_LSTREQUAL(st->fullname, LSTR("foo.Plain"));
+        Z_ASSERT(!(st->flags & (1U << IOP_STRUCT_EXTENDED)));
+        Z_ASSERT_NULL(st->st_attrs);
+    }
+    Z_TEST_END;
+
     Z_TEST(enum_strict_aliases, "enum strictness and value aliases") {
         t_scope;
         iop_pkg_t *pkg;

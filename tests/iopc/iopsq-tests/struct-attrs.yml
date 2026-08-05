@@ -1,0 +1,38 @@
+name: foo
+elems:
+  - !iopsq.Struct
+    name: S
+    genericAttrs:
+      - ns: test
+        id: num
+        value:
+          i: 42
+      - ns: test
+        id: str
+        value:
+          s: hello
+      - ns: test
+        id: flt
+        value:
+          d: 1.5
+    fields:
+      - name: n
+        type:
+          typeName: int
+  - !iopsq.Union
+    name: U
+    genericAttrs:
+      - ns: test
+        id: tag
+        value:
+          s: u
+    fields:
+      - name: a
+        type:
+          typeName: int
+  - !iopsq.Struct
+    name: Plain
+    fields:
+      - name: x
+        type:
+          typeName: int
