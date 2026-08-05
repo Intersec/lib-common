@@ -503,13 +503,6 @@ void aes_crypt_ecb(aes_ctx *ctx, int mode, const byte input[16],
     int i;
     uint32_t *RK, X0, X1, X2, X3, Y0, Y1, Y2, Y3;
 
-#if defined(XYSSL_HAVE_X86)
-    if (padlock_supports(PADLOCK_ACE)) {
-        if (padlock_xcryptecb(ctx, mode, input, output) == 0)
-            return;
-    }
-#endif
-
     RK = ctx->rk;
 
     GET_U32_LE(X0, input,  0); X0 ^= *RK++;
@@ -592,13 +585,6 @@ void aes_crypt_cbc(aes_ctx *ctx, int mode, int length, byte iv[16],
 {
     int i;
     byte temp[16];
-
-#if defined(XYSSL_HAVE_X86)
-    if (padlock_supports(PADLOCK_ACE)) {
-        if (padlock_xcryptcbc(ctx, mode, length, iv, input, output) == 0)
-            return;
-    }
-#endif
 
     if (mode == AES_DECRYPT)
     {

@@ -109,7 +109,6 @@ ctx.stlib(
         'crypto/des.c',
         'crypto/hash.c',
         'crypto/md5.c',
-        'crypto/padlock.c',
         'crypto/sha1.c',
         'crypto/sha2.c',
         'crypto/sha4.c',
