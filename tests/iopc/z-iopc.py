@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 from typing import Any, cast
 
@@ -188,6 +189,23 @@ class IopcTest(z.TestCase):
                     content.find(s) < 0, f'found {s!r} in {file_name!r}'
                 )
 
+    @staticmethod
+    def read_gen_c(path: str) -> str:
+        """
+        Read a generated C file with the architecture guard normalized.
+
+        Same reason as in check_ref(): the guard names the architecture iopc
+        ran on, so a reference file generated on one never matches on another.
+        """
+        with open(path, 'r') as f:
+            return re.sub(
+                r'#ifndef __(?:x86_64|i386|aarch64)__\n'
+                r'#  warning "(.*) assumed (?:x86_64|i386|aarch64)'
+                r' alignments"\n',
+                r'#ifndef __ARCH__\n#  warning "\1 assumed ARCH alignments"\n',
+                f.read(),
+            )
+
     def check_ref(self, pkg: str, lang: str) -> None:
         gen_file = pkg + '.iop.' + lang
         ref_file = pkg + '.ref.' + lang
@@ -195,8 +213,23 @@ class IopcTest(z.TestCase):
         # output
         # import shutil
         # shutil.copyfile(gen_file, ref_file)
+
+        # The generated files name the architecture iopc ran on, so the
+        # reference files, which were generated on one, never match on
+        # another: ignore that guard. Everything else is identical, the IOP
+        # descriptors have the same layout on x86-64 and aarch64.
+        ignore_arch_guard = [
+            '-I',
+            r'^#ifndef __\(x86_64\|i386\|aarch64\)__$',
+            '-I',
+            r'^#  warning ".* assumed \(x86_64\|i386\|aarch64\) alignments"$',
+        ]
+
         self.assertEqual(
-            subprocess.call(['diff', '-u', gen_file, ref_file]), 0
+            subprocess.call(
+                ['diff', '-u', *ignore_arch_guard, gen_file, ref_file]
+            ),
+            0,
         )
 
     def check_code_gen_lang(
@@ -926,8 +959,9 @@ class IopcTest(z.TestCase):
         self.run_gcc(f)
         path_base = os.path.join(TEST_PATH, 'attrs_multi_valid.iop.c')
         path_ref = os.path.join(TEST_PATH, 'reference_attrs_multi_valid.c')
-        with open(path_base, 'r') as ref_base, open(path_ref, 'r') as ref:
-            self.assertEqual(ref.read(), ref_base.read())
+        self.assertEqual(
+            self.read_gen_c(path_ref), self.read_gen_c(path_base)
+        )
 
     def test_attrs_multi_constraints(self) -> None:
         f = 'attrs_multi_constraints.iop'
@@ -937,8 +971,9 @@ class IopcTest(z.TestCase):
         path_ref = os.path.join(
             TEST_PATH, 'reference_attrs_multi_constraints.c'
         )
-        with open(path_base, 'r') as ref_base, open(path_ref, 'r') as ref:
-            self.assertEqual(ref.read(), ref_base.read())
+        self.assertEqual(
+            self.read_gen_c(path_ref), self.read_gen_c(path_base)
+        )
 
     def test_attrs_invalid_1(self) -> None:
         self.run_iopc(
