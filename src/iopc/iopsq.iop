@@ -212,6 +212,57 @@ local class Class : 6 : Structure {
 };
 
 /* }}} */
+/* {{{ Interface */
+
+/** Arguments, result or exceptions of an RPC: an anonymous inline structure.
+ *
+ * When the corresponding RPC field is absent, the part is `void`. */
+@ctype(iop__rpc_struct__t)
+struct RPCStruct {
+    Field[] fields;
+};
+
+/** A remote procedure of an interface.
+ *
+ * Only the interface part is described (no handler binding). Each of \p arg,
+ * \p res and \p exn defines an anonymous structure; an absent part is `void`.
+ */
+@ctype(iop__rpc__t)
+struct RPC {
+    Identifier name;
+    ushort? tag;
+    RPCStruct? arg;
+    RPCStruct? res;
+    RPCStruct? exn;
+    /** Asynchronous RPC (`out null`): never returns a result and cannot throw.
+     */
+    bool isAsync = false;
+};
+
+@ctype(iop__iface__t)
+local class Iface : 7 : PackageElem {
+    RPC[] rpcs;
+};
+
+/* }}} */
+/* {{{ Module */
+
+/** Reference to an interface inside a module, bound under an alias name. */
+@ctype(iop__module_iface__t)
+struct ModuleIface {
+    Identifier name;
+    /** Name of the referenced interface; must be declared in the same
+     * package. */
+    FullName iface;
+    ushort? tag;
+};
+
+@ctype(iop__module__t)
+local class Module : 8 : PackageElem {
+    ModuleIface[] ifaces;
+};
+
+/* }}} */
 /* {{{ Package */
 
 @ctype(iop__package__t)

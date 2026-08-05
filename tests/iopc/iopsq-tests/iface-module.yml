@@ -1,0 +1,23 @@
+name: foo
+elems:
+  - !iopsq.Iface
+    name: GetUser
+    rpcs:
+      - name: getUser
+        arg:
+          fields:
+            - name: id
+              type:
+                typeName: int
+        res:
+          fields:
+            - name: name
+              type:
+                s: STRING
+      - name: ping
+        isAsync: true
+  - !iopsq.Module
+    name: MyModule
+    ifaces:
+      - name: users
+        iface: GetUser

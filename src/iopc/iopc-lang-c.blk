@@ -5028,6 +5028,21 @@ mp_build_fullname(mem_pool_t *mp, const iopc_pkg_t *pkg, const char *name)
     return mp_lstr_fmt(mp, "%s.%s", iopc_path_dot(pkg->name), name);
 }
 
+/* Full name of a structure descriptor. RPC arg/res/exn anonymous structures
+ * are qualified by their owning interface (as in the C source generator). */
+static lstr_t mp_iopc_struct_fullname(
+    mem_pool_t *mp, const iopc_pkg_t *pkg, const iopc_struct_t *st
+)
+{
+    if (st->iface) {
+        return mp_lstr_fmt(
+            mp, "%s.%s.%s", iopc_path_dot(pkg->name), st->iface->name,
+            st->name
+        );
+    }
+    return mp_build_fullname(mp, pkg, st->name);
+}
+
 /* }}} */
 /* {{{ IOP struct/union */
 
@@ -5524,7 +5539,7 @@ static iop_struct_t *mp_iopc_struct_to_desc(
 
     {
         iop_struct_t _st_desc = {
-            .fullname = mp_build_fullname(mp, pkg, st->name),
+            .fullname = mp_iopc_struct_fullname(mp, pkg, st),
             .fields = fields,
             .fields_len = st->fields_in_c_struct_order.len,
             .ranges = ranges.tab,
@@ -5673,48 +5688,210 @@ static iop_typedef_t *mp_iopc_typedef_to_desc(
 }
 
 /* }}} */
+/* {{{ IOP interface */
+
+/* Descriptor of an RPC arg/res/exn part. A void part is described by the
+ * shared '&iop__void__s' descriptor; otherwise the anonymous structure built
+ * by the loader is optimized and converted. */
+static const iop_struct_t *mp_iopc_rpc_fun_struct_to_desc(
+    mem_pool_t *mp, const iopc_pkg_t *pkg, const iopc_fun_struct_t *fun_st,
+    sb_t *err
+)
+{
+    if (iopc_fun_struct_is_void(fun_st)) {
+        return &iop__void__s;
+    }
+    /* The IOP² loader only produces anonymous RPC structures. */
+    assert(fun_st->is_anonymous);
+    iopc_struct_optimize(fun_st->anonymous_struct);
+
+    return mp_iopc_struct_to_desc(mp, fun_st->anonymous_struct, pkg, err);
+}
+
+static int mp_iopc_rpc_to_desc(
+    mem_pool_t *mp, const iopc_pkg_t *pkg, const iopc_fun_t *fun,
+    iop_rpc_t *out, sb_t *err
+)
+{
+    const iop_struct_t *args;
+    const iop_struct_t *result;
+    const iop_struct_t *exn;
+
+    args =
+        RETHROW_PN(mp_iopc_rpc_fun_struct_to_desc(mp, pkg, &fun->arg, err));
+    result =
+        RETHROW_PN(mp_iopc_rpc_fun_struct_to_desc(mp, pkg, &fun->res, err));
+    exn = RETHROW_PN(mp_iopc_rpc_fun_struct_to_desc(mp, pkg, &fun->exn, err));
+
+    {
+        iop_rpc_t _rpc = {
+            .name = mp_lstr_dups(mp, fun->name, -1),
+            .args = args,
+            .result = result,
+            .exn = exn,
+            .tag = fun->tag,
+            .async = fun->fun_is_async,
+        };
+
+        /* XXX Work-around all the const fields in 'iop_rpc_t'. */
+        p_copy(out, &_rpc, 1);
+    }
+    return 0;
+}
+
+static const iop_iface_t *mp_iopc_iface_to_desc(
+    mem_pool_t *mp, const iopc_pkg_t *pkg, const iopc_iface_t *iface,
+    sb_t *err
+)
+{
+    iop_iface_t *iface_desc;
+    iop_rpc_t *funs;
+
+    funs = mp_new_raw(mp, iop_rpc_t, iface->funs.len);
+    tab_enumerate(pos, fun, &iface->funs) {
+        if (mp_iopc_rpc_to_desc(mp, pkg, fun, &funs[pos], err) < 0) {
+            sb_prependf(err, "RPC `%s': ", fun->name);
+            return NULL;
+        }
+    }
+
+    {
+        iop_iface_t _iface_desc = {
+            .fullname = mp_build_fullname(mp, pkg, iface->name),
+            .funs = funs,
+            .funs_len = iface->funs.len,
+        };
+
+        iface_desc = mp_new_raw(mp, iop_iface_t, 1);
+        /* XXX Work-around all the const fields in 'iop_iface_t'. */
+        p_copy(iface_desc, &_iface_desc, 1);
+    }
+    return iface_desc;
+}
+
+/* }}} */
+/* {{{ IOP module */
+
+/* Find an interface descriptor by name among the package's already-built
+ * interfaces (module references are restricted to the same package). */
+static const iop_iface_t *iop_ifaces_find_desc(
+    const iop_iface_t *const *ifaces, const iopc_pkg_t *pkg, const char *name
+)
+{
+    tab_enumerate(pos, iface, &pkg->ifaces) {
+        if (strequal(iface->name, name)) {
+            return ifaces[pos];
+        }
+    }
+    return NULL;
+}
+
+static const iop_mod_t *mp_iopc_module_to_desc(
+    mem_pool_t *mp, const iopc_pkg_t *pkg, const iopc_struct_t *mod,
+    const iop_iface_t *const *ifaces, sb_t *err
+)
+{
+    iop_mod_t *mod_desc;
+    iop_iface_alias_t *aliases;
+
+    aliases = mp_new_raw(mp, iop_iface_alias_t, mod->fields.len);
+    tab_enumerate(pos, f, &mod->fields) {
+        const iop_iface_t *iface =
+            iop_ifaces_find_desc(ifaces, pkg, f->type_name);
+
+        if (!iface) {
+            sb_setf(
+                err, "unknown interface `%s' in module `%s'", f->type_name,
+                mod->name
+            );
+            return NULL;
+        }
+
+        {
+            iop_iface_alias_t _alias = {
+                .iface = iface,
+                .name = mp_lstr_dups(mp, f->name, -1),
+                .tag = f->tag,
+            };
+
+            /* XXX Work-around all the const fields in 'iop_iface_alias_t'. */
+            p_copy(&aliases[pos], &_alias, 1);
+        }
+    }
+
+    {
+        iop_mod_t _mod_desc = {
+            .fullname = mp_build_fullname(mp, pkg, mod->name),
+            .ifaces = aliases,
+            .ifaces_len = mod->fields.len,
+        };
+
+        mod_desc = mp_new_raw(mp, iop_mod_t, 1);
+        /* XXX Work-around all the const fields in 'iop_mod_t'. */
+        p_copy(mod_desc, &_mod_desc, 1);
+    }
+    return mod_desc;
+}
+
+/* }}} */
 /* {{{ IOP package */
 
 iop_pkg_t *mp_iopc_pkg_to_desc(mem_pool_t *mp, iopc_pkg_t *pkg, sb_t *err)
 {
     iop_pkg_t *pkg_desc;
     const iop_struct_t **structs;
-    const iop_struct_t **wst;
     const iop_enum_t **enums;
-    const iop_enum_t **wen;
     const iop_typedef_t **typedefs;
-    const iop_typedef_t **wtd;
+    const iop_iface_t **ifaces;
+    const iop_mod_t **mods;
 
     tab_for_each_entry(st, &pkg->structs) {
         iopc_struct_optimize(st);
     }
 
     enums = mp_new_raw(mp, const iop_enum_t *, pkg->enums.len + 1);
-    wen = enums;
-    tab_for_each_entry(en, &pkg->enums) {
-        *wen++ = mp_iopc_enum_to_desc(mp, en, pkg);
+    tab_enumerate(pos, en, &pkg->enums) {
+        enums[pos] = mp_iopc_enum_to_desc(mp, en, pkg);
     }
-    *wen = NULL;
+    enums[pkg->enums.len] = NULL;
 
     structs = mp_new_raw(mp, const iop_struct_t *, pkg->structs.len + 1);
-    wst = structs;
-    tab_for_each_entry(st, &pkg->structs) {
-        *wst = mp_iopc_struct_to_desc(mp, st, pkg, err);
-        if (!*wst) {
+    tab_enumerate(pos, st, &pkg->structs) {
+        structs[pos] = mp_iopc_struct_to_desc(mp, st, pkg, err);
+        if (!structs[pos]) {
             sb_prependf(err, "struct %s: ", st->name);
             return NULL;
         }
-
-        wst++;
     }
-    *wst = NULL;
+    structs[pkg->structs.len] = NULL;
 
     typedefs = mp_new_raw(mp, const iop_typedef_t *, pkg->typedefs.len + 1);
-    wtd = typedefs;
-    tab_for_each_entry(td, &pkg->typedefs) {
-        *wtd++ = mp_iopc_typedef_to_desc(mp, td, pkg);
+    tab_enumerate(pos, td, &pkg->typedefs) {
+        typedefs[pos] = mp_iopc_typedef_to_desc(mp, td, pkg);
     }
-    *wtd = NULL;
+    typedefs[pkg->typedefs.len] = NULL;
+
+    ifaces = mp_new_raw(mp, const iop_iface_t *, pkg->ifaces.len + 1);
+    tab_enumerate(pos, iface, &pkg->ifaces) {
+        ifaces[pos] = mp_iopc_iface_to_desc(mp, pkg, iface, err);
+        if (!ifaces[pos]) {
+            sb_prependf(err, "interface %s: ", iface->name);
+            return NULL;
+        }
+    }
+    ifaces[pkg->ifaces.len] = NULL;
+
+    /* Modules reference interfaces by pointer, so they are built after the
+     * interface descriptors are available. */
+    mods = mp_new_raw(mp, const iop_mod_t *, pkg->modules.len + 1);
+    tab_enumerate(pos, mod, &pkg->modules) {
+        mods[pos] = mp_iopc_module_to_desc(mp, pkg, mod, ifaces, err);
+        if (!mods[pos]) {
+            sb_prependf(err, "module %s: ", mod->name);
+            return NULL;
+        }
+    }
+    mods[pkg->modules.len] = NULL;
 
     {
         iop_pkg_t _pkg_desc = {
@@ -5722,7 +5899,8 @@ iop_pkg_t *mp_iopc_pkg_to_desc(mem_pool_t *mp, iopc_pkg_t *pkg, sb_t *err)
             .enums = enums,
             .structs = structs,
             .typedefs = typedefs,
-            /* TODO (later) ifaces, mods */
+            .ifaces = ifaces,
+            .mods = mods,
             /* TODO deps */
         };
 

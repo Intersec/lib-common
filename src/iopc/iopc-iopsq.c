@@ -791,6 +791,230 @@ static iopc_struct_t *iopc_struct_load(
 }
 
 /* }}} */
+/* {{{ IOP interface */
+
+/* Load one RPC arg/res/exn part into \p fun_st as an anonymous structure
+ * named "<rpc><suffix>" (the same convention as the parser). A NULL
+ * description leaves the part void. */
+static int iopc_rpc_struct_load(
+    const iop_env_ctx_t *nonnull iop_env_ctx,
+    const iop__rpc_struct__t *nullable desc, const char *nonnull rpc_name,
+    const char *nonnull suffix, iopc_fun_struct_t *nonnull fun_st,
+    const iopsq_type_table_t *nullable type_table, sb_t *nonnull err
+)
+{
+    iopc_struct_t *st;
+
+    if (!desc) {
+        /* Void part. */
+        return 0;
+    }
+
+    st = iopc_struct_new();
+    st->name = asprintf("%s%s", rpc_name, suffix);
+    st->type = STRUCT_TYPE_STRUCT;
+    /* Hand the struct to \p fun_st now: on error the caller deletes the
+     * function, and the struct with it. */
+    fun_st->is_anonymous = true;
+    fun_st->anonymous_struct = st;
+
+    qv_grow(&st->fields, desc->fields.len);
+    tab_for_each_ptr(field_desc, &desc->fields) {
+        iopc_field_t *f;
+
+        if (!(f = iopc_field_load(
+                  iop_env_ctx, field_desc, &st->fields, type_table, err
+              )))
+        {
+            return -1;
+        }
+
+        qv_append(&st->fields, f);
+    }
+
+    return 0;
+}
+
+/* Fill \p fun from the RPC description. The caller owns \p fun and adds the
+ * error context. */
+static int iopc_fun_fill(
+    const iop_env_ctx_t *nonnull iop_env_ctx, const iop__rpc__t *nonnull rpc,
+    const iopc_iface_t *nonnull iface, iopc_fun_t *nonnull fun,
+    const iopsq_type_table_t *nullable type_table, sb_t *nonnull err
+)
+{
+    RETHROW(iopc_check_field_name(rpc->name, err));
+
+    fun->name = p_dupz(rpc->name.s, rpc->name.len);
+    fun->pos = iface->funs.len;
+    fun->fun_is_async = rpc->is_async;
+
+    if (OPT_ISSET(rpc->tag)) {
+        fun->tag = OPT_VAL(rpc->tag);
+    } else {
+        fun->tag = iface->funs.len ? (*tab_last(&iface->funs))->tag + 1 : 1;
+    }
+    RETHROW(iopc_check_tag_value(fun->tag, err));
+
+    tab_for_each_entry(other, &iface->funs) {
+        if (strequal(other->name, fun->name)) {
+            sb_sets(err, "name already used by another RPC");
+            return -1;
+        }
+        if (other->tag == fun->tag) {
+            sb_setf(
+                err, "tag `%d' is already used by RPC `%s'", fun->tag,
+                other->name
+            );
+            return -1;
+        }
+    }
+
+    if (rpc->is_async && rpc->res) {
+        sb_sets(err, "an asynchronous RPC cannot have a result");
+        return -1;
+    }
+    if (rpc->is_async && rpc->exn) {
+        sb_sets(err, "an asynchronous RPC cannot throw");
+        return -1;
+    }
+
+    RETHROW(iopc_rpc_struct_load(
+        iop_env_ctx, rpc->arg, fun->name, "Args", &fun->arg, type_table, err
+    ));
+    RETHROW(iopc_rpc_struct_load(
+        iop_env_ctx, rpc->res, fun->name, "Res", &fun->res, type_table, err
+    ));
+    RETHROW(iopc_rpc_struct_load(
+        iop_env_ctx, rpc->exn, fun->name, "Exn", &fun->exn, type_table, err
+    ));
+
+    return 0;
+}
+
+/* Load an RPC (function) into \p iface. Its arguments, result and exceptions
+ * are anonymous structures; an absent part is void. */
+static int iopc_fun_load(
+    const iop_env_ctx_t *nonnull iop_env_ctx, const iop__rpc__t *nonnull rpc,
+    iopc_iface_t *nonnull iface,
+    const iopsq_type_table_t *nullable type_table, sb_t *nonnull err
+)
+{
+    iopc_fun_t *fun = iopc_fun_new();
+
+    if (iopc_fun_fill(iop_env_ctx, rpc, iface, fun, type_table, err) < 0) {
+        iopc_fun_delete(&fun);
+        sb_prependf(err, "RPC `%pL': ", &rpc->name);
+        return -1;
+    }
+
+    qv_append(&iface->funs, fun);
+    return 0;
+}
+
+static iopc_iface_t *iopc_iface_load(
+    const iop_env_ctx_t *nonnull iop_env_ctx,
+    const iop__iface__t *nonnull iface_desc,
+    const iopsq_type_table_t *nullable type_table, sb_t *nonnull err
+)
+{
+    iopc_iface_t *iface;
+
+    iface = iopc_iface_new();
+    iface->name = p_dupz(iface_desc->name.s, iface_desc->name.len);
+    iface->type = IFACE_TYPE_IFACE;
+    /* Make the interface findable by name when resolving module refs. */
+    iface->is_visible = true;
+
+    qv_grow(&iface->funs, iface_desc->rpcs.len);
+    tab_for_each_ptr(rpc, &iface_desc->rpcs) {
+        if (iopc_fun_load(iop_env_ctx, rpc, iface, type_table, err) < 0) {
+            iopc_iface_delete(&iface);
+            return NULL;
+        }
+    }
+
+    return iface;
+}
+
+/* }}} */
+/* {{{ IOP module */
+
+/* Fill \p f from a module interface reference. The caller owns \p f and adds
+ * the error context. */
+static int iopc_module_iface_fill(
+    const iop__module_iface__t *nonnull miface,
+    const iopc_struct_t *nonnull mod, iopc_field_t *nonnull f,
+    sb_t *nonnull err
+)
+{
+    RETHROW(iopc_check_field_name(miface->name, err));
+
+    f->name = p_dupz(miface->name.s, miface->name.len);
+    f->type_name = p_dupz(miface->iface.s, miface->iface.len);
+
+    if (OPT_ISSET(miface->tag)) {
+        /* User-defined tag. */
+        f->tag = OPT_VAL(miface->tag);
+    } else if (mod->fields.len == 0) {
+        f->tag = 1;
+    } else {
+        /* Incremental tagging: use last tag + 1. */
+        f->tag = (*tab_last(&mod->fields))->tag + 1;
+    }
+    RETHROW(iopc_check_tag_value(f->tag, err));
+
+    tab_for_each_entry(other, &mod->fields) {
+        if (strequal(other->name, f->name)) {
+            sb_setf(err, "interface alias `%s' is already used", f->name);
+            return -1;
+        }
+        if (other->tag == f->tag) {
+            sb_setf(
+                err, "tag `%d' is already used by interface `%s'", f->tag,
+                other->name
+            );
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+/* Load a module as an 'iopc_struct_t' whose fields are interface references
+ * (the same representation as the parser). Each field carries the alias name,
+ * the referenced interface name (resolved later by the typer against the
+ * current package) and a tag. */
+static iopc_struct_t *
+iopc_module_load(const iop__module__t *nonnull mod_desc, sb_t *nonnull err)
+{
+    iopc_struct_t *mod;
+
+    mod = iopc_struct_new();
+    mod->name = p_dupz(mod_desc->name.s, mod_desc->name.len);
+    mod->is_visible = true;
+
+    qv_grow(&mod->fields, mod_desc->ifaces.len);
+    tab_for_each_ptr(miface, &mod_desc->ifaces) {
+        iopc_field_t *f = iopc_field_new();
+
+        if (iopc_module_iface_fill(miface, mod, f, err) < 0) {
+            iopc_field_delete(&f);
+            sb_prependf(err, "module interface `%pL': ", &miface->name);
+            goto error;
+        }
+
+        qv_append(&mod->fields, f);
+    }
+
+    return mod;
+
+error:
+    iopc_struct_delete(&mod);
+    return NULL;
+}
+
+/* }}} */
 /* {{{ IOP enum */
 
 /* Attach an @alias attribute holding the value aliases, mirroring the parser
@@ -911,6 +1135,12 @@ static const char *pkg_elem_type_to_str(const iop__package_elem__t *elem)
 
     case IOP_CLASS_ID(iop__typedef):
         return "typedef";
+
+    case IOP_CLASS_ID(iop__iface):
+        return "interface";
+
+    case IOP_CLASS_ID(iop__module):
+        return "module";
     }
 
     assert(false);
@@ -994,10 +1224,39 @@ static iopc_pkg_t *iopc_pkg_load_from_iop(
                 qv_append(&pkg->typedefs, tdef);
             }
 
+            IOP_OBJ_CASE(iop__iface, elem, iface_desc)
+            {
+                iopc_iface_t *iface;
+
+                if (!(iface = iopc_iface_load(
+                          iop_env_ctx, iface_desc, type_table, err
+                      )))
+                {
+                    sb_prependf(
+                        err, "cannot load interface `%pL': ", &elem->name
+                    );
+                    goto error;
+                }
+
+                qv_append(&pkg->ifaces, iface);
+            }
+
+            IOP_OBJ_CASE(iop__module, elem, mod_desc)
+            {
+                iopc_struct_t *mod;
+
+                if (!(mod = iopc_module_load(mod_desc, err))) {
+                    sb_prependf(
+                        err, "cannot load module `%pL': ", &elem->name
+                    );
+                    goto error;
+                }
+
+                qv_append(&pkg->modules, mod);
+            }
+
             /* Classes are 'iop__structure__t' subclasses and are handled by
              * the 'iop__structure' case above. */
-            /* TODO Interfaces */
-            /* TODO Modules */
             /* TODO SNMP stuff */
 
             IOP_OBJ_DEFAULT(iop__package_elem)

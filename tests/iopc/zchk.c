@@ -680,6 +680,59 @@ Z_GROUP_EXPORT(iopsq)
     }
     Z_TEST_END;
 
+    Z_TEST(iface_module, "interfaces, RPCs and modules") {
+        t_scope;
+        iop_pkg_t *pkg;
+        const iop_iface_t *iface;
+        const iop_mod_t *mod;
+        const iop_rpc_t *rpc;
+
+        Z_HELPER_RUN(t_package_load(&pkg, iop_env, "iface-module.yml"));
+
+        /* A single interface, GetUser, with two RPCs. */
+        iface = pkg->ifaces[0];
+        Z_ASSERT_P(iface);
+        Z_ASSERT_NULL(pkg->ifaces[1]);
+        Z_ASSERT_LSTREQUAL(iface->fullname, LSTR("foo.GetUser"));
+        Z_ASSERT_EQ(iface->funs_len, 2);
+
+        /* getUser: anonymous 'in'/'out' structures, void exceptions, tag
+         * auto-assigned to 1. */
+        rpc = &iface->funs[0];
+        Z_ASSERT_LSTREQUAL(rpc->name, LSTR("getUser"));
+        Z_ASSERT_EQ((int)rpc->tag, 1);
+        Z_ASSERT(!rpc->async);
+        Z_ASSERT_P(rpc->args);
+        Z_ASSERT(rpc->args != &iop__void__s);
+        Z_ASSERT_EQ(rpc->args->fields_len, 1);
+        Z_ASSERT_LSTREQUAL(rpc->args->fields[0].name, LSTR("id"));
+        Z_ASSERT(rpc->result != &iop__void__s);
+        Z_ASSERT_EQ(rpc->result->fields_len, 1);
+        Z_ASSERT_LSTREQUAL(rpc->result->fields[0].name, LSTR("name"));
+        Z_ASSERT(rpc->exn == &iop__void__s);
+
+        /* ping: asynchronous, so all parts are void. */
+        rpc = &iface->funs[1];
+        Z_ASSERT_LSTREQUAL(rpc->name, LSTR("ping"));
+        Z_ASSERT_EQ((int)rpc->tag, 2);
+        Z_ASSERT(rpc->async);
+        Z_ASSERT(rpc->args == &iop__void__s);
+        Z_ASSERT(rpc->result == &iop__void__s);
+        Z_ASSERT(rpc->exn == &iop__void__s);
+
+        /* A single module, MyModule: it references GetUser under the alias
+         * 'users' (tag 1). */
+        mod = pkg->mods[0];
+        Z_ASSERT_P(mod);
+        Z_ASSERT_NULL(pkg->mods[1]);
+        Z_ASSERT_LSTREQUAL(mod->fullname, LSTR("foo.MyModule"));
+        Z_ASSERT_EQ(mod->ifaces_len, 1);
+        Z_ASSERT_LSTREQUAL(mod->ifaces[0].name, LSTR("users"));
+        Z_ASSERT_EQ((int)mod->ifaces[0].tag, 1);
+        Z_ASSERT(mod->ifaces[0].iface == iface);
+    }
+    Z_TEST_END;
+
     Z_TEST(enum_strict_aliases, "enum strictness and value aliases") {
         t_scope;
         iop_pkg_t *pkg;
