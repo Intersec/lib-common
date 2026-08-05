@@ -854,27 +854,29 @@ class CoverageStartClass(BuildContext):
     cmd = 'coverage-start'
 
 
-def coverage_end_cmd(ctx: BuildContext) -> None:
-    if ctx.cmd != 'coverage-end':
-        return
+def coverage_diff_dir(ctx: BuildContext) -> Node:
+    return ctx.bldnode.make_node('coverage-diff')
 
-    if ctx.env.PROFILE != 'coverage':
-        ctx.fatal(
-            'coverage-end requires coverage profile, '
-            f'current is {ctx.env.PROFILE}'
-        )
 
-    # The following code is adapted from
-    # http://bind10.isc.org/wiki/TestCodeCoverage
-
-    # Empty gcda files (previously created here so that never-executed
-    # files appear in the report) make gcov 13+/lcov 2 fail; remove them.
+def do_coverage_capture(ctx: BuildContext, lcov_file: Node) -> None:
+    """Capture the counters accumulated so far into `lcov_file`."""
+    # Remove the gcda files that gcov 13+/lcov 2 reject: empty ones
+    # (previously created here so that never-executed files appear in the
+    # report), and stale ones, older than their gcno (a rebuild after the
+    # test run invalidates the counters -- "stamp mismatch").
     for gcda_node in ctx.bldnode.ant_glob('**/*.gcda', quiet=True):
-        if os.path.getsize(gcda_node.abspath()) == 0:
-            os.remove(gcda_node.abspath())
+        gcda = gcda_node.abspath()
+        gcno = gcda[: -len('.gcda')] + '.gcno'
+        if os.path.getsize(gcda) == 0 or (
+            os.path.exists(gcno)
+            and os.path.getmtime(gcno) > os.path.getmtime(gcda)
+        ):
+            os.remove(gcda)
 
+    # Doubled keywords: the first occurrence downgrades the error to a
+    # warning, the second one silences it (stale gcda survive).
     ignore = (
-        'gcov,source,mismatch,inconsistent,negative,empty,unused,version'
+        'gcov,gcov,source,mismatch,inconsistent,negative,empty,unused,version'
     )
 
     # Capture a zero-coverage baseline from the gcno files so that
@@ -928,7 +930,6 @@ def coverage_end_cmd(ctx: BuildContext) -> None:
     lcov_test_file.delete()
 
     # Remove files not needed in the report
-    lcov_file = ctx.bldnode.make_node('lcov.info')
     cmd = '{0} --remove {1} "/usr/*" --output {2}'
     if ctx.exec_command(
         cmd.format(
@@ -938,24 +939,165 @@ def coverage_end_cmd(ctx: BuildContext) -> None:
         ctx.fatal('failed to purify lcov trace file')
     lcov_all_file.delete()
 
+
+def do_coverage_diff_mark(ctx: BuildContext, side: str) -> None:
+    if ctx.env.PROFILE != 'coverage':
+        ctx.fatal(
+            f'coverage-diff-{side} requires coverage profile, '
+            f'current is {ctx.env.PROFILE}'
+        )
+
+    ddir = coverage_diff_dir(ctx)
+    if not os.path.exists(ddir.abspath()):
+        ddir.mkdir()
+
+    # Capture the side whose tests ran before this mark, if any.
+    pending = ddir.make_node('pending')
+    if os.path.exists(pending.abspath()):
+        other = pending.read().strip()
+        if other != side:
+            do_coverage_capture(ctx, ddir.make_node(other + '.info'))
+
+    # (Re)start this side: forget a previous capture of it.
+    for ext in ('.info', '.sha'):
+        path = ddir.make_node(side + ext).abspath()
+        if os.path.exists(path):
+            os.remove(path)
+
+    sha = ctx.cmd_and_log(
+        ['git', 'rev-parse', 'HEAD'], cwd=ctx.srcnode.abspath()
+    ).strip()
+    ddir.make_node(side + '.sha').write(sha + '\n')
+    pending.write(side + '\n')
+
+    rc = ctx.exec_command(f'git -C {ctx.srcnode.abspath()} diff --quiet HEAD')
+    if rc:
+        print(
+            'WARNING: the work tree differs from HEAD; the source diff '
+            f'uses HEAD ({sha[:12]}).'
+        )
+
+    do_coverage_start(ctx)
+
+    print()
+    print(f'Coverage-diff side {side.upper()} = {sha[:12]}, counters reset.')
+    print(
+        'Run the tests for this side. Then mark the other side (BEFORE '
+        'its rebuild), or run `waf coverage-end` once both sides ran.'
+    )
+    print()
+
+    # Interrupt the build
+    groups: List[List[TaskGen]] = []
+    ctx.groups = groups
+
+
+def coverage_diff_a_cmd(ctx: BuildContext) -> None:
+    if ctx.cmd == 'coverage-diff-a':
+        do_coverage_diff_mark(ctx, 'a')
+
+
+class CoverageDiffAClass(BuildContext):
+    """mark the current state as coverage-diff side A (report baseline)"""
+
+    cmd = 'coverage-diff-a'
+
+
+def coverage_diff_b_cmd(ctx: BuildContext) -> None:
+    if ctx.cmd == 'coverage-diff-b':
+        do_coverage_diff_mark(ctx, 'b')
+
+
+class CoverageDiffBClass(BuildContext):
+    """mark the current state as coverage-diff side B"""
+
+    cmd = 'coverage-diff-b'
+
+
+def coverage_end_cmd(ctx: BuildContext) -> None:
+    if ctx.cmd != 'coverage-end':
+        return
+
+    if ctx.env.PROFILE != 'coverage':
+        ctx.fatal(
+            'coverage-end requires coverage profile, '
+            f'current is {ctx.env.PROFILE}'
+        )
+
+    # The following code is adapted from
+    # http://bind10.isc.org/wiki/TestCodeCoverage
+
+    ddir = coverage_diff_dir(ctx)
+    pending = ddir.make_node('pending')
+    a_info = ddir.make_node('a.info')
+    b_info = ddir.make_node('b.info')
+    diff_mode = os.path.exists(pending.abspath()) or (
+        os.path.exists(a_info.abspath()) and os.path.exists(b_info.abspath())
+    )
+
+    genhtml_opts = (
+        '--ignore-errors unmapped,inconsistent,mismatch,'
+        'category,source,path --synthesize-missing'
+    )
+    report_name = 'coverage-report'
+    a_sha = b_sha = ''
+
+    if diff_mode:
+        # Differential mode: baseline = side A, current = side B, with
+        # the A->B source diff so genhtml classifies every line (LBC =
+        # lost coverage on unchanged code, UNC = uncovered new code...).
+        if os.path.exists(pending.abspath()):
+            side = pending.read().strip()
+            do_coverage_capture(ctx, ddir.make_node(side + '.info'))
+            os.remove(pending.abspath())
+        for side, info in (('A', a_info), ('B', b_info)):
+            if not os.path.exists(info.abspath()):
+                ctx.fatal(
+                    f'coverage-diff: side {side} never ran: mark it '
+                    f'with `waf coverage-diff-{side.lower()}`, run the '
+                    'tests, and rerun `waf coverage-end`'
+                )
+        a_sha = ddir.make_node('a.sha').read().strip()
+        b_sha = ddir.make_node('b.sha').read().strip()
+        lcov_file = b_info
+        diff_file = ddir.make_node('src.diff')
+        src = ctx.srcnode.abspath()
+
+        # Absolute prefixes: the diff paths must match the SF: entries.
+        cmd = (
+            f'git -C {src} diff --src-prefix={src}/ --dst-prefix={src}/ '
+            f'{a_sha} {b_sha} > {diff_file.abspath()}'
+        )
+        if ctx.exec_command(cmd):
+            ctx.fatal('failed to generate the source diff')
+
+        genhtml_opts += (
+            f' --baseline-file {a_info.abspath()}'
+            f' --diff-file {diff_file.abspath()}'
+        )
+        report_name = 'coverage-report-diff'
+    else:
+        lcov_file = ctx.bldnode.make_node('lcov.info')
+        do_coverage_capture(ctx, lcov_file)
+
     # Generate HTML report
     now = datetime.datetime.now()
-    report_dir_name = f'coverage-report-{now:%Y%m%d-%H%M%S}'
+    report_dir_name = f'{report_name}-{now:%Y%m%d-%H%M%S}'
     report_dir = ctx.srcnode.make_node(report_dir_name)
     report_dir.delete(evict=False)
-    cmd = (
-        '{0} --ignore-errors unmapped,inconsistent,mismatch,category,'
-        'source --synthesize-missing -o {1} {2}'
-    )
+    cmd = '{0} {1} -o {2} {3}'
     if ctx.exec_command(
         cmd.format(
-            ctx.env.GENHTML[0], report_dir.abspath(), lcov_file.abspath()
+            ctx.env.GENHTML[0],
+            genhtml_opts,
+            report_dir.abspath(),
+            lcov_file.abspath(),
         )
     ):
         ctx.fatal('failed to generate HTML report')
 
     # Produce a symlink to the report directory
-    report_link = ctx.srcnode.make_node('coverage-report')
+    report_link = ctx.srcnode.make_node(report_name)
     try:
         os.remove(report_link.abspath())
     except OSError:
@@ -965,6 +1107,16 @@ def coverage_end_cmd(ctx: BuildContext) -> None:
     print()
     print(f'lcov data available in {lcov_file.abspath()}')
     print(f'Coverage report produced in {report_dir.abspath()}')
+    if diff_mode:
+        print(
+            f'Differential report, A = {a_sha[:12]} -> B = {b_sha[:12]}: '
+            'LBC = coverage lost on unchanged code, UNC = uncovered new '
+            'code.'
+        )
+        print(
+            'Re-mark a side with `waf coverage-diff-a` or '
+            '`waf coverage-diff-b` to measure it again.'
+        )
     print()
 
     # Interrupt the build
@@ -973,7 +1125,7 @@ def coverage_end_cmd(ctx: BuildContext) -> None:
 
 
 class CoverageReportClass(BuildContext):
-    """end a coverage session and produce a report"""
+    """end a coverage session and produce a report (diff-aware)"""
 
     cmd = 'coverage-end'
 
@@ -2297,6 +2449,8 @@ def build(ctx: BuildContext) -> None:
     ctx.add_pre_fun(gen_tags)
     ctx.add_pre_fun(old_gen_files_detect)
     ctx.add_pre_fun(coverage_start_cmd)
+    ctx.add_pre_fun(coverage_diff_a_cmd)
+    ctx.add_pre_fun(coverage_diff_b_cmd)
     ctx.add_pre_fun(coverage_end_cmd)
 
 
