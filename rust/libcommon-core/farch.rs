@@ -252,8 +252,12 @@ pub unsafe extern "C" fn farch_get_filename(
     lstr_unobfuscate(&entry.name, entry.nb_chunks as u64, &out);
 
     // Ensure that the name ends with a null character.
+    //
+    // The zero is written without a cast on purpose: c_char is signed on
+    // x86-64 and unsigned on aarch64, so a cast is either truncating a char
+    // literal or casting u8 to u8, and clippy rejects one on each.
     unsafe {
-        *name_outbuf.add(entry.name.len()) = '\0' as c_char;
+        *name_outbuf.add(entry.name.len()) = 0;
     };
 
     name_outbuf
