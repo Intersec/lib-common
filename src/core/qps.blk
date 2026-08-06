@@ -1816,8 +1816,7 @@ static void qps_gc(qps_t *qps)
         m.gen = map->hdr.generation;
         m.allocated = map->hdr.remaining;
         m.disk_usage = map->hdr.disk_usage;
-        if (m.disk_usage == 0) /* XXX: only happens with eatmydata */
-        {
+        if (m.disk_usage == 0) { /* XXX: only happens with eatmydata */
             continue;
         }
         m.mark = 10UL * m.allocated / m.disk_usage;
