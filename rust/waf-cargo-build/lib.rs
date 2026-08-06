@@ -570,6 +570,19 @@ impl WafBuild {
             // XXX: nice thing about cc it emits cargo metadata
             // cargo:rustc-link-search=native=...
             // so the linker can find the compiled lib.
+
+            // The wrappers call the very functions they wrap, so they need the
+            // C libraries, which print_cargo_instructions() has already named:
+            // name them again. A linker reads an archive once, in the order it
+            // is given, and takes from it only what is undefined at that
+            // point, so a library listed before the wrappers cannot resolve
+            // what the wrappers need. Whether it happens to work depends on
+            // what pulled the same archive members in earlier: it did on
+            // x86-64 and it did not on aarch64, where the link failed on
+            // object_class, cls_inherits and object_panic.
+            for lib in &self.json_env.libs {
+                println!("cargo::rustc-link-lib={lib}");
+            }
         }
 
         // Generate the binding items file
