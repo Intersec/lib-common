@@ -2719,12 +2719,13 @@ Z_GROUP_EXPORT(str) {
         lstr_wipe(&map);
         sb_reset(&sb);
 
-        /* /sys/kernel/boot_params/version is a virtual file that always seem
-         * to be reported with a size of 4K. As a virtual file it still won't
-         * support mmap() which will return ENODEV and thus we must fallback
-         * to read().
+        /* /sys/devices/system/cpu/online is a virtual file reported with a
+         * size of 4K, like every sysfs attribute, and does not support mmap()
+         * either: it returns ENODEV, so we must fallback to read(). What was
+         * used here before, /sys/kernel/boot_params/version, only exists on
+         * x86: boot_params is a structure of its boot protocol.
          */
-        path = "/sys/kernel/boot_params/version";
+        path = "/sys/devices/system/cpu/online";
 
         Z_ASSERT_N(stat(path, &st));
         Z_ASSERT_GT(st.st_size, 0);
