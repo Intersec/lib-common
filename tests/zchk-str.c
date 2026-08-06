@@ -2787,6 +2787,24 @@ Z_GROUP_EXPORT(str) {
          * of both 'lstr_dupz()', 't_lstr_dupz()'. */
     } Z_TEST_END;
 
+    Z_TEST(sb_data_alignment) {
+        t_scope;
+        SB_1k(sb);
+        SB(odd_size, 13);
+        t_SB_1k(t_sb);
+        t_SB(t_odd_size, 13);
+
+        /* bb_init_sb() reads and writes the buffer as 64 bits words, and
+         * realigns the ones that need it. Keep the macros out of that path:
+         * neither a char array nor t_new_raw(char) is aligned on its own, so
+         * nothing else would notice the attribute going away.
+         */
+        Z_ASSERT_ZERO((uintptr_t)sb.data % SB_ALIGNMENT);
+        Z_ASSERT_ZERO((uintptr_t)odd_size.data % SB_ALIGNMENT);
+        Z_ASSERT_ZERO((uintptr_t)t_sb.data % SB_ALIGNMENT);
+        Z_ASSERT_ZERO((uintptr_t)t_odd_size.data % SB_ALIGNMENT);
+    } Z_TEST_END;
+
     Z_TEST(sb_overlaps) {
         SB_1k(abcdef);
         lstr_t bcd;

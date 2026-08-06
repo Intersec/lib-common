@@ -120,6 +120,18 @@ static inline sb_t *nonnull sb_init_full(
     return sb;
 }
 
+/** Alignment of the buffers that SB() and t_SB() declare.
+ *
+ * A string-buffer has no alignment of its own: sb_init_full() takes any
+ * buffer, and sb_skip() moves the data pointer by any number of bytes. This
+ * is what the two macros below give, and nothing more.
+ *
+ * They give it because bb_init_sb() reads and writes the buffer as 64 bits
+ * words. It realigns what it gets, so the alignment only saves a copy, but
+ * it saves it on the aper_encode() path, which is hot.
+ */
+#  define SB_ALIGNMENT 8
+
 /** SB() macro declare a sb using stack buffer with a constant size.
  *
  * It will be automatically wiped when leaving the current scope.
@@ -127,10 +139,14 @@ static inline sb_t *nonnull sb_init_full(
 #  ifdef __cplusplus
 
 #    define SB(name, sz)                                                     \
-        CONST_SIZE_ARRAY(__##name##_buf, char, (sz));                        \
+        CONST_SIZE_ARRAY(__##name##_buf, char, (sz))                         \
+        __attribute__((aligned(SB_ALIGNMENT)));                              \
         sb_t name(__##name##_buf, 0, sz, &mem_pool_static)
 
-#    define t_SB(name, sz) sb_t name(t_new_raw(char, sz), 0, sz, t_pool())
+#    define t_SB(name, sz)                                                   \
+        sb_t name(                                                           \
+            mpa_new_raw(t_pool(), char, sz, SB_ALIGNMENT), 0, sz, t_pool()   \
+        )
 
 #  else
 
@@ -138,12 +154,15 @@ static inline sb_t *nonnull sb_init_full(
         {.data = memset(buf, 0, 1), .size = sz, .mp = pool}
 
 #    define SB(name, sz)                                                     \
-        CONST_SIZE_ARRAY(__##name##_buf, char, (sz));                        \
+        CONST_SIZE_ARRAY(__##name##_buf, char, (sz))                         \
+        __attribute__((aligned(SB_ALIGNMENT)));                              \
         scoped(sb_t, name, sb_wipe) =                                        \
             SB_INIT(__##name##_buf, sz, &mem_pool_static)
 
 #    define t_SB(name, sz)                                                   \
-        sb_t name = SB_INIT(t_new_raw(char, sz), sz, t_pool())
+        sb_t name = SB_INIT(                                                 \
+            mpa_new_raw(t_pool(), char, sz, SB_ALIGNMENT), sz, t_pool()      \
+        )
 
 #  endif
 
