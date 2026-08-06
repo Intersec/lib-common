@@ -30,6 +30,7 @@ from typing import (  # noqa: UP035 (deprecated-import)
     # which is 3.6 on the oldest supported OS, before switching to the
     # version the project targets. That is also too old for
     # `from __future__ import annotations`, which needs 3.7.
+    Dict,
     List,
     Optional,
     Tuple,
@@ -118,9 +119,9 @@ def requires_python_bounds(
     return minimum, maximum
 
 
-def system_python_version(ctx: BuildContext) -> Optional[Tuple[int, int]]:
-    # Return the (major, minor) version of the system Python, or None when
-    # there is none.
+def system_python_env(ctx: BuildContext) -> Dict[str, str]:
+    # Return an environment whose PATH resolves Python interpreters to the
+    # system ones.
     #
     # The interpreters of a virtual environment or of a tool manager are
     # removed from the PATH: they are precisely what we are about to decide to
@@ -154,6 +155,12 @@ def system_python_version(ctx: BuildContext) -> Optional[Tuple[int, int]]:
     # build/asdf_python_version.sh does.
     env['ASDF_PYTHON_VERSION'] = 'system'
 
+    return env
+
+
+def system_python_version(ctx: BuildContext) -> Optional[Tuple[int, int]]:
+    # Return the (major, minor) version of the default system Python, or None
+    # when there is none.
     try:
         version = ctx.cmd_and_log(
             [
@@ -161,7 +168,7 @@ def system_python_version(ctx: BuildContext) -> Optional[Tuple[int, int]]:
                 '-c',
                 'import sys; print("%d.%d" % sys.version_info[:2])',
             ],
-            env=env,
+            env=system_python_env(ctx),
         )
     except Errors.WafError:
         return None
@@ -170,9 +177,44 @@ def system_python_version(ctx: BuildContext) -> Optional[Tuple[int, int]]:
     return int(major), int(minor)
 
 
-def mise_python_version(ctx: BuildContext) -> Optional[str]:
-    # Return the Python version mise must provide, or None when the system one
-    # must be used.
+def versioned_system_python(
+    ctx: BuildContext,
+    minimum: Tuple[int, int],
+    maximum: Optional[Tuple[int, int]],
+) -> Optional[str]:
+    # Return the version of a versioned system interpreter (`python3.X`)
+    # within [minimum, maximum), or None when there is none.
+    #
+    # The default python3 being out of the range does not mean the OS has no
+    # suitable interpreter: RHEL-family OSes ship several Python streams as
+    # official packages, installed alongside the default one. Rocky 8 ships
+    # python3.9 while its python3 is 3.6, and Rocky 9 ships python3.11 for
+    # the branches that need it. Probing them keeps an OS-built interpreter,
+    # the one production platforms use, everywhere one exists.
+    #
+    # Versions are probed from the minimum up: the lowest stream of the range
+    # an OS ships is the version the branch documents for that OS, and the
+    # version common with the older OSes of the range.
+    #
+    # The maximum is required: it is what makes the probe finite, and
+    # requires-python declares one on purpose (an unbounded range would
+    # accept interpreters no supported OS ships).
+    if maximum is None or maximum[0] != minimum[0]:
+        return None
+
+    env = system_python_env(ctx)
+    for minor in range(minimum[1], maximum[1]):
+        if shutil.which(f'python{minimum[0]}.{minor}', path=env['PATH']):
+            return f'{minimum[0]}.{minor}'
+
+    return None
+
+
+def python_versions(
+    ctx: BuildContext,
+) -> Tuple[Optional[str], Optional[str]]:
+    # Return the Python version mise must provide and the version uv must
+    # select, either being None when unconstrained.
     #
     # mise cannot express "the system Python, but only if its version is
     # supported", so the decision is taken here, from the requires-python of
@@ -180,9 +222,16 @@ def mise_python_version(ctx: BuildContext) -> Optional[str]:
     # OSes supported by the branch, hence the system Python of any of them is
     # suitable. Production platforms depend on that, since they must use their
     # system interpreter for performance reasons.
+    #
+    # The default system interpreter is preferred, then a versioned system
+    # one (`python3.X`), and a mise-provided Python is the last resort, for
+    # the machines whose OS ships nothing in the range, such as developer
+    # laptops. Build machines are expected to have an OS interpreter: this
+    # is also what keeps mise from installing Pythons, and thus shims, on
+    # machines where ASDF is still in use.
     minimum, maximum = requires_python_bounds(ctx)
     if minimum is None:
-        return None
+        return None, None
 
     system = system_python_version(ctx)
     if (
@@ -190,12 +239,20 @@ def mise_python_version(ctx: BuildContext) -> Optional[str]:
         and system >= minimum
         and (maximum is None or system < maximum)
     ):
-        return None
+        return None, None
+
+    versioned = versioned_system_python(ctx, minimum, maximum)
+    if versioned is not None:
+        # uv must be told the version: its own discovery would take the
+        # newest interpreter satisfying requires-python, while the version
+        # the branch documents for an OS is the lowest stream it ships in
+        # the range.
+        return None, versioned
 
     # Fall back on the oldest supported version, the one common to every
     # supported OS. Only the major and minor versions are requested: mise
     # downloads prebuilt archives, which only exist for recent patch versions.
-    return '{}.{}'.format(*minimum)
+    return '{}.{}'.format(*minimum), '{}.{}'.format(*minimum)
 
 
 def configure_tool_manager(ctx: BuildContext) -> None:
@@ -238,8 +295,10 @@ def configure_tool_manager(ctx: BuildContext) -> None:
         # Let MISE_PYTHON_VERSION win when it is already set, so that another
         # Python version can be tried without touching the repository.
         python_version = os.environ.get('MISE_PYTHON_VERSION')
-        if python_version is None:
-            python_version = mise_python_version(ctx)
+        if python_version is not None:
+            uv_python_version: Optional[str] = python_version
+        else:
+            python_version, uv_python_version = python_versions(ctx)
             if python_version is None:
                 # Prevent mise from providing any Python, so that uv falls
                 # back on the system one (cf. python-preference in
@@ -253,8 +312,13 @@ def configure_tool_manager(ctx: BuildContext) -> None:
                 os.environ['MISE_DISABLE_TOOLS'] = ','.join(tools)
             else:
                 os.environ['MISE_PYTHON_VERSION'] = python_version
-        ctx.msg('Python version', python_version or 'system')
-        ctx.env.UV_PYTHON_VERSION = python_version
+        if python_version is not None:
+            ctx.msg('Python version', f'{python_version} (mise)')
+        elif uv_python_version is not None:
+            ctx.msg('Python version', f'{uv_python_version} (system)')
+        else:
+            ctx.msg('Python version', 'system')
+        ctx.env.UV_PYTHON_VERSION = uv_python_version
 
         cmd = ['mise', 'install']
         if ctx.exec_command(cmd, stdout=None, stderr=None, cwd=ctx.srcnode):
