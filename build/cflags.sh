@@ -81,11 +81,20 @@ echo_march()
     esac
 }
 
+# Pick from a cc1 command line what the block rewriter needs to see the same
+# translation unit as the compiler: the internal include paths, and the
+# description of the target.
+#
+# The rewriter is driven at the cc1 level, so nothing computes the target
+# features for it the way the driver does for a compilation: they have to be
+# forwarded. Without them aarch64 is left without Advanced SIMD, and glibc's
+# math.h alone is enough to stop the rewrite ('__neon_vector_type__' attribute
+# is not supported on targets missing 'neon').
 get_internal_clang_args()
 {
     while test $# != 0; do
         case "$1" in
-            '"'-internal-*)
+            '"'-internal-*|'"'-target-cpu'"'|'"'-target-feature'"')
                 echo $1
                 echo $2
                 shift 2
