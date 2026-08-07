@@ -1,0 +1,943 @@
+/***************************************************************************/
+/*                                                                         */
+/* Copyright 2022 INTERSEC SA                                              */
+/*                                                                         */
+/* Licensed under the Apache License, Version 2.0 (the "License");         */
+/* you may not use this file except in compliance with the License.        */
+/* You may obtain a copy of the License at                                 */
+/*                                                                         */
+/*     http://www.apache.org/licenses/LICENSE-2.0                          */
+/*                                                                         */
+/* Unless required by applicable law or agreed to in writing, software     */
+/* distributed under the License is distributed on an "AS IS" BASIS,       */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*/
+/* See the License for the specific language governing permissions and     */
+/* limitations under the License.                                          */
+/*                                                                         */
+/***************************************************************************/
+
+#include <lib-common/z.h>
+#include <lib-common/qps.h>
+#include <lib-common/qps-hat.h>
+#include <lib-common/qps-bitmap.h>
+#include <lib-common/core/qps-priv.h>
+
+/* LCOV_EXCL_START */
+
+/* {{{ Z-Helpers */
+
+typedef struct z_dissect_res_t {
+    qv_t(u32) types;
+    size_t nbr_free_handles;
+} z_dissect_res_t;
+
+/* Run the maps and handles analysis alone and collect the notified anomaly
+ * types. */
+static void z_dissect_run(qps_t *qps, z_dissect_res_t *res)
+{
+    SB_1k(err);
+    qps_dissect_ctx_t ctx;
+    qv_t(u32) *types = &res->types;
+
+    p_clear(res, 1);
+    qv_init(&res->types);
+    qps_dissect_ctx_init(&ctx, qps, &err, QPS_DISSECT_SKIP_USAGE_AND_STATS);
+    qps_dissect_register_on_notify_blk(&ctx, ^(qps_notify_anomaly_t *item) {
+        qv_append(types, item->type);
+    });
+    qps_dissect_set_owner(&ctx, "zchk");
+    qps_dissect_maps_and_handles(&ctx);
+    res->nbr_free_handles = ctx.stats.nbr_free_handles;
+    qps_dissect_ctx_wipe(&ctx);
+}
+
+static int z_dissect_count(const z_dissect_res_t *res, qps_anomaly_t type)
+{
+    int nb = 0;
+
+    tab_for_each_entry(t, &res->types) {
+        if (t == (uint32_t)type) {
+            nb++;
+        }
+    }
+    return nb;
+}
+
+/* Initialize a dissect context whose notify callback counts anomalies. */
+static void z_dissect_ctx_setup(
+    qps_dissect_ctx_t *ctx, qps_t *qps, sb_t *err, int flags, int *counter
+)
+{
+    qps_dissect_ctx_init(ctx, qps, err, flags);
+    qps_dissect_register_on_notify_blk(ctx, ^(qps_notify_anomaly_t *item) {
+        (*counter)++;
+    });
+    qps_dissect_set_owner(ctx, "zchk");
+}
+
+/* Same, with a heap-allocated context ('qps_dissect_ctx_new()' path). */
+static qps_dissect_ctx_t *
+z_dissect_ctx_new_setup(qps_t *qps, sb_t *err, int flags, int *counter)
+{
+    qps_dissect_ctx_t *ctx = qps_dissect_ctx_new(qps, err, flags);
+
+    qps_dissect_register_on_notify_blk(ctx, ^(qps_notify_anomaly_t *item) {
+        (*counter)++;
+    });
+    qps_dissect_set_owner(ctx, "zchk");
+    return ctx;
+}
+
+static qps_mhdr_t *z_dissect_mhdr(qps_t *qps, qps_handle_t h)
+{
+    return container_of(qps_handle_deref(qps, h), qps_mhdr_t, data);
+}
+
+#define Z_DISSECT_NB_ANOMALIES (QPS_ANOMALY_H_REF_UNKNOWN + 1)
+
+/* Initialize a dissect context whose notify callback counts anomalies per
+ * type in a 'counts' array of Z_DISSECT_NB_ANOMALIES entries. */
+static void z_dissect_setup(
+    qps_dissect_ctx_t *ctx, qps_t *qps, sb_t *err, int flags, int *counts
+)
+{
+    qps_dissect_ctx_init(ctx, qps, err, flags);
+    qps_dissect_register_on_notify_blk(ctx, ^(qps_notify_anomaly_t *item) {
+        assert(item->type < Z_DISSECT_NB_ANOMALIES);
+        counts[item->type]++;
+    });
+    qps_dissect_set_owner(ctx, "zchk");
+}
+
+static int z_dissect_total(const int *counts)
+{
+    int total = 0;
+
+    for (int i = 0; i < Z_DISSECT_NB_ANOMALIES; i++) {
+        total += counts[i];
+    }
+    return total;
+}
+
+/* Full analysis pipeline of a spool containing qhats and qps bitmaps, the
+ * way the qps-dissect tool drives it. */
+static void z_dissect_qps_objects(
+    qps_t *qps, const qps_handle_t *hats, int nb_hats,
+    const qps_handle_t *bitmaps, int nb_bitmaps, int *counts
+)
+{
+    SB_1k(err);
+    qps_dissect_ctx_t ctx;
+
+    z_dissect_setup(&ctx, qps, &err, 0, counts);
+    qps_dissect_maps_and_handles(&ctx);
+    for (int i = 0; i < nb_hats; i++) {
+        qps_dissect_set_owner(&ctx, "hat-%d", i);
+        qhat_init_dissect(&ctx, hats[i]);
+    }
+    for (int i = 0; i < nb_bitmaps; i++) {
+        qps_dissect_set_owner(&ctx, "bitmap-%d", i);
+        qps_bitmap_init_dissect(&ctx, bitmaps[i]);
+    }
+    qps_dissect_process_object_usage(&ctx);
+    qps_dissect_compute_and_print_stats(&ctx);
+    qps_dissect_ctx_wipe(&ctx);
+}
+
+/* Dissect a single qhat (or its corrupted variant), without the usage
+ * analysis. */
+static void z_dissect_one_hat(qps_t *qps, qps_handle_t hat, int *counts)
+{
+    SB_1k(err);
+    qps_dissect_ctx_t ctx;
+
+    z_dissect_setup(
+        &ctx, qps, &err, QPS_DISSECT_SKIP_USAGE_AND_STATS, counts
+    );
+    qhat_init_dissect(&ctx, hat);
+    qps_dissect_ctx_wipe(&ctx);
+}
+
+static void z_dissect_one_bitmap(qps_t *qps, qps_handle_t bitmap, int *counts)
+{
+    SB_1k(err);
+    qps_dissect_ctx_t ctx;
+
+    z_dissect_setup(
+        &ctx, qps, &err, QPS_DISSECT_SKIP_USAGE_AND_STATS, counts
+    );
+    qps_bitmap_init_dissect(&ctx, bitmap);
+    qps_dissect_ctx_wipe(&ctx);
+}
+
+/* Build a spool holding a plain qhat (dense range for flat leaves, sparse
+ * keys for compact leaves), a nullable qhat (with its internal bitmap) and
+ * a standalone bitmap. */
+static qps_t *z_dissect_build_spool(
+    const char *name, qps_handle_t *hat32, qps_handle_t *hat_null,
+    qps_handle_t *bitmap
+)
+{
+    qps_t *qps = qps_create(z_tmpdir_g.s, name, 0755, NULL, 0);
+    qhat_t trie;
+    qps_bitmap_t bmap;
+
+    *hat32 = qhat_create(qps, 4, false);
+    qhat_init(&trie, qps, *hat32);
+    for (uint32_t i = 0; i < 4096; i++) {
+        *(uint32_t *)qhat_set(&trie, i) = i | 0x10000;
+    }
+    /* Two adjacent keys, isolated in the key space: stored together in a
+     * single compact leaf. */
+    *(uint32_t *)qhat_set(&trie, 0x40000000) = 1;
+    *(uint32_t *)qhat_set(&trie, 0x40000001) = 2;
+
+    *hat_null = qhat_create(qps, 8, true);
+    qhat_init(&trie, qps, *hat_null);
+    for (uint32_t i = 0; i < 256; i++) {
+        *(uint64_t *)qhat_set(&trie, i * 3) = i + 1;
+    }
+
+    *bitmap = qps_bitmap_create(qps, false);
+    qps_bitmap_init(&bmap, qps, *bitmap);
+    for (uint32_t i = 0; i < 1024; i++) {
+        qps_bitmap_set(&bmap, i * 7);
+    }
+    return qps;
+}
+
+/* Find a compact leaf attached directly to the qhat root. */
+static qhat_compact32_t *z_dissect_find_compact(qps_t *qps, qps_handle_t hat)
+{
+    qhat_root_t *root = qps_handle_deref(qps, hat);
+
+    for (int i = 0; i < QHAT_ROOTS; i++) {
+        qhat_node_t node = root->nodes[i];
+
+        if (node.value && node.leaf && node.compact) {
+            qhat_compact32_t *c = qps_pg_deref(qps, node.page);
+
+            if (c->count >= 2) {
+                return c;
+            }
+        }
+    }
+    return NULL;
+}
+
+/* }}} */
+
+Z_GROUP_EXPORT(qps_dissect)
+{
+    MODULE_REQUIRE(qps);
+
+#define Z_DISSECT_SPOOL(_name, _h, _nb_free)                                 \
+    ({                                                                       \
+        qps_t *__qps = qps_create(z_tmpdir_g.s, _name, 0755, NULL, 0);       \
+                                                                             \
+        Z_ASSERT_P(__qps);                                                   \
+        for (int __i = 0; __i < countof(_h); __i++) {                        \
+            Z_ASSERT_P(qps_alloc(__qps, &(_h)[__i], 32 + __i * 16));         \
+        }                                                                    \
+        for (int __i = 0; __i < (_nb_free); __i++) {                         \
+            qps_free(__qps, (_h)[__i]);                                      \
+        }                                                                    \
+        __qps;                                                               \
+    })
+
+    Z_TEST(clean, "healthy spool yields no anomaly") { /* {{{ */
+        qps_handle_t h[32];
+        qps_handle_t big;
+        z_dissect_res_t res;
+        qps_t *qps = Z_DISSECT_SPOOL("dissect-clean", h, 0);
+
+        /* Paged allocation, above the TLSF limit; allocated before the
+         * frees so it does not recycle a freed handle. */
+        Z_ASSERT_P(qps_alloc(qps, &big, 2 * QPS_M_ALLOC_MAX));
+        for (int i = 0; i < 8; i++) {
+            qps_free(qps, h[i]);
+        }
+
+        z_dissect_run(qps, &res);
+        Z_ASSERT_ZERO(res.types.len);
+        Z_ASSERT_EQ(res.nbr_free_handles, (size_t)8);
+        qv_wipe(&res.types);
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    Z_TEST(empty_spool, "dissect a spool without any handle") { /* {{{ */
+        SB_1k(err);
+        qps_dissect_ctx_t *ctx;
+        int nb_anomalies = 0;
+        int *counter = &nb_anomalies;
+        qps_t *qps = qps_create(z_tmpdir_g.s, "dissect-empty", 0755, NULL, 0);
+
+        Z_ASSERT_P(qps);
+        ctx = z_dissect_ctx_new_setup(qps, &err, 0, counter);
+        qps_dissect_maps_and_handles(ctx);
+        qps_dissect_process_object_usage(ctx);
+        qps_dissect_compute_and_print_stats(ctx);
+        Z_ASSERT_ZERO(nb_anomalies);
+        qps_dissect_ctx_delete(&ctx);
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    /* {{{ freelist_bad_head */
+    Z_TEST(freelist_bad_head, "out of range head of handle free list") {
+        qps_handle_t h[8];
+        uint32_t saved;
+        z_dissect_res_t res;
+        qps_t *qps = Z_DISSECT_SPOOL("dissect-flhead", h, 2);
+
+        saved = qps->handles_freelist;
+        qps->handles_freelist = qps->handles_max + 100;
+        z_dissect_run(qps, &res);
+        Z_ASSERT_EQ(z_dissect_count(&res, QPS_ANOMALY_INVALID_H_REF), 1);
+        Z_ASSERT_EQ(res.types.len, 1);
+        qps->handles_freelist = saved;
+        qv_wipe(&res.types);
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    Z_TEST(freelist_circular, "loop in the handle free list") { /* {{{ */
+        qps_handle_t h[8];
+        qps_ptr_t saved;
+        z_dissect_res_t res;
+        qps_t *qps = Z_DISSECT_SPOOL("dissect-flloop", h, 2);
+
+        /* Free list is h[1] -> h[0]; make h[0] point back to h[1]. */
+        saved = *qps_handle_slot(qps, h[0]);
+        qps_handle_slot(qps, h[0])->addr = h[1];
+        z_dissect_run(qps, &res);
+        Z_ASSERT_EQ(z_dissect_count(&res, QPS_ANOMALY_CIRCULAR_FREE_LIST), 1);
+        *qps_handle_slot(qps, h[0]) = saved;
+        qv_wipe(&res.types);
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    /* {{{ freelist_slot_with_page */
+    Z_TEST(freelist_slot_with_page, "freed handle with a live page") {
+        qps_handle_t h[8];
+        qps_ptr_t saved;
+        z_dissect_res_t res;
+        qps_t *qps = Z_DISSECT_SPOOL("dissect-flpage", h, 1);
+
+        saved = *qps_handle_slot(qps, h[0]);
+        qps_handle_slot(qps, h[0])->pgno = qps_handle_slot(qps, h[1])->pgno;
+        z_dissect_run(qps, &res);
+        Z_ASSERT_EQ(z_dissect_count(&res, QPS_ANOMALY_INVALID_H_REF_PTR), 1);
+        *qps_handle_slot(qps, h[0]) = saved;
+        qv_wipe(&res.types);
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    /* {{{ tlsf_header_zero_handle */
+    Z_TEST(tlsf_header_zero_handle, "used TLSF block with handle id 0") {
+        qps_handle_t h[4];
+        qps_mhdr_t *blk;
+        z_dissect_res_t res;
+        qps_t *qps = Z_DISSECT_SPOOL("dissect-tlsf0", h, 0);
+
+        blk = z_dissect_mhdr(qps, h[0]);
+        blk->handle = 0;
+        z_dissect_run(qps, &res);
+        Z_ASSERT_EQ(
+            z_dissect_count(&res, QPS_ANOMALY_INVALID_H_REF_HEADER), 1
+        );
+        /* 'qps_m_check_map()' also rejects a used block with handle 0. */
+        Z_ASSERT_EQ(
+            z_dissect_count(&res, QPS_ANOMALY_MAP_INTEGRITY_FAILED), 1
+        );
+        blk->handle = h[0];
+        qv_wipe(&res.types);
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    /* {{{ tlsf_header_bad_handle */
+    Z_TEST(tlsf_header_bad_handle, "TLSF block with out of range handle") {
+        qps_handle_t h[4];
+        qps_mhdr_t *blk;
+        z_dissect_res_t res;
+        qps_t *qps = Z_DISSECT_SPOOL("dissect-tlsfrange", h, 0);
+
+        blk = z_dissect_mhdr(qps, h[0]);
+        blk->handle = qps->handles_max + 1000;
+        z_dissect_run(qps, &res);
+        Z_ASSERT_EQ(z_dissect_count(&res, QPS_ANOMALY_INVALID_H_REF), 1);
+        blk->handle = h[0];
+        qv_wipe(&res.types);
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    /* {{{ tlsf_header_wrong_handle */
+    Z_TEST(tlsf_header_wrong_handle, "two blocks claiming one handle") {
+        qps_handle_t h[4];
+        qps_mhdr_t *blk;
+        z_dissect_res_t res;
+        qps_t *qps = Z_DISSECT_SPOOL("dissect-tlsfdup", h, 0);
+
+        blk = z_dissect_mhdr(qps, h[0]);
+        blk->handle = h[1];
+        z_dissect_run(qps, &res);
+        Z_ASSERT_EQ(
+            z_dissect_count(&res, QPS_ANOMALY_MANY_BLKS_FOR_H_REF), 1
+        );
+        blk->handle = h[0];
+        qv_wipe(&res.types);
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    /* {{{ dangling_handle */
+    Z_TEST(dangling_handle, "used block referencing a freed handle") {
+        qps_handle_t h[4];
+        qps_ptr_t saved;
+        z_dissect_res_t res;
+        qps_t *qps = Z_DISSECT_SPOOL("dissect-dangling", h, 0);
+
+        /* Force h[0] into the free list while its block stays used. */
+        saved = *qps_handle_slot(qps, h[0]);
+        *qps_handle_slot(qps, h[0]) =
+            (qps_ptr_t){.addr = qps->handles_freelist};
+        qps->handles_freelist = h[0];
+        z_dissect_run(qps, &res);
+        Z_ASSERT_EQ(z_dissect_count(&res, QPS_ANOMALY_DANGLING_H_REF), 1);
+        qps->handles_freelist = qps_handle_slot(qps, h[0])->addr;
+        *qps_handle_slot(qps, h[0]) = saved;
+        qv_wipe(&res.types);
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    /* {{{ slot_bad_pgno */
+    Z_TEST(slot_bad_pgno, "handle slot referencing an unknown map") {
+        qps_handle_t h[4];
+        qps_ptr_t saved;
+        z_dissect_res_t res;
+        qps_t *qps = Z_DISSECT_SPOOL("dissect-slotpg", h, 0);
+
+        saved = *qps_handle_slot(qps, h[0]);
+        qps_handle_slot(qps, h[0])->pgno = QPS_PG(4095, 1);
+        z_dissect_run(qps, &res);
+        Z_ASSERT_EQ(z_dissect_count(&res, QPS_ANOMALY_INVALID_H_REF_PTR), 1);
+        *qps_handle_slot(qps, h[0]) = saved;
+        qv_wipe(&res.types);
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    /* {{{ pg_header_bad_handle */
+    Z_TEST(pg_header_bad_handle, "page block with out of range handle") {
+        qps_handle_t h[2];
+        qps_handle_t big;
+        qps_pg_t pg;
+        uint32_t saved;
+        z_dissect_res_t res;
+        qps_t *qps = Z_DISSECT_SPOOL("dissect-pghandle", h, 0);
+
+        Z_ASSERT_P(qps_alloc(qps, &big, 2 * QPS_M_ALLOC_MAX));
+        pg = qps_pg_of(qps_handle_deref(qps, big));
+        saved = qps->hdrs[pg].handle;
+        qps->hdrs[pg].handle = qps->handles_max + 77;
+        z_dissect_run(qps, &res);
+        Z_ASSERT_EQ(z_dissect_count(&res, QPS_ANOMALY_INVALID_H_REF), 1);
+        qps->hdrs[pg].handle = saved;
+        qv_wipe(&res.types);
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    Z_TEST(pg_header_zero_size, "page block with a null size") { /* {{{ */
+        qps_handle_t h[2];
+        qps_handle_t big;
+        qps_pg_t pg;
+        uint32_t saved;
+        z_dissect_res_t res;
+        qps_t *qps = Z_DISSECT_SPOOL("dissect-pgsize", h, 0);
+
+        Z_ASSERT_P(qps_alloc(qps, &big, 2 * QPS_M_ALLOC_MAX));
+        pg = qps_pg_of(qps_handle_deref(qps, big));
+        saved = qps->hdrs[pg].size;
+        qps->hdrs[pg].size = 0;
+        z_dissect_run(qps, &res);
+        Z_ASSERT_GE(
+            z_dissect_count(&res, QPS_ANOMALY_MAP_INTEGRITY_FAILED), 1
+        );
+        qps->hdrs[pg].size = saved;
+        qv_wipe(&res.types);
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    /* {{{ used_handle */
+    Z_TEST(used_handle, "direct checks on qps_dissect_used_handle") {
+        SB_1k(err);
+        qps_dissect_ctx_t ctx;
+        qps_handle_t h[4];
+        qps_handle_t big;
+        qps_mhdr_t *blk;
+        uint32_t saved_flags;
+        int nb_anomalies = 0;
+        qps_t *qps = Z_DISSECT_SPOOL("dissect-usedh", h, 0);
+
+        /* Allocated before the free so 'big' does not recycle h[0]. */
+        Z_ASSERT_P(qps_alloc(qps, &big, 2 * QPS_M_ALLOC_MAX));
+        qps_free(qps, h[0]);
+        z_dissect_ctx_setup(
+            &ctx, qps, &err, QPS_DISSECT_SKIP_USAGE_AND_STATS, &nb_anomalies
+        );
+        qps_dissect_maps_and_handles(&ctx);
+        Z_ASSERT_ZERO(nb_anomalies);
+
+        Z_ASSERT_ZERO(qps_dissect_used_handle(&ctx, h[1]));
+        Z_ASSERT_ZERO(qps_dissect_used_handle(&ctx, big));
+        Z_ASSERT_ZERO(nb_anomalies);
+        Z_ASSERT_NEG(qps_dissect_used_handle(&ctx, qps->handles_max + 3));
+        Z_ASSERT_NEG(qps_dissect_used_handle(&ctx, QPS_HANDLE_NULL));
+        Z_ASSERT_NEG(qps_dissect_used_handle(&ctx, h[0])); /* freed */
+        Z_ASSERT_EQ(nb_anomalies, 3);
+
+        /* TLSF block with a corrupted size class. */
+        blk = z_dissect_mhdr(qps, h[2]);
+        saved_flags = blk->flags;
+        blk->flags = (blk->flags & 3) | (1 << 2);
+        Z_ASSERT_NEG(qps_dissect_used_handle(&ctx, h[2]));
+        Z_ASSERT_EQ(nb_anomalies, 4);
+        blk->flags = saved_flags;
+
+        qps_dissect_ctx_wipe(&ctx);
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    Z_TEST(slot_wrong_addr, "handle slot with a shifted address") { /* {{{ */
+        qps_handle_t h[4];
+        qps_ptr_t saved;
+        z_dissect_res_t res;
+        qps_t *qps = Z_DISSECT_SPOOL("dissect-slotaddr", h, 0);
+
+        /* Valid page, but no block starts at this address: the unicity
+         * check finds no matching entry. */
+        saved = *qps_handle_slot(qps, h[0]);
+        qps_handle_slot(qps, h[0])->addr += 8;
+        z_dissect_run(qps, &res);
+        Z_ASSERT_GE(z_dissect_count(&res, QPS_ANOMALY_INVALID_H_REF_PTR), 1);
+        *qps_handle_slot(qps, h[0]) = saved;
+        qv_wipe(&res.types);
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    Z_TEST(owner_path, "owner path management") { /* {{{ */
+        SB_1k(err);
+        qps_dissect_ctx_t ctx;
+        int nb_anomalies = 0;
+        qps_t *qps = qps_create(z_tmpdir_g.s, "dissect-owner", 0755, NULL, 0);
+
+        Z_ASSERT_P(qps);
+        z_dissect_ctx_setup(&ctx, qps, &err, 0, &nb_anomalies);
+        Z_ASSERT_STREQUAL(ctx.owner.owner_path.data, "zchk");
+        qps_dissect_add_sub_owner(&ctx, "gops(%d)", 14);
+        Z_ASSERT_STREQUAL(ctx.owner.owner_path.data, "zchk:gops(14)");
+        qps_dissect_add_sub_owner(&ctx, "qbitmap(%d)", 26);
+        Z_ASSERT_STREQUAL(
+            ctx.owner.owner_path.data, "zchk:gops(14):qbitmap(26)"
+        );
+        qps_dissect_remove_last_owner(&ctx);
+        Z_ASSERT_STREQUAL(ctx.owner.owner_path.data, "zchk:gops(14)");
+        qps_dissect_remove_last_owner(&ctx);
+        qps_dissect_remove_last_owner(&ctx);
+        Z_ASSERT_ZERO(ctx.owner.owner_path.len);
+        qps_dissect_ctx_wipe(&ctx);
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+
+#undef Z_DISSECT_SPOOL
+
+    MODULE_RELEASE(qps);
+}
+Z_GROUP_END;
+
+Z_GROUP_EXPORT(qps_dissect_objects)
+{
+    MODULE_REQUIRE(qps);
+
+    Z_TEST(full_clean, "full pipeline on a healthy spool") { /* {{{ */
+        qps_handle_t hat32, hat_null, bitmap;
+        qps_handle_t hats[2];
+        int counts[Z_DISSECT_NB_ANOMALIES] = {0};
+        qps_t *qps = z_dissect_build_spool(
+            "hdissect-clean", &hat32, &hat_null, &bitmap
+        );
+
+        Z_ASSERT_P(qps);
+        hats[0] = hat32;
+        hats[1] = hat_null;
+        z_dissect_qps_objects(qps, hats, 2, &bitmap, 1, counts);
+        Z_ASSERT_ZERO(z_dissect_total(counts));
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    Z_TEST(hat_bad_sig, "qhat root with corrupted signature") { /* {{{ */
+        qps_handle_t hat32, hat_null, bitmap;
+        qhat_root_t *root;
+        int counts[Z_DISSECT_NB_ANOMALIES] = {0};
+        qps_t *qps =
+            z_dissect_build_spool("hdissect-sig", &hat32, &hat_null, &bitmap);
+
+        root = qps_handle_deref(qps, hat32);
+        root->sig[0] ^= 0xff;
+        z_dissect_one_hat(qps, hat32, counts);
+        Z_ASSERT_EQ(counts[QPS_ANOMALY_INVALID_H_REF_CONTENT], 1);
+        Z_ASSERT_EQ(z_dissect_total(counts), 1);
+        root->sig[0] ^= 0xff;
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    /* {{{ hat_bad_value_len */
+    Z_TEST(hat_bad_value_len, "qhat root with an invalid value length") {
+        qps_handle_t hat32, hat_null, bitmap;
+        qhat_root_t *root;
+        uint32_t saved;
+        int counts[Z_DISSECT_NB_ANOMALIES] = {0};
+        qps_t *qps = z_dissect_build_spool(
+            "hdissect-vlen", &hat32, &hat_null, &bitmap
+        );
+
+        root = qps_handle_deref(qps, hat32);
+        saved = root->value_len;
+        root->value_len = 3;
+        z_dissect_one_hat(qps, hat32, counts);
+        Z_ASSERT_EQ(counts[QPS_ANOMALY_INVALID_H_REF_CONTENT], 1);
+        root->value_len = saved;
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    /* {{{ hat_node_bad_page */
+    Z_TEST(hat_node_bad_page, "qhat node referencing an unknown map") {
+        qps_handle_t hat32, hat_null, bitmap;
+        qhat_root_t *root;
+        qhat_node_t saved = QHAT_NULL_NODE;
+        int idx = -1;
+        int counts[Z_DISSECT_NB_ANOMALIES] = {0};
+        qps_t *qps = z_dissect_build_spool(
+            "hdissect-nodepg", &hat32, &hat_null, &bitmap
+        );
+
+        root = qps_handle_deref(qps, hat32);
+        for (int i = 0; i < QHAT_ROOTS; i++) {
+            if (root->nodes[i].value) {
+                idx = i;
+                saved = root->nodes[i];
+                break;
+            }
+        }
+        Z_ASSERT_GE(idx, 0);
+        root->nodes[idx].page = QPS_PG(4095, 1);
+        z_dissect_one_hat(qps, hat32, counts);
+        Z_ASSERT_GE(counts[QPS_ANOMALY_INVALID_QPS_PAGE_REF], 1);
+        root->nodes[idx] = saved;
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    /* {{{ hat_compact_disorder */
+    Z_TEST(hat_compact_disorder, "qhat compact leaf with unsorted keys") {
+        qps_handle_t hat32, hat_null, bitmap;
+        qhat_compact32_t *c;
+        uint32_t saved;
+        int counts[Z_DISSECT_NB_ANOMALIES] = {0};
+        qps_t *qps = z_dissect_build_spool(
+            "hdissect-order", &hat32, &hat_null, &bitmap
+        );
+
+        c = z_dissect_find_compact(qps, hat32);
+        Z_ASSERT_P(c);
+        saved = c->keys[0];
+        c->keys[0] = c->keys[1] + 1;
+        z_dissect_one_hat(qps, hat32, counts);
+        Z_ASSERT_GE(counts[QPS_ANOMALY_QHAT_ISSUE], 1);
+        c->keys[0] = saved;
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    /* {{{ hat_compact_overflow */
+    Z_TEST(hat_compact_overflow, "qhat compact leaf with an absurd count") {
+        qps_handle_t hat32, hat_null, bitmap;
+        qhat_compact32_t *c;
+        uint32_t saved;
+        int counts[Z_DISSECT_NB_ANOMALIES] = {0};
+        qps_t *qps = z_dissect_build_spool(
+            "hdissect-count", &hat32, &hat_null, &bitmap
+        );
+
+        c = z_dissect_find_compact(qps, hat32);
+        Z_ASSERT_P(c);
+        saved = c->count;
+        c->count = countof(c->keys) + 10;
+        z_dissect_one_hat(qps, hat32, counts);
+        Z_ASSERT_GE(counts[QPS_ANOMALY_QHAT_ISSUE], 1);
+        c->count = saved;
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    /* {{{ hat_too_small */
+    Z_TEST(hat_too_small, "qhat root handle smaller than its type") {
+        qps_handle_t hat32, hat_null, bitmap;
+        qps_handle_t small;
+        int counts[Z_DISSECT_NB_ANOMALIES] = {0};
+        qps_t *qps = z_dissect_build_spool(
+            "hdissect-small", &hat32, &hat_null, &bitmap
+        );
+
+        Z_ASSERT_P(qps_alloc(qps, &small, 16));
+        z_dissect_one_hat(qps, small, counts);
+        Z_ASSERT_EQ(counts[QPS_ANOMALY_INVALID_H_REF_SIZE], 1);
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    /* {{{ hat_compact_key_range */
+    Z_TEST(hat_compact_key_range, "qhat compact key out of node range") {
+        qps_handle_t hat32, hat_null, bitmap;
+        qhat_compact32_t *c;
+        uint32_t saved;
+        int counts[Z_DISSECT_NB_ANOMALIES] = {0};
+        qps_t *qps = z_dissect_build_spool(
+            "hdissect-krange", &hat32, &hat_null, &bitmap
+        );
+
+        c = z_dissect_find_compact(qps, hat32);
+        Z_ASSERT_P(c);
+        /* Still sorted, but way below the range covered by the node. */
+        saved = c->keys[0];
+        c->keys[0] = 1;
+        z_dissect_one_hat(qps, hat32, counts);
+        Z_ASSERT_GE(counts[QPS_ANOMALY_QHAT_ISSUE], 1);
+        c->keys[0] = saved;
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    /* {{{ bitmap_bad_root */
+    Z_TEST(bitmap_bad_root, "qps bitmap root referencing an unknown map") {
+        qps_handle_t hat32, hat_null, bitmap;
+        qps_bitmap_root_t *root;
+        qps_bitmap_node_t saved = QPS_PG_NULL;
+        int idx = -1;
+        int counts[Z_DISSECT_NB_ANOMALIES] = {0};
+        qps_t *qps = z_dissect_build_spool(
+            "hdissect-broot", &hat32, &hat_null, &bitmap
+        );
+
+        root = qps_handle_deref(qps, bitmap);
+        for (int i = 0; i < QPS_BITMAP_ROOTS; i++) {
+            if (root->roots[i]) {
+                idx = i;
+                saved = root->roots[i];
+                break;
+            }
+        }
+        Z_ASSERT_GE(idx, 0);
+        root->roots[idx] = QPS_PG(4095, 1);
+        z_dissect_one_bitmap(qps, bitmap, counts);
+        Z_ASSERT_GE(counts[QPS_ANOMALY_INVALID_QPS_PAGE_REF], 1);
+        root->roots[idx] = saved;
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    Z_TEST(bitmap_bad_sig, "qps bitmap with corrupted signature") { /* {{{ */
+        qps_handle_t hat32, hat_null, bitmap;
+        qps_bitmap_root_t *root;
+        int counts[Z_DISSECT_NB_ANOMALIES] = {0};
+        qps_t *qps = z_dissect_build_spool(
+            "hdissect-bsig", &hat32, &hat_null, &bitmap
+        );
+
+        root = qps_handle_deref(qps, bitmap);
+        root->sig[0] ^= 0xff;
+        z_dissect_one_bitmap(qps, bitmap, counts);
+        Z_ASSERT_EQ(counts[QPS_ANOMALY_INVALID_H_REF_CONTENT], 1);
+        root->sig[0] ^= 0xff;
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    Z_TEST(lost_handle, "handle not referenced by any object") { /* {{{ */
+        qps_handle_t hat32, hat_null, bitmap;
+        qps_handle_t lost;
+        qps_handle_t lost2;
+        qps_handle_t lost_big;
+        qps_handle_t hats[2];
+        int counts[Z_DISSECT_NB_ANOMALIES] = {0};
+        qps_t *qps = z_dissect_build_spool(
+            "hdissect-lost", &hat32, &hat_null, &bitmap
+        );
+
+        /* Two lost TLSF handles (their faults land in the same map, so
+         * the per-map fault report has something to sort) and a lost paged
+         * handle (its page run is owned by the handle, so it only reports
+         * the handle itself). */
+        Z_ASSERT_P(qps_alloc(qps, &lost, 64));
+        Z_ASSERT_P(qps_alloc(qps, &lost2, 128));
+        Z_ASSERT_P(qps_alloc(qps, &lost_big, 2 * QPS_M_ALLOC_MAX));
+        hats[0] = hat32;
+        hats[1] = hat_null;
+        z_dissect_qps_objects(qps, hats, 2, &bitmap, 1, counts);
+        Z_ASSERT_EQ(counts[QPS_ANOMALY_H_REF_UNKNOWN], 3);
+        Z_ASSERT_EQ(z_dissect_total(counts), 3);
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    /* {{{ lost_handle_bad_slot */
+    Z_TEST(lost_handle_bad_slot, "lost handle with a corrupted qps pointer") {
+        qps_handle_t hat32, hat_null, bitmap;
+        qps_handle_t lost;
+        qps_handle_t hats[2];
+        int counts[Z_DISSECT_NB_ANOMALIES] = {0};
+        qps_t *qps = z_dissect_build_spool(
+            "hdissect-lostbad", &hat32, &hat_null, &bitmap
+        );
+
+        Z_ASSERT_P(qps_alloc(qps, &lost, 64));
+        qps_handle_slot(qps, lost)->pgno = QPS_PG(4000, 1);
+        hats[0] = hat32;
+        hats[1] = hat_null;
+        z_dissect_qps_objects(qps, hats, 2, &bitmap, 1, counts);
+        /* Reported by the unicity check, then by the lost handle tracking;
+         * the point of this test is that the corrupted slot is never
+         * dereferenced. */
+        Z_ASSERT_GE(counts[QPS_ANOMALY_INVALID_H_REF_PTR], 1);
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    /* {{{ dangling_referenced */
+    Z_TEST(dangling_referenced, "object referencing a dangling handle") {
+        qps_handle_t hat32, hat_null, bitmap;
+        qhat_root_t *root;
+        qps_handle_t h_bmap;
+        qps_ptr_t saved;
+        qps_handle_t hats[2];
+        int counts[Z_DISSECT_NB_ANOMALIES] = {0};
+        qps_t *qps = z_dissect_build_spool(
+            "hdissect-dangl", &hat32, &hat_null, &bitmap
+        );
+
+        /* Shift the slot of the nullable qhat's internal bitmap: the
+         * unicity check flags it as dangling, then the qhat dissection
+         * references it and must report the impacted owner. */
+        root = qps_handle_deref(qps, hat_null);
+        h_bmap = root->bitmap;
+        saved = *qps_handle_slot(qps, h_bmap);
+        qps_handle_slot(qps, h_bmap)->addr += 8;
+        hats[0] = hat32;
+        hats[1] = hat_null;
+        z_dissect_qps_objects(qps, hats, 2, &bitmap, 1, counts);
+        Z_ASSERT_GE(counts[QPS_ANOMALY_INVALID_H_REF_PTR], 1);
+        Z_ASSERT_GE(counts[QPS_ANOMALY_DANGLING_H_REF], 1);
+        *qps_handle_slot(qps, h_bmap) = saved;
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    Z_TEST(page_without_owner, "raw page run owned by nobody") { /* {{{ */
+        qps_handle_t hat32, hat_null, bitmap;
+        qps_handle_t hats[2];
+        int counts[Z_DISSECT_NB_ANOMALIES] = {0};
+        qps_t *qps = z_dissect_build_spool(
+            "hdissect-noowner", &hat32, &hat_null, &bitmap
+        );
+
+        Z_ASSERT_NE(qps_pg_map(qps, 4), (qps_pg_t)QPS_PG_NULL);
+        hats[0] = hat32;
+        hats[1] = hat_null;
+        z_dissect_qps_objects(qps, hats, 2, &bitmap, 1, counts);
+        Z_ASSERT_EQ(counts[QPS_ANOMALY_NO_OWNER_QPS_PAGE], 1);
+        Z_ASSERT_EQ(z_dissect_total(counts), 1);
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+    Z_TEST(multiple_owners, "same qhat claimed by two owners") { /* {{{ */
+        SB_1k(err);
+        qps_dissect_ctx_t ctx;
+        qps_handle_t hat32, hat_null, bitmap;
+        lstr_t *ref;
+        int counts[Z_DISSECT_NB_ANOMALIES] = {0};
+        qps_t *qps = z_dissect_build_spool(
+            "hdissect-multi", &hat32, &hat_null, &bitmap
+        );
+
+        z_dissect_setup(&ctx, qps, &err, 0, counts);
+        qps_dissect_maps_and_handles(&ctx);
+        qps_dissect_set_owner(&ctx, "first-owner");
+        qhat_init_dissect(&ctx, hat32);
+        qps_dissect_set_owner(&ctx, "second-owner");
+        qhat_init_dissect(&ctx, hat32);
+        qps_dissect_set_owner(&ctx, "ref-owner");
+        ref = qps_dissect_register_owner_ref(&ctx);
+        qps_dissect_register_used_handle_from_ref(&ctx, ref, hat32);
+        qps_dissect_set_owner(&ctx, "hat-null");
+        qhat_init_dissect(&ctx, hat_null);
+        qps_dissect_set_owner(&ctx, "bitmap");
+        qps_bitmap_init_dissect(&ctx, bitmap);
+        qps_dissect_process_object_usage(&ctx);
+        qps_dissect_ctx_wipe(&ctx);
+        Z_ASSERT_GE(counts[QPS_ANOMALY_MULTIPLE_OWNERS_QPS_PAGE], 1);
+        qps_close(&qps);
+    }
+    Z_TEST_END;
+
+    /* }}} */
+
+    MODULE_RELEASE(qps);
+}
+Z_GROUP_END
+
+/* LCOV_EXCL_STOP */

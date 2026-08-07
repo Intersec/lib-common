@@ -54,6 +54,7 @@ ctx.program(
         'zchk-http.c',
         'zchk-h2spec.blk',
         'zchk-qps-bitmap.c',
+        'zchk-qps-dissect.blk',
         'zchk-iop.blk',
         'zchk-iop.c',
         'zchk-iop-env.c',
