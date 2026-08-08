@@ -27,6 +27,7 @@
 #include <lib-common/container-qhash.h>
 #include <lib-common/container-qhugehash.h>
 #include <lib-common/qps.h>
+#include <lib-common/core/qps-priv.h>
 #include <lib-common/sort.h>
 #include <lib-common/hash.h>
 
@@ -159,56 +160,6 @@ static struct {
  * \{ \addtogroup qps
  */
 /* {{{ */
-
-/*
- * used in both pg and memory hdrs
- */
-#define QPS_BLK_FREE 2
-#define QPS_BLK_USED 0
-#define QPS_BLK_PREV_FREE 1
-#define QPS_BLK_PREV_USED 0
-
-struct qps_pghdr_t {
-    uint16_t flags;
-    uint16_t size;
-    union {
-        struct {
-            uint32_t handle;
-            uint32_t blk_prev;
-        };
-        struct {
-            qps_pg_t next;
-            qps_pg_t prev;
-        } free;
-    };
-};
-
-#define QPS_MBLK_HDRSZ offsetof(qps_mhdr_t, data)
-struct qps_mhdr_t {
-#if QPS_USE_REDZONES
-    uint64_t rz_after_block;
-    uint64_t rz_alloc_size;
-#endif
-    /* Flags field is set as follow:
-     *  - bits 31 to 2 for block size (in words of 8 bytes), see
-     *    qps_m_blk_size()
-     *  - bit 1: tells if the current block is used or freed
-     *  - bit 0: like bit 1 but for the previous block */
-    uint32_t flags;
-    uint32_t handle;
-#if QPS_USE_REDZONES
-    uint64_t rz_before_block;
-#endif
-
-    union {
-        struct {
-            qps_mhdr_t **prev_next;
-            qps_mhdr_t *next;
-        } free;
-        void *padding[3];
-        uint8_t data[0];
-    };
-};
 
 static ALWAYS_INLINE qps_ptr_t qps_encode(const void *ptr)
 {
