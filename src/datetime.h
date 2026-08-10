@@ -585,9 +585,23 @@ static inline int time_parse_iso8601s(const char *s, time_t *res)
     /* Trim the ps_stream before getting the date */
     ps_trim(&ps);
 
-    /* FIXME: do we want to err if !ps_done(&ps) at the end ? */
+    /* XXX Like the stream parser, this function can leave trailing input
+     * unread; use time_parse_iso8601_lstr to parse a complete string. */
     return time_parse_iso8601(&ps, res);
 }
+
+/** Parse a complete string as an ISO-8601 date.
+ *
+ * The stream parser returns as soon as the date is complete and can leave
+ * trailing input unread. This function parses the whole (trimmed) string:
+ * trailing garbage is an error.
+ *
+ * \param[in]  s     the string to parse.
+ * \param[out] res   the timestamp (in seconds).
+ * \param[in]  flags a combination of iso8601_flags.
+ * \return a negative value in case of error.
+ */
+int time_parse_iso8601_lstr(lstr_t s, time_t *res, unsigned flags);
 
 /** Parse a string as a date and builds the corresponding unix timestamp.
  *

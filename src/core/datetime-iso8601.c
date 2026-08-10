@@ -18,11 +18,8 @@
 
 #include <lib-common/datetime.h>
 
-static int time_parse_timezone(pstream_t *ps, int *tz_h, int *tz_m)
+static int time_parse_timezone_name(const pstream_t *ps, int *tz_h)
 {
-    *tz_m = 0;
-    *tz_h = 0;
-
     if (ps_strcaseequal(ps, "ut") || ps_strcaseequal(ps, "gmt") ||
         ps_strcaseequal(ps, "z"))
     {
@@ -53,6 +50,19 @@ static int time_parse_timezone(pstream_t *ps, int *tz_h, int *tz_m)
         return 0;
     } else if (ps_strcaseequal(ps, "y")) {
         *tz_h = +12;
+        return 0;
+    }
+    return -1;
+}
+
+static int time_parse_timezone(pstream_t *ps, int *tz_h, int *tz_m)
+{
+    *tz_m = 0;
+    *tz_h = 0;
+
+    if (time_parse_timezone_name(ps, tz_h) >= 0) {
+        /* The names are matched against the whole input: consume it. */
+        __ps_skip(ps, ps_len(ps));
         return 0;
     } else {
         int sgn = ps_getc(ps);
@@ -280,6 +290,18 @@ int time_parse_iso8601_flags(pstream_t *ps, time_t *res, unsigned flags)
     t.tm_min -= tz_m;
     t.tm_isdst = 0;
     *res = timegm(&t);
+    return 0;
+}
+
+int time_parse_iso8601_lstr(lstr_t s, time_t *res, unsigned flags)
+{
+    pstream_t ps = ps_initlstr(&s);
+
+    ps_trim(&ps);
+    RETHROW(time_parse_iso8601_flags(&ps, res, flags));
+    /* The stream parser returns as soon as the date is complete: the 'L'
+     * and relative paths can leave input unread. */
+    THROW_ERR_IF(!ps_done(&ps));
     return 0;
 }
 

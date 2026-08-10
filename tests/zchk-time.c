@@ -293,6 +293,43 @@ Z_GROUP_EXPORT(time)
     }
     Z_TEST_END;
 
+    Z_TEST(iso8601_lstr, "finite-string ISO-8601 parsing") {
+        time_t t;
+
+#define CHECK_DATE(str, res)                                                 \
+    do {                                                                     \
+        time_t ts;                                                           \
+                                                                             \
+        Z_ASSERT_N(time_parse_iso8601_lstr(LSTR(str), &ts, 0));              \
+        Z_ASSERT_EQ(ts, res);                                                \
+    } while (0)
+
+        /* The whole input is read, including a named timezone. */
+        CHECK_DATE("2007-03-06T11:34:13Z", 1173180853);
+        CHECK_DATE("2007-03-06T11:34:13GMT", 1173180853);
+        CHECK_DATE("2007-03-06T16:34:13+05:00", 1173180853);
+        CHECK_DATE(" 2007-03-06T11:34:13Z ", 1173180853);
+#undef CHECK_DATE
+
+        /* Trailing garbage is an error on every path, including the ones
+         * where the stream parser leaves input unread by design. */
+        Z_ASSERT_NEG(time_parse_iso8601_lstr(
+            LSTR("2007-03-06T11:34:13Z nonsense"), &t, 0
+        ));
+        Z_ASSERT_NEG(time_parse_iso8601_lstr(
+            LSTR("2007-03-06T11L34:13 nonsense"), &t, 0
+        ));
+        Z_ASSERT_NEG(time_parse_iso8601_lstr(LSTR("PT1Hnonsense"), &t, 0));
+        {
+            pstream_t ps = ps_initstr("2007-03-06T11L34:13 nonsense");
+
+            /* ... while the stream parser accepts the same leftover. */
+            Z_ASSERT_N(time_parse_iso8601(&ps, &t));
+            Z_ASSERT(!ps_done(&ps));
+        }
+    }
+    Z_TEST_END;
+
     Z_TEST(parse_tz) {
 #define CHECK_DATE(str, res)                                                 \
     do {                                                                     \
