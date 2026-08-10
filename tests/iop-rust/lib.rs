@@ -55,6 +55,10 @@ pub mod modules {
 /// Generated Rust for each in-tree IOP package, compiled here to check that
 /// `iopc` produces valid, ABI-compatible Rust. Layout assertions live in
 /// the (manually run) layout tests.
+///
+/// `iopc` itself takes care of a package's dependencies: it nests each one
+/// in its own `pub mod <dep>_iop_module { ... }` inside the generated
+/// `.iop.rs` file, so this macro only ever needs the package under test.
 macro_rules! iop_module {
     ($name:ident, $pkg:literal) => {
         #[cfg(test)]
@@ -69,10 +73,16 @@ iop_module!(core_iop_module, "core");
 iop_module!(yaml_iop_module, "yaml");
 iop_module!(ic_iop_module, "ic");
 iop_module!(tstiop_void_type_iop_module, "tstiop_void_type");
+iop_module!(tstiop_inheritance_iop_module, "tstiop_inheritance");
+iop_module!(
+    tstiop_backward_compat_deleted_struct_1_iop_module,
+    "tstiop_backward_compat_deleted_struct_1"
+);
+iop_module!(tstiop_iop_module, "tstiop");
 
-/// Hard-coded layout assertions for the generated types (see the module
-/// for how to regenerate them). Run manually with `--ignored`.
-#[cfg(test)]
+/// Layout assertions for the generated types, `include!`d from the
+/// `iopc`-generated `.iop.tests.rs` files copied to `OUT_DIR` by `build.rs`.
+#[cfg(all(test, iop_rust_gen_tests))]
 mod layout_tests;
 
 #[cfg(test)]

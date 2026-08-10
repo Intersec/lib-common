@@ -25,7 +25,7 @@ typedef struct iopc_rust_decl_t {
     iop_type_t basic_iop_types;
     iopc_struct_type_t iop_st_type;
     union {
-        const iopc_struct_t *st;
+        iopc_struct_t *st;
         const iopc_enum_t *en;
     };
     int lmin;
@@ -88,16 +88,16 @@ static bool iopc_rust_field_has_struct_def(const iopc_field_t *f)
  * }
  * This correction will be part of a later patch !
  */
-static bool iopc_rust_struct_needs_lifetime(const iopc_struct_t *st)
+static bool iopc_rust_struct_needs_lifetime(iopc_struct_t *st)
 {
     uint32_t pos;
 
-    pos = qm_put(iopc_struct_visited, &_G.map, (iopc_struct_t *)st, false, 0);
+    pos = qm_put(iopc_struct_visited, &_G.map, st, false, 0);
     if (pos & QHASH_COLLISION) {
         return _G.map.values[pos ^ QHASH_COLLISION];
     }
 
-    iopc_struct_optimize((iopc_struct_t *)st);
+    iopc_struct_optimize(st);
 
     tab_for_each_entry(f, &st->fields_in_c_struct_order) {
         bool needs_lt =
@@ -107,10 +107,7 @@ static bool iopc_rust_struct_needs_lifetime(const iopc_struct_t *st)
              (f->repeat == IOP_R_OPTIONAL || iopc_rust_field_is_ref_like(f)));
 
         if (needs_lt) {
-            qm_put(
-                iopc_struct_visited, &_G.map, (iopc_struct_t *)st, true,
-                QHASH_OVERWRITE
-            );
+            qm_put(iopc_struct_visited, &_G.map, st, true, QHASH_OVERWRITE);
             return true;
         }
     }
@@ -119,14 +116,26 @@ static bool iopc_rust_struct_needs_lifetime(const iopc_struct_t *st)
         if (iopc_rust_field_has_struct_def(f) &&
             iopc_rust_struct_needs_lifetime(f->struct_def))
         {
-            qm_put(
-                iopc_struct_visited, &_G.map, (iopc_struct_t *)st, true,
-                QHASH_OVERWRITE
-            );
+            qm_put(iopc_struct_visited, &_G.map, st, true, QHASH_OVERWRITE);
             return true;
         }
     }
     return false;
+}
+
+static bool iopc_rust_field_is_emitted(const iopc_field_t *f)
+{
+    return f->kind != IOP_T_VOID || f->repeat == IOP_R_OPTIONAL;
+}
+
+static bool iopc_rust_is_struct_empty(const iopc_struct_t *st)
+{
+    tab_for_each_entry(f, &st->fields_in_c_struct_order) {
+        if (iopc_rust_field_is_emitted(f)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 static lstr_t iopc_rust_get_type(const iopc_field_t *f)
@@ -193,6 +202,67 @@ iopc_rust_decl_cmp(const iopc_rust_decl_t *a, const iopc_rust_decl_t *b)
     return CMP(a->lmin, b->lmin);
 }
 
+static unsigned int iopc_rust_base_alignment(const iopc_struct_t *st)
+{
+    switch (st->type) {
+    case STRUCT_TYPE_CLASS:
+        return alignof(void *);
+    case STRUCT_TYPE_UNION:
+        return sizeof(void *);
+    default:
+        return 1;
+    }
+}
+
+static unsigned int iopc_rust_base_offset(const iopc_struct_t *st)
+{
+    switch (st->type) {
+    case STRUCT_TYPE_CLASS:
+        return sizeof(void *);
+    case STRUCT_TYPE_UNION:
+        return 0;
+    default:
+        return 0;
+    }
+}
+
+static void iopc_rust_dump_deps(sb_t *buf, const iopc_pkg_t *pkg)
+{
+    qh_for_each_key(iopc_pkg, dependency, &pkg->deps) {
+        t_scope;
+        lstr_t mod_name =
+            LSTR(t_camelcase_to_c_str(dependency->name->dot_path));
+
+        sb_addf(buf, "pub mod %pL_iop_module {\n", &mod_name);
+        sb_adds(buf, "    use crate::modules::*;\n");
+        sb_addf(buf, "    include!(\"%pL.iop.rs\");\n", &mod_name);
+        sb_adds(buf, "}\n\n");
+    }
+}
+
+static lstr_t t_iopc_rust_qualify_type(
+    const iopc_pkg_t *pkg, const iopc_pkg_t *type_pkg, lstr_t type_name
+)
+{
+    lstr_t mod_name = LSTR(t_camelcase_to_c_str(type_pkg->name->dot_path));
+
+    if (type_pkg == pkg) {
+        return type_name;
+    }
+    return t_lstr_fmt("%pL_iop_module::%pL", &mod_name, &type_name);
+}
+
+static bool iopc_rust_class_chain_needs_lifetime(iopc_struct_t *st)
+{
+    if (iopc_rust_struct_needs_lifetime(st)) {
+        return true;
+    }
+    if (st->extends.len > 0) {
+        return iopc_rust_class_chain_needs_lifetime(st->extends.tab[0]->st);
+    }
+    return false;
+}
+
 static lstr_t t_iopc_rust_join(
     const iopc_pkg_t *pkg, const char *type_name, const char *suffix
 )
@@ -204,19 +274,20 @@ static lstr_t t_iopc_rust_join(
     return LSTR(buf.data);
 }
 
-static lstr_t t_format_type_name(
-    const iopc_pkg_t *pkg, const iopc_struct_t *st, lstr_t type_name
-)
+static lstr_t
+t_format_type_name(const iopc_pkg_t *pkg, iopc_struct_t *st, lstr_t type_name)
 {
-    t_SB_1k(buf);
-    const char *lt = iopc_rust_struct_needs_lifetime(st) ? "<'a>" : "";
+    bool needs_lt = (st->type == STRUCT_TYPE_CLASS)
+                        ? iopc_rust_class_chain_needs_lifetime(st)
+                        : iopc_rust_struct_needs_lifetime(st);
+    const char *lt = needs_lt ? "<'a>" : "";
     const char *is_union = (st->type == STRUCT_TYPE_UNION) ? "u" : "t";
+    lstr_t mod_name = LSTR(t_camelcase_to_c_str(pkg->name->dot_path));
 
-    iopc_path_join(pkg->name, "_", &buf);
-    sb_addf(
-        &buf, "__%s__%s%s", t_camelcase_to_c_str(type_name.s), is_union, lt
+    return t_lstr_fmt(
+        "%pL__%s__%s%s", &mod_name, t_camelcase_to_c_str(type_name.s),
+        is_union, lt
     );
-    return LSTR(buf.data);
 }
 
 static bool iopc_rust_is_variable_name_valid(const iopc_field_t *f)
@@ -228,36 +299,17 @@ static bool iopc_rust_is_variable_name_valid(const iopc_field_t *f)
 }
 
 static void iopc_rust_defval_dump(
-    sb_t *buf, const iopc_field_t *f, lstr_t field_name, lstr_t rust_type,
-    lstr_t constraint
+    sb_t *buf, lstr_t field_name, lstr_t rust_type, lstr_t constraint
 )
 {
-    switch (f->defval_type) {
-    case IOPC_DEFVAL_STRING:
-        sb_addf(
-            buf, "    pub %pL: *mut %pL, // %pL\n", &field_name, &rust_type,
-            &constraint
-        );
-        break;
-    case IOPC_DEFVAL_INTEGER:
-        sb_addf(
-            buf, "    pub %pL: %pL, // %pL\n", &field_name, &rust_type,
-            &constraint
-        );
-        break;
-    case IOPC_DEFVAL_DOUBLE:
-        sb_addf(
-            buf, "    pub %pL: %pL, // %pL\n", &field_name, &rust_type,
-            &constraint
-        );
-        break;
-    default:
-        sb_addf(
-            buf, "    pub %pL: %pL, // %pL\n", &field_name, &rust_type,
-            &constraint
-        );
-        break;
-    }
+    /* In C, a field with a default value (string, integer or double) is
+     * still embedded by value (e.g. a plain lstr_t for a string), the
+     * default is applied through the iop_struct_t metadata, not through
+     * an extra level of indirection. */
+    sb_addf(
+        buf, "    pub %pL: %pL, // %pL\n", &field_name, &rust_type,
+        &constraint
+    );
 }
 
 static void iopc_rust_opt_dump(
@@ -266,7 +318,9 @@ static void iopc_rust_opt_dump(
 )
 {
     if (f->kind == IOP_T_VOID) {
-        sb_addf(buf, "    pub %pL: bool, // %pL\n", &field_name, &constraint);
+        sb_addf(
+            buf, "    pub void_%pL: bool, // %pL\n", &field_name, &constraint
+        );
     } else if (iopc_rust_field_has_struct_def(f)) {
         sb_addf(
             buf, "    pub %pL: Option<&%smut %pL>, // %pL\n", &field_name, lt,
@@ -290,8 +344,8 @@ static void iopc_rust_opt_dump(
 }
 
 static void iopc_rust_field_per_constraint(
-    sb_t *buf, const iopc_struct_t *st, const iopc_field_t *f,
-    lstr_t field_name, lstr_t rust_type, lstr_t constraint
+    sb_t *buf, iopc_struct_t *st, const iopc_field_t *f, lstr_t field_name,
+    lstr_t rust_type, lstr_t constraint
 )
 {
     t_scope;
@@ -309,6 +363,8 @@ static void iopc_rust_field_per_constraint(
                 buf, "    pub %pL: IopArray<&%smut %pL>, // repeated\n",
                 &field_name, lt, &rust_type
             );
+        } else if (f->kind == IOP_T_VOID) {
+            return;
         } else {
             sb_addf(
                 buf, "    pub %pL: IopArray<%pL>, // repeated\n", &field_name,
@@ -318,7 +374,7 @@ static void iopc_rust_field_per_constraint(
     } else if (f->repeat == IOP_R_OPTIONAL) {
         iopc_rust_opt_dump(buf, f, field_name, rust_type, constraint, lt);
     } else if (f->repeat == IOP_R_DEFVAL) {
-        iopc_rust_defval_dump(buf, f, field_name, rust_type, constraint);
+        iopc_rust_defval_dump(buf, field_name, rust_type, constraint);
     } else if (
         ref_like && (f->struct_def->type == STRUCT_TYPE_CLASS ||
                      f->struct_def->type == STRUCT_TYPE_UNION ||
@@ -337,9 +393,8 @@ static void iopc_rust_field_per_constraint(
     }
 }
 
-static void iopc_rust_dump_fields(
-    sb_t *buf, const iopc_pkg_t *pkg, const iopc_struct_t *st
-)
+static void
+iopc_rust_dump_fields(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
 {
     tab_for_each_entry(f, &st->fields_in_c_struct_order) {
         t_scope;
@@ -347,39 +402,30 @@ static void iopc_rust_dump_fields(
         lstr_t name = LSTR(f->name);
         lstr_t constraint = iopc_rust_dump_constraint(f->repeat);
 
-        if (f->kind == IOP_T_VOID && f->repeat != IOP_R_OPTIONAL) {
-            /* Required void fields are never physically present in the
-             * generated C struct, so they must not be emitted here either
-             * to keep the #[repr(C)] layout ABI-compatible. */
+        if (!iopc_rust_field_is_emitted(f)) {
             continue;
         }
         if (f->kind == IOP_T_ENUM) {
-            rust_type = LSTR(t_fmt(
-                "%s__%s__e", f->type_pkg->name->dot_path,
-                t_camelcase_to_c_str(f->type_name)
-            ));
-        } else if (iopc_rust_field_has_struct_def(f)) {
-            lstr_t type = t_format_type_name(
-                f->type_pkg, f->struct_def, LSTR(f->type_name)
+            rust_type = t_iopc_rust_qualify_type(
+                pkg, f->type_pkg,
+                t_iopc_rust_join(f->type_pkg, f->type_name, "e")
             );
-
-            if (st->type != STRUCT_TYPE_UNION) {
-                rust_type = type;
-            } else if (f->struct_def->type == STRUCT_TYPE_CLASS) {
-                /* Classes are always handled through a pointer in the
-                 * generated C union member, so mirror that with a
-                 * reference here instead of embedding the class by
-                 * value. */
-                const char *lt =
-                    iopc_rust_struct_needs_lifetime(st) ? "'a " : "";
-
-                rust_type = t_lstr_fmt("&%smut %pL", lt, &type);
-            } else {
-                rust_type = t_lstr_fmt("%pL", &type);
-            }
+        } else if (iopc_rust_field_has_struct_def(f)) {
+            rust_type = t_iopc_rust_qualify_type(
+                pkg, f->type_pkg,
+                t_format_type_name(
+                    f->type_pkg, f->struct_def, LSTR(f->type_name)
+                )
+            );
         }
 
         if (st->type == STRUCT_TYPE_UNION) {
+            if (iopc_rust_field_is_ref_like(f)) {
+                const char *lt =
+                    iopc_rust_struct_needs_lifetime(st) ? "'a " : "";
+
+                rust_type = t_lstr_fmt("&%smut %pL", lt, &rust_type);
+            }
             sb_addf(
                 buf, "    %pL(%pL) = %d, // %pL\n", &name, &rust_type, f->tag,
                 &constraint
@@ -396,26 +442,14 @@ static void iopc_rust_dump_fields(
 /* }}} */
 /* {{{ Structures management */
 
-static bool iopc_rust_struct_is_empty(const iopc_struct_t *st)
-{
-    tab_for_each_entry(f, &st->fields_in_c_struct_order) {
-        if (f->kind == IOP_T_VOID && f->repeat != IOP_R_OPTIONAL) {
-            continue;
-        }
-        return false;
-    }
-    return true;
-}
-
-static void iopc_rust_dump_struct(
-    sb_t *buf, const iopc_pkg_t *pkg, const iopc_struct_t *st
-)
+static void
+iopc_rust_dump_struct(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
 {
     t_scope;
     lstr_t st_name = t_format_type_name(pkg, st, LSTR(st->name));
 
-    iopc_struct_optimize((iopc_struct_t *)st);
-    if (iopc_rust_struct_is_empty(st)) {
+    iopc_struct_optimize(st);
+    if (iopc_rust_is_struct_empty(st)) {
         /* clippy::empty_structs_with_brackets forbids `struct Foo {}`;
          * a struct left with no field once required-void fields are
          * dropped must be declared as a unit struct instead. */
@@ -428,6 +462,7 @@ static void iopc_rust_dump_struct(
         );
         return;
     }
+
     sb_addf(
         buf,
         "#[repr(C)]\n"
@@ -465,9 +500,8 @@ iopc_rust_dump_enum(sb_t *buf, const iopc_pkg_t *pkg, const iopc_enum_t *en)
 /* }}} */
 /* {{{ Unions management */
 
-static void iopc_rust_dump_union(
-    sb_t *buf, const iopc_pkg_t *pkg, const iopc_struct_t *st
-)
+static void
+iopc_rust_dump_union(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
 {
     t_scope;
     lstr_t st_name = t_format_type_name(pkg, st, LSTR(st->name));
@@ -479,60 +513,165 @@ static void iopc_rust_dump_union(
         "pub enum %pL {\n",
         &st_name
     );
-    iopc_struct_optimize((iopc_struct_t *)st);
+    iopc_struct_optimize(st);
     iopc_rust_dump_fields(buf, pkg, st);
 }
 
 /* }}} */
 /* {{{ Classes management */
 
-static void iopc_rust_dump_class(
-    sb_t *buf, const iopc_pkg_t *pkg, const iopc_struct_t *st
+static void iopc_rust_inheritance_dump(
+    sb_t *sb, const iopc_pkg_t *pkg, iopc_struct_t *st, unsigned int *offset,
+    unsigned int *align
 )
+{
+    if (st->extends.len > 0) {
+        iopc_extends_t *val = st->extends.tab[0];
+        iopc_struct_t *parent = val->st;
+        unsigned int padded_offset;
+
+        iopc_struct_optimize(parent);
+        iopc_rust_inheritance_dump(sb, pkg, parent, offset, align);
+        tab_for_each_entry(f, &parent->fields_in_c_struct_order) {
+            t_scope;
+            lstr_t rust_type = iopc_rust_get_type(f);
+            lstr_t constraint = iopc_rust_dump_constraint(f->repeat);
+            lstr_t field_name = LSTR(t_camelcase_to_c_str(f->name));
+
+            if (!iopc_rust_field_is_emitted(f)) {
+                continue;
+            }
+            if (f->kind == IOP_T_ENUM) {
+                rust_type = t_iopc_rust_qualify_type(
+                    pkg, f->type_pkg,
+                    t_iopc_rust_join(f->type_pkg, f->type_name, "e")
+                );
+            } else if (iopc_rust_field_has_struct_def(f)) {
+                rust_type = t_iopc_rust_qualify_type(
+                    pkg, f->type_pkg,
+                    t_format_type_name(
+                        f->type_pkg, f->struct_def, LSTR(f->type_name)
+                    )
+                );
+            }
+
+            iopc_field_compute_size(f);
+            *align = MAX(*align, f->align);
+            *offset = ROUND_UP(*offset, f->align) + f->size;
+            iopc_rust_field_per_constraint(
+                sb, parent, f, field_name, rust_type, constraint
+            );
+        }
+
+        padded_offset = ROUND_UP(*offset, *align);
+        if (padded_offset > *offset) {
+            t_scope;
+            sb_addf(
+                sb, "    pub pad_%s_%u: [u8; %u],\n",
+                t_camelcase_to_c_str(parent->name), *offset,
+                padded_offset - *offset
+            );
+        }
+        *offset = padded_offset;
+    }
+    sb_adds(sb, "\n");
+}
+
+static void
+iopc_rust_dump_class(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
 {
     t_scope;
     lstr_t st_name = t_format_type_name(pkg, st, LSTR(st->name));
+    unsigned int offset = iopc_rust_base_offset(st);
+    unsigned int align = iopc_rust_base_alignment(st);
 
     sb_addf(
         buf,
         "#[repr(C)]\n"
         "#[allow(nonstandard_style)]\n"
         "pub struct %pL {\n"
-        "    pub vptr: *mut iop_struct_t,\n",
+        "    pub vptr: *mut iop_struct_t,\n\n",
         &st_name
     );
+    iopc_rust_inheritance_dump(buf, pkg, st, &offset, &align);
     iopc_rust_dump_fields(buf, pkg, st);
 }
 
 /* }}} */
 /* {{{ Test generation */
 
+static void iopc_rust_write_inherited_fields_offsets_tests(
+    sb_t *buf_tests, const iopc_struct_t *st, lstr_t type_name,
+    const char *has_lt, unsigned int *offset, unsigned int *align
+)
+{
+    const iopc_struct_t *parent;
+
+    if (st->extends.len == 0) {
+        return;
+    }
+    parent = st->extends.tab[0]->st;
+    iopc_rust_write_inherited_fields_offsets_tests(
+        buf_tests, parent, type_name, has_lt, offset, align
+    );
+
+    tab_for_each_entry(f, &parent->fields_in_c_struct_order) {
+        t_scope;
+        lstr_t field_name = LSTR(t_camelcase_to_c_str(f->name));
+
+        if (!iopc_rust_field_is_emitted(f)) {
+            continue;
+        }
+        if (f->kind == IOP_T_VOID) {
+            field_name = t_lstr_fmt("void_%pL", &field_name);
+        }
+
+        iopc_field_compute_size(f);
+        *align = MAX(*align, f->align);
+        *offset = ROUND_UP(*offset, f->align);
+
+        sb_addf(
+            buf_tests,
+            "        assert_eq!(offset_of!(%pL%s,\n"
+            "                               %pL), %u);\n",
+            &type_name, has_lt, &field_name, *offset
+        );
+        *offset += f->size;
+    }
+    *offset = ROUND_UP(*offset, *align);
+}
+
 static void iopc_rust_write_tests(
-    sb_t *buf_tests, const iopc_pkg_t *pkg, const iopc_struct_t *st
+    sb_t *buf_tests, const iopc_pkg_t *pkg, iopc_struct_t *st
 )
 {
     t_scope;
-    lstr_t type_name = t_lstr_fmt(
-        "%s__%s__%s", pkg->name->dot_path, t_camelcase_to_c_str(st->name),
-        (st->type == STRUCT_TYPE_UNION) ? "u" : "t"
-    );
-    const char *has_lt =
-        iopc_rust_struct_needs_lifetime(st) ? "<'static>" : "";
+    const char *suffix = (st->type == STRUCT_TYPE_UNION) ? "u" : "t";
+    lstr_t type_name = t_iopc_rust_join(pkg, st->name, suffix);
+    bool needs_lt = (st->type == STRUCT_TYPE_CLASS)
+                        ? iopc_rust_class_chain_needs_lifetime(st)
+                        : iopc_rust_struct_needs_lifetime(st);
+    const char *has_lt = needs_lt ? "<'static>" : "";
     /* A class starts with its vptr, which the generated Rust
      * declares as its first field. */
-    unsigned int offset =
-        (st->type == STRUCT_TYPE_CLASS) ? sizeof(void *) : 0;
+    unsigned int offset = iopc_rust_base_offset(st);
+    unsigned int max_size = 0;
+    unsigned int align = iopc_rust_base_alignment(st);
+    unsigned int size;
 
     sb_addf(
         buf_tests,
         "    #[test]\n"
         "    #[allow(nonstandard_style, dead_code)]\n"
-        "    fn %pL__layout() {\n"
-        "        assert_eq!(size_of::<%pL%s>(), %u);\n"
-        "        assert_eq!(align_of::<%pL%s>(), %u);\n",
-        &type_name, &type_name, has_lt, st->size, &type_name, has_lt,
-        st->align
+        "    fn %pL__layout() {\n",
+        &type_name
     );
+
+    if (st->type == STRUCT_TYPE_CLASS) {
+        iopc_rust_write_inherited_fields_offsets_tests(
+            buf_tests, st, type_name, has_lt, &offset, &align
+        );
+    }
 
     tab_for_each_entry(f, &st->fields_in_c_struct_order) {
         t_scope;
@@ -540,55 +679,52 @@ static void iopc_rust_write_tests(
                                 ? LSTR(f->name)
                                 : t_lstr_fmt("%s__var", f->name);
 
-        if ((f->kind == IOP_T_VOID && f->repeat == IOP_R_OPTIONAL) ||
-            st->type == STRUCT_TYPE_UNION)
-        {
+        if (!iopc_rust_field_is_emitted(f)) {
             continue;
         }
         iopc_field_compute_size(f);
+        align = MAX(align, f->align);
+
+        if (st->type == STRUCT_TYPE_UNION) {
+            max_size = MAX(max_size, f->size);
+            continue;
+        }
 
         offset = ROUND_UP(offset, f->align);
+        if (f->kind == IOP_T_VOID) {
+            field_name = t_lstr_fmt("void_%pL", &field_name);
+        }
+
         sb_addf(
             buf_tests, "        assert_eq!(offset_of!(%pL%s, %pL), %u);\n",
             &type_name, has_lt, &field_name, offset
         );
         offset += f->size;
     }
+    size = (st->type == STRUCT_TYPE_UNION) ? align + ROUND_UP(max_size, align)
+                                           : ROUND_UP(offset, align);
+
+    sb_addf(
+        buf_tests,
+        "        assert_eq!(size_of::<%pL%s>(), %u);\n"
+        "        assert_eq!(align_of::<%pL%s>(), %u);\n",
+        &type_name, has_lt, size, &type_name, has_lt, align
+    );
     sb_adds(buf_tests, "    }\n\n");
 }
 
 /* }}} */
-/* {{{ Main function */
+/* {{{ Main functions */
 
-int iopc_do_rust(iopc_pkg_t *pkg, const char *outdir)
+static void iopc_init_rust_dump(const iopc_pkg_t *pkg)
 {
-    SB_8k(buf);
-    SB_8k(buf_types);
-    SB_1k(buf_tests);
-    char path[PATH_MAX];
     iopc_rust_decl_t decl;
-    bool gen_tests = getenv("IOPC_RUST_GEN_TESTS") != NULL;
-
-    if (iopc_set_path(outdir, pkg, ".iop.rs", sizeof(path), path, true) < 0) {
-        throw_error("cannot build output path for `%s`: %m", outdir);
-    }
 
     qm_init(iopc_struct_visited, &_G.map);
     qv_init(&_G.decls);
     qh_init(lstr, &_G.rust_keywords);
     carray_for_each_entry(word, rust_keywords_g) {
         IGNORE(expect(qh_add(lstr, &_G.rust_keywords, &word) >= 0));
-    }
-
-    if (gen_tests) {
-        sb_addf(
-            &buf_tests,
-            "#[cfg(test)]\n"
-            "#[rustfmt::skip]\n"
-            "pub mod test_%s {\n"
-            "    use crate::%s_iop_module::*;\n",
-            pkg->name->dot_path, pkg->name->dot_path
-        );
     }
 
     tab_for_each_entry(st, &pkg->structs) {
@@ -609,6 +745,27 @@ int iopc_do_rust(iopc_pkg_t *pkg, const char *outdir)
         qv_append(&_G.decls, decl);
     }
     qv_qsort(&_G.decls, &iopc_rust_decl_cmp);
+}
+
+static void iopc_rust_wipe_dump(void)
+{
+    qm_wipe(iopc_struct_visited, &_G.map);
+    qv_wipe(&_G.decls);
+    qh_wipe(lstr, &_G.rust_keywords);
+}
+
+int iopc_do_rust(iopc_pkg_t *pkg, const char *outdir)
+{
+    SB_8k(buf);
+    SB_8k(buf_types);
+    SB_1k(buf_tests);
+    char path[PATH_MAX];
+    bool gen_tests = getenv("IOPC_RUST_GEN_TESTS") != NULL;
+
+    if (iopc_set_path(outdir, pkg, ".iop.rs", sizeof(path), path, true) < 0) {
+        throw_error("cannot build output path for `%s`: %m", outdir);
+    }
+    iopc_init_rust_dump(pkg);
 
     tab_for_each_entry(d, &_G.decls) {
         if (d.basic_iop_types == IOP_T_ENUM) {
@@ -629,15 +786,23 @@ int iopc_do_rust(iopc_pkg_t *pkg, const char *outdir)
     }
 
     sb_adds(&buf, "// Auto-generated by iopc - DO NOT EDIT\n");
+    iopc_rust_dump_deps(&buf, pkg);
     sb_addsb(&buf, &buf_types);
 
-    qm_wipe(iopc_struct_visited, &_G.map);
-    qv_wipe(&_G.decls);
-    qh_wipe(lstr, &_G.rust_keywords);
-
+    iopc_rust_wipe_dump();
     if (gen_tests) {
+        t_scope;
         char tests_path[PATH_MAX];
+        lstr_t mod_name = LSTR(t_camelcase_to_c_str(pkg->name->dot_path));
 
+        sb_prependf(
+            &buf_tests,
+            "#[cfg(test)]\n"
+            "#[rustfmt::skip]\n"
+            "pub mod test_%pL {\n"
+            "    use crate::%pL_iop_module::*;\n",
+            &mod_name, &mod_name
+        );
         sb_adds(&buf_tests, "}\n");
         if (iopc_set_path(
                 outdir, pkg, ".iop.tests.rs", sizeof(tests_path), tests_path,

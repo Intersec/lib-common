@@ -26,26 +26,50 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     let waf_build = WafBuild::read_build_env()?;
 
     waf_build.print_cargo_instructions();
-    waf_build.generate_bindings(|builder| Ok(builder.header("wrapper.h")))?;
 
-    copy_iop_tests_to_out_dir()?;
+    println!("cargo::rustc-check-cfg=cfg(iop_rust_gen_tests)");
+    if copy_iop_tests_to_out_dir()? {
+        println!("cargo::rustc-cfg=iop_rust_gen_tests");
+    }
+
+    waf_build.generate_bindings(|builder| Ok(builder.header("wrapper.h")))?;
 
     Ok(())
 }
 
-fn copy_iop_tests_to_out_dir() -> Result<(), Box<dyn error::Error>> {
+/// Returns whether any file was found: `iopc` only writes these when
+/// `IOPC_RUST_GEN_TESTS` was set for the `waf` build that generated them,
+/// so their absence here means that env var wasn't set back then.
+fn copy_iop_tests_to_out_dir() -> Result<bool, Box<dyn error::Error>> {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR")?;
     let iop_rust_dir = Path::new(&manifest_dir).join("../../src/iop-rust");
     let out_dir = env::var("OUT_DIR")?;
 
     println!("cargo:rerun-if-changed={}", iop_rust_dir.display());
 
-    for pkg in ["core", "ic", "yaml"] {
-        let src = iop_rust_dir.join(format!("{pkg}.iop.tests.rs"));
-        let dst = Path::new(&out_dir).join(format!("{pkg}.iop.tests.rs"));
+    let suffix = ".iop.tests.rs";
+    let mut pkgs: Vec<String> = Vec::new();
 
-        fs::write(&dst, fs::read_to_string(&src).unwrap_or_default())?;
+    for entry in fs::read_dir(&iop_rust_dir)? {
+        let entry = entry?;
+        let file_name = entry.file_name();
+        let Some(name) = file_name.to_str() else {
+            continue;
+        };
+
+        if let Some(pkg) = name.strip_suffix(suffix) {
+            pkgs.push(pkg.to_owned());
+        }
     }
 
-    Ok(())
+    for pkg in &pkgs {
+        let src = iop_rust_dir.join(format!("{pkg}{suffix}"));
+        let dst = Path::new(&out_dir).join(format!("{pkg}{suffix}"));
+
+        let content = fs::read_to_string(&src)
+            .map_err(|e| format!("cannot read `{}`: {e}", src.display()))?;
+
+        fs::write(&dst, content)?;
+    }
+    Ok(!pkgs.is_empty())
 }
