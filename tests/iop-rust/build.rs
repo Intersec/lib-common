@@ -25,10 +25,10 @@ use waf_cargo_build::WafBuild;
 mod native_iop_bindings;
 
 /// Extracts the flat package list out of `layout_tests.rs`'s
-/// `condensed_tests!([...])` invocation, so that list stays the single
+/// `native_iop_test!([...])` invocation, so that list stays the single
 /// place a developer needs to edit to wire a package's tests in (see the
 /// macro's doc comment in that file).
-fn parse_condensed_tests_pkgs(
+fn parse_native_iop_test_pkgs(
     layout_tests_path: &Path,
 ) -> Result<Vec<String>, Box<dyn error::Error>> {
     let content = fs::read_to_string(layout_tests_path)
@@ -36,12 +36,12 @@ fn parse_condensed_tests_pkgs(
 
     let invalid = || {
         format!(
-            "no valid `condensed_tests!([...])` invocation found in `{}`",
+            "no valid `native_iop_test!([...])` invocation found in `{}`",
             layout_tests_path.display()
         )
     };
 
-    let marker = "condensed_tests!([";
+    let marker = "native_iop_test!([";
     let after_marker = content
         .find(marker)
         .and_then(|i| content.get(i + marker.len()..))
@@ -75,7 +75,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
 
     println!("cargo::rerun-if-changed={}", layout_tests_path.display());
 
-    let native_iop_pkg = parse_condensed_tests_pkgs(&layout_tests_path)?;
+    let native_iop_pkg = parse_native_iop_test_pkgs(&layout_tests_path)?;
     let native_iop_pkg: Vec<&str> = native_iop_pkg.iter().map(String::as_str).collect();
 
     waf_build.generate_bindings(|builder| {

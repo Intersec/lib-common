@@ -28,8 +28,8 @@ pub mod bindings {
     // output in `bindings.rs` (see `splice_native_iop_bindings` in
     // waf-cargo-build).
     use libcommon::iop::{
-        Base, CEnum, CStruct, CStructUnion, CUnion, Class, Enum, IopArray, IopOption, Struct,
-        StructUnion, Union,
+        Base, CEnum, CInstance, CStruct, CStructUnion, CUnion, Class, Enum, IopArray, IopOption,
+        Struct, StructUnion, Union,
     };
     use libcommon_core::lstr::{BorrowedBytesLstr, BorrowedUtf8Lstr};
     waf_cargo_build::include_bindings!();
@@ -40,8 +40,8 @@ pub mod bindings {
 pub mod modules {
     pub use crate::bindings::{data_t, iop_enum_t, iop_struct_t};
     pub use libcommon::iop::{
-        Base, CEnum, CStruct, CStructUnion, CUnion, Class, Enum, IopArray, IopOption, Struct,
-        StructUnion, Union,
+        Base, CEnum, CInstance, CStruct, CStructUnion, CUnion, Class, Enum, IopArray, IopOption,
+        Struct, StructUnion, Union,
     };
     pub use libcommon_core::lstr::{BorrowedBytesLstr, BorrowedUtf8Lstr};
     pub use libcommon_core::{farch, helpers, lstr, mem_stack, pstream, sb, thr};
@@ -63,7 +63,7 @@ include!("layout_tests.rs");
 #[cfg(test)]
 mod iop_tests {
     use libcommon::iop::{
-        CEnum, CStruct, CStructUnion as _, CUnion, Enum as _, Env, EnvCtx, IopDup as _,
+        CEnum, CInstance as _, CStruct, CUnion, Enum as _, Env, EnvCtx, IopDup as _,
         StructUnion as _,
     };
     use libcommon::mem_stack::TScope;

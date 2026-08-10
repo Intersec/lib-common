@@ -26,12 +26,12 @@
 
 /// This macro exists to include needed .iop.rs file using paste crate (which
 /// leads to modifying Cargo.toml). This macro is used by another one,
-/// `condensed_tests`, who creates a dedicated module for every IOP file we
+/// `native_iop_test`, who creates a dedicated module for every IOP file we
 /// want to include (described as a slice of identifiers which correspond to
 /// the IOP file name stripped of its extension).
 ///
 /// `deps` re-exports every package listed before this one in
-/// `condensed_tests!`'s flat list (see below), so cross-package field types
+/// `native_iop_test!`'s flat list (see below), so cross-package field types
 /// resolve without having to spell out per-package dependencies by hand.
 macro_rules! iop_module {
     ($pkg:ident, [$($dep:ident),* $(,)?]) => {
@@ -49,7 +49,7 @@ macro_rules! iop_module {
 /// automatically re-exporting every package declared before it (so a later
 /// package's IOP-generated code can reference an earlier one's types without
 /// any manual dependency annotation) -- plus the aggregated
-/// `#[cfg(test)] mod condensed_tests` pulling in every package's generated
+/// `#[cfg(test)] mod native_iop_test` pulling in every package's generated
 /// `<pkg>.iop.tests.rs`, when `IOPC_RUST_GEN_TESTS` was set for the `waf`
 /// build that produced them.
 ///
@@ -63,12 +63,12 @@ macro_rules! iop_module {
 /// comma-separated list of identifiers (no nested `[]`, no macro calls
 /// inside, and no other call to this macro anywhere else in this file) so
 /// that scan keeps working.
-macro_rules! condensed_tests {
+macro_rules! native_iop_test {
     ([$($pkg:ident),* $(,)?]) => {
-        condensed_tests!(@modules []; $($pkg),*);
+        native_iop_test!(@modules []; $($pkg),*);
 
         #[cfg(iop_rust_gen_tests)]
-        pub mod condensed_tests {
+        pub mod native_iop_test {
             $(
                 include!(concat!(env!("OUT_DIR"), "/", stringify!($pkg), ".iop.tests.rs"));
             )*
@@ -76,13 +76,18 @@ macro_rules! condensed_tests {
     };
     (@modules [$($seen:ident),*]; $head:ident $(, $tail:ident)*) => {
         iop_module!($head, [$($seen),*]);
-        condensed_tests!(@modules [$($seen,)* $head]; $($tail),*);
+        native_iop_test!(@modules [$($seen,)* $head]; $($tail),*);
     };
     (@modules [$($seen:ident),*];) => {};
 }
 
 
-condensed_tests!([
-    core, ic, yaml, tstiop_void_type, tstiop_backward_compat_deleted_struct_1, tstiop,
-    tstiop_inheritance,
+native_iop_test!([
+    core,
+    ic,
+    yaml,
+    tstiop_void_type,
+    tstiop_backward_compat_deleted_struct_1,
+    tstiop,
+    tstiop_inheritance
 ]);

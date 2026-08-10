@@ -46,7 +46,7 @@ static struct {
 #define t_string(x) LSTR(t_camelcase_to_c_str(x))
 #define t_cstring(x) t_camelcase_to_c_str(x)
 
-static lstr_t rust_keywords_g[] = {
+static const lstr_t rust_keywords_g[] = {
     LSTR_IMMED("as"),      LSTR_IMMED("fn"),       LSTR_IMMED("do"),
     LSTR_IMMED("box"),     LSTR_IMMED("gen"),      LSTR_IMMED("try"),
     LSTR_IMMED("priv"),    LSTR_IMMED("loop"),     LSTR_IMMED("self"),
@@ -579,6 +579,11 @@ static void iopc_rust_dump_fields(sb_t *buf, iopc_struct_t *st)
 /* }}} */
 /* {{{ CDESC support (including traits) */
 
+static void iopc_rust_dump_c_instantiable_trait(sb_t *buf, lstr_t type_name)
+{
+    sb_addf(buf, "impl CInstance for %pL {}\n", &type_name);
+}
+
 static void
 iopc_rust_dump_struct_desc(sb_t *buf, const iopc_pkg_t *pkg, const char *name)
 {
@@ -720,12 +725,18 @@ static void iopc_rust_dump_needed_traits_for_structs(
     case STRUCT_TYPE_CLASS:
     case STRUCT_TYPE_STRUCT: {
         iopc_rust_dump_struct_trait(buf, name);
-        iopc_rust_dump_c_struct_trait(buf, name);
+        /* `CStruct` carries `new()`, and initializing an abstract class
+         * is forbidden, so it only gets the dyn-dispatch marker. */
+        if (st->type != STRUCT_TYPE_CLASS || !st->is_abstract) {
+            iopc_rust_dump_c_struct_trait(buf, name);
+            iopc_rust_dump_c_instantiable_trait(buf, name);
+        }
         break;
     }
     case STRUCT_TYPE_UNION: {
         iopc_rust_dump_union_trait(buf, name);
         iopc_rust_dump_c_union_trait(buf, name);
+        iopc_rust_dump_c_instantiable_trait(buf, name);
         break;
     }
     default:
@@ -1134,6 +1145,27 @@ static void iopc_rust_upcast_downcast_test(
     );
 }
 
+static void iopc_rust_write_constraints_test(
+    sb_t *buf_tests, const iopc_pkg_t *pkg, iopc_struct_t *st
+)
+{
+    t_scope;
+    lstr_t fn_name = t_format_symbol_name(pkg, st->name, "test", "");
+    lstr_t st_name = t_format_type_name(pkg, st, st->name, "");
+
+    sb_addf(
+        buf_tests,
+        "\n    #[test]\n"
+        "    #[allow(nonstandard_style, dead_code)]\n"
+        "    fn %pL__constraints() {\n"
+        "        let obj = %pL::new();\n"
+        "        obj.check_constraints().expect(\"constraints should be "
+        "satisfied\");\n"
+        "    }\n",
+        &fn_name, &st_name
+    );
+}
+
 /* }}} */
 /* {{{ Main functions */
 
@@ -1145,8 +1177,8 @@ iopc_init_rust_dump(const iopc_pkg_t *pkg, sb_t *buf_tests, bool gen_tests)
     qm_init(iopc_struct_visited, &_G.map);
     qv_init(&_G.decls);
     qh_init(lstr, &_G.rust_keywords);
-    carray_for_each_entry(word, rust_keywords_g) {
-        IGNORE(expect(qh_add(lstr, &_G.rust_keywords, &word) >= 0));
+    carray_for_each_ptr(word, rust_keywords_g) {
+        IGNORE(expect(qh_add(lstr, &_G.rust_keywords, word) >= 0));
     }
 
     if (gen_tests) {
@@ -1230,6 +1262,10 @@ int iopc_do_rust(iopc_pkg_t *pkg, const char *outdir)
             iopc_rust_dump_union(&buf_types, pkg, d.st);
         } else if (d.iop_st_type == STRUCT_TYPE_CLASS) {
             iopc_rust_dump_class(&buf_types, pkg, d.st);
+        } else {
+            /* No Rust type is emitted for this kind of struct (e.g. SNMP
+             * objects, typedefs), so there is nothing to test either. */
+            continue;
         }
         if (gen_tests) {
             bool gen_packs_test = iopc_rust_should_gen_packs_test(d.st);
@@ -1238,6 +1274,7 @@ int iopc_do_rust(iopc_pkg_t *pkg, const char *outdir)
 
             if (gen_packs_test) {
                 iopc_rust_write_packs_tests(&buf_tests, pkg, d.st);
+                iopc_rust_write_constraints_test(&buf_tests, pkg, d.st);
             }
 
             if (d.st->extends.len > 0 && gen_packs_test) {

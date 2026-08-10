@@ -67,8 +67,8 @@ use crate::bindings::{
 pub mod bindings {
     pub use ichannel::bindings::*;
     use libcommon::iop::{
-        Base, CEnum, CStruct, CStructUnion, CUnion, Enum, IopArray, IopOption, Struct, StructUnion,
-        Union,
+        Base, CEnum, CInstance, CStruct, CStructUnion, CUnion, Enum, IopArray, IopOption, Struct,
+        StructUnion, Union,
     };
     use libcommon_core::lstr::{BorrowedBytesLstr, BorrowedUtf8Lstr};
     waf_cargo_build::include_bindings!();
@@ -105,6 +105,7 @@ pub mod bindings {
     }
     impl Struct for exiop__hello_iface__send_res__t {}
     impl CStruct for exiop__hello_iface__send_res__t {}
+    impl CInstance for exiop__hello_iface__send_res__t {}
 }
 
 /// Gathers the "global" state of the example in a single place.

@@ -160,8 +160,8 @@ pub mod run_callback;
 #[waf_cargo_build::bindings_mod]
 pub mod bindings {
     use crate::iop::{
-        Base, CEnum, CStruct, CStructUnion, CUnion, Class, Enum, IopArray, IopOption, Struct,
-        StructUnion, Union,
+        Base, CEnum, CInstance, CStruct, CStructUnion, CUnion, Class, Enum, IopArray, IopOption,
+        Struct, StructUnion, Union,
     };
     pub use libcommon_core::bindings::*;
     use libcommon_core::lstr::{BorrowedBytesLstr, BorrowedUtf8Lstr};
@@ -192,6 +192,7 @@ pub mod bindings {
     }
     impl Struct for iop__void__t {}
     impl CStruct for iop__void__t {}
+    impl CInstance for iop__void__t {}
 }
 
 // Reexport `libcommon_core` types.

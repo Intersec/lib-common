@@ -86,10 +86,10 @@ use std::os::raw::c_void;
 use std::{ptr, slice::from_raw_parts};
 
 use crate::bindings::{
-    iop_bunpack_ptr_flags, iop_enum_t, iop_env_ctx_acquire, iop_env_ctx_dup,
-    iop_env_ctx_get_struct, iop_env_ctx_guard_t, iop_env_ctx_release, iop_env_delete, iop_env_new,
-    iop_env_t, iop_get_err_lstr, iop_init_desc, iop_obj_is_a_desc, iop_pkg_t,
-    iop_register_packages, iop_rpc_t, iop_sb_jpack, iop_struct_t, mp_iop_dup_desc_sz,
+    iop_bunpack_ptr_flags, iop_check_constraints_desc, iop_enum_t, iop_env_ctx_acquire,
+    iop_env_ctx_dup, iop_env_ctx_get_struct, iop_env_ctx_guard_t, iop_env_ctx_release,
+    iop_env_delete, iop_env_new, iop_env_t, iop_get_err_lstr, iop_init_desc, iop_obj_is_a_desc,
+    iop_pkg_t, iop_register_packages, iop_rpc_t, iop_sb_jpack, iop_struct_t, mp_iop_dup_desc_sz,
     t_iop_bpack_struct_flags, t_iop_junpack_ptr_ps, t_iop_new_desc, t_iop_sb_ypack,
     t_iop_yunpack_ptr_ps, t_pool,
 };
@@ -148,6 +148,23 @@ pub trait StructUnion: Base {
         ptr::from_mut(self) as *mut c_void
     }
 
+    /// Check the constraints (`@min`, `@max`, `@nonEmpty`, `@pattern`, ...)
+    /// declared on the IOP structure or union fields.
+    ///
+    /// # Errors
+    ///
+    /// One of the declared constraints is violated.
+    fn check_constraints(&self) -> Result<(), UnpackError> {
+        let ret = unsafe { iop_check_constraints_desc(self.get_cdesc(), self.get_cptr()) };
+
+        if ret >= 0 {
+            return Ok(());
+        }
+
+        let err = unsafe { lstr::from_raw_utf8(iop_get_err_lstr()).as_str() };
+        Err(err.to_owned())
+    }
+
     /// Export the IOP struct or union as JSON
     fn as_json(&self) -> String {
         SB_1k!(sb);
@@ -187,22 +204,34 @@ pub trait StructUnion: Base {
 }
 
 /// IOP trait implemented by a C IOP struct or union.
+///
+/// It only exposes the C description, so an abstract class -- which cannot
+/// be instantiated -- implements it too, and can therefore be named as a
+/// [`Class::Parent`] or as the target of a [`Class::downcast`]. The
+/// constructors live in an unified trait instead : [`CInstance`].
 pub trait CStructUnion: Sized + StructUnion {
     /// The C description of the IOP struct or union.
     const CDESC: *const iop_struct_t;
+}
 
-    /// Create an empty `IopStructUnion` with the default arguments.
+/// IOP trait implemented by a C IOP struct or union that can be
+/// instantiated.
+///
+/// `iop_init_desc()` panics on an abstract class, hence `iopc` implements
+/// it for every struct and union but not for one: an abstract class keeps
+/// [`CStructUnion`], which only names the C description.
+pub trait CInstance: CStructUnion {
+    /// Create an empty value with the default arguments.
     fn new() -> Self {
         let mut res = MaybeUninit::<Self>::uninit();
 
         unsafe {
             iop_init_desc(Self::CDESC, res.as_mut_ptr().cast::<c_void>());
         }
-
         unsafe { res.assume_init() }
     }
 
-    /// Create a new IOP struct or union on a `t_scope`.
+    /// Create a new IOP value on a `t_scope`.
     ///
     /// The returned reference is only valid within the `t_scope` lifetime.
     ///
@@ -249,7 +278,7 @@ pub trait Class: CStructUnion {
 pub trait Union: StructUnion {}
 
 /// IOP trait implemented by a C IOP union.
-pub trait CUnion: Union + CStructUnion {}
+pub trait CUnion: Union + CInstance {}
 
 // }}}
 // {{{ IOP Struct
@@ -258,14 +287,7 @@ pub trait CUnion: Union + CStructUnion {}
 pub trait Struct: StructUnion {}
 
 /// IOP trait implemented by a C IOP struct.
-pub trait CStruct: Struct + CStructUnion {
-    /// Create an empty struct with the default value.
-    ///
-    /// Use by the `iop_new!()` macro.
-    fn default_new() -> Self {
-        Self::new()
-    }
-}
+pub trait CStruct: Struct + CInstance {}
 
 // }}}
 // {{{ IOP Generic struct or union
@@ -1012,7 +1034,7 @@ macro_rules! iop_new {
     // Struct or class, default values.
     ($type:ident) => {{
         $crate::paste::paste! {
-            <[<$type __t>]>::default_new()
+            <[<$type __t>] as $crate::iop::CInstance>::new()
         }
     }};
     // Struct or class, with field initialization.
