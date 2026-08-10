@@ -295,6 +295,7 @@ Z_GROUP_EXPORT(time)
 
     Z_TEST(iso8601_lstr, "finite-string ISO-8601 parsing") {
         time_t t;
+        time_t t2;
 
 #define CHECK_DATE(str, res)                                                 \
     do {                                                                     \
@@ -327,6 +328,33 @@ Z_GROUP_EXPORT(time)
             Z_ASSERT_N(time_parse_iso8601(&ps, &t));
             Z_ASSERT(!ps_done(&ps));
         }
+
+        /* ISO8601_TZ_LESS_AS_UTC reads timezone-less input as UTC,
+         * independently of the host timezone. */
+        Z_ASSERT_N(time_parse_iso8601_lstr(
+            LSTR("2007-03-06T11:34:13"), &t, ISO8601_TZ_LESS_AS_UTC
+        ));
+        Z_ASSERT_EQ(t, 1173180853);
+        Z_ASSERT_N(time_parse_iso8601_lstr(
+            LSTR("2007-03-06"), &t,
+            ISO8601_ALLOW_DAY_DATE_FORMAT | ISO8601_TZ_LESS_AS_UTC
+        ));
+        Z_ASSERT_EQ(t, 1173139200);
+
+        /* An explicit timezone wins over the flag. */
+        Z_ASSERT_N(time_parse_iso8601_lstr(
+            LSTR("2007-03-06T16:34:13+05:00"), &t, ISO8601_TZ_LESS_AS_UTC
+        ));
+        Z_ASSERT_EQ(t, 1173180853);
+
+        /* The 'L' local marker ignores the flag by design. */
+        Z_ASSERT_N(
+            time_parse_iso8601_lstr(LSTR("2007-03-06T11L34:13"), &t, 0)
+        );
+        Z_ASSERT_N(time_parse_iso8601_lstr(
+            LSTR("2007-03-06T11L34:13"), &t2, ISO8601_TZ_LESS_AS_UTC
+        ));
+        Z_ASSERT_EQ(t, t2);
     }
     Z_TEST_END;
 

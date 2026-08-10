@@ -100,6 +100,16 @@ static int time_parse_timezone(pstream_t *ps, int *tz_h, int *tz_m)
     return -1;
 }
 
+static time_t time_tm_to_epoch_tz_less(struct tm *t, unsigned flags)
+{
+    if (flags & ISO8601_TZ_LESS_AS_UTC) {
+        t->tm_isdst = 0;
+        return timegm(t);
+    }
+    t->tm_isdst = -1;
+    return mktime(t);
+}
+
 static int time_parse_iso8601_tok(pstream_t *ps, int *nb, int *type)
 {
     *nb = ps_geti(ps);
@@ -217,8 +227,7 @@ int time_parse_iso8601_flags(pstream_t *ps, time_t *res, unsigned flags)
         if ((flags & ISO8601_RESTRICT_DAY_DATE_FORMAT) ||
             (flags & ISO8601_ALLOW_DAY_DATE_FORMAT))
         {
-            t.tm_isdst = -1;
-            *res = mktime(&t);
+            *res = time_tm_to_epoch_tz_less(&t, flags);
             return 0;
         } else {
             e_debug("day date format `YYYY-MM-DD` is not allowed");
@@ -275,8 +284,7 @@ int time_parse_iso8601_flags(pstream_t *ps, time_t *res, unsigned flags)
     }
 
     if (ps_done(ps)) {
-        t.tm_isdst = -1;
-        *res = mktime(&t);
+        *res = time_tm_to_epoch_tz_less(&t, flags);
         return 0;
     }
 

@@ -570,6 +570,13 @@ enum iso8601_flags {
      * YYYY-MM-DDThh:mm:ss[TZ]. The time is mandatory in this case.
      */
     ISO8601_ALLOW_DAY_DATE_FORMAT = (1U << 3),
+
+    /** Read a timezone-less input as UTC instead of local time.
+     *
+     * The 'L' local marker and the relative 'P' format keep using the
+     * local time: they designate a wall-clock instant by definition.
+     */
+    ISO8601_TZ_LESS_AS_UTC = (1U << 4),
 };
 
 int time_parse_iso8601_flags(pstream_t *ps, time_t *res, unsigned flags);
