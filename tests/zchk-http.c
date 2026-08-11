@@ -934,6 +934,58 @@ Z_GROUP_EXPORT(http2_raw_frames)
         Z_HELPER_RUN(z_h2_raw_teardown());
     }
     Z_TEST_END;
+
+    Z_TEST(
+        data_over_clen_at_eos,
+        "DATA beyond a declared Content-Length is refused with END_STREAM "
+        "too, rather than left to the peer's timeout"
+    )
+    {
+        SB_1k(frames);
+
+        Z_HELPER_RUN(z_h2_raw_setup());
+
+        z_h2_add_request(
+            &frames, 1, LSTR("POST"), LSTR("/post"), LSTR("4"), false
+        );
+        z_h2_add_data(&frames, 1, LSTR("12345678"), true);
+        Z_HELPER_RUN(z_h2_raw_exchange(&frames));
+
+        Z_ASSERT_EQ(_G.raw_obs[1].nb_rst, 1);
+        Z_ASSERT_EQ(_G.raw_obs[1].rst_code, HTTP2_CODE_PROTOCOL_ERROR);
+        Z_ASSERT_ZERO(_G.raw_obs[1].nb_hdrs);
+        Z_ASSERT(!_G.raw_goaway);
+
+        Z_HELPER_RUN(z_h2_raw_teardown());
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        clen_over_data_at_eos,
+        "a body shorter than its declared Content-Length is refused at the "
+        "end of stream"
+    )
+    {
+        SB_1k(frames);
+
+        Z_HELPER_RUN(z_h2_raw_setup());
+
+        /* Announces 8 octets, sends 3, ends the stream. */
+        z_h2_add_request(
+            &frames, 1, LSTR("POST"), LSTR("/post"), LSTR("8"), false
+        );
+        z_h2_add_data(&frames, 1, LSTR("123"), true);
+        Z_HELPER_RUN(z_h2_raw_exchange(&frames));
+
+        Z_ASSERT_EQ(_G.raw_obs[1].nb_rst, 1);
+        Z_ASSERT_EQ(_G.raw_obs[1].rst_code, HTTP2_CODE_PROTOCOL_ERROR);
+        Z_ASSERT_ZERO(_G.post_done_cnt, "a truncated body is not dispatched");
+        Z_ASSERT_ZERO(_G.raw_obs[1].nb_hdrs);
+        Z_ASSERT(!_G.raw_goaway);
+
+        Z_HELPER_RUN(z_h2_raw_teardown());
+    }
+    Z_TEST_END;
 }
 Z_GROUP_END;
 

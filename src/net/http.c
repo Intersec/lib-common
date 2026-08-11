@@ -7603,6 +7603,23 @@ static void http2_stream_close_httpd(http2_conn_t *w, http2_stream_t *stream)
     httpd_do_close(&httpd);
 }
 
+/** Refuse a malformed request with an RST_STREAM(PROTOCOL_ERROR).
+ *
+ * Sent even after the peer's end of stream, else it waits out its own
+ * timeout. The reset closes the stream and drops the httpd.
+ */
+static void http2_stream_reject_malformed(
+    http2_conn_t *w, http2_stream_t *stream, const char *reason
+)
+{
+    if (http2_stream_is_closed(stream)) {
+        http2_stream_trace(w, stream, 2, "%s", reason);
+        http2_stream_close_httpd(w, stream);
+    } else {
+        http2_stream_send_reset(w, stream, "%s", reason);
+    }
+}
+
 static int httpd_unpack_http2_headers(
     httpd_t *w, http2_header_info_t *info, pstream_t headerlines, bool eos
 )
@@ -7692,10 +7709,9 @@ static void http2_stream_on_headers_server(
     }
     return;
 malformed_err:
-    http2_stream_send_reset(
+    http2_stream_reject_malformed(
         conn, stream, "malformed request [invalid headers]"
     );
-    http2_stream_close_httpd(conn, stream);
 }
 
 static void http2_stream_on_data_server(
@@ -7730,12 +7746,9 @@ static void http2_stream_on_data_server(
             }
         } else if (httpd->chunk_length < len) {
             /* mismatch: DATA frames > content-length */
-            if (!eos) {
-                http2_stream_send_reset(
-                    w, stream, "malformed response [DATA > Content-Length]"
-                );
-            }
-            http2_stream_close_httpd(w, stream);
+            http2_stream_reject_malformed(
+                w, stream, "malformed request [DATA > Content-Length]"
+            );
             return;
         }
         res = httpd_parse_body(httpd, &ps);
@@ -7745,10 +7758,9 @@ static void http2_stream_on_data_server(
             sb_skip_upto(&httpd->ibuf, ps.p);
             if (eos) {
                 /* mismatch: content-length > DATA frames.*/
-                http2_stream_trace(
-                    w, stream, 2, "malformed response [unexpected eos]"
+                http2_stream_reject_malformed(
+                    w, stream, "malformed request [Content-Length > DATA]"
                 );
-                http2_stream_close_httpd(w, stream);
                 return;
             }
             break;
@@ -7759,14 +7771,10 @@ static void http2_stream_on_data_server(
             sb_skip_upto(&httpd->ibuf, ps.p);
             return;
         case PARSE_ERROR:
-            if (!eos) {
-                http2_stream_send_reset(
-                    w, stream,
-                    "malformed response [invalid payload "
-                    "format or compression]"
-                );
-            }
-            http2_stream_close_httpd(w, stream);
+            http2_stream_reject_malformed(
+                w, stream,
+                "malformed request [invalid payload format or compression]"
+            );
             return;
         default:
             assert(0 && "unexpected result from httpd_parse_body");
