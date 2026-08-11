@@ -17,8 +17,22 @@
 /***************************************************************************/
 
 #include <lib-common/z.h>
+#include <lib-common/arith.h>
 #include <lib-common/unix.h>
 #include <lib-common/http.h>
+#include <lib-common/http2.h>
+#include <lib-common/net/hpack.h>
+
+/* Observations are indexed by stream id; the raw tests use 1 and 3. */
+#define Z_H2_NB_OBS_STREAMS 4
+
+/* What the frames read back from the server say about one stream. */
+typedef struct z_h2_stream_obs_t {
+    int nb_hdrs;
+    int nb_rst;
+    int status;
+    int rst_code;
+} z_h2_stream_obs_t;
 
 static struct {
     http_mode_t http_mode;
@@ -40,6 +54,17 @@ static struct {
     httpc_status_t query_status;
     int query_code;
     bool query_has_clen;
+
+    sb_t post_payload;
+    int post_done_cnt;
+    int hello_done_cnt;
+
+    /* Raw HTTP/2 frame harness. raw_dec is connection-wide. */
+    int raw_httpd_fd;
+    sb_t raw_rbuf;
+    hpack_dec_dtbl_t raw_dec;
+    z_h2_stream_obs_t raw_obs[Z_H2_NB_OBS_STREAMS];
+    bool raw_goaway;
 
     /* for el_wait_until */
     bool el_wait_timed_out;
@@ -108,6 +133,7 @@ static void z_http_hello_query_reply_async(el_t ev, data_t data)
 
 static void z_http_hello_query_on_done(httpd_query_t *q)
 {
+    _G.hello_done_cnt++;
     obj_retain(q);
 
     if (_G.response_time >= 0) {
@@ -133,6 +159,9 @@ static void z_http_hello_query_hook(
 
 static void z_http_post_query_on_done(httpd_query_t *q)
 {
+    _G.post_done_cnt++;
+    sb_setsb(&_G.post_payload, &q->payload);
+
     /* Send response headers */
     httpd_reply_hdrs_start(q, HTTP_CODE_NO_CONTENT, true);
     httpd_reply_hdrs_done(q, -1, false);
@@ -149,9 +178,30 @@ static void z_http_post_query_hook(
     httpd_bufferize(q, 1 << 20);
 }
 
+/* Reset the server-side capture state before a test. */
+static void z_http_reset_capture(void)
+{
+    static bool inited;
+
+    if (!inited) {
+        sb_init(&_G.post_payload);
+        sb_init(&_G.raw_rbuf);
+        _G.raw_httpd_fd = -1;
+        inited = true;
+    }
+    sb_reset(&_G.post_payload);
+    sb_reset(&_G.raw_rbuf);
+    _G.post_done_cnt = 0;
+    _G.hello_done_cnt = 0;
+    p_clear(_G.raw_obs, countof(_G.raw_obs));
+    _G.raw_goaway = false;
+}
+
 static void z_http_default_httpd_cfg(unsigned max_queries)
 {
     httpd_cfg_t *cfg = httpd_cfg_new();
+
+    z_http_reset_capture();
 
     cfg->mode = _G.http_mode;
     cfg->max_conns = 1;
@@ -326,6 +376,333 @@ z_http_do_simple_query(bool delayed, unsigned delay, unsigned repeat)
 
     Z_HELPER_END;
 }
+
+/* {{{ Raw HTTP/2 frame harness */
+
+/* Our own HTTP/2 client cannot send these requests: it asserts "clen >= 0"
+ * and strips Transfer-Encoding, so the harness speaks raw frames. */
+
+/* Longest wait for the server to react at all. */
+#define Z_H2_RAW_REACT_DELAY 1000 /* msecs */
+
+/* Quiet window after that reaction: a late duplicate must have time to
+ * land. */
+#define Z_H2_RAW_SETTLE_DELAY 50 /* msecs */
+
+/* {{{ Frame and header-block builders */
+
+/* Encode one header as a literal field without indexing, new name, raw
+ * strings (RFC 7541 6.2.2). */
+static void z_h2_add_hpack_hdr(sb_t *out, lstr_t key, lstr_t val)
+{
+    unsigned flags =
+        HPACK_FLG_NOZIP_STR | HPACK_FLG_SKIP_TBLS | HPACK_FLG_NOADD_DTBL;
+    hpack_enc_dtbl_t dtbl;
+    byte *dst;
+    int len;
+
+    /* Stateless, but it still reads the size limits. */
+    hpack_enc_dtbl_init(&dtbl);
+    dst = (byte *)sb_grow(out, hpack_buflen_to_write_hdr(key, val, flags));
+    len = hpack_encoder_write_hdr(&dtbl, key, val, 0, 0, flags, dst);
+    assert(len > 0);
+    __sb_fixlen(out, out->len + len);
+    hpack_enc_dtbl_wipe(&dtbl);
+}
+
+/* Write a 9-octet frame header followed by its payload (RFC 9113 4.1). */
+static void z_h2_add_frame(
+    sb_t *out, uint8_t type, uint8_t flags, uint32_t stream_id,
+    pstream_t payload
+)
+{
+    byte *hdr = (byte *)sb_growlen(out, HTTP2_LEN_FRAME_HDR);
+
+    put_unaligned_be24(hdr, ps_len(&payload));
+    hdr[3] = type;
+    hdr[4] = flags;
+    put_unaligned_be32(hdr + 5, stream_id);
+    sb_add_ps(out, payload);
+}
+
+/* Write a request HEADERS frame: pseudo-headers first and lowercase
+ * (RFC 9113 8.3). A NULL \p clen omits Content-Length. */
+static void z_h2_add_request(
+    sb_t *out, uint32_t stream_id, lstr_t method, lstr_t path, lstr_t clen,
+    bool eos
+)
+{
+    uint8_t flags = HTTP2_FLAG_END_HEADERS;
+    SB_1k(block);
+
+    z_h2_add_hpack_hdr(&block, LSTR(":method"), method);
+    z_h2_add_hpack_hdr(&block, LSTR(":scheme"), LSTR("http"));
+    z_h2_add_hpack_hdr(&block, LSTR(":path"), path);
+    z_h2_add_hpack_hdr(&block, LSTR(":authority"), LSTR("localhost"));
+    if (clen.s) {
+        z_h2_add_hpack_hdr(&block, LSTR("content-length"), clen);
+    }
+    if (eos) {
+        flags |= HTTP2_FLAG_END_STREAM;
+    }
+    z_h2_add_frame(
+        out, HTTP2_TYPE_HEADERS, flags, stream_id, ps_initsb(&block)
+    );
+}
+
+/* Write a DATA frame. Pass LSTR("") for a zero-length frame. */
+static void
+z_h2_add_data(sb_t *out, uint32_t stream_id, lstr_t body, bool eos)
+{
+    z_h2_add_frame(
+        out, HTTP2_TYPE_DATA, eos ? HTTP2_FLAG_END_STREAM : HTTP2_FLAG_NONE,
+        stream_id, ps_initlstr(&body)
+    );
+}
+
+/* }}} */
+/* {{{ Raw connection driving */
+
+/* Open a raw socket and send the client connection preface (RFC 9113 3.4).
+ *
+ * The empty SETTINGS frame keeps the default 65535-octet stream window,
+ * which covers every body sent here: no WINDOW_UPDATE needed.
+ */
+static int z_h2_raw_setup(void)
+{
+    sockunion_t su;
+    SB_1k(preface);
+
+    /* Also makes _G.raw_httpd_fd a valid descriptor. */
+    z_http_reset_capture();
+
+    /* A failing Z_ASSERT jumps past the teardown: drop what it left open. */
+    p_close(&_G.raw_httpd_fd);
+    httpd_unlisten(&_G.server);
+
+    _G.http_mode = HTTP_MODE_USE_HTTP2_ONLY;
+    _G.response_time = -1; /* answer /hello synchronously */
+    z_http_hello_generate_response(16);
+
+    /* Same recovery: a failed test may have left a live table. */
+    hpack_dec_dtbl_wipe(&_G.raw_dec);
+    hpack_dec_dtbl_init(&_G.raw_dec);
+    /* We advertise no settings: the server uses the default table size. */
+    hpack_dec_dtbl_init_settings(&_G.raw_dec, HTTP2_LEN_HDR_TABLE_SIZE_INIT);
+
+    Z_ASSERT_N(addr_resolve("test", LSTR("127.0.0.1:1"), &su));
+    if (getenv("Z_HTTP_FIX_PORT")) {
+        sockunion_setport(&su, 1080);
+    } else {
+        sockunion_setport(&su, 0);
+    }
+
+    /* Also resets the server-side capture state. */
+    z_http_default_httpd_cfg(1);
+    /* 20 ms is too tight: frames span several event loop turns. */
+    _G.server_cfg->noact_delay = 1000;
+
+    _G.server = httpd_listen(&su, _G.server_cfg);
+    Z_ASSERT_P(_G.server);
+
+    sockunion_setport(&su, getsockport(el_fd_get_fd(_G.server), AF_INET));
+    _G.raw_httpd_fd = connectx(-1, &su, 1, SOCK_STREAM, IPPROTO_TCP, 0);
+    Z_ASSERT_N(_G.raw_httpd_fd);
+
+    sb_add_lstr(&preface, http2_client_preamble_g);
+    z_h2_add_frame(
+        &preface, HTTP2_TYPE_SETTINGS, HTTP2_FLAG_NONE, HTTP2_ID_NO_STREAM,
+        ps_initstr("")
+    );
+    Z_ASSERT_N(xwrite(_G.raw_httpd_fd, preface.data, preface.len));
+
+    Z_HELPER_END;
+}
+
+static int z_h2_raw_teardown(void)
+{
+    p_close(&_G.raw_httpd_fd);
+    httpd_unlisten(&_G.server);
+
+    hpack_dec_dtbl_wipe(&_G.raw_dec);
+    lstr_wipe(&_G.hello_response);
+    sb_wipe(&_G.raw_rbuf);
+    sb_wipe(&_G.post_payload);
+
+    /* Wait to allow the transporting http2 connection to finalize. */
+    el_wait_until(!el_has_pending_events(), 100);
+    Z_ASSERT(!el_has_pending_events());
+
+    Z_HELPER_END;
+}
+
+/* Collect whatever the server has written so far. */
+static void z_h2_raw_drain(void)
+{
+    for (;;) {
+        int res =
+            sb_recv(&_G.raw_rbuf, _G.raw_httpd_fd, BUFSIZ, MSG_DONTWAIT);
+
+        if (res < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            /* EAGAIN: nothing more for now. */
+            return;
+        }
+        if (!res) {
+            return; /* end of file */
+        }
+    }
+}
+
+/* Whether the server dispatched a query, or wrote a response or a refusal.
+ * Frame types only, from a copy: decoding twice desynchronizes the decoder.
+ */
+static bool z_h2_raw_reacted(void)
+{
+    pstream_t ps;
+
+    z_h2_raw_drain();
+    if (_G.post_done_cnt || _G.hello_done_cnt) {
+        return true;
+    }
+    ps = ps_initsb(&_G.raw_rbuf);
+    for (;;) {
+        http2_frame_info_t frame;
+        pstream_t payload;
+
+        if (http2_parse_frame_hdr(&ps, &frame) < 0 ||
+            ps_get_ps(&ps, frame.len, &payload) < 0)
+        {
+            return false;
+        }
+        if (frame.type == HTTP2_TYPE_HEADERS ||
+            frame.type == HTTP2_TYPE_RST_STREAM)
+        {
+            return true;
+        }
+    }
+}
+
+/* }}} */
+/* {{{ Response frame walker */
+
+/* Decode a response header block far enough to read its :status. */
+static int z_h2_raw_get_status(pstream_t block, int *status)
+{
+    SB_1k(lines);
+    pstream_t ps;
+    pstream_t val = ps_init(NULL, 0);
+
+    /* Dynamic table size updates come before the fields (RFC 7541 4.2). */
+    for (;;) {
+        int rc = hpack_decoder_read_dts_update(&_G.raw_dec, &block);
+
+        Z_ASSERT_N(rc);
+        if (!rc) {
+            break;
+        }
+    }
+    while (!ps_done(&block)) {
+        hpack_xhdr_t xhdr;
+        int len;
+        int keylen;
+        byte *out;
+
+        Z_ASSERT_ZERO(
+            hpack_decoder_extract_hdr(&_G.raw_dec, &block, &xhdr, &len)
+        );
+        out = (byte *)sb_grow(&lines, len);
+        len = hpack_decoder_write_hdr(&_G.raw_dec, &xhdr, out, &keylen);
+        Z_ASSERT_N(len);
+        __sb_fixlen(&lines, lines.len + len);
+    }
+    /* :status comes first in a response header block (RFC 9113 8.3.2). */
+    ps = ps_initsb(&lines);
+    Z_ASSERT_N(ps_skipstr(&ps, ":status: "));
+    Z_ASSERT_N(ps_get_ps_upto_str(&ps, "\r\n", &val));
+    Z_ASSERT_N(lstr_to_int(LSTR_PS_V(&val), status));
+
+    Z_HELPER_END;
+}
+
+/* Record the response HEADERS, RST_STREAM and GOAWAY per stream. Walked
+ * frames are dropped: re-walking would desynchronize the HPACK decoder. */
+static int z_h2_raw_observe(void)
+{
+    pstream_t ps = ps_initsb(&_G.raw_rbuf);
+    const void *walked = ps.p;
+
+    for (;;) {
+        http2_frame_info_t frame;
+        pstream_t payload;
+        z_h2_stream_obs_t *obs;
+        int status;
+
+        if (http2_parse_frame_hdr(&ps, &frame) < 0) {
+            break;
+        }
+        if (ps_get_ps(&ps, frame.len, &payload) < 0) {
+            break;
+        }
+        /* Consumed whichever way the iteration ends. */
+        walked = ps.p;
+        if (frame.type == HTTP2_TYPE_GOAWAY) {
+            _G.raw_goaway = true;
+            continue;
+        }
+        if (!frame.stream_id) {
+            continue;
+        }
+        /* Still decode it: a skipped block desynchronizes the table. */
+        obs = frame.stream_id < countof(_G.raw_obs)
+                  ? &_G.raw_obs[frame.stream_id]
+                  : NULL;
+        switch (frame.type) {
+        case HTTP2_TYPE_HEADERS:
+            /* No padding, no CONTINUATION: the payload is a whole block. */
+            Z_ASSERT(frame.flags & HTTP2_FLAG_END_HEADERS);
+            Z_ASSERT(
+                !(frame.flags & (HTTP2_FLAG_PADDED | HTTP2_FLAG_PRIORITY))
+            );
+            Z_HELPER_RUN(z_h2_raw_get_status(payload, &status));
+            if (obs && !obs->nb_hdrs++) {
+                obs->status = status;
+            }
+            break;
+
+        case HTTP2_TYPE_RST_STREAM:
+            /* The error code is the whole payload (RFC 9113 6.4). */
+            Z_ASSERT_EQ((int)ps_len(&payload), 4);
+            if (obs && !obs->nb_rst++) {
+                obs->rst_code = (int)get_unaligned_be32(payload.p);
+            }
+            break;
+
+        default:
+            break;
+        }
+    }
+    sb_skip_upto(&_G.raw_rbuf, walked);
+
+    Z_HELPER_END;
+}
+
+/* Hand \p frames to the server, let it answer, then walk what it wrote. */
+static int z_h2_raw_exchange(const sb_t *frames)
+{
+    Z_ASSERT_N(xwrite(_G.raw_httpd_fd, frames->data, frames->len));
+    el_wait_until(z_h2_raw_reacted(), Z_H2_RAW_REACT_DELAY);
+    el_wait_until(false, Z_H2_RAW_SETTLE_DELAY);
+    z_h2_raw_drain();
+    Z_HELPER_RUN(z_h2_raw_observe());
+
+    Z_HELPER_END;
+}
+
+/* }}} */
+/* }}} */
 
 static void z_http_tests(http_mode_t http_mode)
 {
@@ -527,5 +904,39 @@ Z_GROUP_EXPORT(httpc_pool)
     Z_TEST_END;
 }
 Z_GROUP_END;
+
+/* {{{ Raw HTTP/2 frame tests */
+
+/* HTTP/2 only: these drive raw frames, so they cannot run over HTTP/1.x. */
+Z_GROUP_EXPORT(http2_raw_frames)
+{
+    Z_TEST(
+        post_clen_body,
+        "a Content-Length delimited body, in one DATA frame carrying "
+        "END_STREAM"
+    )
+    {
+        SB_1k(frames);
+
+        Z_HELPER_RUN(z_h2_raw_setup());
+
+        z_h2_add_request(
+            &frames, 1, LSTR("POST"), LSTR("/post"), LSTR("6"), false
+        );
+        z_h2_add_data(&frames, 1, LSTR("framed"), true);
+        Z_HELPER_RUN(z_h2_raw_exchange(&frames));
+
+        Z_ASSERT_EQ(_G.post_done_cnt, 1);
+        Z_ASSERT_LSTREQUAL(LSTR_SB_V(&_G.post_payload), LSTR("framed"));
+        Z_ASSERT_EQ(_G.raw_obs[1].status, HTTP_CODE_NO_CONTENT);
+        Z_ASSERT_ZERO(_G.raw_obs[1].nb_rst);
+
+        Z_HELPER_RUN(z_h2_raw_teardown());
+    }
+    Z_TEST_END;
+}
+Z_GROUP_END;
+
+/* }}} */
 
 /* }}} */
