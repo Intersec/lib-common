@@ -7520,6 +7520,9 @@ typedef struct httpd_http2_ctx_t {
     /* offset into httpd's ob */
     int http2_sync_mark;
     uint32_t http2_stream_id : 31;
+    /* the peer declared a Content-Length; the synthesized message is no
+     * witness, one is fabricated for a bodyless POST */
+    bool peer_sent_content_length : 1;
 } httpd_http2_ctx_t;
 
 static httpd_http2_ctx_t *httpd_http2_ctx_init(httpd_http2_ctx_t *ctx)
@@ -7654,6 +7657,7 @@ static int httpd_unpack_http2_headers(
         if (!info->method.s) {
             return -1;
         }
+        w->http2_ctx->peer_sent_content_length = !!info->content_length.s;
         sb_addf(
             ibuf, "%*pM %*pM HTTP/1.1\r\n", LSTR_FMT_ARG(info->method),
             LSTR_FMT_ARG(info->path)
@@ -7734,11 +7738,8 @@ static void http2_stream_on_data_server(
 {
     httpd_t *httpd = stream->http2d_ctx->httpd;
 
-    assert(
-        httpd->state == HTTP_PARSER_BODY ||
-        httpd->state == HTTP_PARSER_CHUNK_HDR
-    );
     if (ps_done(&data) && !eos) {
+        /* Neither body nor end of body. */
         return;
     }
     switch (httpd->state) {
@@ -7812,8 +7813,22 @@ static void http2_stream_on_data_server(
             );
         }
         return;
+    case HTTP_PARSER_CLOSE:
+        /* An empty DATA frame only adds its eos. A payload beyond a declared
+         * Content-Length is malformed (rfc 9113 8.1.1); with none declared,
+         * refusing it would drop the response. */
+        if (!ps_done(&data) && httpd->http2_ctx->peer_sent_content_length) {
+            http2_stream_reject_malformed(
+                w, stream, "malformed request [DATA > Content-Length]"
+            );
+        }
+        return;
     default:
-        assert(0 && "invalid parser state");
+        /* ibuf is committed in full, so the parser is never mid-message. */
+        http2_stream_reject_malformed(
+            w, stream, "malformed request [DATA in an unexpected state]"
+        );
+        return;
     }
 }
 
@@ -7905,6 +7920,10 @@ static void http2_conn_stream_idle_httpd(http2_conn_t *w, httpd_t *httpd)
         /* headers-only response (no-payload). */
         assert(ob_is_empty(&httpd->ob));
         assert(stream->events & HTTP2_STREAM_EV_EOS_SENT);
+        /* XXX: dropped even when the peer has not ended its stream, so its
+         * remaining frames get a "stream cancelled". Keeping it needs a third
+         * state in the idle/active lists: an answered httpd breaks the idle
+         * invariant that an empty ob implies an unanswered query. */
         http2_stream_close_httpd(w, stream);
         return;
     }

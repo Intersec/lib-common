@@ -1075,6 +1075,118 @@ Z_GROUP_EXPORT(http2_raw_frames)
     Z_TEST_END;
 
     Z_TEST(
+        post_clen_zero_empty_data,
+        "Content-Length: 0 then a zero-length DATA frame with END_STREAM is "
+        "legal: answered, not reset"
+    )
+    {
+        SB_1k(frames);
+
+        Z_HELPER_RUN(z_h2_raw_setup());
+
+        z_h2_add_request(
+            &frames, 1, LSTR("POST"), LSTR("/post"), LSTR("0"), false
+        );
+        z_h2_add_data(&frames, 1, LSTR(""), true);
+        Z_HELPER_RUN(z_h2_raw_exchange(&frames));
+
+        Z_ASSERT_EQ(_G.post_done_cnt, 1);
+        Z_ASSERT_ZERO(_G.post_payload.len);
+        Z_ASSERT_EQ(_G.raw_obs[1].status, HTTP_CODE_NO_CONTENT);
+        Z_ASSERT_ZERO(_G.raw_obs[1].nb_rst, "the message is legal");
+        Z_ASSERT(!_G.raw_goaway);
+
+        Z_HELPER_RUN(z_h2_raw_teardown());
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        clen_zero_late_eos,
+        "the same legal message, with its end of stream handed over after "
+        "the answer was written"
+    )
+    {
+        SB_1k(frames);
+
+        Z_TODO(
+            "the answered httpd is dropped before the peer's end of "
+            "stream, so the frame gets a stream reset"
+        );
+
+        Z_HELPER_RUN(z_h2_raw_setup());
+
+        z_h2_add_request(
+            &frames, 1, LSTR("POST"), LSTR("/post"), LSTR("0"), false
+        );
+        Z_HELPER_RUN(z_h2_raw_exchange(&frames));
+
+        Z_ASSERT_EQ(_G.post_done_cnt, 1);
+        Z_ASSERT_EQ(_G.raw_obs[1].status, HTTP_CODE_NO_CONTENT);
+
+        sb_reset(&frames);
+        z_h2_add_data(&frames, 1, LSTR(""), true);
+        Z_HELPER_RUN(z_h2_raw_exchange(&frames));
+
+        Z_ASSERT_ZERO(_G.raw_obs[1].nb_rst, "the message is legal");
+        Z_ASSERT(!_G.raw_goaway);
+
+        Z_HELPER_RUN(z_h2_raw_teardown());
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        post_clen_zero_then_data,
+        "Content-Length: 0 then a non-empty DATA frame is malformed: the "
+        "stream is reset"
+    )
+    {
+        SB_1k(frames);
+
+        Z_HELPER_RUN(z_h2_raw_setup());
+
+        z_h2_add_request(
+            &frames, 1, LSTR("POST"), LSTR("/post"), LSTR("0"), false
+        );
+        z_h2_add_data(&frames, 1, LSTR("unexpected"), false);
+        Z_HELPER_RUN(z_h2_raw_exchange(&frames));
+
+        /* One write: the DATA arrives while the httpd is still attached. */
+        Z_ASSERT_EQ(_G.raw_obs[1].nb_rst, 1, "the stream must be reset");
+        Z_ASSERT_EQ(_G.raw_obs[1].rst_code, HTTP2_CODE_PROTOCOL_ERROR);
+        Z_ASSERT(!_G.raw_goaway, "the violation is per-stream");
+
+        Z_HELPER_RUN(z_h2_raw_teardown());
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        get_then_empty_data,
+        "a GET whose HEADERS carry no END_STREAM, closed by a zero-length "
+        "DATA frame carrying END_STREAM, is legal HTTP/2 and must be "
+        "answered without aborting the daemon"
+    )
+    {
+        SB_1k(frames);
+
+        Z_HELPER_RUN(z_h2_raw_setup());
+
+        /* A GET completes on its HEADERS frame: the widest crash surface. */
+        z_h2_add_request(
+            &frames, 1, LSTR("GET"), LSTR("/hello"), LSTR_NULL_V, false
+        );
+        z_h2_add_data(&frames, 1, LSTR(""), true);
+        Z_HELPER_RUN(z_h2_raw_exchange(&frames));
+
+        Z_ASSERT_EQ(_G.hello_done_cnt, 1);
+        Z_ASSERT_EQ(_G.raw_obs[1].status, HTTP_CODE_OK);
+        Z_ASSERT_ZERO(_G.raw_obs[1].nb_rst);
+        Z_ASSERT(!_G.raw_goaway);
+
+        Z_HELPER_RUN(z_h2_raw_teardown());
+    }
+    Z_TEST_END;
+
+    Z_TEST(
         data_over_clen_spares_sibling,
         "DATA beyond a declared Content-Length is refused on its own stream "
         "only: a sibling stream is still answered"
@@ -1156,6 +1268,34 @@ Z_GROUP_EXPORT(http2_raw_frames)
         Z_ASSERT_EQ(_G.raw_obs[1].rst_code, HTTP2_CODE_PROTOCOL_ERROR);
         Z_ASSERT_ZERO(_G.post_done_cnt, "a truncated body is not dispatched");
         Z_ASSERT_ZERO(_G.raw_obs[1].nb_hdrs);
+        Z_ASSERT(!_G.raw_goaway);
+
+        Z_HELPER_RUN(z_h2_raw_teardown());
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        get_then_data,
+        "a payload on a completed message that declared no length: dropped, "
+        "and the response kept"
+    )
+    {
+        SB_1k(frames);
+
+        Z_HELPER_RUN(z_h2_raw_setup());
+
+        z_h2_add_request(
+            &frames, 1, LSTR("GET"), LSTR("/hello"), LSTR_NULL_V, false
+        );
+        z_h2_add_data(&frames, 1, LSTR("unexpected"), true);
+        Z_HELPER_RUN(z_h2_raw_exchange(&frames));
+
+        Z_ASSERT_EQ(_G.hello_done_cnt, 1);
+        Z_ASSERT_EQ(
+            _G.raw_obs[1].status, HTTP_CODE_OK,
+            "the answer must survive the stray body"
+        );
+        Z_ASSERT_ZERO(_G.raw_obs[1].nb_rst);
         Z_ASSERT(!_G.raw_goaway);
 
         Z_HELPER_RUN(z_h2_raw_teardown());
