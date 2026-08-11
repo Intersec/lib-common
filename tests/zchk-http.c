@@ -460,6 +460,24 @@ z_h2_add_data(sb_t *out, uint32_t stream_id, lstr_t body, bool eos)
     );
 }
 
+/* Write a trailing HEADERS frame: one trailer field, no pseudo-header.
+ * \p eos is false only to build the malformed variant. */
+static void z_h2_add_trailers(
+    sb_t *out, uint32_t stream_id, lstr_t key, lstr_t val, bool eos
+)
+{
+    uint8_t flags = HTTP2_FLAG_END_HEADERS;
+    SB_1k(block);
+
+    if (eos) {
+        flags |= HTTP2_FLAG_END_STREAM;
+    }
+    z_h2_add_hpack_hdr(&block, key, val);
+    z_h2_add_frame(
+        out, HTTP2_TYPE_HEADERS, flags, stream_id, ps_initsb(&block)
+    );
+}
+
 /* }}} */
 /* {{{ Raw connection driving */
 
@@ -1217,6 +1235,148 @@ Z_GROUP_EXPORT(http2_raw_frames)
         Z_ASSERT_LSTREQUAL(LSTR_SB_V(&_G.post_payload), LSTR("sibling"));
         Z_ASSERT_EQ(_G.raw_obs[3].status, HTTP_CODE_NO_CONTENT);
         Z_ASSERT_ZERO(_G.raw_obs[3].nb_rst);
+
+        Z_HELPER_RUN(z_h2_raw_teardown());
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        post_no_clen_trailers,
+        "a body closed by a trailing HEADERS frame: dispatched once, "
+        "trailer fields ignored"
+    )
+    {
+        SB_1k(frames);
+
+        Z_HELPER_RUN(z_h2_raw_setup());
+
+        z_h2_add_request(
+            &frames, 1, LSTR("POST"), LSTR("/post"), LSTR_NULL_V, false
+        );
+        z_h2_add_data(&frames, 1, LSTR("trailed body"), false);
+        z_h2_add_trailers(
+            &frames, 1, LSTR("x-zchk-trailer"), LSTR("1"), true
+        );
+        Z_HELPER_RUN(z_h2_raw_exchange(&frames));
+
+        Z_ASSERT_EQ(_G.post_done_cnt, 1);
+        Z_ASSERT_LSTREQUAL(LSTR_SB_V(&_G.post_payload), LSTR("trailed body"));
+        Z_ASSERT_EQ(_G.raw_obs[1].status, HTTP_CODE_NO_CONTENT);
+        Z_ASSERT_ZERO(_G.raw_obs[1].nb_rst);
+
+        Z_HELPER_RUN(z_h2_raw_teardown());
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        post_clen_trailers,
+        "a trailing HEADERS frame also closes a Content-Length delimited "
+        "body"
+    )
+    {
+        SB_1k(frames);
+
+        Z_HELPER_RUN(z_h2_raw_setup());
+
+        z_h2_add_request(
+            &frames, 1, LSTR("POST"), LSTR("/post"), LSTR("6"), false
+        );
+        z_h2_add_data(&frames, 1, LSTR("framed"), false);
+        z_h2_add_trailers(
+            &frames, 1, LSTR("x-zchk-trailer"), LSTR("1"), true
+        );
+        Z_HELPER_RUN(z_h2_raw_exchange(&frames));
+
+        Z_ASSERT_EQ(_G.post_done_cnt, 1);
+        Z_ASSERT_LSTREQUAL(LSTR_SB_V(&_G.post_payload), LSTR("framed"));
+        Z_ASSERT_EQ(_G.raw_obs[1].status, HTTP_CODE_NO_CONTENT);
+        Z_ASSERT_ZERO(_G.raw_obs[1].nb_rst);
+
+        Z_HELPER_RUN(z_h2_raw_teardown());
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        get_then_trailers,
+        "a trailing HEADERS frame on an already complete message: accepted, "
+        "answer kept"
+    )
+    {
+        SB_1k(frames);
+
+        Z_HELPER_RUN(z_h2_raw_setup());
+
+        z_h2_add_request(
+            &frames, 1, LSTR("GET"), LSTR("/hello"), LSTR_NULL_V, false
+        );
+        z_h2_add_trailers(
+            &frames, 1, LSTR("x-zchk-trailer"), LSTR("1"), true
+        );
+        Z_HELPER_RUN(z_h2_raw_exchange(&frames));
+
+        Z_ASSERT_EQ(_G.hello_done_cnt, 1);
+        Z_ASSERT_EQ(_G.raw_obs[1].status, HTTP_CODE_OK);
+        Z_ASSERT_ZERO(_G.raw_obs[1].nb_rst);
+
+        Z_HELPER_RUN(z_h2_raw_teardown());
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        post_trailers_without_eos,
+        "a trailing HEADERS frame without END_STREAM is malformed"
+    )
+    {
+        SB_1k(frames);
+
+        Z_HELPER_RUN(z_h2_raw_setup());
+
+        z_h2_add_request(
+            &frames, 1, LSTR("POST"), LSTR("/post"), LSTR_NULL_V, false
+        );
+        z_h2_add_data(&frames, 1, LSTR("body"), false);
+        z_h2_add_trailers(
+            &frames, 1, LSTR("x-zchk-trailer"), LSTR("1"), false
+        );
+        Z_HELPER_RUN(z_h2_raw_exchange(&frames));
+
+        Z_ASSERT_EQ(_G.raw_obs[1].nb_rst, 1);
+        Z_ASSERT_EQ(_G.raw_obs[1].rst_code, HTTP2_CODE_PROTOCOL_ERROR);
+        Z_ASSERT_ZERO(_G.post_done_cnt, "the request must not be dispatched");
+        Z_ASSERT(!_G.raw_goaway, "the refusal must stay a stream error");
+
+        Z_HELPER_RUN(z_h2_raw_teardown());
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        post_trailers_with_pseudo_hdr,
+        "rfc 9113 8.1 gives a trailer section no pseudo-header, and a whole "
+        "valid request set passes the frame layer's check"
+    )
+    {
+        SB_1k(frames);
+        SB_1k(block);
+
+        Z_HELPER_RUN(z_h2_raw_setup());
+
+        z_h2_add_request(
+            &frames, 1, LSTR("POST"), LSTR("/post"), LSTR_NULL_V, false
+        );
+        z_h2_add_data(&frames, 1, LSTR("body"), false);
+        z_h2_add_hpack_hdr(&block, LSTR(":method"), LSTR("GET"));
+        z_h2_add_hpack_hdr(&block, LSTR(":scheme"), LSTR("http"));
+        z_h2_add_hpack_hdr(&block, LSTR(":path"), LSTR("/post"));
+        z_h2_add_frame(
+            &frames, HTTP2_TYPE_HEADERS,
+            HTTP2_FLAG_END_HEADERS | HTTP2_FLAG_END_STREAM, 1,
+            ps_initsb(&block)
+        );
+        Z_HELPER_RUN(z_h2_raw_exchange(&frames));
+
+        Z_ASSERT_EQ(_G.raw_obs[1].nb_rst, 1);
+        Z_ASSERT_EQ(_G.raw_obs[1].rst_code, HTTP2_CODE_PROTOCOL_ERROR);
+        Z_ASSERT_ZERO(_G.post_done_cnt, "the request must not be dispatched");
 
         Z_HELPER_RUN(z_h2_raw_teardown());
     }

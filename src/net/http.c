@@ -7687,11 +7687,22 @@ static int httpd_unpack_http2_headers(
         }
         sb_adds(ibuf, "\r\n");
         break;
-    case HTTP_PARSER_CHUNK_TRAILER:
-        if (!eos) {
-            return -1;
+    case HTTP_PARSER_CHUNK_HDR:
+    case HTTP_PARSER_BODY:
+    case HTTP_PARSER_CLOSE:
+        /* Trailer section: ends the message, no pseudo-header (rfc 9113 8.1).
+         * Its fields are dropped, as httpd_parse_chunk_trailer() stores none
+         * either. */
+        THROW_ERR_UNLESS(eos);
+        THROW_ERR_IF(
+            info->flags &
+            ~(HTTP2_HDR_FLAG_HAS_REGULAR_HEADERS |
+              HTTP2_HDR_FLAG_HAS_CONTENT_LENGTH | HTTP2_HDR_FLAG_HAS_HOST)
+        );
+        if (state == HTTP_PARSER_CHUNK_HDR) {
+            /* Only a chunked body has framing left to close. */
+            sb_adds(ibuf, "0\r\n\r\n");
         }
-        sb_add_ps(ibuf, headerlines);
         break;
     default:
         return -1;
