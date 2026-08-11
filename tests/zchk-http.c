@@ -936,6 +936,181 @@ Z_GROUP_EXPORT(http2_raw_frames)
     Z_TEST_END;
 
     Z_TEST(
+        post_no_clen_one_data,
+        "no Content-Length, body in one DATA frame: dispatched once, with "
+        "the frame payload as its body"
+    )
+    {
+        SB_1k(frames);
+
+        Z_HELPER_RUN(z_h2_raw_setup());
+
+        z_h2_add_request(
+            &frames, 1, LSTR("POST"), LSTR("/post"), LSTR_NULL_V, false
+        );
+        z_h2_add_data(&frames, 1, LSTR("one frame body"), true);
+        Z_HELPER_RUN(z_h2_raw_exchange(&frames));
+
+        Z_ASSERT_EQ(_G.post_done_cnt, 1, "the body must be delivered once");
+        Z_ASSERT_LSTREQUAL(
+            LSTR_SB_V(&_G.post_payload), LSTR("one frame body")
+        );
+        Z_ASSERT_EQ(_G.raw_obs[1].status, HTTP_CODE_NO_CONTENT);
+        Z_ASSERT_ZERO(_G.raw_obs[1].nb_rst);
+
+        Z_HELPER_RUN(z_h2_raw_teardown());
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        post_no_clen_multi_data,
+        "no Content-Length, body over several DATA frames: dispatched once, "
+        "frames concatenated in order"
+    )
+    {
+        SB_1k(frames);
+
+        Z_HELPER_RUN(z_h2_raw_setup());
+
+        z_h2_add_request(
+            &frames, 1, LSTR("POST"), LSTR("/post"), LSTR_NULL_V, false
+        );
+        z_h2_add_data(&frames, 1, LSTR("first-"), false);
+        z_h2_add_data(&frames, 1, LSTR("second-"), false);
+        z_h2_add_data(&frames, 1, LSTR("third"), true);
+        Z_HELPER_RUN(z_h2_raw_exchange(&frames));
+
+        Z_ASSERT_EQ(_G.post_done_cnt, 1);
+        Z_ASSERT_LSTREQUAL(
+            LSTR_SB_V(&_G.post_payload), LSTR("first-second-third"),
+            "the frames must be concatenated in order, none repeated and "
+            "none lost"
+        );
+        Z_ASSERT_EQ(_G.raw_obs[1].status, HTTP_CODE_NO_CONTENT);
+        Z_ASSERT_ZERO(_G.raw_obs[1].nb_rst);
+
+        Z_HELPER_RUN(z_h2_raw_teardown());
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        post_no_clen_empty_last_data,
+        "a POST with no Content-Length whose body is closed by a separate "
+        "zero-length DATA frame carrying END_STREAM must be dispatched once "
+        "with the preceding frames as its body"
+    )
+    {
+        SB_1k(frames);
+
+        Z_HELPER_RUN(z_h2_raw_setup());
+
+        z_h2_add_request(
+            &frames, 1, LSTR("POST"), LSTR("/post"), LSTR_NULL_V, false
+        );
+        z_h2_add_data(&frames, 1, LSTR("head-"), false);
+        z_h2_add_data(&frames, 1, LSTR("tail"), false);
+        z_h2_add_data(&frames, 1, LSTR(""), true);
+        Z_HELPER_RUN(z_h2_raw_exchange(&frames));
+
+        Z_ASSERT_EQ(_G.post_done_cnt, 1);
+        Z_ASSERT_LSTREQUAL(LSTR_SB_V(&_G.post_payload), LSTR("head-tail"));
+        Z_ASSERT_EQ(_G.raw_obs[1].status, HTTP_CODE_NO_CONTENT);
+        Z_ASSERT_ZERO(_G.raw_obs[1].nb_rst);
+
+        Z_HELPER_RUN(z_h2_raw_teardown());
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        post_no_clen_empty_body,
+        "a POST with no Content-Length, no END_STREAM on its HEADERS and a "
+        "single zero-length DATA frame carrying END_STREAM must be "
+        "dispatched once with an empty body"
+    )
+    {
+        SB_1k(frames);
+
+        Z_HELPER_RUN(z_h2_raw_setup());
+
+        z_h2_add_request(
+            &frames, 1, LSTR("POST"), LSTR("/post"), LSTR_NULL_V, false
+        );
+        z_h2_add_data(&frames, 1, LSTR(""), true);
+        Z_HELPER_RUN(z_h2_raw_exchange(&frames));
+
+        Z_ASSERT_EQ(_G.post_done_cnt, 1);
+        Z_ASSERT_ZERO(_G.post_payload.len);
+        Z_ASSERT_EQ(_G.raw_obs[1].status, HTTP_CODE_NO_CONTENT);
+        Z_ASSERT_ZERO(_G.raw_obs[1].nb_rst);
+
+        Z_HELPER_RUN(z_h2_raw_teardown());
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        post_no_clen_empty_data_mid_body,
+        "a zero-length DATA frame without END_STREAM sits in the middle of a "
+        "body and must not be taken for its end"
+    )
+    {
+        SB_1k(frames);
+
+        Z_HELPER_RUN(z_h2_raw_setup());
+
+        z_h2_add_request(
+            &frames, 1, LSTR("POST"), LSTR("/post"), LSTR_NULL_V, false
+        );
+        z_h2_add_data(&frames, 1, LSTR("part1"), false);
+        z_h2_add_data(&frames, 1, LSTR(""), false);
+        z_h2_add_data(&frames, 1, LSTR("part2"), true);
+        Z_HELPER_RUN(z_h2_raw_exchange(&frames));
+
+        Z_ASSERT_EQ(_G.post_done_cnt, 1);
+        Z_ASSERT_LSTREQUAL(LSTR_SB_V(&_G.post_payload), LSTR("part1part2"));
+        Z_ASSERT_EQ(_G.raw_obs[1].status, HTTP_CODE_NO_CONTENT);
+        Z_ASSERT_ZERO(_G.raw_obs[1].nb_rst);
+
+        Z_HELPER_RUN(z_h2_raw_teardown());
+    }
+    Z_TEST_END;
+
+    Z_TEST(
+        data_over_clen_spares_sibling,
+        "DATA beyond a declared Content-Length is refused on its own stream "
+        "only: a sibling stream is still answered"
+    )
+    {
+        SB_1k(frames);
+
+        Z_HELPER_RUN(z_h2_raw_setup());
+
+        /* Stream 1 announces 4 octets and sends 8. */
+        z_h2_add_request(
+            &frames, 1, LSTR("POST"), LSTR("/post"), LSTR("4"), false
+        );
+        z_h2_add_data(&frames, 1, LSTR("12345678"), false);
+        /* Stream 3 is a complete, valid request. */
+        z_h2_add_request(
+            &frames, 3, LSTR("POST"), LSTR("/post"), LSTR_NULL_V, false
+        );
+        z_h2_add_data(&frames, 3, LSTR("sibling"), true);
+        Z_HELPER_RUN(z_h2_raw_exchange(&frames));
+
+        Z_ASSERT_EQ(_G.raw_obs[1].nb_rst, 1, "stream 1 must be reset");
+        Z_ASSERT_EQ(_G.raw_obs[1].rst_code, HTTP2_CODE_PROTOCOL_ERROR);
+        Z_ASSERT_ZERO(_G.raw_obs[1].nb_hdrs, "stream 1 must not be answered");
+        Z_ASSERT(!_G.raw_goaway, "the refusal must stay a stream error");
+
+        Z_ASSERT_EQ(_G.post_done_cnt, 1, "only the sibling is dispatched");
+        Z_ASSERT_LSTREQUAL(LSTR_SB_V(&_G.post_payload), LSTR("sibling"));
+        Z_ASSERT_EQ(_G.raw_obs[3].status, HTTP_CODE_NO_CONTENT);
+        Z_ASSERT_ZERO(_G.raw_obs[3].nb_rst);
+
+        Z_HELPER_RUN(z_h2_raw_teardown());
+    }
+    Z_TEST_END;
+
+    Z_TEST(
         data_over_clen_at_eos,
         "DATA beyond a declared Content-Length is refused with END_STREAM "
         "too, rather than left to the peer's timeout"

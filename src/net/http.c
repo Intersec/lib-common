@@ -7620,6 +7620,28 @@ static void http2_stream_reject_malformed(
     }
 }
 
+/** Parse the octets synthesized in \p httpd->ibuf and drop the consumed ones.
+ *
+ * Callers appending to ibuf must commit here: undrained octets are re-parsed.
+ *
+ * \param eos whether the frame ended the stream.
+ * \return 0 on success, -1 if the message is malformed or left unfinished.
+ */
+static int httpd_http2_commit_pending_input(httpd_t *httpd, bool eos)
+{
+    pstream_t ps = ps_initsb(&httpd->ibuf);
+    int res;
+
+    do {
+        res = (*httpd_parsers[httpd->state])(httpd, &ps);
+    } while (res == PARSE_OK);
+    sb_skip_upto(&httpd->ibuf, ps.p);
+    THROW_ERR_IF(res < 0);
+    /* A stream carries a single query: a complete message ends on CLOSE. */
+    THROW_ERR_IF(eos && httpd->state != HTTP_PARSER_CLOSE);
+    return 0;
+}
+
 static int httpd_unpack_http2_headers(
     httpd_t *w, http2_header_info_t *info, pstream_t headerlines, bool eos
 )
@@ -7692,26 +7714,18 @@ static void http2_stream_on_headers_server(
 )
 {
     httpd_t *httpd = stream->http2d_ctx->httpd;
-    sb_t *ibuf;
-    pstream_t ps;
-    int res;
 
     if (httpd_unpack_http2_headers(httpd, info, headerlines, eos) < 0) {
-        goto malformed_err;
+        http2_stream_reject_malformed(
+            conn, stream, "malformed request [invalid headers]"
+        );
+        return;
     }
-    ps = ps_initsb(ibuf = &httpd->ibuf);
-    do {
-        res = (*httpd_parsers[httpd->state])(httpd, &ps);
-    } while (res == PARSE_OK);
-    sb_skip_upto(ibuf, ps.p);
-    if (res < 0 || (eos && httpd->state != HTTP_PARSER_CLOSE)) {
-        goto malformed_err;
+    if (httpd_http2_commit_pending_input(httpd, eos) < 0) {
+        http2_stream_reject_malformed(
+            conn, stream, "malformed request [incomplete message]"
+        );
     }
-    return;
-malformed_err:
-    http2_stream_reject_malformed(
-        conn, stream, "malformed request [invalid headers]"
-    );
 }
 
 static void http2_stream_on_data_server(
@@ -7719,9 +7733,6 @@ static void http2_stream_on_data_server(
 )
 {
     httpd_t *httpd = stream->http2d_ctx->httpd;
-    pstream_t ps;
-    int len;
-    int res;
 
     assert(
         httpd->state == HTTP_PARSER_BODY ||
@@ -7731,7 +7742,10 @@ static void http2_stream_on_data_server(
         return;
     }
     switch (httpd->state) {
-    case HTTP_PARSER_BODY:
+    case HTTP_PARSER_BODY: {
+        pstream_t ps;
+        int len;
+
         sb_add_ps(&httpd->ibuf, data);
         ps = ps_initsb(&httpd->ibuf);
         len = ps_len(&ps);
@@ -7751,8 +7765,7 @@ static void http2_stream_on_data_server(
             );
             return;
         }
-        res = httpd_parse_body(httpd, &ps);
-        switch (res) {
+        switch (httpd_parse_body(httpd, &ps)) {
         case PARSE_MISSING_DATA:
             assert(httpd->state == HTTP_PARSER_BODY);
             sb_skip_upto(&httpd->ibuf, ps.p);
@@ -7761,9 +7774,8 @@ static void http2_stream_on_data_server(
                 http2_stream_reject_malformed(
                     w, stream, "malformed request [Content-Length > DATA]"
                 );
-                return;
             }
-            break;
+            return;
         case PARSE_OK:
             assert(httpd->state == HTTP_PARSER_CLOSE);
             assert(ps_done(&ps));
@@ -7778,10 +7790,10 @@ static void http2_stream_on_data_server(
             return;
         default:
             assert(0 && "unexpected result from httpd_parse_body");
+            return;
         }
-        break;
+    }
     case HTTP_PARSER_CHUNK_HDR:
-        res = PARSE_OK;
         if (!ps_done(&data)) {
             char hdr[12];
 
@@ -7789,23 +7801,17 @@ static void http2_stream_on_data_server(
             sb_add(&httpd->ibuf, hdr + 2, 10);
             sb_add_ps(&httpd->ibuf, data);
             sb_adds(&httpd->ibuf, "\r\n");
-            ps = ps_initsb(&httpd->ibuf);
-            len = ps_len(&ps);
-            res = httpd_parse_chunk_hdr(httpd, &ps);
-            if (res == PARSE_OK) {
-                res = httpd_parse_chunk(httpd, &ps);
-            }
         }
-        if (eos && res == PARSE_OK) {
+        if (eos) {
+            /* eos is the only delimiter here: close the chunked body. */
             sb_adds(&httpd->ibuf, "0\r\n\r\n");
-            ps = ps_initsb(&httpd->ibuf);
-            len = ps_len(&ps);
-            res = httpd_parse_chunk_hdr(httpd, &ps);
-            if (res == PARSE_OK) {
-                res = httpd_parse_chunk(httpd, &ps);
-            }
         }
-        break;
+        if (httpd_http2_commit_pending_input(httpd, eos) < 0) {
+            http2_stream_reject_malformed(
+                w, stream, "malformed request [invalid chunked body]"
+            );
+        }
+        return;
     default:
         assert(0 && "invalid parser state");
     }
