@@ -5351,18 +5351,102 @@ static void mp_iopc_struct_build_attrs(
     *out = st_attrs;
 }
 
-/* Build the class attributes (parent, class id and the abstract/private
- * flags), mirroring write_class_attrs. The parent's descriptor must already
- * be generated, which holds because a class always appears after its parent
- * in the package. */
-static const iop_class_attrs_t *
-mp_iopc_class_build_attrs(mem_pool_t *mp, const iopc_struct_t *st)
+/* Build a class static field descriptor, mirroring
+ * iopc_dump_static_field_src: the stored value type is canonicalized to the
+ * widest type of its family (U64 / I64 / DOUBLE / BOOL / STRING). */
+static const iop_static_field_t *
+mp_iopc_static_field_to_desc(mem_pool_t *mp, const iopc_field_t *f)
+{
+    iop_static_field_t *sf = mp_new_raw(mp, iop_static_field_t, 1);
+
+    sf->name = mp_lstr_dups(mp, f->name, -1);
+
+    switch (f->kind) {
+    case IOP_T_U8:
+    case IOP_T_U16:
+    case IOP_T_U32:
+    case IOP_T_U64:
+        sf->value.u = f->defval.u64;
+        sf->type = IOP_T_U64;
+        break;
+
+    case IOP_T_DOUBLE:
+        sf->value.d = f->defval.d;
+        sf->type = IOP_T_DOUBLE;
+        break;
+
+    case IOP_T_BOOL:
+        sf->value.b = f->defval.u64;
+        sf->type = IOP_T_BOOL;
+        break;
+
+    case IOP_T_STRING:
+    case IOP_T_DATA:
+    case IOP_T_XML:
+        sf->value.s = mp_lstr_dups(mp, f->defval.ptr, -1);
+        sf->type = IOP_T_STRING;
+        break;
+
+    /* Signed integers and enums are stored as an i64. A struct, union or
+     * void static field never reaches this point: the typer rejects it. */
+    case IOP_T_I8:
+    case IOP_T_I16:
+    case IOP_T_I32:
+    case IOP_T_I64:
+    case IOP_T_ENUM:
+    case IOP_T_UNION:
+    case IOP_T_STRUCT:
+    case IOP_T_VOID:
+        sf->value.i = f->defval.u64;
+        sf->type = IOP_T_I64;
+        break;
+    }
+
+    return sf;
+}
+
+/* Build the class attributes (parent, static fields, class id and the
+ * abstract/private flags), mirroring write_class_attrs. The parent's
+ * descriptor must already be generated, which holds because a class always
+ * appears after its parent in the package.
+ *
+ * Returns a non-const pointer (the caller stores it in a const field) because
+ * the block literal used to sort the static fields confuses the blocks
+ * rewriter's prototype generation when the return type is const-qualified. */
+static iop_class_attrs_t *
+mp_iopc_class_build_attrs(mem_pool_t *mp, iopc_struct_t *st)
 {
     iop_class_attrs_t *ca = mp_new(mp, iop_class_attrs_t, 1);
 
     if (st->extends.len) {
         ca->parent = st->extends.tab[0]->st->desc;
         assert(ca->parent);
+    }
+
+    if (st->nb_real_static_fields) {
+        const iop_static_field_t **sfs = mp_new_raw(
+            mp, const iop_static_field_t *, st->nb_real_static_fields
+        );
+        int n = 0;
+
+        /* Order the static fields by name, as the C-source generator does. */
+        qv_sort(iopc_field)(
+            &st->static_fields,
+            ^int(iopc_field_t *const *f1, iopc_field_t *const *f2) {
+                return strcmp((*f1)->name, (*f2)->name);
+            }
+        );
+        tab_for_each_entry(f, &st->static_fields) {
+            /* Only an abstract class can hold a static field without a
+             * value. Such a declaration gets no descriptor entry. */
+            if (!f->defval_type) {
+                continue;
+            }
+            sfs[n++] = mp_iopc_static_field_to_desc(mp, f);
+        }
+        assert(n == st->nb_real_static_fields);
+        ca->static_fields = sfs;
+        ca->static_fields_len = n;
     }
 
     ca->is_abstract = st->is_abstract;

@@ -189,6 +189,14 @@ local class Typedef : 5 : PackageElem {
 /* }}} */
 /* {{{ Class */
 
+/** A class static field: `static <type> <name> = <value>;`. */
+@ctype(iop__static_field__t)
+struct StaticField {
+    Identifier name;
+    Type type;
+    Value value;
+};
+
 @ctype(iop__class__t)
 local class Class : 6 : Structure {
     Field[] fields;
@@ -200,6 +208,7 @@ local class Class : 6 : Structure {
     ushort classId = 0;
     bool isAbstract = false;
     bool isPrivate = false;
+    StaticField[] staticFields;
 };
 
 /* }}} */

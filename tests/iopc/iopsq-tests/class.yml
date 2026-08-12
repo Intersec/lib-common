@@ -7,6 +7,12 @@ elems:
       - name: i
         type:
           typeName: int
+    staticFields:
+      - name: version
+        type:
+          typeName: int
+        value:
+          i: 1
   - !iopsq.Class
     name: Child
     classId: 42

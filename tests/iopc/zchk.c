@@ -639,25 +639,32 @@ Z_GROUP_EXPORT(iopsq)
     }
     Z_TEST_END;
 
-    Z_TEST(class_, "classes with inheritance") {
+    Z_TEST(class_, "classes with inheritance and static fields") {
         t_scope;
         iop_pkg_t *pkg;
         const iop_struct_t *base;
         const iop_struct_t *child;
+        const iop_static_field_t *sf;
 
         Z_HELPER_RUN(t_package_load(&pkg, iop_env, "class.yml"));
 
-        /* Base: abstract master class. */
+        /* Base: abstract master class with one static field. */
         base = pkg->structs[0];
         Z_ASSERT_LSTREQUAL(base->fullname, LSTR("foo.Base"));
         Z_ASSERT(iop_struct_is_class(base));
         Z_ASSERT(base->flags & (1U << IOP_STRUCT_EXTENDED));
+        Z_ASSERT(base->flags & (1U << IOP_STRUCT_STATIC_HAS_TYPE));
         Z_ASSERT_EQ(base->fields_len, 1);
         Z_ASSERT_P(base->class_attrs);
         Z_ASSERT_NULL(base->class_attrs->parent);
         Z_ASSERT_EQ(base->class_attrs->class_id, 0);
         Z_ASSERT(base->class_attrs->is_abstract);
         Z_ASSERT(!base->class_attrs->is_private);
+        Z_ASSERT_EQ(base->class_attrs->static_fields_len, 1);
+        sf = base->class_attrs->static_fields[0];
+        Z_ASSERT_LSTREQUAL(sf->name, LSTR("version"));
+        Z_ASSERT(sf->type == IOP_T_I64);
+        Z_ASSERT_EQ(sf->value.i, 1);
 
         /* Child: has a class id, points at its parent, and is private. It
          * carries only its own field 's' ('i' comes from the parent). */

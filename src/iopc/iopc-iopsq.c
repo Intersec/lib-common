@@ -664,8 +664,44 @@ static void iop_structure_get_type_and_fields(
     }
 }
 
+/* Load a class static field: a scalar field carrying its constant value as a
+ * default value (as the parser does through parse_field_defval). */
+static iopc_field_t *iopc_static_field_load(
+    const iop_env_ctx_t *nonnull iop_env_ctx,
+    const iop__static_field__t *nonnull sf,
+    const iopsq_type_table_t *nullable type_table, sb_t *nonnull err
+)
+{
+    iopc_field_t *f = NULL;
+
+    if (iopc_check_field_name(sf->name, err) < 0) {
+        goto error;
+    }
+
+    f = iopc_field_new();
+    f->name = p_dupz(sf->name.s, sf->name.len);
+    /* Set 'is_static' before the type so iopc_check_field_type() applies the
+     * static-field restrictions (no optional/reference/repeated/void). */
+    f->is_static = true;
+
+    if (iopc_field_set_type(f, iop_env_ctx, &sf->type, type_table, err) < 0) {
+        goto error;
+    }
+
+    f->repeat = IOP_R_DEFVAL;
+    iopc_field_set_defval(f, &sf->value);
+
+    return f;
+
+error:
+    sb_prependf(err, "static field `%pL': ", &sf->name);
+    iopc_field_delete(&f);
+    return NULL;
+}
+
 /* Load the class-specific parts of a Class package element: parent (by name,
- * resolved later by the typer), class id and the abstract/private flags. */
+ * resolved later by the typer), class id, abstract/private flags, and static
+ * fields. */
 static int iopc_class_load(
     const iop_env_ctx_t *nonnull iop_env_ctx, iopc_struct_t *nonnull st,
     const iop__class__t *nonnull cls,
@@ -686,6 +722,16 @@ static int iopc_class_load(
          * package (auto-filling pkg/path/st). */
         xt->name = p_dupz(cls->parent.s, cls->parent.len);
         qv_append(&st->extends, xt);
+    }
+
+    qv_grow(&st->static_fields, cls->static_fields.len);
+    tab_for_each_ptr(sf, &cls->static_fields) {
+        iopc_field_t *f = RETHROW_PN(
+            iopc_static_field_load(iop_env_ctx, sf, type_table, err)
+        );
+
+        f->field_pos = st->static_fields.len;
+        qv_append(&st->static_fields, f);
     }
 
     return 0;
