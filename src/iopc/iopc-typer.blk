@@ -1072,6 +1072,38 @@ static int check_defval_enum_allow(iopc_field_t *f, iopc_attr_t *attr)
     return 0;
 }
 
+/* Check the default value \p i64 of an enum field: the @allow/@disallow field
+ * attributes, then the values of a strict enum. */
+static int check_defval_enum(iopc_field_t *f, int64_t i64)
+{
+    bool strict = false;
+
+    tab_for_each_entry(attr, &f->attrs) {
+        if (attr->desc->id == IOPC_ATTR_ALLOW ||
+            attr->desc->id == IOPC_ATTR_DISALLOW)
+        {
+            RETHROW(check_defval_enum_allow(f, attr));
+        }
+    }
+
+    tab_for_each_entry(attr, &f->enum_def->attrs) {
+        if (attr->desc->id == IOPC_ATTR_STRICT) {
+            strict = true;
+            break;
+        }
+    }
+    if (!strict) {
+        return 0;
+    }
+    tab_for_each_entry(value, &f->enum_def->values) {
+        if (value->value == i64) {
+            return 0;
+        }
+    }
+    throw_loc("invalid default value on strict enum field: %jd", f->loc, i64);
+    return 0;
+}
+
 static int check_defval_int(iopc_field_t *f)
 {
     bool is_signed;
@@ -1103,34 +1135,7 @@ static int check_defval_int(iopc_field_t *f)
     }
 
     if (f->kind == IOP_T_ENUM) {
-        bool strict = false;
-
-        tab_for_each_entry(attr, &f->attrs) {
-            if (attr->desc->id == IOPC_ATTR_ALLOW ||
-                attr->desc->id == IOPC_ATTR_DISALLOW)
-            {
-                RETHROW(check_defval_enum_allow(f, attr));
-            }
-        }
-
-        tab_for_each_entry(attr, &f->enum_def->attrs) {
-            if (attr->desc->id == IOPC_ATTR_STRICT) {
-                strict = true;
-                break;
-            }
-        }
-        if (!strict) {
-            return 0;
-        }
-        tab_for_each_entry(value, &f->enum_def->values) {
-            if (value->value == i64) {
-                return 0;
-            }
-        }
-        throw_loc(
-            "invalid default value on strict enum field: %jd", f->loc, i64
-        );
-        return 0;
+        return check_defval_enum(f, i64);
     }
     tab_for_each_entry(attr, &f->attrs) {
         int64_t val;
