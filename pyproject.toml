@@ -23,6 +23,9 @@ name = "lib-common"
 version = "0.0.0"
 description = ""
 authors = [{ name = "R&D", email = "rd@intersec.com" }]
+# The upper bound is left open on purpose, cf. .tool-versions-tpl.sh: uv
+# refuses an interpreter out of this range, so bounding it here would reject
+# the recent python the rest of this branch selects.
 requires-python = ">=3.11, <4.0"
 
 [dependency-groups]

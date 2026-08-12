@@ -196,9 +196,12 @@ def versioned_system_python(
     # an OS ships is the version the branch documents for that OS, and the
     # version common with the older OSes of the range.
     #
-    # The maximum is required: it is what makes the probe finite, and
-    # requires-python declares one on purpose (an unbounded range would
-    # accept interpreters no supported OS ships).
+    # The maximum is what makes the probe finite, so there is nothing to probe
+    # without one. This branch declares no upper bound on purpose (cf.
+    # pyproject.toml), which trades this probe for the early detection of a
+    # breaking python release: a machine whose default python3 is older than
+    # the minimum falls back on a mise-provided Python, even when it ships a
+    # suitable `python3.X`.
     if maximum is None or maximum[0] != minimum[0]:
         return None
 

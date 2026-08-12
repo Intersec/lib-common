@@ -20,8 +20,15 @@
 # Template to generate .tool-versions file.
 # LIBCOMMON_DIR and REPO_DIR variables are set by asdf_install.sh
 
-# If Python3 system version < 3.9, use ASDF to use Python 3.9.16.
-# Otherwise, use the system python version.
+# Use the system python version when it is at least 3.11, the version shipped
+# by the oldest OS supported by this branch. Use ASDF to get Python 3.11.14
+# otherwise.
+#
+# No maximum is set here, unlike on the stable branches: a machine more recent
+# than any OS we support, such as a developer laptop, then builds with a python
+# version we do not ship yet, and reports the breaking changes of a new python
+# release early. The stable branches cannot afford that, since they must stick
+# to the versions their OSes ship.
 #
 # It is possible to manually set the different environment variables
 # TOOL_VERSIONS_PYTHON, TOOL_VERSIONS_DEFAULT_PYTHON, TOOL_VERSIONS_MIN_PYTHON
