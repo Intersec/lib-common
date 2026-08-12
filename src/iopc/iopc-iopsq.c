@@ -1280,6 +1280,186 @@ error:
 
 /* }}} */
 /* }}} */
+/* {{{ iop_pkg_t to IOP-described package */
+
+/* Reverse of the forward converter above: extract an 'iopsq' description from
+ * a compiled 'iop_pkg_t'. Types are referenced by fullname (resolved against
+ * the environment when the package is rebuilt). Everything is allocated on
+ * the provided memory pool. */
+
+/* Short (unqualified) name of a type, i.e. the part after the last dot of its
+ * fullname: `pkg.Foo' gives `Foo', `Foo' gives `Foo'. IOP² package elements
+ * carry the short name; the package name supplies the prefix. */
+static lstr_t iopsq_short_name(lstr_t fullname)
+{
+    pstream_t ps = ps_initlstr(&fullname);
+    pstream_t pkg_path;
+
+    if (ps_get_ps_lastchr_and_skip(&ps, '.', &pkg_path) < 0) {
+        return fullname;
+    }
+    return LSTR_PS_V(&ps);
+}
+
+/* Fill an IOP² Type from a compiled field. Structs/unions/classes and enums
+ * are referenced by fullname; a repeated field wraps its element type in a
+ * Type.array. */
+static void mp_iopsq_type_from_field(
+    mem_pool_t *mp, const iop_field_t *f, iop__type__t *out
+)
+{
+    iop__type__t base;
+
+    switch (f->type) {
+    case IOP_T_STRUCT:
+    case IOP_T_UNION:
+        base = IOP_UNION(
+            iop__type, type_name, mp_lstr_dup(mp, f->u1.st_desc->fullname)
+        );
+        break;
+
+    case IOP_T_ENUM:
+        base = IOP_UNION(
+            iop__type, type_name, mp_lstr_dup(mp, f->u1.en_desc->fullname)
+        );
+        break;
+
+    default:
+        /* Scalar (including void): cannot fail for a non-aggregate type. */
+        (void)iop_type_to_iop(f->type, &base);
+        break;
+    }
+
+    if (f->repeat == IOP_R_REPEATED) {
+        iop__type__t *elem = mp_new(mp, iop__type__t, 1);
+
+        *elem = base;
+        *out = IOP_UNION(iop__type, array, elem);
+    } else {
+        *out = base;
+    }
+}
+
+/* Fill an IOP² Value from a compiled field's default value, mirroring the
+ * encoding read back by iopc_field_set_defval. */
+static void mp_iopsq_value_from_defval(
+    mem_pool_t *mp, const iop_field_t *f, iop__value__t *out
+)
+{
+    switch (f->type) {
+    case IOP_T_I8:
+    case IOP_T_I16:
+    case IOP_T_I32:
+    case IOP_T_I64:
+        *out = IOP_UNION(iop__value, i, (int64_t)f->u1.defval_u64);
+        break;
+
+    case IOP_T_U8:
+    case IOP_T_U16:
+    case IOP_T_U32:
+    case IOP_T_U64:
+        *out = IOP_UNION(iop__value, u, f->u1.defval_u64);
+        break;
+
+    case IOP_T_BOOL:
+        *out = IOP_UNION(iop__value, b, f->u1.defval_u64 != 0);
+        break;
+
+    case IOP_T_DOUBLE:
+        *out = IOP_UNION(iop__value, d, f->u1.defval_d);
+        break;
+
+    case IOP_T_ENUM:
+        *out = IOP_UNION(iop__value, i, (int64_t)f->u0.defval_enum);
+        break;
+
+    case IOP_T_STRING:
+    case IOP_T_DATA:
+    case IOP_T_XML:
+        *out = IOP_UNION(
+            iop__value, s,
+            mp_lstr_dups(mp, f->u1.defval_data, f->u0.defval_len)
+        );
+        break;
+
+    /* A struct, union or void field carries no default value. */
+    case IOP_T_STRUCT:
+    case IOP_T_UNION:
+    case IOP_T_VOID:
+        e_panic("unexpected default value type");
+    }
+}
+
+/* Fill an IOP² Field from a compiled field. The tag is always set explicitly
+ * to preserve the exact numbering; optional/default state is carried in the
+ * OptInfo, and references through the boolean flag. */
+static void mp_iopsq_field_from_iop(
+    mem_pool_t *mp, const iop_field_t *f, iop__field__t *out
+)
+{
+    out->name = mp_lstr_dup(mp, f->name);
+    mp_iopsq_type_from_field(mp, f, &out->type);
+    OPT_SET(out->tag, f->tag);
+    out->is_reference = iop_field_is_reference(f);
+
+    if (f->repeat == IOP_R_OPTIONAL || f->repeat == IOP_R_DEFVAL) {
+        iop__opt_info__t *opt = mp_iop_new(mp, iop__opt_info);
+
+        if (f->repeat == IOP_R_DEFVAL) {
+            iop__value__t *val = mp_iop_new(mp, iop__value);
+
+            mp_iopsq_value_from_defval(mp, f, val);
+            opt->def_val = val;
+        }
+        out->optional = opt;
+    }
+}
+
+/* Build the Field array shared by structs and unions. */
+static iop__field__array_t
+mp_iopsq_fields_from_iop(mem_pool_t *mp, const iop_struct_t *st)
+{
+    iop__field__array_t fields;
+
+    fields = MP_IOP_ARRAY_NEW(mp, iop__field, st->fields_len);
+    for (int i = 0; i < st->fields_len; i++) {
+        mp_iopsq_field_from_iop(mp, &st->fields[i], &fields.tab[i]);
+    }
+    return fields;
+}
+
+iop__package_elem__t *mp_iopsq_elem_from_iop_struct(
+    mem_pool_t *nonnull mp, const iop_struct_t *nonnull st, sb_t *nonnull err
+)
+{
+    iop__structure__t *structure;
+    iop__field__array_t fields;
+
+    if (iop_struct_is_class(st)) {
+        sb_setf(err, "classes are not supported yet");
+        return NULL;
+    }
+
+    fields = mp_iopsq_fields_from_iop(mp, st);
+
+    if (st->is_union) {
+        iop__union__t *un = mp_iop_new(mp, iop__union);
+
+        un->fields = fields;
+        structure = &un->super;
+    } else {
+        iop__struct__t *desc = mp_iop_new(mp, iop__struct);
+
+        desc->fields = fields;
+        structure = &desc->super;
+    }
+
+    structure->name = mp_lstr_dup(mp, iopsq_short_name(st->fullname));
+
+    return &structure->super;
+}
+
+/* }}} */
 /* {{{ IOP² API */
 
 iop_pkg_t *mp_iopsq_build_pkg(

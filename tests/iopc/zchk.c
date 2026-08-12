@@ -843,6 +843,51 @@ Z_GROUP_EXPORT(iopsq)
     Z_TEST_END;
 
     Z_TEST(
+        iopsq_from_iop, "reverse conversion: iop_struct_t -> iopsq -> "
+                        "iop_struct_t round-trip"
+    )
+    {
+        t_scope;
+        iop_env_ctx_scope(iop_env, iop_env_ctx);
+        SB_1k(err);
+        const iop_struct_t *refs[] = {
+            &tstiop__full_required__s, &tstiop__full_def_val__s,
+            &tstiop__full_opt__s,      &tstiop__full_repeated__s,
+            &tstiop__full_ref__s,      &tstiop__my_union_a__s,
+            &tstiop__my_union_b__s,
+        };
+
+        /* Extract each compiled struct back into an IOP² description, rebuild
+         * a descriptor from it and check it matches the original. Referenced
+         * types resolve to the same env descriptors, so z_assert_struct_eq
+         * short-circuits on them. */
+        carray_for_each_entry(ref, refs) {
+            iop__package_elem__t *elem;
+            iop_pkg_t *pkg;
+
+            elem = mp_iopsq_elem_from_iop_struct(t_pool(), ref, &err);
+            Z_ASSERT_P(elem, "%pL: %pL", &ref->fullname, &err);
+
+            pkg = mp_iopsq_build_mono_element_pkg(
+                t_pool(), iop_env_ctx, elem, NULL, &err
+            );
+            Z_ASSERT_P(pkg, "%pL: %pL", &ref->fullname, &err);
+
+            Z_HELPER_RUN(
+                z_assert_struct_eq(pkg->structs[0], ref),
+                "round-trip mismatch for `%pL'", &ref->fullname
+            );
+        }
+
+        /* A class cannot be extracted yet. */
+        Z_ASSERT_NULL(mp_iopsq_elem_from_iop_struct(
+            t_pool(), &tstiop__my_class1__s, &err
+        ));
+        Z_ASSERT_STREQUAL(err.data, "classes are not supported yet");
+    }
+    Z_TEST_END;
+
+    Z_TEST(
         mp_iopsq_build_struct, "test mp_iopsq_build_struct and "
                                "iop_struct_mp_build"
     )

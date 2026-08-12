@@ -178,6 +178,26 @@ iop_pkg_t *mp_iopsq_build_mono_element_pkg(
     const iopsq_type_table_t *nullable type_table, sb_t *nonnull err
 );
 
+/** Build the IOP² (iopsq) description of a compiled IOP struct or union.
+ *
+ * This is a partial inverse of \ref mp_iopsq_build_struct: it extracts an
+ * 'iopsq.PackageElem' (a Struct or Union) from a compiled \ref iop_struct_t,
+ * so a type can be round-tripped through IOP². Referenced types (fields of
+ * struct/union/class/enum type) are described by fullname; they are resolved
+ * against the environment when the description is rebuilt.
+ *
+ * Not supported yet: classes, field constraints and attributes.
+ *
+ * \param[in,out] mp   Memory pool for all allocations.
+ * \param[in]     st   The compiled struct/union descriptor.
+ * \param[out]    err  Error buffer.
+ *
+ * \return the package element, or NULL on error.
+ */
+iop__package_elem__t *nullable mp_iopsq_elem_from_iop_struct(
+    mem_pool_t *nonnull mp, const iop_struct_t *nonnull st, sb_t *nonnull err
+);
+
 /* {{{ Helper: iopsq_iop_struct_t */
 
 typedef struct iopsq_iop_struct_t {
