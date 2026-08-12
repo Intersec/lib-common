@@ -1078,6 +1078,28 @@ static int check_defval_enum(iopc_field_t *f, int64_t i64)
 {
     bool strict = false;
 
+    if (f->has_external_type) {
+        /* IOP²: the enum is taken from the environment as a compiled
+         * iop_enum_t (aliased with enum_def in the union), not a parsed
+         * iopc_enum_t, so its strictness and values must be read from the
+         * descriptor. External enums never carry @allow/@disallow field
+         * attributes (the IOP² meta-schema has no such constraint). */
+        const iop_enum_t *en = f->external_en;
+
+        if (!TST_BIT(&en->flags, IOP_ENUM_STRICT)) {
+            return 0;
+        }
+        for (int i = 0; i < en->enum_len; i++) {
+            if (en->values[i] == i64) {
+                return 0;
+            }
+        }
+        throw_loc(
+            "invalid default value on strict enum field: %jd", f->loc, i64
+        );
+        return 0;
+    }
+
     tab_for_each_entry(attr, &f->attrs) {
         if (attr->desc->id == IOPC_ATTR_ALLOW ||
             attr->desc->id == IOPC_ATTR_DISALLOW)
