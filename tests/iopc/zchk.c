@@ -639,6 +639,40 @@ Z_GROUP_EXPORT(iopsq)
     }
     Z_TEST_END;
 
+    Z_TEST(class_, "classes with inheritance") {
+        t_scope;
+        iop_pkg_t *pkg;
+        const iop_struct_t *base;
+        const iop_struct_t *child;
+
+        Z_HELPER_RUN(t_package_load(&pkg, iop_env, "class.yml"));
+
+        /* Base: abstract master class. */
+        base = pkg->structs[0];
+        Z_ASSERT_LSTREQUAL(base->fullname, LSTR("foo.Base"));
+        Z_ASSERT(iop_struct_is_class(base));
+        Z_ASSERT(base->flags & (1U << IOP_STRUCT_EXTENDED));
+        Z_ASSERT_EQ(base->fields_len, 1);
+        Z_ASSERT_P(base->class_attrs);
+        Z_ASSERT_NULL(base->class_attrs->parent);
+        Z_ASSERT_EQ(base->class_attrs->class_id, 0);
+        Z_ASSERT(base->class_attrs->is_abstract);
+        Z_ASSERT(!base->class_attrs->is_private);
+
+        /* Child: has a class id, points at its parent, and is private. It
+         * carries only its own field 's' ('i' comes from the parent). */
+        child = pkg->structs[1];
+        Z_ASSERT_LSTREQUAL(child->fullname, LSTR("foo.Child"));
+        Z_ASSERT(iop_struct_is_class(child));
+        Z_ASSERT_EQ(child->fields_len, 1);
+        Z_ASSERT_P(child->class_attrs);
+        Z_ASSERT(child->class_attrs->parent == base);
+        Z_ASSERT_EQ(child->class_attrs->class_id, 42);
+        Z_ASSERT(!child->class_attrs->is_abstract);
+        Z_ASSERT(child->class_attrs->is_private);
+    }
+    Z_TEST_END;
+
     Z_TEST(enum_strict_aliases, "enum strictness and value aliases") {
         t_scope;
         iop_pkg_t *pkg;

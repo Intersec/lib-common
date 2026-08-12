@@ -44,7 +44,8 @@
  *
  * Limitations:
  *
- *    - Not supported yet: classes, modules, interfaces, RPCs, SNMP objects.
+ *    - Not supported yet: modules, interfaces, RPCs, SNMP objects. A class
+ *    parent must be declared in the same package, before the child.
  *
  *    - Field constraints are described but never enforced: the IOP library
  *    only checks them through the check_constraints callback the C generator

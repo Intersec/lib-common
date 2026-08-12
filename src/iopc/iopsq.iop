@@ -26,6 +26,10 @@ typedef string Identifier;
 @pattern("[a-zA-Z0-9_]*") @minLength(1)
 typedef string AttrName;
 
+/** An IOP name with an optional package path: `pkg.Element` or `Element`. */
+@pattern("[a-zA-Z0-9\.]*") @minLength(1)
+typedef string FullName;
+
 /* {{{ Type */
 
 @ctype(iop__int_size__t)
@@ -57,8 +61,7 @@ union Type {
     StringType s;
     void v;
 
-    @pattern("[a-zA-Z0-9\.]*") @minLength(1)
-    string typeName;
+    FullName typeName;
 
     /* TODO Could include length contraints. */
     Type& array;
@@ -184,6 +187,22 @@ local class Typedef : 5 : PackageElem {
 };
 
 /* }}} */
+/* {{{ Class */
+
+@ctype(iop__class__t)
+local class Class : 6 : Structure {
+    Field[] fields;
+    /** Full name of the parent class; absent for a master class.
+     *
+     * The parent must be another class declared in the same package, listed
+     * before this one. */
+    FullName? parent;
+    ushort classId = 0;
+    bool isAbstract = false;
+    bool isPrivate = false;
+};
+
+/* }}} */
 /* {{{ Package */
 
 @ctype(iop__package__t)
@@ -195,5 +214,3 @@ struct Package {
 };
 
 /* }}} */
-
-/* TODO class */

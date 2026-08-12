@@ -1,0 +1,18 @@
+name: foo
+elems:
+  - !iopsq.Class
+    name: Base
+    isAbstract: true
+    fields:
+      - name: i
+        type:
+          typeName: int
+  - !iopsq.Class
+    name: Child
+    classId: 42
+    parent: Base
+    isPrivate: true
+    fields:
+      - name: s
+        type:
+          s: STRING

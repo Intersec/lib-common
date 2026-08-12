@@ -651,11 +651,44 @@ static void iop_structure_get_type_and_fields(
             *type = STRUCT_TYPE_UNION;
         }
 
+        IOP_OBJ_CASE_CONST(iop__class, desc, cls)
+        {
+            *fields = cls->fields;
+            *type = STRUCT_TYPE_CLASS;
+        }
+
         IOP_OBJ_EXACT_DEFAULT()
         {
             assert(false);
         }
     }
+}
+
+/* Load the class-specific parts of a Class package element: parent (by name,
+ * resolved later by the typer), class id and the abstract/private flags. */
+static int iopc_class_load(
+    const iop_env_ctx_t *nonnull iop_env_ctx, iopc_struct_t *nonnull st,
+    const iop__class__t *nonnull cls,
+    const iopsq_type_table_t *nullable type_table, sb_t *nonnull err
+)
+{
+    st->class_id = cls->class_id;
+    st->is_abstract = cls->is_abstract;
+
+    if (cls->is_private) {
+        qv_append(&st->attrs, iopsq_attr_new(IOPC_ATTR_PRIVATE));
+    }
+
+    if (cls->parent.s) {
+        iopc_extends_t *xt = iopc_extends_new();
+
+        /* Only the name is set: the typer resolves it against the current
+         * package (auto-filling pkg/path/st). */
+        xt->name = p_dupz(cls->parent.s, cls->parent.len);
+        qv_append(&st->extends, xt);
+    }
+
+    return 0;
 }
 
 static iopc_struct_t *iopc_struct_load(
@@ -669,6 +702,9 @@ static iopc_struct_t *iopc_struct_load(
 
     st = iopc_struct_new();
     st->name = p_dupz(st_desc->name.s, st_desc->name.len);
+    /* Make the struct findable by name during resolution: parent lookups
+     * (unlike same-package field types) require the symbol to be visible. */
+    st->is_visible = true;
     iop_structure_get_type_and_fields(st_desc, &st->type, &fields);
 
     qv_grow(&st->fields, fields.len);
@@ -688,6 +724,21 @@ static iopc_struct_t *iopc_struct_load(
 
     tab_for_each_ptr(gen_attr, &st_desc->generic_attrs) {
         iopsq_attrs_add_generic(&st->attrs, gen_attr);
+    }
+
+    IOP_OBJ_EXACT_SWITCH(st_desc)
+    {
+        IOP_OBJ_CASE_CONST(iop__class, st_desc, cls)
+        {
+            if (iopc_class_load(iop_env_ctx, st, cls, type_table, err) < 0) {
+                iopc_struct_delete(&st);
+                return NULL;
+            }
+        }
+
+        IOP_OBJ_EXACT_DEFAULT()
+        {
+        }
     }
 
     return st;
@@ -806,6 +857,9 @@ static const char *pkg_elem_type_to_str(const iop__package_elem__t *elem)
     case IOP_CLASS_ID(iop__union):
         return "union";
 
+    case IOP_CLASS_ID(iop__class):
+        return "class";
+
     case IOP_CLASS_ID(iop__enum):
         return "enum";
 
@@ -894,7 +948,8 @@ static iopc_pkg_t *iopc_pkg_load_from_iop(
                 qv_append(&pkg->typedefs, tdef);
             }
 
-            /* TODO Classes */
+            /* Classes are 'iop__structure__t' subclasses and are handled by
+             * the 'iop__structure' case above. */
             /* TODO Interfaces */
             /* TODO Modules */
             /* TODO SNMP stuff */

@@ -5351,6 +5351,27 @@ static void mp_iopc_struct_build_attrs(
     *out = st_attrs;
 }
 
+/* Build the class attributes (parent, class id and the abstract/private
+ * flags), mirroring write_class_attrs. The parent's descriptor must already
+ * be generated, which holds because a class always appears after its parent
+ * in the package. */
+static const iop_class_attrs_t *
+mp_iopc_class_build_attrs(mem_pool_t *mp, const iopc_struct_t *st)
+{
+    iop_class_attrs_t *ca = mp_new(mp, iop_class_attrs_t, 1);
+
+    if (st->extends.len) {
+        ca->parent = st->extends.tab[0]->st->desc;
+        assert(ca->parent);
+    }
+
+    ca->is_abstract = st->is_abstract;
+    ca->is_private = iopc_is_private(&st->attrs);
+    ca->class_id = st->class_id;
+
+    return ca;
+}
+
 static iop_struct_t *mp_iopc_struct_to_desc(
     mem_pool_t *mp, iopc_struct_t *st, const iopc_pkg_t *pkg, sb_t *err
 )
@@ -5360,6 +5381,7 @@ static iop_struct_t *mp_iopc_struct_to_desc(
     iop_field_attrs_t *fields_attrs;
     bool has_fields_attrs = false;
     iop_struct_attrs_t *st_attrs;
+    const iop_class_attrs_t *class_attrs = NULL;
     unsigned flags;
     uint16_t offset = 0;
     iop_array_i32_t ranges;
@@ -5409,6 +5431,12 @@ static iop_struct_t *mp_iopc_struct_to_desc(
     if (has_fields_attrs || st_attrs) {
         SET_BIT(&flags, IOP_STRUCT_EXTENDED);
     }
+    if (st->type == STRUCT_TYPE_CLASS) {
+        class_attrs = mp_iopc_class_build_attrs(mp, st);
+        SET_BIT(&flags, IOP_STRUCT_IS_CLASS);
+        SET_BIT(&flags, IOP_STRUCT_EXTENDED);
+        SET_BIT(&flags, IOP_STRUCT_STATIC_HAS_TYPE);
+    }
 
     {
         iop_struct_t _st_desc = {
@@ -5422,7 +5450,7 @@ static iop_struct_t *mp_iopc_struct_to_desc(
             .is_union = (st->type == STRUCT_TYPE_UNION),
             .st_attrs = st_attrs,
             .fields_attrs = has_fields_attrs ? fields_attrs : NULL,
-            /* TODO class_attrs */
+            .class_attrs = class_attrs,
         };
 
         st_desc = mp_new_raw(mp, iop_struct_t, 1);
