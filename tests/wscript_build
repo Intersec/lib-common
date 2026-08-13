@@ -24,7 +24,7 @@ ctx: BuildContext
 # {{{ Automated C tests
 
 ctx.program(
-    target='zchk',
+    target='zchk-libcommon',
     depends_on=[
         'zchk-iop-plugin',
         'zchk-tstiop-plugin',
