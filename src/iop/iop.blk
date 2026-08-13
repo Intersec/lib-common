@@ -5224,10 +5224,11 @@ __get_class_id(pstream_t *ps, iop_wire_type_t wt, uint16_t *class_id)
 }
 
 int iop_skip_absent_field_desc(
-    mem_pool_t *mp, void *value, const iop_struct_t *sdesc,
+    mem_pool_t *mp, void *value, const iop_struct_t *nullable sdesc,
     const iop_field_t *fdesc
 )
 {
+    const lstr_t sname = sdesc ? sdesc->fullname : LSTR("unknown");
     void *ptr = (char *)value + fdesc->data_offs;
 
     switch (fdesc->repeat) {
@@ -5247,7 +5248,7 @@ int iop_skip_absent_field_desc(
         if (fdesc->type != IOP_T_STRUCT) {
             iop_set_err(
                 "missing mandatory field `%*pM` in struct `%*pM`",
-                LSTR_FMT_ARG(fdesc->name), LSTR_FMT_ARG(sdesc->fullname)
+                LSTR_FMT_ARG(fdesc->name), LSTR_FMT_ARG(sname)
             );
             return -1;
         }
@@ -5261,7 +5262,7 @@ int iop_skip_absent_field_desc(
             if (desc->class_attrs->is_abstract) {
                 iop_set_err(
                     "missing mandatory field `%*pM` in struct `%*pM`",
-                    LSTR_FMT_ARG(fdesc->name), LSTR_FMT_ARG(sdesc->fullname)
+                    LSTR_FMT_ARG(fdesc->name), LSTR_FMT_ARG(sname)
                 );
                 return -1;
             }

@@ -9154,6 +9154,143 @@ Z_GROUP_EXPORT(iop)
     }
     Z_TEST_END;
     /* }}} */
+    Z_TEST(
+        iop_skip_absent_field_desc, /* {{{ */
+        "test all the branches of iop_skip_absent_field_desc"
+    )
+    {
+        t_scope;
+        tstiop__z_iop_get_field_values__t zval;
+        tstiop__struct_with_mandatory_abstract_object__t awo;
+        tstiop__full_struct__t fs;
+        tstiop__constraint_s__t cs;
+        const iop_field_t *f;
+
+#define Z_FIELD(_type, _name)                                                \
+    Z_ASSERT_N(                                                              \
+        iop_field_find_by_name(&tstiop__##_type##__s, LSTR(_name), NULL, &f) \
+    )
+
+        iop_init(tstiop__z_iop_get_field_values, &zval);
+        iop_init(tstiop__struct_with_mandatory_abstract_object, &awo);
+        iop_init(tstiop__full_struct, &fs);
+        iop_init(tstiop__constraint_s, &cs);
+
+        /* IOP_R_REQUIRED, void field: can always be skipped. */
+        Z_FIELD(z_iop_get_field_values, "v");
+        Z_ASSERT_N(iop_skip_absent_field_desc(
+            t_pool(), &zval, &tstiop__z_iop_get_field_values__s, f
+        ));
+
+        /* IOP_R_REQUIRED, scalar field: missing mandatory field error. */
+        Z_FIELD(z_iop_get_field_values, "integer");
+        Z_ASSERT_NEG(iop_skip_absent_field_desc(
+            t_pool(), &zval, &tstiop__z_iop_get_field_values__s, f
+        ));
+        Z_ASSERT(
+            strstr(iop_get_err(), "struct `tstiop.ZIopGetFieldValues`"), "%s",
+            iop_get_err()
+        );
+
+        /* Same with a NULL struct description: must not crash and fall back
+         * on `unknown` for the struct name in the error message. */
+        Z_ASSERT_NEG(iop_skip_absent_field_desc(t_pool(), &zval, NULL, f));
+        Z_ASSERT(
+            strstr(iop_get_err(), "struct `unknown`"), "%s", iop_get_err()
+        );
+
+        /* IOP_R_REQUIRED, abstract class field: it cannot be instantiated,
+         * so it is a missing mandatory field error. */
+        Z_FIELD(struct_with_mandatory_abstract_object, "o");
+        Z_ASSERT_NEG(iop_skip_absent_field_desc(
+            t_pool(), &awo, &tstiop__struct_with_mandatory_abstract_object__s,
+            f
+        ));
+        Z_ASSERT(
+            strstr(iop_get_err(), "missing mandatory field `o`"), "%s",
+            iop_get_err()
+        );
+
+        /* Same with a NULL struct description. */
+        Z_ASSERT_NEG(iop_skip_absent_field_desc(t_pool(), &awo, NULL, f));
+        Z_ASSERT(
+            strstr(iop_get_err(), "struct `unknown`"), "%s", iop_get_err()
+        );
+
+        /* IOP_R_REQUIRED, non-abstract class field: the class is allocated,
+         * then the skipping recurses on its fields and fails on the
+         * mandatory string field of SimpleClass. */
+        Z_FIELD(z_iop_get_field_values, "obj");
+        Z_ASSERT_NEG(iop_skip_absent_field_desc(
+            t_pool(), &zval, &tstiop__z_iop_get_field_values__s, f
+        ));
+        Z_ASSERT(zval.obj != NULL);
+        Z_ASSERT(zval.obj->__vptr == &tstiop__simple_class__s);
+
+        /* IOP_R_REQUIRED, referenced struct field: the struct is allocated,
+         * then the skipping recurses on its fields and fails on the
+         * mandatory string field of SimpleStruct. */
+        Z_FIELD(z_iop_get_field_values, "stRef");
+        Z_ASSERT_NEG(iop_skip_absent_field_desc(
+            t_pool(), &zval, &tstiop__z_iop_get_field_values__s, f
+        ));
+        Z_ASSERT(zval.st_ref != NULL);
+
+        /* IOP_R_REQUIRED, plain struct field whose fields are all optional:
+         * the recursion succeeds and sets every sub-field absent
+         * (IOP_R_OPTIONAL branch). */
+        OPT_SET(fs.opt_present.i32, 42);
+        Z_FIELD(full_struct, "optPresent");
+        Z_ASSERT_N(iop_skip_absent_field_desc(
+            t_pool(), &fs, &tstiop__full_struct__s, f
+        ));
+        Z_ASSERT(!OPT_ISSET(fs.opt_present.i32));
+
+        /* IOP_R_REQUIRED, plain struct field with mandatory scalar
+         * sub-fields: the recursion fails. */
+        Z_FIELD(full_struct, "required");
+        Z_ASSERT_NEG(iop_skip_absent_field_desc(
+            t_pool(), &fs, &tstiop__full_struct__s, f
+        ));
+
+        /* IOP_R_DEFVAL (through the recursion on a plain struct field whose
+         * fields all have a default value): the default values are set. */
+        Z_FIELD(full_struct, "defValPresent");
+        Z_ASSERT_N(iop_skip_absent_field_desc(
+            t_pool(), &fs, &tstiop__full_struct__s, f
+        ));
+        Z_ASSERT_EQ(fs.def_val_present.i32, -5);
+        Z_ASSERT_LSTREQUAL(fs.def_val_present.s, LSTR("Default value"));
+
+        /* IOP_R_REPEATED: the array is set empty. */
+        Z_FIELD(full_struct, "repeated");
+        Z_ASSERT_N(iop_skip_absent_field_desc(
+            t_pool(), &fs, &tstiop__full_struct__s, f
+        ));
+        Z_ASSERT_ZERO(fs.repeated.i32.len);
+
+        /* IOP_R_REPEATED with @minOccurs: an empty array is not allowed. */
+        Z_FIELD(constraint_s, "s");
+        Z_ASSERT_NEG(iop_skip_absent_field_desc(
+            t_pool(), &cs, &tstiop__constraint_s__s, f
+        ));
+        Z_ASSERT(
+            strstr(iop_get_err(), "empty array not allowed"), "%s",
+            iop_get_err()
+        );
+
+        /* IOP_R_OPTIONAL: the field is set absent. */
+        OPT_SET(zval.opt_integer, 42);
+        Z_FIELD(z_iop_get_field_values, "optInteger");
+        Z_ASSERT_N(iop_skip_absent_field_desc(
+            t_pool(), &zval, &tstiop__z_iop_get_field_values__s, f
+        ));
+        Z_ASSERT(!OPT_ISSET(zval.opt_integer));
+
+#undef Z_FIELD
+    }
+    Z_TEST_END;
+    /* }}} */
     Z_TEST(iop_array_dup, "test the IOP_ARRAY_DUP macro") { /* {{{ */
         t_scope;
         int32_t a[] = {1, 2, 3};
