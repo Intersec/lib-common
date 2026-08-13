@@ -1,0 +1,15 @@
+name: foo
+elems:
+  - !iopsq.Enum
+    name: IopSqEnum
+    values:
+      - name: VAL1
+      - name: VAL2
+        val: 6
+      - name: VAL3
+  - !iopsq.Struct
+    name: IopSqEnumSt
+    fields:
+      - name: en
+        type:
+          typeName: IopSqEnum

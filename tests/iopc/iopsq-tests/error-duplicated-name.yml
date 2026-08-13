@@ -1,0 +1,14 @@
+name: foo
+elems:
+  - !iopsq.Struct
+    name: DuplicatedName
+    fields:
+      - name: i
+        type:
+          i:
+            isSigned: true
+            size: S32
+  - !iopsq.Enum
+    name: DuplicatedName
+    values:
+      - name: A

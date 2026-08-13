@@ -1,0 +1,16 @@
+name: foo
+elems:
+  - !iopsq.Struct
+    name: Bar
+    fields:
+      - name: i1
+        type:
+          i:
+            isSigned: true
+            size: S32
+      - name: i2
+        type:
+          typeName: int
+      - name: s
+        type:
+          s: STRING

@@ -1,0 +1,9 @@
+name: array
+elems:
+  - !iopsq.Struct
+    name: ArrayTest
+    fields:
+      - name: i
+        type:
+          array:
+            typeName: int

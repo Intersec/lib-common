@@ -1,0 +1,124 @@
+name: foo
+elems:
+  - !iopsq.Struct
+    name: InvalidTypeName
+    fields:
+      - name: s
+        type:
+          typeName: foo..Bar
+  - !iopsq.Struct
+    name: invalidStructTypeName
+    fields: []
+  - !iopsq.Union
+    name: invalidUnionTypeName
+    fields:
+      - name: f1
+        type:
+          typeName: int
+        tag: 42
+  - !iopsq.Enum
+    name: invalidEnumTypeName
+    values: []
+  - !iopsq.Struct
+    name: MultiDimensionArray
+    fields:
+      - name: multiArray
+        type:
+          array:
+            array:
+              typeName: uint
+  - !iopsq.Struct
+    name: OptionalArray
+    fields:
+      - name: optionalArray
+        type:
+          array:
+            typeName: uint
+        optional: {}
+  - !iopsq.Struct
+    name: OptionalReference
+    fields:
+      - name: optionalReference
+        type:
+          typeName: uint
+        optional: {}
+        isReference: true
+  - !iopsq.Struct
+    name: ArrayOfReference
+    fields:
+      - name: arrayOfReference
+        type:
+          array:
+            typeName: uint
+        isReference: true
+  - !iopsq.Struct
+    name: TagConflict
+    fields:
+      - name: f1
+        type:
+          typeName: int
+        tag: 42
+      - name: f2
+        type:
+          typeName: int
+        tag: 42
+  - !iopsq.Struct
+    name: NameConflict
+    fields:
+      - name: field
+        type:
+          typeName: int
+      - name: field
+        type:
+          typeName: int
+  - !iopsq.Enum
+    name: ValueConflict
+    values:
+      - name: A
+        val: 42
+      - name: B
+        val: 42
+  - !iopsq.Enum
+    name: KeyConflict
+    values:
+      - name: A
+      - name: A
+  - !iopsq.Enum
+    name: AliasConflict
+    values:
+      - name: A
+      - name: B
+        aliases:
+          - A
+  - !iopsq.Struct
+    name: Bar
+    fields:
+      - name: unknownTypeField
+        type:
+          typeName: Unknown
+  - !iopsq.Struct
+    name: LowercaseTypeName
+    fields:
+      - name: lowercaseTypeName
+        type:
+          typeName: lowercase
+  - !iopsq.Struct
+    name: UppercaseField
+    fields:
+      - name: UppercaseField
+        type:
+          typeName: int
+  - !iopsq.Struct
+    name: TagTooSmall
+    fields:
+      - name: tagTooSmall
+        type:
+          typeName: int
+        tag: 0
+  - !iopsq.Struct
+    name: TagTooBig
+    fields:
+      - name: tagTooBig
+        type:
+          typeName: int
+        tag: 32768

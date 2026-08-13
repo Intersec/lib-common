@@ -1,0 +1,28 @@
+name: foo
+elems:
+  - !iopsq.Enum
+    name: Color
+    values:
+      - name: RED
+      - name: GREEN
+  - !iopsq.Struct
+    name: Point
+    fields:
+      - name: x
+        type:
+          typeName: int
+      - name: y
+        type:
+          typeName: int
+  - !iopsq.Typedef
+    name: MyInt
+    type:
+      typeName: int
+  - !iopsq.Typedef
+    name: MyColor
+    type:
+      typeName: Color
+  - !iopsq.Typedef
+    name: MyPoint
+    type:
+      typeName: Point

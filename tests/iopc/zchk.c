@@ -17,6 +17,7 @@
 /***************************************************************************/
 
 #include <lib-common/iop-json.h>
+#include <lib-common/iop-yaml.h>
 #include <lib-common/iopc/iopc-iopsq.h>
 #include <lib-common/z.h>
 
@@ -43,7 +44,7 @@ static iop__package__t *t_load_package_from_file(
     iop__package__t *pkg_desc = NULL;
 
     path = t_get_path(filename);
-    RETHROW_NP(t_iop_junpack_ptr_file(
+    RETHROW_NP(t_iop_yunpack_ptr_file(
         iop_env_ctx, path, &iop__package__s, (void **)&pkg_desc, 0, NULL, err
     ));
 
@@ -387,7 +388,7 @@ Z_GROUP_EXPORT(iopsq)
 
     Z_TEST(struct_, "basic struct") {
         Z_HELPER_RUN(test_pkg_struct(
-            iop_env, "struct.json", 0, NULL,
+            iop_env, "struct.yml", 0, NULL,
             "{\"i1\":42,\"i2\":2,\"s\":\"foo\"}"
         ));
     }
@@ -404,21 +405,21 @@ Z_GROUP_EXPORT(iopsq)
         tst2 = t_fmt("{\"st\":%s,\"stRef\":%s,\"stOpt\":%s}", v1, v2, v1);
 
         Z_HELPER_RUN(test_pkg_struct(
-            iop_env, "sub-struct.json", 1, &tstiop__s2__s, tst1, tst2
+            iop_env, "sub-struct.yml", 1, &tstiop__s2__s, tst1, tst2
         ));
     }
     Z_TEST_END;
 
     Z_TEST(union_, "basic union") {
         Z_HELPER_RUN(test_pkg_struct(
-            iop_env, "union.json", 0, NULL, "{\"i\":6}", "{\"s\":\"toto\"}"
+            iop_env, "union.yml", 0, NULL, "{\"i\":6}", "{\"s\":\"toto\"}"
         ));
     }
     Z_TEST_END;
 
     Z_TEST(enum_, "basic enum") {
         Z_HELPER_RUN(test_pkg_struct(
-            iop_env, "enum.json", 0, &tstiop__iop_sq_enum_st__s,
+            iop_env, "enum.yml", 0, &tstiop__iop_sq_enum_st__s,
             "{\"en\":\"VAL1\"}", "{\"en\":\"VAL2\"}", "{\"en\":\"VAL3\"}"
         ));
     }
@@ -426,8 +427,7 @@ Z_GROUP_EXPORT(iopsq)
 
     Z_TEST(array, "array") {
         Z_HELPER_RUN(test_pkg_struct(
-            iop_env, "array.json", 0, &tstiop__array_test__s,
-            "{\"i\":[4,5,6]}"
+            iop_env, "array.yml", 0, &tstiop__array_test__s, "{\"i\":[4,5,6]}"
         ));
     }
     Z_TEST_END;
@@ -438,7 +438,7 @@ Z_GROUP_EXPORT(iopsq)
         const iop_typedef_t *td;
         int n = 0;
 
-        Z_HELPER_RUN(t_package_load(&pkg, iop_env, "typedef.json"));
+        Z_HELPER_RUN(t_package_load(&pkg, iop_env, "typedef.yml"));
 
         Z_ASSERT_P(pkg->typedefs);
         for (const iop_typedef_t *const *it = pkg->typedefs; *it; it++) {
@@ -473,7 +473,7 @@ Z_GROUP_EXPORT(iopsq)
         const iop_enum_t *en;
 
         Z_HELPER_RUN(
-            t_package_load(&pkg, iop_env, "enum-strict-aliases.json")
+            t_package_load(&pkg, iop_env, "enum-strict-aliases.yml")
         );
 
         /* StrictEnum: @strict maps to the IOP_ENUM_STRICT flag. */
@@ -502,8 +502,7 @@ Z_GROUP_EXPORT(iopsq)
 
     Z_TEST(external_types, "external type names") {
         Z_HELPER_RUN(test_pkg_struct(
-            iop_env, "external-types.json", 0,
-            &tstiop__test_external_types__s,
+            iop_env, "external-types.yml", 0, &tstiop__test_external_types__s,
             "{\"st\":{\"i\":42},\"en\":\"B\"}"
         ));
     }
@@ -567,7 +566,7 @@ Z_GROUP_EXPORT(iopsq)
         /* FIXME: classes cannot be implemented with IOP² yet, so the class
          * fields still use types from tstiop to avoid dissimilarities between
          * structs. */
-        Z_HELPER_RUN(t_package_load(&pkg, iop_env, "full-struct.json"));
+        Z_HELPER_RUN(t_package_load(&pkg, iop_env, "full-struct.yml"));
         st = iop_pkg_get_struct_by_name(pkg, st_name);
         Z_ASSERT_P(st, "cannot find struct `%pL'", &st_name);
         Z_HELPER_RUN(
@@ -591,7 +590,7 @@ Z_GROUP_EXPORT(iopsq)
         iopsq_iop_struct_t st_mp;
 
         pkg_desc =
-            t_load_package_from_file("single-struct.json", iop_env, &err);
+            t_load_package_from_file("single-struct.yml", iop_env, &err);
         Z_ASSERT_P(pkg_desc, "%pL", &err);
         Z_ASSERT_EQ(pkg_desc->elems.len, 1);
         st_desc = iop_obj_ccast(iop__structure, pkg_desc->elems.tab[0]);
@@ -683,7 +682,7 @@ Z_GROUP_EXPORT(iopsq)
         };
         const char **exp_error = errors;
 
-        pkg_desc = t_load_package_from_file("error-misc.json", iop_env, &err);
+        pkg_desc = t_load_package_from_file("error-misc.yml", iop_env, &err);
         Z_ASSERT_P(pkg_desc, "%pL", &err);
         Z_ASSERT_EQ(pkg_desc->elems.len, countof(errors));
 
@@ -713,7 +712,7 @@ Z_GROUP_EXPORT(iopsq)
         const iop__package__t *pkg_desc;
 
         pkg_desc = t_load_package_from_file(
-            "error-duplicated-name.json", iop_env, &err
+            "error-duplicated-name.yml", iop_env, &err
         );
         Z_ASSERT_P(pkg_desc, "%pL", &err);
         Z_ASSERT_NULL(
@@ -874,11 +873,11 @@ Z_GROUP_EXPORT(iopsq)
         st.fields = IOP_TYPED_ARRAY_TAB(iop__field, &fields);
 
         Z_ASSERT_N(
-            t_iop_junpack_ptr_file(
-                iop_env_ctx, t_get_path("type-table.json"), &iop__struct__s,
+            t_iop_yunpack_ptr_file(
+                iop_env_ctx, t_get_path("type-table.yml"), &iop__struct__s,
                 (void **)&expected_st, 0, NULL, &err
             ),
-            "invalid JSON content: %pL", &err
+            "invalid YAML content: %pL", &err
         );
         Z_ASSERT_IOPEQUAL(iop__struct, &st, expected_st);
 
