@@ -89,6 +89,14 @@ To avoid exporting multiple times the same C symbols for different rust
 packages, the different exported symbols by `bindgen` for a given package are
 tracked and exported in a file called `.waf-cargo-build/bindings_items.json`
 and are blocked in Rust packages that depends of that package.
+This requires the `bindings_items.json` of a package to be generated before the
+one of the packages depending on it. Cargo gives no such guarantee (it runs the
+build scripts of a package and of its dependencies in parallel), so this
+ordering is enforced by waf, through the dependencies declared with `use`
+between the Rust targets. Hence a Rust package using the bindings of another
+one *must* declare it in the `use` of its waf target, otherwise its bindings
+will be generated with an incomplete block list and the same C types will be
+defined twice.
 
 A cargo package can define a lib and/or multiple bins.
 
@@ -99,8 +107,10 @@ directory for `staticlib`, or in the source directory same as standard C waf
 targets.
 
 For packages that only define Rust libraries (`lib`, `rlib`, `dylib` and
-`proc-macro`), waf will not call `cargo build` on these packages, and are
-entirely handled by Cargo.
+`proc-macro`), waf produces no output, but still calls `cargo build` on these
+packages so that their bindings are generated in the order of the waf
+dependencies (see above). The resulting rlib is reused by the packages
+depending on it, so this costs nothing.
 
 For Rust libraries that are used both by C code and other Rust packages, they
 need to be defined both a Rust library and C libraries,
