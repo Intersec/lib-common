@@ -20,7 +20,7 @@
 
 use std::mem::{MaybeUninit, transmute};
 use std::ptr::NonNull;
-use std::slice::from_raw_parts;
+use std::slice::{from_raw_parts, from_raw_parts_mut};
 
 /// Create a slice from a potential null pointer and length.
 ///
@@ -43,6 +43,32 @@ pub const unsafe fn slice_from_nullable_raw_parts<'a, T>(data: *const T, len: us
     }
 
     unsafe { from_raw_parts(data, len) }
+}
+
+/// Create a mutable slice from a potential null pointer and length.
+///
+/// `std::slice::from_raw_parts_mut()` must be used with a non-null pointer.
+/// If the pointer is null, use a dandling non-null pointer.
+///
+/// # Safety
+///
+/// See `from_raw_parts_mut.html#safety`, except that `data` can be null.
+///
+/// # Panics
+///
+/// `len` must be 0 if `data` is null.
+pub const unsafe fn slice_from_nullable_raw_parts_mut<'a, T>(
+    data: *mut T,
+    len: usize,
+) -> &'a mut [T] {
+    let mut data = data;
+
+    if data.is_null() {
+        assert!(len == 0); // rust-lang#119826
+        data = NonNull::dangling().as_ptr();
+    }
+
+    unsafe { from_raw_parts_mut(data, len) }
 }
 
 /// Gets a mutable (unique) reference to a maybe uninitialized slice.
