@@ -21,6 +21,9 @@
 //! [`QVector`] wraps a C `qvector_t` and behaves like a [`Vec`]. It derefs to a slice, so the
 //! whole slice API (indexing, iteration, sorting, searching) is available on it.
 //!
+//! One method differs from [`Vec`]: [`QVector::splice`] takes a slice and returns the inserted
+//! elements, where [`Vec::splice`] takes an iterator and returns the removed ones.
+//!
 //! # Allocator
 //!
 //! The allocator is chosen by the constructor and cannot change afterwards:
@@ -52,9 +55,10 @@ use std::fmt;
 use std::iter::FusedIterator;
 use std::marker::PhantomData;
 use std::mem::{ManuallyDrop, MaybeUninit};
-use std::ops::{Deref, DerefMut};
-use std::os::raw::c_int;
+use std::ops::{Bound, Deref, DerefMut, RangeBounds};
+use std::os::raw::{c_int, c_void};
 use std::ptr;
+use std::ptr::NonNull;
 use std::slice;
 
 use crate::bindings::{
@@ -426,6 +430,83 @@ impl<'a, T> QVector<'a, T> {
         }
     }
 
+    /// Replace the elements of `range` with a copy of `values`.
+    ///
+    /// This is the equivalent of the C `qv_splice()`. The removed elements are discarded, which is
+    /// why the element type is `Copy`: it has nothing to release.
+    ///
+    /// Return the inserted elements. [`Vec::splice`] instead yields the removed ones: the C
+    /// function overwrites them, so it cannot hand them back.
+    ///
+    /// # Panics
+    ///
+    /// `range` is out of bounds, or the resulting length does not fit in a C `int`.
+    pub fn splice<R>(&mut self, range: R, values: &[T]) -> &mut [T]
+    where
+        R: RangeBounds<usize>,
+        T: Copy,
+    {
+        let len = self.len();
+        let (pos, rm_len) = Self::resolve_range(&range, len);
+
+        Self::assert_c_len(len - rm_len + values.len());
+
+        // `qvector_splice()` copies the values with `memcpy()`, so they must not overlap the
+        // vector. The borrow checker guarantees it: `values` cannot borrow from `self`.
+        //
+        // An empty slice has a dangling pointer, so pass a null pointer instead: the C code then
+        // skips the copy.
+        let inserted_values = if values.is_empty() {
+            ptr::null()
+        } else {
+            values.as_ptr().cast::<c_void>()
+        };
+
+        unsafe {
+            qvector_splice(
+                &raw mut self.qv,
+                size_of::<T>(),
+                align_of::<T>(),
+                Self::to_c_int(pos),
+                Self::to_c_int(rm_len),
+                inserted_values,
+                Self::to_c_int(values.len()),
+            );
+        }
+
+        &mut self.as_mut_slice()[pos..pos + values.len()]
+    }
+
+    /// Remove the elements of `range` and return an iterator over them.
+    ///
+    /// The elements that the iterator does not yield are dropped when it is dropped, and the
+    /// remaining elements of the vector are moved back to close the gap.
+    ///
+    /// # Panics
+    ///
+    /// `range` is out of bounds.
+    pub fn drain<R>(&mut self, range: R) -> Drain<'_, 'a, T>
+    where
+        R: RangeBounds<usize>,
+    {
+        let len = self.len();
+        let (pos, rm_len) = Self::resolve_range(&range, len);
+
+        // Shorten the vector to the start of the range. The drained elements and the elements
+        // after them are now only reachable through the `Drain`, so leaking it leaks them instead
+        // of dropping them twice.
+        self.qv.len = pos as c_int;
+
+        Drain {
+            vec: NonNull::from(self),
+            start: pos,
+            end: pos + rm_len,
+            tail_start: pos + rm_len,
+            tail_len: len - pos - rm_len,
+            _marker: PhantomData,
+        }
+    }
+
     // }}}
     // {{{ C interoperability
 
@@ -517,6 +598,31 @@ impl<'a, T> QVector<'a, T> {
     /// The length does not fit in a C `int`.
     fn assert_c_len(len: usize) {
         assert!(c_int::try_from(len).is_ok(), "qvector length overflow");
+    }
+
+    /// Resolve a range into a start position and a number of elements.
+    ///
+    /// # Panics
+    ///
+    /// The range is out of bounds, or it starts after it ends.
+    fn resolve_range<R>(range: &R, len: usize) -> (usize, usize)
+    where
+        R: RangeBounds<usize>,
+    {
+        let start = match range.start_bound() {
+            Bound::Included(&start) => start,
+            Bound::Excluded(&start) => start.checked_add(1).expect("invalid range start"),
+            Bound::Unbounded => 0,
+        };
+        let end = match range.end_bound() {
+            Bound::Included(&end) => end.checked_add(1).expect("invalid range end"),
+            Bound::Excluded(&end) => end,
+            Bound::Unbounded => len,
+        };
+
+        assert!(start <= end, "range starts after it ends");
+        assert!(end <= len, "range out of bounds");
+        (start, end - start)
     }
 
     // }}}
@@ -768,6 +874,136 @@ impl<T> Drop for IntoIter<'_, T> {
         self.vec.qv.len = 0;
         unsafe {
             ManuallyDrop::drop(&mut self.vec);
+        }
+    }
+}
+
+// }}}
+// {{{ Drain
+
+/// Iterator that removes a range of elements from a [`QVector`].
+///
+/// It is created by [`QVector::drain`].
+pub struct Drain<'v, 'a, T> {
+    /// The vector being drained.
+    ///
+    /// Its length is the start of the drained range for as long as this iterator lives.
+    vec: NonNull<QVector<'a, T>>,
+
+    /// Position of the next element to yield from the front.
+    start: usize,
+
+    /// Position after the next element to yield from the back.
+    end: usize,
+
+    /// Position of the first element to move back when this iterator is dropped.
+    tail_start: usize,
+
+    /// Number of elements to move back when this iterator is dropped.
+    tail_len: usize,
+
+    _marker: PhantomData<&'v mut QVector<'a, T>>,
+}
+
+impl<T> Drain<'_, '_, T> {
+    /// Get the elements that the iterator did not yield yet.
+    #[inline]
+    pub fn as_slice(&self) -> &[T] {
+        let tab = self.tab();
+
+        if tab.is_null() {
+            return &[];
+        }
+
+        unsafe { slice::from_raw_parts(tab.add(self.start), self.len_left()) }
+    }
+
+    /// Get a pointer to the buffer of the drained vector.
+    #[inline]
+    fn tab(&self) -> *mut T {
+        // The vector is mutably borrowed for the lifetime of this iterator, so nothing else can
+        // reference it. Read the field through the pointer to avoid creating a reference.
+        unsafe { (*self.vec.as_ptr()).qv.tab.cast::<T>() }
+    }
+
+    /// Get the number of elements that the iterator did not yield yet.
+    #[inline]
+    const fn len_left(&self) -> usize {
+        self.end - self.start
+    }
+}
+
+impl<T> Iterator for Drain<'_, '_, T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<T> {
+        if self.start == self.end {
+            return None;
+        }
+
+        let value = unsafe { self.tab().add(self.start).read() };
+
+        self.start += 1;
+        Some(value)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.len_left();
+
+        (remaining, Some(remaining))
+    }
+}
+
+impl<T> DoubleEndedIterator for Drain<'_, '_, T> {
+    fn next_back(&mut self) -> Option<T> {
+        if self.start == self.end {
+            return None;
+        }
+        self.end -= 1;
+        Some(unsafe { self.tab().add(self.end).read() })
+    }
+}
+
+impl<T> ExactSizeIterator for Drain<'_, '_, T> {}
+
+impl<T> FusedIterator for Drain<'_, '_, T> {}
+
+impl<T: fmt::Debug> fmt::Debug for Drain<'_, '_, T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_list().entries(self.as_slice()).finish()
+    }
+}
+
+impl<T> Drop for Drain<'_, '_, T> {
+    fn drop(&mut self) {
+        let tab = self.tab();
+        let vec = self.vec.as_ptr();
+
+        // Drop the drained elements that were not yielded.
+        if self.start < self.end {
+            let left =
+                ptr::slice_from_raw_parts_mut(unsafe { tab.add(self.start) }, self.len_left());
+
+            unsafe {
+                ptr::drop_in_place(left);
+            }
+        }
+
+        if self.tail_len == 0 {
+            return;
+        }
+
+        // Move the elements after the drained range back to close the gap, and restore the length
+        // of the vector. `ptr::copy()` is a `memmove()`: the two ranges can overlap.
+        //
+        // The C `qvector_splice()` would do the same move, but it can also reallocate the buffer
+        // to release the space that the drained elements used. Do not call it: `Vec::drain()`
+        // never reallocates, and the length of the vector currently excludes the tail.
+        unsafe {
+            let pos = (*vec).len();
+
+            ptr::copy(tab.add(self.tail_start), tab.add(pos), self.tail_len);
+            (*vec).qv.len += self.tail_len as c_int;
         }
     }
 }
@@ -1243,6 +1479,260 @@ mod tests {
             vec.iter().map(|lstr| &**lstr).collect::<Vec<_>>(),
             ["hello", "world"]
         );
+    }
+
+    // }}}
+    // {{{ splice
+
+    #[test]
+    fn test_splice_replaces_the_range() {
+        let mut vec: QVector<'_, u32> = (0..5).collect();
+
+        // Same number of elements in and out.
+        assert_eq!(vec.splice(1..3, &[10, 20]), &[10, 20]);
+        assert_eq!(vec.as_slice(), &[0, 10, 20, 3, 4]);
+
+        // More elements in than out.
+        vec.splice(1..3, &[7, 8, 9]);
+        assert_eq!(vec.as_slice(), &[0, 7, 8, 9, 3, 4]);
+
+        // Fewer elements in than out.
+        vec.splice(1..4, &[1]);
+        assert_eq!(vec.as_slice(), &[0, 1, 3, 4]);
+    }
+
+    #[test]
+    fn test_splice_inserts_and_removes() {
+        let mut vec: QVector<'_, u32> = (0..4).collect();
+
+        // An empty range only inserts.
+        vec.splice(2..2, &[10, 11]);
+        assert_eq!(vec.as_slice(), &[0, 1, 10, 11, 2, 3]);
+
+        // An empty slice only removes; this is the C `qv_skip()`.
+        vec.splice(0..2, &[]);
+        assert_eq!(vec.as_slice(), &[10, 11, 2, 3]);
+
+        // Splicing at the end appends.
+        let len = vec.len();
+
+        vec.splice(len.., &[4]);
+        assert_eq!(vec.as_slice(), &[10, 11, 2, 3, 4]);
+    }
+
+    #[test]
+    fn test_splice_range_forms() {
+        let mut vec: QVector<'_, u32> = (0..4).collect();
+
+        vec.splice(..2, &[9]);
+        assert_eq!(vec.as_slice(), &[9, 2, 3]);
+
+        vec.splice(1.., &[8]);
+        assert_eq!(vec.as_slice(), &[9, 8]);
+
+        vec.splice(0..=1, &[7, 7, 7]);
+        assert_eq!(vec.as_slice(), &[7, 7, 7]);
+
+        vec.splice(.., &[1, 2]);
+        assert_eq!(vec.as_slice(), &[1, 2]);
+
+        vec.splice(.., &[]);
+        assert!(vec.is_empty());
+    }
+
+    #[test]
+    fn test_splice_grows_the_vector() {
+        let mut vec = QVector::<u32>::new();
+        let values: Vec<u32> = (0..1_000).collect();
+
+        vec.splice(.., &values);
+
+        assert_eq!(vec.len(), 1_000);
+        assert!(vec.capacity() >= 1_000);
+        assert_eq!(vec.as_slice(), values.as_slice());
+    }
+
+    #[test]
+    fn test_splice_returns_the_inserted_elements() {
+        let mut vec: QVector<'_, u32> = (0..4).collect();
+        let inserted = vec.splice(1..2, &[0, 0]);
+
+        assert_eq!(inserted.len(), 2);
+        inserted[0] = 10;
+        inserted[1] = 11;
+
+        assert_eq!(vec.as_slice(), &[0, 10, 11, 2, 3]);
+    }
+
+    #[test]
+    fn test_splice_on_t_pool() {
+        let t_scope = TScope::new_scope();
+        let mut vec = QVector::t_from_iter(&t_scope, 0..4u32);
+
+        vec.splice(1..3, &[9, 9, 9]);
+        assert_eq!(vec.as_slice(), &[0, 9, 9, 9, 3]);
+    }
+
+    #[test]
+    #[should_panic(expected = "range out of bounds")]
+    fn test_splice_out_of_bounds() {
+        // Leave the vector empty. `Drop` never runs on a `panic = "abort"` profile, so a buffer
+        // allocated here would be reported as a leak.
+        let mut vec: QVector<'_, u32> = QVector::new();
+
+        vec.splice(0..1, &[]);
+    }
+
+    #[test]
+    #[should_panic(expected = "range starts after it ends")]
+    fn test_splice_reversed_range() {
+        // Leave the vector empty. `Drop` never runs on a `panic = "abort"` profile, so a buffer
+        // allocated here would be reported as a leak.
+        let mut vec: QVector<'_, u32> = QVector::new();
+
+        // Take the bound from the vector so that this is not a constant reversed range.
+        let start = vec.len() + 1;
+
+        vec.splice(start..0, &[]);
+    }
+
+    // }}}
+    // {{{ drain
+
+    #[test]
+    fn test_drain_yields_and_removes() {
+        let mut vec: QVector<'_, u32> = (0..6).collect();
+
+        assert_eq!(vec.drain(1..4).collect::<Vec<_>>(), vec![1, 2, 3]);
+        assert_eq!(vec.as_slice(), &[0, 4, 5]);
+    }
+
+    #[test]
+    fn test_drain_range_forms() {
+        let mut vec: QVector<'_, u32> = (0..4).collect();
+
+        assert_eq!(vec.drain(..2).collect::<Vec<_>>(), vec![0, 1]);
+        assert_eq!(vec.as_slice(), &[2, 3]);
+
+        assert_eq!(vec.drain(1..).collect::<Vec<_>>(), vec![3]);
+        assert_eq!(vec.as_slice(), &[2]);
+
+        assert_eq!(vec.drain(..).collect::<Vec<_>>(), vec![2]);
+        assert!(vec.is_empty());
+
+        // An empty range removes nothing.
+        let mut vec: QVector<'_, u32> = (0..2).collect();
+
+        assert_eq!(vec.drain(1..1).count(), 0);
+        assert_eq!(vec.as_slice(), &[0, 1]);
+    }
+
+    #[test]
+    fn test_drain_double_ended() {
+        let mut vec: QVector<'_, u32> = (0..6).collect();
+
+        {
+            let mut drain = vec.drain(1..5);
+
+            assert_eq!(drain.len(), 4);
+            assert_eq!(drain.next(), Some(1));
+            assert_eq!(drain.next_back(), Some(4));
+            assert_eq!(drain.as_slice(), &[2, 3]);
+            assert_eq!(drain.len(), 2);
+        }
+
+        // The elements that were not yielded are removed too.
+        assert_eq!(vec.as_slice(), &[0, 5]);
+    }
+
+    #[test]
+    fn test_drain_rev() {
+        let mut vec: QVector<'_, u32> = (0..4).collect();
+
+        assert_eq!(vec.drain(..).rev().collect::<Vec<_>>(), vec![3, 2, 1, 0]);
+        assert!(vec.is_empty());
+    }
+
+    #[test]
+    fn test_drain_drops_the_elements_it_does_not_yield() {
+        let counter = Cell::new(0);
+        let mut vec = QVector::new();
+
+        push_counters(&mut vec, &counter, 5);
+
+        {
+            let mut drain = vec.drain(1..4);
+
+            // Yield one element and drop it.
+            drop(drain.next());
+            assert_eq!(counter.get(), 1);
+        }
+
+        // The two remaining drained elements are dropped exactly once.
+        assert_eq!(counter.get(), 3);
+        assert_eq!(vec.len(), 2);
+
+        drop(vec);
+        assert_eq!(counter.get(), 5);
+    }
+
+    #[test]
+    fn test_drain_keeps_the_tail_alive() {
+        let counter = Cell::new(0);
+        let mut vec = QVector::new();
+
+        push_counters(&mut vec, &counter, 4);
+
+        // Drain the middle: the last element must be moved back, not dropped.
+        drop(vec.drain(1..3));
+
+        assert_eq!(counter.get(), 2);
+        assert_eq!(vec.len(), 2);
+
+        drop(vec);
+        assert_eq!(counter.get(), 4);
+    }
+
+    #[test]
+    fn test_drain_leak_is_safe() {
+        let counter = Cell::new(0);
+        let mut vec = QVector::new();
+
+        push_counters(&mut vec, &counter, 5);
+
+        // Leaking the `Drain` leaks the drained elements and the tail, but the vector stays
+        // valid: nothing is dropped twice.
+        //
+        // `ManuallyDrop` leaks the iterator without running its destructor. Leaving the block
+        // releases the borrow on the vector.
+        {
+            let _leaked = ManuallyDrop::new(vec.drain(1..3));
+        }
+
+        assert_eq!(vec.len(), 1);
+        assert_eq!(counter.get(), 0);
+
+        drop(vec);
+        assert_eq!(counter.get(), 1);
+    }
+
+    #[test]
+    fn test_drain_on_t_pool() {
+        let t_scope = TScope::new_scope();
+        let mut vec = QVector::t_from_iter(&t_scope, 0..6u32);
+
+        assert_eq!(vec.drain(2..4).collect::<Vec<_>>(), vec![2, 3]);
+        assert_eq!(vec.as_slice(), &[0, 1, 4, 5]);
+    }
+
+    #[test]
+    #[should_panic(expected = "range out of bounds")]
+    fn test_drain_out_of_bounds() {
+        // Leave the vector empty. `Drop` never runs on a `panic = "abort"` profile, so a buffer
+        // allocated here would be reported as a leak.
+        let mut vec: QVector<'_, u32> = QVector::new();
+
+        drop(vec.drain(0..1));
     }
 
     // }}}
