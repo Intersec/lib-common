@@ -33,6 +33,7 @@ pub mod lstr;
 pub mod mem_stack;
 pub mod module;
 pub mod pstream;
+pub mod qvector;
 pub mod sb;
 pub mod thr;
 
