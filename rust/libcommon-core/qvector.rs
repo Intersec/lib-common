@@ -779,11 +779,37 @@ impl<T> Drop for IntoIter<'_, T> {
 #[allow(clippy::redundant_test_prefix)]
 mod tests {
     use std::cell::Cell;
+    use std::mem;
+    use std::os::raw::c_char;
+    use std::ptr;
 
     use super::*;
-    use crate::lstr::{OwnedUtf8Lstr, from_str};
+    use crate::bindings::{ctype_isspace, lstr_t, ps_split, qv_lstr_t, qv_str_t, qv_u32_t};
+    use crate::lstr::{self, OwnedUtf8Lstr, from_str};
+    use crate::pstream::pstream_t;
 
     // {{{ Test helpers
+
+    /// Split a string with the C `ps_split()` into a C vector.
+    ///
+    /// The returned vector holds values borrowed from `input`.
+    fn c_split(input: &str) -> qv_lstr_t {
+        let ps = pstream_t::from_bytes(input.as_bytes());
+        let mut c_vec: qv_lstr_t = unsafe { mem::zeroed() };
+
+        unsafe {
+            ps_split(ps, &raw const ctype_isspace, 0, &raw mut c_vec);
+        }
+        c_vec
+    }
+
+    /// Read the C vector values as Rust strings.
+    fn to_strings(values: &[lstr_t]) -> Vec<&str> {
+        values
+            .iter()
+            .map(|raw| unsafe { lstr::from_raw_utf8(*raw).as_str() })
+            .collect()
+    }
 
     /// Element type that counts its drops, to check that the vector owns its elements.
     struct DropCounter<'c> {
@@ -1217,6 +1243,119 @@ mod tests {
             vec.iter().map(|lstr| &**lstr).collect::<Vec<_>>(),
             ["hello", "world"]
         );
+    }
+
+    // }}}
+    // {{{ C interoperability
+
+    #[test]
+    fn test_element_types() {
+        const fn assert_element<Q, T>()
+        where
+            Q: QVectorType<Element = T>,
+        {
+        }
+
+        assert_element::<qv_u32_t, u32>();
+        assert_element::<qv_lstr_t, lstr_t>();
+        assert_element::<qv_str_t, *mut c_char>();
+    }
+
+    #[test]
+    fn test_fill_from_c() {
+        let input = "one two three";
+        let ps = pstream_t::from_bytes(input.as_bytes());
+        let mut vec = QVector::<lstr_t>::new();
+
+        // `ps_split()` fills the vector with values borrowed from `input`, so the element type
+        // must stay `lstr_t`: the vector only releases its buffer.
+        unsafe {
+            ps_split(
+                ps,
+                &raw const ctype_isspace,
+                0,
+                vec.as_mut_c_ptr::<qv_lstr_t>(),
+            );
+        }
+
+        assert_eq!(vec.len(), 3);
+        assert_eq!(to_strings(&vec), ["one", "two", "three"]);
+    }
+
+    #[test]
+    fn test_borrow_c() {
+        let mut vec = QVector::<u32>::new();
+
+        vec.extend_from_slice(&[1, 2, 3]);
+
+        let c_vec = vec.as_mut_c_ptr::<qv_u32_t>();
+
+        {
+            let borrowed = unsafe { QVector::<u32>::borrow_c_mut(&mut *c_vec) };
+
+            assert_eq!(borrowed.as_slice(), &[1, 2, 3]);
+            borrowed.push(4);
+        }
+
+        // Dropping the borrow must not release the buffer.
+        assert_eq!(vec.as_slice(), &[1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn test_c_vector_derefs_to_a_slice_without_a_copy() {
+        let mut c_vec = c_split("one two three");
+        let tab = unsafe { c_vec.__bindgen_anon_1.tab };
+        let vec = unsafe { QVector::<lstr_t>::borrow_c(&c_vec) };
+
+        // `Deref` gives a slice that points to the buffer of the C vector: no copy.
+        let values: &[lstr_t] = vec;
+
+        assert!(ptr::eq(values.as_ptr(), tab));
+        assert_eq!(values.len(), 3);
+        assert_eq!(to_strings(values), ["one", "two", "three"]);
+
+        // The slice API is available straight on the C vector.
+        assert_eq!(vec.first().map(|raw| raw.len), Some(3));
+        assert_eq!(vec.iter().map(|raw| raw.len as usize).sum::<usize>(), 11);
+
+        unsafe {
+            qvector_wipe(&raw mut c_vec.qv, size_of::<lstr_t>());
+        }
+    }
+
+    #[test]
+    fn test_c_vector_to_rust_vec() {
+        let mut c_vec = c_split("one two three");
+        let tab = unsafe { c_vec.__bindgen_anon_1.tab };
+
+        {
+            let vec = unsafe { QVector::<lstr_t>::borrow_c(&c_vec) };
+
+            // `to_vec()` comes from the slice API and copies the elements into a `Vec`.
+            let owned: Vec<lstr_t> = vec.to_vec();
+
+            assert_eq!(owned.len(), 3);
+            assert_eq!(to_strings(&owned), ["one", "two", "three"]);
+
+            // The `Vec` has its own buffer, unlike the slice.
+            assert!(!ptr::eq(owned.as_ptr(), tab));
+        }
+
+        unsafe {
+            qvector_wipe(&raw mut c_vec.qv, size_of::<lstr_t>());
+        }
+    }
+
+    #[test]
+    fn test_qvector_into_rust_vec() {
+        let mut vec = QVector::<u32>::new();
+
+        vec.extend_from_slice(&[1, 2, 3]);
+
+        // Taking ownership of the elements moves them out of the C buffer.
+        let owned: Vec<u32> = vec.into_iter().collect();
+
+        assert_eq!(owned, vec![1, 2, 3]);
     }
 
     // }}}

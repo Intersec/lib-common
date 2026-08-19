@@ -20,9 +20,10 @@
 
 use quote::format_ident;
 use std::collections::HashSet;
-use std::env;
 use std::mem;
 use syn::{Arm, Attribute, File as SynFile, Ident, ImplItemFn, Item, Type, Variant, parse_quote};
+
+use crate::get_crate_ident;
 
 // {{{ IOP annotation parsing
 
@@ -337,17 +338,7 @@ pub struct IopBindingsGenerator {
 impl IopBindingsGenerator {
     pub fn new() -> Self {
         Self {
-            libcommon_crate: {
-                // We must use "crate::" instead of "libcommon::" when building `libcommon`.
-                if env::var("CARGO_MANIFEST_DIR")
-                    .expect("missing $CARGO_MANIFEST_DIR")
-                    .ends_with("/rust/libcommon")
-                {
-                    format_ident!("crate")
-                } else {
-                    format_ident!("libcommon")
-                }
-            },
+            libcommon_crate: get_crate_ident("libcommon"),
             bindings: Vec::new(),
             unions: Vec::new(),
             unions_as_rust_unions: HashSet::new(),
