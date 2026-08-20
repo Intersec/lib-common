@@ -406,6 +406,16 @@ impl WafBuild {
                 continue;
             }
 
+            // The items of a dependency form the block list of this package, so they decide what
+            // bindgen generates here: the Rust items, and the static wrappers compiled next to
+            // them. Rerun when they change, otherwise a stale block list makes this package wrap
+            // a function that the dependency wraps too, and the two definitions collide when the
+            // final binary is linked.
+            //
+            // A missing file is not declared: cargo reruns a build script on every build when a
+            // declared path does not exist, and most dependencies generate no bindings at all.
+            println!("cargo::rerun-if-changed={}", dep_bind_json.display());
+
             // Read the dep binding items json file
             let dep_items: Vec<String> = read_json_file(&dep_bind_json)?;
 
