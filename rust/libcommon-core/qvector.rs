@@ -48,8 +48,19 @@
 //!
 //! # Interfacing with C
 //!
-//! Every generated `qv_t` type implements [`QVectorType`]. Use [`QVector::as_mut_c_ptr`] to pass a
-//! vector to a C function, and [`QVector::borrow_c_mut`] to manipulate a vector owned by C.
+//! Every generated `qv_t` type implements [`QVectorType`]. No conversion ever copies the elements:
+//! a `qv_t` and a [`QVector`] have the same layout, so only the descriptor moves.
+//!
+//! A C prototype takes a `qv_t` by pointer, so that is what the conversions take too. The element
+//! type comes from the pointer, so it never has to be named:
+//!
+//! - [`QVector::from_c_ptr`] and [`QVector::from_c_ptr_mut`] borrow a vector that C owns, through
+//!   a pointer. [`QVector::from_c_ptr_opt`] and [`QVector::from_c_ptr_mut_opt`] accept a null one.
+//! - [`QVector::borrow_c`] and [`QVector::borrow_c_mut`] do the same from a reference.
+//! - [`QVector::as_c_ptr`] and [`QVector::as_mut_c_ptr`] pass a vector to a C function.
+//! - [`QVector::take_from_c_ptr`] and [`QVector::move_into_c_ptr`] transfer the ownership of the
+//!   buffer through a pointer.
+//! - [`QVector::from_c`] and [`QVector::into_c`] do the same by value, for a `qv_t` held by value.
 
 use std::fmt;
 use std::iter::FusedIterator;
@@ -577,6 +588,214 @@ impl<'a, T> QVector<'a, T> {
         Q: QVectorType<Element = T>,
     {
         unsafe { &mut *ptr::from_mut(qv).cast::<Self>() }
+    }
+
+    /// Borrow a C vector through a pointer.
+    ///
+    /// The element type comes from the pointer, so it never has to be named:
+    ///
+    /// ```ignore
+    /// let vec = unsafe { QVector::from_c_ptr(qv) };  // qv: *const qv_lstr_t
+    /// ```
+    ///
+    /// The C vector keeps its ownership: the returned reference never drops it.
+    ///
+    /// # Panics
+    ///
+    /// `qv` is null. Use [`Self::from_c_ptr_opt`] for a pointer that can be null.
+    ///
+    /// # Safety
+    ///
+    /// `qv` must point to a valid C vector, whose first `len` elements are initialized, and which
+    /// outlives the returned reference.
+    #[inline]
+    pub unsafe fn from_c_ptr<'x, Q>(qv: *const Q) -> &'x Self
+    where
+        Q: QVectorType<Element = T>,
+    {
+        assert!(!qv.is_null(), "QVector::from_c_ptr called with NULL");
+        unsafe { &*qv.cast::<Self>() }
+    }
+
+    /// Borrow a C vector through a mutable pointer.
+    ///
+    /// The element type comes from the pointer, so it never has to be named:
+    ///
+    /// ```ignore
+    /// let vec = unsafe { QVector::from_c_ptr_mut(qv) };  // qv: *mut qv_lstr_t
+    /// ```
+    ///
+    /// The C vector keeps its ownership: the returned reference never drops it.
+    ///
+    /// # Panics
+    ///
+    /// `qv` is null. Use [`Self::from_c_ptr_mut_opt`] for a pointer that can be null.
+    ///
+    /// # Safety
+    ///
+    /// `qv` must point to a valid C vector, whose first `len` elements are initialized, and which
+    /// outlives the returned reference. Nothing else may use the vector meanwhile.
+    #[inline]
+    pub unsafe fn from_c_ptr_mut<'x, Q>(qv: *mut Q) -> &'x mut Self
+    where
+        Q: QVectorType<Element = T>,
+    {
+        assert!(!qv.is_null(), "QVector::from_c_ptr_mut called with NULL");
+        unsafe { &mut *qv.cast::<Self>() }
+    }
+
+    /// Borrow a C vector through a pointer that can be null.
+    ///
+    /// Return `None` if `qv` is null. Many C functions take a `nullable` vector to mean "do not
+    /// report this".
+    ///
+    /// # Safety
+    ///
+    /// See [`Self::from_c_ptr`], for a pointer that is not null.
+    #[inline]
+    pub unsafe fn from_c_ptr_opt<'x, Q>(qv: *const Q) -> Option<&'x Self>
+    where
+        Q: QVectorType<Element = T>,
+    {
+        if qv.is_null() {
+            return None;
+        }
+        Some(unsafe { &*qv.cast::<Self>() })
+    }
+
+    /// Borrow a C vector through a mutable pointer that can be null.
+    ///
+    /// Return `None` if `qv` is null.
+    ///
+    /// # Safety
+    ///
+    /// See [`Self::from_c_ptr_mut`], for a pointer that is not null.
+    #[inline]
+    pub unsafe fn from_c_ptr_mut_opt<'x, Q>(qv: *mut Q) -> Option<&'x mut Self>
+    where
+        Q: QVectorType<Element = T>,
+    {
+        if qv.is_null() {
+            return None;
+        }
+        Some(unsafe { &mut *qv.cast::<Self>() })
+    }
+
+    /// Take the ownership of a C vector, through a pointer.
+    ///
+    /// The elements are not copied: only the descriptor is moved. `*qv` is left empty, with its
+    /// memory pool untouched, so the C code can keep using it and its `qv_wipe()` has nothing left
+    /// to release.
+    ///
+    /// This is the C idiom `*dst = *src; qv_init(src);`.
+    ///
+    /// # Panics
+    ///
+    /// `qv` is null.
+    ///
+    /// # Safety
+    ///
+    /// `qv` must point to a valid C vector that the caller owns, whose first `len` elements are
+    /// initialized. Its memory pool must outlive `'a`.
+    pub unsafe fn take_from_c_ptr<Q>(qv: *mut Q) -> Self
+    where
+        Q: QVectorType<Element = T>,
+    {
+        assert!(!qv.is_null(), "QVector::take_from_c_ptr called with NULL");
+
+        let qv = qv.cast::<qvector_t>();
+        let taken = unsafe { qv.read() };
+
+        // Leave an empty vector behind, so that the C code cannot release the buffer a second
+        // time. Keep its memory pool: a vector on the `t_pool` must stay on the `t_pool`.
+        unsafe {
+            qv.write(qvector_t {
+                tab: ptr::null_mut(),
+                mp: taken.mp,
+                len: 0,
+                size: 0,
+            });
+        }
+
+        Self {
+            qv: taken,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Give the ownership of the vector to C, through a pointer.
+    ///
+    /// The elements are not copied: only the descriptor is moved. What `*qv` held is released
+    /// first, so nothing leaks. The C code becomes responsible for the buffer.
+    ///
+    /// # Panics
+    ///
+    /// `qv` is null.
+    ///
+    /// # Safety
+    ///
+    /// `qv` must point to a valid C vector that the caller owns, and must not alias this vector:
+    /// releasing what the target held would release the buffer being moved. Writing over an
+    /// uninitialized vector is undefined behaviour; use [`Self::into_c`] to build a value from
+    /// scratch.
+    pub unsafe fn move_into_c_ptr<Q>(self, qv: *mut Q)
+    where
+        Q: QVectorType<Element = T>,
+    {
+        assert!(!qv.is_null(), "QVector::move_into_c_ptr called with NULL");
+
+        // Release what the C vector held: its elements, then its buffer.
+        unsafe {
+            ptr::drop_in_place(qv.cast::<Self>());
+        }
+
+        // Do not run the destructor: the C vector now owns the buffer.
+        let this = ManuallyDrop::new(self);
+
+        unsafe {
+            qv.cast::<Self>().write(ptr::from_ref(&*this).read());
+        }
+    }
+
+    /// Take ownership of a C vector.
+    ///
+    /// The elements are not copied: only the descriptor is moved. The vector releases the buffer
+    /// that the C code allocated when it is dropped.
+    ///
+    /// # Safety
+    ///
+    /// The caller must own `qv`, and the C code must not use it any more. Its first `len` elements
+    /// must be initialized, and its memory pool must outlive `'a`.
+    #[inline]
+    pub unsafe fn from_c<Q>(qv: Q) -> Self
+    where
+        Q: QVectorType<Element = T>,
+    {
+        const { assert!(size_of::<Q>() == size_of::<Self>()) };
+        const { assert!(align_of::<Q>() == align_of::<Self>()) };
+
+        // Do not drop the C vector: this vector now owns the buffer.
+        let qv = ManuallyDrop::new(qv);
+
+        unsafe { ptr::from_ref(&*qv).cast::<Self>().read() }
+    }
+
+    /// Give ownership of the vector to C.
+    ///
+    /// The elements are not copied: only the descriptor is moved. The C code becomes responsible
+    /// for releasing the buffer, with `qv_wipe()`.
+    #[inline]
+    pub fn into_c<Q>(self) -> Q
+    where
+        Q: QVectorType<Element = T>,
+    {
+        const { assert!(size_of::<Q>() == size_of::<Self>()) };
+        const { assert!(align_of::<Q>() == align_of::<Self>()) };
+
+        // Do not run the destructor: the C vector now owns the buffer.
+        let this = ManuallyDrop::new(self);
+
+        unsafe { ptr::from_ref(&*this).cast::<Q>().read() }
     }
 
     // }}}
@@ -1834,6 +2053,260 @@ mod tests {
         unsafe {
             qvector_wipe(&raw mut c_vec.qv, size_of::<lstr_t>());
         }
+    }
+
+    /// Fill a vector the way a C function does: through a pointer.
+    ///
+    /// # Safety
+    ///
+    /// `qv` must point to a valid C vector.
+    unsafe extern "C" fn fill_like_c(qv: *mut qv_u32_t, count: u32) {
+        // The element type comes from the pointer: no type has to be named here.
+        let vec = unsafe { QVector::from_c_ptr_mut(qv) };
+
+        for i in 0..count {
+            vec.push(i);
+        }
+    }
+
+    /// Sum a vector the way a C function does: through a const pointer.
+    ///
+    /// # Safety
+    ///
+    /// `qv` must point to a valid C vector.
+    unsafe extern "C" fn sum_like_c(qv: *const qv_u32_t) -> u32 {
+        let vec = unsafe { QVector::from_c_ptr(qv) };
+
+        vec.iter().sum()
+    }
+
+    #[test]
+    fn test_borrow_through_a_pointer() {
+        let mut vec = QVector::<u32>::new();
+
+        // A C prototype takes a pointer, which is what the conversions take.
+        unsafe {
+            fill_like_c(vec.as_mut_c_ptr(), 5);
+        }
+
+        assert_eq!(vec.as_slice(), &[0, 1, 2, 3, 4]);
+        assert_eq!(unsafe { sum_like_c(vec.as_c_ptr()) }, 10);
+    }
+
+    #[test]
+    fn test_borrow_through_a_pointer_is_zero_copy() {
+        let mut vec = QVector::<u32>::new();
+
+        vec.extend_from_slice(&[1, 2, 3]);
+
+        let tab = vec.as_ptr();
+        let qv = vec.as_mut_c_ptr::<qv_u32_t>();
+
+        {
+            let borrowed = unsafe { QVector::from_c_ptr_mut(qv) };
+
+            assert!(ptr::eq(borrowed.as_ptr(), tab));
+            borrowed.push(4);
+        }
+
+        // Dropping the borrow must not release the buffer.
+        assert_eq!(vec.as_slice(), &[1, 2, 3, 4]);
+        assert!(ptr::eq(vec.as_ptr(), tab));
+    }
+
+    #[test]
+    fn test_take_ownership_through_a_pointer() {
+        let mut source = QVector::<u32>::new();
+
+        source.extend_from_slice(&[1, 2, 3]);
+
+        let tab = source.as_ptr();
+        let mut c_vec: qv_u32_t = source.into_c();
+
+        // Take the buffer over without copying it.
+        let taken = unsafe { QVector::take_from_c_ptr(&raw mut c_vec) };
+
+        assert!(ptr::eq(taken.as_ptr(), tab));
+        assert_eq!(taken.as_slice(), &[1, 2, 3]);
+
+        // The C vector is left empty, so wiping it releases nothing.
+        {
+            let left = unsafe { QVector::<u32>::from_c_ptr(&raw const c_vec) };
+
+            assert!(left.is_empty());
+            assert!(left.as_ptr().is_null());
+        }
+        unsafe {
+            qvector_wipe(
+                ptr::from_mut(&mut c_vec).cast::<qvector_t>(),
+                size_of::<u32>(),
+            );
+        }
+
+        // `taken` still owns the buffer, and releases it.
+        assert_eq!(taken.as_slice(), &[1, 2, 3]);
+    }
+
+    #[test]
+    fn test_take_ownership_keeps_the_memory_pool() {
+        let t_scope = TScope::new_scope();
+        let mut source = QVector::<u32>::t_new(&t_scope);
+
+        source.extend_from_slice(&[1, 2, 3]);
+
+        let mut c_vec: qv_u32_t = source.into_c();
+        let taken = unsafe { QVector::take_from_c_ptr(&raw mut c_vec) };
+
+        assert_eq!(taken.as_slice(), &[1, 2, 3]);
+
+        // The emptied vector keeps the `t_pool`, so the C code can keep filling it there.
+        let left = unsafe { QVector::<u32>::from_c_ptr_mut(&raw mut c_vec) };
+
+        assert!(ptr::eq(left.qv.mp, unsafe { t_pool() }));
+        left.push(9);
+        assert_eq!(left.as_slice(), &[9]);
+    }
+
+    #[test]
+    fn test_move_ownership_through_a_pointer() {
+        // A C out parameter: an initialized, empty vector.
+        let mut c_vec: qv_u32_t = QVector::<u32>::new().into_c();
+
+        let mut vec = QVector::<u32>::new();
+
+        vec.extend_from_slice(&[4, 5]);
+
+        let tab = vec.as_ptr();
+
+        // Hand the buffer over without copying it.
+        unsafe {
+            vec.move_into_c_ptr(&raw mut c_vec);
+        }
+
+        {
+            let moved = unsafe { QVector::<u32>::from_c_ptr(&raw const c_vec) };
+
+            assert!(ptr::eq(moved.as_ptr(), tab));
+            assert_eq!(moved.as_slice(), &[4, 5]);
+        }
+
+        // The C code owns the buffer now, so it releases it.
+        unsafe {
+            qvector_wipe(
+                ptr::from_mut(&mut c_vec).cast::<qvector_t>(),
+                size_of::<u32>(),
+            );
+        }
+    }
+
+    #[test]
+    fn test_move_ownership_replaces_the_previous_buffer() {
+        let mut target = QVector::<u32>::new();
+
+        target.extend_from_slice(&[1, 2, 3]);
+
+        let old_tab = target.as_ptr();
+        let mut c_vec: qv_u32_t = target.into_c();
+        let mut vec = QVector::<u32>::new();
+
+        vec.push(9);
+
+        let new_tab = vec.as_ptr();
+
+        assert!(!ptr::eq(old_tab, new_tab));
+
+        // The previous buffer is released; only a build with the address sanitizer can observe the
+        // release itself, so check that the buffer of `vec` took its place.
+        unsafe {
+            vec.move_into_c_ptr(&raw mut c_vec);
+        }
+
+        {
+            let moved = unsafe { QVector::<u32>::from_c_ptr(&raw const c_vec) };
+
+            assert!(ptr::eq(moved.as_ptr(), new_tab));
+            assert_eq!(moved.as_slice(), &[9]);
+        }
+
+        unsafe {
+            qvector_wipe(
+                ptr::from_mut(&mut c_vec).cast::<qvector_t>(),
+                size_of::<u32>(),
+            );
+        }
+    }
+
+    #[test]
+    fn test_ownership_round_trip_through_pointers() {
+        let mut vec = QVector::<u32>::new();
+
+        vec.extend_from_slice(&[1, 2, 3]);
+
+        let tab = vec.as_ptr();
+        let mut c_vec: qv_u32_t = QVector::<u32>::new().into_c();
+
+        unsafe {
+            vec.move_into_c_ptr(&raw mut c_vec);
+        }
+
+        let vec = unsafe { QVector::take_from_c_ptr(&raw mut c_vec) };
+
+        // The buffer never moved, and the C vector is empty again.
+        assert!(ptr::eq(vec.as_ptr(), tab));
+        assert_eq!(vec.as_slice(), &[1, 2, 3]);
+        assert!(unsafe { QVector::<u32>::from_c_ptr(&raw const c_vec) }.is_empty());
+    }
+
+    #[test]
+    fn test_borrow_a_null_pointer() {
+        let null: *mut qv_u32_t = ptr::null_mut();
+
+        assert!(unsafe { QVector::<u32>::from_c_ptr_opt(null.cast_const()) }.is_none());
+        assert!(unsafe { QVector::<u32>::from_c_ptr_mut_opt(null) }.is_none());
+    }
+
+    #[test]
+    #[should_panic(expected = "from_c_ptr_mut called with NULL")]
+    fn test_borrow_a_null_pointer_panics() {
+        let null: *mut qv_u32_t = ptr::null_mut();
+
+        let _vec = unsafe { QVector::<u32>::from_c_ptr_mut(null) };
+    }
+
+    #[test]
+    fn test_c_ownership_round_trip_is_zero_copy() {
+        let mut vec = QVector::<u32>::new();
+
+        vec.extend_from_slice(&[1, 2, 3]);
+
+        let tab = vec.as_ptr();
+
+        // Give the vector to C: the buffer is not copied, only the descriptor is moved.
+        let c_vec: qv_u32_t = vec.into_c();
+
+        assert!(ptr::eq(unsafe { c_vec.__bindgen_anon_1.tab }, tab));
+        assert_eq!(unsafe { c_vec.qv.len }, 3);
+
+        // Take it back: still the same buffer, and this vector releases it.
+        let vec = unsafe { QVector::<u32>::from_c(c_vec) };
+
+        assert!(ptr::eq(vec.as_ptr(), tab));
+        assert_eq!(vec.as_slice(), &[1, 2, 3]);
+    }
+
+    #[test]
+    fn test_take_ownership_of_a_c_filled_vector() {
+        let input = "one two three";
+        let c_vec = c_split(input);
+        let tab = unsafe { c_vec.__bindgen_anon_1.tab };
+
+        // Adopt the buffer that the C code allocated, without copying it.
+        let vec = unsafe { QVector::<lstr_t>::from_c(c_vec) };
+
+        assert!(ptr::eq(vec.as_ptr(), tab));
+        assert_eq!(to_strings(&vec), ["one", "two", "three"]);
+
+        // `vec` releases the buffer that the C code allocated.
     }
 
     #[test]
