@@ -330,6 +330,21 @@ size_t qhash_memory_footprint(const qhash_t *nonnull qh);
 #define CASTK_ID(key) (key)
 #define CASTK_UPTR(key) ((uintptr_t)(key))
 
+/* __##pfx##_types_t below names the types of a table. It generates no code:
+ * it is exported for the Rust bindings, and read by the binding generator in
+ * rust/waf-cargo-build/qhash_bindgen.rs, which would otherwise have to guess
+ * the types from the layout of the union and from the prototypes of the
+ * generated functions.
+ *
+ * Its fields are pointers because bindgen drops a typedef whose target is a
+ * pointer type, which a key or a value often is:
+ *
+ *  - key points to a stored key,
+ *  - ckey points to what the lookup and the insertion take, which is the key
+ *    itself for an integer or a pointer key, and a pointer to it for a key
+ *    held by value,
+ *  - value points to a value, and to void for a set.
+ */
 #define __QH_BASE(                                                           \
     sfx, pfx, name, ckey_t, key_t, val_t, _v_size, _v_align, hashK, castK    \
 )                                                                            \
@@ -337,6 +352,11 @@ size_t qhash_memory_footprint(const qhash_t *nonnull qh);
         qhash_t qh;                                                          \
         STRUCT_QHASH_T(key_t, val_t);                                        \
     } pfx##_t;                                                               \
+    typedef struct __##pfx##_types_t {                                       \
+        key_t *nonnull key;                                                  \
+        ckey_t *nonnull ckey;                                                \
+        val_t *nullable value;                                               \
+    } __##pfx##_types_t;                                                     \
                                                                              \
     __attr_unused__ static inline void pfx##_init(                           \
         pfx##_t *nonnull qh, bool chahes, mem_pool_t *nullable mp            \
