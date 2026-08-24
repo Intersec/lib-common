@@ -28,7 +28,7 @@ pub mod bindings {
 }
 
 // Reexport `libcommon_core` types.
-pub use libcommon_core::{farch, helpers, lstr, mem_stack, pstream, sb, thr};
+pub use libcommon_core::{farch, helpers, log, lstr, mem_stack, module, pstream, sb, thr};
 
 // Reexport `paste` so that downstream crates using iop macros don't need it as
 // a direct dependency.
