@@ -331,6 +331,13 @@ def run_cargo_test_for_pkg(pkg: str, argv: list[str]) -> None:
     if asan_symbolizer_path == '/srv/tools/bin/llvm-symbolizer':
         del env['ASAN_SYMBOLIZER_PATH']
 
+    # The sanitizers symbolize their reports with llvm-symbolizer, which asks
+    # every debuginfod server in $DEBUGINFOD_URLS for the debug info of every
+    # build id it does not know. The request has no timeout, and '-Z build-std'
+    # gives it many unknown build ids. Our binaries carry their own debug info,
+    # so drop the variable.
+    env.pop('DEBUGINFOD_URLS', None)
+
     cargo = subprocess.Popen(
         cmd,
         env=env,
