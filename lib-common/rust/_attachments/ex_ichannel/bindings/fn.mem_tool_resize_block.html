@@ -1,0 +1,36 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Indicate the resizing of a memory block previously allocated by a malloc()-like function."><title>mem_tool_resize_block in ex_ichannel::bindings - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="ex_ichannel" data-themes="" data-resource-suffix="" data-rustdoc-version="1.92.0 (ded5c06cf 2025-12-08)" data-channel="1.92.0" data-search-js="search-d69d8955.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-ce535bd0.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">mem_tool_resize_block</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../ex_ichannel/index.html">ex_<wbr>ichannel</a><span class="version">0.0.0</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"><h2><a href="index.html">In ex_<wbr>ichannel::<wbr>bindings</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">ex_ichannel</a>::<wbr><a href="index.html">bindings</a></div><h1>Function <span class="fn">mem_<wbr>tool_<wbr>resize_<wbr>block</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/libcommon_core/.waf-cargo-build/bindings.rs.html#9638-9643">Source</a> </span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn mem_tool_resize_block(
+    mem: <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.pointer.html">*const </a><a class="enum" href="https://doc.rust-lang.org/1.92.0/core/ffi/enum.c_void.html" title="enum core::ffi::c_void">c_void</a>,
+    old_len: <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.usize.html">usize</a>,
+    new_len: <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.usize.html">usize</a>,
+    rz: <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.usize.html">usize</a>,
+)</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Indicate the resizing of a memory block previously allocated by a
+malloc()-like function.</p>
+<p>This API allows to handle a basic realloc() behavior. It must be called
+after the allocation of extra memory (if any) and before the deallocation
+of old memory (if any).</p>
+<p>For Valgrind it has the good property of preserving the V-bits (tracking
+defined and undefined bytes) of the memory overlap between the old and the
+new block.</p>
+<p>Sadly, there is currently no API that allows to realloc() a block of memory
+with a change of memory address. In such case you need to freelike() the
+old address and malloclike() the new address, but you will loose the V-bits
+of the old memory in the operation.</p>
+<p>In case you really need such API, it’s implementable by using
+VALGRIND_GET_VBITS() on the old memory block and VALGRIND_SET_VBITS() on
+the new memory block. It’s not easy to map in the mem-tool model which is
+supposed to handle both Asan and Valgrind. Indeed this is completely
+specific to Valgrind and would require a set of dedicated API and
+structures since it cannot be done in a single function. You generally
+don’t have access to the old memory after a realloc()-like and you don’t
+have access to the new memory before the realloc()-like never. So one must
+first store the V-bits of the old memory, then perform the realloc() and
+then restore the V-bits.</p>
+<p>\param[in] mem      Memory block address.
+\param[in] old_len  Previous size of the memory block.
+\param[in] new_len  New size of the memory block.
+\param[in] rz       The size of the red zones added around the memory block
+(see &lt;valgrind.h&gt; for more details).
+\param[in] defined  Whether the memory should be considered defined or
+undefined.
+This parameter makes sense only with Valgrind.</p>
+</div></details></section></div></main></body></html>

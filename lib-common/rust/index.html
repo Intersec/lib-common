@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Rust in lib-common :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 3.1.2">
+    <link rel="stylesheet" href="../../_/css/site.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.4">
+    <link rel="icon" href="../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../..">Intersec lib-common Documentation</a>
+      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
+    </div>
+  </nav>
+</header>
+<div class="body">
+<div class="nav-container" data-component="lib-common" data-version="master">
+  <aside class="nav">
+    <div class="panels">
+<div class="nav-panel-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
+    <h3 class="title"><a href="../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../base/base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../base/mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../base/string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../base/containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../base/logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../base/modules.html">Modules</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../base/threads.html">Thread jobs</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../base/prometheus-client.html">Prometheus client</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/index.html">Introduction</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">IOP specification</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/spec/overview.html">Specification overview</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Language reference</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/lexical.html">Lexical structure</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/packages.html">Packages and imports</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/types.html">Types and fields</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/structs-unions-enums.html">Structs, unions and enums</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/classes.html">Classes and inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/attributes.html">Attributes and constraints</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/interfaces-modules.html">Interfaces, RPCs and modules</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/snmp.html">SNMP extensions</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/doc-comments.html">Documentation comments</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Serialization formats</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/wire-format.html">Binary wire format</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/json.html">JSON representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/yaml.html">YAML representation</a>
+  </li>
+  <li class="nav-item" data-depth="4">
+    <a class="nav-link" href="../iop/spec/xml.html">XML and SOAP representation</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/spec/compatibility.html">Backward-compatibility rules</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Reference implementation</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/impl/iopc.html">The iopc compiler</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/impl/iopc-backends.html">iopc backends: C, JSON, TypeScript, Python stubs</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/impl/c-mapping.html">C language mapping</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/impl/c-runtime.html">C runtime library</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/impl/ichannel.html">IChannel RPC protocol</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/impl/dso-iopsq.html">DSO plugins and IOP²</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/impl/bindings.html">Language bindings: IOPy, TypeScript and Rust</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/impl/iopy.html">IOPy: the Python binding</a>
+  </li>
+  <li class="nav-item" data-depth="3">
+    <a class="nav-link" href="../iop/impl/generators.html">OpenAPI, WSDL and SNMP MIB generation</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Rust</span>
+<ul class="nav-list">
+  <li class="nav-item is-current-page" data-depth="2">
+    <a class="nav-link" href="index.html">Rust in lib-common</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="rustdoc.html">API documentation of the crates</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="nav-panel-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <div class="title"><a href="../index.html">Lib-common Documentation</a></div>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+<main class="article">
+<div class="toolbar" role="navigation">
+<button class="nav-toggle"></button>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="../index.html">Lib-common Documentation</a></li>
+    <li>Rust</li>
+    <li><a href="index.html">Rust in lib-common</a></li>
+  </ul>
+</nav>
+</div>
+  <div class="content">
+<aside class="toc sidebar" data-title="Contents" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
+<article
+class="doc"
+>
+<h1 class="page">Rust in lib-common</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_rust_code_of_lib_common">Rust code of lib-common</a></li>
+<li><a href="#_build_system">Build system</a></li>
+<li><a href="#_further_reading">Further reading</a></li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph lead">
+<p><a href="rustdoc.html" class="xref page"><strong>API documentation of the crates</strong></a></p>
+</div>
+<div class="paragraph">
+<p>Along with C, Rust is the other compiled language supported in lib-common. The
+API documentation above is generated by
+<a href="https://doc.rust-lang.org/rustdoc/">rustdoc</a>, and is refreshed each time this
+website is built.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_rust_code_of_lib_common"><a class="anchor" href="#_rust_code_of_lib_common"></a>Rust code of lib-common</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The Rust code of lib-common lives in the <code>rust/</code> directory of the repository.
+It is not a rewrite of the C code but a wrapper around it: the C symbols are
+exported to Rust with <a href="https://docs.rs/bindgen/">bindgen</a>, and exposed in the
+<code>bindings</code> module of the crates that need them. As a consequence, most crates
+provide both a Rust API and the raw bindings of their C counterpart.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_build_system"><a class="anchor" href="#_build_system"></a>Build system</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><code>waf</code> remains the main build system: it schedules the build and calls <code>cargo</code>
+for the packages producing artifacts used by the C code (<code>staticlib</code>, <code>cdylib</code>
+and <code>bin</code>), while the packages producing only Rust libraries are entirely
+handled by <code>cargo</code>. All the packages belong to a single Cargo workspace,
+shared with the projects based on lib-common, and are listed in the <code>members</code>
+field of its <code>Cargo.toml</code>.</p>
+</div>
+<div class="paragraph">
+<p>Because the Rust code wraps the C one, the API documentation can only be
+generated after the C libraries have been built:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">waf configure
+waf
+cargo doc --workspace --no-deps</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_further_reading"><a class="anchor" href="#_further_reading"></a>Further reading</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://github.com/Intersec/lib-common/blob/master/README-rust.adoc"><code>README-rust.adoc</code></a>,
+at the root of the repository, details the interaction between <code>waf</code> and
+<code>cargo</code>.</p>
+</li>
+<li>
+<p><a href="https://techtalk.intersec.com/2026/03/rust-in-lib-common-part-1-integrating-rust-in-a-waf-based-c-build-system/">Rust
+in lib-common, part 1: integrating Rust in a waf-based C build system</a>, on the
+Intersec Tech Talk blog.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</article>
+  </div>
+</main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script id="site-script" src="../../_/js/site.js" data-ui-root-path="../../_"></script>
+<script async src="../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

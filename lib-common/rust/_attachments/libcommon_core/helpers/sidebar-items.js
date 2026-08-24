@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["slice_assume_init_mut","slice_from_nullable_raw_parts"]};

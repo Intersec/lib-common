@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["method_run_generic","method_run_int","method_run_ptr","method_run_void","module_get_name","module_is_initializing","module_is_loaded","module_is_shutting_down","module_provide","module_release","module_require"],"macro":["c_module","c_module_method"],"struct":["ModuleBuilder"],"trait":["IntoModuleResult","ModuleContext"]};

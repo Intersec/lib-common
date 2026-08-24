@@ -1,0 +1,31 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Split a stream based on a set of separator and an escape character."><title>ps_split_escaped in ichannel_rust_tests::bindings - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="ichannel_rust_tests" data-themes="" data-resource-suffix="" data-rustdoc-version="1.92.0 (ded5c06cf 2025-12-08)" data-channel="1.92.0" data-search-js="search-d69d8955.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-ce535bd0.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">ps_split_escaped</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../ichannel_rust_tests/index.html">ichannel_<wbr>rust_<wbr>tests</a><span class="version">0.0.0</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"><h2><a href="index.html">In ichannel_<wbr>rust_<wbr>tests::<wbr>bindings</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">ichannel_rust_tests</a>::<wbr><a href="index.html">bindings</a></div><h1>Function <span class="fn">ps_<wbr>split_<wbr>escaped</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/libcommon_core/.waf-cargo-build/bindings.rs.html#12577-12584">Source</a> </span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn ps_split_escaped(
+    mp: <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.pointer.html">*mut </a><a class="struct" href="struct.mem_pool_t.html" title="struct ichannel_rust_tests::bindings::mem_pool_t">mem_pool_t</a>,
+    ps: <a class="struct" href="struct.pstream_t.html" title="struct ichannel_rust_tests::bindings::pstream_t">pstream_t</a>,
+    sep: <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.pointer.html">*const </a><a class="struct" href="struct.ctype_desc_t.html" title="struct ichannel_rust_tests::bindings::ctype_desc_t">ctype_desc_t</a>,
+    escape: <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.i8.html">i8</a>,
+    flags: <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.u32.html">u32</a>,
+    res: <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.pointer.html">*mut </a><a class="union" href="union.qv_lstr_t.html" title="union ichannel_rust_tests::bindings::qv_lstr_t">qv_lstr_t</a>,
+)</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Split a stream based on a set of separator and an escape character.</p>
+<p>The line is parsed and</p>
+<ul>
+<li>Each time one of the separators is encountered, a new chunk is added
+in the result vector.</li>
+<li>Each time the escape character is encountered:
+<ul>
+<li>If the next character is a separator or an escape character. This
+character is added in the result vector.</li>
+<li>If not, the escape character and the next character are added in the
+result vector.</li>
+</ul>
+</li>
+</ul>
+<p>Strings appended are copied. The results may contain empty strings if
+flags == PS_SPLIT_SKIP_EMPTY.</p>
+<p>\param[in] mp The pool on which copied data is allocated (NULL to allocate
+data on the heap).
+\param[in] ps The input stream.
+\param[in] sep The separating characters.
+\param[in] esc An escape character.
+\param[in] flags Some flags (see the enum declaration above)
+\param[out] res A vector that get filled with the content of the ps.</p>
+</div></details></section></div></main></body></html>

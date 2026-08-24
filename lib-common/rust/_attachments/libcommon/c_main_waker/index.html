@@ -1,0 +1,39 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Waker infrastructure to drive a `Future` task to completion on the main C thread."><title>libcommon::c_main_waker - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="libcommon" data-themes="" data-resource-suffix="" data-rustdoc-version="1.92.0 (ded5c06cf 2025-12-08)" data-channel="1.92.0" data-search-js="search-d69d8955.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-ce535bd0.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module c_main_waker</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../libcommon/index.html">libcommon</a><span class="version">0.0.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module c_<wbr>main_<wbr>waker</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#overview" title="Overview">Overview</a></li><li><a href="#examples" title="Examples">Examples</a></li></ul><h3><a href="#functions">Module Items</a></h3><ul class="block"><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate libcommon</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">libcommon</a></div><h1>Module <span>c_<wbr>main_<wbr>waker</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/libcommon/c_main_waker.rs.html#19-284">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Waker infrastructure to drive a <code>Future</code> task to completion on the main C
+thread.</p>
+<p>This provides a <code>CMainWaker</code> to track the state of a <a href="https://doc.rust-lang.org/1.92.0/core/future/future/trait.Future.html" title="trait core::future::future::Future"><code>Future</code></a> <code>task</code> and
+(re)schedule it on the main C thread whenever it is woken.</p>
+<h2 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h2>
+<p><code>CMainWaker</code> implements the following methods:</p>
+<ul>
+<li><code>wake</code> / <code>wake_by_ref</code>: schedule the task to be polled on the main C
+thread when it is woken.</li>
+<li><code>poll_future</code>: poll the future task and drive it toward completion.</li>
+</ul>
+<h2 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h2>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code>
+module_require(tokio_get_module());
+
+<span class="kw">let </span>blocker = ElBlocker(<span class="kw">unsafe </span>{ el_blocker_register() });
+<span class="kw">let </span>future = <span class="kw">async </span>{
+    tokio_c_mod::spawn(<span class="kw">async </span>{
+        sleep(Duration::from_millis(<span class="number">10</span>)).<span class="kw">await</span>;
+    })
+    .<span class="kw">await
+    </span>.expect(<span class="string">"spawned tokio task panicked"</span>);
+};
+
+run_future(
+    future,
+    <span class="kw">move </span>|()| {
+        <span class="kw">let </span><span class="kw-2">mut </span>blocker = blocker;
+        <span class="kw">unsafe </span>{
+            el_unregister(<span class="kw-2">&amp;</span>raw <span class="kw-2">mut </span>blocker.<span class="number">0</span>);
+        }
+    }
+);
+<span class="kw">unsafe </span>{
+    el_loop();
+}
+
+module_release(tokio_get_module());</code></pre></div></div></details><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.run_future.html" title="fn libcommon::c_main_waker::run_future">run_<wbr>future</a></dt><dd>Create a <code>CMainWaker</code> object and schedule it to be polled on the
+main C thread.</dd></dl></section></div></main></body></html>

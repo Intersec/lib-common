@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["G"],"fn":["exiop_addr_resolve","exiop_client_initialize","exiop_client_on_event","exiop_ic_listento","exiop_on_accept","exiop_on_term","exiop_send_async_impl","exiop_send_impl","exiop_server_initialize","exiop_server_on_event","main","parse_options","usage"],"mod":["bindings"],"struct":["Global","Options","SendPtr"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["IcError"],"fn":["ic_query"],"mod":["bindings"],"struct":["ICQuery"]};

@@ -1,0 +1,31 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Wrapper to SSL_read that mimic read(2)."><title>ssl_read in ichannel::bindings - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="ichannel" data-themes="" data-resource-suffix="" data-rustdoc-version="1.92.0 (ded5c06cf 2025-12-08)" data-channel="1.92.0" data-search-js="search-d69d8955.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-ce535bd0.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">ssl_read</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../ichannel/index.html">ichannel</a><span class="version">0.0.0</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"><h2><a href="index.html">In ichannel::<wbr>bindings</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">ichannel</a>::<wbr><a href="index.html">bindings</a></div><h1>Function <span class="fn">ssl_<wbr>read</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/ichannel/home/pauss/dev/lib-common-github/rust/ichannel/.waf-cargo-build/bindings.rs.html#39881">Source</a> </span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn ssl_read(
+    ssl: <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.pointer.html">*mut </a><a class="type" href="type.SSL.html" title="type ichannel::bindings::SSL">SSL</a>,
+    buf: <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.pointer.html">*mut </a><a class="type" href="https://doc.rust-lang.org/1.92.0/std/os/raw/type.c_void.html" title="type std::os::raw::c_void">c_void</a>,
+    len: <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.usize.html">usize</a>,
+) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.isize.html">isize</a></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Wrapper to SSL_read that mimic read(2).</p>
+<p>\warning please carefully read what follows:</p>
+<p>Unlike read(), ssl_read() can actually read more data from the file
+descriptor than returned (the rest being bufferized internally by openssl,
+cf. SSL_pending()).</p>
+<p>This behavior can cause deadlocks in the following situation:</p>
+<ul>
+<li>the event loop selects the file descriptor for reading and calls the
+on_event applicative callback.</li>
+<li>this on_event callback calls ssl_read() with a given size; ssl_read()
+returns the given size, but for its internal purposes it actually reads
+all the data on the file descriptor.</li>
+<li>the process goes back in event loop.</li>
+</ul>
+<p>In this situation, some data was not read by the applicative code, but the
+file descriptor won’t ever be selected for reading by the event loop
+because there is no more data to read on the file descriptor -&gt; the data
+bufferized by openssl is lost.</p>
+<p>\ref ssl_sb_read is safe to use in this context as it workarounds the
+problem.</p>
+<p>For more information, cf. this discussion on the subject:
+https://openssl-dev.openssl.narkive.com/yBiaSl0l/non-blocking-ssl-read-api-problem</p>
+<p>\param[in]  ssl  The ssl context for which data must be received.
+\param[in]  buf  The buffer into which data are received.
+\param[in]  len  The maximum number of bytes to receive into <code>buf</code>.
+\return the number of bytes sent.</p>
+</div></details></section></div></main></body></html>

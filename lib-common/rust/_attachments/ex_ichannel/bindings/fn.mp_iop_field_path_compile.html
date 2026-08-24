@@ -1,0 +1,30 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Build an IOP field path on a specified memory pool."><title>mp_iop_field_path_compile in ex_ichannel::bindings - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="ex_ichannel" data-themes="" data-resource-suffix="" data-rustdoc-version="1.92.0 (ded5c06cf 2025-12-08)" data-channel="1.92.0" data-search-js="search-d69d8955.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-ce535bd0.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">mp_iop_field_path_compile</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../ex_ichannel/index.html">ex_<wbr>ichannel</a><span class="version">0.0.0</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"><h2><a href="index.html">In ex_<wbr>ichannel::<wbr>bindings</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">ex_ichannel</a>::<wbr><a href="index.html">bindings</a></div><h1>Function <span class="fn">mp_<wbr>iop_<wbr>field_<wbr>path_<wbr>compile</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/libcommon/.waf-cargo-build/bindings.rs.html#4661-4667">Source</a> </span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn mp_iop_field_path_compile(
+    mp: <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.pointer.html">*mut </a><a class="struct" href="struct.mem_pool_t.html" title="struct ex_ichannel::bindings::mem_pool_t">mem_pool_t</a>,
+    iop_env_ctx: <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.pointer.html">*const </a><a class="struct" href="struct.iop_env_ctx_t.html" title="struct ex_ichannel::bindings::iop_env_ctx_t">iop_env_ctx_t</a>,
+    st: <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.pointer.html">*const </a><a class="struct" href="struct.iop_struct_t.html" title="struct ex_ichannel::bindings::iop_struct_t">iop_struct_t</a>,
+    path: <a class="struct" href="struct.lstr_t.html" title="struct ex_ichannel::bindings::lstr_t">lstr_t</a>,
+    err: <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.pointer.html">*mut </a><a class="struct" href="struct.sb_t.html" title="struct ex_ichannel::bindings::sb_t">sb_t</a>,
+) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.pointer.html">*const </a><a class="struct" href="struct.iop_field_path_t.html" title="struct ex_ichannel::bindings::iop_field_path_t">iop_field_path_t</a></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Build an IOP field path on a specified memory pool.</p>
+<p>\param[in] mp          The memory pool on which the allocation will be
+done. Can be NULL to use malloc.
+\param[in] iop_env_ctx Snapshot of the IOP environment to compile against.
+Pin one via \ref iop_env_ctx_scope.
+\param[in] st          The structure type of the values containing the
+fields.
+\param[in] path    Full path to the field. Can contain:
+- Subfields: ‘foo.bar’.
+- Array indexes: ‘elts[0].v’, ‘a.array[-1]’ (negative indexes means
+that the array is indexed backward: the index ‘-1’ is for the last
+element).
+- Wildcard indexes: ‘elts[<em>].v’, ‘a.array[</em>]’, ‘structs[<em>].fields[</em>]’:
+can be used when wanting to iterate on all elements of an array.
+- Class name: ‘obj._class’: use the class fullname of the object
+specified by the field. Can only be used on class and at the end of the
+field path.
+- Array length: ‘array.len’: use the array length.
+- Explicit class cast: ‘item.&lt;iop.Type&gt;obj’: cast the object to the
+specified class before getting the field of the object.
+\param[out] err  The error description in case of error.
+\return The IOP field path allocated on the memory pool. NULL in case of
+error.</p>
+</div></details></section></div></main></body></html>

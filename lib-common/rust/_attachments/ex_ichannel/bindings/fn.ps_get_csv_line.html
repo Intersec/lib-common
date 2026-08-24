@@ -1,0 +1,36 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Read a CSV line from the pstream."><title>ps_get_csv_line in ex_ichannel::bindings - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="ex_ichannel" data-themes="" data-resource-suffix="" data-rustdoc-version="1.92.0 (ded5c06cf 2025-12-08)" data-channel="1.92.0" data-search-js="search-d69d8955.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-ce535bd0.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">ps_get_csv_line</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../ex_ichannel/index.html">ex_<wbr>ichannel</a><span class="version">0.0.0</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"><h2><a href="index.html">In ex_<wbr>ichannel::<wbr>bindings</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">ex_ichannel</a>::<wbr><a href="index.html">bindings</a></div><h1>Function <span class="fn">ps_<wbr>get_<wbr>csv_<wbr>line</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/libcommon_core/.waf-cargo-build/bindings.rs.html#12551-12558">Source</a> </span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn ps_get_csv_line(
+    mp: <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.pointer.html">*mut </a><a class="struct" href="struct.mem_pool_t.html" title="struct ex_ichannel::bindings::mem_pool_t">mem_pool_t</a>,
+    ps: <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.pointer.html">*mut </a><a class="struct" href="struct.pstream_t.html" title="struct ex_ichannel::bindings::pstream_t">pstream_t</a>,
+    sep: <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.i32.html">i32</a>,
+    quote: <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.i32.html">i32</a>,
+    fields: <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.pointer.html">*mut </a><a class="union" href="union.qv_lstr_t.html" title="union ex_ichannel::bindings::qv_lstr_t">qv_lstr_t</a>,
+    out_line: <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.pointer.html">*mut </a><a class="struct" href="struct.pstream_t.html" title="struct ex_ichannel::bindings::pstream_t">pstream_t</a>,
+) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.i32.html">i32</a></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Read a CSV line from the pstream.</p>
+<p>The CSV is parsed according to RFC 4180 with the following relaxed rules:</p>
+<ul>
+<li>TEXTDATA is set to all that is neither a separator nor \r or \n. Which
+mean a field can contain a quotation mark.</li>
+<li>\n alone is allowed as a line break.</li>
+</ul>
+<p>The result of the parsing is put in a vector of strings. Copies of data are
+avoided as much as possible, which mean that unquoted field will be direct
+references to the content of the pstream and thus will have the same
+lifetime. Fields that must be copied (those containing escaped quotation
+marks) are allocated in the provided memory pool (which may be NULL if you
+want allocations on the heap).</p>
+<p>In case of error, the pstream is placed where it encountered the error.
+In case of success it is placed at the beginning of the next line.</p>
+<p>\param[in] mp The pool on which data that must be copied is allocated (NULL
+to allocate data on the heap).
+\param[in,out] ps The stream from which data is read.
+\param[in] sep The separator (usually comma or semi-colon)
+\param[in] quote The quoting character (usually double quote), can be -1 if
+quoting is disallowed.
+\param[out] fields A vector that will be filled with the fields.
+\param[out] out_line A pstream which will contain the content of the read
+CSV line (without the final line break).
+Can be NULL if you are not interrested in this peace
+of information.
+\return -1 if the content of the pstream does not starts with a valid CSV
+record.</p>
+</div></details></section></div></main></body></html>

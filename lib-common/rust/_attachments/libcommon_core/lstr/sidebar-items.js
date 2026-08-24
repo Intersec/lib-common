@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["empty_bytes","empty_raw","empty_utf8","from_bytes","from_ptr","from_ptr_and_len","from_raw_bytes","from_raw_utf8","from_str","from_str_ptr_and_len","null_bytes","null_raw","null_utf8","raw"],"struct":["BorrowedBytesLstr","BorrowedUtf8Lstr","OwnedBytesLstr","OwnedUtf8Lstr","UnsafeBytesLstr","UnsafeUtf8Lstr"],"trait":["AsRawLstr"]};

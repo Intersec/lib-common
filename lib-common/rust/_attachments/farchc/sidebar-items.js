@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["FARCH_MAX_SYMBOL_SIZE","LZO_BUF_MEM_SIZE","PATHMAX"],"fn":["do_work","dump_and_obfuscate","dump_entries","dump_file","main","obfuscate_data","put_as_str","put_chunk","rand_range"],"struct":["FarchEntry","Opts"]};

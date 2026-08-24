@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["farch_get_data_persist","farch_get_filename","farch_get_module","farch_unarchive_persist","t_farch_get_data","t_farch_unarchive"],"struct":["farch_entry_t"]};

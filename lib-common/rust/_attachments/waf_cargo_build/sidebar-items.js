@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"attr":["bindings_mod"],"macro":["include_bindings"],"struct":["WafBuild"]};

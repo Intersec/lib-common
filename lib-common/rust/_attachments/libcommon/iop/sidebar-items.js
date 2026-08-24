@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Env","EnvCtx","GenericStructUnion","OwnedGeneric","OwnedStruct"],"trait":["Base","CEnum","CStruct","CStructUnion","CUnion","Enum","IopDup","OwnedIop","Struct","StructUnion","Union"],"type":["Owned","UnpackError"]};

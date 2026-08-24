@@ -211,6 +211,22 @@
   </li>
 </ul>
   </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Rust</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../rust/index.html">Rust in lib-common</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../../rust/rustdoc.html">API documentation of the crates</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
 </ul>
   </nav>
 </div>
@@ -714,6 +730,18 @@ other than optional-struct typed ones (note: unlike the new-field
 rule, the inserted-parent check grants <strong>no</strong> exemption to mandatory
 <code>void</code> fields). The matched ancestor pair is then checked recursively
 like a struct.</p>
+</li>
+<li>
+<p><strong>Moving a field between a class and an ancestor</strong>: moving a field <strong>up</strong>
+to an ancestor is OK in JSON/YAML/XML (a class serializes flat and the
+name lookup walks the ancestors, so the field is still reached), but a
+<strong>break in binary</strong> (each inheritance level is packed separately with
+tags scoped to its level, see <a href="wire-format.html" class="xref page">the wire
+format</a>) — the value is then silently lost. Moving a field <strong>down</strong> to a
+child is a break in both families. Consequently, promoting an optional
+or defaulted field to an ancestor is safe for a config-only structure
+(read from JSON/YAML) but must be avoided when the structure is also
+serialized in binary.</p>
 </li>
 <li>
 <p>Checking a class does not implicitly check its descendants — a

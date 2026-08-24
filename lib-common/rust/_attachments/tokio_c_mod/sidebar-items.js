@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["spawn","tokio_get_module"]};

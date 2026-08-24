@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["LOG_INHERITS","LOG_TRACE","LOG_UNDEFINED"],"enum":["LogLevel"],"struct":["LogFlags","Logger"]};
