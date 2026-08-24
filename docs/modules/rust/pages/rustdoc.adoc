@@ -1,0 +1,11 @@
+= Rust API documentation
+:page-role: embed-full-pane
+
+// The `embed-full-pane` role hides the title, the toc and the pagination of
+// the page: the documentation below uses the whole pane.
+
+++++
+<iframe class="embed-full-width"
+        src="_attachments/libcommon/index.html"
+        title="libcommon API documentation"></iframe>
+++++

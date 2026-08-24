@@ -19,7 +19,11 @@
 * xref:iop:library-c.adoc[IOP C library]
 
 [.boxed]
+=== Rust
+
+* xref:rust:index.adoc[Rust in lib-common]
+
+[.boxed]
 === More to come
 
 * We are actively improving this documentation
-

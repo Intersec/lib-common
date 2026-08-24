@@ -40,5 +40,9 @@ mem.fifo.data.*
 /.cargo/target
 .waf-cargo-build*
 
+# rust docs
+/docs/modules/rust/attachments/
+/docs/modules/rust/partials/crates.adoc
+
 # Claude code
 .claude

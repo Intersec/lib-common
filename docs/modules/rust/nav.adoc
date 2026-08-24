@@ -1,0 +1,3 @@
+* Rust
+** xref:index.adoc[Rust in lib-common]
+** xref:rustdoc.adoc[API documentation of the crates]
