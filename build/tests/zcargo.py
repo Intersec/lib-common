@@ -134,6 +134,14 @@ class TestSuite:
         'tests',
     )
 
+    status: str
+    passed: int
+    failed: int
+    ignored: int
+    measured: int
+    filtered: int
+    duration: float
+
     def __init__(self, name: str, planned: int) -> None:
         self.name = name
         self.planned = planned
