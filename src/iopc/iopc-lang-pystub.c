@@ -784,6 +784,10 @@ static qv_t(lstr) t_iopc_pystub_build_unambiguous_types(
         }
     }
 
+    /* Sort the types so that the output does not depend on the hash order of
+     * the map. */
+    qv_qsort(&res, &lstr_cmp_p);
+
     return res;
 }
 
@@ -1593,6 +1597,14 @@ int iopc_do_pystub(iopc_pkg_t *pkg, const char *outdir)
     SB_1k(py_mod);
     SB_8k(buf);
     char path[PATH_MAX];
+    char default_dir[PATH_MAX];
+
+    if (!outdir) {
+        /* Like the other languages, default to the directory of the source
+         * package. */
+        RETHROW(path_dirname(default_dir, sizeof(default_dir), pkg->file));
+        outdir = default_dir;
+    }
 
     /* Unlike other languages output, put all the stubs in the same output
      * directory without hierarchy. */
