@@ -84,6 +84,9 @@ line-length = 78
 target-version = "py311"
 builtins = ["_iop_registry"]
 extend-include = ["**/wscript", "**/wscript_build"]
+# IOP reference files (for iopc tests): generated iopc output, not
+# hand-written Python.
+extend-exclude = ["tests/iopc/testsuite/*.pyi"]
 
 [tool.ruff.lint]
 # Enable experimental preview rules
@@ -278,5 +281,13 @@ matches = "**/wscript_build"
 
 [tool.pyrefly.sub_config.errors]
 unbound-name = "ignore"
+
+# IOP reference files (for iopc tests): generated iopc output. They import
+# other test packages that have no generated stubs.
+[[tool.pyrefly.sub_config]]
+matches = "tests/iopc/testsuite/*.pyi"
+
+[tool.pyrefly.sub_config.errors]
+missing-import = "ignore"
 
 # }}}

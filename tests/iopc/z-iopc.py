@@ -232,6 +232,18 @@ class IopcTest(z.TestCase):
             0,
         )
 
+    def check_ref_pystub(self, pkg: str) -> None:
+        # The pystub backend writes `<pkg>__iop.pyi`, not `<pkg>.iop.<lang>`.
+        gen_file = pkg + '__iop.pyi'
+        ref_file = pkg + '.ref.pyi'
+        # Uncomment these lines to update the ref files after changing iopc
+        # output
+        # import shutil
+        # shutil.copyfile(gen_file, ref_file)
+        self.assertEqual(
+            subprocess.call(['diff', '-u', gen_file, ref_file]), 0
+        )
+
     def check_code_gen_lang(
         self, pkg_name: str, pkg_path: str, lang: str
     ) -> None:
@@ -245,6 +257,8 @@ class IopcTest(z.TestCase):
             subprocess.call(['rm', '-f', pkg_path + '.iop.json'])
         if 'typescript' in lang:
             subprocess.call(['rm', '-f', pkg_path + '.iop.ts'])
+        if 'pystub' in lang:
+            subprocess.call(['rm', '-f', pkg_path + '__iop.pyi'])
 
         # Run iopc
         self.run_iopc_pass(pkg_name + '.iop', lang)
@@ -259,6 +273,8 @@ class IopcTest(z.TestCase):
             self.check_ref(pkg_path, 'json')
         if 'typescript' in lang:
             self.check_ref(pkg_path, 'ts')
+        if 'pystub' in lang:
+            self.check_ref_pystub(pkg_path)
 
     def check_code_gen_all_langs(self, pkg_name: str) -> None:
         pkg_path = os.path.join(TEST_PATH, pkg_name)
@@ -287,6 +303,15 @@ class IopcTest(z.TestCase):
             'C,json,typescript',
             'json,C,typescript',
             'json,typescript,C',
+            # pystub combinations are added by hand: the full permutation
+            # set of 4 languages is too large.
+            'pystub',
+            'C,pystub',
+            'pystub,C',
+            'json,pystub',
+            'pystub,json',
+            'C,typescript,json,pystub',
+            'pystub,typescript,C,json',
         ]
 
         # Check the code generation of all lang combinations
