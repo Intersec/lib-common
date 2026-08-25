@@ -283,11 +283,10 @@ class IopcTest(z.TestCase):
             'C,typescript,json',
             'typescript,C,json',
             'typescript,json,C',
-            # XXX: json before typescript does not generate stable .ts files
-            # 'json,typescript',
-            # 'C,json,typescript',
-            # 'json,C,typescript',
-            # 'json,typescript,C',
+            'json,typescript',
+            'C,json,typescript',
+            'json,C,typescript',
+            'json,typescript,C',
         ]
 
         # Check the code generation of all lang combinations

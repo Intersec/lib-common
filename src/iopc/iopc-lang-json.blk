@@ -857,6 +857,20 @@ static void iopc_fun_struct_dump_json(
     }
 }
 
+/* Sort a copy: the other language backends share the AST vector of the
+ * RPCs, which the typer left sorted by tag. */
+static void
+t_iopc_json_funs_by_pos(const iopc_iface_t *iface, qv_t(iopc_fun) *funs)
+{
+    t_qv_init(funs, iface->funs.len);
+    qv_extend_tab(funs, &iface->funs);
+    qv_sort(iopc_fun)(
+        funs, ^int(iopc_fun_t *const *f1, iopc_fun_t *const *f2) {
+            return (*f1)->pos - (*f2)->pos;
+        }
+    );
+}
+
 static void iopc_iface_dump_json(
     const iopc_write_buf_t *wbuf, const char *pkg_name,
     const iopc_iface_t *iface
@@ -864,7 +878,9 @@ static void iopc_iface_dump_json(
 {
     t_scope;
     const char *fbase = t_fmt("%s.%s", pkg_name, iface->name);
+    qv_t(iopc_fun) funs;
 
+    t_iopc_json_funs_by_pos(iface, &funs);
     dump_name(wbuf, pkg_name, iface->name);
     iopc_dox_dump_json(wbuf, iface);
 
@@ -887,7 +903,7 @@ static void iopc_iface_dump_json(
     dump_gen_attrs(wbuf, &iface->attrs);
 
     LINE_START_OBJ_CKEY(wbuf, "rpcs");
-    tab_for_each_entry(fun, &iface->funs) {
+    tab_for_each_entry(fun, &funs) {
         LINE_START_OBJ_KEY(wbuf, fun->name);
         iopc_dox_dump_json(wbuf, fun);
 
@@ -1016,12 +1032,11 @@ int iopc_do_json(iopc_pkg_t *pkg, const char *outdir)
     }
 
     tab_for_each_entry(iface, &pkg->ifaces) {
-        qv_sort(iopc_fun)(
-            &iface->funs, ^int(iopc_fun_t *const *f1, iopc_fun_t *const *f2) {
-                return (*f1)->pos - (*f2)->pos;
-            }
-        );
-        tab_for_each_entry(fun, &iface->funs) {
+        t_scope;
+        qv_t(iopc_fun) funs;
+
+        t_iopc_json_funs_by_pos(iface, &funs);
+        tab_for_each_entry(fun, &funs) {
             t_scope;
             const char *fbase = t_fmt("%s.%s", pkg_name, iface->name);
 
