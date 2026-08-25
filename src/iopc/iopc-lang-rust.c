@@ -31,6 +31,8 @@ typedef struct iopc_rust_decl_t {
     int lmin;
 } iopc_rust_decl_t;
 
+enum iopc_rust_gen_runtime_tests { BPACK, JPACK, YPACK };
+
 qvector_t(iopc_rust_decl, iopc_rust_decl_t);
 qm_khptr_t(iopc_struct_visited, iopc_struct_t, bool);
 
@@ -159,12 +161,19 @@ static bool iopc_rust_is_variable_name_valid(const iopc_field_t *f)
     return qh_find(lstr, &_G.rust_keywords, &field_name) < 0;
 }
 
+/* A class declaring no field of its own is not empty as soon as one of
+ * its ancestors declares one: the inherited fields are dumped into it.
+ * Only a class walks `extends`: an SNMP object reuses it to name its
+ * SNMP root, which resolves to no structure at all. */
 static bool iopc_rust_is_struct_empty(const iopc_struct_t *st)
 {
     tab_for_each_entry(f, &st->fields_in_c_struct_order) {
         if (iopc_rust_field_is_emitted(f)) {
             return false;
         }
+    }
+    if (st->type == STRUCT_TYPE_CLASS && st->extends.len > 0) {
+        return iopc_rust_is_struct_empty(st->extends.tab[0]->st);
     }
     return true;
 }
@@ -176,6 +185,120 @@ static bool iopc_rust_needs_lifetime(iopc_struct_t *st)
             ? iopc_rust_class_chain_needs_lifetime(st)
             : iopc_rust_struct_needs_lifetime(st)
     );
+}
+
+static bool iopc_rust_struct_has_constructible_fields(const iopc_struct_t *st)
+{
+    tab_for_each_entry(f, &st->fields) {
+        if (f->repeat != IOP_R_REQUIRED) {
+            continue;
+        }
+        if (iopc_rust_field_is_ref_like(f) ||
+            (f->kind == IOP_T_UNION && !f->is_ref))
+        {
+            return false;
+        }
+        if (f->kind == IOP_T_STRUCT && f->struct_def &&
+            !iopc_rust_struct_has_constructible_fields(f->struct_def))
+        {
+            return false;
+        }
+    }
+    if (st->type == STRUCT_TYPE_CLASS && st->extends.len > 0) {
+        return iopc_rust_struct_has_constructible_fields(
+            st->extends.tab[0]->st
+        );
+    }
+    return true;
+}
+
+static bool iopc_rust_field_has_risky_constraint(const iopc_field_t *f)
+{
+    /* A field carrying one of these constraints cannot be trusted to
+     * satisfy it once default-constructed: `new()` does not reliably
+     * reflect declared default values for every field (e.g. a `@nonZero`
+     * field with a non-zero `= ...` default has still been observed
+     * reading back as 0 for inherited class fields), and a plain
+     * required field with no default is zero/empty-initialized by C,
+     * which violates most of these outright. `@maxLength` alone is not
+     * in this list: an empty/zero value always satisfies an upper
+     * bound, default or not. */
+    const iopc_attr_id_t risky_constraint_attrs[] = {
+        IOPC_ATTR_NON_EMPTY, IOPC_ATTR_NON_ZERO,   IOPC_ATTR_MIN,
+        IOPC_ATTR_MAX,       IOPC_ATTR_MIN_LENGTH, IOPC_ATTR_LENGTH,
+        IOPC_ATTR_PATTERN,
+    };
+
+    if (f->repeat == IOP_R_OPTIONAL) {
+        /* iop_check_constraints_desc skips unset optional fields, and a
+         * freshly default-constructed object always leaves them unset. */
+        return false;
+    }
+    if (f->repeat == IOP_R_REPEATED) {
+        /* An empty array vacuously satisfies per-element constraints;
+         * only a minimum element count can break it. */
+        tab_for_each_entry(attr, &f->attrs) {
+            if (attr->desc->id == IOPC_ATTR_MIN_OCCURS) {
+                return true;
+            }
+        }
+        return false;
+    }
+    tab_for_each_entry(attr, &f->attrs) {
+        carray_for_each_ptr(id, risky_constraint_attrs) {
+            if (*id == attr->desc->id) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+static bool iopc_rust_struct_has_safe_constraints(const iopc_struct_t *st)
+{
+    tab_for_each_entry(f, &st->fields) {
+        if (iopc_rust_field_has_risky_constraint(f)) {
+            return false;
+        }
+        if (f->repeat == IOP_R_REQUIRED && f->kind == IOP_T_STRUCT &&
+            !f->is_ref && f->struct_def &&
+            !iopc_rust_struct_has_safe_constraints(f->struct_def))
+        {
+            return false;
+        }
+    }
+
+    if (st->type == STRUCT_TYPE_CLASS && st->extends.len > 0) {
+        return iopc_rust_struct_has_safe_constraints(st->extends.tab[0]->st);
+    }
+
+    return true;
+}
+
+/* A `@private` class is not meant to leave the process. The YAML packer
+ * asserts on it unconditionally; the binary and JSON ones only do so
+ * when the caller asks to skip private classes, which these tests do
+ * not. */
+static bool iopc_rust_is_private(const iopc_struct_t *st)
+{
+    tab_for_each_entry(attr, &st->attrs) {
+        if (attr->desc->id == IOPC_ATTR_PRIVATE) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool iopc_rust_should_gen_packs_test(const iopc_struct_t *st)
+{
+    if (st->type == STRUCT_TYPE_UNION ||
+        (st->type == STRUCT_TYPE_CLASS && st->is_abstract))
+    {
+        return false;
+    }
+    return !iopc_rust_is_struct_empty(st) &&
+           iopc_rust_struct_has_safe_constraints(st) &&
+           iopc_rust_struct_has_constructible_fields(st);
 }
 
 /* }}} */
@@ -224,6 +347,11 @@ static const char *iopc_rust_add_lifetime(iopc_struct_t *st)
     return iopc_rust_needs_lifetime(st) ? "<'a>" : "";
 }
 
+static const char *iopc_rust_add_static_lifetime(iopc_struct_t *st)
+{
+    return iopc_rust_needs_lifetime(st) ? "<'static>" : "";
+}
+
 static int
 iopc_rust_decl_cmp(const iopc_rust_decl_t *a, const iopc_rust_decl_t *b)
 {
@@ -254,15 +382,23 @@ static unsigned int iopc_rust_base_offset(const iopc_struct_t *st)
     }
 }
 
-static lstr_t t_iopc_rust_join(
-    const iopc_pkg_t *pkg, const char *type_name, const char *suffix
-)
+/* The Rust module name of `pkg`: its dotted IOP path joined with `_`,
+ * since a dot is not valid in a Rust identifier. */
+static lstr_t t_iopc_rust_mod_name(const iopc_pkg_t *pkg)
 {
     SB_1k(buf);
 
     iopc_path_join(pkg->name, "_", &buf);
-    sb_addf(&buf, "__%s__%s", t_cstring(type_name), suffix);
     return t_lstr_dup(LSTR_SB_V(&buf));
+}
+
+static lstr_t t_iopc_rust_join(
+    const iopc_pkg_t *pkg, const char *type_name, const char *suffix
+)
+{
+    lstr_t mod_name = t_iopc_rust_mod_name(pkg);
+
+    return t_lstr_fmt("%pL__%s__%s", &mod_name, t_cstring(type_name), suffix);
 }
 
 static lstr_t t_format_symbol_name(
@@ -740,10 +876,34 @@ static void
 iopc_rust_dump_class(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
 {
     t_scope;
-    lstr_t st_name =
-        t_format_type_name(pkg, st, st->name, iopc_rust_add_lifetime(st));
+    const char *lt = iopc_rust_add_lifetime(st);
+    lstr_t st_name = t_format_type_name(pkg, st, st->name, lt);
     unsigned int offset = iopc_rust_base_offset(st);
     unsigned int align = iopc_rust_base_alignment(st);
+    bool parent_needs_lt;
+    lstr_t parent_type, st_name_impl;
+    const char *impl_lt;
+
+    if (st->extends.len > 0) {
+        const iopc_extends_t *extends = st->extends.tab[0];
+        iopc_struct_t *parent = extends->st;
+
+        parent_needs_lt = iopc_rust_needs_lifetime(parent);
+        /* The parent may live in another package: name it from its own,
+         * not from the one being dumped. */
+        parent_type = t_format_type_name(
+            extends->pkg ?: pkg, parent, parent->name,
+            iopc_rust_add_lifetime(parent)
+        );
+    } else {
+        parent_needs_lt = false;
+        parent_type = LSTR("Self");
+    }
+
+    impl_lt = parent_needs_lt ? lt : "";
+    st_name_impl = (*lt && !parent_needs_lt)
+                       ? t_format_type_name(pkg, st, st->name, "<'_>")
+                       : st_name;
 
     sb_addf(
         buf,
@@ -755,6 +915,15 @@ iopc_rust_dump_class(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
     );
     iopc_rust_inheritance_dump(buf, st, &offset, &align);
     iopc_rust_dump_fields(buf, st);
+
+    /* Trait implementation for CDESC and runtime testing. */
+    sb_addf(
+        buf,
+        "impl%s Class for %pL {\n"
+        "    type Parent = %pL;\n"
+        "}\n",
+        impl_lt, &st_name_impl, &parent_type
+    );
     iopc_rust_dump_struct_desc(buf, pkg, st->name);
     iopc_rust_dump_needed_traits_for_structs(buf, pkg, st);
     sb_adds(buf, "\n");
@@ -804,9 +973,10 @@ static void iopc_rust_write_tests(
 )
 {
     t_scope;
-    const char *lt = iopc_rust_needs_lifetime(st) ? "<'static>" : "";
     lstr_t type_name = t_format_type_name(pkg, st, st->name, "");
-    lstr_t type_ref = t_format_type_name(pkg, st, st->name, lt);
+    lstr_t type_ref = t_format_type_name(
+        pkg, st, st->name, iopc_rust_add_static_lifetime(st)
+    );
     unsigned int offset = iopc_rust_base_offset(st);
     unsigned int align = iopc_rust_base_alignment(st);
     unsigned int max_size = 0;
@@ -861,10 +1031,114 @@ static void iopc_rust_write_tests(
     sb_adds(buf_tests, "    }\n\n");
 }
 
+static void iopc_rust_pack(
+    sb_t *buf_tests, lstr_t fn_name, lstr_t st_name, lstr_t upper_type,
+    int runtime_test_type
+)
+{
+    lstr_t rust_pack_fn, rust_unpack_fn, rust_test_fn;
+
+    switch (runtime_test_type) {
+    case BPACK: {
+        rust_test_fn = LSTR("bpack");
+        rust_pack_fn = LSTR("bin");
+        rust_unpack_fn = LSTR("bunpack");
+        break;
+    }
+    case JPACK: {
+        rust_test_fn = LSTR("jpack");
+        rust_pack_fn = LSTR("json");
+        rust_unpack_fn = LSTR("junpack");
+        break;
+    }
+    case YPACK: {
+        rust_test_fn = LSTR("ypack");
+        rust_pack_fn = LSTR("yaml");
+        rust_unpack_fn = LSTR("yunpack");
+        break;
+    }
+    default:
+        e_panic("unexpected pack test type %d", runtime_test_type);
+    }
+
+    sb_addf(
+        buf_tests,
+        "\n    #[test]\n"
+        "    #[allow(nonstandard_style, dead_code)]\n"
+        "    fn %pL__%pL_roundtrip() {\n"
+        "        let t_scope = TScope::new_scope();\n"
+        "        let obj = %pL::new();\n"
+        "        let %pL1 = obj.as_%pL();\n"
+        "        let unpacked = %pL__ENV.t_%pL_desc(&t_scope, "
+        "&%pL1, %pL::CDESC, 0)\n"
+        "                                    .unwrap_or_else(|e| "
+        "panic!(\"%pL "
+        "roundtrip failed for %pL: {e}\"));\n"
+        "        assert_eq!(%pL1, unpacked.as_%pL());\n"
+        "    }\n",
+        &fn_name, &rust_test_fn, &st_name, &rust_test_fn, &rust_pack_fn,
+        &upper_type, &rust_unpack_fn, &rust_test_fn, &st_name, &rust_test_fn,
+        &st_name, &rust_test_fn, &rust_pack_fn
+    );
+}
+
+static void iopc_rust_write_packs_tests(
+    sb_t *buf_tests, const iopc_pkg_t *pkg, iopc_struct_t *st
+)
+{
+    t_scope;
+    lstr_t fn_name = t_format_symbol_name(pkg, st->name, "test", "");
+    lstr_t st_name = t_format_type_name(pkg, st, st->name, "");
+    lstr_t upper_pkg_type = t_lstr_ascii_toupper(t_iopc_rust_mod_name(pkg));
+
+    iopc_rust_pack(buf_tests, fn_name, st_name, upper_pkg_type, BPACK);
+    iopc_rust_pack(buf_tests, fn_name, st_name, upper_pkg_type, JPACK);
+    if (!iopc_rust_is_private(st)) {
+        iopc_rust_pack(buf_tests, fn_name, st_name, upper_pkg_type, YPACK);
+    }
+}
+
+static void iopc_rust_upcast_downcast_test(
+    sb_t *buf_tests, const iopc_pkg_t *pkg, iopc_struct_t *child,
+    const iopc_extends_t *extends
+)
+{
+    t_scope;
+    lstr_t fn_name = t_format_type_name(pkg, child, child->name, "");
+    lstr_t child_type = t_format_type_name(
+        pkg, child, child->name, iopc_rust_add_static_lifetime(child)
+    );
+    lstr_t parent_type = t_format_type_name(
+        extends->pkg ?: pkg, extends->st, extends->st->name,
+        iopc_rust_add_static_lifetime(extends->st)
+    );
+
+    sb_addf(
+        buf_tests,
+        "\n    #[test]\n"
+        "    #[allow(nonstandard_style, dead_code)]\n"
+        "    fn %pL__cast_test() {\n"
+        "        use ::std::ptr;\n"
+        "\n"
+        "        let child = %pL::new();\n"
+        "        let parent_ref = child.upcast();\n"
+        "        assert!(ptr::eq(parent_ref, (&raw const "
+        "child).cast::<%pL>()));\n"
+        "        assert!(ptr::eq(\n"
+        "            parent_ref.downcast::<%pL>().expect(\"downcast should "
+        "succeed\"),\n"
+        "            &raw const child,\n"
+        "        ));\n"
+        "    }\n\n",
+        &fn_name, &fn_name, &parent_type, &child_type
+    );
+}
+
 /* }}} */
 /* {{{ Main functions */
 
-static void iopc_init_rust_dump(const iopc_pkg_t *pkg)
+static void
+iopc_init_rust_dump(const iopc_pkg_t *pkg, sb_t *buf_tests, bool gen_tests)
 {
     iopc_rust_decl_t decl;
 
@@ -873,6 +1147,35 @@ static void iopc_init_rust_dump(const iopc_pkg_t *pkg)
     qh_init(lstr, &_G.rust_keywords);
     carray_for_each_entry(word, rust_keywords_g) {
         IGNORE(expect(qh_add(lstr, &_G.rust_keywords, &word) >= 0));
+    }
+
+    if (gen_tests) {
+        t_scope;
+        lstr_t mod_name = t_iopc_rust_mod_name(pkg);
+        lstr_t upper_mod = t_lstr_ascii_toupper(mod_name);
+
+        sb_addf(
+            buf_tests,
+            "#[cfg(test)]\n"
+            "#[rustfmt::skip]\n"
+            "pub mod test_%pL {\n"
+            "\n\n    unsafe extern \"C\" {\n"
+            "        pub static %pL__pkg: iop_pkg_t;\n"
+            "    }\n\n"
+            "    use crate::%pL_iop_module::*;\n"
+            "    pub use crate::bindings::iop_pkg_t;\n"
+            "    use libcommon::iop::{Env, EnvCtx};\n"
+            "    use libcommon::mem_stack::TScope;\n"
+            "    use std::sync::LazyLock;\n\n"
+            "    #[allow(dead_code, unused_imports)]\n"
+            "    static %pL__ENV: LazyLock<EnvCtx> = LazyLock::new(|| "
+            "{\n"
+            "        let mut env = Env::new();\n"
+            "        env.register_packages(&[&raw const %pL__pkg]);\n"
+            "        env.acquire()\n"
+            "    });\n\n\n",
+            &mod_name, &mod_name, &mod_name, &upper_mod, &mod_name
+        );
     }
 
     tab_for_each_entry(st, &pkg->structs) {
@@ -913,7 +1216,7 @@ int iopc_do_rust(iopc_pkg_t *pkg, const char *outdir)
     if (iopc_set_path(outdir, pkg, ".iop.rs", sizeof(path), path, true) < 0) {
         throw_error("cannot build output path for `%s`: %m", outdir);
     }
-    iopc_init_rust_dump(pkg);
+    iopc_init_rust_dump(pkg, &buf_tests, gen_tests);
 
     tab_for_each_entry(d, &_G.decls) {
         if (d.basic_iop_types == IOP_T_ENUM) {
@@ -929,7 +1232,19 @@ int iopc_do_rust(iopc_pkg_t *pkg, const char *outdir)
             iopc_rust_dump_class(&buf_types, pkg, d.st);
         }
         if (gen_tests) {
+            bool gen_packs_test = iopc_rust_should_gen_packs_test(d.st);
+
             iopc_rust_write_tests(&buf_tests, pkg, d.st);
+
+            if (gen_packs_test) {
+                iopc_rust_write_packs_tests(&buf_tests, pkg, d.st);
+            }
+
+            if (d.st->extends.len > 0 && gen_packs_test) {
+                iopc_rust_upcast_downcast_test(
+                    &buf_tests, pkg, d.st, d.st->extends.tab[0]
+                );
+            }
         }
     }
 
@@ -938,21 +1253,8 @@ int iopc_do_rust(iopc_pkg_t *pkg, const char *outdir)
 
     iopc_rust_wipe_dump();
     if (gen_tests) {
-        SB_1k(mod_buf);
         char tests_path[PATH_MAX];
-        lstr_t mod_name;
 
-        iopc_path_join(pkg->name, "_", &mod_buf);
-        mod_name = LSTR_SB_V(&mod_buf);
-
-        sb_prependf(
-            &buf_tests,
-            "#[cfg(test)]\n"
-            "#[rustfmt::skip]\n"
-            "pub mod test_%pL {\n"
-            "    use crate::%pL_iop_module::*;\n",
-            &mod_name, &mod_name
-        );
         sb_adds(&buf_tests, "}\n");
         if (iopc_set_path(
                 outdir, pkg, ".iop.tests.rs", sizeof(tests_path), tests_path,

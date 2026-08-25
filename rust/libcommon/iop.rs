@@ -83,17 +83,19 @@
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::os::raw::c_void;
-use std::ptr;
-use std::slice::from_raw_parts;
+use std::{ptr, slice::from_raw_parts};
 
 use crate::bindings::{
-    iop_enum_t, iop_env_ctx_acquire, iop_env_ctx_dup, iop_env_ctx_get_struct, iop_env_ctx_guard_t,
-    iop_env_ctx_release, iop_env_delete, iop_env_new, iop_env_t, iop_init_desc, iop_pkg_t,
+    iop_bunpack_ptr_flags, iop_enum_t, iop_env_ctx_acquire, iop_env_ctx_dup,
+    iop_env_ctx_get_struct, iop_env_ctx_guard_t, iop_env_ctx_release, iop_env_delete, iop_env_new,
+    iop_env_t, iop_get_err_lstr, iop_init_desc, iop_obj_is_a_desc, iop_pkg_t,
     iop_register_packages, iop_rpc_t, iop_sb_jpack, iop_struct_t, mp_iop_dup_desc_sz,
-    t_iop_junpack_ptr_ps, t_iop_new_desc, t_iop_sb_ypack, t_iop_yunpack_ptr_ps,
+    t_iop_bpack_struct_flags, t_iop_junpack_ptr_ps, t_iop_new_desc, t_iop_sb_ypack,
+    t_iop_yunpack_ptr_ps, t_pool,
 };
 
 use crate::lstr;
+use crate::lstr::OwnedBytesLstr;
 use crate::mem_stack::TScope;
 use crate::pstream::pstream_t;
 use libcommon_core::bindings::{mem_pool_libc, mp_ifree};
@@ -173,6 +175,15 @@ pub trait StructUnion: Base {
 
         sb.to_string()
     }
+
+    /// Export the IOP struct or union as BINARY using `iop_bpack` from C
+    fn as_bin(&self) -> OwnedBytesLstr {
+        let _t_scope = TScope::new_scope();
+        unsafe {
+            let packed = t_iop_bpack_struct_flags(self.get_cdesc(), self.get_cptr(), 0);
+            lstr::from_raw_bytes(packed).dup_bytes()
+        }
+    }
 }
 
 /// IOP trait implemented by a C IOP struct or union.
@@ -205,6 +216,29 @@ pub trait CStructUnion: Sized + StructUnion {
             let ptr = t_iop_new_desc(Self::CDESC);
             &*(ptr as *const Self)
         }
+    }
+}
+
+pub trait Class: CStructUnion {
+    type Parent: CStructUnion;
+
+    fn upcast(&self) -> &Self::Parent {
+        unsafe { &*(ptr::from_ref(self).cast::<Self::Parent>()) }
+    }
+    fn upcast_mut(&mut self) -> &mut Self::Parent {
+        unsafe { &mut *(ptr::from_mut(self).cast::<Self::Parent>()) }
+    }
+    fn downcast<T: Class>(&self) -> Option<&T> {
+        self.is_a::<T>()
+            .then(|| unsafe { &*(ptr::from_ref(self).cast::<T>()) })
+    }
+    fn downcast_mut<T: Class>(&mut self) -> Option<&mut T> {
+        self.is_a::<T>()
+            .then(|| unsafe { &mut *(ptr::from_mut(self).cast::<T>()) })
+    }
+
+    fn is_a<T: Class>(&self) -> bool {
+        unsafe { iop_obj_is_a_desc(self.get_cptr(), T::CDESC) }
     }
 }
 
@@ -630,7 +664,6 @@ impl EnvCtx {
     /// # Errors
     ///
     /// The content cannot be unpacked a valid IOP JSON for the given type.
-    ///
     /// # Panics
     ///
     /// - In debug builds, `t_scope` is not the innermost `t_scope` currently active.
@@ -713,6 +746,35 @@ impl EnvCtx {
                 .to_owned());
         }
 
+        Ok(GenericStructUnion::new_with_ctx(st, out, self.clone()))
+    }
+
+    /// Unpack an IOP struct or union as BIN on a `t_scope`.
+    ///
+    /// # Errors
+    ///
+    /// The content is not a valid IOP BIN payload for the given type.
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
+    pub fn t_bunpack_desc<'t>(
+        &self,
+        _t_scope: &'t TScope,
+        content: &'t [u8],
+        st: *const iop_struct_t,
+        flags: u32,
+    ) -> Result<GenericStructUnion<'t>, UnpackError> {
+        let ps = pstream_t::from(content);
+        let mut out = ptr::null_mut();
+
+        let res =
+            unsafe { iop_bunpack_ptr_flags(t_pool(), self.guard.ctx, st, &raw mut out, ps, flags) };
+
+        if res < 0 {
+            /* Unlike its JSON and YAML counterparts, this one takes no
+             * error buffer and reports through the IOP error. */
+            let err = unsafe { lstr::from_raw_utf8(iop_get_err_lstr()).as_str() };
+
+            return Err(err.to_owned());
+        }
         Ok(GenericStructUnion::new_with_ctx(st, out, self.clone()))
     }
 }

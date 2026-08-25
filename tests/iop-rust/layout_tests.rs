@@ -26,20 +26,13 @@
 
 /// This macro exists to include needed .iop.rs file using paste crate (which
 /// leads to modifying Cargo.toml). This macro is used by another one,
-/// `condensed_tests` who create a dedicated module for every IOP files we want
-/// to include (described as a slice of identifier which correspond to the
-/// IOP file name stript of its extension).
+/// `condensed_tests`, who creates a dedicated module for every IOP file we
+/// want to include (described as a slice of identifiers which correspond to
+/// the IOP file name stripped of its extension).
 ///
-/// In fact, as shown bellow, when wanting to integrate <pkg> tests when doing
-/// cargo test, you need to specify the identifier and the plausible
-/// inclusions of other IOP by putting [ident] next to the <pkg> :
-///
-/// For example, if we want to test only core.iop we will do :
-///     `condensed_tests!(core []);`
-///
-///
-/// This implies the developer need to look at the IOP description and
-/// manually annotate if there's any inclusions !
+/// `deps` re-exports every package listed before this one in
+/// `condensed_tests!`'s flat list (see below), so cross-package field types
+/// resolve without having to spell out per-package dependencies by hand.
 macro_rules! iop_module {
     ($pkg:ident, [$($dep:ident),* $(,)?]) => {
         paste::paste! {
@@ -52,11 +45,27 @@ macro_rules! iop_module {
     };
 }
 
+/// Declares one `<pkg>_iop_module` per package in `pkgs`, in order, each one
+/// automatically re-exporting every package declared before it (so a later
+/// package's IOP-generated code can reference an earlier one's types without
+/// any manual dependency annotation) -- plus the aggregated
+/// `#[cfg(test)] mod condensed_tests` pulling in every package's generated
+/// `<pkg>.iop.tests.rs`, when `IOPC_RUST_GEN_TESTS` was set for the `waf`
+/// build that produced them.
+///
+/// List packages in dependency order (a package that `import`s another must
+/// come after it). To test only `core.iop`, the call below would just list
+/// that one identifier.
+///
+/// `build.rs` parses the call below with a plain text scan to learn which
+/// native IOP packages to blocklist from bindgen / splice in natively -- so
+/// it is the single source of truth for both. Keep it as a bare, bracketed,
+/// comma-separated list of identifiers (no nested `[]`, no macro calls
+/// inside, and no other call to this macro anywhere else in this file) so
+/// that scan keeps working.
 macro_rules! condensed_tests {
-    ([$($pkg:ident [$($dep:ident),* $(,)?]),* $(,)?]) => {
-        $(
-            iop_module!($pkg, [$($dep),*]);
-        )*
+    ([$($pkg:ident),* $(,)?]) => {
+        condensed_tests!(@modules []; $($pkg),*);
 
         #[cfg(iop_rust_gen_tests)]
         pub mod condensed_tests {
@@ -65,15 +74,15 @@ macro_rules! condensed_tests {
             )*
         }
     };
+    (@modules [$($seen:ident),*]; $head:ident $(, $tail:ident)*) => {
+        iop_module!($head, [$($seen),*]);
+        condensed_tests!(@modules [$($seen,)* $head]; $($tail),*);
+    };
+    (@modules [$($seen:ident),*];) => {};
 }
 
 
 condensed_tests!([
-    core [],
-    ic [],
-    yaml [],
-    tstiop_void_type [],
-    tstiop_inheritance [],
-    tstiop_backward_compat_deleted_struct_1 [],
-    tstiop [tstiop_void_type],
+    core, ic, yaml, tstiop_void_type, tstiop_backward_compat_deleted_struct_1, tstiop,
+    tstiop_inheritance,
 ]);

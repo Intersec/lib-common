@@ -520,10 +520,10 @@ impl WafBuild {
     ///     Ok(builder)
     /// })?;
     /// ```
-    pub fn generate_bindings(
-        &self,
-        cb: fn(Builder) -> Result<Builder, Box<dyn error::Error>>,
-    ) -> Result<(), Box<dyn error::Error>> {
+    pub fn generate_bindings<F>(&self, cb: F) -> Result<(), Box<dyn error::Error>>
+    where
+        F: FnOnce(Builder) -> Result<Builder, Box<dyn error::Error>>,
+    {
         // Build the different paths
         let binding_gen_file = self.pkg_waf_build_dir.join("bindings.rs");
         let binding_items_file = self.pkg_waf_build_dir.join("bindings_items.json");
