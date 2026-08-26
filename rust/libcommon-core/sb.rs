@@ -97,6 +97,9 @@ macro_rules! SB_8k {
 
 /// Create a `Sb` with a 1KB buffer on the `TScope`.
 ///
+/// The `TScope` must stay the innermost `t_scope` for as long as the `Sb` may grow, see
+/// [`Sb::new_from_tscope`].
+///
 /// # Example
 ///
 /// ```no_run
@@ -116,6 +119,9 @@ macro_rules! t_SB_1k {
 // {{{ Macro t_SB_8k
 
 /// Create a `Sb` with a 8KB buffer on the `TScope`.
+///
+/// The `TScope` must stay the innermost `t_scope` for as long as the `Sb` may grow, see
+/// [`Sb::new_from_tscope`].
 ///
 /// # Example
 ///
@@ -165,6 +171,16 @@ impl<'a> Sb<'a> {
     /// Create a new string buffer on the `TScope`.
     ///
     /// This constructor variant creates a buffer of length `len` on the `TScope`.
+    ///
+    /// The `Sb` is backed by the `t_pool`, so it grows on the innermost `t_scope` at the time of
+    /// the growth, not necessarily on `t_scope`. As for a C `t_sb_init()`, `t_scope` must stay
+    /// the innermost `t_scope` for as long as the `Sb` may grow: grown under a nested `t_scope`,
+    /// the buffer would be released by that scope before the end of `t_scope`. Only the initial
+    /// allocation is checked, see [`TScope::assert_innermost`].
+    ///
+    /// # Panics
+    ///
+    /// In debug builds, `t_scope` is not the innermost `t_scope` currently active.
     pub fn new_from_tscope<'t>(t_scope: &'t TScope, len: usize) -> Sb<'t> {
         let buffer = t_scope.t_new_slice_uninit::<u8>(len);
 
