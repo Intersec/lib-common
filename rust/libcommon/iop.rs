@@ -131,7 +131,13 @@ pub trait CStructUnion: Sized + StructUnion {
     /// Create a new IOP struct or union on a `t_scope`.
     ///
     /// The returned reference is only valid within the `t_scope` lifetime.
-    fn t_new(_t_scope: &TScope) -> &Self {
+    ///
+    /// # Panics
+    ///
+    /// In debug builds, `t_scope` is not the innermost `t_scope` currently active.
+    fn t_new(t_scope: &TScope) -> &Self {
+        t_scope.assert_innermost();
+
         unsafe {
             let ptr = t_iop_new_desc(Self::CDESC);
             &*(ptr as *const Self)
@@ -549,15 +555,18 @@ impl EnvCtx {
     ///
     /// # Panics
     ///
-    /// The error returned from `t_iop_junpack_ptr_ps()` is not a valid UTF-8.
+    /// - In debug builds, `t_scope` is not the innermost `t_scope` currently active.
+    /// - The error returned from `t_iop_junpack_ptr_ps()` is not a valid UTF-8.
     #[allow(clippy::not_unsafe_ptr_arg_deref, clippy::unwrap_in_result)]
     pub fn t_junpack_desc<'t>(
         &self,
-        _t_scope: &'t TScope,
+        t_scope: &'t TScope,
         content: &str,
         st: *const iop_struct_t,
         flags: u32,
     ) -> Result<GenericStructUnion<'t>, UnpackError> {
+        t_scope.assert_innermost();
+
         SB_1k!(err);
         let mut ps = pstream_t::from(content);
         let mut out = ptr::null_mut();
@@ -591,15 +600,18 @@ impl EnvCtx {
     ///
     /// # Panics
     ///
-    /// The error returned from `t_iop_yunpack_ptr_ps()` is not a valid UTF-8.
+    /// - In debug builds, `t_scope` is not the innermost `t_scope` currently active.
+    /// - The error returned from `t_iop_yunpack_ptr_ps()` is not a valid UTF-8.
     #[allow(clippy::not_unsafe_ptr_arg_deref, clippy::unwrap_in_result)]
     pub fn t_yunpack_desc<'t>(
         &self,
-        _t_scope: &'t TScope,
+        t_scope: &'t TScope,
         content: &str,
         st: *const iop_struct_t,
         flags: u32,
     ) -> Result<GenericStructUnion<'t>, UnpackError> {
+        t_scope.assert_innermost();
+
         SB_1k!(err);
         let mut ps = pstream_t::from(content);
         let mut out = ptr::null_mut();
