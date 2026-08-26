@@ -283,9 +283,15 @@ macro_rules! lstr_unsafe_bytes_impl {
             }
 
             /// Duplicate on the given `TScope` as bytes.
+            ///
+            /// # Panics
+            ///
+            /// In debug builds, `t_scope` is not the innermost `t_scope` currently active.
             #[must_use]
             #[inline]
-            pub fn t_dup_bytes<'t>(&self, _t_scope: &'t TScope) -> BorrowedBytesLstr<'t> {
+            pub fn t_dup_bytes<'t>(&self, t_scope: &'t TScope) -> BorrowedBytesLstr<'t> {
+                t_scope.assert_innermost();
+
                 BorrowedBytesLstr {
                     lstr: unsafe { t_lstr_dup(self.lstr) },
                     _phantom: PhantomData,
@@ -355,9 +361,15 @@ macro_rules! lstr_unsafe_utf8_impl {
             }
 
             /// Duplicate on the given `TScope` as UTF-8.
+            ///
+            /// # Panics
+            ///
+            /// In debug builds, `t_scope` is not the innermost `t_scope` currently active.
             #[must_use]
             #[inline]
-            pub fn t_dup_utf8<'t>(&self, _t_scope: &'t TScope) -> BorrowedUtf8Lstr<'t> {
+            pub fn t_dup_utf8<'t>(&self, t_scope: &'t TScope) -> BorrowedUtf8Lstr<'t> {
+                t_scope.assert_innermost();
+
                 BorrowedUtf8Lstr {
                     lstr: unsafe { t_lstr_dup(self.lstr) },
                     _phantom: PhantomData,
@@ -374,9 +386,15 @@ macro_rules! lstr_unsafe_utf8_impl {
             }
 
             /// Duplicate on the given `TScope` as bytes.
+            ///
+            /// # Panics
+            ///
+            /// In debug builds, `t_scope` is not the innermost `t_scope` currently active.
             #[must_use]
             #[inline]
-            pub fn t_dup_bytes<'t>(&self, _t_scope: &'t TScope) -> BorrowedBytesLstr<'t> {
+            pub fn t_dup_bytes<'t>(&self, t_scope: &'t TScope) -> BorrowedBytesLstr<'t> {
+                t_scope.assert_innermost();
+
                 BorrowedBytesLstr {
                     lstr: unsafe { t_lstr_dup(self.lstr) },
                     _phantom: PhantomData,
@@ -430,9 +448,15 @@ macro_rules! lstr_safe_bytes_impl {
             }
 
             /// Duplicate on the given `TScope`.
+            ///
+            /// # Panics
+            ///
+            /// In debug builds, `t_scope` is not the innermost `t_scope` currently active.
             #[must_use]
             #[inline]
-            pub fn t_dup<'t>(&self, _t_scope: &'t TScope) -> BorrowedBytesLstr<'t> {
+            pub fn t_dup<'t>(&self, t_scope: &'t TScope) -> BorrowedBytesLstr<'t> {
+                t_scope.assert_innermost();
+
                 BorrowedBytesLstr {
                     lstr: unsafe { t_lstr_dup(self.lstr) },
                     _phantom: PhantomData,
@@ -508,9 +532,15 @@ macro_rules! lstr_safe_utf8_impl {
             }
 
             /// Duplicate on the given `TScope`.
+            ///
+            /// # Panics
+            ///
+            /// In debug builds, `t_scope` is not the innermost `t_scope` currently active.
             #[must_use]
             #[inline]
-            pub fn t_dup<'t>(&self, _t_scope: &'t TScope) -> BorrowedUtf8Lstr<'t> {
+            pub fn t_dup<'t>(&self, t_scope: &'t TScope) -> BorrowedUtf8Lstr<'t> {
+                t_scope.assert_innermost();
+
                 BorrowedUtf8Lstr {
                     lstr: unsafe { t_lstr_dup(self.lstr) },
                     _phantom: PhantomData,
