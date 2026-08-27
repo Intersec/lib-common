@@ -27,20 +27,26 @@
 //! either the result or the [`IcError`] resulting from the query.
 
 use crate::{
-    bindings::{__ic_msg_build, ic__ic_status__t, ic_is_local, iop_rpc_t},
-    ic__ic_status__t::{IC_MSG_EXN, IC_MSG_OK},
+    bindings::{__ic_msg_build, ic__ic_status__e, ic_is_local, iop_rpc_t},
+    ic__ic_status__e::{IC_MSG_EXN, IC_MSG_OK},
 };
 use libcommon::iop::{IopDup, Owned, OwnedIop as _};
 use libcommon::run_callback::{Callback, CallbackFut, run_callback};
 use std::ffi::c_void;
 use std::ptr::{read, write};
 
-use bindings::{__ic_query, ic__hdr__t, ic_msg_new, ic_msg_t, ichannel_t};
+use bindings::{__ic_query, ic__hdr__t_raw, ic_msg_new, ic_msg_t, ichannel_t};
 
 #[waf_cargo_build::bindings_mod]
 pub mod bindings {
     pub use libcommon::bindings::*;
     waf_cargo_build::include_bindings!();
+
+    // XXX Temporary: this crate still gets its IOP types from bindgen, so
+    // bridge the names of the native `*.iop.rs` generation onto them. Both
+    // aliases go away with the commit that includes the native files.
+    pub use ic__ic_status__t as ic__ic_status__e;
+    pub type ic__hdr__t_raw = ic__hdr__t;
 }
 
 // {{{ ICQuery builder
@@ -51,8 +57,8 @@ pub struct ICQuery<A: IopDup> {
     pub ic: *mut ichannel_t,
     /// The [`iop_rpc_t`] descriptor.
     pub rpc: *const iop_rpc_t,
-    /// The optional query [`ic__hdr__t`]. Null means none.
-    pub hdr: *const ic__hdr__t,
+    /// The optional query [`ic__hdr__t_raw`]. Null means none.
+    pub hdr: *const ic__hdr__t_raw,
     /// An owned deep copy of the IOP arg struct, packed when the query is launched.
     pub args: Owned<A>,
     /// The RPC command id (`IOP_RPC_CMD`), stored in the `cmd` field of [`ic_msg_t`].
@@ -76,7 +82,7 @@ pub enum IcError<E> {
     Exn(E),
     /// A status failure with no modeled exception - e.g. timeout, canceled,
     /// or unimplemented RPC (any status other than OK/EXN).
-    Status(ic__ic_status__t),
+    Status(ic__ic_status__e),
 }
 
 // }}}
@@ -111,7 +117,7 @@ pub enum IcError<E> {
 unsafe extern "C" fn cb_func<R, E>(
     _ic: *mut ichannel_t,
     msg_p: *mut ic_msg_t,
-    status: ic__ic_status__t,
+    status: ic__ic_status__e,
     res: *mut c_void,
     exn: *mut c_void,
 ) where
@@ -144,7 +150,7 @@ unsafe extern "C" fn cb_func<R, E>(
 fn ic_prepare_msg<R, E>(
     msg: &mut ic_msg_t,
     rpc: *const iop_rpc_t,
-    hdr: *const ic__hdr__t,
+    hdr: *const ic__hdr__t_raw,
     cb: Callback<Result<Owned<R>, IcError<Owned<E>>>>,
     cmd: i32,
 ) where

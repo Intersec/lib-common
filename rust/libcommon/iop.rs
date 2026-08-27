@@ -89,8 +89,8 @@ use std::slice::from_raw_parts;
 use crate::bindings::{
     iop_enum_t, iop_env_ctx_acquire, iop_env_ctx_dup, iop_env_ctx_get_struct, iop_env_ctx_guard_t,
     iop_env_ctx_release, iop_env_delete, iop_env_new, iop_env_t, iop_init_desc, iop_pkg_t,
-    iop_register_packages, iop_sb_jpack, iop_struct_t, mp_iop_dup_desc_sz, t_iop_junpack_ptr_ps,
-    t_iop_new_desc, t_iop_sb_ypack, t_iop_yunpack_ptr_ps,
+    iop_register_packages, iop_rpc_t, iop_sb_jpack, iop_struct_t, mp_iop_dup_desc_sz,
+    t_iop_junpack_ptr_ps, t_iop_new_desc, t_iop_sb_ypack, t_iop_yunpack_ptr_ps,
 };
 
 use crate::lstr;
@@ -498,6 +498,21 @@ impl<T: CStructUnion> IopDup for T {
 }
 
 // }}}
+// }}}
+// {{{ RPCs
+
+/*
+   Module -> Interface -> RPC
+*/
+
+pub trait IopRPC: Base {
+    type Arg<'a>: 'a;
+    type Res<'a>: 'a;
+    type Exn<'a>: 'a;
+
+    fn rpc_desc() -> *const iop_rpc_t;
+}
+
 // }}}
 // {{{ IOP Env
 
