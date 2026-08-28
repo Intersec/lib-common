@@ -8128,12 +8128,24 @@ static int iop_field_check_backward_compat(
     }
 
     /* Check repeated -> non-repeated: always forbidden
-     * (except when replacing with non-repeated void)
-     * (non-repeated -> repeated is always supported) */
+     * (except when replacing with non-repeated void) */
     if (f1->repeat == IOP_R_REPEATED && f2->repeat != IOP_R_REPEATED &&
         f2->type != IOP_T_VOID)
     {
         iop_compat_add_err(ctx, "was repeated and is not anymore");
+        return -1;
+    }
+
+    /* Check non-repeated -> repeated: only supported in binary.
+     *
+     * The old contents stay readable, so the change is technically
+     * compatible. But it breaks the old scripts that use the new definition
+     * and manipulate the field as a scalar. For this reason, we consider the
+     * change backward-incompatible in JSON and YAML. */
+    if (flags & IOP_COMPAT_JSON && f1->repeat != IOP_R_REPEATED &&
+        f2->repeat == IOP_R_REPEATED)
+    {
+        iop_compat_add_err(ctx, "is repeated and was not before");
         return -1;
     }
 

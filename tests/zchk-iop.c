@@ -9730,10 +9730,30 @@ Z_GROUP_EXPORT(iop) {
             field_repeated.a.tab = a_arr;
             field_repeated.a.len = countof(a_arr);
 
-            /* Not repeated -> repeated. */
+            /* Not repeated -> repeated.
+             *
+             * Only allowed in binary. The JSON/YAML unpackers do read the old
+             * single value, but the packers now write an array, which breaks
+             * the readers of the output. This is why no object is given to
+             * T_KO here: the junpack of the old value does succeed. */
             T_OK(basic_struct, &basic_struct, field_repeated, IOP_COMPAT_BIN);
+            T_KO(
+                basic_struct, NULL, field_repeated, IOP_COMPAT_JSON,
+                "field `a`:" INDENT_LVL1 "is repeated and was not before"
+            );
+            T_KO(
+                basic_struct, NULL, field_repeated, IOP_COMPAT_ALL,
+                "field `a`:" INDENT_LVL1 "is repeated and was not before"
+            );
+
+            /* The check can be bypassed on the struct. */
             T_OK(
-                basic_struct, &basic_struct, field_repeated, IOP_COMPAT_JSON
+                basic_struct, &basic_struct, field_repeated_json_ignored,
+                IOP_COMPAT_JSON
+            );
+            T_OK(
+                basic_struct, NULL, field_repeated_json_ignored,
+                IOP_COMPAT_ALL
             );
 
             /* Repeated -> not repeated. */

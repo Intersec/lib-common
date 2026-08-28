@@ -561,4 +561,11 @@ struct RootStruct {
     NewRequiredFieldIgnored s;
 };
 
+/* Same as FieldRepeated, with the JSON checks bypassed. */
+@(compat:ignoreJson, true)
+struct FieldRepeatedJsonIgnored {
+    bool[] a;
+    string b;
+};
+
 /* }}} */
