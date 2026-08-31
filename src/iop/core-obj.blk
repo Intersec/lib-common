@@ -100,6 +100,36 @@ void _iop_core_obj_map_register_cls(
     );
 }
 
+void _iop_core_obj_map_unregister_cls(
+    iop_core_obj_map_t *nonnull map, const iop_struct_t *nonnull iop_cls
+)
+{
+    int32_t pos;
+
+    e_assert(
+        panic, iop_struct_is_class(iop_cls), "the IOP struct is not a class"
+    );
+    pos = qm_del_key(iop_core_cls, &map->qm, iop_cls->class_attrs->class_id);
+    e_assert(
+        panic, pos >= 0, "class for `%pL' is not registered",
+        &iop_cls->fullname
+    );
+}
+
+int iop_core_obj_map_check_empty(
+    const iop_core_obj_map_t *nonnull map, sb_t *nonnull err
+)
+{
+    if (qm_len(iop_core_cls, &map->qm) == 0) {
+        return 0;
+    }
+    sb_sets(err, "core object class(es) still registered:");
+    qm_for_each_value(iop_core_cls, cls, &map->qm) {
+        sb_addf(err, " `%s'", cls->type_name);
+    }
+    return -1;
+}
+
 void iop_core_obj_map_for_each_cls(
     const iop_core_obj_map_t *nonnull map, on_core_obj_cls_b nonnull on_cls
 )

@@ -38,6 +38,9 @@
  *
  * The mapping between core object and IOP classes is written into a map of
  * type \p iop_core_obj_map_t, that should be created and deleted by the user.
+ * Mappings can be removed with \p iop_core_obj_unregister; when the map
+ * owner wants register/unregister symmetry, it can check that the map is
+ * empty with \p iop_core_obj_map_check_empty before deleting it.
  *
  * When declaring a class with \p OBJ_CLASS, the prefix of the associated IOP
  * class should be given after the regular arguments of \p OBJ_CLASS.
@@ -72,6 +75,27 @@ void _iop_core_obj_map_register_cls(
     const object_class_t *nonnull cls
 );
 
+/** Remove the mapping between a core object class and an IOP class.
+ *
+ * The mapping must have been registered with
+ * \p _iop_core_obj_map_register_cls: this function panics if the IOP class
+ * is not registered.
+ */
+void _iop_core_obj_map_unregister_cls(
+    iop_core_obj_map_t *nonnull map, const iop_struct_t *nonnull iop_cls
+);
+
+/** Check that no classes are registered in a given map.
+ *
+ * \param[out] err Filled with the names of the core object classes still
+ *                 registered when the map is not empty.
+ *
+ * \return 0 if the map is empty, -1 otherwise.
+ */
+int iop_core_obj_map_check_empty(
+    const iop_core_obj_map_t *nonnull map, sb_t *nonnull err
+);
+
 #  ifdef __has_blocks
 
 /** Callback for \ref iop_core_obj_map_for_each_cls.
@@ -98,6 +122,7 @@ void iop_core_obj_map_for_each_cls(
       void cls_pfx##_register(                                               \
           const iop_struct_t *iop_cls, const object_class_t *cls             \
       );                                                                     \
+      void cls_pfx##_unregister(const iop_struct_t *iop_cls);                \
       cls_pfx##_t *cls_pfx##_new_obj(const iop_cls_pfx##__t *desc);          \
       const cls_pfx##_class_t *cls_pfx##_get_cls(const iop_cls_pfx##__t *desc)
 
@@ -118,6 +143,13 @@ void iop_core_obj_map_for_each_cls(
               &iop_cls->fullname                                             \
           );                                                                 \
           _iop_core_obj_map_register_cls((map), iop_cls, cls);               \
+      }                                                                      \
+                                                                             \
+      __VA_ARGS__ __attr_unused__ void cls_pfx##_unregister(                 \
+          const iop_struct_t *iop_cls                                        \
+      )                                                                      \
+      {                                                                      \
+          _iop_core_obj_map_unregister_cls((map), iop_cls);                  \
       }                                                                      \
                                                                              \
       __VA_ARGS__ cls_pfx##_t *cls_pfx##_new_obj(                            \
@@ -150,6 +182,14 @@ void iop_core_obj_map_for_each_cls(
  */
 #  define iop_core_obj_register(ancestor_cls_pfx, iop_cls_pfx, cls_pfx)      \
       ancestor_cls_pfx##_register(&iop_cls_pfx##__s, obj_class(cls_pfx))
+
+/** Unregister the mapping between a core object class and an IOP class.
+ *
+ * Reverse operation of \p iop_core_obj_register. Panics if the IOP class is
+ * not registered.
+ */
+#  define iop_core_obj_unregister(ancestor_cls_pfx, iop_cls_pfx)             \
+      ancestor_cls_pfx##_unregister(&iop_cls_pfx##__s)
 
 /** Create a new IOP core object from its IOP description.
  *

@@ -75,6 +75,7 @@ int test_iop_core_obj(void)
     __block int cnt = 0;
     int cnt_cpy;
     tstiop__unregistered_mammal__t unregistered;
+    SB_1k(err);
 
     mammal_mappings_g = iop_core_obj_map_new();
     iop_core_obj_register(mammal, tstiop__fox, fox);
@@ -147,6 +148,35 @@ int test_iop_core_obj(void)
 
     iop_init(tstiop__unregistered_mammal, &unregistered);
     Z_ASSERT_NULL(iop_core_obj_get_cls(mammal, &unregistered.super));
+
+    /* Unregistration. */
+    iop_core_obj_unregister(mammal, tstiop__fox);
+
+    {
+        t_scope;
+        tstiop__fox__t *fox_desc = t_iop_new(tstiop__fox);
+        tstiop__hound__t *hound_desc = t_iop_new(tstiop__hound);
+
+        Z_ASSERT_NULL(iop_core_obj_get_cls(mammal, &fox_desc->super));
+        Z_ASSERT(
+            iop_core_obj_get_cls(mammal, &hound_desc->super) ==
+            cls_cast(mammal, obj_class(hound))
+        );
+    }
+
+    Z_ASSERT_NEG(iop_core_obj_map_check_empty(mammal_mappings_g, &err));
+    Z_ASSERT_STREQUAL(
+        err.data, "core object class(es) still registered: `hound'"
+    );
+
+    /* Unregistering clears the "registered twice" panic condition. */
+    iop_core_obj_register(mammal, tstiop__fox, fox);
+
+    /* XXX Unregistering an IOP class that is not registered panics: this
+     * cannot be unit-tested here. */
+    iop_core_obj_unregister(mammal, tstiop__fox);
+    iop_core_obj_unregister(mammal, tstiop__hound);
+    Z_ASSERT_ZERO(iop_core_obj_map_check_empty(mammal_mappings_g, &err));
 
     iop_core_obj_map_delete(&mammal_mappings_g);
     Z_HELPER_END;
