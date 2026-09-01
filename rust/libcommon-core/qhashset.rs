@@ -184,3 +184,493 @@ where
 }
 
 // }}}
+// {{{ Tests
+
+#[cfg(test)]
+#[allow(clippy::redundant_test_prefix)]
+mod tests {
+    use std::cell::Cell;
+    use std::mem;
+
+    use super::*;
+    use crate::bindings::{lstr_t, qh_lstr_t, qh_u32_t};
+    use crate::lstr::{from_raw_utf8, from_str};
+
+    // {{{ Test helpers
+
+    /// Build the `lstr_t` of a static string.
+    fn key(s: &'static str) -> lstr_t {
+        from_str(s).as_raw()
+    }
+
+    /// Collect the keys of a set of integers, sorted.
+    fn sorted_keys(set: &QHash<'_, qh_u32_t>) -> Vec<u32> {
+        let mut keys: Vec<u32> = set.keys().copied().collect();
+
+        keys.sort_unstable();
+        keys
+    }
+
+    /// Collect the keys of a set of strings, sorted.
+    fn sorted_str_keys(set: &QHash<'_, qh_lstr_t>) -> Vec<&'static str> {
+        // The keys are built from string literals, so they live as long as the program.
+        let mut keys: Vec<&'static str> = set
+            .keys()
+            .map(|raw| unsafe { from_raw_utf8(*raw).as_str() })
+            .collect();
+
+        keys.sort_unstable();
+        keys
+    }
+
+    // }}}
+    // {{{ Basic operations
+
+    #[test]
+    fn test_new_is_empty() {
+        let set = QHash::<qh_u32_t>::new();
+
+        assert!(set.is_empty());
+        assert_eq!(set.len(), 0);
+        assert!(!set.contains_key(&1));
+        assert_eq!(set.keys().count(), 0);
+    }
+
+    #[test]
+    fn test_default() {
+        let set = QHash::<qh_u32_t>::default();
+
+        assert!(set.is_empty());
+    }
+
+    #[test]
+    fn test_insert_and_contains() {
+        let mut set = QHash::<qh_u32_t>::new();
+
+        assert!(set.insert(1));
+        assert!(set.insert(2));
+
+        // A key that is already there is not added again.
+        assert!(!set.insert(1));
+
+        assert_eq!(set.len(), 2);
+        assert!(set.contains_key(&1));
+        assert!(set.contains_key(&2));
+        assert!(!set.contains_key(&3));
+    }
+
+    #[test]
+    fn test_replace() {
+        let mut set = QHash::<qh_u32_t>::new();
+
+        assert_eq!(set.replace(1), None);
+        assert_eq!(set.replace(1), Some(1));
+        assert_eq!(set.len(), 1);
+    }
+
+    #[test]
+    fn test_remove() {
+        let mut set = QHash::<qh_u32_t>::new();
+
+        set.insert(1);
+        set.insert(2);
+
+        assert!(set.remove(&1));
+        assert!(!set.remove(&1));
+        assert_eq!(set.len(), 1);
+        assert!(!set.contains_key(&1));
+        assert!(set.contains_key(&2));
+    }
+
+    #[test]
+    fn test_take_returns_the_stored_key() {
+        let mut set = QHash::<qh_lstr_t>::new();
+        let stored = key("one");
+
+        set.insert(stored);
+
+        // The key given here is a different `lstr_t` with the same content; `take()` gives back
+        // the one the set stored, which is what a deep delete has to release.
+        let Some(taken) = set.take(&key("one")) else {
+            panic!("the key must be there");
+        };
+
+        let taken = unsafe { from_raw_utf8(taken).as_str() };
+        let stored = unsafe { from_raw_utf8(stored).as_str() };
+
+        assert_eq!(taken, stored);
+        assert!(ptr::eq(taken.as_ptr(), stored.as_ptr()));
+        assert!(set.is_empty());
+        assert!(set.take(&key("one")).is_none());
+    }
+
+    #[test]
+    fn test_clear() {
+        let mut set = QHash::<qh_u32_t>::new();
+
+        for i in 0..10 {
+            set.insert(i);
+        }
+        set.clear();
+
+        assert!(set.is_empty());
+        assert!(!set.contains_key(&0));
+
+        // The set is still usable after a clear.
+        set.insert(42);
+        assert_eq!(sorted_keys(&set), [42]);
+    }
+
+    #[test]
+    fn test_iterate() {
+        let mut set = QHash::<qh_u32_t>::new();
+
+        for i in 0..5 {
+            set.insert(i);
+        }
+
+        assert_eq!(sorted_keys(&set), [0, 1, 2, 3, 4]);
+
+        // `IntoIterator` on a reference iterates over the keys.
+        let mut from_ref: Vec<u32> = (&set).into_iter().copied().collect();
+
+        from_ref.sort_unstable();
+        assert_eq!(from_ref, [0, 1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn test_many_keys_resizes() {
+        let mut set = QHash::<qh_u32_t>::new();
+
+        for i in 0..10_000 {
+            assert!(set.insert(i));
+        }
+
+        assert_eq!(set.len(), 10_000);
+        for i in 0..10_000 {
+            assert!(set.contains_key(&i));
+        }
+        assert!(!set.contains_key(&10_000));
+    }
+
+    #[test]
+    fn test_with_capacity_and_reserve() {
+        let mut set = QHash::<qh_u32_t>::with_capacity(128);
+
+        assert!(set.is_empty());
+        set.insert(1);
+        assert_eq!(set.len(), 1);
+
+        set.reserve(4096);
+        assert!(set.contains_key(&1));
+    }
+
+    #[test]
+    fn test_memory_footprint() {
+        let mut set = QHash::<qh_u32_t>::new();
+
+        for i in 0..100 {
+            set.insert(i);
+        }
+
+        assert!(set.memory_footprint() > 0);
+    }
+
+    #[test]
+    fn test_debug() {
+        let mut set = QHash::<qh_u32_t>::new();
+
+        set.insert(7);
+        assert_eq!(format!("{set:?}"), "{7}");
+    }
+
+    // }}}
+    // {{{ Keys that need a hash function
+
+    #[test]
+    fn test_string_keys() {
+        let mut set = QHash::<qh_lstr_t>::new();
+
+        assert!(set.insert(key("one")));
+        assert!(set.insert(key("two")));
+
+        // Equal keys are equal by content, not by pointer: the string is rebuilt here.
+        assert!(!set.insert(key("one")));
+
+        assert_eq!(set.len(), 2);
+        assert!(set.contains_key(&key("two")));
+        assert!(!set.contains_key(&key("three")));
+        assert_eq!(sorted_str_keys(&set), ["one", "two"]);
+
+        assert!(set.remove(&key("one")));
+        assert_eq!(sorted_str_keys(&set), ["two"]);
+    }
+
+    #[test]
+    fn test_hash_of_is_stable() {
+        let set = QHash::<qh_lstr_t>::new();
+
+        assert_eq!(set.hash_of(&key("abc")), set.hash_of(&key("abc")));
+    }
+
+    #[test]
+    fn test_cached_hashes() {
+        let mut set = QHash::<qh_lstr_t>::new_cached();
+
+        for i in 0..1_000 {
+            set.insert(key(if i % 2 == 0 { "even" } else { "odd" }));
+        }
+
+        assert_eq!(set.len(), 2);
+        assert_eq!(sorted_str_keys(&set), ["even", "odd"]);
+    }
+
+    // }}}
+    // {{{ Allocators
+
+    #[test]
+    fn test_t_pool() {
+        let t_scope = TScope::new_scope();
+        let mut set = QHash::<qh_u32_t>::t_new(&t_scope);
+
+        for i in 0..1_000 {
+            set.insert(i);
+        }
+
+        assert_eq!(set.len(), 1_000);
+        assert!(set.contains_key(&999));
+    }
+
+    #[test]
+    fn test_t_with_capacity() {
+        let t_scope = TScope::new_scope();
+        let mut set = QHash::<qh_lstr_t>::t_with_capacity(&t_scope, 64);
+
+        set.insert(key("a"));
+        assert_eq!(sorted_str_keys(&set), ["a"]);
+    }
+
+    // }}}
+    // {{{ Sealing
+
+    #[test]
+    fn test_seal_and_unseal() {
+        let mut set = QHash::<qh_u32_t>::new();
+
+        for i in 0..100 {
+            set.insert(i);
+        }
+
+        set.seal();
+
+        // A sealed table can still be read.
+        assert_eq!(set.len(), 100);
+        assert!(set.contains_key(&50));
+
+        set.unseal();
+
+        // And it accepts the modifications again.
+        assert!(set.insert(100));
+        assert_eq!(set.len(), 101);
+    }
+
+    // }}}
+    // {{{ Entry ownership
+
+    /// A set whose entries own something, so that the destructor can be observed.
+    type CountingSet<'a> = QHash<'a, qh_u32_t, CountingWipe>;
+
+    // Number of keys that `CountingWipe` released, for the running test. The test harness gives
+    // every test its own thread, so this counter is per test.
+    thread_local! {
+        static WIPED: Cell<usize> = const { Cell::new(0) };
+    }
+
+    /// Get the number of keys released so far, and reset the count.
+    fn take_wiped() -> usize {
+        WIPED.replace(0)
+    }
+
+    /// Entry destructor that counts the keys it releases.
+    struct CountingWipe;
+
+    impl QEntryWipe<qh_u32_t> for CountingWipe {
+        fn wipe_key(_key: &mut u32) {
+            WIPED.set(WIPED.get() + 1);
+        }
+
+        fn wipe_value(_value: &mut ()) {}
+    }
+
+    #[test]
+    fn test_drop_releases_the_entries() {
+        assert_eq!(take_wiped(), 0);
+
+        {
+            let mut set = CountingSet::new();
+
+            for i in 0..5 {
+                set.insert(i);
+            }
+            assert_eq!(WIPED.get(), 0);
+        }
+
+        assert_eq!(take_wiped(), 5);
+    }
+
+    #[test]
+    fn test_clear_releases_the_entries() {
+        let mut set = CountingSet::new();
+
+        for i in 0..5 {
+            set.insert(i);
+        }
+        set.clear();
+
+        assert_eq!(take_wiped(), 5);
+        assert!(set.is_empty());
+    }
+
+    #[test]
+    fn test_remove_releases_the_entry_but_take_does_not() {
+        let mut set = CountingSet::new();
+
+        set.insert(1);
+        set.insert(2);
+
+        assert!(set.remove(&1));
+        assert_eq!(take_wiped(), 1);
+
+        // `take()` hands the stored key over, so it must not release it.
+        assert_eq!(set.take(&2), Some(2));
+        assert_eq!(take_wiped(), 0);
+        assert!(set.is_empty());
+    }
+
+    #[test]
+    fn test_insert_releases_the_refused_key() {
+        let mut set = CountingSet::new();
+
+        set.insert(1);
+        assert_eq!(take_wiped(), 0);
+
+        // The set keeps the stored key, so the refused key is released, as `HashSet::insert`
+        // drops it.
+        assert!(!set.insert(1));
+        assert_eq!(take_wiped(), 1);
+    }
+
+    #[test]
+    fn test_replace_returns_the_previous_key() {
+        let mut set = CountingSet::new();
+
+        set.insert(1);
+
+        // The previous key is returned, so the caller takes it over: nothing is released.
+        assert_eq!(set.replace(1), Some(1));
+        assert_eq!(take_wiped(), 0);
+
+        // A key that was not there replaces nothing.
+        assert_eq!(set.replace(2), None);
+        assert_eq!(take_wiped(), 0);
+    }
+
+    #[test]
+    fn test_a_table_without_a_destructor_releases_nothing() {
+        let mut set = QHash::<qh_u32_t>::new();
+
+        for i in 0..5 {
+            set.insert(i);
+        }
+        set.clear();
+
+        assert_eq!(take_wiped(), 0);
+    }
+
+    // }}}
+    // {{{ C interoperability
+
+    #[test]
+    fn test_ownership_round_trip_is_zero_copy() {
+        let mut set = QHash::<qh_u32_t>::new();
+
+        for i in 0..10 {
+            set.insert(i);
+        }
+
+        let keys = set.keys_ptr();
+
+        assert!(!keys.is_null());
+
+        // Give the table to C: the entries are not copied, only the descriptor is moved.
+        let c_set: qh_u32_t = set.into_c();
+
+        // Borrow the C value to read it, rather than naming a field of the union: bindgen
+        // generates the union differently depending on the crate.
+        {
+            let borrowed = unsafe { QHash::<qh_u32_t>::borrow_c(&c_set) };
+
+            assert!(ptr::eq(borrowed.keys_ptr(), keys));
+            assert_eq!(borrowed.len(), 10);
+        }
+
+        // Take it back: still the same buffers, and this table wipes them.
+        let set = unsafe { QHash::<qh_u32_t>::from_c(c_set) };
+
+        assert!(ptr::eq(set.keys_ptr(), keys));
+        assert_eq!(set.len(), 10);
+        assert_eq!(sorted_keys(&set), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    }
+
+    #[test]
+    fn test_borrow_c_does_not_wipe() {
+        let mut set = QHash::<qh_lstr_t>::new();
+
+        set.insert(key("kept"));
+
+        let keys = set.keys_ptr();
+        let c_set = set.as_mut_ptr();
+
+        {
+            // Borrow the same table through the C type: no copy at all.
+            let borrowed = unsafe { QHash::<qh_lstr_t>::borrow_c_mut(&mut *c_set) };
+
+            assert!(ptr::eq(borrowed.keys_ptr(), keys));
+            assert!(borrowed.insert(key("added")));
+        }
+
+        // Dropping the borrow must not wipe the table.
+        assert_eq!(set.len(), 2);
+        assert_eq!(sorted_str_keys(&set), ["added", "kept"]);
+    }
+
+    #[test]
+    fn test_borrow_a_table_that_c_owns() {
+        // Build a table the way the C code does, then borrow it without copying.
+        let mut c_set: qh_u32_t = unsafe { mem::zeroed() };
+
+        unsafe {
+            <qh_u32_t as QHashType>::init(&raw mut c_set, false, ptr::null_mut());
+        }
+
+        {
+            let set = unsafe { QHash::<qh_u32_t>::borrow_c_mut(&mut c_set) };
+
+            for i in 0..4 {
+                set.insert(i);
+            }
+            assert_eq!(sorted_keys(set), [0, 1, 2, 3]);
+        }
+
+        assert_eq!(unsafe { QHash::<qh_u32_t>::borrow_c(&c_set) }.len(), 4);
+
+        // The C code still owns the table, so wipe it the C way.
+        unsafe {
+            qhash_wipe(ptr::from_mut(&mut c_set).cast::<qhash_t>());
+        }
+    }
+
+    // }}}
+}
+
+// }}}
