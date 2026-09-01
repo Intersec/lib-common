@@ -363,8 +363,7 @@ static ic_msg_t *z_blk_abort_msg_new(void)
 /* }}} */
 /* {{{ Tests */
 
-Z_GROUP_EXPORT(iop_rpc)
-{
+Z_GROUP_EXPORT(iop_rpc) {
     _G.iop_env = iop_env_new();
     MODULE_REQUIRE(ic);
 
@@ -439,8 +438,7 @@ Z_GROUP_EXPORT(iop_rpc)
         ic_disconnect(_G.ic_aux);
         ic_wipe(&ic);
         ic_delete(&_G.ic_aux);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(ic_spawn_with_socketpair) {
         /* A process, in order to share an IC with one of its children, may
@@ -508,8 +506,7 @@ Z_GROUP_EXPORT(iop_rpc)
             qm_wipe(ic_cbs, &impl);
             ic_delete(&ic1);
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(ic_local_async) {
         ichannel_t ic;
@@ -551,8 +548,7 @@ Z_GROUP_EXPORT(iop_rpc)
          * wiped.
          */
         el_loop_timeout(0);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(ic_blk_cb_abort_no_ic) {
         /* A query carrying a block callback can be aborted before ever
@@ -586,8 +582,7 @@ Z_GROUP_EXPORT(iop_rpc)
             ic_msg_delete(&msg);
             ic_wipe(&ic);
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(ic_hook_ctx) {
         /* Test that allocated hook contexts are properly wiped when ichannel
@@ -601,8 +596,7 @@ Z_GROUP_EXPORT(iop_rpc)
         ctx = ic_hook_ctx_new(2, 0);
 
         Z_ASSERT_P(ctx);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(ic_user_version, "iop-rpc: user version tests") {
         el_t server_ev;
@@ -658,8 +652,7 @@ Z_GROUP_EXPORT(iop_rpc)
         ic_wipe(&ic_client);
         ic_delete(&_G.ic_spawned);
         el_unregister(&server_ev);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(ic_async_addr_resolution, "iop-rpc: async addr and connect") {
         t_scope;
@@ -727,8 +720,7 @@ Z_GROUP_EXPORT(iop_rpc)
         el_unregister(&server_ev);
 
         MODULE_RELEASE(thr);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(ic_invalid_addr_resolution, "iop-rpc: invalid DNS resolution") {
         ichannel_t ic_client;
@@ -771,8 +763,7 @@ Z_GROUP_EXPORT(iop_rpc)
         /* Cleanup */
         ic_wipe(&ic_client);
         MODULE_RELEASE(thr);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(ic_server_rpc_use_after_free) { /* {{{ */
         /* The IC server keeps raw iop_rpc_t descriptors in its `impl`
@@ -851,15 +842,13 @@ Z_GROUP_EXPORT(iop_rpc)
         ic_wipe(&ic);
         qm_wipe(ic_cbs, &impl);
         iop_env_delete(&iop_env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
 
     Z_TEST(
         ic_cancel_slotless, "iop-rpc: cancelling a slot-less query keeps "
                             "queue_len"
-    )
-    {
+    ) {
         /* queue_len only counts queries that own a slot. The master-worker
          * layer sends a slotted copy of a query and parks the original
          * caller-side handle with no slot; cancelling that original must
@@ -883,14 +872,12 @@ Z_GROUP_EXPORT(iop_rpc)
 
         ic_msg_delete(&msg);
         ic_wipe(&ic);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         ic_cancel_disarms_timeout, "iop-rpc: cancelling a query disarms "
                                    "its timeout"
-    )
-    {
+    ) {
         /* A cancelled query must not keep its timeout timer armed: otherwise
          * ic_msg_on_timeout() would later decrement queue_len a second
          * time. Use an unconnected channel so the query stays pending with
@@ -923,12 +910,10 @@ Z_GROUP_EXPORT(iop_rpc)
         Z_ASSERT_EQ(ic_queue_len(&ic), 0);
 
         ic_wipe(&ic);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     MODULE_RELEASE(ic);
     iop_env_delete(&_G.iop_env);
-}
-Z_GROUP_END;
+} Z_GROUP_END;
 
 /* }}} */

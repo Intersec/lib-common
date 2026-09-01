@@ -728,50 +728,41 @@ static void z_http_tests(http_mode_t http_mode)
 
     Z_TEST(no_query) {
         Z_HELPER_RUN(z_http_do_simple_query(false, 0, 0));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(simple_query) {
         Z_HELPER_RUN(z_http_do_simple_query(false, 0, 1));
 
         /* Repeat the query 10 times in a single run. */
         Z_HELPER_RUN(z_http_do_simple_query(false, 0, 10));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(simple_query_async, "simple query (async delayed 10 ms)") {
         Z_HELPER_RUN(z_http_do_simple_query(true, 10, 1));
 
         /* Repeat the query 10 times in a single run. */
         Z_HELPER_RUN(z_http_do_simple_query(true, 10, 10));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(simple_query_async_no_delay, "simple_query (async no delay)") {
         Z_HELPER_RUN(z_http_do_simple_query(true, 0, 1));
 
         /* Repeat the query 10 times in a single run. */
         Z_HELPER_RUN(z_http_do_simple_query(true, 0, 10));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(simple_post) {
         Z_HELPER_RUN(z_http_do_simple_post());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 }
 
-Z_GROUP_EXPORT(http)
-{
+Z_GROUP_EXPORT(http) {
     z_http_tests(HTTP_MODE_USE_HTTP1X_ONLY);
-}
-Z_GROUP_END;
+} Z_GROUP_END;
 
-Z_GROUP_EXPORT(http2)
-{
+Z_GROUP_EXPORT(http2) {
     z_http_tests(HTTP_MODE_USE_HTTP2_ONLY);
-}
-Z_GROUP_END;
+} Z_GROUP_END;
 
 /* {{{ httpc_pool resolve_on_connect tests */
 
@@ -786,8 +777,7 @@ static void z_http_pool_on_connect_error(const httpc_t *w, int errnum)
     z_http_pool_g.connect_error_errno = errnum;
 }
 
-Z_GROUP_EXPORT(httpc_pool)
-{
+Z_GROUP_EXPORT(httpc_pool) {
 
     Z_TEST(resolve_on_connect_multi_addr) {
         httpc_pool_t pool;
@@ -809,8 +799,7 @@ Z_GROUP_EXPORT(httpc_pool)
         httpc_pool_wipe(&pool, true);
 
         el_wait_until(false, 50);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(resolved_idx_advances_on_error) {
         httpc_pool_t pool;
@@ -843,8 +832,7 @@ Z_GROUP_EXPORT(httpc_pool)
         httpc_pool_wipe(&pool, true);
 
         el_wait_until(false, 50);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(pool_failover_to_working_addr) {
         httpc_pool_t pool;
@@ -918,10 +906,8 @@ Z_GROUP_EXPORT(httpc_pool)
 
         el_wait_until(false, 100);
         Z_ASSERT(!el_has_pending_events());
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END;
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /* {{{ Raw HTTP/2 frame tests */
 
@@ -932,8 +918,7 @@ Z_GROUP_EXPORT(http2_raw_frames)
         post_clen_body,
         "a Content-Length delimited body, in one DATA frame carrying "
         "END_STREAM"
-    )
-    {
+    ) {
         SB_1k(frames);
 
         Z_HELPER_RUN(z_h2_raw_setup());
@@ -950,15 +935,13 @@ Z_GROUP_EXPORT(http2_raw_frames)
         Z_ASSERT_ZERO(_G.raw_obs[1].nb_rst);
 
         Z_HELPER_RUN(z_h2_raw_teardown());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         post_no_clen_one_data,
         "no Content-Length, body in one DATA frame: dispatched once, with "
         "the frame payload as its body"
-    )
-    {
+    ) {
         SB_1k(frames);
 
         Z_HELPER_RUN(z_h2_raw_setup());
@@ -977,15 +960,13 @@ Z_GROUP_EXPORT(http2_raw_frames)
         Z_ASSERT_ZERO(_G.raw_obs[1].nb_rst);
 
         Z_HELPER_RUN(z_h2_raw_teardown());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         post_no_clen_multi_data,
         "no Content-Length, body over several DATA frames: dispatched once, "
         "frames concatenated in order"
-    )
-    {
+    ) {
         SB_1k(frames);
 
         Z_HELPER_RUN(z_h2_raw_setup());
@@ -1008,16 +989,14 @@ Z_GROUP_EXPORT(http2_raw_frames)
         Z_ASSERT_ZERO(_G.raw_obs[1].nb_rst);
 
         Z_HELPER_RUN(z_h2_raw_teardown());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         post_no_clen_empty_last_data,
         "a POST with no Content-Length whose body is closed by a separate "
         "zero-length DATA frame carrying END_STREAM must be dispatched once "
         "with the preceding frames as its body"
-    )
-    {
+    ) {
         SB_1k(frames);
 
         Z_HELPER_RUN(z_h2_raw_setup());
@@ -1036,16 +1015,14 @@ Z_GROUP_EXPORT(http2_raw_frames)
         Z_ASSERT_ZERO(_G.raw_obs[1].nb_rst);
 
         Z_HELPER_RUN(z_h2_raw_teardown());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         post_no_clen_empty_body,
         "a POST with no Content-Length, no END_STREAM on its HEADERS and a "
         "single zero-length DATA frame carrying END_STREAM must be "
         "dispatched once with an empty body"
-    )
-    {
+    ) {
         SB_1k(frames);
 
         Z_HELPER_RUN(z_h2_raw_setup());
@@ -1062,15 +1039,13 @@ Z_GROUP_EXPORT(http2_raw_frames)
         Z_ASSERT_ZERO(_G.raw_obs[1].nb_rst);
 
         Z_HELPER_RUN(z_h2_raw_teardown());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         post_no_clen_empty_data_mid_body,
         "a zero-length DATA frame without END_STREAM sits in the middle of a "
         "body and must not be taken for its end"
-    )
-    {
+    ) {
         SB_1k(frames);
 
         Z_HELPER_RUN(z_h2_raw_setup());
@@ -1089,15 +1064,13 @@ Z_GROUP_EXPORT(http2_raw_frames)
         Z_ASSERT_ZERO(_G.raw_obs[1].nb_rst);
 
         Z_HELPER_RUN(z_h2_raw_teardown());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         post_clen_zero_empty_data,
         "Content-Length: 0 then a zero-length DATA frame with END_STREAM is "
         "legal: answered, not reset"
-    )
-    {
+    ) {
         SB_1k(frames);
 
         Z_HELPER_RUN(z_h2_raw_setup());
@@ -1115,15 +1088,13 @@ Z_GROUP_EXPORT(http2_raw_frames)
         Z_ASSERT(!_G.raw_goaway);
 
         Z_HELPER_RUN(z_h2_raw_teardown());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         clen_zero_late_eos,
         "the same legal message, with its end of stream handed over after "
         "the answer was written"
-    )
-    {
+    ) {
         SB_1k(frames);
 
         Z_TODO(
@@ -1149,15 +1120,13 @@ Z_GROUP_EXPORT(http2_raw_frames)
         Z_ASSERT(!_G.raw_goaway);
 
         Z_HELPER_RUN(z_h2_raw_teardown());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         post_clen_zero_then_data,
         "Content-Length: 0 then a non-empty DATA frame is malformed: the "
         "stream is reset"
-    )
-    {
+    ) {
         SB_1k(frames);
 
         Z_HELPER_RUN(z_h2_raw_setup());
@@ -1174,16 +1143,14 @@ Z_GROUP_EXPORT(http2_raw_frames)
         Z_ASSERT(!_G.raw_goaway, "the violation is per-stream");
 
         Z_HELPER_RUN(z_h2_raw_teardown());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         get_then_empty_data,
         "a GET whose HEADERS carry no END_STREAM, closed by a zero-length "
         "DATA frame carrying END_STREAM, is legal HTTP/2 and must be "
         "answered without aborting the daemon"
-    )
-    {
+    ) {
         SB_1k(frames);
 
         Z_HELPER_RUN(z_h2_raw_setup());
@@ -1201,15 +1168,13 @@ Z_GROUP_EXPORT(http2_raw_frames)
         Z_ASSERT(!_G.raw_goaway);
 
         Z_HELPER_RUN(z_h2_raw_teardown());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         data_over_clen_spares_sibling,
         "DATA beyond a declared Content-Length is refused on its own stream "
         "only: a sibling stream is still answered"
-    )
-    {
+    ) {
         SB_1k(frames);
 
         Z_HELPER_RUN(z_h2_raw_setup());
@@ -1237,15 +1202,13 @@ Z_GROUP_EXPORT(http2_raw_frames)
         Z_ASSERT_ZERO(_G.raw_obs[3].nb_rst);
 
         Z_HELPER_RUN(z_h2_raw_teardown());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         post_no_clen_trailers,
         "a body closed by a trailing HEADERS frame: dispatched once, "
         "trailer fields ignored"
-    )
-    {
+    ) {
         SB_1k(frames);
 
         Z_HELPER_RUN(z_h2_raw_setup());
@@ -1265,15 +1228,13 @@ Z_GROUP_EXPORT(http2_raw_frames)
         Z_ASSERT_ZERO(_G.raw_obs[1].nb_rst);
 
         Z_HELPER_RUN(z_h2_raw_teardown());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         post_clen_trailers,
         "a trailing HEADERS frame also closes a Content-Length delimited "
         "body"
-    )
-    {
+    ) {
         SB_1k(frames);
 
         Z_HELPER_RUN(z_h2_raw_setup());
@@ -1293,15 +1254,13 @@ Z_GROUP_EXPORT(http2_raw_frames)
         Z_ASSERT_ZERO(_G.raw_obs[1].nb_rst);
 
         Z_HELPER_RUN(z_h2_raw_teardown());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         get_then_trailers,
         "a trailing HEADERS frame on an already complete message: accepted, "
         "answer kept"
-    )
-    {
+    ) {
         SB_1k(frames);
 
         Z_HELPER_RUN(z_h2_raw_setup());
@@ -1319,14 +1278,12 @@ Z_GROUP_EXPORT(http2_raw_frames)
         Z_ASSERT_ZERO(_G.raw_obs[1].nb_rst);
 
         Z_HELPER_RUN(z_h2_raw_teardown());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         post_trailers_without_eos,
         "a trailing HEADERS frame without END_STREAM is malformed"
-    )
-    {
+    ) {
         SB_1k(frames);
 
         Z_HELPER_RUN(z_h2_raw_setup());
@@ -1346,15 +1303,13 @@ Z_GROUP_EXPORT(http2_raw_frames)
         Z_ASSERT(!_G.raw_goaway, "the refusal must stay a stream error");
 
         Z_HELPER_RUN(z_h2_raw_teardown());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         post_trailers_with_pseudo_hdr,
         "rfc 9113 8.1 gives a trailer section no pseudo-header, and a whole "
         "valid request set passes the frame layer's check"
-    )
-    {
+    ) {
         SB_1k(frames);
         SB_1k(block);
 
@@ -1379,15 +1334,13 @@ Z_GROUP_EXPORT(http2_raw_frames)
         Z_ASSERT_ZERO(_G.post_done_cnt, "the request must not be dispatched");
 
         Z_HELPER_RUN(z_h2_raw_teardown());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         data_over_clen_at_eos,
         "DATA beyond a declared Content-Length is refused with END_STREAM "
         "too, rather than left to the peer's timeout"
-    )
-    {
+    ) {
         SB_1k(frames);
 
         Z_HELPER_RUN(z_h2_raw_setup());
@@ -1404,15 +1357,13 @@ Z_GROUP_EXPORT(http2_raw_frames)
         Z_ASSERT(!_G.raw_goaway);
 
         Z_HELPER_RUN(z_h2_raw_teardown());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         clen_over_data_at_eos,
         "a body shorter than its declared Content-Length is refused at the "
         "end of stream"
-    )
-    {
+    ) {
         SB_1k(frames);
 
         Z_HELPER_RUN(z_h2_raw_setup());
@@ -1431,15 +1382,13 @@ Z_GROUP_EXPORT(http2_raw_frames)
         Z_ASSERT(!_G.raw_goaway);
 
         Z_HELPER_RUN(z_h2_raw_teardown());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         get_then_data,
         "a payload on a completed message that declared no length: dropped, "
         "and the response kept"
-    )
-    {
+    ) {
         SB_1k(frames);
 
         Z_HELPER_RUN(z_h2_raw_setup());
@@ -1459,10 +1408,8 @@ Z_GROUP_EXPORT(http2_raw_frames)
         Z_ASSERT(!_G.raw_goaway);
 
         Z_HELPER_RUN(z_h2_raw_teardown());
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END;
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /* }}} */
 

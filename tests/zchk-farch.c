@@ -20,8 +20,7 @@
 #include <lib-common/farch.h>
 #include "zchk-farch.fc.c"
 
-Z_GROUP_EXPORT(farch)
-{
+Z_GROUP_EXPORT(farch) {
     static const char *farch_filenames[] = {
         "test-data/farch/zchk-farch-intersec.txt",
         "test-data/farch/zchk-farch-five-intersec.txt",
@@ -69,9 +68,7 @@ Z_GROUP_EXPORT(farch)
 
             lstr_wipe(&contents);
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     MODULE_RELEASE(farch);
-}
-Z_GROUP_END
+} Z_GROUP_END;

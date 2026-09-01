@@ -186,8 +186,7 @@ static int z_wah_test_bucket_overfilling(const bool bit)
 
 /* }}} */
 
-Z_GROUP_EXPORT(wah)
-{
+Z_GROUP_EXPORT(wah) {
     /* Have a smaller value of bits_in_bucket for tests to stress the buckets
      * code. */
     wah_set_bits_in_bucket(Z_WAH_BITS_IN_BUCKETS);
@@ -209,8 +208,7 @@ Z_GROUP_EXPORT(wah)
         }
         Z_ASSERT(!wah_get(&map, 3), "bad bit at offset 3");
         wah_wipe(&map);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(fill) { /* {{{ */
@@ -248,8 +246,7 @@ Z_GROUP_EXPORT(wah)
         }
 
         wah_wipe(&map);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(set_bitmap) { /* {{{ */
@@ -311,8 +308,7 @@ Z_GROUP_EXPORT(wah)
         }
 
         wah_wipe(&map);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(for_each) { /* {{{ */
@@ -375,8 +371,7 @@ Z_GROUP_EXPORT(wah)
         }
         Z_ASSERT_EQ(c, nbc, "bad number of enumerated entries");
         wah_wipe(&map);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(binop) { /* {{{ */
@@ -519,8 +514,7 @@ Z_GROUP_EXPORT(wah)
         wah_wipe(&map1);
         wah_wipe(&map2);
         wah_wipe(&map3);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(redmine_4576) { /* {{{ */
@@ -542,8 +536,7 @@ Z_GROUP_EXPORT(wah)
             }
         }
         wah_wipe(&map);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(redmine_9437) { /* {{{ */
@@ -569,8 +562,7 @@ Z_GROUP_EXPORT(wah)
             }
         }
         wah_wipe(&map);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(redmine_42990) { /* {{{ */
@@ -587,8 +579,7 @@ Z_GROUP_EXPORT(wah)
         }
 
         wah_wipe(&map);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(non_reg_and) { /* {{{ */
@@ -623,8 +614,7 @@ Z_GROUP_EXPORT(wah)
         wah_wipe(&src);
         wah_wipe(&other);
         wah_wipe(&res);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(skip1s) { /* {{{ */
@@ -670,8 +660,7 @@ Z_GROUP_EXPORT(wah)
         }
 
         wah_wipe(&map);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(nr_20150119) { /* {{{ */
@@ -693,8 +682,7 @@ Z_GROUP_EXPORT(wah)
 
         wah_wipe(&map2);
         wah_wipe(&map1);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(nr_20150219) { /* {{{ */
@@ -715,8 +703,7 @@ Z_GROUP_EXPORT(wah)
 
         wah_wipe(&map2);
         wah_wipe(&map1);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(buckets) { /* {{{ */
@@ -841,8 +828,7 @@ Z_GROUP_EXPORT(wah)
         wah_set_bits_in_bucket(Z_WAH_BITS_IN_BUCKETS);
 
 #undef CHECK_WAH
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(t_wah_get_storage_lstr) { /* {{{ */
@@ -877,8 +863,7 @@ Z_GROUP_EXPORT(wah)
         );
 
         wah_delete(&wah_from_data);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(copy) { /* {{{ */
@@ -926,8 +911,7 @@ Z_GROUP_EXPORT(wah)
 
         wah_wipe(&wah_dst);
         wah_wipe(&wah_src);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(pad32) { /* {{{ */
@@ -977,8 +961,7 @@ Z_GROUP_EXPORT(wah)
 
         wah_wipe(&map);
 #undef TEST_PAD32
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(word_enum_non_reg) { /* {{{ */
@@ -1012,15 +995,13 @@ Z_GROUP_EXPORT(wah)
         Z_HELPER_RUN(z_wah_word_enum_no_reg_test(&map, literal));
 
         wah_wipe(&map);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(bucket_overfill) { /* {{{ */
         Z_HELPER_RUN(z_wah_test_bucket_overfilling(0));
         Z_HELPER_RUN(z_wah_test_bucket_overfilling(1));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(bucket_overfill_nr_117848) { /* {{{ */
@@ -1067,8 +1048,7 @@ Z_GROUP_EXPORT(wah)
 
         wah_wipe(&map);
         wah_set_bits_in_bucket(Z_WAH_BITS_IN_BUCKETS);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(fuzzing_nr_1) { /* {{{ */
@@ -1102,8 +1082,7 @@ Z_GROUP_EXPORT(wah)
 
         /* No crash should happen and the appended chunk must be accounted. */
         Z_ASSERT_EQ(map.len, UINT64_C(4294967360));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(fuzzing_nr_2) { /* {{{ */
@@ -1151,13 +1130,11 @@ Z_GROUP_EXPORT(wah)
         Z_ASSERT_P(wah_init_from_data(&map2, ps));
         wah_set_check_normalized(true);
         Z_ASSERT_EQ(map.len, map2.len);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
 
     wah_reset_bits_in_bucket();
-}
-Z_GROUP_END;
+} Z_GROUP_END;
 
 /* LCOV_EXCL_STOP */

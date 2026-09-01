@@ -52,8 +52,7 @@ static int z_test_murmur_hash3_x64_128(const lstr_t str)
     Z_HELPER_END;
 }
 
-Z_GROUP_EXPORT(hash)
-{
+Z_GROUP_EXPORT(hash) {
     Z_TEST(jenkins) {
         lstr_t s = LSTR("hakunamatata");
         lstr_t s_upper = LSTR("HAKUNAMATATA");
@@ -65,8 +64,7 @@ Z_GROUP_EXPORT(hash)
         Z_ASSERT_EQ(
             jenkins_hash_ascii_lower(s_upper.s, s_upper.len), 0xb536a6ee
         );
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(murmur_hash3_x86_32) {
         lstr_t s = LSTR(
@@ -80,8 +78,7 @@ Z_GROUP_EXPORT(hash)
         assert(s.len % 4);
 
         Z_ASSERT_EQ(murmur_hash3_x86_32(s.s, s.len, 0xdeadc0de), 0x7455ebb5u);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(murmur_hash3_x86_32_update) {
         lstr_t s;
@@ -97,8 +94,7 @@ Z_GROUP_EXPORT(hash)
         murmur_hash3_x86_32_finish(&ctx, hash);
 
         Z_ASSERT_EQ(get_unaligned_cpu32(hash), 0x7455ebb5u);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(murmur_hash3_x64_128) {
         t_scope;
@@ -140,8 +136,7 @@ Z_GROUP_EXPORT(hash)
         TEST(str, 15, "b7 89 a9 f2 95 b0 d7 44 f4 d1 04 16 dc 02 d3 93");
 
 #undef TEST
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(murmur_hash3_x64_128_update) {
 #define TEST(str) Z_HELPER_RUN(z_test_murmur_hash3_x64_128(LSTR(str)))
@@ -162,10 +157,8 @@ Z_GROUP_EXPORT(hash)
         );
 
 #undef TEST
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END;
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /* }}} */
 /* {{{ sha2 */
@@ -300,8 +293,7 @@ static const byte sha2_hmac_test_sum[14][32] = {
      0x13, 0x93, 0x8A, 0x7F, 0x51, 0x53, 0x5C, 0x3A, 0x35, 0xE2}
 };
 
-Z_GROUP_EXPORT(sha2)
-{
+Z_GROUP_EXPORT(sha2) {
     Z_TEST(hash) {
         byte buf[1024];
         byte sha2sum[32];
@@ -332,8 +324,7 @@ Z_GROUP_EXPORT(sha2)
             }
             Z_ASSERT_EQUAL(sha2sum, len, sha2_test_sum[i], len);
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(hmac) {
         byte buf[1024];
@@ -365,8 +356,7 @@ Z_GROUP_EXPORT(sha2)
             }
             Z_ASSERT_EQUAL(sha2sum, len, sha2_hmac_test_sum[i], len);
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(crypt) {
 
@@ -489,10 +479,8 @@ Z_GROUP_EXPORT(sha2)
         );
 
 #undef CHECK_FAIL
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /* }}} */
 /* {{{ sha4 */
@@ -664,8 +652,7 @@ static const byte sha4_hmac_test_sum[14][64] = {
      0x60, 0x65, 0xC9, 0x74, 0x40, 0xFA, 0x8C, 0x6A, 0x58}
 };
 
-Z_GROUP_EXPORT(sha4)
-{
+Z_GROUP_EXPORT(sha4) {
     Z_TEST(hash) {
         byte buf[1024];
         byte sha4sum[64];
@@ -691,8 +678,7 @@ Z_GROUP_EXPORT(sha4)
             len = 64 - k * 16;
             Z_ASSERT_EQUAL(sha4sum, len, sha4_test_sum[i], len);
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(hmac) {
         byte buf[1024];
@@ -720,10 +706,8 @@ Z_GROUP_EXPORT(sha4)
             len = (j == 4) ? 16 : 64 - k * 16;
             Z_ASSERT_EQUAL(sha4sum, len, sha4_hmac_test_sum[i], len);
         }
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /* }}} */
 /* {{{ aes */
@@ -790,8 +774,7 @@ static const byte aes_test_cfb_enc[3][16] = {
      0x98, 0x78, 0xE1, 0xFA}
 };
 
-Z_GROUP_EXPORT(aes)
-{
+Z_GROUP_EXPORT(aes) {
     Z_TEST(ECB) {
         byte key[32];
         byte buf[16];
@@ -822,8 +805,7 @@ Z_GROUP_EXPORT(aes)
                 Z_ASSERT_EQUAL(buf, 16, aes_test_ecb_enc[u], 16);
             }
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(CBC) {
         byte key[32];
@@ -866,8 +848,7 @@ Z_GROUP_EXPORT(aes)
                 Z_ASSERT_EQUAL(prv, 16, aes_test_cbc_enc[u], 16);
             }
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(CFB) {
         byte key[32];
@@ -903,10 +884,8 @@ Z_GROUP_EXPORT(aes)
                 Z_ASSERT_EQUAL(buf, 16, aes_test_cfb_enc[u], 16);
             }
         }
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /* }}} */
 /* {{{ des */
@@ -952,8 +931,7 @@ static const byte des3_test_cbc_enc[3][8] = {
     {0xCB, 0x19, 0x1F, 0x85, 0xD1, 0xED, 0x84, 0x39}
 };
 
-Z_GROUP_EXPORT(des)
-{
+Z_GROUP_EXPORT(des) {
     Z_TEST(ECB) {
         des_ctx ctx;
         des3_ctx ctx3;
@@ -1005,8 +983,7 @@ Z_GROUP_EXPORT(des)
                 Z_ASSERT_EQUAL(buf, 8, des3_test_ecb_enc[u], 8);
             }
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(CBC) {
         des_ctx ctx;
@@ -1081,10 +1058,8 @@ Z_GROUP_EXPORT(des)
                 Z_ASSERT_EQUAL(buf, 8, des3_test_cbc_enc[u], 8);
             }
         }
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /* }}} */
 /* {{{ md5 */
@@ -1175,8 +1150,7 @@ static const byte md5_hmac_test_sum[7][16] = {
      0xDB, 0x3A, 0xA5, 0x3E}
 };
 
-Z_GROUP_EXPORT(md5)
-{
+Z_GROUP_EXPORT(md5) {
     Z_TEST(hash) {
         byte md5sum[16];
 
@@ -1184,8 +1158,7 @@ Z_GROUP_EXPORT(md5)
             md5(md5_test_buf[i], md5_test_buflen[i], md5sum);
             Z_ASSERT_EQUAL(md5sum, 16, md5_test_sum[i], 16);
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(hmac) {
         byte buf[1024];
@@ -1213,10 +1186,8 @@ Z_GROUP_EXPORT(md5)
                 Z_ASSERT_EQUAL(md5sum, 16, md5_hmac_test_sum[i], 16);
             }
         }
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /* }}} */
 

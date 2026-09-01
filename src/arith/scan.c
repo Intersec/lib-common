@@ -438,8 +438,7 @@ static int test_scan_non_zero32(void)
     Z_HELPER_END;
 }
 
-Z_GROUP_EXPORT(arith_sse)
-{
+Z_GROUP_EXPORT(arith_sse) {
     srand(0);
 
 #define DO_TEST(Size, Count, Get)                                            \
@@ -469,41 +468,33 @@ Z_GROUP_EXPORT(arith_sse)
 
     Z_TEST(8) {
         DO_TEST(8, 4096, GET);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(16) {
         DO_TEST(16, 2048, GET);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(32) {
         DO_TEST(32, 1024, GET);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(64) {
         DO_TEST(64, 1024, GET);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(128) {
         DO_TEST(128, 1024, GET);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(scan_non_zero16) {
         Z_HELPER_RUN(test_scan_non_zero16());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(scan_non_zero32) {
         Z_HELPER_RUN(test_scan_non_zero32());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 #undef GET
 #undef DO_TEST
-}
-Z_GROUP_END
+} Z_GROUP_END;
 
 /* }}} */

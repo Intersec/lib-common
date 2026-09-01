@@ -659,8 +659,7 @@ static int z_qhat_rm_mul_keys(
 
 /* }}} */
 
-Z_GROUP_EXPORT(qps_hat)
-{
+Z_GROUP_EXPORT(qps_hat) {
     qps_t *qps;
 
     MODULE_REQUIRE(qps);
@@ -674,92 +673,77 @@ Z_GROUP_EXPORT(qps_hat)
 
     Z_TEST(128) { /* {{{ */
         Z_HELPER_RUN(test_128(qps, false));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(128_null) { /* {{{ */
         Z_HELPER_RUN(test_128(qps, true));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(128_null_zero) { /* {{{ */
         Z_HELPER_RUN(test_zeros(qps, 16));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(64) { /* {{{ */
         Z_HELPER_RUN(test_64(qps, false));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(64_null) { /* {{{ */
         Z_HELPER_RUN(test_64(qps, true));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(64_null_zero) { /* {{{ */
         Z_HELPER_RUN(test_zeros(qps, 8));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(32) { /* {{{ */
         Z_HELPER_RUN(test_32(qps, false));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(32_null) { /* {{{ */
         Z_HELPER_RUN(test_32(qps, true));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(32_null_zero) { /* {{{ */
         Z_HELPER_RUN(test_zeros(qps, 4));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(16) { /* {{{ */
         Z_HELPER_RUN(test_16(qps, false));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(16_null) { /* {{{ */
         Z_HELPER_RUN(test_16(qps, true));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(16_null_zero) { /* {{{ */
         Z_HELPER_RUN(test_zeros(qps, 2));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(8) { /* {{{ */
         Z_HELPER_RUN(test_8(qps, false));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(8_null) { /* {{{ */
         Z_HELPER_RUN(test_8(qps, true));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(8_null_zero) { /* {{{ */
         Z_HELPER_RUN(test_zeros(qps, 1));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(debug_print) { /* {{{ */
@@ -810,8 +794,7 @@ Z_GROUP_EXPORT(qps_hat)
         Z_ASSERT_STREQUAL(output.data, exp_output.data);
 
         qhat_destroy(&trie);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(compute_memory) { /* {{{ */
@@ -841,8 +824,7 @@ Z_GROUP_EXPORT(qps_hat)
         Z_ASSERT_EQ(qhat_compute_memory(&trie), 622592ul);
         Z_ASSERT_EQ(qhat_compute_memory_overhead(&trie), 170136ul);
         qhat_destroy(&trie);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(enumeration) { /* {{{ */
@@ -888,8 +870,7 @@ Z_GROUP_EXPORT(qps_hat)
 
         qhat_clear(&trie);
         qhat_destroy(&trie);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(go_to_current_key_removed) { /* {{{ */
@@ -941,8 +922,7 @@ Z_GROUP_EXPORT(qps_hat)
 
         qhat_clear(&trie);
         qhat_destroy(&trie);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(nullable_trie_nr) { /* {{{ */
@@ -974,8 +954,7 @@ Z_GROUP_EXPORT(qps_hat)
         }
 
         Z_ASSERT(en.end);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(enumerator_get_value_safe) { /* {{{ */
@@ -1038,8 +1017,7 @@ Z_GROUP_EXPORT(qps_hat)
         Z_ASSERT_EQ(*v, 80u);
 
         qhat_destroy(&trie);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(enumerator_safe_single_removal) { /* {{{ */
@@ -1085,8 +1063,7 @@ Z_GROUP_EXPORT(qps_hat)
 
         Z_ASSERT(en.end);
         qhat_destroy(&trie);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(enumerator_next) { /* {{{ */
@@ -1135,8 +1112,7 @@ Z_GROUP_EXPORT(qps_hat)
         }
         qhat_enumerator_next(&en, true);
         Z_ASSERT(en.end);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(enumerator_next_after_zero) { /* {{{ */
@@ -1172,8 +1148,7 @@ Z_GROUP_EXPORT(qps_hat)
         Z_ASSERT_EQ(*value, 51u);
 
         qhat_destroy(&trie);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(repair) { /* {{{ */
@@ -1211,8 +1186,7 @@ Z_GROUP_EXPORT(qps_hat)
             qhat_check_consistency_flags(&trie, QHAT_CHECK_FULL_SCAN, NULL)
         );
         qhat_destroy(&trie);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(nr_stat_update_after_rm_from_flat) { /* {{{ */
@@ -1260,8 +1234,7 @@ Z_GROUP_EXPORT(qps_hat)
         Z_ASSERT_EQ(val, 0);
 
         qhat_destroy(&trie);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(nr_bad_en_value_after_rm) { /* {{{ */
@@ -1270,14 +1243,12 @@ Z_GROUP_EXPORT(qps_hat)
         Z_HELPER_RUN(z_nr_en_val_after_rm(qps, true, false));
         Z_HELPER_RUN(z_nr_en_val_after_rm(qps, false, true));
         Z_HELPER_RUN(z_nr_en_val_after_rm(qps, false, false));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(generation) { /* {{{ */
         Z_HELPER_RUN(z_run_qhat_test(qps, &z_test_qhat_gen));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(nr_94699) { /* {{{ */
@@ -1340,8 +1311,7 @@ Z_GROUP_EXPORT(qps_hat)
         *v = 100;
         cv = qhat_get(&trie, 4);
         Z_ASSERT_EQ(*cv, 100, "unexpected value for entry [4]");
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(nr_97147) { /* {{{ */
@@ -1363,8 +1333,7 @@ Z_GROUP_EXPORT(qps_hat)
         v = qhat_enumerator_get_value_safe(&en);
         Z_ASSERT(en.nn_trie.compact);
         Z_ASSERT_EQ(*v, 0u);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(nr_100254_1) { /* {{{ */
@@ -1388,8 +1357,7 @@ Z_GROUP_EXPORT(qps_hat)
         Z_ASSERT(qhat_remove(&trie, 16843009, NULL));
 
         qhat_destroy(&trie);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(nr_100254_2) { /* {{{ */
@@ -1412,8 +1380,7 @@ Z_GROUP_EXPORT(qps_hat)
         Z_HELPER_RUN(z_qhat_rm_mul_keys(&trie, 1, 1, 259));
 
         qhat_destroy(&trie);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(nr_100765_1) { /* {{{ */
@@ -1452,8 +1419,7 @@ Z_GROUP_EXPORT(qps_hat)
 
         qhat_destroy(&trie1);
         qhat_destroy(&trie2);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(nr_100765_2) { /* {{{ */
@@ -1527,8 +1493,7 @@ Z_GROUP_EXPORT(qps_hat)
         end_iteration:
             qhat_destroy(&trie);
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(nu_trie_end_reset) { /* {{{ */
@@ -1559,8 +1524,7 @@ Z_GROUP_EXPORT(qps_hat)
         Z_ASSERT_EQ(
             *(const uint32_t *)qhat_enumerator_get_value_safe(&en), 2U
         );
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(nr_101129) { /* {{{ */
@@ -1626,14 +1590,12 @@ Z_GROUP_EXPORT(qps_hat)
         }
 
         qhat_destroy(&trie);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
 
     qps_close(&qps);
     MODULE_RELEASE(qps);
-}
-Z_GROUP_END
+} Z_GROUP_END;
 
 /* LCOV_EXCL_STOP */

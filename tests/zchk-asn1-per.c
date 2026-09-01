@@ -628,8 +628,7 @@ static int z_check_seq_of_fragment(
 
 /* }}} */
 
-Z_GROUP_EXPORT(asn1_aper)
-{
+Z_GROUP_EXPORT(asn1_aper) {
     /* {{{ u16 */
     Z_TEST(u16, "aligned per: aper_write_u16_m/aper_read_u16_m") {
         t_scope;
@@ -670,8 +669,7 @@ Z_GROUP_EXPORT(asn1_aper)
         }
 
         bb_wipe(&bb);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     /* {{{ len */
     Z_TEST(len, "aligned per: aper_write_len/aper_read_len") {
@@ -693,8 +691,7 @@ Z_GROUP_EXPORT(asn1_aper)
         /* FIXME We should probably apply the encoding specified in clause
          * 13.2.6 a) as suggested by clause 11.5.7.4. */
         Z_HELPER_RUN(z_test_aper_len(10, 5, 100000, 3, "00000.00001010"));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     /* {{{ nsnnwn */
     Z_TEST(nsnnwn, "aligned per: aper_write_nsnnwn/aper_read_nsnnwn") {
@@ -702,8 +699,7 @@ Z_GROUP_EXPORT(asn1_aper)
         Z_HELPER_RUN(z_test_aper_nsnnwn(0xe, ".0001110"));
         Z_HELPER_RUN(z_test_aper_nsnnwn(96, ".10000000.00000001.01100000"));
         Z_HELPER_RUN(z_test_aper_nsnnwn(128, ".10000000.00000001.10000000"));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     /* {{{ number */
     Z_TEST(number, "aligned per: aper_{encode,decode}_number") {
@@ -766,8 +762,7 @@ Z_GROUP_EXPORT(asn1_aper)
                 "test (%ld/%zd) failed", t - tests + 1, countof(tests)
             );
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     /* {{{ 64bits_number_overflows */
     Z_TEST(64bits_number_overflows, "aper: 64bits overflows on numbers") {
@@ -834,8 +829,7 @@ Z_GROUP_EXPORT(asn1_aper)
         }
 
         bb_wipe(&bb);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     /* {{{ ostring */
     Z_TEST(ostring, "aligned per: aper_{encode,decode}_ostring") {
@@ -926,8 +920,7 @@ Z_GROUP_EXPORT(asn1_aper)
         ));
 
         /* }}} */
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     /* {{{ bstring */
     Z_TEST(bstring, "aligned per: aper_{encode,decode}_bstring") {
@@ -1141,8 +1134,7 @@ Z_GROUP_EXPORT(asn1_aper)
         ));
 
         /* }}} */
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     /* {{{ length constraints printing */
     Z_TEST(sb_add_asn1_len_constraints) {
@@ -1179,8 +1171,7 @@ Z_GROUP_EXPORT(asn1_aper)
         constraints.ext_max = SIZE_MAX;
         sb_add_asn1_len_constraints(&buf, &constraints);
         Z_ASSERT_STREQUAL(buf.data, "SIZE(42..100, ..., 10..MAX)");
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     /* {{{ enum */
     Z_TEST(enum, "aligned per: aper_{encode,decode}_enum") {
@@ -1255,8 +1246,7 @@ Z_GROUP_EXPORT(asn1_aper)
         asn1_enum_info_wipe(&e3);
         asn1_enum_info_wipe(&e4);
         asn1_enum_info_wipe(&e5);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     /* {{{ enum_ext_defval */
     Z_TEST(enum_ext_defval, "aligned per: extended enum default value") {
@@ -1281,8 +1271,7 @@ Z_GROUP_EXPORT(asn1_aper)
 
         asn1_enum_info_wipe(&e);
         bb_wipe(&bb);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     /* {{{ choice */
     Z_TEST(choice) {
@@ -1308,8 +1297,7 @@ Z_GROUP_EXPORT(asn1_aper)
             Z_ASSERT_EQ(in.iop_tag, out.iop_tag);
             Z_ASSERT_EQ(in.i, out.i);
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     /* {{{ extended_choice */
     Z_TEST(extended_choice) {
@@ -1342,8 +1330,7 @@ Z_GROUP_EXPORT(asn1_aper)
             );
             Z_ASSERT_IOPEQUAL(tstiop__asn1_ext_choice, &t->in, &out);
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     /* {{{ extended_sequence */
     Z_TEST(extended_sequence) {
@@ -1377,8 +1364,7 @@ Z_GROUP_EXPORT(asn1_aper)
                 t->title
             );
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     /* {{{ ints_overflows */
     Z_TEST(ints_overflows) {
@@ -1396,17 +1382,19 @@ Z_GROUP_EXPORT(asn1_aper)
             int64_t v;
             int64_t *base_field;
         } err_cases[] = {
+        /* clang-format off */
 #define TEST(x)                                                              \
-    {"i" #x ", min - 1", (int64_t)INT##x##_MIN - 1, &base.i##x},             \
-        {"i" #x ", max + 1", (int64_t)INT##x##_MAX + 1, &base.i##x},         \
-        {"u" #x ", min - 1", (int64_t)-1, &base.u##x},                       \
-        {"u" #x ", max + 1", (int64_t)UINT##x##_MAX + 1, &base.u##x}
+            {"i" #x ", min - 1", (int64_t)INT##x##_MIN - 1, &base.i##x},     \
+            {"i" #x ", max + 1", (int64_t)INT##x##_MAX + 1, &base.i##x},     \
+            {"u" #x ", min - 1", (int64_t)-1, &base.u##x},                   \
+            {"u" #x ", max + 1", (int64_t)UINT##x##_MAX + 1, &base.u##x}
 
             TEST(8),
             TEST(16),
             TEST(32),
 
 #undef TEST
+            /* clang-format on */
 
             /* XXX INT64_MIN - 1 is untestable this way */
             {"i64, max + 1", (uint64_t)INT64_MAX + 1,
@@ -1437,8 +1425,7 @@ Z_GROUP_EXPORT(asn1_aper)
                 "test `%s`: no overflow detection", t->title
             );
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     /* {{{ enumerated */
     Z_TEST(enumerated, "enumerated type check (mostly for auto-wipe)") {
@@ -1458,8 +1445,7 @@ Z_GROUP_EXPORT(asn1_aper)
             t_aper_decode(&ps, struct1, false, &s1[1]), "decoding failure"
         );
         Z_ASSERT_EQ(s1[1].e1, s1[0].e1);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     /* {{{ fragmented_octet_string */
     Z_TEST(fragmented_octet_string) {
@@ -1521,8 +1507,7 @@ Z_GROUP_EXPORT(asn1_aper)
 
         sb_wipe(&str);
         sb_wipe(&buf);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     /* {{{ fragmented_bit_string */
     Z_TEST(fragmented_bit_string) {
@@ -1579,8 +1564,7 @@ Z_GROUP_EXPORT(asn1_aper)
                 "bit [%d] differs", i
             );
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     /* {{{ fragmented_open_type */
     Z_TEST(fragmented_open_type) {
@@ -1636,8 +1620,7 @@ Z_GROUP_EXPORT(asn1_aper)
         sb_wipe(&str);
         sb_wipe(&buf);
         sb_wipe(&os_buf);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     /* {{{ fragmented_seq_of */
     Z_TEST(fragmented_seq_of) {
@@ -1705,8 +1688,7 @@ Z_GROUP_EXPORT(asn1_aper)
                 "[%d]", i
             );
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     /* {{{ seq_of_ptr */
     Z_TEST(seq_of_ptr, "check arrays of pointers encoding/decoding") {
@@ -1747,8 +1729,7 @@ Z_GROUP_EXPORT(asn1_aper)
             s_after = seqof_ptr_after.s.seqof.data[i];
             Z_ASSERT_EQ(s_after->a, s_before->a, "item [%d] differs", i);
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     /* {{{ indefinite_length_case_octet_string_over_64k */
 
@@ -1801,9 +1782,7 @@ Z_GROUP_EXPORT(asn1_aper)
         Z_ASSERT(lstr_equal(after.os, before.os), "unexpected failure");
 
 #undef OCTET_STRING_LEN
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
-}
-Z_GROUP_END
+} Z_GROUP_END;

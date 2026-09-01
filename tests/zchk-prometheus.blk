@@ -207,8 +207,7 @@ static int z_histogram_value_thread_safety(void)
 
 /* }}} */
 
-Z_GROUP_EXPORT(prometheus_client)
-{
+Z_GROUP_EXPORT(prometheus_client) {
 
     MODULE_REQUIRE(thr);
 
@@ -231,8 +230,7 @@ Z_GROUP_EXPORT(prometheus_client)
 
 #undef T_OK
 #undef T_KO
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(metrics_label_name) {
 #define T_OK(_name) Z_ASSERT_N(prom_metric_check_label_name(_name))
@@ -253,8 +251,7 @@ Z_GROUP_EXPORT(prometheus_client)
 
 #undef T_OK
 #undef T_KO
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(single_value_metrics_basics) {
         prom_counter_t *counter;
@@ -343,8 +340,7 @@ Z_GROUP_EXPORT(prometheus_client)
         Z_ASSERT_STREQUAL(gauge_child->label_values.tab[0], "label value");
 
         MODULE_RELEASE(prometheus_client);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(histogram_basics) {
         const double default_buckets[] = {PROM_DEFAULT_BUCKETS};
@@ -418,32 +414,27 @@ Z_GROUP_EXPORT(prometheus_client)
         Z_ASSERT_EQ(histogram->bucket_upper_bounds[4], 10000);
 
         MODULE_RELEASE(prometheus_client);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(metric_labels_thread_safety) {
         /* Not implemented directly here because of block rewriting issues */
         Z_HELPER_RUN(z_metric_labels_thread_safety());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(counter_value_thread_safety) {
         /* Not implemented directly here because of block rewriting issues */
         Z_HELPER_RUN(z_counter_value_thread_safety());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(gauge_value_thread_safety) {
         /* Not implemented directly here because of block rewriting issues */
         Z_HELPER_RUN(z_gauge_value_thread_safety());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(histogram_value_thread_safety) {
         /* Not implemented directly here because of block rewriting issues */
         Z_HELPER_RUN(z_histogram_value_thread_safety());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(text_histogram_timer) {
         prom_histogram_t *histo;
@@ -469,8 +460,7 @@ Z_GROUP_EXPORT(prometheus_client)
         Z_ASSERT_LT(histo->sum, 0.002);
 
         MODULE_RELEASE(prometheus_client);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(text_exposition, "test the metrics exposition in text format") {
         t_scope;
@@ -568,11 +558,9 @@ Z_GROUP_EXPORT(prometheus_client)
         lstr_wipe(&expected);
 
         MODULE_RELEASE(prometheus_client);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     MODULE_RELEASE(thr);
-}
-Z_GROUP_END;
+} Z_GROUP_END;
 
 /* LCOV_EXCL_STOP */

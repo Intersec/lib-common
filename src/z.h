@@ -286,6 +286,11 @@ __attr_printf__(4, 5) void _z_helper_failed(
 
 #endif /* __has_blocks */
 
+/* Trailing declaration forcing a ';' after Z_TEST_END/Z_GROUP_END, valid at
+ * both block and file scope. When the ';' is missing, clang reports
+ * "expected ';' after '_Static_assert'" right on the faulty line. */
+#define _Z_REQUIRE_SEMICOLON _Static_assert(1, "missing ';'")
+
 #define Z_GROUP(name)                                                        \
     __attr_cold__ static void z_##name(void)                                 \
     {                                                                        \
@@ -310,7 +315,8 @@ __attr_printf__(4, 5) void _z_helper_failed(
 #define Z_GROUP_END                                                          \
     }                                                                        \
     _z_group_done();                                                         \
-    }
+    }                                                                        \
+    _Z_REQUIRE_SEMICOLON
 
 /* We don't want to use step blocks when in the blocks rewriter and not in the
  * final compiler because the block rewriter has issues when mixing blocks and
@@ -361,7 +367,8 @@ __attr_printf__(4, 5) void _z_helper_failed(
             _z_step_report();                                                \
             break;                                                           \
         }                                                                    \
-    }
+    }                                                                        \
+    _Z_REQUIRE_SEMICOLON
 
 #else
 
@@ -385,7 +392,8 @@ __attr_printf__(4, 5) void _z_helper_failed(
     _z_step_end:                                                             \
         _z_step_report();                                                    \
         break;                                                               \
-    }
+    }                                                                        \
+    _Z_REQUIRE_SEMICOLON
 
 #endif
 

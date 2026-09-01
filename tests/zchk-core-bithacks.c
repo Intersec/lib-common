@@ -23,8 +23,7 @@
 
 /* {{{ bsr_bsf */
 
-Z_GROUP_EXPORT(bsr_bsf)
-{
+Z_GROUP_EXPORT(bsr_bsf) {
     Z_TEST(bsf_1, "forward bit scan") {
         uint8_t data[128];
 
@@ -46,8 +45,7 @@ Z_GROUP_EXPORT(bsr_bsf)
         Z_ASSERT_NEG(bsf(data, 0, 3, false));
 
         Z_ASSERT_EQ(bsf(&data[1], 3, 1013, false), 154);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(bsf_0, "forward bit scan, scan of 0") {
         uint8_t data[128];
@@ -71,8 +69,7 @@ Z_GROUP_EXPORT(bsr_bsf)
         Z_ASSERT_NEG(bsf(data, 0, 3, true));
 
         Z_ASSERT_EQ(bsf(&data[1], 3, 1013, true), 154);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(bsr_1, "reverse bit scan") {
         uint8_t data[128];
@@ -109,8 +106,7 @@ Z_GROUP_EXPORT(bsr_bsf)
             SET_BIT(data, i);
         }
         Z_ASSERT_NEG(bsr(data + 8, 50, 40, false));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(bsr_0, "reverse bit scan, scan of 0") {
         uint8_t data[128];
@@ -135,16 +131,13 @@ Z_GROUP_EXPORT(bsr_bsf)
         Z_ASSERT_NEG(bsr(data, 0, 3, true));
 
         Z_ASSERT_EQ(bsr(&data[1], 3, 1013, true), 154);
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END;
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /* }}} */
 /* {{{ bit_reverse */
 
-Z_GROUP_EXPORT(bit_reverse)
-{
+Z_GROUP_EXPORT(bit_reverse) {
     Z_TEST(bit_reverse) {
         Z_ASSERT_EQ(bit_reverse16(0x3445), 0xa22c);
         Z_ASSERT_EQ(bit_reverse64(0xabc), 0x3d50000000000000ull);
@@ -157,10 +150,8 @@ Z_GROUP_EXPORT(bit_reverse)
             }
             Z_ASSERT_EQ(__bit_reverse8[__bit_reverse8[i]], i);
         }
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /* }}} */
 /* {{{ membitcount */
@@ -220,13 +211,11 @@ static int membitcount_check_rand(size_t (*fn)(const void *, size_t))
 #undef N
 }
 
-Z_GROUP_EXPORT(membitcount)
-{
+Z_GROUP_EXPORT(membitcount) {
     Z_TEST(fast_c) {
         Z_HELPER_RUN(membitcount_check_rand(membitcount_c));
         Z_HELPER_RUN(membitcount_check_small(membitcount_c));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(ssse3) {
 #ifdef __HAS_CPUID
@@ -242,8 +231,7 @@ Z_GROUP_EXPORT(membitcount)
 #else
         Z_SKIP("neither amd64 nor i386 or unsupported compiler");
 #endif
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(popcnt) {
 #ifdef __HAS_CPUID
@@ -259,10 +247,8 @@ Z_GROUP_EXPORT(membitcount)
 #else
         Z_SKIP("neither amd64 nor i386 or unsupported compiler");
 #endif
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /* }}} */
 

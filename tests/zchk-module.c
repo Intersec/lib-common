@@ -303,8 +303,7 @@ static MODULE_DEFINE(module_a)
 
 /* }}} */
 
-Z_GROUP_EXPORT(module)
-{
+Z_GROUP_EXPORT(module) {
     /* basic behavior {{{ */
 
     Z_TEST(basic, "basic registering require shutdown") {
@@ -361,8 +360,7 @@ Z_GROUP_EXPORT(module)
             !MODULE_IS_LOADED(mock_platform),
             "mock_platform should be shutdown"
         );
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(basic2, "Require submodule") {
         MODULE_REQUIRE(mock_platform);
@@ -374,8 +372,7 @@ Z_GROUP_EXPORT(module)
         Z_ASSERT(MODULE_IS_LOADED(mock_ic));
         MODULE_RELEASE(mock_ic);
         Z_ASSERT(!MODULE_IS_LOADED(mock_ic));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(load_shut, "Initialize and shutting down states") {
         Z_MODULE_REGISTER(load_shut);
@@ -396,8 +393,7 @@ Z_GROUP_EXPORT(module)
         Z_ASSERT(!MODULE_IS_LOADED(load_shut));
         Z_ASSERT(!MODULE_IS_INITIALIZING(load_shut));
         Z_ASSERT(!MODULE_IS_SHUTTING_DOWN(load_shut));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(use_case1) {
         /*           mod1           mod6
@@ -472,8 +468,7 @@ Z_GROUP_EXPORT(module)
         Z_ASSERT(!MODULE_IS_LOADED(mod4));
         Z_ASSERT(!MODULE_IS_LOADED(mod5));
         Z_ASSERT(!MODULE_IS_LOADED(mod6));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* provide {{{ */
@@ -487,15 +482,13 @@ Z_GROUP_EXPORT(module)
         MODULE_REQUIRE(module_arg);
         Z_ASSERT(MODULE_IS_LOADED(module_arg));
         MODULE_RELEASE(module_arg);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(provide_constructor) {
         MODULE_REQUIRE(modprovide2);
         Z_ASSERT_LSTREQUAL(*word_global, provide_arg);
         MODULE_RELEASE(modprovide2);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* methods {{{ */
@@ -705,8 +698,7 @@ Z_GROUP_EXPORT(module)
         Z_ASSERT_GT(modmethod5, modmethod3);
         Z_ASSERT_ZERO(custom_data_modmethod6);
         Z_ASSERT_EQ(val_method, 4);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* invert dependency {{{ */
@@ -726,8 +718,7 @@ Z_GROUP_EXPORT(module)
         Z_ASSERT(!MODULE_IS_LOADED(depmod1));
         Z_ASSERT(!MODULE_IS_LOADED(depmod2));
         Z_ASSERT(!MODULE_IS_LOADED(depmod3));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* dependency check {{{ */
@@ -754,9 +745,7 @@ Z_GROUP_EXPORT(module)
         Z_ASSERT_LSTREQUAL(
             collision, LSTR(module_get_name(MODULE(module_i)))
         );
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
-}
-Z_GROUP_END;
+} Z_GROUP_END;

@@ -193,8 +193,7 @@ static int zchk_check_resolved_addr(
     Z_HELPER_END;
 }
 
-Z_GROUP_EXPORT(net_addr)
-{
+Z_GROUP_EXPORT(net_addr) {
     t_scope;
 #define NET_ADDR_IPV4 "1.1.1.1"
 #define NET_ADDR_IPV6 "1:1:1:1:1:1:1:1"
@@ -246,8 +245,7 @@ Z_GROUP_EXPORT(net_addr)
         CHECK_FILTER(0, "2.2.2.2/0", "0.0.0.0", "0.0.0.0");
         CHECK_FILTER(0, "1.1.1.1", "1.1.1.1", "255.255.255.255");
         CHECK_FILTER(-1, "1.1.1.4", "1.1.1.4", "255.255.255.255");
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(ipv6) {
         sockunion_t su;
@@ -284,8 +282,7 @@ Z_GROUP_EXPORT(net_addr)
             -1, "1:1:1:1:1:1:1:3", "1:1:1:1:1:1:1:3",
             "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
         );
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(local_addr_resolution) {
         SB_1k(err);
@@ -328,8 +325,7 @@ Z_GROUP_EXPORT(net_addr)
 
         zchk_end_resolved_addr_test();
         MODULE_RELEASE(thr);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(remote_addr_resolution) {
         Z_TEST_FLAGS("slow");
@@ -346,8 +342,7 @@ Z_GROUP_EXPORT(net_addr)
 
         zchk_end_resolved_addr_test();
         MODULE_RELEASE(thr);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(sockunion_for_each) {
         lstr_t ip = LSTR("127.0.0.1:1337");
@@ -380,8 +375,7 @@ Z_GROUP_EXPORT(net_addr)
             idx++;
         }
         Z_ASSERT_EQ(idx, 3);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
 #undef CHECK_FILTER
 #undef NET_ADDR_PORT
@@ -433,8 +427,7 @@ Z_GROUP_EXPORT(net_addr)
         Z_ASSERT_EQ(res.len, 0);
 
         qv_wipe(&res);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(parse_http_url) {
         http_url_t url;
@@ -497,9 +490,7 @@ Z_GROUP_EXPORT(net_addr)
         /* HTTPS port. */
         Z_ASSERT_N(parse_http_url("https://host.com", true, &url));
         Z_ASSERT_EQ(url.port, 443);
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END;
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /* }}} */

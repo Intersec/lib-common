@@ -128,8 +128,7 @@ static lstr_t t_get_obj_desc_indirect(my_base_object_t *obj)
     return obj_vcall(obj, t_get_desc);
 }
 
-Z_GROUP_EXPORT(core_obj)
-{
+Z_GROUP_EXPORT(core_obj) {
     Z_TEST(basic) {
         t_scope;
         my_base_object_t *base_obj = obj_new(my_base_object);
@@ -147,8 +146,7 @@ Z_GROUP_EXPORT(core_obj)
 
         obj_delete(&child_obj);
         obj_delete(&base_obj);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(casts) {
         my_base_object_t *base_obj = obj_new(my_base_object);
@@ -177,8 +175,7 @@ Z_GROUP_EXPORT(core_obj)
 
         obj_delete(&child_obj);
         obj_delete(&base_obj);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(extended) {
         my_child_object_t *child_obj = obj_new(my_child_object);
@@ -192,8 +189,7 @@ Z_GROUP_EXPORT(core_obj)
         Z_ASSERT_EQ(!child_obj->b, obj_vcall(child_obj, get_extended_b));
 
         obj_delete(&child_obj);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(refcounting) {
         my_base_object_t *obj;
@@ -271,8 +267,7 @@ Z_GROUP_EXPORT(core_obj)
         Z_ASSERT_NULL(
             obj, "obj_retain_scope() should have deleted the object"
         );
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(tagged_references) {
         my_base_object_t *obj;
@@ -291,7 +286,5 @@ Z_GROUP_EXPORT(core_obj)
         Z_ASSERT_P(obj);
         obj_tagged_release(&obj, testing);
         Z_ASSERT_NULL(obj);
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END
+    } Z_TEST_END;
+} Z_GROUP_END;

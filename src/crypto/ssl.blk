@@ -1261,8 +1261,7 @@ ssize_t ssl_sb_read(sb_t *sb, SSL *ssl, int hint)
 /* }}} */
 /* {{{ Tests */
 
-Z_GROUP_EXPORT(ssl)
-{
+Z_GROUP_EXPORT(ssl) {
     MODULE_REQUIRE(ssl);
 
     /* {{{ AES */
@@ -1307,8 +1306,7 @@ Z_GROUP_EXPORT(ssl)
         sb_wipe(&sb);
         sb_wipe(&sb_dec);
         ssl_ctx_wipe(&ctx);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(decrypt_aes) {
         ssl_ctx_t ctx;
@@ -1325,8 +1323,7 @@ Z_GROUP_EXPORT(ssl)
         Z_ASSERT_LSTREQUAL(LSTR("Encrypt me"), LSTR_SB_V(&sb));
 
         ssl_ctx_wipe(&ctx);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ PKEY */
@@ -1477,8 +1474,7 @@ Z_GROUP_EXPORT(ssl)
                 Z_ASSERT_LSTREQUAL(init, LSTR_SB_V(&sb_clear));
             }
             ssl_ctx_wipe(&ctx);
-        }
-        Z_TEST_END;
+        } Z_TEST_END;
 
         /* }}} */
         /* {{{ PKEY for RSA with OAEP */
@@ -1551,8 +1547,7 @@ Z_GROUP_EXPORT(ssl)
             Z_ASSERT_N(ssl_decrypt(&ctx, text_encrypted, &sb_clear));
             Z_ASSERT_LSTREQUAL(text, LSTR_SB_V(&sb_clear));
             ssl_ctx_wipe(&ctx);
-        }
-        Z_TEST_END;
+        } Z_TEST_END;
 
         /* }}} */
         /* {{{ PKEY with passphrase */
@@ -1687,8 +1682,7 @@ Z_GROUP_EXPORT(ssl)
             Z_ASSERT_N(ssl_decrypt(&ctx, text_encrypted, &sb_clear));
             Z_ASSERT_LSTREQUAL(text, LSTR_SB_V(&sb_clear));
             ssl_ctx_wipe(&ctx);
-        }
-        Z_TEST_END;
+        } Z_TEST_END;
 
         /* }}} */
     }
@@ -1696,7 +1690,6 @@ Z_GROUP_EXPORT(ssl)
     /* }}} */
 
     MODULE_RELEASE(ssl);
-}
-Z_GROUP_END
+} Z_GROUP_END;
 
 /* }}} */

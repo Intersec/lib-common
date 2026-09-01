@@ -9276,8 +9276,7 @@ static void z_query_cleanup(void)
     sb_wipe(&zquery_sb_g);
 }
 
-Z_GROUP_EXPORT(httpc)
-{
+Z_GROUP_EXPORT(httpc) {
     Z_TEST(unexpected_100_continue, "test behavior when receiving 100") {
         Z_HELPER_RUN(
             z_query_setup(&z_reply_100, 0, LSTR("localhost"), LSTR("/"))
@@ -9287,14 +9286,12 @@ Z_GROUP_EXPORT(httpc)
         Z_ASSERT_LSTREQUAL(LSTR_SB_V(&body_g), LSTR("Coucou"));
 
         z_query_cleanup();
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         gzip_with_zero_length,
         "test Content-Encoding: gzip with Content-Length: 0"
-    )
-    {
+    ) {
         Z_HELPER_RUN(z_query_setup(
             &z_reply_gzip_empty, 0, LSTR("localhost"), LSTR("/")
         ));
@@ -9303,11 +9300,11 @@ Z_GROUP_EXPORT(httpc)
         Z_ASSERT_LSTREQUAL(LSTR_SB_V(&body_g), LSTR(""));
 
         z_query_cleanup();
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
-    Z_TEST(close_with_no_content_length, "test close without Content-Length")
-    {
+    Z_TEST(
+        close_with_no_content_length, "test close without Content-Length"
+    ) {
         Z_HELPER_RUN(z_query_setup(
             &z_reply_close_without_content_length, 0, LSTR("localhost"),
             LSTR("/")
@@ -9322,8 +9319,7 @@ Z_GROUP_EXPORT(httpc)
         }
 
         z_query_cleanup();
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(url_host_and_uri, "test hosts and URIs") {
         /* Normal usage, target separate host and URI */
@@ -9404,8 +9400,7 @@ Z_GROUP_EXPORT(httpc)
             )
         ));
         z_query_cleanup();
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(no_content, "test a reply with NO_CONTENT code") {
         Z_HELPER_RUN(z_query_setup(
@@ -9413,15 +9408,13 @@ Z_GROUP_EXPORT(httpc)
         ));
         Z_ASSERT_EQ((http_code_t)HTTP_CODE_NO_CONTENT, code_g);
         z_query_cleanup();
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         chunked_oversized_size,
         "a chunked reply with a chunk-size that "
         "overflows a signed 32-bit int must be rejected, not over-read"
-    )
-    {
+    ) {
         Z_HELPER_RUN(z_query_setup_no_check(
             &z_reply_chunked_bad_size, 0, LSTR("localhost"), LSTR("/")
         ));
@@ -9430,43 +9423,37 @@ Z_GROUP_EXPORT(httpc)
         Z_ASSERT(has_reply_g);
         Z_ASSERT_NEG((int)zstatus_g, "the query must end in error, not OK");
         z_query_cleanup();
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         resp_reason_ctl, "a control character in the response status "
                          "reason phrase must be rejected (RFC 7230 3.1.2)"
-    )
-    {
+    ) {
         Z_HELPER_RUN(z_query_setup_no_check(
             &z_reply_reason_ctl, 0, LSTR("localhost"), LSTR("/")
         ));
         Z_ASSERT(has_reply_g);
         Z_ASSERT_NEG((int)zstatus_g, "the query must end in error, not OK");
         z_query_cleanup();
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         resp_header_ctl, "a control character in a response header value "
                          "must be rejected (RFC 7230 3.2)"
-    )
-    {
+    ) {
         Z_HELPER_RUN(z_query_setup_no_check(
             &z_reply_header_ctl, 0, LSTR("localhost"), LSTR("/")
         ));
         Z_ASSERT(has_reply_g);
         Z_ASSERT_NEG((int)zstatus_g, "the query must end in error, not OK");
         z_query_cleanup();
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         resp_content_length_invalid,
         "a negative or duplicate response Content-Length must be rejected "
         "(RFC 7230 3.3.2/3.3.3), like the server side"
-    )
-    {
+    ) {
         Z_HELPER_RUN(z_query_setup_no_check(
             &z_reply_negative_clen, 0, LSTR("localhost"), LSTR("/")
         ));
@@ -9480,10 +9467,8 @@ Z_GROUP_EXPORT(httpc)
         Z_ASSERT(has_reply_g);
         Z_ASSERT_NEG((int)zstatus_g, "a duplicate Content-Length must error");
         z_query_cleanup();
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END;
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 static int z_http2_write_reply(
     http2_conn_t *w, uint32_t stream_id, int code, lstr_t headerlines_,
@@ -9636,8 +9621,7 @@ static int z_http2_reply_ok_big(el_t el, int fd, short mask, data_t data)
     return z_http2_reply(el, fd, mask, data);
 }
 
-Z_GROUP_EXPORT(httpc_http2)
-{
+Z_GROUP_EXPORT(httpc_http2) {
     Z_TEST(no_content, "test a reply with NO_CONTENT code") {
         Z_HELPER_RUN(z_query_setup(
             &z_http2_reply_no_content, Z_QUERY_USE_HTTP2, LSTR("localhost"),
@@ -9645,8 +9629,7 @@ Z_GROUP_EXPORT(httpc_http2)
         ));
         Z_ASSERT_EQ((http_code_t)HTTP_CODE_NO_CONTENT, code_g);
         z_query_cleanup();
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(ok, "test a reply with 200 OK code and a small payload") {
         Z_HELPER_RUN(z_query_setup(
@@ -9655,8 +9638,7 @@ Z_GROUP_EXPORT(httpc_http2)
         Z_ASSERT_EQ((http_code_t)HTTP_CODE_OK, code_g);
         Z_ASSERT_LSTREQUAL(LSTR_SB_V(&body_g), LSTR("Coucou"));
         z_query_cleanup();
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(ok_big, "test a reply with 200 OK code and a big payload") {
         Z_HELPER_RUN(z_query_setup(
@@ -9669,14 +9651,12 @@ Z_GROUP_EXPORT(httpc_http2)
             Z_ASSERT_EQ(body_g.data[i], 'a' + (i % 8192) % 26);
         }
         z_query_cleanup();
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         pool_wipe_connecting, "force-close connecting connections on "
                               "http2 pool wipe"
-    )
-    {
+    ) {
         sockunion_t su;
         int server;
         int conn_fd;
@@ -9719,10 +9699,8 @@ Z_GROUP_EXPORT(httpc_http2)
          * not be freed again here. */
         close(server);
         httpc_cfg_wipe(&zcfg_g);
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END;
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 enum zhttpd_flags {
     ZHTTPD_QUERY_DONT_QUIT = (1 << 0),
@@ -9952,8 +9930,7 @@ static int zhttpd_setup(const lstr_t *query, int flags)
     Z_HELPER_END;
 }
 
-Z_GROUP_EXPORT(httpd)
-{
+Z_GROUP_EXPORT(httpd) {
     Z_TEST(simple_query, "test a simple query") {
         lstr_t query = LSTR(
             "GET /zchk HTTP/1.1\r\n"
@@ -9972,15 +9949,13 @@ Z_GROUP_EXPORT(httpd)
         );
 
         zhttpd_cleanup();
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         smuggling_te_and_cl,
         "a request with both Transfer-Encoding and "
         "Content-Length must be rejected (request smuggling)"
-    )
-    {
+    ) {
         /* rfc 7230 3.3.3: both Transfer-Encoding and Content-Length is an
          * ambiguous (smuggling) framing. Before the fix the server silently
          * ignored Content-Length and processed the request. */
@@ -10004,16 +9979,14 @@ Z_GROUP_EXPORT(httpd)
         );
 
         zhttpd_cleanup();
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         smuggling_te_identity_cl,
         "chunked then identity Transfer-Encoding plus Content-Length must "
         "be rejected: the second TE must not cancel the first and bypass "
         "the exclusivity check (request smuggling)"
-    )
-    {
+    ) {
         /* Before the fix the "identity" Transfer-Encoding reset the chunked
          * flag to false, so the Transfer-Encoding/Content-Length exclusivity
          * check was skipped and the body was framed by Content-Length, while
@@ -10040,15 +10013,13 @@ Z_GROUP_EXPORT(httpd)
         );
 
         zhttpd_cleanup();
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         smuggling_unsupported_te,
         "an unsupported Transfer-Encoding must "
         "close the connection, not leave it open for a smuggled request"
-    )
-    {
+    ) {
         /* The second (well-formed) request is pipelined right after the
          * first one. Before the fix the server replied 501 to the first
          * request but kept the connection open and then served the smuggled
@@ -10074,14 +10045,12 @@ Z_GROUP_EXPORT(httpd)
         );
 
         zhttpd_cleanup();
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         content_length_invalid, "a duplicate or non-numeric "
                                 "Content-Length must be rejected"
-    )
-    {
+    ) {
         /* Duplicate Content-Length (rfc 7230 3.3.3): a smuggling vector. */
         lstr_t dup = LSTR(
             "GET /zchk HTTP/1.1\r\n"
@@ -10109,8 +10078,7 @@ Z_GROUP_EXPORT(httpd)
             LSTR_SB_V(&zhttpd_g.read_buf), LSTR("HTTP/1.1 400")
         ));
         zhttpd_cleanup();
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(noact_delay, "test the behavior of the noactDelay timeout") {
         uint64_t tstart, tend;
@@ -10136,14 +10104,12 @@ Z_GROUP_EXPORT(httpd)
         Z_ASSERT_LE((int)(tend - tstart), (int)(ZHTTPD_NOACT_DELAY_MS * 1.5));
 
         zhttpd_cleanup();
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         noact_delay_pending_answer,
         "noactDelay shouldn't close with a pending answer"
-    )
-    {
+    ) {
         uint64_t tstart, tend;
         lstr_t query = LSTR(
             "GET /zchk HTTP/1.1\r\n"
@@ -10164,15 +10130,13 @@ Z_GROUP_EXPORT(httpd)
         Z_ASSERT_GE((int)(tend - tstart), ZHTTPD_TIMEOUT_MS);
 
         zhttpd_cleanup();
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         noact_delay_pending_answer_conn_close,
         "noactDelay shouldn't close with a pending answer even with a"
         " Connection: close"
-    )
-    {
+    ) {
         uint64_t tstart, tend;
         lstr_t query = LSTR(
             "GET /zchk HTTP/1.1\r\n"
@@ -10195,8 +10159,7 @@ Z_GROUP_EXPORT(httpd)
         Z_ASSERT_GE((int)(tend - tstart), ZHTTPD_TIMEOUT_MS);
 
         zhttpd_cleanup();
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(authentication, "test basic and bearer authentications") {
         /* Basic authentication */
@@ -10285,15 +10248,13 @@ Z_GROUP_EXPORT(httpd)
             LSTR_SB_V(&zhttpd_g.read_buf), LSTR("HTTP/1.1 400 Bad Request")
         ));
         zhttpd_cleanup();
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         chunked_oversized_size,
         "a chunk-size that overflows a signed "
         "32-bit int must be rejected, not crash the server"
-    )
-    {
+    ) {
         /* Server-side of the chunk-size truncation: 0x80000000 wraps to a
          * negative chunk length and, before the fix, drove the body parser
          * into an out-of-bounds read on a single unauthenticated request. */
@@ -10315,16 +10276,14 @@ Z_GROUP_EXPORT(httpd)
         );
 
         zhttpd_cleanup();
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         bufferize_content_length_base10,
         "httpd_bufferize must parse Content-Length in base 10 like the "
         "request body parser, not base 0, and reject an over-large "
         "payload up front"
-    )
-    {
+    ) {
         /* The default bufferize limit is 1 MiB. Content-Length 04000000 is
          * four million in base 10 (> 1 MiB, so it must be rejected), but
          * parsed in base 0 it is the octal value 1048576 (== 1 MiB), which
@@ -10344,16 +10303,14 @@ Z_GROUP_EXPORT(httpd)
         ));
 
         zhttpd_cleanup();
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         path_decoded_nul,
         "a percent-encoded NUL (%00) in the path must be rejected, not "
         "decoded verbatim: a NUL truncates the path when used as a C "
         "string and bypasses suffix checks"
-    )
-    {
+    ) {
         /* /zchk%00.txt decodes to \"/zchk\\0.txt\"; read as a C string it is
          * truncated to \"/zchk\" (which matches the trigger). The request
          * must be rejected (400) rather than silently served as /zchk. */
@@ -10373,15 +10330,13 @@ Z_GROUP_EXPORT(httpd)
         );
 
         zhttpd_cleanup();
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         header_obs_fold,
         "an obs-fold (line-folded header value) must be rejected "
         "(RFC 7230 3.2.4), not silently unfolded"
-    )
-    {
+    ) {
         /* The X-Folded value continues on a second line starting with a
          * space. Such obsolete line folding must be rejected (it is a
          * request-smuggling vector), not stitched back into one value. */
@@ -10400,15 +10355,13 @@ Z_GROUP_EXPORT(httpd)
         ));
 
         zhttpd_cleanup();
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         header_value_ctl,
         "a control character in a request header value must be rejected "
         "(RFC 7230 3.2)"
-    )
-    {
+    ) {
         /* The X-Bad value contains a raw 0x01 control character. */
         lstr_t query = LSTR(
             "GET /zchk HTTP/1.1\r\n"
@@ -10424,16 +10377,14 @@ Z_GROUP_EXPORT(httpd)
         ));
 
         zhttpd_cleanup();
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         hdr_equals_locale_independent,
         "http_hdr_equals must compare HTTP tokens with ASCII case rules, "
         "independent of the C locale: in a Turkish locale 'I' lowercases "
         "to a dotless i, so a locale-dependent tolower() fails to match"
-    )
-    {
+    ) {
         bool match;
 
         if (!setlocale(LC_CTYPE, "tr_TR.utf8") &&
@@ -10450,12 +10401,10 @@ Z_GROUP_EXPORT(httpd)
             match, "ASCII case-insensitive token match must hold under a "
                    "Turkish locale"
         );
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     zhttpd_cleanup();
-}
-Z_GROUP_END;
+} Z_GROUP_END;
 
 static void z_http2_add_frame(
     sb_t *out, uint32_t len, uint8_t type, uint8_t flags, uint32_t stream_id
@@ -10470,16 +10419,14 @@ static void z_http2_add_frame(
     sb_add0s(out, len);
 }
 
-Z_GROUP_EXPORT(http2_framing)
-{
+Z_GROUP_EXPORT(http2_framing) {
     Z_TEST(
         continuation_flood,
         "a HEADERS frame followed by CONTINUATION frames whose cumulative "
         "size exceeds the header-block limit (and that never set "
         "END_HEADERS) must trigger a connection error, not unbounded "
         "buffering"
-    )
-    {
+    ) {
         http2_conn_t w;
         uint32_t payload = HTTP2_LEN_MAX_FRAME_SIZE_INIT;
         int total;
@@ -10509,15 +10456,13 @@ Z_GROUP_EXPORT(http2_framing)
             "the CONTINUATION flood must trigger a connection error"
         );
         http2_conn_wipe(&w);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         rst_stream_bad_length,
         "a RST_STREAM frame whose length is not 4 octets must be a frame "
         "error (rfc 9113 6.4)"
-    )
-    {
+    ) {
         http2_conn_t w;
         /* A 4-octet error code followed by one extra octet (length 5). */
         static const byte payload[5] = {0, 0, 0, 0, 0};
@@ -10536,15 +10481,13 @@ Z_GROUP_EXPORT(http2_framing)
         Z_ASSERT_NEG(res, "RST_STREAM with length != 4 must be rejected");
         http2_conn_close_streams_internal(&w, 0, 0);
         http2_conn_wipe(&w);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         max_header_list_size,
         "a header block that decodes to more than the header-list limit "
         "must be rejected (HPACK decompression bomb)"
-    )
-    {
+    ) {
         t_scope;
         http2_conn_t enc;
         http2_conn_t dec;
@@ -10570,16 +10513,14 @@ Z_GROUP_EXPORT(http2_framing)
         Z_ASSERT_NEG(rc, "an over-large decoded header list must be refused");
         http2_conn_wipe(&enc);
         http2_conn_wipe(&dec);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         headers_priority_missing_weight,
         "a HEADERS frame with the PRIORITY flag but a priority section "
         "truncated to 4 bytes (missing the weight byte) must be rejected "
         "as a frame error rather than triggering an out-of-bounds read"
-    )
-    {
+    ) {
         http2_conn_t w;
         /* The priority section is 5 octets: a 4-octet stream dependency
          * followed by a 1-octet weight. Provide only the 4-octet dependency
@@ -10595,16 +10536,14 @@ Z_GROUP_EXPORT(http2_framing)
         );
         Z_ASSERT_NEG(res, "truncated priority section must be a frame error");
         http2_conn_wipe(&w);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         rst_stream_reaped,
         "a stream that the peer resets must be reaped (removed from the "
         "connection's stream table), not retained for the whole lifetime "
         "of the connection (rapid-reset memory growth, cve-2023-44487)"
-    )
-    {
+    ) {
         http2_conn_t w;
         SB_1k(frames);
 
@@ -10633,15 +10572,13 @@ Z_GROUP_EXPORT(http2_framing)
         );
         http2_conn_close_streams_internal(&w, 0, 0);
         http2_conn_wipe(&w);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         rst_stream_twice,
         "two RST_STREAM frames on the same stream (rapid reset) must be a "
         "clean protocol error, not a state-machine inconsistency"
-    )
-    {
+    ) {
         http2_conn_t w;
         SB_1k(frames);
 
@@ -10671,16 +10608,14 @@ Z_GROUP_EXPORT(http2_framing)
         );
         http2_conn_close_streams_internal(&w, 0, 0);
         http2_conn_wipe(&w);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         closed_streams_bounded,
         "fully-closed streams must not accumulate for the whole lifetime "
         "of the connection: the closed-stream table is bounded by "
         "max-concurrent-streams, evicting the oldest (FIFO)"
-    )
-    {
+    ) {
         http2_conn_t w;
 
         http2_conn_init(&w);
@@ -10702,16 +10637,14 @@ Z_GROUP_EXPORT(http2_framing)
         );
         http2_conn_close_streams_internal(&w, 0, 0);
         http2_conn_wipe(&w);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         max_concurrent_streams,
         "at the advertised max-concurrent-streams limit a new peer "
         "stream must be refused (REFUSED_STREAM), not accepted "
         "(RFC 9113 5.1.2; bounds concurrency / rapid reset)"
-    )
-    {
+    ) {
         http2_conn_t w;
         http2_header_info_t info = {
             .flags = HTTP2_HDR_FLAG_HAS_SCHEME | HTTP2_HDR_FLAG_HAS_PATH |
@@ -10764,16 +10697,14 @@ Z_GROUP_EXPORT(http2_framing)
 
         http2_conn_close_streams_internal(&w, 0, 0);
         http2_conn_wipe(&w);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         goaway_refuses_new_stream,
         "after a GOAWAY a new peer stream must be refused "
         "(REFUSED_STREAM), not dispatched: the refuse path must skip "
         "on_accept (which would spawn an upstream backend)"
-    )
-    {
+    ) {
         http2_conn_t w;
         http2_header_info_t info = {
             .flags = HTTP2_HDR_FLAG_HAS_SCHEME | HTTP2_HDR_FLAG_HAS_PATH |
@@ -10816,15 +10747,13 @@ Z_GROUP_EXPORT(http2_framing)
 
         http2_conn_close_streams_internal(&w, 0, 0);
         http2_conn_wipe(&w);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         rst_after_local_reset,
         "a peer RST_STREAM after we already reset the stream must release "
         "its concurrency slot exactly once (no counter underflow)"
-    )
-    {
+    ) {
         http2_conn_t w;
         http2_stream_t *stream;
 
@@ -10852,8 +10781,7 @@ Z_GROUP_EXPORT(http2_framing)
         );
         http2_conn_close_streams_internal(&w, 0, 0);
         http2_conn_wipe(&w);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         rapid_reset_flood,
@@ -10861,8 +10789,7 @@ Z_GROUP_EXPORT(http2_framing)
         "(rapid reset, cve-2023-44487) must be aborted "
         "(enhance_your_calm) once its resets outpace the streams it "
         "completes, even though it never exceeds max-concurrent-streams"
-    )
-    {
+    ) {
         http2_conn_t w;
         pstream_t goaway;
         http2_frame_info_t frame = {.type = 0};
@@ -10911,16 +10838,14 @@ Z_GROUP_EXPORT(http2_framing)
         sb_wipe(&frames);
         http2_conn_close_streams_internal(&w, 0, 0);
         http2_conn_wipe(&w);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         data_exceeds_recv_window,
         "DATA that overruns the advertised connection receive window "
         "must be a connection error (FLOW_CONTROL_ERROR, RFC 9113 6.9.1), "
         "not silently accepted with the window topped back up"
-    )
-    {
+    ) {
         http2_conn_t w;
         pstream_t goaway;
         http2_frame_info_t frame;
@@ -10957,16 +10882,14 @@ Z_GROUP_EXPORT(http2_framing)
 
         http2_conn_close_streams_internal(&w, 0, 0);
         http2_conn_wipe(&w);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         data_exceeds_stream_recv_window,
         "DATA that overruns the advertised stream receive window must be "
         "a FLOW_CONTROL_ERROR (RFC 9113 6.9.1) too, even when the "
         "connection window still has room"
-    )
-    {
+    ) {
         http2_conn_t w;
         http2_stream_t *stream;
         pstream_t goaway;
@@ -11000,16 +10923,14 @@ Z_GROUP_EXPORT(http2_framing)
 
         http2_conn_close_streams_internal(&w, 0, 0);
         http2_conn_wipe(&w);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         ping_flood,
         "a flood of PING frames, each echoed as a PING ACK, must be "
         "treated as a flood and aborted (ENHANCE_YOUR_CALM, "
         "CVE-2019-9512), not answered without bound"
-    )
-    {
+    ) {
         http2_conn_t w;
         pstream_t goaway;
         http2_frame_info_t frame = {.type = 0};
@@ -11048,8 +10969,7 @@ Z_GROUP_EXPORT(http2_framing)
         sb_wipe(&frames);
         http2_conn_close_streams_internal(&w, 0, 0);
         http2_conn_wipe(&w);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         ping_flood_trickle_read,
@@ -11058,8 +10978,7 @@ Z_GROUP_EXPORT(http2_framing)
         "queue crosses MAX/2 and then credits half the budget per fully "
         "drained backlog, so reading one byte between bursts cannot defeat "
         "the flood guard"
-    )
-    {
+    ) {
         const unsigned half = HTTP2_LEN_MAX_QUEUED_CTRL_FRAMES / 2;
         const unsigned near_limit = HTTP2_LEN_MAX_QUEUED_CTRL_FRAMES - 1;
         http2_conn_t w;
@@ -11115,16 +11034,14 @@ Z_GROUP_EXPORT(http2_framing)
 
         http2_conn_close_streams_internal(&w, 0, 0);
         http2_conn_wipe(&w);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         enable_push_directional,
         "SETTINGS_ENABLE_PUSH is directional (RFC 9113 6.5.2): a server "
         "may receive 0 or 1 from a client, but a client must reject a "
         "non-zero value from a server (a server cannot enable push)"
-    )
-    {
+    ) {
         http2_conn_t w;
 
         /* As a server, ENABLE_PUSH=1 from the peer (a client) is valid. */
@@ -11148,9 +11065,7 @@ Z_GROUP_EXPORT(http2_framing)
         );
         http2_conn_close_streams_internal(&w, 0, 0);
         http2_conn_wipe(&w);
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END;
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /* }}} */

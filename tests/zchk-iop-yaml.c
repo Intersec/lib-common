@@ -193,8 +193,7 @@ static int z_test_json_subfiles_conversion(
 
 /* }}} */
 
-Z_GROUP_EXPORT(iop_yaml)
-{
+Z_GROUP_EXPORT(iop_yaml) {
     iop_env_t *iop_env;
 
     iop_env = iop_env_new();
@@ -298,8 +297,7 @@ Z_GROUP_EXPORT(iop_yaml)
         TST_FLAGS(flags | IOP_JPACK_SKIP_PRIVATE, false, false, "def: 1");
 
 #undef TST_FLAGS
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(pack_file_with_flags) { /* {{{ */
         t_scope;
@@ -349,8 +347,7 @@ Z_GROUP_EXPORT(iop_yaml)
         Z_ASSERT_IOPEQUAL_DESC(
             &tstiop__struct_jpack_flags__s, &orig, unpacked
         );
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(pack_string) { /* {{{ */
         tstiop__my_union_a__t obj;
@@ -431,8 +428,7 @@ Z_GROUP_EXPORT(iop_yaml)
         TST("4.2", "us: 4.2", true);
         TST("42", "us: 42", true);
 #undef TST
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(pack_corner_cases) { /* {{{ */
         tstiop__my_struct_a_opt__t obj;
@@ -462,8 +458,7 @@ Z_GROUP_EXPORT(iop_yaml)
         TST("k: 42", false, false);
 
 #undef TST
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(empty_struct_pack_flags) { /* {{{ */
         t_scope;
@@ -541,8 +536,7 @@ Z_GROUP_EXPORT(iop_yaml)
         empty_jpack.sub.cls = &clsb;
 
 #undef TST
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(unpack_errors) { /* {{{ */
@@ -1076,8 +1070,7 @@ Z_GROUP_EXPORT(iop_yaml)
 #undef ERR_COMMON
 #undef TST
 #undef TST_ERROR
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(unpack) { /* {{{ */
 #define TST(_st, _yaml, _new_yaml)                                           \
@@ -1277,8 +1270,7 @@ Z_GROUP_EXPORT(iop_yaml)
             NULL);
 
 #undef TST
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(unpack_compat) { /* {{{ */
 #define TST(_st, _yaml, _new_yaml)                                           \
@@ -1309,8 +1301,7 @@ Z_GROUP_EXPORT(iop_yaml)
 
 #undef TST_ERROR
 #undef TST
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(constraints) { /* {{{ */
         tstiop__constraint_u__t u;
@@ -1365,8 +1356,7 @@ Z_GROUP_EXPORT(iop_yaml)
         );
 
 #undef TST_ERROR
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
 
     Z_TEST(json_subfiles_conversion) { /* {{{ */
@@ -1576,13 +1566,11 @@ Z_GROUP_EXPORT(iop_yaml)
             "      included: { path: os.txt, raw: true }\n",
             "os.txt"
         ));
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
 
     MODULE_RELEASE(iop_yaml);
     iop_env_delete(&iop_env);
-}
-Z_GROUP_END;
+} Z_GROUP_END;
 
 /* LCOV_EXCL_STOP */

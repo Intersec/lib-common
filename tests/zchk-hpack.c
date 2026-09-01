@@ -64,8 +64,7 @@ static int z_huffman_test(lstr_t str, lstr_t coded_str_hex)
     Z_HELPER_END;
 }
 
-Z_GROUP_EXPORT(hpack_huffman)
-{
+Z_GROUP_EXPORT(hpack_huffman) {
 #define ZT_TEST(str, coded_str)                                              \
     Z_HELPER_RUN(z_huffman_test(LSTR_IMMED_V(str), LSTR_IMMED_V(coded_str)))
 
@@ -75,8 +74,7 @@ Z_GROUP_EXPORT(hpack_huffman)
         ZT_TEST("1", "0f");
         ZT_TEST("&", "f8");
         ZT_TEST("\xae", "ff ff d7");
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     Z_TEST(hpack_huffman_rfc, "huffman encoding from rfc7541 examples") {
         ZT_TEST("www.example.com", "f1 e3 c2 e5 f2 3a 6b a0 ab 90 f4 ff");
         ZT_TEST("no-cache", "a8 eb 10 64 9c bf");
@@ -103,12 +101,10 @@ Z_GROUP_EXPORT(hpack_huffman)
             "7f 36 72 c1 ab 27 0f b5 29 1f 95 87 31 60 65 c0 03 ed 4e e5"
             "b1 06 3d 50 07"
         );
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
 #undef ZT_TEST
-}
-Z_GROUP_END;
+} Z_GROUP_END;
 
 /* }}} */
 /* {{{ Integer coding */
@@ -152,8 +148,7 @@ z_hpack_int_test(uint32_t val, uint8_t prefix_bits, lstr_t coded_int_hex)
     Z_HELPER_END;
 }
 
-Z_GROUP_EXPORT(hpack_enc_int)
-{
+Z_GROUP_EXPORT(hpack_enc_int) {
 #define ZT_TEST(val, prefix_bits, coded_int)                                 \
     Z_HELPER_RUN(z_hpack_int_test(val, prefix_bits, LSTR_IMMED_V(coded_int)))
 
@@ -179,27 +174,23 @@ Z_GROUP_EXPORT(hpack_enc_int)
         ZT_TEST(0xFFFFFFFFu, 1, "01 FE FF FF FF 0F");
         ZT_TEST(0xFFFFFFFFu, 7, "7F 80 FF FF FF 0F");
         ZT_TEST(0xFFFFFFFFu, 8, "FF 80 FE FF FF 0F");
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(hpack_enc_int_simple, "integer encoding of simple cases") {
         ZT_TEST(0, 8, "00");
         ZT_TEST(4, 4, "04");
         ZT_TEST(30, 5, "1E");
         ZT_TEST(31, 5, "1F 00");
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(hpack_enc_int_rfc, "integer decoding of rfc7541 examples") {
         ZT_TEST(10, 5, "0A");
         ZT_TEST(1337, 5, "1F 9A 0A");
         ZT_TEST(42, 8, "2A");
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
 #undef ZT_TEST
-}
-Z_GROUP_END;
+} Z_GROUP_END;
 
 /* }}} */
 /* {{{ Header tables */
@@ -242,8 +233,7 @@ static int z_hpack_dec_dtbl_size_test(
     Z_HELPER_END;
 }
 
-Z_GROUP_EXPORT(hpack_tables)
-{
+Z_GROUP_EXPORT(hpack_tables) {
 #define HPACK_STBL_SEARCH(exp_idx, k, v)                                     \
     Z_HELPER_RUN(                                                            \
         z_hpack_stbl_search_test(LSTR_IMMED_V(k), LSTR_IMMED_V(v), exp_idx)  \
@@ -312,28 +302,24 @@ Z_GROUP_EXPORT(hpack_tables)
         HPACK_STBL_SEARCH(59, "vary", "");
         HPACK_STBL_SEARCH(60, "via", "");
         HPACK_STBL_SEARCH(61, "www-authenticate", "");
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         hpack_stbl_search_empty,
         "search yields partial match in the STBL for static hdrs whose "
         "values replaced by the emtpy string in the STBL"
-    )
-    {
+    ) {
 
         HPACK_STBL_SEARCH(-2, ":method", "");
         HPACK_STBL_SEARCH(-4, ":path", "");
         HPACK_STBL_SEARCH(-6, ":scheme", "");
         HPACK_STBL_SEARCH(-8, ":status", "");
         HPACK_STBL_SEARCH(-16, "accept-encoding", "");
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         hpack_stbl_search_part, "search yields partial matches in the STBL"
-    )
-    {
+    ) {
 
         HPACK_STBL_SEARCH(-1, ":authority", "dum-val");
         HPACK_STBL_SEARCH(-2, ":method", "dum-val");
@@ -387,8 +373,7 @@ Z_GROUP_EXPORT(hpack_tables)
         HPACK_STBL_SEARCH(-59, "vary", "dum-val");
         HPACK_STBL_SEARCH(-60, "via", "dum-val");
         HPACK_STBL_SEARCH(-61, "www-authenticate", "dum-val");
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
 #undef HPACK_STBL_SEARCH
 #define HPACK_STBL_SEARCH(exp_idx, k)                                        \
@@ -450,8 +435,7 @@ Z_GROUP_EXPORT(hpack_tables)
         HPACK_STBL_SEARCH(59, "vary");
         HPACK_STBL_SEARCH(60, "via");
         HPACK_STBL_SEARCH(61, "www-authenticate");
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
 #undef HPACK_STBL_SEARCH
     Z_TEST(hpack_dtbl_search, "search for matches in the DTBL") {
@@ -535,8 +519,7 @@ Z_GROUP_EXPORT(hpack_tables)
 #undef HPACK_DTBL_SEARCH
 #undef HPACK_DTBL_INSERT
 #undef HPACK_DTBL_SZCHCK
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(hpack_dtbl_insert, "insertions into the decoder's DTBL") {
         hpack_dec_dtbl_t dtbl;
@@ -572,10 +555,8 @@ Z_GROUP_EXPORT(hpack_tables)
 
 #undef HPACK_DTBL_INSERT
 #undef HPACK_DTBL_SZCHCK
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END;
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /* }}} */
 /* {{{ Headers encoding */
@@ -601,8 +582,7 @@ static int z_hpack_enc_hdr_test(
 #define HPACK_DTBL_SZCHCK(dtbl, cnt, sz, sz_lim)                             \
     Z_HELPER_RUN(z_hpack_##dtbl##_dtbl_size_test(&(dtbl), cnt, sz, sz_lim))
 
-Z_GROUP_EXPORT(hpack_headers)
-{
+Z_GROUP_EXPORT(hpack_headers) {
 
 #define HPACK_ENC(dtbl, out, k, v, kid, vid, flags, exp_hex)                 \
     Z_HELPER_RUN(z_hpack_enc_hdr_test(                                       \
@@ -630,8 +610,7 @@ Z_GROUP_EXPORT(hpack_headers)
 
     Z_TEST(
         hpack_hdrs_rfc_C_2, "encoding headers: examples from §C.2 of RFC7541"
-    )
-    {
+    ) {
         hpack_enc_dtbl_t enc;
         hpack_dec_dtbl_t dec;
         SB_1k(out);
@@ -692,13 +671,11 @@ Z_GROUP_EXPORT(hpack_headers)
 
         hpack_dec_dtbl_wipe(&dec);
         hpack_enc_dtbl_wipe(&enc);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
 #undef HPACK_DEC
 #undef HPACK_ENC
-}
-Z_GROUP_END;
+} Z_GROUP_END;
 
 typedef struct hpack_enc_hdr_t {
     lstr_t key;
@@ -776,8 +753,7 @@ z_hpack_dec_hdrs_test(hpack_dec_dtbl_t *dtbl, pstream_t *in, lstr_t exp_hdrs)
 #define HPACK_ENC_HDR(k, v, kid, vid, flags)                                 \
     {LSTR_IMMED("" k), LSTR_IMMED("" v), (kid), (vid), (flags)}
 
-Z_GROUP_EXPORT(hpack_examples)
-{
+Z_GROUP_EXPORT(hpack_examples) {
 
 #define HPACK_ENC(dtbl, out, hdrs, exp)                                      \
     Z_HELPER_RUN(z_hpack_enc_hdrs_test(                                      \
@@ -868,13 +844,11 @@ Z_GROUP_EXPORT(hpack_examples)
 
         hpack_dec_dtbl_wipe(&dec);
         hpack_enc_dtbl_wipe(&enc);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     Z_TEST(
         hpack_example_rfc_C_3,
         "Request Examples without Huffman Coding (C.3. of rfc7541)"
-    )
-    {
+    ) {
         hpack_enc_dtbl_t enc;
         hpack_dec_dtbl_t dec;
         SB_1k(out);
@@ -979,13 +953,11 @@ Z_GROUP_EXPORT(hpack_examples)
 
         hpack_dec_dtbl_wipe(&dec);
         hpack_enc_dtbl_wipe(&enc);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     Z_TEST(
         hpack_example_rfc_C_4,
         "Request Examples with Huffman Coding (C.4. of rfc7541)"
-    )
-    {
+    ) {
         hpack_enc_dtbl_t enc;
         hpack_dec_dtbl_t dec;
         SB_1k(out);
@@ -1090,13 +1062,11 @@ Z_GROUP_EXPORT(hpack_examples)
 
         hpack_dec_dtbl_wipe(&dec);
         hpack_enc_dtbl_wipe(&enc);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     Z_TEST(
         hpack_example_rfc_C_5,
         "Response Examples without Huffman Coding (C.5. of rfc7541)"
-    )
-    {
+    ) {
         hpack_enc_dtbl_t enc;
         hpack_dec_dtbl_t dec;
         SB_1k(out);
@@ -1224,13 +1194,11 @@ Z_GROUP_EXPORT(hpack_examples)
 
         hpack_dec_dtbl_wipe(&dec);
         hpack_enc_dtbl_wipe(&enc);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     Z_TEST(
         hpack_example_rfc_C_6,
         "Response Examples with Huffman Coding (C.6. of rfc7541)"
-    )
-    {
+    ) {
         hpack_enc_dtbl_t enc;
         hpack_dec_dtbl_t dec;
         SB_1k(out);
@@ -1356,15 +1324,13 @@ Z_GROUP_EXPORT(hpack_examples)
 
         hpack_dec_dtbl_wipe(&dec);
         hpack_enc_dtbl_wipe(&enc);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
 #undef HPACK_ENC
 #undef HPACK_DEC
 #undef HPACK_ENC_DTS
 #undef HPACK_DEC_DTS
-}
-Z_GROUP_END;
+} Z_GROUP_END;
 
 #undef HPACK_DTBL_SZCHCK
 
@@ -1374,8 +1340,7 @@ Z_GROUP_END;
 #define HPACK_DTBL_SZCHCK(dtbl, cnt, sz, sz_lim)                             \
     Z_HELPER_RUN(z_hpack_##dtbl##_dtbl_size_test(&(dtbl), cnt, sz, sz_lim))
 
-Z_GROUP_EXPORT(hpack_bugs)
-{
+Z_GROUP_EXPORT(hpack_bugs) {
 
 #define HPACK_ENC(dtbl, out, hdrs, exp)                                      \
     Z_HELPER_RUN(z_hpack_enc_hdrs_test(                                      \
@@ -1434,9 +1399,7 @@ Z_GROUP_EXPORT(hpack_bugs)
 
         hpack_dec_dtbl_wipe(&dec);
         hpack_enc_dtbl_wipe(&enc);
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END;
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /* }}} */

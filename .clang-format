@@ -44,7 +44,6 @@ InsertBraces: true
 # stays on the same line (MACRO(name) {) and the body is indented as a block,
 # instead of being mis-parsed as a function definition.
 IfMacros:
-  - Z_TEST
   - MODULE_DEFINE
   - OBJ_VTABLE
   - OBJ_EXT_VTABLE
@@ -52,6 +51,17 @@ IfMacros:
   - SO_OBJ_VTABLE
   - SO_OBJ_EXT_VTABLE
   - SO_OBJ_EXT_VTABLE_WITH_PRIO
+
+# Parse `Z_TEST(...) { ... } Z_TEST_END;` and the Z_GROUP_EXPORT/Z_GROUP_END
+# pair as do/while statements so the opening brace stays attached to the
+# header and `} Z_TEST_END;` / `} Z_GROUP_END;` stay on one line (like
+# `} while (0);`).
+Macros:
+  - Z_TEST(name)=do
+  - Z_TEST(name, desc)=do
+  - Z_TEST_END=while (0)
+  - Z_GROUP_EXPORT(name)=do
+  - Z_GROUP_END=while (0)
 
 # --- Spacing ---
 # One space after if/while/switch/for, no space before fn() or foreach macros.

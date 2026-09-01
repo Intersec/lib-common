@@ -5043,8 +5043,7 @@ static int run_snapshot(qps_t *qps)
     return 0;
 }
 
-Z_GROUP_EXPORT(qps)
-{
+Z_GROUP_EXPORT(qps) {
     static const char S[] =
         "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQSRT";
 
@@ -5115,8 +5114,7 @@ Z_GROUP_EXPORT(qps)
 
         Z_CHECK_REOPEN("nr_20110105", true);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(nr_20110107_1) {
         qps_handle_t handle1, handle2;
@@ -5134,8 +5132,7 @@ Z_GROUP_EXPORT(qps)
         Z_CHECK_REOPEN("nr_20110107_1", true);
         Z_CHECK_ALLOC_AND_FILL(handle1, 24);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(nr_20110107_2) {
         qps_handle_t handle1, handle2;
@@ -5154,8 +5151,7 @@ Z_GROUP_EXPORT(qps)
         Z_CHECK_REOPEN("nr_20110107_2", true);
         Z_CHECK_HANDLE_FILLED(handle1, 24);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(nr_20110107_3) {
         qps_handle_t handle1, handle2;
@@ -5175,8 +5171,7 @@ Z_GROUP_EXPORT(qps)
         Z_CHECK_REOPEN("nr_20110107_3", true);
         Z_CHECK_HANDLE_FILLED(handle1, 24);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(nr_20110203) {
         qps_handle_t handle1, handle2;
@@ -5206,8 +5201,7 @@ Z_GROUP_EXPORT(qps)
         Z_CHECK_HANDLE_FILLED(handle1, 120);
         Z_CHECK_HANDLE_FILLED(handle2, 42);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(nr_20110302) {
         qps_handle_t handle1, handle2;
@@ -5221,8 +5215,7 @@ Z_GROUP_EXPORT(qps)
 
         Z_CHECK_REOPEN("nr_20110302", true);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(nr_20120824_1, "map emptied concurrently to snapshot") {
         qps_handle_t handle1;
@@ -5237,8 +5230,7 @@ Z_GROUP_EXPORT(qps)
         Z_CHECK_REOPEN("nr_20120824_1", true);
         Z_CHECK_HANDLE_FILLED(handle1, 36);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(nr_20120824_2, "map emptied concurrently to snapshot") {
         qps_handle_t handle1;
@@ -5253,8 +5245,7 @@ Z_GROUP_EXPORT(qps)
         Z_CHECK_REOPEN("nr_20120824_2", true);
         Z_CHECK_HANDLE_FILLED(handle1, 36);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(nr_20120827_1, "map emptied then reused after snapshot") {
         qps_handle_t handle1;
@@ -5270,8 +5261,7 @@ Z_GROUP_EXPORT(qps)
         Z_CHECK_REOPEN("nr_20120827_1", true);
         Z_CHECK_HANDLE_FILLED(handle1, 36);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(nr_20120827_2, "map emptied then reused after snapshot") {
         qps_handle_t handle1;
@@ -5287,10 +5277,8 @@ Z_GROUP_EXPORT(qps)
         Z_CHECK_REOPEN("nr_20120827_2", false);
         Z_CHECK_HANDLE_FILLED(handle1, 36);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     MODULE_RELEASE(qps);
-}
-Z_GROUP_END;
+} Z_GROUP_END;
 
 /* }}} */

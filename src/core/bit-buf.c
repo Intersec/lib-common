@@ -274,8 +274,7 @@ char *t_print_bb(const bb_t *bb, size_t *len)
         T_TEST_BB(&_tmp_bb, bits);                                           \
     } while (0)
 
-Z_GROUP_EXPORT(bit_buf)
-{
+Z_GROUP_EXPORT(bit_buf) {
     Z_TEST(le_full, "bit-buf/bit-stream: full check") {
         t_scope;
         BB_1k(bb);
@@ -341,8 +340,7 @@ Z_GROUP_EXPORT(bit_buf)
         Z_ASSERT_EQ(__bs_get_last_bit(&bs), true, "Check bit #1");
 
         bb_wipe(&bb);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(le_add_0_1) {
         BB_1k(bb);
@@ -375,8 +373,7 @@ Z_GROUP_EXPORT(bit_buf)
         }
 
         bb_wipe(&bb);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(le_add_bytes) {
         BB_1k(bb);
@@ -415,8 +412,7 @@ Z_GROUP_EXPORT(bit_buf)
         }
 
         bb_wipe(&bb);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(be_full, "bit-buf/bit-stream: full check") {
         t_scope;
@@ -483,8 +479,7 @@ Z_GROUP_EXPORT(bit_buf)
         Z_ASSERT_EQ(__bs_be_get_last_bit(&bs), true, "Check bit #1");
 
         bb_wipe(&bb);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(le_bug, "bit-buf: add 64nth bit") {
         t_scope;
@@ -498,8 +493,7 @@ Z_GROUP_EXPORT(bit_buf)
             "00000000.00000000.00000001.00000000",
             t_print_bb(&bb, NULL)
         );
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(align, "bit-buf: alignment on 512 bytes") {
         bb_t bb;
@@ -516,8 +510,7 @@ Z_GROUP_EXPORT(bit_buf)
         Z_ASSERT(((intptr_t)bb.bytes) % 512 == 0);
 
         bb_wipe(&bb);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(sb, "bit-buf: init/transfer sb") {
         t_scope;
@@ -546,8 +539,7 @@ Z_GROUP_EXPORT(bit_buf)
 
         bb_wipe(&bb);
         sb_wipe(&sb);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(left_shit, "bit-buf: left shift") {
         t_scope;
@@ -628,9 +620,7 @@ Z_GROUP_EXPORT(bit_buf)
             "00000000.00000000.00000000.00000000.00000000.00000000.00000000."
             "00000000.00000000.0000"
         );
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END;
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /* }}} */

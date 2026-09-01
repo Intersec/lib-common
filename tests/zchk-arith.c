@@ -24,8 +24,7 @@
 
 /* {{{ arithfloat */
 
-Z_GROUP_EXPORT(arithfloat)
-{
+Z_GROUP_EXPORT(arithfloat) {
     Z_TEST(double_round) {
 #define T(val, precision, res)                                               \
     do {                                                                     \
@@ -62,8 +61,7 @@ Z_GROUP_EXPORT(arithfloat)
         Z_ASSERT_NE(isinf(double_round(INFINITY, 3)), 0);
         Z_ASSERT_NE(isinf(double_round(-INFINITY, 3)), 0);
         Z_ASSERT_NE(isnan(double_round(NAN, 3)), 0);
-    }
-    Z_TEST_END
+    } Z_TEST_END;
 
     Z_TEST(double_round_significant) {
 #define T(v, p, res)                                                         \
@@ -110,8 +108,7 @@ Z_GROUP_EXPORT(arithfloat)
         T(9.23, 2, 9.2);
         T(9.23, 1, 9.);
 #undef T
-    }
-    Z_TEST_END
+    } Z_TEST_END;
 
     Z_TEST(double_is_close, "double_is_close") {
         /* Exactly equal values are close, whatever the tolerances. */
@@ -149,16 +146,13 @@ Z_GROUP_EXPORT(arithfloat)
          * is up to the caller (e.g. via double_is_identical()). */
         Z_ASSERT(!double_is_close(NAN, NAN, 1e-9, 1e-12));
         Z_ASSERT(!double_is_close(NAN, 1.0, 1e-9, 1e-12));
-    }
-    Z_TEST_END
-}
-Z_GROUP_END
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /* }}} */
 /* {{{ arithint */
 
-Z_GROUP_EXPORT(arithint)
-{
+Z_GROUP_EXPORT(arithint) {
     Z_TEST(gcd, "gcd: Euclid's algorithm") {
         struct {
             uint32_t i;
@@ -179,8 +173,7 @@ Z_GROUP_EXPORT(arithint)
                 t[i].i, t[i].j
             );
         }
-    }
-    Z_TEST_END
+    } Z_TEST_END;
 
     Z_TEST(multiples, "Multiples count in a range") {
         /* Multiples of 5 between 0 and 100 */
@@ -200,9 +193,7 @@ Z_GROUP_EXPORT(arithint)
 
         /* Multiples of 1000 between 7598 and 125829 */
         Z_ASSERT_EQ(get_multiples_nb_in_range(1000, 7598, 125829), 118U);
-    }
-    Z_TEST_END
-}
-Z_GROUP_END
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /* }}} */

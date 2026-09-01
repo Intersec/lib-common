@@ -356,35 +356,30 @@ static void z_iop_http_tests(http_mode_t http_mode)
 
     Z_TEST(no_query) {
         Z_HELPER_RUN(z_iop_http_do_simple_query(iop_env, false, 0, 0));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(simple_query) {
         Z_HELPER_RUN(z_iop_http_do_simple_query(iop_env, false, 0, 1));
         /* Repeat the query 10 times in a single run. */
         Z_HELPER_RUN(z_iop_http_do_simple_query(iop_env, false, 0, 10));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(simple_query_async, "simple query (async delayed 10 ms)") {
         Z_HELPER_RUN(z_iop_http_do_simple_query(iop_env, true, 10, 1));
         /* Repeat the query 10 times in a single run. */
         Z_HELPER_RUN(z_iop_http_do_simple_query(iop_env, true, 10, 10));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(simple_query_async_no_delay, "simple_query (async no delay)") {
         Z_HELPER_RUN(z_iop_http_do_simple_query(iop_env, true, 0, 1));
         /* Repeat the query 10 times in a single run. */
         Z_HELPER_RUN(z_iop_http_do_simple_query(iop_env, true, 0, 10));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     iop_env_delete(&iop_env);
 }
 
-Z_GROUP_EXPORT(iop_http)
-{
+Z_GROUP_EXPORT(iop_http) {
     z_iop_http_tests(HTTP_MODE_USE_HTTP1X_ONLY);
 
     Z_TEST(ichttp_query_rpc_use_after_free) { /* {{{ */
@@ -467,16 +462,12 @@ Z_GROUP_EXPORT(iop_http)
         qm_deep_wipe(ichttp_cbs, &tcb->impl, IGNORE, ichttp_cb_delete);
         p_delete(&tcb);
         iop_env_delete(&iop_env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
-}
-Z_GROUP_END;
+} Z_GROUP_END;
 
-Z_GROUP_EXPORT(iop_http2)
-{
+Z_GROUP_EXPORT(iop_http2) {
     z_iop_http_tests(HTTP_MODE_USE_HTTP2_ONLY);
-}
-Z_GROUP_END;
+} Z_GROUP_END;
 
 /* }}} */

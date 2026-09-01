@@ -24,8 +24,7 @@
 #include <lib-common/core.h>
 #include <lib-common/z.h>
 
-Z_GROUP_EXPORT(iprintf)
-{
+Z_GROUP_EXPORT(iprintf) {
     Z_TEST(double) {
         char buffer[128];
 
@@ -35,8 +34,7 @@ Z_GROUP_EXPORT(iprintf)
         Z_ASSERT_STREQUAL(buffer, "Inf");
         isprintf(buffer, "%+g", INFINITY);
         Z_ASSERT_STREQUAL(buffer, "+Inf");
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(pM) {
         char buffer[128];
@@ -47,8 +45,7 @@ Z_GROUP_EXPORT(iprintf)
         Z_ASSERT_STREQUAL(buffer, "123;toto", "");
         isprintf(buffer, "%*pMtrailing", 3, "123");
         Z_ASSERT_STREQUAL(buffer, "123trailing", "");
-    }
-    Z_TEST_END
+    } Z_TEST_END;
 
     Z_TEST(pX) {
         char buffer[128];
@@ -59,8 +56,7 @@ Z_GROUP_EXPORT(iprintf)
         Z_ASSERT_STREQUAL(buffer, "48656C6C6F world!");
         isprintf(buffer, "%*pXworld!", 5, "Hello");
         Z_ASSERT_STREQUAL(buffer, "48656C6C6Fworld!");
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(px) {
         char buffer[128];
@@ -71,8 +67,7 @@ Z_GROUP_EXPORT(iprintf)
         Z_ASSERT_STREQUAL(buffer, "48656c6c6f world!");
         isprintf(buffer, "%*pxworld!", 5, "Hello");
         Z_ASSERT_STREQUAL(buffer, "48656c6c6fworld!");
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(pL) {
         char buffer[128];
@@ -97,8 +92,7 @@ Z_GROUP_EXPORT(iprintf)
         Z_ASSERT_STREQUAL(buffer, "1234;toto");
         isprintf(buffer, "%pLtrailing", &sb);
         Z_ASSERT_STREQUAL(buffer, "1234trailing");
-    }
-    Z_TEST_END
+    } Z_TEST_END;
 
     Z_TEST(ivasprintf) {
         char *formatted = iasprintf("%*pM", 4, "1234");
@@ -113,8 +107,7 @@ Z_GROUP_EXPORT(iprintf)
         formatted = iasprintf("%*pM", len, big);
         Z_ASSERT_STREQUAL(formatted, big);
         p_delete(&formatted);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(thousand_sep) {
         char buffer[128];
@@ -177,8 +170,7 @@ Z_GROUP_EXPORT(iprintf)
         T("%'zu", 18446744073709551615ul, "18,446,744,073,709,551,615");
 
 #undef T
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(i128) {
         int len;
@@ -245,9 +237,7 @@ Z_GROUP_EXPORT(iprintf)
           "deadbeefffffffffffffffff");
 
 #undef T
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /* LCOV_EXCL_STOP */

@@ -66,8 +66,7 @@ static int z_popts_len(const popt_t *opts)
     return len;
 }
 
-Z_GROUP_EXPORT(parseopt)
-{
+Z_GROUP_EXPORT(parseopt) {
     Z_TEST(basic) {
         const char *argv[] = {
             "-a",   "--optb", "plop",
@@ -90,8 +89,7 @@ Z_GROUP_EXPORT(parseopt)
         Z_ASSERT_EQ(_G.d, 8777u);
         Z_ASSERT_EQ(_G.e, 'c');
         Z_ASSERT_EQ(_G.f, 4848447481871454ull);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(optional) {
         const char *argv[] = {
@@ -110,8 +108,7 @@ Z_GROUP_EXPORT(parseopt)
         Z_ASSERT_EQ(_G.c, 0);
         Z_ASSERT_EQ(_G.d, 0u);
         Z_ASSERT_EQ(_G.e, 0);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(invalid_flag) {
         const char *argv[] = {
@@ -121,8 +118,7 @@ Z_GROUP_EXPORT(parseopt)
 
         p_clear(&_G, 1);
         Z_ASSERT_NEG(parseopt(argc, (char **)argv, popts_g, 0));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(invalid_str) {
         const char *argv[] = {
@@ -132,8 +128,7 @@ Z_GROUP_EXPORT(parseopt)
 
         p_clear(&_G, 1);
         Z_ASSERT_NEG(parseopt(argc, (char **)argv, popts_g, 0));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(invalid_int) {
         const char *argv[] = {
@@ -143,8 +138,7 @@ Z_GROUP_EXPORT(parseopt)
 
         p_clear(&_G, 1);
         Z_ASSERT_NEG(parseopt(argc, (char **)argv, popts_g, 0));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(invalid_uint) {
         const char *argv[] = {
@@ -154,8 +148,7 @@ Z_GROUP_EXPORT(parseopt)
 
         p_clear(&_G, 1);
         Z_ASSERT_NEG(parseopt(argc, (char **)argv, popts_g, 0));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(invalid_char) {
         const char *argv[] = {
@@ -165,8 +158,7 @@ Z_GROUP_EXPORT(parseopt)
 
         p_clear(&_G, 1);
         Z_ASSERT_NEG(parseopt(argc, (char **)argv, popts_g, 0));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(unknown) {
         const char *argv[] = {
@@ -176,8 +168,7 @@ Z_GROUP_EXPORT(parseopt)
 
         p_clear(&_G, 1);
         Z_ASSERT_NEG(parseopt(argc, (char **)argv, popts_g, 0));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(stop_at_nonarg) {
         const char *argv[] = {
@@ -204,8 +195,7 @@ Z_GROUP_EXPORT(parseopt)
         Z_ASSERT_EQ(_G.c, 0);
         Z_ASSERT_EQ(_G.d, 0u);
         Z_ASSERT_EQ(_G.e, 0);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(ignore_unknown_opts) {
         const char *argv[] = {
@@ -231,8 +221,7 @@ Z_GROUP_EXPORT(parseopt)
         Z_ASSERT_EQ(_G.c, -12);
         Z_ASSERT_EQ(_G.d, 8777u);
         Z_ASSERT_EQ(_G.e, 'c');
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(opt_vec_extend) {
         t_scope;
@@ -261,13 +250,11 @@ Z_GROUP_EXPORT(parseopt)
                 i
             );
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         unset_args_copy_init, "test unset args '--no-' and copy init feature"
-    )
-    {
+    ) {
         /* XXX: This test acks as non-regression test for
          * 99334d2841229 and 4c4670dbece02.
          * The only way to reproduce the bugs are to use the "--no-" feature
@@ -313,7 +300,5 @@ Z_GROUP_EXPORT(parseopt)
         Z_ASSERT_EQ(_G.d, 457u);
         Z_ASSERT_EQ(_G.e, 'e');
         Z_ASSERT_EQ(_G.f, 0x1234567890ABCDEFull);
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END
+    } Z_TEST_END;
+} Z_GROUP_END;

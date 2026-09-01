@@ -1824,8 +1824,7 @@ static int z_check_static_field_type(
 
 /* }}} */
 
-Z_GROUP_EXPORT(iop)
-{
+Z_GROUP_EXPORT(iop) {
     _G.iop_env = iop_env_new();
     IOP_REGISTER_PACKAGES(
         _G.iop_env, &tstiop__pkg, &tstiop_dox__pkg, &tstiop_inheritance__pkg,
@@ -1882,8 +1881,7 @@ Z_GROUP_EXPORT(iop)
         iop_dso_register(dso);
 
         iop_dso_close(&dso);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         hash_sha1, "test whether iop_hash_sha1 is stable wrt ABI change"
@@ -1929,8 +1927,7 @@ Z_GROUP_EXPORT(iop)
 
         iop_hash_sha1(stv1, &v1_not_same, buf2, 0);
         Z_ASSERT(memcmp(buf1, buf2, sizeof(buf1)) != 0);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         hash_sha1_class, "test whether iop_hash_sha1 takes the "
@@ -1975,8 +1972,7 @@ Z_GROUP_EXPORT(iop)
         cl2after.int2 = 2;
         iop_hash_sha1(&tstiop__my_class1_after__s, &cl2after, buf2, 0);
         Z_ASSERT(memcmp(buf1, buf2, sizeof(buf1)) == 0);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(constant_folder, "test the IOP constant folder") { /* {{{ */
 #define feed_num(_num)                                                       \
@@ -2186,8 +2182,7 @@ Z_GROUP_EXPORT(iop)
 #undef feed_op
 #undef result
 #undef error
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(camelcase_to_c, "test IOP camelcase name to C") { /* {{{ */
         t_scope;
@@ -2207,8 +2202,7 @@ Z_GROUP_EXPORT(iop)
             LSTR("foo__bar__baz_baz__qux"),
             t_iop_type_to_c(LSTR("foo.bar.baz_baz.qux"))
         );
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(c_to_camelcase, "test C name to IOP camelcase") { /* {{{ */
         t_scope;
@@ -2247,8 +2241,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_LSTREQUAL(
             t_c_to_camelcase(LSTR("foo_bar"), false), LSTR("fooBar")
         );
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(unions, "test IOP union helpers") { /* {{{ */
         t_scope;
@@ -2345,8 +2338,7 @@ Z_GROUP_EXPORT(iop)
             Z_ASSERT_NULL(tstiop__my_union_a__get(&us, ua));
             Z_ASSERT_NULL(tstiop__my_union_a__get(&us, ub));
         }
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(soap, "test IOP SOAP (un)packer") { /* {{{ */
         t_scope;
@@ -2666,8 +2658,7 @@ Z_GROUP_EXPORT(iop)
             ));
             xmlr_close(&xmlr_g);
         }
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(json, "test IOP JSon (un)packer") { /* {{{ */
         t_scope;
@@ -3263,8 +3254,7 @@ Z_GROUP_EXPORT(iop)
                 true, true, jns_str
             ));
         }
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         json_unicode_surrogates, "test JSON Unicode surrogate pairs"
@@ -3466,11 +3456,11 @@ Z_GROUP_EXPORT(iop)
                 );
             }
         }
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
-    Z_TEST(json_big_integer, "test JSON packing with big integers") { /* {{{
-                                                                       */
+    Z_TEST(
+        json_big_integer, "test JSON packing with big integers"
+    ) { /* {{{ */
         SB_1k(sb);
         tstiop__my_struct_n__t sn = {
             .u = 9223372036854775808ull, .i = -4611686018427387904ll
@@ -3497,8 +3487,7 @@ Z_GROUP_EXPORT(iop)
             iop_jpack(&tstiop__my_struct_n__s, &sn, iop_sb_write, &sb, 0)
         );
         Z_ASSERT_STREQUAL(sb.data, json_sn_strint);
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(json_big_bytes, "test JSON packing big bytes fields") { /* {{{ */
         SB_1k(sb);
@@ -3543,8 +3532,7 @@ Z_GROUP_EXPORT(iop)
                 IOP_JPACK_SHORTEN_DATA
         ));
         Z_ASSERT_STREQUAL(sb.data, json_cut, "`%*pM`", SB_FMT_ARG(&sb));
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         json_file_include, "test file inclusion in IOP JSon (un)packer"
@@ -3965,8 +3953,7 @@ Z_GROUP_EXPORT(iop)
 #undef ADD_SUB_FILE
 #undef CLEAR_SUB_FILES
         /* }}} */
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(json_typedef, "test typedef in IOP Json (un)packer") { /* {{{ */
         t_scope;
@@ -4127,8 +4114,7 @@ Z_GROUP_EXPORT(iop)
 #undef T_OK
 
         /* }}} */
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(std, "test IOP std (un)packer") { /* {{{ */
         t_scope;
@@ -4218,8 +4204,7 @@ Z_GROUP_EXPORT(iop)
         OPT_SET(sa_opt.a, 32);
         sa_opt.j = LSTR("foo");
         Z_HELPER_RUN(iop_std_test_struct(st_sa_opt, &sa_opt, "sa_opt"));
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(big_array_parallel, "test big array packing") { /* {{{ */
         t_scope;
@@ -4249,8 +4234,7 @@ Z_GROUP_EXPORT(iop)
         );
 
         iop_std_test_speed(&tstiop__my_struct_f__s, &sf, 100, 0, "big arr");
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(roptimized, "test IOP std: optimized repeated fields") { /* {{{ */
         t_scope;
@@ -4269,8 +4253,7 @@ Z_GROUP_EXPORT(iop)
 
         Z_HELPER_RUN(iop_check_retro_compat_roptimized(path_curr_v));
         Z_HELPER_RUN(iop_check_retro_compat_roptimized(path_v3));
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(defval, "test IOP std: do not pack default values") { /* {{{ */
         t_scope;
@@ -4340,8 +4323,7 @@ Z_GROUP_EXPORT(iop)
             "sg-diff"
         );
         Z_HELPER_RUN(iop_std_test_struct_flags(st_sg, &sg, flags, "sg-diff"));
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(private, "test private attribute with binary packing") { /* {{{ */
         t_scope;
@@ -4368,8 +4350,7 @@ Z_GROUP_EXPORT(iop)
             t_pool(), iop_env_ctx, &tstiop_inheritance__c5__s, &out,
             ps_initlstr(&bpacked), 0
         ));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(equals_and_cmp, "test iop_equals()/iop_cmp()") { /* {{{ */
 
@@ -4531,8 +4512,7 @@ Z_GROUP_EXPORT(iop)
 #undef CHECK_IOP_EQ
 #undef CHECK_IOP_GT
 #undef CHECK_IOP_LT
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         nr_61968, "non-regression test for bug with object comparison"
@@ -4546,15 +4526,18 @@ Z_GROUP_EXPORT(iop)
         bob2.i = 2;
 
         Z_ASSERT_LT(iop_cmp(tstiop__alice, &bob1.super, &bob2.super), 0);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(xsort_and_xpsort, "test iop_xsort()/iop_xpsort()") { /* {{{ */
         t_scope;
         tstiop__xsort_struct__array_t array;
         const tstiop__xsort_struct__t **parray;
 
-#define XSORT_ST(_a, _s) (tstiop__xsort_struct__t){.a = _a, .s = LSTR(_s)}
+#define XSORT_ST(_a, _s)                                                     \
+    (tstiop__xsort_struct__t)                                                \
+    {                                                                        \
+        .a = _a, .s = LSTR(_s)                                               \
+    }
 
         array = T_IOP_ARRAY(
             tstiop__xsort_struct, XSORT_ST(42, "abc"), XSORT_ST(42, "aaaa"),
@@ -4587,8 +4570,7 @@ Z_GROUP_EXPORT(iop)
         }
 
 #undef XSORT_ST
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(strict_enum, "test IOP strict enum (un)packing") { /* {{{ */
         t_scope;
@@ -4661,8 +4643,7 @@ Z_GROUP_EXPORT(iop)
         Z_HELPER_RUN(iop_json_test_unpack(
             st_sl, json_sl_n1, IOP_UNPACK_IGNORE_UNKNOWN, false, "json_sl_n1"
         ));
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(constraints, "test IOP constraints") { /* {{{ */
         t_scope;
@@ -4882,8 +4863,7 @@ Z_GROUP_EXPORT(iop)
 #undef CHECK_UNION
 #undef CHECK_VALID
 #undef CHECK_INVALID
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_sort, "test IOP structures/unions sorting") { /* {{{ */
         t_scope;
@@ -5412,8 +5392,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_LT(fvec.tab[2].e.len, 3);
 
 #undef TST_SORT_VEC
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_msort, "test IOP structures/unions multi sorting") { /* {{{ */
         t_scope;
@@ -5521,8 +5500,7 @@ Z_GROUP_EXPORT(iop)
 
 #undef ADD_PARAM
 #undef SORT_AND_CHECK
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         iop_msort_class_array, "test IOP multi sorting on a class array"
@@ -5601,8 +5579,7 @@ Z_GROUP_EXPORT(iop)
 
 #undef ADD_PARAM
 #undef SORT_AND_CHECK
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_filter, "test IOP structures filtering") { /* {{{ */
         t_scope;
@@ -5691,8 +5668,7 @@ Z_GROUP_EXPORT(iop)
 
 #undef APPLY_BITMAP
 #undef T_ADD_BITMAP
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_filter_class, "test IOP classes filtering") { /* {{{ */
         t_scope;
@@ -5762,11 +5738,11 @@ Z_GROUP_EXPORT(iop)
         CHECK_FILTER("e[*].<tstiop.MyClass3>int3", int, (1, 2), (msf2, msf3));
 
 #undef CHECK_FILTER
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_filter_strings, "test IOP filtering on string values") { /* {{{
-                                                                         */
+    Z_TEST(
+        iop_filter_strings, "test IOP filtering on string values"
+    ) { /* {{{ */
         t_scope;
         tstiop__filtered_struct__t first;
         tstiop__filtered_struct__t second;
@@ -5807,11 +5783,11 @@ Z_GROUP_EXPORT(iop)
         CHECK_FILTER(IOP_FILTER_SQL_LIKE, (first, second, third));
 
 #undef CHECK_FILTER
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_filter_opt, "test IOP filtering on optional fields") { /* {{{
-                                                                       */
+    Z_TEST(
+        iop_filter_opt, "test IOP filtering on optional fields"
+    ) { /* {{{ */
         t_scope;
         tstiop__my_struct_a_opt__t first;
         tstiop__my_struct_a_opt__t second;
@@ -5874,8 +5850,7 @@ Z_GROUP_EXPORT(iop)
         CHECK_FILTER("w", false, (third));
 
 #undef CHECK_FILTER
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         iop_filter_invert_match,
@@ -5969,8 +5944,7 @@ Z_GROUP_EXPORT(iop)
 
 #undef APPLY_BITMAP
 #undef T_ADD_BITMAP
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         iop_filter_class_invert_match,
@@ -6012,8 +5986,7 @@ Z_GROUP_EXPORT(iop)
         );
 
 #undef CHECK_FILTER
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         iop_filter_strings_invert_match,
@@ -6060,8 +6033,7 @@ Z_GROUP_EXPORT(iop)
         CHECK_FILTER(IOP_FILTER_SQL_LIKE, ());
 
 #undef CHECK_FILTER
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_prune, "check gen attr filtering") { /* {{{ */
         tstiop__filtered_struct__t obj;
@@ -6078,11 +6050,11 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_NULL(obj.c.tab);
         Z_ASSERT_EQ(obj.c.len, 0);
         Z_ASSERT_LSTREQUAL(obj.long_string, LSTR_NULL_V);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_field_path_compile, "test iop_field_path compilation") { /* {{{
-                                                                         */
+    Z_TEST(
+        iop_field_path_compile, "test iop_field_path compilation"
+    ) { /* {{{ */
         t_scope;
         tstiop__my_struct_f__t msf;
         tstiop__my_class3__t mc;
@@ -6280,12 +6252,11 @@ Z_GROUP_EXPORT(iop)
 #undef TEST_ENUM
 #undef TEST_ERROR
 #undef TEST
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
-        iop_copy_inv_tab,
-        "mp_iop_copy_desc_sz(): invalid tab pointer when len == 0"
+        iop_copy_inv_tab, "mp_iop_copy_desc_sz(): invalid tab pointer "
+                          "when len == 0"
     ) { /* {{{ */
         t_scope;
         lstr_t path_curr_v;
@@ -6303,11 +6274,11 @@ Z_GROUP_EXPORT(iop)
 
         Z_HELPER_RUN(iop_check_retro_compat_copy_inv_tab(path_curr_v));
         Z_HELPER_RUN(iop_check_retro_compat_copy_inv_tab(path_v3));
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
-    Z_TEST(inheritance_basics, "test inheritance basic properties") { /* {{{
-                                                                       */
+    Z_TEST(
+        inheritance_basics, "test inheritance basic properties"
+    ) { /* {{{ */
 #define CHECK_PARENT(_type, _class_id)                                       \
     do {                                                                     \
         const iop_class_attrs_t *attrs;                                      \
@@ -6342,11 +6313,11 @@ Z_GROUP_EXPORT(iop)
         CHECK_CHILD(b4, 1, a3);
 #undef CHECK_PARENT
 #undef CHECK_CHILD
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
-    Z_TEST(inheritance_switch, "test IOP_(OBJ|CLASS)_SWITCH helpers") { /* {{{
-                                                                         */
+    Z_TEST(
+        inheritance_switch, "test IOP_(OBJ|CLASS)_SWITCH helpers"
+    ) { /* {{{ */
         tstiop_inheritance__c1__t c1;
         bool matched = false;
 
@@ -6572,8 +6543,7 @@ Z_GROUP_EXPORT(iop)
             }
         }
         Z_ASSERT(matched);
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(inheritance_fields_init, "test fields initialization") { /* {{{ */
         {
@@ -6615,8 +6585,7 @@ Z_GROUP_EXPORT(iop)
             Z_ASSERT_EQ(c4.b, 5);
             Z_ASSERT_EQ(c4.c, false);
         }
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(inheritance_casts, "test inheritance casts") { /* {{{ */
         tstiop_inheritance__c2__t c2;
@@ -6698,8 +6667,7 @@ Z_GROUP_EXPORT(iop)
         iop_hash_sha1(&tstiop_inheritance__b2__s, b2p, buf_b2p, 0);
         iop_hash_sha1(&tstiop_inheritance__c2__s, c2p, buf_c2p, 0);
         Z_ASSERT_EQUAL(buf_b2p, sizeof(buf_b2p), buf_c2p, sizeof(buf_c2p));
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(inheritance_static, "test static class members") { /* {{{ */
         const iop_value_t *cvar;
@@ -6788,8 +6756,7 @@ Z_GROUP_EXPORT(iop)
             Z_ASSERT_LSTREQUAL(cvar->s, LSTR("a1"));
             Z_ASSERT_NULL(iop_get_class_cvar_cst(&b1, "staticStr"));
         }
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         inheritance_static_types, "test static class members types"
@@ -6810,8 +6777,7 @@ Z_GROUP_EXPORT(iop)
         CHECK_STATIC_TYPE(tstiop_inheritance__c4, "staticInt", IOP_T_U64);
 
 #undef CHECK_STATIC_TYPE
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         inheritance_equals, "test iop_equals/hash with inheritance"
@@ -6976,8 +6942,7 @@ Z_GROUP_EXPORT(iop)
         c2_2_3.a = 5;
         CHECK_EQUALS(class_container, &cc_1, &cc_2, true);
 #undef CHECK_EQUALS
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(inheritance_json, "test json unpacking inheritance") { /* {{{ */
         /* These tests are meant to check json unpacking in some unusual
@@ -7128,8 +7093,7 @@ Z_GROUP_EXPORT(iop)
 
 #undef CHECK_OK
 #undef CHECK_FAIL
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(inheritance_xml, "test inheritance and xml") { /* {{{ */
         /* These tests are meant to check XML unpacking in some unusual
@@ -7259,8 +7223,7 @@ Z_GROUP_EXPORT(iop)
 #undef UNPACK_OK
 #undef UNPACK_FAIL
 #undef MAP
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_references, "test iop references") { /* {{{ */
         t_scope;
@@ -7388,8 +7351,7 @@ Z_GROUP_EXPORT(iop)
 #undef JUNPACK_FAIL
 #undef XUNPACK_OK
 #undef XUNPACK_FAIL
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_get_field_len, "test iop_get_field_len") { /* {{{ */
         t_scope;
@@ -7446,8 +7408,7 @@ Z_GROUP_EXPORT(iop)
             Z_ASSERT_GT(len = iop_get_field_len(ps), 0);
             Z_ASSERT_N(ps_skip(&ps, len));
         }
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         iop_struct_for_each_field, "test iop_struct_for_each_field"
@@ -7555,8 +7516,7 @@ Z_GROUP_EXPORT(iop)
         }
 
 #undef TEST_FIELD
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_get_field, "test iop_get_field function") { /* {{{ */
         iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
@@ -8075,13 +8035,11 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_class3__s);
         Z_ASSERT(out == &f_e_cls3.bool1);
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         iop_struct_get_field, "test iop_struct_get_field function"
-    ) { /* {{{
-         */
+    ) { /* {{{ */
         iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
 
         /* Error cases */
@@ -8250,13 +8208,11 @@ Z_GROUP_EXPORT(iop)
         );
 
 #undef T_OK
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         iop_get_field_values, "test iop_get_field_values function"
-    ) { /* {{{
-         */
+    ) { /* {{{ */
         t_scope;
         tstiop__z_iop_get_field_values__t z_struct;
 
@@ -8298,8 +8254,7 @@ Z_GROUP_EXPORT(iop)
         TEST("optVoid", NULL, 1, false);
 
 #undef TEST
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_value_from_field, "test iop_value_from_field") { /* {{{ */
         iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
@@ -8517,8 +8472,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_EQ(
             (int)iop_value_field_from_type(IOP_T_VOID), IOP_VALUE_NONE
         );
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_value_to_field, "test iop_value_to_field") { /* {{{ */
         iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
@@ -8670,8 +8624,7 @@ Z_GROUP_EXPORT(iop)
             iop_value_to_field((void *)ptr, field, &value);
             Z_ASSERT_EQ(cls2.int1, struct_a.cls2->int1);
         }
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(nr_47521, "test bug while unpacking json with bunpack") { /* {{{ */
         /* test that bunpack does not crash when trying to unpack json */
@@ -8694,8 +8647,7 @@ Z_GROUP_EXPORT(iop)
             t_pool(), iop_env_ctx, &tstiop__my_class1__s, (void **)&c_ptr,
             ps_initsb(&sb), false
         ));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_enum, "test iop enums") { /* {{{ */
         iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
@@ -8743,8 +8695,7 @@ Z_GROUP_EXPORT(iop)
         );
         Z_ASSERT_LSTREQUAL(en->fullname, LSTR("tstiop.MyEnumA"));
         Z_ASSERT_LSTREQUAL(en->name, LSTR("MyEnumA"));
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_enum_alias, "test iop enums aliases") { /* {{{ */
         Z_TEST_FLAGS("redmine_52799");
@@ -8767,8 +8718,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_EQ(MY_ENUM_A_A_ALIAS, MY_ENUM_A_A);
         Z_ASSERT_EQ(MY_ENUM_A_C_ALIAS_1, MY_ENUM_A_C);
         Z_ASSERT_EQ(MY_ENUM_A_C_ALIAS_2, MY_ENUM_A_C);
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_gen_attrs, "test iop generic attributes") { /* {{{ */
         iop_value_t value;
@@ -8885,8 +8835,7 @@ Z_GROUP_EXPORT(iop)
             value.s.s,
             "{\"field\":{\"f1\":\"val1\",\"f2\":-1.00000000000000000e+02}}"
         );
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_new, "test iop_new and sisters") { /* {{{ */
         t_scope;
@@ -8912,11 +8861,11 @@ Z_GROUP_EXPORT(iop)
 
         gp = t_iop_new(tstiop__my_struct_g);
         Z_ASSERT_IOPEQUAL(tstiop__my_struct_g, &g, gp);
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
-    Z_TEST(class_printf, "test %*pS in format string for IOP class") { /* {{{
-                                                                        */
+    Z_TEST(
+        class_printf, "test %*pS in format string for IOP class"
+    ) { /* {{{ */
         t_scope;
         SB_1k(ref);
         SB_1k(tst_sb);
@@ -8960,13 +8909,11 @@ Z_GROUP_EXPORT(iop)
         );
         Z_ASSERT_LSTREQUAL(file, LSTR_SB_V(&ref));
         lstr_wipe(&file);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         struct_printf, "test %*pS in format string for IOP struct"
-    ) { /* {{{
-         */
+    ) { /* {{{ */
         t_scope;
         SB_1k(ref);
         SB_1k(tst_sb);
@@ -9028,8 +8975,7 @@ Z_GROUP_EXPORT(iop)
         );
         Z_ASSERT_LSTREQUAL(file, LSTR_SB_V(&ref));
         lstr_wipe(&file);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(enum_printf, "test %*pE in format string") { /* {{{ */
         struct {
@@ -9038,7 +8984,10 @@ Z_GROUP_EXPORT(iop)
             lstr_t res;
         } t[] = {
 #define T(_v, _base, _full)                                                  \
-    {_v, 0, LSTR(_base)}, {_v, IOP_ENUM_FMT_FULL, LSTR(_full)}
+    {_v, 0, LSTR(_base)},                                                    \
+    {                                                                        \
+        _v, IOP_ENUM_FMT_FULL, LSTR(_full)                                   \
+    }
 
             T(MY_ENUM_D_FOO, "FOO", "FOO(0)"),
             T(1, "1", "<unknown>(1)"),
@@ -9079,8 +9028,7 @@ Z_GROUP_EXPORT(iop)
             Z_ASSERT_LSTREQUAL(file, t->res);
             lstr_wipe(&file);
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         union_printf, "test %*pU in format string for IOP union types"
@@ -9102,8 +9050,7 @@ Z_GROUP_EXPORT(iop)
             t_fmt("%*pU", IOP_UNION_FMT_ARG(tstiop__my_union_c, &uc)),
             "<unknown>(0)"
         );
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_set_opt_field, "test iop_set_opt_field function") { /* {{{ */
         tstiop__my_struct_a_opt__t obj;
@@ -9151,14 +9098,12 @@ Z_GROUP_EXPORT(iop)
         obj.j = LSTR("toto");
         iop_set_opt_field(&obj, f);
         Z_ASSERT_LSTREQUAL(obj.j, LSTR("toto"));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         iop_skip_absent_field_desc, /* {{{ */
         "test all the branches of iop_skip_absent_field_desc"
-    )
-    {
+    ) {
         t_scope;
         tstiop__z_iop_get_field_values__t zval;
         tstiop__struct_with_mandatory_abstract_object__t awo;
@@ -9288,8 +9233,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(!OPT_ISSET(zval.opt_integer));
 
 #undef Z_FIELD
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_array_dup, "test the IOP_ARRAY_DUP macro") { /* {{{ */
         t_scope;
@@ -9318,8 +9262,7 @@ Z_GROUP_EXPORT(iop)
         }
 
         p_delete(&n.tab);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_array_new, "test the IOP_ARRAY_NEW* macros") { /* {{{ */
         t_scope;
@@ -9341,8 +9284,7 @@ Z_GROUP_EXPORT(iop)
         TEST(IOP_ARRAY_NEW_RAW, p_delete);
 
 #undef TEST
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(mp_iop_array, "test the *_IOP_ARRAY macros") { /* {{{ */
         t_scope;
@@ -9380,8 +9322,7 @@ Z_GROUP_EXPORT(iop)
         tab_enumerate(pos, u, &u32_array) {
             Z_ASSERT_EQ(u, 10u + pos);
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(dup_and_copy, "test duplication/copy functions") { /* {{{ */
         t_scope;
@@ -9407,8 +9348,7 @@ Z_GROUP_EXPORT(iop)
             "test failed for class"
         );
         Z_HELPER_RUN(z_test_macros_dup_copy(&fs));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(copy_protect, "test duplication/copy protection") { /* {{{ */
         t_scope;
@@ -9455,11 +9395,11 @@ Z_GROUP_EXPORT(iop)
             IOP_COPY_ALLOC_SAFE | IOP_COPY_NO_REALLOC, NULL
         );
         Z_ASSERT_NULL(res);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
-    Z_TEST(nr_58558, "avoid leak when copying an IOP with no value") { /* {{{
-                                                                        */
+    Z_TEST(
+        nr_58558, "avoid leak when copying an IOP with no value"
+    ) { /* {{{ */
         tstiop__my_struct_c__t st;
         tstiop__my_struct_c__t *p;
 
@@ -9467,8 +9407,7 @@ Z_GROUP_EXPORT(iop)
         p = iop_dup(tstiop__my_struct_c, &st);
         iop_copy(tstiop__my_struct_c, &p, NULL);
         Z_ASSERT_NULL(p);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         iop_field_is_pointed, "test the iop_field_is_pointed function"
@@ -9510,8 +9449,7 @@ Z_GROUP_EXPORT(iop)
             ));
             Z_ASSERT_EQ(test->is_pointed, iop_field_is_pointed(field));
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_field_print_defval, "") { /* {{{ */
         const iop_struct_t *st = &tstiop__my_struct_g__s;
@@ -9534,8 +9472,7 @@ Z_GROUP_EXPORT(iop)
         TEST(st, m, "true");
 
 #undef TEST
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(
@@ -10170,8 +10107,7 @@ Z_GROUP_EXPORT(iop)
 #undef T_OK_ALL
 #undef T_KO
 #undef T_KO_ALL
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         iop_pkg_check_backward_compat, "test iop_pkg_check_backward_compat"
@@ -10577,11 +10513,11 @@ Z_GROUP_EXPORT(iop)
 #undef T_OK_ALL
 #undef T_KO
 #undef T_KO_ALL
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_get_class__typedef, "test iop_get_class with typedef") { /* {{{
-                                                                         */
+    Z_TEST(
+        iop_get_class__typedef, "test iop_get_class with typedef"
+    ) { /* {{{ */
         iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         const iop_struct_t *st = NULL;
 
@@ -10595,8 +10531,7 @@ Z_GROUP_EXPORT(iop)
             st->fullname,
             tstiop_backward_compat__basic_class_child__s.fullname
         );
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         iop_dso_find_enum__typedef, "test iop_dso_find_enum with typedef"
@@ -10619,8 +10554,7 @@ Z_GROUP_EXPORT(iop)
             Z_ASSERT_LSTREQUAL(en->fullname, en_exp);
         }
         iop_dso_close(&dso);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         iop_dso_find_type__typedef, "test iop_dso_find_type with typedef"
@@ -10646,8 +10580,7 @@ Z_GROUP_EXPORT(iop)
             Z_ASSERT_LSTREQUAL(st->fullname, st_exp);
         }
         iop_dso_close(&dso);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         iop_typedef_check_backward_compat,
@@ -10716,8 +10649,7 @@ Z_GROUP_EXPORT(iop)
 
 #undef T_OK
 #undef T_OK_ALL
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_struct_is_optional, "test iop_struct_is_optional") { /* {{{ */
         iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
@@ -10737,8 +10669,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(!iop_struct_is_optional(
             iop_env_ctx, &tstiop_backward_compat__child_class42__s, false
         ));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_dso_external_refs, "test refs for external DSOs") { /* {{{ */
         iop_dso_t *dso;
@@ -10782,8 +10713,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(&tstiop__my_struct_a__s == field->u1.st_desc);
 
         iop_dso_close(&dso);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         iop_dso_test_invalid_same_open,
@@ -10818,8 +10748,7 @@ Z_GROUP_EXPORT(iop)
 
         /* clean-up the dso */
         iop_dso_close(&dso);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_first_diff_desc, "test iop_first_diff_desc()") { /* {{{ */
         SB_1k(diff_desc);
@@ -10953,8 +10882,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_STREQUAL(
             diff_desc.data, "field `d`: value differs (1 vs 1.02)"
         );
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_equals_strict, "test iop_equals_desc() vs strict") { /* {{{ */
         SB_1k(diff_desc);
@@ -11039,8 +10967,7 @@ Z_GROUP_EXPORT(iop)
         s2.d = -0.0;
         Z_ASSERT(iop_equals_desc(&z_first_diff_st__s, &s1, &s2));
         Z_ASSERT(!iop_equals_strict_desc(&z_first_diff_st__s, &s1, &s2));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         iop_nonreg_ioptag_union_unpack,
@@ -11092,8 +11019,7 @@ Z_GROUP_EXPORT(iop)
         );
         Z_ASSERT_EQ(ret, 0);
         Z_ASSERT_EQ(src.iop_tag, dst.iop_tag);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_void_union, "test iop void in union") { /* {{{ */
         t_scope;
@@ -11167,8 +11093,7 @@ Z_GROUP_EXPORT(iop)
             "http://example.com/tstiop", "http://localhost:1080/iop/", false,
             true
         );
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_void_optional, "test iop void, optional") { /* {{{ */
         t_scope;
@@ -11264,8 +11189,7 @@ Z_GROUP_EXPORT(iop)
             NULL, "http://example.com/tstiop", "http://localhost:1080/iop/",
             false, true
         );
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_void_required, "test iop void, required") { /* {{{ */
         t_scope;
@@ -11390,8 +11314,7 @@ Z_GROUP_EXPORT(iop)
             NULL, "http://example.com/tstiop", "http://localhost:1080/iop/",
             false, true
         );
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         json_empty_string, "parsing '' as JSON always returns an error"
@@ -11424,8 +11347,7 @@ Z_GROUP_EXPORT(iop)
             &err
         ));
         Z_ASSERT_STREQUAL(err.data, error);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(repeated_field_removal, "repeated field removal") { /* {{{ */
         t_scope;
@@ -11458,8 +11380,7 @@ Z_GROUP_EXPORT(iop)
         );
         Z_ASSERT_EQ(st.a, out->a);
         Z_ASSERT_EQ(st.c, out->c);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_value_get_bpack_size, "iop_value_get_bpack_size") { /* {{{ */
         tstiop__get_bpack_sz_u__t u;
@@ -11492,8 +11413,7 @@ Z_GROUP_EXPORT(iop)
         T(st, st);
 
 #undef T
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(struct_packing, "check struct packing behavior") { /* {{{ */
         /* Check that a struct is properly packed. */
@@ -11513,8 +11433,7 @@ Z_GROUP_EXPORT(iop)
         );
 
         Z_ASSERT(true);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(int_types_helpers, "integer types sign/size helpers") { /* {{{ */
         struct {
@@ -11538,8 +11457,7 @@ Z_GROUP_EXPORT(iop)
                 "wrong size for type %s", iop_type_get_string_desc(type->type)
             );
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(wsdl, "test generation of WSDL") { /* {{{ */
         t_scope;
@@ -11560,13 +11478,11 @@ Z_GROUP_EXPORT(iop)
         );
 
         Z_ASSERT_LSTREQUAL(LSTR_SB_V(&buf), expected);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_core_obj, "IOP core obj") { /* {{{ */
         Z_HELPER_RUN(test_iop_core_obj());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_init_union, "test IOP union init") { /* {{{ */
         tstiop__my_union_d__t u;
@@ -11582,8 +11498,7 @@ Z_GROUP_EXPORT(iop)
         iop_init_union(tstiop__my_union_d, &u, ug);
         Z_ASSERT_P(IOP_UNION_GET(tstiop__my_union_d, &u, ug));
         Z_ASSERT_EQ(u.ug.a, -1);
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_st_array_for_each, "test iop_st_array_for_each") { /* {{{ */
         t_scope;
@@ -11608,8 +11523,7 @@ Z_GROUP_EXPORT(iop)
             Z_ASSERT(ptr == u_ptr++);
         }
         Z_ASSERT(u_ptr == tab_last(&u_array) + 1);
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         bpack_error_unregistered_class,
@@ -11632,8 +11546,7 @@ Z_GROUP_EXPORT(iop)
             iop_get_err(), "cannot find child 2 of class "
                            "'tstiop.RegisteredClass'"
         );
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         bpack_error_unexpected_class_type,
@@ -11656,8 +11569,7 @@ Z_GROUP_EXPORT(iop)
                            "is not a child of 'tstiop.ChildClassB' (id 3) "
                            "as expected"
         );
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         double_subnormal_packing,
@@ -11727,11 +11639,11 @@ Z_GROUP_EXPORT(iop)
             ),
             "YAML unpacking failure: %*pM", SB_FMT_ARG(&err)
         );
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_check_package_examples, "test iop_check_rpc_example") { /* {{{
-                                                                        */
+    Z_TEST(
+        iop_check_package_examples, "test iop_check_rpc_example"
+    ) { /* {{{ */
         SB_1k(err);
         iop_env_ctx_scope(_G.iop_env, iop_env_ctx);
         const char *exp_err;
@@ -11761,8 +11673,7 @@ Z_GROUP_EXPORT(iop)
                   "tstiop_dox_invalid_example_rpc.MyStruct, "
                   "got `\"unknownField\"'";
         Z_ASSERT_STREQUAL(err.data, exp_err);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(
         iop_static_field_get_gen_attr,
@@ -11786,12 +11697,10 @@ Z_GROUP_EXPORT(iop)
             &iop_label
         ));
         Z_ASSERT_LSTREQUAL(iop_label.s, LSTR("{\"test\":\"Dump attr\"}"));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
 
     iop_env_delete(&_G.iop_env);
-}
-Z_GROUP_END
+} Z_GROUP_END;
 
 /* LCOV_EXCL_STOP */

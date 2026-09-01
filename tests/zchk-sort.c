@@ -42,8 +42,7 @@ static void u64_del(void *v, void *arg)
     del->tab[del->len++] = *uv;
 }
 
-Z_GROUP_EXPORT(sort)
-{
+Z_GROUP_EXPORT(sort) {
     static const uint64_t vals64[] = {8, 8, 1,  2, 4, 4, 12, 5,
                                       3, 7, 10, 1, 4, 1, 12, 12};
     static const uint64_t sorted64[countof(vals64) + 1][countof(vals64)] = {
@@ -108,7 +107,7 @@ Z_GROUP_EXPORT(sort)
                                        {5, 1, 1, 4, 4, 8},
                                        {6, 1, 1, 4, 4, 8, 12},
                                        {7, 1, 1, 4, 4, 8, 12, 12}
-                                   };
+    };
 
     Z_TEST(64, "optimized 64") {
         for (int i = 0; i < countof(vals64); i++) {
@@ -145,8 +144,7 @@ Z_GROUP_EXPORT(sort)
                 }
             }
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(32, "optimized 32") {
         uint32_t vals32[countof(vals64)];
@@ -196,8 +194,7 @@ Z_GROUP_EXPORT(sort)
                 }
             }
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(16, "optimized 16") {
         uint16_t vals16[countof(vals64)];
@@ -247,8 +244,7 @@ Z_GROUP_EXPORT(sort)
                 }
             }
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(cptr, "optimized cptr") {
         for (int i = 0; i < countof(vals64); i++) {
@@ -268,8 +264,7 @@ Z_GROUP_EXPORT(sort)
             len = uniq_cptr(v, i);
             Z_ASSERT_EQUAL(uniqed_cptr, uniqed64[i][0], v, len);
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(8, "optimized 8") {
         uint8_t vals8[countof(vals64)];
@@ -319,8 +314,7 @@ Z_GROUP_EXPORT(sort)
                 }
             }
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(generic, "generic implementation") {
         for (int i = 0; i < countof(vals64); i++) {
@@ -367,11 +361,11 @@ Z_GROUP_EXPORT(sort)
                 }
             }
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
 #define Z_TEST_DSORT_IX(x)                                                   \
-    Z_TEST(dsort_i##x) {                                                     \
+    Z_TEST(dsort_i##x)                                                       \
+    {                                                                        \
         t_scope;                                                             \
         int len = 1024;                                                      \
         int##x##_t *tab1 = t_new(int##x##_t, len);                           \
@@ -403,13 +397,12 @@ Z_GROUP_EXPORT(sort)
             );                                                               \
         }                                                                    \
     }                                                                        \
-    Z_TEST_END
+    Z_TEST_END;
 
     Z_TEST_DSORT_IX(8);
     Z_TEST_DSORT_IX(16);
     Z_TEST_DSORT_IX(32);
     Z_TEST_DSORT_IX(64);
-}
-Z_GROUP_END;
+} Z_GROUP_END;
 
 /* LCOV_EXCL_STOP */

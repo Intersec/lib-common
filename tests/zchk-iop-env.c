@@ -116,8 +116,7 @@ static void *z_iop_stress_reader_loop(void *arg)
 
 /* }}} */
 
-Z_GROUP_EXPORT(iop_env)
-{
+Z_GROUP_EXPORT(iop_env) {
     _G.iop_env = iop_env_new();
     IOP_REGISTER_PACKAGES(
         _G.iop_env, &tstiop__pkg, &tstiop_dox__pkg, &tstiop_inheritance__pkg,
@@ -273,8 +272,7 @@ Z_GROUP_EXPORT(iop_env)
             iface == &tstiop__obj_same_name__if,
             "wrong iop_iface_t (got `%pL')", &iface->fullname
         );
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(isolation, "test IOP environment isolation") { /* {{{ */
         iop_env_t *iop_env_tstiop;
@@ -399,8 +397,7 @@ Z_GROUP_EXPORT(iop_env)
         iop_env_delete(&iop_env_backward_old);
         iop_env_delete(&iop_env_backward_new);
         iop_env_delete(&iop_env_tstiop);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     /* }}} */
     Z_TEST(
@@ -442,8 +439,7 @@ Z_GROUP_EXPORT(iop_env)
 
         /* Clean up the env */
         iop_env_delete(&iop_env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_env_concurrent_ctx_swap) { /* {{{ */
         /* Stress the arc-swap'd ctx with a DSO-backed package: one writer
@@ -520,12 +516,10 @@ Z_GROUP_EXPORT(iop_env)
          * refcount concurrently. */
 
         iop_env_delete(&stress.iop_env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
 
     iop_env_delete(&_G.iop_env);
-}
-Z_GROUP_END
+} Z_GROUP_END;
 
 /* LCOV_EXCL_STOP */

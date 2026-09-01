@@ -227,8 +227,7 @@ static qhat_compact32_t *z_dissect_find_compact(qps_t *qps, qps_handle_t hat)
 
 /* }}} */
 
-Z_GROUP_EXPORT(qps_dissect)
-{
+Z_GROUP_EXPORT(qps_dissect) {
     MODULE_REQUIRE(qps);
 
 #define Z_DISSECT_SPOOL(_name, _h, _nb_free)                                 \
@@ -263,8 +262,7 @@ Z_GROUP_EXPORT(qps_dissect)
         Z_ASSERT_EQ(res.nbr_free_handles, (size_t)8);
         qv_wipe(&res.types);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(empty_spool, "dissect a spool without any handle") { /* {{{ */
@@ -282,8 +280,7 @@ Z_GROUP_EXPORT(qps_dissect)
         Z_ASSERT_ZERO(nb_anomalies);
         qps_dissect_ctx_delete(&ctx);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ freelist_bad_head */
@@ -301,8 +298,7 @@ Z_GROUP_EXPORT(qps_dissect)
         qps->handles_freelist = saved;
         qv_wipe(&res.types);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(freelist_circular, "loop in the handle free list") { /* {{{ */
@@ -319,8 +315,7 @@ Z_GROUP_EXPORT(qps_dissect)
         *qps_handle_slot(qps, h[0]) = saved;
         qv_wipe(&res.types);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ freelist_slot_with_page */
@@ -337,8 +332,7 @@ Z_GROUP_EXPORT(qps_dissect)
         *qps_handle_slot(qps, h[0]) = saved;
         qv_wipe(&res.types);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ tlsf_header_zero_handle */
@@ -361,8 +355,7 @@ Z_GROUP_EXPORT(qps_dissect)
         blk->handle = h[0];
         qv_wipe(&res.types);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ tlsf_header_bad_handle */
@@ -379,8 +372,7 @@ Z_GROUP_EXPORT(qps_dissect)
         blk->handle = h[0];
         qv_wipe(&res.types);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ tlsf_header_wrong_handle */
@@ -399,8 +391,7 @@ Z_GROUP_EXPORT(qps_dissect)
         blk->handle = h[0];
         qv_wipe(&res.types);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ dangling_handle */
@@ -421,8 +412,7 @@ Z_GROUP_EXPORT(qps_dissect)
         *qps_handle_slot(qps, h[0]) = saved;
         qv_wipe(&res.types);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ slot_bad_pgno */
@@ -439,8 +429,7 @@ Z_GROUP_EXPORT(qps_dissect)
         *qps_handle_slot(qps, h[0]) = saved;
         qv_wipe(&res.types);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ pg_header_bad_handle */
@@ -461,8 +450,7 @@ Z_GROUP_EXPORT(qps_dissect)
         qps->hdrs[pg].handle = saved;
         qv_wipe(&res.types);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(pg_header_zero_size, "page block with a null size") { /* {{{ */
@@ -484,8 +472,7 @@ Z_GROUP_EXPORT(qps_dissect)
         qps->hdrs[pg].size = saved;
         qv_wipe(&res.types);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ used_handle */
@@ -526,8 +513,7 @@ Z_GROUP_EXPORT(qps_dissect)
 
         qps_dissect_ctx_wipe(&ctx);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(slot_wrong_addr, "handle slot with a shifted address") { /* {{{ */
@@ -545,8 +531,7 @@ Z_GROUP_EXPORT(qps_dissect)
         *qps_handle_slot(qps, h[0]) = saved;
         qv_wipe(&res.types);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(owner_path, "owner path management") { /* {{{ */
@@ -571,19 +556,16 @@ Z_GROUP_EXPORT(qps_dissect)
         Z_ASSERT_ZERO(ctx.owner.owner_path.len);
         qps_dissect_ctx_wipe(&ctx);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
 
 #undef Z_DISSECT_SPOOL
 
     MODULE_RELEASE(qps);
-}
-Z_GROUP_END;
+} Z_GROUP_END;
 
-Z_GROUP_EXPORT(qps_dissect_objects)
-{
+Z_GROUP_EXPORT(qps_dissect_objects) {
     MODULE_REQUIRE(qps);
 
     Z_TEST(full_clean, "full pipeline on a healthy spool") { /* {{{ */
@@ -600,8 +582,7 @@ Z_GROUP_EXPORT(qps_dissect_objects)
         z_dissect_qps_objects(qps, hats, 2, &bitmap, 1, counts);
         Z_ASSERT_ZERO(z_dissect_total(counts));
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(hat_bad_sig, "qhat root with corrupted signature") { /* {{{ */
@@ -618,8 +599,7 @@ Z_GROUP_EXPORT(qps_dissect_objects)
         Z_ASSERT_EQ(z_dissect_total(counts), 1);
         root->sig[0] ^= 0xff;
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ hat_bad_value_len */
@@ -639,8 +619,7 @@ Z_GROUP_EXPORT(qps_dissect_objects)
         Z_ASSERT_EQ(counts[QPS_ANOMALY_INVALID_H_REF_CONTENT], 1);
         root->value_len = saved;
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ hat_node_bad_page */
@@ -668,8 +647,7 @@ Z_GROUP_EXPORT(qps_dissect_objects)
         Z_ASSERT_GE(counts[QPS_ANOMALY_INVALID_QPS_PAGE_REF], 1);
         root->nodes[idx] = saved;
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ hat_compact_disorder */
@@ -690,8 +668,7 @@ Z_GROUP_EXPORT(qps_dissect_objects)
         Z_ASSERT_GE(counts[QPS_ANOMALY_QHAT_ISSUE], 1);
         c->keys[0] = saved;
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ hat_compact_overflow */
@@ -712,8 +689,7 @@ Z_GROUP_EXPORT(qps_dissect_objects)
         Z_ASSERT_GE(counts[QPS_ANOMALY_QHAT_ISSUE], 1);
         c->count = saved;
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ hat_too_small */
@@ -729,8 +705,7 @@ Z_GROUP_EXPORT(qps_dissect_objects)
         z_dissect_one_hat(qps, small, counts);
         Z_ASSERT_EQ(counts[QPS_ANOMALY_INVALID_H_REF_SIZE], 1);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ hat_compact_key_range */
@@ -752,8 +727,7 @@ Z_GROUP_EXPORT(qps_dissect_objects)
         Z_ASSERT_GE(counts[QPS_ANOMALY_QHAT_ISSUE], 1);
         c->keys[0] = saved;
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ bitmap_bad_root */
@@ -781,8 +755,7 @@ Z_GROUP_EXPORT(qps_dissect_objects)
         Z_ASSERT_GE(counts[QPS_ANOMALY_INVALID_QPS_PAGE_REF], 1);
         root->roots[idx] = saved;
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(bitmap_bad_sig, "qps bitmap with corrupted signature") { /* {{{ */
@@ -799,8 +772,7 @@ Z_GROUP_EXPORT(qps_dissect_objects)
         Z_ASSERT_EQ(counts[QPS_ANOMALY_INVALID_H_REF_CONTENT], 1);
         root->sig[0] ^= 0xff;
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(lost_handle, "handle not referenced by any object") { /* {{{ */
@@ -827,8 +799,7 @@ Z_GROUP_EXPORT(qps_dissect_objects)
         Z_ASSERT_EQ(counts[QPS_ANOMALY_H_REF_UNKNOWN], 3);
         Z_ASSERT_EQ(z_dissect_total(counts), 3);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ lost_handle_bad_slot */
@@ -851,8 +822,7 @@ Z_GROUP_EXPORT(qps_dissect_objects)
          * dereferenced. */
         Z_ASSERT_GE(counts[QPS_ANOMALY_INVALID_H_REF_PTR], 1);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ dangling_referenced */
@@ -881,8 +851,7 @@ Z_GROUP_EXPORT(qps_dissect_objects)
         Z_ASSERT_GE(counts[QPS_ANOMALY_DANGLING_H_REF], 1);
         *qps_handle_slot(qps, h_bmap) = saved;
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(page_without_owner, "raw page run owned by nobody") { /* {{{ */
@@ -900,8 +869,7 @@ Z_GROUP_EXPORT(qps_dissect_objects)
         Z_ASSERT_EQ(counts[QPS_ANOMALY_NO_OWNER_QPS_PAGE], 1);
         Z_ASSERT_EQ(z_dissect_total(counts), 1);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(multiple_owners, "same qhat claimed by two owners") { /* {{{ */
@@ -931,13 +899,11 @@ Z_GROUP_EXPORT(qps_dissect_objects)
         qps_dissect_ctx_wipe(&ctx);
         Z_ASSERT_GE(counts[QPS_ANOMALY_MULTIPLE_OWNERS_QPS_PAGE], 1);
         qps_close(&qps);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
 
     MODULE_RELEASE(qps);
-}
-Z_GROUP_END
+} Z_GROUP_END;
 
 /* LCOV_EXCL_STOP */

@@ -82,16 +82,13 @@ const blk_foo_t *z_blk_get_foo_extern(int x)
     return blk() ? &blk_foo_g : NULL;
 }
 
-Z_GROUP_EXPORT(blk_rewrite)
-{
+Z_GROUP_EXPORT(blk_rewrite) {
     Z_TEST(cv_qualified_return, "block functions with a const return type") {
         Z_ASSERT(z_blk_get_foo_static(1) == &blk_foo_g);
         Z_ASSERT(z_blk_get_foo_static_fwd(1) == &blk_foo_g);
         Z_ASSERT(z_blk_get_foo_extern(1) == &blk_foo_g);
         Z_ASSERT_NULL(z_blk_get_foo_static(0));
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /* }}} */

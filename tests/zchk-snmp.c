@@ -75,8 +75,7 @@ static int z_run_smilint(qv_t(cstr) *args)
     Z_HELPER_END;
 }
 
-Z_GROUP_EXPORT(iop_snmp_mib)
-{
+Z_GROUP_EXPORT(iop_snmp_mib) {
     Z_TEST(test_intersec_mib_generated, "compare generated and ref file") {
         t_scope;
         SB_8k(sb);
@@ -92,8 +91,7 @@ Z_GROUP_EXPORT(iop_snmp_mib)
         Z_HELPER_RUN(z_check_wanted_file(ref_file, &sb));
 
         qv_wipe(&pkgs);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(test_intersec_mib_smilint, "test intersec mib using smilint") {
         t_scope;
@@ -115,8 +113,7 @@ Z_GROUP_EXPORT(iop_snmp_mib)
         Z_HELPER_RUN(z_run_smilint(&smilint_args));
 
         qv_wipe(&pkgs);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(test_entire_mib) {
         t_scope;
@@ -149,16 +146,13 @@ Z_GROUP_EXPORT(iop_snmp_mib)
         Z_HELPER_RUN(z_run_smilint(&smilint_args));
 
         qv_wipe(&pkgs);
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END;
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /* }}} */
 /* {{{ SNMP-doc tests */
 
-Z_GROUP_EXPORT(iop_snmp_doc)
-{
+Z_GROUP_EXPORT(iop_snmp_doc) {
     Z_TEST(test_doc, "test generated doc") {
         const char *ref_notif_file = "test-data/snmp/docs/ref-notif.inc.adoc";
         const char *ref_obj_file = "test-data/snmp/docs/ref-object.inc.adoc";
@@ -175,10 +169,8 @@ Z_GROUP_EXPORT(iop_snmp_doc)
         Z_HELPER_RUN(z_check_wanted_file(ref_obj_file, &objects_sb));
 
         qv_wipe(&pkgs);
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END;
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /* LCOV_EXCL_STOP */
 

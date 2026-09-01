@@ -18,21 +18,18 @@
 
 #include <lib-common/z.h>
 
-Z_GROUP_EXPORT(bithacks)
-{
+Z_GROUP_EXPORT(bithacks) {
     Z_TEST(bsr8) {
         for (int i = 1; i < 256; i++) {
             Z_ASSERT_EQ(bsr8(i), bsr16(i), "[i:%d]", i);
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(bsf8) {
         for (int i = 1; i < 256; i++) {
             Z_ASSERT_EQ(bsf8(i), bsf16(i), "[i:%d]", i);
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(bitmasks) {
         Z_ASSERT_EQ(BITMASK_GE(uint32_t, 0), 0xffffffffU);
@@ -46,7 +43,5 @@ Z_GROUP_EXPORT(bithacks)
 
         Z_ASSERT_EQ(BITMASK_LT(uint32_t, 0), 0x00000000U);
         Z_ASSERT_EQ(BITMASK_LT(uint32_t, 31), 0x7fffffffU);
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END
+    } Z_TEST_END;
+} Z_GROUP_END;

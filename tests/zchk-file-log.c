@@ -57,8 +57,7 @@ static int z_check_file_permission(const char *prefix, uint32_t mode)
     Z_HELPER_END;
 }
 
-Z_GROUP_EXPORT(file_log)
-{
+Z_GROUP_EXPORT(file_log) {
 #define RANDOM_DATA_SIZE (2 << 20)
 #define NB_FILES 10
 
@@ -140,8 +139,7 @@ Z_GROUP_EXPORT(file_log)
 
         /* Properly wait for gzip children termination. */
         el_loop();
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
 #define NB_RECENT_FILES 3
 
@@ -237,8 +235,7 @@ Z_GROUP_EXPORT(file_log)
 
         /* Properly wait for gzip children termination. */
         el_loop();
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 #undef NB_RECENT_FILES
 #undef RANDOM_DATA_SIZE
 #undef NB_FILES
@@ -265,7 +262,5 @@ Z_GROUP_EXPORT(file_log)
         Z_ASSERT_EQ(log_file_close(&log_file), 0);
 
         Z_HELPER_RUN(z_check_file_permission(path.s, 0640u));
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END
+    } Z_TEST_END;
+} Z_GROUP_END;

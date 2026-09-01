@@ -32,8 +32,7 @@ typedef struct {
     int tab[];
 } z_mp_test_t;
 
-Z_GROUP_EXPORT(mem_pool_macros)
-{
+Z_GROUP_EXPORT(mem_pool_macros) {
     Z_TEST(t_pool) {
         t_scope;
         int *p;
@@ -60,8 +59,7 @@ Z_GROUP_EXPORT(mem_pool_macros)
         IGNORE(t_strdup(s));
 
         Z_ASSERT(true, "execution OK");
-    }
-    Z_TEST_END
+    } Z_TEST_END;
 
     Z_TEST(r_pool) {
         const void *frame;
@@ -93,8 +91,7 @@ Z_GROUP_EXPORT(mem_pool_macros)
         r_release(frame);
 
         Z_ASSERT(true, "execution OK");
-    }
-    Z_TEST_END
+    } Z_TEST_END;
 
     Z_TEST(mem_libc) {
         int *p;
@@ -131,8 +128,7 @@ Z_GROUP_EXPORT(mem_pool_macros)
         p_delete(&s);
 
         Z_ASSERT(true, "execution OK");
-    }
-    Z_TEST_END
+    } Z_TEST_END;
 
     Z_TEST(mem_libc_size0) {
         int *p;
@@ -146,16 +142,13 @@ Z_GROUP_EXPORT(mem_pool_macros)
         p_realloc(&p, 0);
         Z_ASSERT_EQ((intptr_t)p, (intptr_t)MEM_EMPTY_ALLOC);
         p_delete(&p);
-    }
-    Z_TEST_END
-}
-Z_GROUP_END
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /*}}}1*/
 /*{{{1 FIFO Pool */
 
-Z_GROUP_EXPORT(fifo)
-{
+Z_GROUP_EXPORT(fifo) {
     Z_TEST(fifo_pool, "fifo_pool:allocate an amount near pool page size") {
         int page_size = 1 << 19;
         mem_pool_t *pool = mem_fifo_pool_new("fifo.fifo_pool", page_size);
@@ -178,16 +171,13 @@ Z_GROUP_EXPORT(fifo)
         mp_delete(pool, &v);
 
         mem_fifo_pool_delete(&pool);
-    }
-    Z_TEST_END
-}
-Z_GROUP_END
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /*1}}}*/
 /*{{{1 Memstack */
 
-Z_GROUP_EXPORT(core_mem_stack)
-{
+Z_GROUP_EXPORT(core_mem_stack) {
     Z_TEST(big_alloc_mean, "non regression on #39120") {
         mem_stack_pool_t sp;
 
@@ -201,8 +191,7 @@ Z_GROUP_EXPORT(core_mem_stack)
 
         mem_stack_pool_pop(&sp);
         mem_stack_pool_wipe(&sp);
-    }
-    Z_TEST_END
+    } Z_TEST_END;
 
     Z_TEST(new_delete, "test mem_stack_new/mem_stack_delete") {
         lstr_t s;
@@ -215,16 +204,13 @@ Z_GROUP_EXPORT(core_mem_stack)
         Z_ASSERT_P(s.s);
         mem_stack_pop(sp);
         mem_stack_delete(&sp);
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /*}}}1*/
 /*{{{1 Memring */
 
-Z_GROUP_EXPORT(core_mem_ring)
-{
+Z_GROUP_EXPORT(core_mem_ring) {
     Z_TEST(big_alloc_mean, "non regression on #39120") {
         mem_pool_t *rp = mem_ring_new("core_mem_ring.big_alloc_mean", 0);
         const void *rframe = mem_ring_newframe(rp);
@@ -236,9 +222,7 @@ Z_GROUP_EXPORT(core_mem_ring)
 
         mem_ring_release(rframe);
         mem_ring_delete(&rp);
-    }
-    Z_TEST_END
-}
-Z_GROUP_END
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /*}}}1*/

@@ -547,8 +547,7 @@ static int z_field_index(const iop_struct_t *st, const char *name)
 /* }}} */
 /* {{{ Z_GROUP */
 
-Z_GROUP_EXPORT(iopsq)
-{
+Z_GROUP_EXPORT(iopsq) {
     iop_env_t *iop_env;
 
     iop_env = iop_env_new();
@@ -560,8 +559,7 @@ Z_GROUP_EXPORT(iopsq)
             iop_env, "struct.yml", 0, NULL,
             "{\"i1\":42,\"i2\":2,\"s\":\"foo\"}"
         ));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(sub_struct, "struct with struct field") {
         t_scope;
@@ -576,30 +574,26 @@ Z_GROUP_EXPORT(iopsq)
         Z_HELPER_RUN(test_pkg_struct(
             iop_env, "sub-struct.yml", 1, &tstiop__s2__s, tst1, tst2
         ));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(union_, "basic union") {
         Z_HELPER_RUN(test_pkg_struct(
             iop_env, "union.yml", 0, NULL, "{\"i\":6}", "{\"s\":\"toto\"}"
         ));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(enum_, "basic enum") {
         Z_HELPER_RUN(test_pkg_struct(
             iop_env, "enum.yml", 0, &tstiop__iop_sq_enum_st__s,
             "{\"en\":\"VAL1\"}", "{\"en\":\"VAL2\"}", "{\"en\":\"VAL3\"}"
         ));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(array, "array") {
         Z_HELPER_RUN(test_pkg_struct(
             iop_env, "array.yml", 0, &tstiop__array_test__s, "{\"i\":[4,5,6]}"
         ));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(typedef_, "package with typedefs") {
         t_scope;
@@ -633,8 +627,7 @@ Z_GROUP_EXPORT(iopsq)
         Z_ASSERT(td->type == IOP_T_STRUCT);
         Z_ASSERT_P(td->ref_struct);
         Z_ASSERT_LSTREQUAL(td->ref_struct->fullname, LSTR("foo.Point"));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(field_attrs, "field constraints and generic attributes") {
         t_scope;
@@ -752,8 +745,7 @@ Z_GROUP_EXPORT(iopsq)
         Z_ASSERT_EQ(fa->attrs[3].args->v.d, 1.5);
         Z_ASSERT(fa->attrs[4].type == IOP_FIELD_GEN_ATTR_I);
         Z_ASSERT_EQ(fa->attrs[4].args->v.i64, 1);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(struct_attrs, "struct-level generic attributes") {
         t_scope;
@@ -795,8 +787,7 @@ Z_GROUP_EXPORT(iopsq)
         Z_ASSERT_LSTREQUAL(st->fullname, LSTR("foo.Plain"));
         Z_ASSERT(!(st->flags & (1U << IOP_STRUCT_EXTENDED)));
         Z_ASSERT_NULL(st->st_attrs);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(class_, "classes with inheritance and static fields") {
         t_scope;
@@ -836,8 +827,7 @@ Z_GROUP_EXPORT(iopsq)
         Z_ASSERT_EQ(child->class_attrs->class_id, 42);
         Z_ASSERT(!child->class_attrs->is_abstract);
         Z_ASSERT(child->class_attrs->is_private);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(iface_module, "interfaces, RPCs and modules") {
         t_scope;
@@ -889,8 +879,7 @@ Z_GROUP_EXPORT(iopsq)
         Z_ASSERT_LSTREQUAL(mod->ifaces[0].name, LSTR("users"));
         Z_ASSERT_EQ((int)mod->ifaces[0].tag, 1);
         Z_ASSERT(mod->ifaces[0].iface == iface);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(enum_strict_aliases, "enum strictness and value aliases") {
         t_scope;
@@ -922,16 +911,14 @@ Z_GROUP_EXPORT(iopsq)
         Z_ASSERT_LSTREQUAL(en->aliases->aliases[1].name, LSTR("C_ALIAS_1"));
         Z_ASSERT_EQ(en->aliases->aliases[2].pos, 2);
         Z_ASSERT_LSTREQUAL(en->aliases->aliases[2].name, LSTR("C_ALIAS_2"));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(external_types, "external type names") {
         Z_HELPER_RUN(test_pkg_struct(
             iop_env, "external-types.yml", 0, &tstiop__test_external_types__s,
             "{\"st\":{\"i\":42},\"en\":\"B\"}"
         ));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(error_invalid_pkg_name, "error case: invalid package name") {
         SB_1k(err);
@@ -979,8 +966,7 @@ Z_GROUP_EXPORT(iopsq)
             );
             Z_ASSERT_STREQUAL(err.data, t->lib_err);
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(full_struct, "test with a struct as complete as possible") {
         t_scope;
@@ -998,14 +984,12 @@ Z_GROUP_EXPORT(iopsq)
             z_assert_struct_eq(st, &tstiop__full_struct__s),
             "structs mismatch"
         );
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         iopsq_from_iop, "reverse conversion: iop_struct_t -> iopsq -> "
                         "iop_struct_t round-trip"
-    )
-    {
+    ) {
         t_scope;
         iop_env_ctx_scope(iop_env, iop_env_ctx);
         SB_1k(err);
@@ -1045,14 +1029,12 @@ Z_GROUP_EXPORT(iopsq)
             ),
             "%pL", &err
         );
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         iopsq_enum_from_iop, "reverse conversion: iop_enum_t -> iopsq -> "
                              "iop_enum_t round-trip"
-    )
-    {
+    ) {
         t_scope;
         iop_env_ctx_scope(iop_env, iop_env_ctx);
         SB_1k(err);
@@ -1076,11 +1058,9 @@ Z_GROUP_EXPORT(iopsq)
                 "round-trip mismatch for `%pL'", &ref->fullname
             );
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
-    Z_TEST(iopsq_pkg_from_iop, "reverse conversion: whole-package round-trip")
-    {
+    Z_TEST(iopsq_pkg_from_iop, "reverse conversion: whole-package round-trip") {
         t_scope;
         iop_env_ctx_scope(iop_env, iop_env_ctx);
         SB_1k(err);
@@ -1117,13 +1097,11 @@ Z_GROUP_EXPORT(iopsq)
         }
         Z_ASSERT_NULL(pkg->structs[i]);
         Z_ASSERT_NULL(pkg2->structs[i]);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         iopsq_class_from_iop, "reverse conversion: class hierarchy round-trip"
-    )
-    {
+    ) {
         t_scope;
         iop_env_ctx_scope(iop_env, iop_env_ctx);
         SB_1k(err);
@@ -1154,8 +1132,7 @@ Z_GROUP_EXPORT(iopsq)
         }
         Z_ASSERT_NULL(pkg->structs[i]);
         Z_ASSERT_NULL(pkg2->structs[i]);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(iopsq_typedef_from_iop, "reverse conversion: typedef round-trip") {
         t_scope;
@@ -1187,14 +1164,12 @@ Z_GROUP_EXPORT(iopsq)
         }
         Z_ASSERT_NULL(pkg->typedefs[i]);
         Z_ASSERT_NULL(pkg2->typedefs[i]);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         iopsq_iface_module_from_iop,
         "reverse conversion: interface and module round-trip"
-    )
-    {
+    ) {
         t_scope;
         iop_env_ctx_scope(iop_env, iop_env_ctx);
         SB_1k(err);
@@ -1235,14 +1210,12 @@ Z_GROUP_EXPORT(iopsq)
         }
         Z_ASSERT_NULL(pkg->mods[i]);
         Z_ASSERT_NULL(pkg2->mods[i]);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
-        mp_iopsq_build_struct, "test mp_iopsq_build_struct and "
-                               "iop_struct_mp_build"
-    )
-    {
+        mp_iopsq_build_struct,
+        "test mp_iopsq_build_struct and iop_struct_mp_build"
+    ) {
         t_scope;
         iop_env_ctx_scope(iop_env, iop_env_ctx);
         SB_1k(err);
@@ -1278,8 +1251,7 @@ Z_GROUP_EXPORT(iopsq)
         Z_ASSERT_NULL(st_mp.st);
         Z_ASSERT_NULL(st_mp.mp);
         Z_ASSERT_NULL(st_mp.release_cookie);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(error_misc, "struct error cases miscellaneous") {
         t_scope;
@@ -1364,8 +1336,7 @@ Z_GROUP_EXPORT(iopsq)
             );
             exp_error++;
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(error_duplicated_name, "duplicated type names") {
         t_scope;
@@ -1385,8 +1356,7 @@ Z_GROUP_EXPORT(iopsq)
             err.data, "invalid package `foo': "
                       "already got a thing named `DuplicatedName'"
         );
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(iop_type_to_iop, "test function 'iop_type_to_iop'") {
         iop__type__t res;
@@ -1438,8 +1408,7 @@ Z_GROUP_EXPORT(iopsq)
         Z_ASSERT_NEG(iop_type_to_iop(IOP_T_ENUM, &res));
         Z_ASSERT_NEG(iop_type_to_iop(IOP_T_UNION, &res));
         Z_ASSERT_NEG(iop_type_to_iop(IOP_T_STRUCT, &res));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(type_table, "create types using already generated ones") {
         t_scope;
@@ -1569,8 +1538,7 @@ Z_GROUP_EXPORT(iopsq)
             "\"enTypeName\":\"D\""
             "}"
         );
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(iopsq_int_type_to_int_size) { /* {{{ */
         struct {
@@ -1617,21 +1585,18 @@ Z_GROUP_EXPORT(iopsq)
                 "wrong size for type %s", iop_type_get_string_desc(type->type)
             );
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iopc_check_field_name) { /* {{{ */
         SB_1k(err);
 
         Z_ASSERT_N(iopc_check_field_name(LSTR("validFieldName"), &err));
         Z_ASSERT_NEG(iopc_check_field_name(LSTR("INVALID_FIELD_NAME"), &err));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     /* }}} */
 
     iop_env_delete(&iop_env);
-}
-Z_GROUP_END;
+} Z_GROUP_END;
 
 /* }}} */
 

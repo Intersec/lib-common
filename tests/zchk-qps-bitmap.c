@@ -21,8 +21,7 @@
 
 /* LCOV_EXCL_START */
 
-Z_GROUP_EXPORT(qps_bitmap)
-{
+Z_GROUP_EXPORT(qps_bitmap) {
     qps_t *qps;
 
     MODULE_REQUIRE(qps);
@@ -73,8 +72,7 @@ Z_GROUP_EXPORT(qps_bitmap)
         }
 
         qps_bitmap_destroy(&bitmap);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(nr_33413) { /* {{{ */
@@ -105,8 +103,7 @@ Z_GROUP_EXPORT(qps_bitmap)
         Z_ASSERT_EQ(en.key.key, 270101u);
 
         qps_bitmap_destroy(&bitmap);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(qps_bitmap_nr) { /* {{{ */
@@ -137,8 +134,7 @@ Z_GROUP_EXPORT(qps_bitmap)
             qps_bitmap_enumerator_next_nn(&en, true);
         }
         Z_ASSERT(en.end);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     Z_TEST(remove_current_row) { /* {{{ */
@@ -167,8 +163,7 @@ Z_GROUP_EXPORT(qps_bitmap)
             qps_bitmap_enumerator_next(&en, true);
             Z_ASSERT_EQ(en.key.key, 51u);
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(nr_100747) { /* {{{ */
         qps_handle_t hbitmap;
@@ -209,14 +204,12 @@ Z_GROUP_EXPORT(qps_bitmap)
          * freeing memory if issue is still there on QPS bitmap (double free
          * performed on QPS allocator). */
         qps_bitmap_destroy(&bitmap);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
 
     qps_close(&qps);
     MODULE_RELEASE(qps);
-}
-Z_GROUP_END
+} Z_GROUP_END;
 
 /* LCOV_EXCL_STOP */

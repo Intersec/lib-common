@@ -401,8 +401,7 @@ static bool test_array_equal(const test_array_t *t1, const test_array_t *t2)
     return true;
 }
 
-Z_GROUP_EXPORT(asn1_ber)
-{
+Z_GROUP_EXPORT(asn1_ber) {
     test_0_t const t0 = {
         .x = -1,
         .y = 0x87654321,
@@ -449,8 +448,7 @@ Z_GROUP_EXPORT(asn1_ber)
         Z_ASSERT_EQ(DEC(dec3, &len32), -1, "length too long");
         Z_ASSERT_EQ(DEC(dec4, &len32), -1, "not enough data");
 #undef DEC
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(dec_int32, "asn1: ber_decode_int32") {
         const byte dec0[] = {0x3, 0xfa, 0x56, 0x09};
@@ -474,8 +472,7 @@ Z_GROUP_EXPORT(asn1_ber)
 
         Z_ASSERT(DEC(dec2, &int32) == -1, "integer too long");
 #undef DEC
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(enc0, "asn1: BER encoder/decoder - constructed types") {
         static uint8_t const expected[] = {
@@ -490,8 +487,7 @@ Z_GROUP_EXPORT(asn1_ber)
 
         len = serialize_test_0(buf, &t0);
         Z_ASSERT_EQUAL(buf, len, expected, sizeof(expected));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(enc1, "asn1: BER encoder/decoder - constructed types") {
         static uint8_t const expected[] = {
@@ -503,8 +499,7 @@ Z_GROUP_EXPORT(asn1_ber)
 
         len = serialize_test_1(buf, &t1);
         Z_ASSERT_EQUAL(buf, len, expected, sizeof(expected));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(enc2, "asn1: BER encoder/decoder - constructed types") {
         static uint8_t const expected[] = {
@@ -521,8 +516,7 @@ Z_GROUP_EXPORT(asn1_ber)
 
         len = serialize_test_2(buf, &t2);
         Z_ASSERT_EQUAL(buf, len, expected, sizeof(expected));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(enc3, "asn1: BER encoder/decoder - constructed types") {
         static uint8_t const expected[] = {
@@ -538,15 +532,13 @@ Z_GROUP_EXPORT(asn1_ber)
 
         len = serialize_test_3(buf, &t3);
         Z_ASSERT_EQUAL(buf, len, expected, sizeof(expected));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(
         indef_len_skip_trailing_fields,
         "asn1: BER decoder - "
         "skip trailing filed in case of indefinite length"
-    )
-    {
+    ) {
         t_scope;
 
         /* One trailing field. */
@@ -680,8 +672,7 @@ Z_GROUP_EXPORT(asn1_ber)
         Z_ASSERT_EQ(t.t.i1, 1);
         Z_ASSERT_EQ(t.t.i2, 2);
         Z_ASSERT_EQ(t.i, 3);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(reader, "asn1: BER reader test") {
         t_scope;
@@ -744,8 +735,7 @@ Z_GROUP_EXPORT(asn1_ber)
             exp_rdr_out.vec.vec.data, exp_rdr_out.vec.vec.len
         );
         qv_wipe(&stack);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(array, "asn1: BER array (un)packing") {
         t_scope;
@@ -793,8 +783,7 @@ Z_GROUP_EXPORT(asn1_ber)
         );
         Z_ASSERT(simple_array_equal(&simple_array_out, &simple_array));
         qv_wipe(&stack);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(choice, "asn1: BER choice (un)packing") {
         t_scope;
@@ -861,8 +850,7 @@ Z_GROUP_EXPORT(asn1_ber)
         Z_ASSERT_EQ(u_choice.choice->type, u_choice_out.choice->type);
         Z_ASSERT_EQ(u_choice.choice->choice2, u_choice_out.choice->choice2);
         qv_wipe(&stack);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(iop_choice, "asn1: IOP union/ASN.1 choice interoperability") {
         lstr_t ber = LSTR_IMMED("\x81\x01\x45");
@@ -884,8 +872,7 @@ Z_GROUP_EXPORT(asn1_ber)
         asn1_pack(test_iop_choice, buf, &choice, &stack);
         Z_ASSERT_DATAEQUAL(ber, LSTR_INIT_V((const char *)buf, blen));
         qv_wipe(&stack);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(vector_array, "asn1: BER vectors/array") {
         t_scope;
@@ -979,8 +966,7 @@ Z_GROUP_EXPORT(asn1_ber)
         Z_ASSERT_EQ((int)test_vector.choice.data[2].type, CHOICE_TYPE_2);
         Z_ASSERT_EQ((int)test_vector.choice.data[2].choice2, 2);
         qv_wipe(&stack);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(asn1_skip_field, "asn1: asn1_skip_field()") {
         t_scope;
@@ -1019,10 +1005,8 @@ Z_GROUP_EXPORT(asn1_ber)
         Z_ASSERT_N(asn1_skip_field(&ps));
         Z_ASSERT(ps_done(&ps));
         qv_wipe(&stack);
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 typedef struct open_type_t {
     lstr_t ot1;
@@ -1036,8 +1020,7 @@ asn1_reg_opt_open_type(open_type, ot2);
 asn1_reg_opt_open_type(open_type, ot3);
 ASN1_SEQUENCE_DESC_END(open_type);
 
-Z_GROUP_EXPORT(asn1_open_type)
-{
+Z_GROUP_EXPORT(asn1_open_type) {
     Z_TEST(open_type, "asn1: open type") {
         t_scope;
         uint8_t buf[256];
@@ -1059,13 +1042,10 @@ Z_GROUP_EXPORT(asn1_open_type)
             LSTR_INIT_V((char *)buf, len),
             LSTR_INIT_V((char *)want_ot, sizeof(want_ot))
         );
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END
+    } Z_TEST_END;
+} Z_GROUP_END;
 
-Z_GROUP_EXPORT(asn1_bit_string)
-{
+Z_GROUP_EXPORT(asn1_bit_string) {
     Z_TEST(make, "asn1: bit_string") {
         t_scope;
         asn1_bit_string_t bs;
@@ -1087,10 +1067,8 @@ Z_GROUP_EXPORT(asn1_bit_string)
         bs = t_asn1_bstring_from_bf64(0x1, 0);
         Z_ASSERT_EQ(bs.bit_len, 1);
         Z_ASSERT_EQ(*bs.data, 0x80);
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 typedef struct nr_opt_ot_eoc_t {
     int8_t i;
@@ -1119,8 +1097,7 @@ asn1_reg_sequence(
 );
 ASN1_CHOICE_DESC_END(nr_opt_ot_eoc_c);
 
-Z_GROUP_EXPORT(asn1_nr)
-{
+Z_GROUP_EXPORT(asn1_nr) {
     Z_TEST(nr_opt_ot_eoc, "confusion between optional open type and eoc") {
         t_scope;
         nr_opt_ot_eoc_c_t v;
@@ -1135,7 +1112,5 @@ Z_GROUP_EXPORT(asn1_nr)
         Z_ASSERT_EQ(v.a.i, 2);
         Z_ASSERT_NULL(v.a.ot.data);
         Z_ASSERT_EQ(v.a.ot.len, 0);
-    }
-    Z_TEST_END
-}
-Z_GROUP_END
+    } Z_TEST_END;
+} Z_GROUP_END;

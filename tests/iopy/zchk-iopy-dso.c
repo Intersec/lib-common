@@ -289,13 +289,11 @@ static int z_run_script(PyObject *plugin)
     Z_HELPER_END;
 }
 
-Z_GROUP_EXPORT(iopy_dso)
-{
+Z_GROUP_EXPORT(iopy_dso) {
     Z_TEST(
         iopy_c_func_load,
         "Load plugin and DSO through IOPy C external functions"
-    )
-    {
+    ) {
         t_scope;
         PyObject *plugin = NULL;
         iop_dso_t *dso = NULL;
@@ -315,12 +313,10 @@ Z_GROUP_EXPORT(iopy_dso)
         /* Cleanup */
         Py_DECREF(plugin);
         iop_dso_close(&dso);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     z_iopy_dso_shutdown();
-}
-Z_GROUP_END;
+} Z_GROUP_END;
 
 /* LCOV_EXCL_STOP */
 

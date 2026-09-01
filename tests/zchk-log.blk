@@ -133,8 +133,7 @@ static int z_run_log_tracing_tests(logger_t *logger_test)
     Z_HELPER_END;
 }
 
-Z_GROUP_EXPORT(log)
-{
+Z_GROUP_EXPORT(log) {
     sb_init(&z_log_sb_g);
 
     Z_TEST(log_level) {
@@ -248,8 +247,7 @@ Z_GROUP_EXPORT(log)
         logger_wipe(&c);
         logger_wipe(&b);
         logger_wipe(&a);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(get_loggers_confs) {
         t_scope;
@@ -321,8 +319,7 @@ Z_GROUP_EXPORT(log)
         logger_wipe(&c);
         logger_wipe(&b);
         logger_wipe(&a);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(log_buffer) {
         log_handler_f *handler = log_set_handler(&z_log_buffer_handler);
@@ -676,13 +673,11 @@ Z_GROUP_EXPORT(log)
 
         log_set_handler(handler);
 #undef TEST_LOG_ENTRY
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(log_buffer_thr) {
         Z_HELPER_RUN(z_log_buffer_thr());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(scope) {
         logger_t l = LOGGER_INIT_INHERITS(NULL, "blah");
@@ -769,8 +764,7 @@ Z_GROUP_EXPORT(log)
 #undef TEST
 
         logger_wipe(&l);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(thr) {
         t_scope;
@@ -830,8 +824,7 @@ Z_GROUP_EXPORT(log)
 
         MODULE_RELEASE(thr);
         logger_wipe(&parent0);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(parse_specs, "test parsing of IS_DEBUG environment variable") {
         t_scope;
@@ -889,8 +882,7 @@ Z_GROUP_EXPORT(log)
         Z_ASSERT_EQ(specs.tab[1].level, INT_MAX);
 
 #undef TEST
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(sanitize_names) {
         t_scope;
@@ -918,8 +910,7 @@ Z_GROUP_EXPORT(log)
         TEST_NULL("} toto");
 #undef TEST
 #undef TEST_NULL
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(log_tracing) {
         t_scope;
@@ -944,8 +935,7 @@ Z_GROUP_EXPORT(log)
 
         logger_wipe(&logger_test);
         log_set_handler(prev_handler);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(log_make_fancy_prefix) { /* {{{ */
         char fancy[64];
@@ -967,13 +957,11 @@ Z_GROUP_EXPORT(log)
         TEST("ant", 1998, "\e[1;94m       ant[1998]\e[0m: ");
 
 #undef TEST
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
 
     sb_wipe(&z_log_sb_g);
-}
-Z_GROUP_END;
+} Z_GROUP_END;
 
 /* LCOV_EXCL_STOP */

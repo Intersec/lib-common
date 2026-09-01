@@ -62,8 +62,7 @@ static int z_check_yaml(
 
 /* }}} */
 
-Z_GROUP_EXPORT(iop_openapi)
-{
+Z_GROUP_EXPORT(iop_openapi) {
     iop_env_t *iop_env;
 
     iop_env = iop_env_new();
@@ -86,8 +85,7 @@ Z_GROUP_EXPORT(iop_openapi)
             oa, LSTR("http://localhost:1337"), LSTR("server description")
         );
         Z_HELPER_RUN(z_check_yaml(oa, "basic.yml", false));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(iop_struct, "test the schema generation of IOP structs") {
         t_scope;
@@ -161,8 +159,7 @@ Z_GROUP_EXPORT(iop_openapi)
         );
         t_iop_openapi_add_struct(oa, &tstiop__my_struct_g__s);
         Z_HELPER_RUN(z_check_yaml(oa, "struct_g.yml", false));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(iop_mod, "test paths generation of IOP modules") {
         t_scope;
@@ -210,8 +207,7 @@ Z_GROUP_EXPORT(iop_openapi)
         );
         t_iop_openapi_whitelist_rpc(oa, LSTR("tstiop.Iface.f"));
         Z_HELPER_RUN(z_check_yaml(oa, "iface_t.yml", false));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(dox, "test inclusion of comments documentation") {
         t_scope;
@@ -223,13 +219,11 @@ Z_GROUP_EXPORT(iop_openapi)
             tstiop_dox__my_module__modp, LSTR("tstdox")
         );
         Z_HELPER_RUN(z_check_yaml(oa, "dox.yml", false));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     MODULE_RELEASE(iop_openapi);
     iop_env_delete(&iop_env);
-}
-Z_GROUP_END
+} Z_GROUP_END;
 
 /* LCOV_EXCL_STOP */
 

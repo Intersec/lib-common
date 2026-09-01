@@ -659,8 +659,7 @@ static int z_test_iop_field_path_class_wildcards(const iop_env_t *iop_env)
 
 /* }}} */
 
-Z_GROUP_EXPORT(iop_blk)
-{
+Z_GROUP_EXPORT(iop_blk) {
     iop_env_t *iop_env;
 
     iop_env = iop_env_new();
@@ -705,19 +704,16 @@ Z_GROUP_EXPORT(iop_blk)
         );
         t_z_print_obj_paths(&tstiop__z_iop_for_each__s, z_struct, &paths);
         Z_HELPER_RUN(z_assert_qv_lstr_same_as_file(&paths, paths_file_path));
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_field_path) { /* {{{ */
         Z_HELPER_RUN(z_test_iop_field_path_htab(iop_env));
         Z_HELPER_RUN(z_test_iop_field_path_structs_last_fields(iop_env));
         Z_HELPER_RUN(z_test_iop_field_path_class_wildcards(iop_env));
-    }
-    Z_TEST_END
+    } Z_TEST_END;
     /* }}} */
 
     iop_env_delete(&iop_env);
-}
-Z_GROUP_END;
+} Z_GROUP_END;
 
 /* LCOV_EXCL_STOP */

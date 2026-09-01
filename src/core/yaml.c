@@ -6424,8 +6424,7 @@ static int z_test_pretty_print(
 
 /* }}} */
 
-Z_GROUP_EXPORT(yaml)
-{
+Z_GROUP_EXPORT(yaml) {
     MODULE_REQUIRE(yaml);
 
     /* {{{ Parsing errors */
@@ -6746,8 +6745,7 @@ Z_GROUP_EXPORT(yaml)
             "!bin a: 2\n"
             "^^^^^^^^^"
         ));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Parsing file errors */
@@ -6784,8 +6782,7 @@ Z_GROUP_EXPORT(yaml)
                 err.data, "cannot read file unreadable.yml: Permission denied"
             );
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Parsing file */
@@ -6808,8 +6805,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT(data.type == YAML_DATA_SCALAR);
         Z_ASSERT(data.scalar.type == YAML_SCALAR_UINT);
         Z_ASSERT(data.scalar.u == 2);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Include errors */
@@ -6902,8 +6898,7 @@ Z_GROUP_EXPORT(yaml)
             "c: !include:../p.yml\n"
             "   ^ starting here"
         ));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Include */
@@ -6997,8 +6992,7 @@ Z_GROUP_EXPORT(yaml)
         );
         Z_HELPER_RUN(z_check_file("inc-rel/d.yml", "d\n"));
         yaml_parse_delete(&env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Include shared files */
@@ -7085,8 +7079,7 @@ Z_GROUP_EXPORT(yaml)
             "sf-pack-2/sf/shared_2~1", "!include:sub/shared_1~2.yml\n"
         ));
         yaml_parse_delete(&env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Include presentation */
@@ -7167,8 +7160,7 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         yaml_parse_delete(&env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Include raw */
@@ -7253,8 +7245,7 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         yaml_parse_delete(&env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Include with symbolic links */
@@ -7314,8 +7305,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_file("out/a~1.yml", "a from sub dir\n"));
         Z_HELPER_RUN(z_check_file("out/b.yml", "I am b\n"));
         yaml_parse_delete(&env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Include with symbolic links and root dir */
@@ -7347,8 +7337,7 @@ Z_GROUP_EXPORT(yaml)
 
             "I am a from sym dir"
         ));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Override */
@@ -7499,8 +7488,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_file("override_2/child.yml", child));
         Z_HELPER_RUN(z_check_file("override_2/root.yml", root));
         yaml_parse_delete(&env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Override errors */
@@ -7549,8 +7537,7 @@ Z_GROUP_EXPORT(yaml)
             "        - 1\n"
             "        ^ starting here"
         ));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Override conflict handling */
@@ -7622,8 +7609,7 @@ Z_GROUP_EXPORT(yaml)
         ));
         Z_HELPER_RUN(z_check_file("conflicts_3/inner.yml", "a: 1\n"));
         yaml_parse_delete(&env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Override shared subfiles */
@@ -7747,8 +7733,7 @@ Z_GROUP_EXPORT(yaml)
         );
 
         yaml_parse_delete(&env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Merge key */
@@ -7866,8 +7851,7 @@ Z_GROUP_EXPORT(yaml)
             NULL
         ));
         Z_HELPER_RUN(z_yaml_test_pack(&data, &empty_pres, 0, "x: 3"));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Merge key with includes */
@@ -7945,8 +7929,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_file("merge_1/child2.yml", child2));
         Z_HELPER_RUN(z_check_file("merge_1/gc2.yml", gc2));
         yaml_parse_delete(&env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Merge key modification handling */
@@ -8093,8 +8076,7 @@ Z_GROUP_EXPORT(yaml)
             "  y: x"
         ));
         yaml_parse_delete(&env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Merge key with override */
@@ -8151,8 +8133,7 @@ Z_GROUP_EXPORT(yaml)
                                     "  a: A\n"
         ));
         yaml_parse_delete(&env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Merge key with variables */
@@ -8190,8 +8171,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_file("merge_var/root.yml", root));
         Z_HELPER_RUN(z_check_file("merge_var/child.yml", child));
         yaml_parse_delete(&env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Parsing scalars */
@@ -8523,8 +8503,7 @@ Z_GROUP_EXPORT(yaml)
             z_check_yaml_scalar(&data, YAML_SCALAR_BYTES, 1, 1, 1, 12)
         );
         Z_ASSERT_LSTREQUAL(data.scalar.s, LSTR_DATA_V("\xd7\x6d\xf8", 3));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Parsing objects */
@@ -8669,8 +8648,7 @@ Z_GROUP_EXPORT(yaml)
             z_check_yaml_scalar(&field, YAML_SCALAR_DOUBLE, 7, 4, 7, 7)
         );
         Z_ASSERT_EQ(field.scalar.d, 1.2);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Parsing sequences */
@@ -8759,8 +8737,7 @@ Z_GROUP_EXPORT(yaml)
             z_check_yaml_scalar(&elem, YAML_SCALAR_BOOL, 7, 3, 7, 8)
         );
         Z_ASSERT(!elem.scalar.b);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Parsing complex data */
@@ -8804,8 +8781,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(
             z_check_yaml_scalar(&field, YAML_SCALAR_UINT, 4, 3, 4, 4)
         );
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Parsing flow sequence */
@@ -8924,8 +8900,7 @@ Z_GROUP_EXPORT(yaml)
             &subdata->seq->datas.tab[0], YAML_SCALAR_INT, 3, 15, 3, 17
         ));
         Z_ASSERT_EQ(subdata->seq->datas.tab[0].scalar.i, -2L);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Parsing flow object */
@@ -9052,8 +9027,7 @@ Z_GROUP_EXPORT(yaml)
             z_check_yaml_scalar(&elem->data, YAML_SCALAR_UINT, 5, 13, 5, 14)
         );
         Z_ASSERT_EQ(elem->data.scalar.u, 1UL);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Packing simple data */
@@ -9089,8 +9063,7 @@ Z_GROUP_EXPORT(yaml)
         t_yaml_data_new_seq(&data2, 1);
         yaml_seq_add_data(&data2, data);
         Z_HELPER_RUN(z_check_yaml_pack(&data2, NULL, "- - true"));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Packing flags */
@@ -9117,8 +9090,7 @@ Z_GROUP_EXPORT(yaml)
         ));
         Z_HELPER_RUN(z_check_file_do_not_exist("flags/not_recreated.yml"));
         yaml_parse_delete(&env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Comment presentation */
@@ -9326,8 +9298,7 @@ Z_GROUP_EXPORT(yaml)
 
             NULL
         ));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Comment presentation with include */
@@ -9375,8 +9346,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_P(pnode);
         Z_ASSERT_P(pnode->included);
         Z_ASSERT_LSTREQUAL(pnode->included->path, LSTR("inner.yml"));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Empty lines presentation */
@@ -9444,8 +9414,7 @@ Z_GROUP_EXPORT(yaml)
             "d: 1\n"
             "e: 0"
         ));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Flow presentation */
@@ -9476,8 +9445,7 @@ Z_GROUP_EXPORT(yaml)
                    "  - !tag2 2";
         Z_HELPER_RUN(z_check_yaml_pack(&data, NULL, expected));
         Z_HELPER_RUN(z_check_yaml_pack(&data, &pres, expected));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Variable */
@@ -9566,8 +9534,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_file("variables_2/grandchild.yml", grandchild));
 
         yaml_parse_delete(&env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Variable in scalar */
@@ -9600,8 +9567,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_file("var_scalar_1/root.yml", root));
         Z_HELPER_RUN(z_check_file("var_scalar_1/inner.yml", inner));
         yaml_parse_delete(&env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Variable used multiple times */
@@ -9644,8 +9610,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_file("var_mul/child.yml", child));
         Z_HELPER_RUN(z_check_file("var_mul/grandchild.yml", grandchild));
         yaml_parse_delete(&env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Variable scalars used multiple times */
@@ -9759,8 +9724,7 @@ Z_GROUP_EXPORT(yaml)
                                     "ds: <$(d~1)>\n"
         ));
         yaml_parse_delete(&env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Variable in string */
@@ -9826,8 +9790,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_file("var_str2/child.yml", child));
         Z_HELPER_RUN(z_check_file("var_str2/grandchild.yml", grandchild));
         yaml_parse_delete(&env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Variable errors */
@@ -9937,8 +9900,7 @@ Z_GROUP_EXPORT(yaml)
             "a: { a: 1, b: $(b) }\n"
             "              ^^^^"
         ));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Raw variable modification handling */
@@ -9987,8 +9949,7 @@ Z_GROUP_EXPORT(yaml)
         ));
         Z_HELPER_RUN(z_check_file("vm_raw_2/inner.yml", "a: $(var)\n"));
         yaml_parse_delete(&env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ variable in string modification handling */
@@ -10069,8 +10030,7 @@ Z_GROUP_EXPORT(yaml)
             "b: d\n"
         ));
         yaml_parse_delete(&env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ multiple variables modification handling */
@@ -10116,8 +10076,7 @@ Z_GROUP_EXPORT(yaml)
         );
         Z_HELPER_RUN(z_check_file("vm_mul_2/inner.yml", "a: her oes\n"));
         yaml_parse_delete(&env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Raw variable conflict handling */
@@ -10173,8 +10132,7 @@ Z_GROUP_EXPORT(yaml)
                                   "- $(var~2)\n"
         ));
         yaml_parse_delete(&env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ variable in string conflict handling */
@@ -10246,8 +10204,7 @@ Z_GROUP_EXPORT(yaml)
             "- <$(var)>\n"
         ));
         yaml_parse_delete(&env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ multiple variables conflict handling */
@@ -10317,8 +10274,7 @@ Z_GROUP_EXPORT(yaml)
             "- zo meu\n"
         ));
         yaml_parse_delete(&env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ escaped variables */
@@ -10497,8 +10453,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_file("var_esc_4/child.yml", child));
         Z_HELPER_RUN(z_check_file("var_esc_4/grandchild.yml", grandchild));
         yaml_parse_delete(&env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ escaped variables in variables */
@@ -10552,8 +10507,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_file("varsvars/grandchild.yml", grandchild));
 
         yaml_parse_delete(&env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ escaped variables in variables */
@@ -10607,8 +10561,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_file("varsvars/grandchild.yml", grandchild));
 
         yaml_parse_delete(&env);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ deduce_var_in_string */
@@ -10684,8 +10637,7 @@ Z_GROUP_EXPORT(yaml)
 
 #undef TST_ERR
 #undef TST
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ yaml_data_equals strong */
@@ -10784,8 +10736,7 @@ Z_GROUP_EXPORT(yaml)
         yaml_obj_add_field(&d2, LSTR("v"), elem);
         yaml_obj_add_field(&d2, LSTR("a"), elem);
         Z_ASSERT(yaml_data_equals(&d1, &d2, true));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ yaml_data_equals_weak */
@@ -10900,8 +10851,7 @@ Z_GROUP_EXPORT(yaml)
 
         yaml_data_set_string(&d2, LSTR("~"));
         TST(&d1, &d2, false, true);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
     /* {{{ Double packing */
@@ -10930,14 +10880,12 @@ Z_GROUP_EXPORT(yaml)
             "- 12000\n"
             "- 0.66666666666666663"
         ));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     /* }}} */
 
     MODULE_RELEASE(yaml);
-}
-Z_GROUP_END
+} Z_GROUP_END;
 
 /* LCOV_EXCL_STOP */
 

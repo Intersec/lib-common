@@ -1601,8 +1601,7 @@ int asn1_unpack_(
 }
 /*  */
 
-Z_GROUP_EXPORT(asn1_packer)
-{
+Z_GROUP_EXPORT(asn1_packer) {
 #define T(pfx, v, exp, txt)                                                  \
     ({                                                                       \
         Z_ASSERT_EQ(asn1_pack_##pfx(buf, v) - buf, ssizeof(exp), txt);       \
@@ -1622,8 +1621,7 @@ Z_GROUP_EXPORT(asn1_packer)
         T(int64, i1, exp1, "-1");
         T(int64, i2, exp2, "2^56 - 1");
         T(int64, i3, exp3, "-0");
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(i32) {
         uint8_t buf[BUFSIZ];
@@ -1641,8 +1639,7 @@ Z_GROUP_EXPORT(asn1_packer)
         T(int32, i2, exp2, "-255");
         T(int32, i3, exp3, "2^16 - 1");
         T(int32, i4, exp4, "-1");
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(u32) {
         uint8_t buf[BUFSIZ];
@@ -1660,8 +1657,7 @@ Z_GROUP_EXPORT(asn1_packer)
         T(uint32, u2, exp2, "256");
         T(uint32, u3, exp3, "2^16 - 1");
         T(uint32, u4, exp4, "MAX UINT32");
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(u64) {
         uint8_t buf[BUFSIZ];
@@ -1678,8 +1674,7 @@ Z_GROUP_EXPORT(asn1_packer)
         T(uint64, u1, exp1, "MAX UINT64");
         T(uint64, u2, exp2, "2^56 - 1");
         T(uint64, u3, exp3, "2^63");
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
 #undef T
 
@@ -1697,13 +1692,10 @@ Z_GROUP_EXPORT(asn1_packer)
         Z_ASSERT_EQUAL(
             buf, asn1_pack_len(buf, l2) - buf, exp2, ssizeof(exp2)
         );
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END;
+    } Z_TEST_END;
+} Z_GROUP_END;
 
-Z_GROUP_EXPORT(asn1_unpacker)
-{
+Z_GROUP_EXPORT(asn1_unpacker) {
     Z_TEST(skip_ber_tag) {
         pstream_t ps;
 
@@ -1739,7 +1731,5 @@ Z_GROUP_EXPORT(asn1_unpacker)
         /* Check truncated tag */
         ps = ps_init(tag_length3, sizeof(tag_length3) - 1);
         Z_ASSERT_NEG(asn1_skip_ber_tag(&ps));
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END;
+    } Z_TEST_END;
+} Z_GROUP_END;

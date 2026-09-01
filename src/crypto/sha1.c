@@ -593,4 +593,4 @@ Z_GROUP_EXPORT(sha1)
             }
         }
     } Z_TEST_END;
-} Z_GROUP_END
+} Z_GROUP_END;

@@ -104,8 +104,7 @@ static int z_file_bin_check_large_rec(lstr_t record, int recno)
     Z_HELPER_END;
 }
 
-Z_GROUP_EXPORT(file)
-{
+Z_GROUP_EXPORT(file) {
     Z_TEST(truncate) {
         SB_1k(buf);
         file_t *f;
@@ -152,8 +151,7 @@ Z_GROUP_EXPORT(file)
 
         IGNORE(file_close(&f));
         unlink(path);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(file_bin) {
         t_scope;
@@ -207,8 +205,7 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT_ZERO(nbr_record);
 
         Z_ASSERT_ZERO(file_bin_close(&file));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(file_bin_reverse) {
         t_scope;
@@ -272,8 +269,7 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT_ZERO(file_bin_close(&read_file));
 
 #undef WRITE_RECORDS
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(file_bin_large) {
         t_scope;
@@ -298,8 +294,7 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT_EQ(nbr_record, 1000);
 
         Z_ASSERT_ZERO(file_bin_close(&file));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(file_bin_truncated) {
         t_scope;
@@ -329,8 +324,7 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT_EQ(nbr_record, 2);
 
         Z_ASSERT_N(file_bin_close(&file));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(file_bin_corrupted_rec_len) {
         t_scope;
@@ -371,8 +365,7 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT_NULL(record.s);
 
         Z_ASSERT_N(file_bin_close(&file));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(file_bin_v0) {
         t_scope;
@@ -401,8 +394,7 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT_EQ(nbr_record, 10010);
 
         Z_ASSERT_ZERO(file_bin_close(&file));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(file_bin_end) {
         t_scope;
@@ -461,8 +453,7 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT_ZERO(file->cur % file->slot_size);
 
         Z_ASSERT_ZERO(file_bin_close(&file));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(mkdir_p) {
         t_scope;
@@ -486,8 +477,7 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT_EQ(0, mkdir_p(reldir.s, 0755));
         Z_ASSERT_N(stat(reldir.s, &st));
         Z_ASSERT(S_ISDIR(st.st_mode));
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(filecopy) {
         t_scope;
@@ -517,8 +507,7 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT_LSTREQUAL(out_map, LSTR_SB_V(&str));
 
         lstr_wipe(&out_map);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(xappend_to_file) {
         t_scope;
@@ -537,8 +526,7 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT_N(sb_read_file(&fcontent, appending_file));
 
         Z_ASSERT_STREQUAL(fcontent.data, res.data);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(which) {
         char path[PATH_MAX];
@@ -547,10 +535,8 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT(lstr_endswith(LSTR(path), LSTR("/ls")));
 
         Z_ASSERT_NEG(which("undefined_command", path));
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /* }}} */
 /* {{{ Unix */
@@ -709,8 +695,7 @@ static int z_list_dir_tests(void)
     Z_HELPER_END;
 }
 
-Z_GROUP_EXPORT(Unix)
-{
+Z_GROUP_EXPORT(Unix) {
     Z_TEST(lockdir) {
         dir_lock_t dlock1 = DIR_LOCK_INIT;
         int fd;
@@ -759,19 +744,15 @@ Z_GROUP_EXPORT(Unix)
 
         waitpid(pid, &res, 0);
         Z_ASSERT_EQ(res, 0);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
     Z_TEST(list_dir) {
         Z_HELPER_RUN(z_list_dir_tests());
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END;
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 #if defined(__linux__)
 
-Z_GROUP_EXPORT(cgroups)
-{
+Z_GROUP_EXPORT(cgroups) {
 
     Z_TEST(cpu_set_parsing) {
         Z_ASSERT_EQ(cgroups_parse_cpuset(LSTR("")), 0);
@@ -781,8 +762,7 @@ Z_GROUP_EXPORT(cgroups)
         Z_ASSERT_EQ(cgroups_parse_cpuset(LSTR("0,3,4-6\n")), 5);
         Z_ASSERT_EQ(cgroups_parse_cpuset(LSTR("0,3,4-6,9\n")), 6);
         Z_ASSERT_EQ(cgroups_parse_cpuset(LSTR("0,3,4-6,9,11-15\n")), 11);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(cpu_quota_parsing) {
         int64_t quota;
@@ -797,10 +777,8 @@ Z_GROUP_EXPORT(cgroups)
         );
         Z_ASSERT_EQ(quota, 9999);
         Z_ASSERT_EQ(period, 100000);
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END;
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 #endif /* __linux__ */
 

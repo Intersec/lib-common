@@ -633,8 +633,7 @@ static int z_main_queue_is_draining_test(void)
 
 /* }}} */
 
-Z_GROUP_EXPORT(thrjobs)
-{
+Z_GROUP_EXPORT(thrjobs) {
     const bool fast = Z_HAS_MODE(FAST) ||
                       mem_tool_is_running(MEM_TOOL_VALGRIND | MEM_TOOL_ASAN);
 
@@ -670,29 +669,25 @@ Z_GROUP_EXPORT(thrjobs)
             thr_acc_trace(3, "");
             thr_syn_wipe(&syn);
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(sort_job, "test sort with thr_job_t structure") {
         for (int i = 0; i < 16; i++) {
             z_sort_g.sort_minsize = 1 << i;
             Z_HELPER_RUN(test_qsort(false));
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(sort_block, "test sort with blocks") {
         for (int i = 0; i < 16; i++) {
             z_sort_g.sort_minsize = 1 << i;
             Z_HELPER_RUN(test_qsort(true));
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(queue) {
         Z_HELPER_RUN(test_queue());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(queue_syn) {
         int loops = fast ? 100 : 10000;
@@ -700,13 +695,11 @@ Z_GROUP_EXPORT(thrjobs)
         for (int i = 0; i < loops; i++) {
             Z_HELPER_RUN(test_queue_sync());
         }
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(wake_up_thr0, "test the main thread wake up procedure") {
         Z_HELPER_RUN(z_wake_up());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(post_notify) {
         int iterations = 300000; /* approximatively 1s */
@@ -763,8 +756,7 @@ Z_GROUP_EXPORT(thrjobs)
         }
 
         thr_syn_wipe(&z_post_notify_g.syn);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(queue_steal) {
         int seqid = 0;
@@ -805,24 +797,19 @@ Z_GROUP_EXPORT(thrjobs)
         }
         Z_ASSERT_EQ(queue_steal_g.last_acked, seqid - 1);
         Z_ASSERT_ZERO(queue_steal_g.ci_ring.len);
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(for_each) {
         Z_HELPER_RUN(z_thr_for_each());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(syn_wait_flags) {
         Z_HELPER_RUN(z_thr_syn_wait_flags_test());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     Z_TEST(main_queue_is_draining) {
         Z_HELPER_RUN(z_main_queue_is_draining_test());
-    }
-    Z_TEST_END;
+    } Z_TEST_END;
 
     MODULE_RELEASE(thr);
-}
-Z_GROUP_END;
+} Z_GROUP_END;

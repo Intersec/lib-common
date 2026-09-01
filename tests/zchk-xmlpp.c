@@ -19,8 +19,7 @@
 #include <lib-common/xmlpp.h>
 #include <lib-common/z.h>
 
-Z_GROUP_EXPORT(xmlpp)
-{
+Z_GROUP_EXPORT(xmlpp) {
     Z_TEST(xmlpp_tag_scope) {
         xmlpp_t pp;
         SB_8k(xml1);
@@ -49,7 +48,5 @@ Z_GROUP_EXPORT(xmlpp)
             "xml created with xmlpp_opentag/xmlpp_closetag "
             "or xmlpp_tag_scope should be the same"
         );
-    }
-    Z_TEST_END;
-}
-Z_GROUP_END;
+    } Z_TEST_END;
+} Z_GROUP_END;
