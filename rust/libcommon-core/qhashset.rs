@@ -19,7 +19,8 @@
 //! [`QHash`], the Rust wrapper around a C `qh_t` hash set.
 //!
 //! It behaves like a [`HashSet`](std::collections::HashSet). The allocator, the entry ownership
-//! and the C interfacing rules are described in the [`qhash`](crate::qhash) module documentation.
+//! and the C interfacing rules are shared with [`QMap`](crate::qhashmap::QMap): the
+//! [`qhash`](crate::qhash) module documentation describes them.
 
 use std::fmt;
 use std::marker::PhantomData;

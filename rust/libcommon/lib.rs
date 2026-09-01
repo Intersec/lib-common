@@ -29,7 +29,8 @@ pub mod bindings {
 
 // Reexport `libcommon_core` types.
 pub use libcommon_core::{
-    farch, helpers, log, lstr, mem_stack, module, pstream, qhash, qhashset, qvector, sb, thr,
+    farch, helpers, log, lstr, mem_stack, module, pstream, qhash, qhashmap, qhashset, qvector, sb,
+    thr,
 };
 
 // Reexport `paste` so that downstream crates using iop macros don't need it as

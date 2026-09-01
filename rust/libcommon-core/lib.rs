@@ -34,6 +34,7 @@ pub mod mem_stack;
 pub mod module;
 pub mod pstream;
 pub mod qhash;
+pub mod qhashmap;
 pub mod qhashset;
 pub mod qvector;
 pub mod sb;
