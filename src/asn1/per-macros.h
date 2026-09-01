@@ -251,6 +251,8 @@ static inline void(asn1_set_seq_of_extended_min_max)(
 #  define ASN1_ENUM(pfx) asn1_##pfx##_enum
 #  define ASN1_GET_ENUM(pfx) ASN1_ENUM(pfx)()
 
+/* clang-format off */
+
 #  define ASN1_ENUM_BEGIN(pfx)                                               \
         const asn1_enum_info_t *ASN1_ENUM(pfx)(void)                         \
         {                                                                    \
@@ -260,12 +262,14 @@ static inline void(asn1_set_seq_of_extended_min_max)(
                 info = asn1_enum_info_new();
 
 #  define ASN1_ENUM_END()                                                    \
-        asn1_enum_info_done(info);                                           \
-        qv_append(&asn1_descs_g.enums, info);                                \
-        }                                                                    \
+                asn1_enum_info_done(info);                                   \
+                qv_append(&asn1_descs_g.enums, info);                        \
+            }                                                                \
                                                                              \
-        return info;                                                         \
+            return info;                                                     \
         }
+
+/* clang-format on */
 #endif
 
 /** Register an enumeration value.

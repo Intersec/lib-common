@@ -113,6 +113,8 @@ typedef struct zbenchmark_t {
     const char *name;
 } zbenchmark_t;
 
+/* clang-format off */
+
 /** Define a group of zbenchmarks.
  */
 #define _ZBENCH_GROUP_EXPORT(_name)                                          \
@@ -136,7 +138,7 @@ typedef struct zbenchmark_t {
 /** End of definition of a group of zbenchmarks.
  */
 #define _ZBENCH_GROUP_END                                                    \
-    }                                                                        \
+        }                                                                    \
     }
 
 /** Define a zbenchmark.
@@ -159,11 +161,12 @@ typedef struct zbenchmark_t {
 /** End of definition of a zbenchmark.
  */
 #define _ZBENCH_END                                                          \
-    }                                                                        \
-    _zbenchmark_print_stats(                                                 \
-        _zbenchmark_current_group, &_zbenchmark_current, &_zbenchmark_stats  \
-    );                                                                       \
-    }                                                                        \
+            }                                                                \
+            _zbenchmark_print_stats(                                         \
+                _zbenchmark_current_group, &_zbenchmark_current,             \
+                &_zbenchmark_stats                                           \
+            );                                                               \
+        }                                                                    \
     }
 
 /** Enter the benchmarking loop in the zbenchmark.
@@ -178,7 +181,8 @@ typedef struct zbenchmark_t {
 
 /** End of benchmarking in the zbenchmark.
  */
-#define _ZBENCH_LOOP_END }
+#define _ZBENCH_LOOP_END                                                     \
+    }
 
 /** Benchmark the following code in the zbenchmark.
  */
@@ -193,17 +197,19 @@ typedef struct zbenchmark_t {
 /** End of benchmarking in the zbenchmark.
  */
 #define _ZBENCH_MEASURE_END                                                  \
-    }                                                                        \
-    proctimer_stop(&_zbenchmark_timer);                                      \
-    if (_zbenchmark_is_verbose()) {                                          \
-        _zbenchmark_print_measure(                                           \
-            _zbenchmark_current_group, &_zbenchmark_current,                 \
-            &_zbenchmark_timer                                               \
-        );                                                                   \
-    } else {                                                                 \
-        proctimerstat_addsample(&_zbenchmark_stats, &_zbenchmark_timer);     \
-    }                                                                        \
+        }                                                                    \
+        proctimer_stop(&_zbenchmark_timer);                                  \
+        if (_zbenchmark_is_verbose()) {                                      \
+            _zbenchmark_print_measure(                                       \
+                _zbenchmark_current_group, &_zbenchmark_current,             \
+                &_zbenchmark_timer                                           \
+            );                                                               \
+        } else {                                                             \
+            proctimerstat_addsample(&_zbenchmark_stats, &_zbenchmark_timer); \
+        }                                                                    \
     }
+
+/* clang-format on */
 
 /** Register a group of benchmarks to be run by zbenchmark_main().
  *

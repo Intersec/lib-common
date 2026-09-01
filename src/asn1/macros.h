@@ -69,6 +69,8 @@
           return ASN1_GET_DESC(src_pfx);                                     \
       }
 
+/* clang-format off */
+
 /* Registers ASN.1 sequences implicitly. */
 #  define _ASN1_DESC_BEGIN(desc, st_pfx)                                     \
       ASN1_DESC(st_pfx)                                                      \
@@ -83,16 +85,16 @@
       _ASN1_DESC_BEGIN(ASN1_ST_DESC_VAR(st_pfx), st_pfx)
 
 #  define _ASN1_DESC_END(desc)                                               \
-      if (desc->is_seq_of) {                                                 \
-          assert(desc->fields.len == 1);                                     \
-          assert(desc->fields.tab[0].mode == ASN1_OBJ_MODE(SEQ_OF));         \
-      }                                                                      \
+              if (desc->is_seq_of) {                                         \
+                  assert(desc->fields.len == 1);                             \
+                  assert(desc->fields.tab[0].mode == ASN1_OBJ_MODE(SEQ_OF)); \
+              }                                                              \
                                                                              \
-      assert(desc->type == ASN1_CSTD_TYPE_SEQUENCE);                         \
-      qv_append(&asn1_descs_g.descs, desc);                                  \
-      }                                                                      \
+              assert(desc->type == ASN1_CSTD_TYPE_SEQUENCE);                 \
+              qv_append(&asn1_descs_g.descs, desc);                          \
+          }                                                                  \
                                                                              \
-      return desc;                                                           \
+          return desc;                                                       \
       }
 #  define ASN1_DESC_END(st_pfx) _ASN1_DESC_END(ASN1_ST_DESC_VAR(st_pfx))
 
@@ -101,11 +103,11 @@
       ASN1_ST_DESC_VAR(st_pfx)->type = ASN1_CSTD_TYPE_SEQUENCE;
 
 #  define _ASN1_SEQUENCE_DESC_END(desc)                                      \
-      assert(desc->type == ASN1_CSTD_TYPE_SEQUENCE);                         \
-      qv_append(&asn1_descs_g.descs, desc);                                  \
-      }                                                                      \
+              assert(desc->type == ASN1_CSTD_TYPE_SEQUENCE);                 \
+              qv_append(&asn1_descs_g.descs, desc);                          \
+          }                                                                  \
                                                                              \
-      return desc;                                                           \
+          return desc;                                                       \
       }
 #  define ASN1_SEQUENCE_DESC_END(st_pfx)                                     \
       _ASN1_SEQUENCE_DESC_END(ASN1_ST_DESC_VAR(st_pfx))
@@ -125,33 +127,36 @@
 
 #  define ASN1_CHOICE_DESC_BEGIN(st_pfx, enum_pfx, enum_field)               \
       __ASN1_CHOICE_DESC_BEGIN(ASN1_ST_DESC_VAR(st_pfx), st_pfx);            \
-      asn1_reg_enum(st_pfx, enum_pfx, enum_field, ASN1_TAG_INVALID)
+              asn1_reg_enum(st_pfx, enum_pfx, enum_field, ASN1_TAG_INVALID)
 
 /* XXX Choices declared using this macro must have incremental tagging
  *     starting with value 1
  */
 #  define __ASN1_IOP_CHOICE_DESC_BEGIN(st_pfx)                               \
       __ASN1_CHOICE_DESC_BEGIN(ASN1_ST_DESC_VAR(st_pfx), st_pfx);            \
-      asn1_reg_scalar(st_pfx, iop_tag, ASN1_TAG_INVALID)
+              asn1_reg_scalar(st_pfx, iop_tag, ASN1_TAG_INVALID)
 
 #  define __ASN1_CHOICE_DESC_END(_desc)                                      \
-      assert(_desc->type == ASN1_CSTD_TYPE_CHOICE);                          \
-      asn1_int_info_set_min(&_desc->choice_info, 0);                         \
-      /* - 2 -> index + first choice */                                      \
-      assert(_desc->fields.len >= 2);                                        \
-      asn1_int_info_set_max(                                                 \
-          &_desc->choice_info,                                               \
-          (_desc->is_extended ? _desc->ext_pos : _desc->fields.len) - 2      \
-      );                                                                     \
-      asn1_int_info_update(&_desc->choice_info, false);                      \
-      asn1_build_choice_table((asn1_choice_desc_t *)_desc);                  \
-      qv_append(&asn1_descs_g.choice_descs, __choice_desc);                  \
-      }                                                                      \
+              assert(_desc->type == ASN1_CSTD_TYPE_CHOICE);                  \
+              asn1_int_info_set_min(&_desc->choice_info, 0);                 \
+              /* - 2 -> index + first choice */                              \
+              assert(_desc->fields.len >= 2);                                \
+              asn1_int_info_set_max(                                         \
+                  &_desc->choice_info,                                       \
+                  (_desc->is_extended ? _desc->ext_pos                       \
+                                      : _desc->fields.len) - 2               \
+              );                                                             \
+              asn1_int_info_update(&_desc->choice_info, false);              \
+              asn1_build_choice_table((asn1_choice_desc_t *)_desc);          \
+              qv_append(&asn1_descs_g.choice_descs, __choice_desc);          \
+          }                                                                  \
                                                                              \
-      return _desc;                                                          \
+          return _desc;                                                      \
       }
 #  define ASN1_CHOICE_DESC_END(st_pfx)                                       \
       __ASN1_CHOICE_DESC_END(ASN1_ST_DESC_VAR(st_pfx))
+
+/* clang-format on */
 
 #  define asn1_pack_size(pfx, v, stack)                                      \
       ({                                                                     \

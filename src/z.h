@@ -291,6 +291,8 @@ __attr_printf__(4, 5) void _z_helper_failed(
  * "expected ';' after '_Static_assert'" right on the faulty line. */
 #define _Z_REQUIRE_SEMICOLON _Static_assert(1, "missing ';'")
 
+/* clang-format off */
+
 #define Z_GROUP(name)                                                        \
     __attr_cold__ static void z_##name(void)                                 \
     {                                                                        \
@@ -313,10 +315,12 @@ __attr_printf__(4, 5) void _z_helper_failed(
 #endif
 
 #define Z_GROUP_END                                                          \
-    }                                                                        \
-    _z_group_done();                                                         \
+        }                                                                    \
+        _z_group_done();                                                     \
     }                                                                        \
     _Z_REQUIRE_SEMICOLON
+
+/* clang-format on */
 
 /* We don't want to use step blocks when in the blocks rewriter and not in the
  * final compiler because the block rewriter has issues when mixing blocks and
