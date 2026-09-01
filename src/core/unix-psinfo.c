@@ -31,9 +31,23 @@ void ps_panic_sighandler(int signum, siginfo_t *si, void *addr)
         .sa_flags = SA_RESTART,
         .sa_handler = SIG_DFL,
     };
+    static __thread bool in_panic;
 
+    if (!in_panic) {
+        /* A crash while reporting (typically an abort() called from
+         * ps_write_backtrace() itself) re-enters this handler: we must
+         * die immediately, the core is what matters now. */
+        in_panic = true;
+        ps_write_backtrace(signum, true);
+    }
+
+    /* XXX: Restore the default operating system handling of this signal as
+     * late as possible, just before raising it again: while it is restored,
+     * a legitimate fault taken by another thread (such as a QPS
+     * copy-on-write page fault, which relies on SIGSEGV being handled)
+     * kills the process instead of being handled, and reports the wrong
+     * stack in the core. */
     PROTECT_ERRNO(sigaction(signum, &sa, NULL));
-    ps_write_backtrace(signum, true);
     raise(signum);
 }
 
