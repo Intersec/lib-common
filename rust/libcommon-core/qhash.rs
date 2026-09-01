@@ -68,6 +68,7 @@
 //! - `as_mut_ptr()` passes a table to a C function.
 //! - `borrow_c()` and `borrow_c_mut()` manipulate a table that C owns.
 //! - `from_c()` and `into_c()` transfer the ownership of the table.
+//! - `from_c_ptr()`, `take_from_c_ptr()` and `move_into_c_ptr()` do the same through pointers.
 
 use std::marker::PhantomData;
 
@@ -440,6 +441,145 @@ macro_rules! qhash_common_impl {
             #[inline]
             pub const unsafe fn borrow_c_mut(qh: &mut Q) -> &mut Self {
                 unsafe { &mut *ptr::from_mut(qh).cast::<Self>() }
+            }
+
+            /// Borrow a C table through a pointer.
+            ///
+            /// The table type comes from the pointer, so it never has to be named:
+            ///
+            /// ```ignore
+            /// let map = unsafe { QMap::from_c_ptr(qh) };  // qh: *const qm_iop_struct_t
+            /// ```
+            ///
+            /// The C table keeps its ownership: the returned reference never wipes it.
+            ///
+            /// # Safety
+            ///
+            /// `qh` must not be null: a null pointer panics. Use
+            /// [`Self::from_c_ptr_opt`] for a pointer that can be null. `qh` must point to an
+            /// initialized C table that outlives the returned reference.
+            #[inline]
+            pub unsafe fn from_c_ptr<'x>(qh: *const Q) -> &'x Self {
+                assert!(!qh.is_null(), "from_c_ptr called with NULL");
+                unsafe { &*qh.cast::<Self>() }
+            }
+
+            /// Borrow a C table through a mutable pointer.
+            ///
+            /// The table type comes from the pointer, so it never has to be named:
+            ///
+            /// ```ignore
+            /// let map = unsafe { QMap::from_c_ptr_mut(qh) };  // qh: *mut qm_iop_struct_t
+            /// ```
+            ///
+            /// The C table keeps its ownership: the returned reference never wipes it.
+            ///
+            /// # Safety
+            ///
+            /// `qh` must not be null: a null pointer panics. Use
+            /// [`Self::from_c_ptr_mut_opt`] for a pointer that can be null. `qh` must point to an
+            /// initialized C table that outlives the returned reference. Nothing else may use the
+            /// table meanwhile.
+            #[inline]
+            pub unsafe fn from_c_ptr_mut<'x>(qh: *mut Q) -> &'x mut Self {
+                assert!(!qh.is_null(), "from_c_ptr_mut called with NULL");
+                unsafe { &mut *qh.cast::<Self>() }
+            }
+
+            /// Borrow a C table through a pointer that can be null.
+            ///
+            /// Return `None` if `qh` is null.
+            ///
+            /// # Safety
+            ///
+            /// See [`Self::from_c_ptr`], for a pointer that is not null.
+            #[inline]
+            pub unsafe fn from_c_ptr_opt<'x>(qh: *const Q) -> Option<&'x Self> {
+                if qh.is_null() {
+                    return None;
+                }
+                Some(unsafe { &*qh.cast::<Self>() })
+            }
+
+            /// Borrow a C table through a mutable pointer that can be null.
+            ///
+            /// Return `None` if `qh` is null.
+            ///
+            /// # Safety
+            ///
+            /// See [`Self::from_c_ptr_mut`], for a pointer that is not null.
+            #[inline]
+            pub unsafe fn from_c_ptr_mut_opt<'x>(qh: *mut Q) -> Option<&'x mut Self> {
+                if qh.is_null() {
+                    return None;
+                }
+                Some(unsafe { &mut *qh.cast::<Self>() })
+            }
+
+            /// Take the ownership of a C table, through a pointer.
+            ///
+            /// The entries are not copied: only the descriptor is moved. `*qh` is left empty, with
+            /// its memory pool and its hash caching untouched, so the C code can keep using it and
+            /// its `qh_wipe()` has nothing left to release.
+            ///
+            /// # Safety
+            ///
+            /// `qh` must not be null: a null pointer panics. It must point to an
+            /// initialized C table that the caller owns. Its memory pool must outlive `'a`.
+            pub unsafe fn take_from_c_ptr(qh: *mut Q) -> Self {
+                assert!(!qh.is_null(), "take_from_c_ptr called with NULL");
+
+                let taken = unsafe { qh.read() };
+                let (mp, cached) = {
+                    // `Q` has the layout of a `qhash_t`.
+                    let view = unsafe { &*ptr::from_ref(&taken).cast::<qhash_t>() };
+
+                    (view.hdr.mp, view.h_size != 0)
+                };
+
+                // Leave an empty table behind, so that the C code cannot release the memory a
+                // second time.
+                //
+                // `qhash_wipe()` cannot be used for that: this table now owns the buffers, so
+                // wiping the source would release them right away and leave a dangling table
+                // here. It also forgets the size and the alignment of the keys and of the values,
+                // which would break any later use of the table by the C code.
+                unsafe {
+                    Q::init(qh, cached, mp);
+                }
+
+                Self {
+                    qh: taken,
+                    _marker: PhantomData,
+                }
+            }
+
+            /// Give the ownership of the table to C, through a pointer.
+            ///
+            /// The entries are not copied: only the descriptor is moved. What `*qh` held is
+            /// released first, so nothing leaks. The C code becomes responsible for the table.
+            ///
+            /// # Safety
+            ///
+            /// `qh` must not be null: a null pointer panics. It must point to an
+            /// initialized C table that the caller owns, and must not alias this table: releasing
+            /// what the target held would release the memory being moved. Writing over an
+            /// uninitialized table is undefined behaviour; use [`Self::into_c`] to build a value
+            /// from scratch.
+            pub unsafe fn move_into_c_ptr(self, qh: *mut Q) {
+                assert!(!qh.is_null(), "move_into_c_ptr called with NULL");
+
+                // Release what the C table held.
+                unsafe {
+                    ptr::drop_in_place(qh.cast::<Self>());
+                }
+
+                // Do not run the destructor: the C code now owns the table.
+                let this = ManuallyDrop::new(self);
+
+                unsafe {
+                    qh.cast::<Self>().write(ptr::from_ref(&*this).read());
+                }
             }
 
             /// Take ownership of a C table.

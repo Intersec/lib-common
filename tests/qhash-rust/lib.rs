@@ -535,6 +535,174 @@ mod tests {
     // }}}
     // {{{ C interoperability
 
+    /// Insert an entry the way a C function does: through a pointer.
+    ///
+    /// # Safety
+    ///
+    /// `qh` must point to an initialized C table.
+    unsafe extern "C" fn insert_like_c(
+        qh: *mut qm_iop_struct_t,
+        name: *const lstr_t,
+        value: *const iop_struct_t,
+    ) {
+        // The table type comes from the pointer: no type has to be named here.
+        let map: &mut Map<'_> = unsafe { QMap::from_c_ptr_mut(qh) };
+
+        map.insert(unsafe { *name }, value);
+    }
+
+    /// Look an entry up the way a C function does: through a const pointer.
+    ///
+    /// # Safety
+    ///
+    /// `qh` must point to an initialized C table.
+    unsafe extern "C" fn get_like_c(
+        qh: *const qm_iop_struct_t,
+        name: *const lstr_t,
+    ) -> *const iop_struct_t {
+        let map: &Map<'_> = unsafe { QMap::from_c_ptr(qh) };
+
+        map.get(unsafe { &*name }).copied().unwrap_or(ptr::null())
+    }
+
+    #[test]
+    fn test_borrow_through_a_pointer() {
+        let mut map = Map::new();
+        let name = key("a");
+
+        // A C prototype takes a pointer, which is what the conversions take.
+        unsafe {
+            insert_like_c(map.as_mut_ptr(), &raw const name, value(7));
+        }
+
+        assert_eq!(sorted_entries(&map), [("a", 7)]);
+        assert_eq!(
+            addr_of(unsafe { get_like_c(map.as_ptr(), &raw const name) }),
+            7
+        );
+
+        let missing = key("b");
+
+        assert!(unsafe { get_like_c(map.as_ptr(), &raw const missing) }.is_null());
+    }
+
+    #[test]
+    fn test_borrow_through_a_pointer_is_zero_copy() {
+        let mut map = Map::new();
+
+        map.insert(key("a"), value(1));
+
+        let keys = map.keys_ptr();
+        let values = map.values_ptr();
+        let qh = map.as_mut_ptr();
+
+        {
+            let borrowed: &mut Map<'_> = unsafe { QMap::from_c_ptr_mut(qh) };
+
+            assert!(ptr::eq(borrowed.keys_ptr(), keys));
+            assert!(ptr::eq(borrowed.values_ptr(), values));
+            borrowed.insert(key("b"), value(2));
+        }
+
+        // Dropping the borrow must not wipe the table.
+        assert_eq!(sorted_entries(&map), [("a", 1), ("b", 2)]);
+        assert!(ptr::eq(map.keys_ptr(), keys));
+    }
+
+    #[test]
+    fn test_take_ownership_through_a_pointer() {
+        let mut source = Map::new();
+
+        source.insert(key("a"), value(1));
+        source.insert(key("b"), value(2));
+
+        let keys = source.keys_ptr();
+        let values = source.values_ptr();
+        let mut c_map: qm_iop_struct_t = source.into_c();
+
+        // Take the map over without copying it.
+        let taken = unsafe { QMap::take_from_c_ptr(&raw mut c_map) };
+
+        assert!(ptr::eq(taken.keys_ptr(), keys));
+        assert!(ptr::eq(taken.values_ptr(), values));
+        assert_eq!(sorted_entries(&taken), [("a", 1), ("b", 2)]);
+
+        // The C map is left empty, and still usable: the values need their size back, which
+        // `qhash_wipe()` would have dropped.
+        {
+            let left: &mut Map<'_> = unsafe { QMap::from_c_ptr_mut(&raw mut c_map) };
+
+            assert!(left.is_empty());
+            assert!(left.insert(key("c"), value(3)).is_none());
+            assert_eq!(sorted_entries(left), [("c", 3)]);
+        }
+
+        unsafe {
+            qhash_wipe(ptr::from_mut(&mut c_map).cast::<qhash_t>());
+        }
+
+        assert_eq!(sorted_entries(&taken), [("a", 1), ("b", 2)]);
+    }
+
+    #[test]
+    fn test_move_ownership_through_a_pointer() {
+        // A C out parameter: an initialized, empty map.
+        let mut c_map: qm_iop_struct_t = Map::new().into_c();
+        let mut map = Map::new();
+
+        map.insert(key("a"), value(1));
+
+        let keys = map.keys_ptr();
+
+        // Hand the map over without copying it.
+        unsafe {
+            map.move_into_c_ptr(&raw mut c_map);
+        }
+
+        {
+            let moved: &Map<'_> = unsafe { QMap::from_c_ptr(&raw const c_map) };
+
+            assert!(ptr::eq(moved.keys_ptr(), keys));
+            assert_eq!(sorted_entries(moved), [("a", 1)]);
+        }
+
+        // The C code owns the map now, so it releases it.
+        unsafe {
+            qhash_wipe(ptr::from_mut(&mut c_map).cast::<qhash_t>());
+        }
+    }
+
+    #[test]
+    fn test_ownership_round_trip_through_pointers() {
+        let mut map = Map::new();
+
+        map.insert(key("a"), value(1));
+
+        let keys = map.keys_ptr();
+        let mut c_map: qm_iop_struct_t = Map::new().into_c();
+
+        unsafe {
+            map.move_into_c_ptr(&raw mut c_map);
+        }
+
+        let map = unsafe { QMap::take_from_c_ptr(&raw mut c_map) };
+
+        // The buffers never moved, and the C map is empty again.
+        assert!(ptr::eq(map.keys_ptr(), keys));
+        assert_eq!(sorted_entries(&map), [("a", 1)]);
+        let left: &Map<'_> = unsafe { QMap::from_c_ptr(&raw const c_map) };
+
+        assert!(left.is_empty());
+    }
+
+    #[test]
+    fn test_borrow_a_null_pointer() {
+        let null: *mut qm_iop_struct_t = ptr::null_mut();
+
+        assert!(unsafe { Map::from_c_ptr_opt(null.cast_const()) }.is_none());
+        assert!(unsafe { Map::from_c_ptr_mut_opt(null) }.is_none());
+    }
+
     #[test]
     fn test_ownership_round_trip_is_zero_copy() {
         let mut map = Map::new();

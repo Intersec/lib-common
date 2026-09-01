@@ -631,6 +631,211 @@ mod tests {
     // }}}
     // {{{ C interoperability
 
+    /// Fill a set the way a C function does: through a pointer.
+    ///
+    /// # Safety
+    ///
+    /// `qh` must point to an initialized C table.
+    unsafe extern "C" fn fill_like_c(qh: *mut qh_u32_t, count: u32) {
+        // The table type comes from the pointer: no type has to be named here.
+        let set: &mut QHash<'_, qh_u32_t> = unsafe { QHash::from_c_ptr_mut(qh) };
+
+        for i in 0..count {
+            set.insert(i);
+        }
+    }
+
+    /// Count the keys of a set the way a C function does: through a const pointer.
+    ///
+    /// # Safety
+    ///
+    /// `qh` must point to an initialized C table.
+    unsafe extern "C" fn count_like_c(qh: *const qh_u32_t) -> usize {
+        let set: &QHash<'_, qh_u32_t> = unsafe { QHash::from_c_ptr(qh) };
+
+        set.len()
+    }
+
+    #[test]
+    fn test_borrow_through_a_pointer() {
+        let mut set = QHash::<qh_u32_t>::new();
+
+        // A C prototype takes a pointer, which is what the conversions take.
+        unsafe {
+            fill_like_c(set.as_mut_ptr(), 5);
+        }
+
+        assert_eq!(sorted_keys(&set), [0, 1, 2, 3, 4]);
+        assert_eq!(unsafe { count_like_c(set.as_ptr()) }, 5);
+    }
+
+    #[test]
+    fn test_borrow_through_a_pointer_is_zero_copy() {
+        let mut set = QHash::<qh_u32_t>::new();
+
+        set.insert(1);
+
+        let keys = set.keys_ptr();
+        let qh = set.as_mut_ptr();
+
+        {
+            let borrowed: &mut QHash<'_, qh_u32_t> = unsafe { QHash::from_c_ptr_mut(qh) };
+
+            assert!(ptr::eq(borrowed.keys_ptr(), keys));
+            borrowed.insert(2);
+        }
+
+        // Dropping the borrow must not wipe the table.
+        assert_eq!(sorted_keys(&set), [1, 2]);
+        assert!(ptr::eq(set.keys_ptr(), keys));
+    }
+
+    #[test]
+    fn test_take_ownership_through_a_pointer() {
+        let mut source = QHash::<qh_u32_t>::new();
+
+        for i in 0..10 {
+            source.insert(i);
+        }
+
+        let keys = source.keys_ptr();
+        let mut c_set: qh_u32_t = source.into_c();
+
+        // Take the table over without copying it.
+        let taken = unsafe { QHash::take_from_c_ptr(&raw mut c_set) };
+
+        assert!(ptr::eq(taken.keys_ptr(), keys));
+        assert_eq!(sorted_keys(&taken), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+
+        // The C table is left empty, so wiping it releases nothing.
+        {
+            let left = unsafe { QHash::<qh_u32_t>::from_c_ptr(&raw const c_set) };
+
+            assert!(left.is_empty());
+            assert!(left.keys_ptr().is_null());
+        }
+        unsafe {
+            qhash_wipe(ptr::from_mut(&mut c_set).cast::<qhash_t>());
+        }
+
+        assert_eq!(taken.len(), 10);
+    }
+
+    #[test]
+    fn test_the_emptied_table_stays_usable() {
+        let mut source = QHash::<qh_lstr_t>::new_cached();
+
+        source.insert(key("one"));
+
+        let mut c_set: qh_lstr_t = source.into_c();
+        let taken = unsafe { QHash::take_from_c_ptr(&raw mut c_set) };
+
+        assert_eq!(sorted_str_keys(&taken), ["one"]);
+
+        // `qhash_wipe()` forgets the size of the keys, so it cannot be used to empty the source.
+        // The table left behind must still be a working table of the same kind.
+        let left = unsafe { QHash::<qh_lstr_t>::from_c_ptr_mut(&raw mut c_set) };
+
+        assert!(left.insert(key("two")));
+        assert!(!left.insert(key("two")));
+        assert_eq!(sorted_str_keys(left), ["two"]);
+
+        // The memory pool and the hash caching are kept too.
+        assert!(left.as_qhash().hdr.mp.is_null());
+        assert_ne!(left.as_qhash().h_size, 0);
+
+        unsafe {
+            qhash_wipe(ptr::from_mut(&mut c_set).cast::<qhash_t>());
+        }
+    }
+
+    #[test]
+    fn test_take_ownership_keeps_the_memory_pool() {
+        let t_scope = TScope::new_scope();
+        let mut source = QHash::<qh_u32_t>::t_new(&t_scope);
+
+        source.insert(1);
+
+        let mut c_set: qh_u32_t = source.into_c();
+        let taken = unsafe { QHash::take_from_c_ptr(&raw mut c_set) };
+
+        assert_eq!(sorted_keys(&taken), [1]);
+
+        // The emptied table keeps the `t_pool`, so the C code can keep filling it there.
+        let left = unsafe { QHash::<qh_u32_t>::from_c_ptr_mut(&raw mut c_set) };
+
+        assert!(ptr::eq(left.as_qhash().hdr.mp, unsafe { t_pool() }));
+        assert!(left.insert(9));
+        assert_eq!(sorted_keys(left), [9]);
+    }
+
+    #[test]
+    fn test_move_ownership_through_a_pointer() {
+        // A C out parameter: an initialized, empty table.
+        let mut c_set: qh_u32_t = QHash::<qh_u32_t>::new().into_c();
+        let mut set = QHash::<qh_u32_t>::new();
+
+        set.insert(4);
+        set.insert(5);
+
+        let keys = set.keys_ptr();
+
+        // Hand the table over without copying it.
+        unsafe {
+            set.move_into_c_ptr(&raw mut c_set);
+        }
+
+        {
+            let moved = unsafe { QHash::<qh_u32_t>::from_c_ptr(&raw const c_set) };
+
+            assert!(ptr::eq(moved.keys_ptr(), keys));
+            assert_eq!(sorted_keys(moved), [4, 5]);
+        }
+
+        // The C code owns the table now, so it releases it.
+        unsafe {
+            qhash_wipe(ptr::from_mut(&mut c_set).cast::<qhash_t>());
+        }
+    }
+
+    #[test]
+    fn test_ownership_round_trip_through_pointers() {
+        let mut set = QHash::<qh_u32_t>::new();
+
+        set.insert(1);
+        set.insert(2);
+
+        let keys = set.keys_ptr();
+        let mut c_set: qh_u32_t = QHash::<qh_u32_t>::new().into_c();
+
+        unsafe {
+            set.move_into_c_ptr(&raw mut c_set);
+        }
+
+        let set = unsafe { QHash::take_from_c_ptr(&raw mut c_set) };
+
+        // The buffers never moved, and the C table is empty again.
+        assert!(ptr::eq(set.keys_ptr(), keys));
+        assert_eq!(sorted_keys(&set), [1, 2]);
+        assert!(unsafe { QHash::<qh_u32_t>::from_c_ptr(&raw const c_set) }.is_empty());
+    }
+
+    #[test]
+    fn test_borrow_a_null_pointer() {
+        let null: *mut qh_u32_t = ptr::null_mut();
+
+        assert!(unsafe { QHash::<qh_u32_t>::from_c_ptr_opt(null.cast_const()) }.is_none());
+        assert!(unsafe { QHash::<qh_u32_t>::from_c_ptr_mut_opt(null) }.is_none());
+    }
+
+    #[test]
+    #[should_panic(expected = "from_c_ptr_mut called with NULL")]
+    fn test_borrow_a_null_pointer_panics() {
+        let null: *mut qh_u32_t = ptr::null_mut();
+
+        let _set = unsafe { QHash::<qh_u32_t>::from_c_ptr_mut(null) };
+    }
+
     #[test]
     fn test_ownership_round_trip_is_zero_copy() {
         let mut set = QHash::<qh_u32_t>::new();
