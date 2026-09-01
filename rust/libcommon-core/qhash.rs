@@ -18,14 +18,59 @@
 
 //! Shared core of the Rust wrappers around the C hash tables.
 //!
-//! This module holds what every table wrapper shares: the [`QHashType`] trait that the generated
-//! code implements, and the [`QEntryWipe`] trait that names the destructor of the entries.
+//! [`QHash`](crate::qhashset::QHash) wraps a C `qh_t` and behaves like a
+//! [`HashSet`](std::collections::HashSet). This module holds what every table shares: the
+//! [`QHashType`] trait that the generated code implements, the [`QEntryWipe`] destructor trait,
+//! and the operations common to every table.
 //!
 //! The wrappers are generic over the C table type, not over the key and value types: a C table
-//! carries its own hash and equality functions, so the table type is the only thing that can name
-//! the key type. The key and value types come from the [`QHashType`] implementation.
+//! carries its own hash and equality functions, so `QHash<qh_lstr_t>` is the only way to name
+//! that table. The key and value types come from the [`QHashType`] implementation.
+//!
+//! # Allocator
+//!
+//! The allocator is chosen by the constructor and cannot change afterwards:
+//!
+//! - `new()` allocates with libc.
+//! - `t_new()` allocates on the `t_pool` of a [`TScope`](crate::mem_stack::TScope). The table
+//!   borrows the scope, so it cannot outlive it.
+//!
+//! # Entry ownership
+//!
+//! The key and value types are fixed by the C table, so they are always plain C data with no
+//! destructor: a table cannot drop its entries the way a [`QVector`](crate::qvector::QVector)
+//! does. The destructor is named by the [`QEntryWipe`] type parameter instead, which is what the
+//! `wipe` argument of the C `qh_deep_wipe()` is:
+//!
+//! - `QHash<qh_lstr_t>` releases nothing but the table, like the C `qh_wipe()`.
+//! - `QHash<qh_lstr_t, W>` also releases what every entry owns, like the C `qh_deep_wipe()`.
+//!
+//! It is a type parameter rather than a field, so a table keeps the layout of its C type. Removing
+//! an entry, clearing the table and dropping it all release what the entry owned, so a table with
+//! a destructor needs no explicit clean-up call.
+//!
+//! The lookups and the removals take the key by reference. The insertions take it by value, like
+//! the standard collections do: the table owns the key once it is stored. The documentation of
+//! each insertion states what happens to a duplicate key.
+//!
+//! Never insert a copy of a key that a table with a destructor owns: the release of one copy makes
+//! the other one dangle.
+//!
+//! # Interfacing with C
+//!
+//! No conversion ever copies the entries: a `qh_t` and a [`QHash`](crate::qhashset::QHash) have
+//! the same layout, so only the descriptor moves.
+//!
+//! - `as_mut_ptr()` passes a table to a C function.
+//! - `borrow_c()` and `borrow_c_mut()` manipulate a table that C owns.
+//! - `from_c()` and `into_c()` transfer the ownership of the table.
 
-use crate::bindings::mem_pool_t;
+use std::marker::PhantomData;
+
+use crate::bindings::{mem_pool_t, qhash_scan, qhash_t};
+
+/// Position that `qhash_scan()` returns when the scan is over.
+pub(crate) const SCAN_END: u32 = u32::MAX;
 
 // {{{ QHashType
 
@@ -147,6 +192,357 @@ impl<Q: QHashType> QEntryWipe<Q> for NoWipe {
     fn wipe_key(_key: &mut Q::Key) {}
 
     fn wipe_value(_value: &mut Q::Value) {}
+}
+
+// }}}
+// {{{ Common implementation macro
+
+/// Generate the operations that a set and a map share.
+macro_rules! qhash_common_impl {
+    ($name:ident, $($bound:tt)+) => {
+        impl<'a, Q, W> $name<'a, Q, W>
+        where
+            Q: $($bound)+,
+            W: QEntryWipe<Q>,
+        {
+            // {{{ Constructors
+
+            /// Create an empty table allocated by libc.
+            pub fn new() -> Self {
+                Self::with_mp(false, ptr::null_mut())
+            }
+
+            /// Create an empty table allocated by libc, caching the hash of the keys.
+            ///
+            /// Caching the hashes costs 4 bytes per slot, and pays off when hashing a key is
+            /// expensive or when the table is resized often. Never use it with an integer key.
+            pub fn new_cached() -> Self {
+                Self::with_mp(true, ptr::null_mut())
+            }
+
+            /// Create a table allocated by libc with room for `capacity` entries.
+            pub fn with_capacity(capacity: usize) -> Self {
+                let mut table = Self::new();
+
+                table.reserve(capacity);
+                table
+            }
+
+            /// Create an empty table allocated on the `t_pool` of `t_scope`.
+            ///
+            /// The table borrows the [`TScope`], so it is dropped before the scope is popped.
+            pub fn t_new(_t_scope: &'a TScope) -> Self {
+                Self::with_mp(false, unsafe { t_pool() })
+            }
+
+            /// Create a table allocated on the `t_pool` of `t_scope` with room for `capacity`
+            /// entries.
+            pub fn t_with_capacity(t_scope: &'a TScope, capacity: usize) -> Self {
+                let mut table = Self::t_new(t_scope);
+
+                table.reserve(capacity);
+                table
+            }
+
+            /// Create an empty table using the given memory pool.
+            fn with_mp(cached: bool, mp: *mut mem_pool_t) -> Self {
+                let mut table = MaybeUninit::<Q>::zeroed();
+
+                // `qhash_init()` writes every field of the table.
+                unsafe {
+                    Q::init(table.as_mut_ptr(), cached, mp);
+                }
+
+                Self {
+                    qh: unsafe { table.assume_init() },
+                    _marker: PhantomData,
+                }
+            }
+
+            // }}}
+            // {{{ Accessors
+
+            /// Get the number of entries of the table.
+            #[inline]
+            pub const fn len(&self) -> usize {
+                self.as_qhash().hdr.len as usize
+            }
+
+            /// Check whether the table is empty.
+            #[inline]
+            pub const fn is_empty(&self) -> bool {
+                self.as_qhash().hdr.len == 0
+            }
+
+            /// Get the memory that the table uses, in bytes.
+            pub fn memory_footprint(&self) -> usize {
+                unsafe { qhash_memory_footprint(self.as_qhash()) }
+            }
+
+            /// Get the hash that the table computes for a key.
+            pub fn hash_of(&self, key: &Q::Key) -> u32 {
+                unsafe { Q::hash(self.as_ptr(), key) }
+            }
+
+            /// Check whether the table holds a key.
+            pub fn contains_key(&self, key: &Q::Key) -> bool {
+                unsafe { Q::find_safe(self.as_ptr(), key) >= 0 }
+            }
+
+            // }}}
+            // {{{ Capacity and lifecycle
+
+            /// Make room for at least `capacity` entries.
+            ///
+            /// # Panics
+            ///
+            /// `capacity` does not fit in a `u32`.
+            pub fn reserve(&mut self, capacity: usize) {
+                let capacity = u32::try_from(capacity).expect("qhash capacity overflow");
+
+                unsafe {
+                    qhash_set_minsize(self.as_qhash_mut(), capacity);
+                }
+            }
+
+            /// Remove every entry of the table, keeping the memory it allocated.
+            ///
+            /// What the entries own is released, as when the table is dropped.
+            pub fn clear(&mut self) {
+                self.wipe_entries();
+                unsafe {
+                    qhash_clear(self.as_qhash_mut());
+                }
+            }
+
+            /// Compact the table and forbid any further modification.
+            ///
+            /// This releases the memory of a running resize. A debug build panics in the C code
+            /// on any later modification, until [`Self::unseal`] is called; a release build does
+            /// not check.
+            pub fn seal(&mut self) {
+                unsafe {
+                    Q::seal(self.as_mut_ptr());
+                }
+            }
+
+            /// Allow the modifications again after [`Self::seal`].
+            pub fn unseal(&mut self) {
+                unsafe {
+                    qhash_unseal(self.as_qhash_mut());
+                }
+            }
+
+            // }}}
+            // {{{ Iteration
+
+            /// Iterate over the keys of the table, in an unspecified order.
+            pub fn keys(&self) -> Keys<'_, Q> {
+                Keys {
+                    qh: self.as_qhash(),
+                    pos: first_pos(self.as_qhash()),
+                    _marker: PhantomData,
+                }
+            }
+
+            // }}}
+            // {{{ C interoperability
+
+            /// Get a pointer to the array of keys.
+            ///
+            /// The keys are stored at the position that the table chose, so this array is not
+            /// packed: only the positions that the iterators yield hold a key. It is null while
+            /// the table has never allocated.
+            #[inline]
+            pub const fn keys_ptr(&self) -> *const Q::Key {
+                self.as_qhash().keys.cast::<Q::Key>()
+            }
+
+            /// Get a pointer to the C table.
+            #[inline]
+            pub const fn as_ptr(&self) -> *const Q {
+                &raw const self.qh
+            }
+
+            /// Get a mutable pointer to the C table.
+            #[inline]
+            pub const fn as_mut_ptr(&mut self) -> *mut Q {
+                &raw mut self.qh
+            }
+
+            /// Borrow a C table.
+            ///
+            /// The C table keeps its ownership: the returned reference never wipes it.
+            ///
+            /// # Safety
+            ///
+            /// `qh` must be an initialized C table.
+            #[inline]
+            pub const unsafe fn borrow_c(qh: &Q) -> &Self {
+                unsafe { &*ptr::from_ref(qh).cast::<Self>() }
+            }
+
+            /// Borrow a C table mutably.
+            ///
+            /// The C table keeps its ownership: the returned reference never wipes it.
+            ///
+            /// # Safety
+            ///
+            /// `qh` must be an initialized C table.
+            #[inline]
+            pub const unsafe fn borrow_c_mut(qh: &mut Q) -> &mut Self {
+                unsafe { &mut *ptr::from_mut(qh).cast::<Self>() }
+            }
+
+            /// Take ownership of a C table.
+            ///
+            /// The entries are not copied: only the descriptor is moved. The table is wiped when
+            /// this value is dropped.
+            ///
+            /// # Safety
+            ///
+            /// The caller must own `qh`, and the C code must not use it any more. Its memory pool
+            /// must outlive `'a`.
+            #[inline]
+            pub const unsafe fn from_c(qh: Q) -> Self {
+                Self {
+                    qh,
+                    _marker: PhantomData,
+                }
+            }
+
+            /// Give the ownership of the table to C.
+            ///
+            /// The entries are not copied: only the descriptor is moved. The C code becomes
+            /// responsible for wiping the table.
+            #[inline]
+            pub fn into_c(self) -> Q {
+                // Do not run the destructor: the C code now owns the table.
+                let this = ManuallyDrop::new(self);
+
+                unsafe { ptr::from_ref(&this.qh).read() }
+            }
+
+            // }}}
+            // {{{ Helpers
+
+            /// Get the generic view of the table.
+            #[inline]
+            const fn as_qhash(&self) -> &qhash_t {
+                // `Q` has the layout of a `qhash_t`.
+                unsafe { &*ptr::from_ref(&self.qh).cast::<qhash_t>() }
+            }
+
+            /// Get the generic view of the table, mutably.
+            #[inline]
+            const fn as_qhash_mut(&mut self) -> &mut qhash_t {
+                // `Q` has the layout of a `qhash_t`.
+                unsafe { &mut *ptr::from_mut(&mut self.qh).cast::<qhash_t>() }
+            }
+
+            /// Get a pointer to the array of keys.
+            #[inline]
+            const fn keys_raw(&self) -> *mut Q::Key {
+                self.as_qhash().keys.cast::<Q::Key>()
+            }
+
+            /// Remove the entry at `pos`.
+            #[inline]
+            fn del_at(&mut self, pos: u32) {
+                unsafe {
+                    qhash_del_at(self.as_qhash_mut(), pos);
+                }
+            }
+
+            /// Release what the key at `pos` owns.
+            #[inline]
+            fn wipe_key_at(&mut self, pos: u32) {
+                if !W::WIPES {
+                    return;
+                }
+
+                unsafe {
+                    W::wipe_key(&mut *self.keys_raw().add(pos as usize));
+                }
+            }
+
+            // }}}
+        }
+
+        impl<Q, W> Drop for $name<'_, Q, W>
+        where
+            Q: $($bound)+,
+            W: QEntryWipe<Q>,
+        {
+            fn drop(&mut self) {
+                self.wipe_entries();
+                unsafe {
+                    qhash_wipe(self.as_qhash_mut());
+                }
+            }
+        }
+
+        impl<Q, W> Default for $name<'_, Q, W>
+        where
+            Q: $($bound)+,
+            W: QEntryWipe<Q>,
+        {
+            fn default() -> Self {
+                Self::new()
+            }
+        }
+    };
+}
+
+// Let the table modules expand the macro on their table type.
+pub(crate) use qhash_common_impl;
+
+// }}}
+// {{{ Iterators
+
+/// Get the position of the first entry of a table, or [`SCAN_END`] if it is empty.
+///
+/// `qhash_scan()` must not be called on a table that never allocated.
+#[inline]
+pub(crate) fn first_pos(qh: &qhash_t) -> u32 {
+    if qh.hdr.len == 0 {
+        SCAN_END
+    } else {
+        unsafe { qhash_scan(qh, 0) }
+    }
+}
+
+/// Advance a scan position, and return the position to yield.
+#[inline]
+pub(crate) fn next_pos(qh: &qhash_t, pos: &mut u32) -> Option<u32> {
+    if *pos == SCAN_END {
+        return None;
+    }
+
+    let current = *pos;
+
+    *pos = unsafe { qhash_scan(qh, current + 1) };
+    Some(current)
+}
+
+/// Iterator over the keys of a table.
+///
+/// It is created by [`QHash::keys`].
+pub struct Keys<'t, Q: QHashType> {
+    pub(crate) qh: *const qhash_t,
+    pub(crate) pos: u32,
+    pub(crate) _marker: PhantomData<&'t Q>,
+}
+
+impl<'t, Q: QHashType> Iterator for Keys<'t, Q> {
+    type Item = &'t Q::Key;
+
+    fn next(&mut self) -> Option<&'t Q::Key> {
+        let qh = unsafe { &*self.qh };
+        let pos = next_pos(qh, &mut self.pos)?;
+
+        Some(unsafe { &*qh.keys.cast::<Q::Key>().add(pos as usize) })
+    }
 }
 
 // }}}

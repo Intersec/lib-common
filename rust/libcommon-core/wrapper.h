@@ -16,6 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
+#include <lib-common/container-qhash.h>
 #include <lib-common/core.h>
 #include <lib-common/el.h>
 #include <lib-common/farch.h>
