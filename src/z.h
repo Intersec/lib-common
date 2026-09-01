@@ -332,35 +332,36 @@ __attr_printf__(4, 5) void _z_helper_failed(
 
 #ifdef _Z_TEST_MAKE_BLOCK
 
+/* clang-format off */
+
 /** Start a test case.
  *
  * It takes a mandatory name (used as an identifier) and an optional
  * description (used as documentation only).
  */
-#  define Z_TEST(name, ...)                                                  \
-      {                                                                      \
-          int _z_step_run_res = _z_step_run(#name);                          \
-          _Z_TEST_MAKE_BLOCK(_z_step_block)                                  \
-          {                                                                  \
-              __label__ _z_step_end;                                         \
-              {
+# define Z_TEST(name, ...)                                                   \
+    {                                                                        \
+        int _z_step_run_res = _z_step_run(#name);                            \
+        _Z_TEST_MAKE_BLOCK(_z_step_block)                                    \
+        {                                                                    \
+            __label__ _z_step_end;                                           \
+            {
 
-#  define Z_TEST_END                                                         \
-      }                                                                      \
-  _z_step_end:;                                                              \
-      }                                                                      \
-      ;                                                                      \
-      switch (_z_step_run_res) {                                             \
-      case 0:                                                                \
-          break;                                                             \
-      case 1:                                                                \
-          _z_step_block();                                                   \
-          /* FALLTHROUGH */                                                  \
-      default:                                                               \
-          _z_step_report();                                                  \
-          break;                                                             \
-      }                                                                      \
-      }
+# define Z_TEST_END \
+            }                                                                \
+        _z_step_end:;                                                        \
+        };                                                                   \
+        switch (_z_step_run_res) {                                           \
+        case 0:                                                              \
+            break;                                                           \
+        case 1:                                                              \
+            _z_step_block();                                                 \
+            /* FALLTHROUGH */                                                \
+        default:                                                             \
+            _z_step_report();                                                \
+            break;                                                           \
+        }                                                                    \
+    }
 
 #else
 
@@ -369,23 +370,26 @@ __attr_printf__(4, 5) void _z_helper_failed(
  * It takes a mandatory name (used as an identifier) and an optional
  * description (used as documentation only).
  */
-#  define Z_TEST(name, ...)                                                  \
-      switch (_z_step_run(#name)) {                                          \
-          __label__ _z_step_end;                                             \
-      case 0:                                                                \
-          break;                                                             \
-      case 1: {
+# define Z_TEST(name, ...) \
+    switch (_z_step_run(#name)) {                                            \
+        __label__ _z_step_end;                                               \
+    case 0:                                                                  \
+        break;                                                               \
+    case 1:                                                                  \
+        {
 
-#  define Z_TEST_END                                                         \
-      }                                                                      \
-      /* FALLTHROUGH */                                                      \
-  default:                                                                   \
-  _z_step_end:                                                               \
-      _z_step_report();                                                      \
-      break;                                                                 \
-      }
+# define Z_TEST_END \
+        }                                                                    \
+        /* FALLTHROUGH */                                                    \
+    default:                                                                 \
+    _z_step_end:                                                             \
+        _z_step_report();                                                    \
+        break;                                                               \
+    }
 
 #endif
+
+/* clang-format on */
 
 #define Z_TEST_FLAGS(...)                                                    \
     ({                                                                       \
