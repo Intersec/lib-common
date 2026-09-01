@@ -77,7 +77,7 @@ use crate::bindings::{
     qvector_splice, qvector_t, qvector_wipe, t_pool,
 };
 use crate::helpers::{slice_from_nullable_raw_parts, slice_from_nullable_raw_parts_mut};
-use crate::mem_stack::TScope;
+use crate::mem_stack::{TFromIterator, TScope};
 
 // {{{ QVectorType
 
@@ -181,21 +181,6 @@ impl<'a, T> QVector<'a, T> {
             },
             _marker: PhantomData,
         }
-    }
-
-    /// Collect an iterator into a vector allocated on the `t_pool` of `t_scope`.
-    ///
-    /// This is the `t_pool` counterpart of [`Iterator::collect`], which can only build a vector
-    /// allocated by libc because it cannot receive a [`TScope`].
-    pub fn t_from_iter<I>(t_scope: &'a TScope, iter: I) -> Self
-    where
-        I: IntoIterator<Item = T>,
-    {
-        let iter = iter.into_iter();
-        let mut vec = Self::t_with_capacity(t_scope, iter.size_hint().0);
-
-        vec.extend(iter);
-        vec
     }
 
     // }}}
@@ -958,11 +943,27 @@ impl<'x, T: Copy + 'x> Extend<&'x T> for QVector<'_, T> {
 
 /// Collect an iterator into a vector allocated by libc.
 ///
-/// Use [`QVector::t_from_iter`] to collect into a vector allocated on a `t_pool`.
+/// Use [`TCollect::t_collect`](crate::mem_stack::TCollect::t_collect) to collect into a vector
+/// allocated on a `t_pool`.
 impl<T> FromIterator<T> for QVector<'_, T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let iter = iter.into_iter();
         let mut vec = Self::with_capacity(iter.size_hint().0);
+
+        vec.extend(iter);
+        vec
+    }
+}
+
+/// Collect an iterator into a vector allocated on the `t_pool` of `t_scope`.
+///
+/// This backs [`TCollect::t_collect`](crate::mem_stack::TCollect::t_collect), the `t_pool`
+/// counterpart of [`Iterator::collect`], which can only build a vector allocated by libc because
+/// it cannot receive a [`TScope`].
+impl<'a, T> TFromIterator<'a, T> for QVector<'a, T> {
+    fn t_from_iter<I: IntoIterator<Item = T>>(t_scope: &'a TScope, iter: I) -> Self {
+        let iter = iter.into_iter();
+        let mut vec = Self::t_with_capacity(t_scope, iter.size_hint().0);
 
         vec.extend(iter);
         vec
@@ -1241,6 +1242,7 @@ mod tests {
     use super::*;
     use crate::bindings::{ctype_isspace, lstr_t, ps_split, qv_lstr_t, qv_str_t, qv_u32_t};
     use crate::lstr::{self, OwnedUtf8Lstr, from_str};
+    use crate::mem_stack::TCollect as _;
     use crate::pstream::pstream_t;
 
     // {{{ Test helpers
@@ -1566,6 +1568,16 @@ mod tests {
     fn test_t_from_iter() {
         let t_scope = TScope::new_scope();
         let vec = QVector::t_from_iter(&t_scope, 0..5u32);
+
+        assert_eq!(vec.as_slice(), &[0, 1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn test_t_collect() {
+        let t_scope = TScope::new_scope();
+
+        // The same as `test_t_from_iter`, spelled like a `collect()`.
+        let vec: QVector<'_, u32> = (0..5).t_collect(&t_scope);
 
         assert_eq!(vec.as_slice(), &[0, 1, 2, 3, 4]);
     }

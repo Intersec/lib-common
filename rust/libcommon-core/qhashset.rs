@@ -33,7 +33,7 @@ use crate::bindings::{
     QHASH_COLLISION, mem_pool_t, qhash_clear, qhash_del_at, qhash_memory_footprint, qhash_scan,
     qhash_set_minsize, qhash_t, qhash_unseal, qhash_wipe, t_pool,
 };
-use crate::mem_stack::TScope;
+use crate::mem_stack::{TFromIterator, TScope};
 use crate::qhash::{Keys, NoWipe, QEntryWipe, QHashType, SCAN_END, first_pos, qhash_common_impl};
 
 // {{{ QHash
@@ -404,6 +404,24 @@ where
 {
     fn from_iter<I: IntoIterator<Item = Q::Key>>(iter: I) -> Self {
         let mut set = Self::new();
+
+        set.extend(iter);
+        set
+    }
+}
+
+/// Collect an iterator into a set allocated on the `t_pool` of a scope.
+///
+/// This backs [`TCollect::t_collect`](crate::mem_stack::TCollect::t_collect). A duplicate key is
+/// released, like [`QHash::insert`] does.
+impl<'a, Q, W> TFromIterator<'a, Q::Key> for QHash<'a, Q, W>
+where
+    Q: QHashType<Value = ()>,
+    W: QEntryWipe<Q>,
+{
+    fn t_from_iter<I: IntoIterator<Item = Q::Key>>(t_scope: &'a TScope, iter: I) -> Self {
+        let iter = iter.into_iter();
+        let mut set = Self::t_with_capacity(t_scope, iter.size_hint().0);
 
         set.extend(iter);
         set
@@ -782,6 +800,7 @@ mod tests {
     use super::*;
     use crate::bindings::{lstr_t, qh_lstr_t, qh_u32_t};
     use crate::lstr::{from_raw_utf8, from_str};
+    use crate::mem_stack::TCollect as _;
     use crate::qvector::QVector;
 
     // {{{ Test helpers
@@ -1608,6 +1627,17 @@ mod tests {
         // The duplicate key is released, like `insert` does.
         assert_eq!(take_wiped(), 1);
         assert_eq!(set.len(), 2);
+    }
+
+    #[test]
+    fn test_t_collect_a_set() {
+        let t_scope = TScope::new_scope();
+        let vector: QVector<'_, u32> = [3, 1, 2, 3].into_iter().t_collect(&t_scope);
+
+        // The vector and the set both live on the `t_pool` of the scope.
+        let set: QHash<'_, qh_u32_t> = vector.iter().copied().t_collect(&t_scope);
+
+        assert_eq!(sorted_keys(&set), [1, 2, 3]);
     }
 
     // }}}

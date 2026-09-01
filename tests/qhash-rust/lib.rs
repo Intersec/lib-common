@@ -36,7 +36,7 @@ mod tests {
         iop_struct_t, lstr_t, qh_lstr_t, qhash_t, qhash_wipe, qm_iop_struct_t,
     };
     use libcommon::lstr::{from_raw_utf8, from_str};
-    use libcommon::mem_stack::TScope;
+    use libcommon::mem_stack::{TCollect as _, TScope};
     use libcommon::qhash::{QEntryWipe, QHashType};
     use libcommon::qhashmap::{Entry, QMap};
     use libcommon::qhashset::QHash;
@@ -823,6 +823,19 @@ mod tests {
             .collect();
 
         assert_eq!(sorted_entries(&back), [("a", 1), ("bc", 2)]);
+    }
+
+    #[test]
+    fn test_t_collect_a_map() {
+        let t_scope = TScope::new_scope();
+
+        // The map lives on the `t_pool` of the scope, like a `Map::t_new` one.
+        let map: QMap<'_, qm_iop_struct_t> = [("a", 1), ("b", 2)]
+            .into_iter()
+            .map(|(name, address)| (key(name), value(address)))
+            .t_collect(&t_scope);
+
+        assert_eq!(sorted_entries(&map), [("a", 1), ("b", 2)]);
     }
 
     #[test]

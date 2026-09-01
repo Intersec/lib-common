@@ -206,6 +206,39 @@ impl Drop for TScope {
     }
 }
 
+/// Collect an iterator into a container allocated on the `t_pool` of a [`TScope`].
+///
+/// This is the `t_pool` counterpart of [`FromIterator`], which cannot receive the scope. It is
+/// usually called through [`TCollect::t_collect`]; calling `t_from_iter` on the container type
+/// works too.
+pub trait TFromIterator<'a, A>: Sized {
+    /// Build the container on the `t_pool` of `t_scope` from the items of `iter`.
+    fn t_from_iter<I: IntoIterator<Item = A>>(t_scope: &'a TScope, iter: I) -> Self;
+}
+
+/// The `t_pool` counterpart of [`Iterator::collect`].
+///
+/// Every iterator gets this extension: `t_collect()` builds any [`TFromIterator`] container on
+/// the `t_pool` of the given scope, the way `collect()` builds one allocated by libc.
+///
+/// # Example
+///
+/// ```ignore
+/// let t_scope = TScope::new_scope();
+/// let vector: QVector<'_, u32> = (0..4).t_collect(&t_scope);
+/// ```
+pub trait TCollect: Iterator + Sized {
+    /// Collect the iterator into a container allocated on the `t_pool` of `t_scope`.
+    fn t_collect<'a, C>(self, t_scope: &'a TScope) -> C
+    where
+        C: TFromIterator<'a, Self::Item>,
+    {
+        C::t_from_iter(t_scope, self)
+    }
+}
+
+impl<I: Iterator> TCollect for I {}
+
 // {{{ Tests
 
 #[cfg(test)]

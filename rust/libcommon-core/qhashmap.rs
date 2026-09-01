@@ -32,7 +32,7 @@ use crate::bindings::{
     QHASH_COLLISION, mem_pool_t, qhash_clear, qhash_del_at, qhash_memory_footprint, qhash_scan,
     qhash_set_minsize, qhash_t, qhash_unseal, qhash_wipe, t_pool,
 };
-use crate::mem_stack::TScope;
+use crate::mem_stack::{TFromIterator, TScope};
 use crate::qhash::{
     Keys, NoWipe, QEntryWipe, QMapType, SCAN_END, first_pos, next_pos, qhash_common_impl,
 };
@@ -479,6 +479,28 @@ where
 {
     fn from_iter<I: IntoIterator<Item = (Q::Key, Q::Value)>>(iter: I) -> Self {
         let mut map = Self::new();
+
+        map.extend(iter);
+        map
+    }
+}
+
+/// Collect an iterator into a map allocated on the `t_pool` of a scope.
+///
+/// This backs [`TCollect::t_collect`](crate::mem_stack::TCollect::t_collect). The last value of a
+/// duplicate key wins, and the replaced values are released, like [`QMap::extend`](Extend::extend)
+/// does.
+impl<'a, Q, W> TFromIterator<'a, (Q::Key, Q::Value)> for QMap<'a, Q, W>
+where
+    Q: QMapType,
+    W: QEntryWipe<Q>,
+{
+    fn t_from_iter<I: IntoIterator<Item = (Q::Key, Q::Value)>>(
+        t_scope: &'a TScope,
+        iter: I,
+    ) -> Self {
+        let iter = iter.into_iter();
+        let mut map = Self::t_with_capacity(t_scope, iter.size_hint().0);
 
         map.extend(iter);
         map
