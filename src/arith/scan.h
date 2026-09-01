@@ -22,8 +22,8 @@
 #  define IS_LIB_COMMON_ARITH_SCAN_H
 
 /* This module implements optimized scans primitives on data. The scans are
- * optimized with SSE instruction sets, as a consequence, we requires the
- * memory to be aligned on 128bits
+ * optimized with the SIMD instruction set of the target (SSE2 on x86, NEON on
+ * aarch64), as a consequence, we requires the memory to be aligned on 128bits
  */
 
 bool is_memory_zero(const void *nonnull data, size_t len);
