@@ -576,6 +576,47 @@ mod tests {
     }
 
     #[test]
+    fn test_view_the_table_with_another_destructor() {
+        /// Read a set that names no destructor, as a helper of another crate would.
+        fn sum(set: &QHash<'_, qh_u32_t>) -> u32 {
+            set.keys().copied().sum()
+        }
+
+        let mut set = CountingSet::new();
+
+        set.insert(1);
+        set.insert(2);
+
+        // The same table, handed to code that names the other destructor.
+        assert_eq!(sum(set.with_wipe()), 3);
+
+        // Nothing was released: only the view changed.
+        assert_eq!(take_wiped(), 0);
+        assert_eq!(sorted_keys(set.with_wipe()), [1, 2]);
+
+        // And the table still releases its entries when it is dropped.
+        drop(set);
+        assert_eq!(take_wiped(), 2);
+    }
+
+    #[test]
+    fn test_view_the_table_with_another_destructor_mutably() {
+        let mut set = QHash::<qh_u32_t>::new();
+
+        set.insert(1);
+
+        // Take a destructor on, then clear through it.
+        {
+            let owning: &mut CountingSet<'_> = unsafe { set.with_wipe_mut() };
+
+            owning.clear();
+        }
+
+        assert_eq!(take_wiped(), 1);
+        assert!(set.is_empty());
+    }
+
+    #[test]
     fn test_a_table_without_a_destructor_releases_nothing() {
         let mut set = QHash::<qh_u32_t>::new();
 

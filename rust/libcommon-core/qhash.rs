@@ -50,6 +50,9 @@
 //! an entry, clearing the table and dropping it all release what the entry owned, so a table with
 //! a destructor needs no explicit clean-up call.
 //!
+//! Two tables that differ only by their destructor are still two types. `with_wipe()` hands one to
+//! code that names the other.
+//!
 //! The lookups and the removals take the key by reference. The insertions and the map entries take
 //! it by value, like the standard collections do: the table owns the key once it is stored. The
 //! documentation of each insertion states what happens to a duplicate key.
@@ -367,6 +370,40 @@ macro_rules! qhash_common_impl {
             #[inline]
             pub const fn keys_ptr(&self) -> *const Q::Key {
                 self.as_qhash().keys.cast::<Q::Key>()
+            }
+
+            /// View the table with another destructor.
+            ///
+            /// The destructor is a type parameter, so a table that releases what its entries own
+            /// is a different type from one that does not, even though both have the layout of the
+            /// C table. This hands the same table to code that names the other one, which is what
+            /// a read-only helper taking a table with no destructor needs.
+            ///
+            /// Nothing can be released through a shared reference, so this is safe.
+            #[inline]
+            pub const fn with_wipe<V>(&self) -> &$name<'a, Q, V>
+            where
+                V: QEntryWipe<Q>,
+            {
+                // Only the destructor of the type changes; the layout is that of the C table.
+                unsafe { &*ptr::from_ref(self).cast::<$name<'a, Q, V>>() }
+            }
+
+            /// View the table with another destructor, mutably.
+            ///
+            /// # Safety
+            ///
+            /// Every release done through the returned table runs the destructor `V` rather than
+            /// `W`: clearing the table, removing an entry, dropping the table, and inserting a
+            /// key that is already there, which releases the given key. So `V` must release
+            /// exactly what the entries own. Use [`Self::with_wipe`] when a shared reference is
+            /// enough.
+            #[inline]
+            pub const unsafe fn with_wipe_mut<V>(&mut self) -> &mut $name<'a, Q, V>
+            where
+                V: QEntryWipe<Q>,
+            {
+                unsafe { &mut *ptr::from_mut(self).cast::<$name<'a, Q, V>>() }
             }
 
             /// Get a pointer to the C table.
