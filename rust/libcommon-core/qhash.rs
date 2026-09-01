@@ -53,7 +53,7 @@
 //! Two tables that differ only by their destructor are still two types. `with_wipe()` hands one to
 //! code that names the other.
 //!
-//! The lookups and the removals take the key by reference. The insertions and the map entries take
+//! The lookups and the removals take the key by reference. The insertions and the entries take
 //! it by value, like the standard collections do: the table owns the key once it is stored. The
 //! documentation of each insertion states what happens to a duplicate key.
 //!

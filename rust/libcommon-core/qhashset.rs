@@ -18,9 +18,10 @@
 
 //! [`QHash`], the Rust wrapper around a C `qh_t` hash set.
 //!
-//! It behaves like a [`HashSet`](std::collections::HashSet). The allocator, the entry ownership
-//! and the C interfacing rules are shared with [`QMap`](crate::qhashmap::QMap): the
-//! [`qhash`](crate::qhash) module documentation describes them.
+//! It behaves like a [`HashSet`](std::collections::HashSet), including the [`Entry`] API of the
+//! unstable `HashSet::entry`. The allocator, the entry ownership and the C interfacing rules are
+//! shared with [`QMap`](crate::qhashmap::QMap): the [`qhash`](crate::qhash) module documentation
+//! describes them.
 
 use std::fmt;
 use std::iter::Chain;
@@ -107,6 +108,27 @@ where
         let pos = unsafe { Q::reserve(self.as_mut_ptr(), &owned, 0) };
 
         unsafe { &*self.keys_raw().add((pos & !QHASH_COLLISION) as usize) }
+    }
+
+    /// Get the entry of a key, occupied or vacant, for in-place manipulation.
+    ///
+    /// This is the [`Entry`] API of the unstable `HashSet::entry`. The entry takes over the given
+    /// key: a vacant entry stores it on [`VacantEntry::insert`] and releases it when it is
+    /// dropped, while an occupied entry keeps the stored key and releases the given one at once.
+    pub fn entry(&mut self, mut key: Q::Key) -> Entry<'_, 'a, Q, W> {
+        let pos = unsafe { Q::find(self.as_mut_ptr(), &key) };
+
+        if pos < 0 {
+            return Entry::Vacant(VacantEntry { set: self, key });
+        }
+
+        // The set keeps the stored key, so the given key is released, as the standard `entry()`
+        // drops it.
+        W::wipe_key(&mut key);
+        Entry::Occupied(OccupiedEntry {
+            set: self,
+            pos: pos as u32,
+        })
     }
 
     /// Add a key to the set.
@@ -355,6 +377,148 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_set().entries(self.keys()).finish()
+    }
+}
+
+// }}}
+// {{{ Entry
+
+/// A view into a single key of a [`QHash`], which is either occupied or vacant.
+///
+/// It is created by [`QHash::entry`].
+pub enum Entry<'e, 'a, Q, W>
+where
+    Q: QHashType<Value = ()>,
+    W: QEntryWipe<Q>,
+{
+    /// The key is in the set.
+    Occupied(OccupiedEntry<'e, 'a, Q, W>),
+    /// The key is not in the set.
+    Vacant(VacantEntry<'e, 'a, Q, W>),
+}
+
+impl<'e, 'a, Q, W> Entry<'e, 'a, Q, W>
+where
+    Q: QHashType<Value = ()>,
+    W: QEntryWipe<Q>,
+{
+    /// Insert the key if the entry is vacant, and get the occupied entry.
+    pub fn insert(self) -> OccupiedEntry<'e, 'a, Q, W> {
+        match self {
+            Entry::Occupied(entry) => entry,
+            Entry::Vacant(entry) => entry.insert_entry(),
+        }
+    }
+
+    /// Insert the key if the entry is vacant.
+    pub fn or_insert(self) {
+        if let Entry::Vacant(entry) = self {
+            entry.insert();
+        }
+    }
+
+    /// Get the key of the entry.
+    ///
+    /// An occupied entry gives the stored key, a vacant entry the key it owns.
+    pub fn get(&self) -> &Q::Key {
+        match self {
+            Entry::Occupied(entry) => entry.get(),
+            Entry::Vacant(entry) => entry.get(),
+        }
+    }
+}
+
+/// View into an occupied entry of a [`QHash`].
+///
+/// It is a variant of [`Entry`].
+pub struct OccupiedEntry<'e, 'a, Q, W>
+where
+    Q: QHashType<Value = ()>,
+    W: QEntryWipe<Q>,
+{
+    set: &'e mut QHash<'a, Q, W>,
+    pos: u32,
+}
+
+impl<Q, W> OccupiedEntry<'_, '_, Q, W>
+where
+    Q: QHashType<Value = ()>,
+    W: QEntryWipe<Q>,
+{
+    /// Get the stored key of the entry.
+    pub fn get(&self) -> &Q::Key {
+        unsafe { &*self.set.keys_raw().add(self.pos as usize) }
+    }
+
+    /// Remove the entry and return its stored key.
+    ///
+    /// Nothing is released: the caller takes over what the stored key owns, like [`QHash::take`].
+    pub fn remove(self) -> Q::Key {
+        let key = unsafe { self.set.keys_raw().add(self.pos as usize).read() };
+
+        self.set.del_at(self.pos);
+        key
+    }
+}
+
+/// View into a vacant entry of a [`QHash`].
+///
+/// It owns the key given to [`QHash::entry`]: [`Self::insert`] stores it in the set,
+/// [`Self::into_value`] gives it back, and dropping the entry releases it, as the standard
+/// `VacantEntry` drops its value.
+pub struct VacantEntry<'e, 'a, Q, W>
+where
+    Q: QHashType<Value = ()>,
+    W: QEntryWipe<Q>,
+{
+    set: &'e mut QHash<'a, Q, W>,
+    key: Q::Key,
+}
+
+impl<'e, 'a, Q, W> VacantEntry<'e, 'a, Q, W>
+where
+    Q: QHashType<Value = ()>,
+    W: QEntryWipe<Q>,
+{
+    /// Get the key that the entry owns.
+    pub fn get(&self) -> &Q::Key {
+        &self.key
+    }
+
+    /// Take the key back out of the entry.
+    pub fn into_value(self) -> Q::Key {
+        // Do not release the key: the caller takes it over.
+        let this = ManuallyDrop::new(self);
+
+        unsafe { ptr::read(&raw const this.key) }
+    }
+
+    /// Insert the key of the entry into the set.
+    pub fn insert(self) {
+        self.insert_entry();
+    }
+
+    /// Insert the key of the entry and get the occupied entry.
+    fn insert_entry(self) -> OccupiedEntry<'e, 'a, Q, W> {
+        // Do not release the key: it moves into the set.
+        let this = ManuallyDrop::new(self);
+        let key = unsafe { ptr::read(&raw const this.key) };
+        let set = unsafe { ptr::read(&raw const this.set) };
+
+        // The key is known to be absent, so the position carries no collision bit.
+        let pos = unsafe { Q::reserve(set.as_mut_ptr(), &key, 0) };
+
+        OccupiedEntry { set, pos }
+    }
+}
+
+impl<Q, W> Drop for VacantEntry<'_, '_, Q, W>
+where
+    Q: QHashType<Value = ()>,
+    W: QEntryWipe<Q>,
+{
+    fn drop(&mut self) {
+        W::wipe_key(&mut self.key);
     }
 }
 
@@ -775,6 +939,106 @@ mod tests {
 
         set.insert(7);
         assert_eq!(format!("{set:?}"), "{7}");
+    }
+
+    // }}}
+    // {{{ Entry
+
+    #[test]
+    fn test_entry_or_insert() {
+        let mut set = QHash::<qh_u32_t>::new();
+
+        set.entry(1).or_insert();
+        set.entry(1).or_insert();
+
+        assert_eq!(set.len(), 1);
+        assert!(set.contains(&1));
+    }
+
+    #[test]
+    fn test_entry_insert_returns_the_occupied_entry() {
+        let mut set = QHash::<qh_u32_t>::new();
+
+        // A vacant entry inserts its key.
+        let entry = set.entry(1).insert();
+
+        assert_eq!(*entry.get(), 1);
+        assert_eq!(set.len(), 1);
+
+        // The entry of a key that is already there is given back as is.
+        let entry = set.entry(1).insert();
+
+        assert_eq!(*entry.get(), 1);
+        assert_eq!(set.len(), 1);
+    }
+
+    #[test]
+    fn test_entry_get_names_the_key() {
+        let mut set = QHash::<qh_u32_t>::new();
+
+        set.insert(1);
+
+        // The occupied entry names the stored key, the vacant entry the key it owns.
+        assert_eq!(*set.entry(1).get(), 1);
+        assert_eq!(*set.entry(2).get(), 2);
+
+        // Reading an entry inserts nothing.
+        assert_eq!(set.len(), 1);
+    }
+
+    #[test]
+    fn test_entry_releases_the_given_key_when_occupied() {
+        let mut set = CountingSet::new();
+
+        set.insert(1);
+        assert_eq!(take_wiped(), 0);
+
+        // The set keeps the stored key, so the entry releases the given key at once.
+        set.entry(1).or_insert();
+        assert_eq!(take_wiped(), 1);
+        assert_eq!(set.len(), 1);
+    }
+
+    #[test]
+    fn test_occupied_entry_remove_hands_the_key_over() {
+        let mut set = CountingSet::new();
+
+        set.insert(1);
+
+        let Entry::Occupied(entry) = set.entry(1) else {
+            panic!("the entry must be occupied");
+        };
+
+        // The given key is released by `entry()`; the stored key is handed over by `remove()`.
+        assert_eq!(take_wiped(), 1);
+        assert_eq!(entry.remove(), 1);
+        assert_eq!(take_wiped(), 0);
+        assert!(set.is_empty());
+    }
+
+    #[test]
+    fn test_vacant_entry_releases_its_key_on_drop() {
+        let mut set = CountingSet::new();
+
+        // The vacant entry owns the key: dropping it without an insertion releases the key.
+        drop(set.entry(1));
+
+        assert_eq!(take_wiped(), 1);
+        assert!(set.is_empty());
+    }
+
+    #[test]
+    fn test_vacant_entry_into_value() {
+        let mut set = CountingSet::new();
+
+        let Entry::Vacant(entry) = set.entry(1) else {
+            panic!("the entry must be vacant");
+        };
+
+        // The entry gives the key back, and inserts nothing.
+        assert_eq!(entry.into_value(), 1);
+        assert_eq!(take_wiped(), 0);
+        assert!(set.is_empty());
     }
 
     // }}}
