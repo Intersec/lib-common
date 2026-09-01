@@ -176,6 +176,7 @@ ctx.recurse(
         'iopc',
         'iopy',
         'pxcc',
+        'qhash-rust',
         'test-data/snmp',
     ]
 )

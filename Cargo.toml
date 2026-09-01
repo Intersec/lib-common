@@ -34,6 +34,7 @@ members = [
 
     "tests/iop-rust",
     "tests/ichannel-rust",
+    "tests/qhash-rust",
 ]
 resolver = "3"
 

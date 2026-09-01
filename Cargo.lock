@@ -430,6 +430,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "qhash-rust-tests"
+version = "0.0.0"
+dependencies = [
+ "libcommon",
+ "waf-cargo-build",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
