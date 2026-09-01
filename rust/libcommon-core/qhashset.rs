@@ -380,6 +380,36 @@ where
     }
 }
 
+impl<Q, W> Extend<Q::Key> for QHash<'_, Q, W>
+where
+    Q: QHashType<Value = ()>,
+    W: QEntryWipe<Q>,
+{
+    /// Add every key to the set, like [`QHash::insert`] does: a duplicate key is released.
+    fn extend<I: IntoIterator<Item = Q::Key>>(&mut self, iter: I) {
+        let iter = iter.into_iter();
+
+        self.reserve(self.len() + iter.size_hint().0);
+        for key in iter {
+            self.insert(key);
+        }
+    }
+}
+
+/// Collect an iterator into a set allocated by libc.
+impl<Q, W> FromIterator<Q::Key> for QHash<'_, Q, W>
+where
+    Q: QHashType<Value = ()>,
+    W: QEntryWipe<Q>,
+{
+    fn from_iter<I: IntoIterator<Item = Q::Key>>(iter: I) -> Self {
+        let mut set = Self::new();
+
+        set.extend(iter);
+        set
+    }
+}
+
 // }}}
 // {{{ Entry
 
@@ -752,6 +782,7 @@ mod tests {
     use super::*;
     use crate::bindings::{lstr_t, qh_lstr_t, qh_u32_t};
     use crate::lstr::{from_raw_utf8, from_str};
+    use crate::qvector::QVector;
 
     // {{{ Test helpers
 
@@ -1528,6 +1559,55 @@ mod tests {
 
         // The set is dropped with the iterator, so it releases the two remaining keys.
         assert_eq!(take_wiped(), 2);
+    }
+
+    // }}}
+    // {{{ Conversions
+
+    #[test]
+    fn test_collect_a_vector_into_a_set() {
+        let vector: QVector<'_, u32> = [3, 1, 2, 3, 1].into_iter().collect();
+
+        // The set deduplicates the vector.
+        let set: QHash<'_, qh_u32_t> = vector.iter().copied().collect();
+
+        assert_eq!(sorted_keys(&set), [1, 2, 3]);
+    }
+
+    #[test]
+    fn test_collect_a_set_into_a_vector() {
+        let mut set = QHash::<qh_u32_t>::new();
+
+        for i in 0..5 {
+            set.insert(i);
+        }
+
+        let mut vector: QVector<'_, u32> = set.iter().copied().collect();
+
+        vector.sort_unstable();
+        assert_eq!(vector, [0, 1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn test_extend_a_set() {
+        let mut set = QHash::<qh_u32_t>::new();
+
+        set.insert(0);
+        set.extend([1, 2]);
+
+        let vector: QVector<'_, u32> = (2..4).collect();
+
+        set.extend(vector.iter().copied());
+        assert_eq!(sorted_keys(&set), [0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn test_collect_releases_the_duplicate_keys() {
+        let set: CountingSet<'_> = [1, 2, 1].into_iter().collect();
+
+        // The duplicate key is released, like `insert` does.
+        assert_eq!(take_wiped(), 1);
+        assert_eq!(set.len(), 2);
     }
 
     // }}}

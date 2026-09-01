@@ -452,6 +452,39 @@ where
     }
 }
 
+impl<Q, W> Extend<(Q::Key, Q::Value)> for QMap<'_, Q, W>
+where
+    Q: QMapType,
+    W: QEntryWipe<Q>,
+{
+    /// Insert every entry, like [`QMap::insert`] does: the last value of a duplicate key wins.
+    fn extend<I: IntoIterator<Item = (Q::Key, Q::Value)>>(&mut self, iter: I) {
+        let iter = iter.into_iter();
+
+        self.reserve(self.len() + iter.size_hint().0);
+        for (key, value) in iter {
+            // `insert` gives the replaced value back, and nobody can take it over here.
+            if let Some(mut previous) = self.insert(key, value) {
+                W::wipe_value(&mut previous);
+            }
+        }
+    }
+}
+
+/// Collect an iterator into a map allocated by libc.
+impl<Q, W> FromIterator<(Q::Key, Q::Value)> for QMap<'_, Q, W>
+where
+    Q: QMapType,
+    W: QEntryWipe<Q>,
+{
+    fn from_iter<I: IntoIterator<Item = (Q::Key, Q::Value)>>(iter: I) -> Self {
+        let mut map = Self::new();
+
+        map.extend(iter);
+        map
+    }
+}
+
 impl<Q, W> fmt::Debug for QMap<'_, Q, W>
 where
     Q: QMapType,

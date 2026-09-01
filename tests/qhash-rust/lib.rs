@@ -32,11 +32,15 @@ mod tests {
     use std::mem;
     use std::ptr;
 
-    use libcommon::bindings::{iop_struct_t, lstr_t, qhash_t, qhash_wipe, qm_iop_struct_t};
+    use libcommon::bindings::{
+        iop_struct_t, lstr_t, qh_lstr_t, qhash_t, qhash_wipe, qm_iop_struct_t,
+    };
     use libcommon::lstr::{from_raw_utf8, from_str};
     use libcommon::mem_stack::TScope;
     use libcommon::qhash::{QEntryWipe, QHashType};
     use libcommon::qhashmap::{Entry, QMap};
+    use libcommon::qhashset::QHash;
+    use libcommon::qvector::QVector;
 
     // {{{ Test helpers
 
@@ -765,6 +769,72 @@ mod tests {
         // the other one.
         assert_eq!(WIPED_KEYS.replace(0), 1);
         assert_eq!(WIPED_VALUES.replace(0), 1);
+    }
+
+    // }}}
+    // {{{ Conversions
+
+    // In C, converting between a `qv_t`, a `qh_t` and a `qm_t` needs a hand-written loop per
+    // pair of types. The iterators make every conversion one `collect()`.
+
+    #[test]
+    fn test_collect_a_vector_into_a_map_and_back() {
+        let pairs: QVector<'_, (lstr_t, usize)> = [("a", 1), ("b", 2), ("a", 3)]
+            .into_iter()
+            .map(|(name, address)| (key(name), address))
+            .collect();
+
+        let map: Map<'_> = pairs
+            .iter()
+            .map(|(name, address)| (*name, value(*address)))
+            .collect();
+
+        // The last value of a duplicate key wins, like the standard `HashMap`.
+        assert_eq!(sorted_entries(&map), [("a", 3), ("b", 2)]);
+
+        // And the entries collect back into a vector.
+        let mut back: QVector<'_, (&str, usize)> = map
+            .iter()
+            .map(|(name, address)| (unsafe { from_raw_utf8(*name).as_str() }, addr_of(*address)))
+            .collect();
+
+        back.sort_unstable();
+        assert_eq!(back, [("a", 3), ("b", 2)]);
+    }
+
+    #[test]
+    fn test_collect_a_map_into_a_set_and_back() {
+        let mut map = Map::new();
+
+        map.insert(key("a"), value(1));
+        map.insert(key("bc"), value(2));
+
+        // The keys of the map collect into a set...
+        let set: QHash<'_, qh_lstr_t> = map.keys().copied().collect();
+
+        assert_eq!(set.len(), 2);
+        assert!(set.contains(&key("a")));
+        assert!(set.contains(&key("bc")));
+
+        // ... and the set collects back into a map, with values computed from the keys.
+        let back: Map<'_> = set
+            .iter()
+            .map(|name| (*name, value(unsafe { from_raw_utf8(*name).as_str().len() })))
+            .collect();
+
+        assert_eq!(sorted_entries(&back), [("a", 1), ("bc", 2)]);
+    }
+
+    #[test]
+    fn test_extend_releases_the_replaced_values() {
+        let mut map = CountingMap::new();
+
+        map.extend([(key("a"), value(1)), (key("a"), value(2))]);
+
+        // The duplicate given key and the replaced value are released: nobody can take them over.
+        assert_eq!(WIPED_KEYS.replace(0), 1);
+        assert_eq!(WIPED_VALUES.replace(0), 1);
+        assert_eq!(sorted_entries(map.with_wipe()), [("a", 2)]);
     }
 
     // }}}
