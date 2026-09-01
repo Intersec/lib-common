@@ -160,6 +160,84 @@ mod tests {
     }
 
     #[test]
+    fn test_get_key_value_returns_the_stored_key() {
+        let mut map = Map::new();
+        let stored = key("a");
+
+        map.insert(stored, value(1));
+
+        // The key given here is a different `lstr_t` with the same content: the stored key comes
+        // back with the value.
+        let Some((found, found_value)) = map.get_key_value(&key("a")) else {
+            panic!("the key must be there");
+        };
+
+        assert_eq!(addr_of(*found_value), 1);
+
+        let found = unsafe { from_raw_utf8(*found).as_str() };
+        let stored = unsafe { from_raw_utf8(stored).as_str() };
+
+        assert!(ptr::eq(found.as_ptr(), stored.as_ptr()));
+        assert!(map.get_key_value(&key("b")).is_none());
+    }
+
+    #[test]
+    fn test_remove_entry_hands_the_stored_key_over() {
+        let mut map = Map::new();
+        let stored = key("a");
+
+        map.insert(stored, value(1));
+
+        let Some((removed, removed_value)) = map.remove_entry(&key("a")) else {
+            panic!("the key must be there");
+        };
+
+        assert_eq!(addr_of(removed_value), 1);
+
+        let removed = unsafe { from_raw_utf8(removed).as_str() };
+        let stored = unsafe { from_raw_utf8(stored).as_str() };
+
+        assert!(ptr::eq(removed.as_ptr(), stored.as_ptr()));
+        assert!(map.is_empty());
+        assert!(map.remove_entry(&key("a")).is_none());
+    }
+
+    #[test]
+    fn test_get_disjoint_mut() {
+        let mut map = Map::new();
+
+        map.insert(key("a"), value(1));
+        map.insert(key("b"), value(2));
+
+        let [a, missing, b] = map.get_disjoint_mut([&key("a"), &key("z"), &key("b")]);
+
+        assert!(missing.is_none());
+
+        let (Some(a), Some(b)) = (a, b) else {
+            panic!("the keys must be there");
+        };
+
+        // Both values are mutable at the same time.
+        *a = value(10);
+        *b = value(20);
+        assert_eq!(sorted_entries(&map), [("a", 10), ("b", 20)]);
+    }
+
+    #[test]
+    #[should_panic(expected = "the keys must be disjoint")]
+    fn test_get_disjoint_mut_refuses_equal_keys() {
+        // The test aborts inside the panic, so nothing is dropped: the map borrows the `t_pool`
+        // rather than libc, and the leak checker stays quiet.
+        let t_scope = TScope::new_scope();
+        let mut map = Map::t_new(&t_scope);
+
+        map.insert(key("a"), value(1));
+
+        // Two equal keys would give two mutable references to one value.
+        map.get_disjoint_mut([&key("a"), &key("a")]);
+    }
+
+    #[test]
     fn test_clear() {
         let mut map = Map::new();
 
@@ -530,6 +608,163 @@ mod tests {
 
         assert_eq!(WIPED_KEYS.replace(0), 0);
         assert_eq!(WIPED_VALUES.replace(0), 0);
+    }
+
+    // }}}
+    // {{{ Bulk removal
+
+    #[test]
+    fn test_retain() {
+        let mut map = CountingMap::new();
+
+        for (i, name) in ["a", "b", "c", "d"].iter().enumerate() {
+            map.insert(key(name), value(i));
+        }
+        map.retain(|_, slot| addr_of(*slot).is_multiple_of(2));
+
+        // The removed entries are released, the keys and the values alike.
+        assert_eq!(WIPED_KEYS.replace(0), 2);
+        assert_eq!(WIPED_VALUES.replace(0), 2);
+        assert_eq!(sorted_entries(map.with_wipe()), [("a", 0), ("c", 2)]);
+    }
+
+    #[test]
+    fn test_drain_hands_the_entries_over() {
+        let mut map = CountingMap::new();
+
+        map.insert(key("a"), value(1));
+        map.insert(key("b"), value(2));
+
+        // The keys are built from string literals, so they live as long as the program.
+        let mut drained: Vec<(&str, usize)> = map
+            .drain()
+            .map(|(key, value)| (unsafe { from_raw_utf8(key).as_str() }, addr_of(value)))
+            .collect();
+
+        drained.sort_unstable();
+        assert_eq!(drained, [("a", 1), ("b", 2)]);
+
+        // The caller takes the yielded entries over, so nothing is released.
+        assert_eq!(WIPED_KEYS.replace(0), 0);
+        assert_eq!(WIPED_VALUES.replace(0), 0);
+        assert!(map.is_empty());
+
+        // The map is still usable after a drain.
+        map.insert(key("z"), value(7));
+        assert_eq!(map.len(), 1);
+    }
+
+    #[test]
+    fn test_drain_releases_the_entries_it_did_not_yield() {
+        let mut map = CountingMap::new();
+
+        map.insert(key("a"), value(1));
+        map.insert(key("b"), value(2));
+
+        {
+            let mut drain = map.drain();
+
+            assert!(drain.next().is_some());
+        }
+
+        // The entry that was not yielded is released, like `clear()` does.
+        assert_eq!(WIPED_KEYS.replace(0), 1);
+        assert_eq!(WIPED_VALUES.replace(0), 1);
+        assert!(map.is_empty());
+    }
+
+    #[test]
+    fn test_extract_if() {
+        let mut map = CountingMap::new();
+
+        for (i, name) in ["a", "b", "c", "d"].iter().enumerate() {
+            map.insert(key(name), value(i));
+        }
+
+        let extracted: Vec<usize> = map
+            .extract_if(|_, slot| addr_of(*slot) % 2 == 1)
+            .map(|(_, value)| addr_of(value))
+            .collect();
+
+        assert_eq!(extracted.len(), 2);
+
+        // The yielded entries are handed over, and the kept entries are not touched.
+        assert_eq!(WIPED_KEYS.replace(0), 0);
+        assert_eq!(WIPED_VALUES.replace(0), 0);
+        assert_eq!(sorted_entries(map.with_wipe()), [("a", 0), ("c", 2)]);
+    }
+
+    #[test]
+    fn test_extract_if_is_lazy() {
+        let mut map = Map::new();
+
+        for (i, name) in ["a", "b", "c", "d"].iter().enumerate() {
+            map.insert(key(name), value(i));
+        }
+
+        // Dropping the iterator early keeps the entries it did not visit.
+        assert!(map.extract_if(|_, _| true).next().is_some());
+
+        assert_eq!(map.len(), 3);
+    }
+
+    // }}}
+    // {{{ Owning iteration
+
+    #[test]
+    fn test_into_keys_releases_the_values() {
+        let mut map = CountingMap::new();
+
+        map.insert(key("a"), value(1));
+        map.insert(key("b"), value(2));
+
+        // The keys are built from string literals, so they live as long as the program.
+        let mut keys: Vec<&str> = map
+            .into_keys()
+            .map(|key| unsafe { from_raw_utf8(key).as_str() })
+            .collect();
+
+        keys.sort_unstable();
+        assert_eq!(keys, ["a", "b"]);
+
+        // The caller takes the keys over; the values are released.
+        assert_eq!(WIPED_KEYS.replace(0), 0);
+        assert_eq!(WIPED_VALUES.replace(0), 2);
+    }
+
+    #[test]
+    fn test_into_values_releases_the_keys() {
+        let mut map = CountingMap::new();
+
+        map.insert(key("a"), value(1));
+        map.insert(key("b"), value(2));
+
+        let mut values: Vec<usize> = map.into_values().map(addr_of).collect();
+
+        values.sort_unstable();
+        assert_eq!(values, [1, 2]);
+
+        // The caller takes the values over; the stored keys are released.
+        assert_eq!(WIPED_KEYS.replace(0), 2);
+        assert_eq!(WIPED_VALUES.replace(0), 0);
+    }
+
+    #[test]
+    fn test_into_iter_hands_the_entries_over() {
+        let mut map = CountingMap::new();
+
+        map.insert(key("a"), value(1));
+        map.insert(key("b"), value(2));
+
+        let mut iter = map.into_iter();
+
+        assert!(iter.next().is_some());
+        drop(iter);
+
+        // The yielded entry is handed over; the map is dropped with the iterator and releases
+        // the other one.
+        assert_eq!(WIPED_KEYS.replace(0), 1);
+        assert_eq!(WIPED_VALUES.replace(0), 1);
     }
 
     // }}}

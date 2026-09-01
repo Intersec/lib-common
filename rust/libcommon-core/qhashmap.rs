@@ -85,6 +85,87 @@ where
         Some(unsafe { &mut *self.values_raw().add(pos as usize) })
     }
 
+    /// Get the stored key that is equal to the given one, and its value.
+    ///
+    /// The two keys can differ, for instance two equal `lstr_t` that point to different buffers.
+    pub fn get_key_value(&self, key: &Q::Key) -> Option<(&Q::Key, &Q::Value)> {
+        let pos = unsafe { Q::find_safe(self.as_ptr(), key) };
+
+        if pos < 0 {
+            return None;
+        }
+
+        let pos = pos as usize;
+
+        Some(unsafe { (&*self.keys_raw().add(pos), &*self.values_raw().add(pos)) })
+    }
+
+    /// Get the values of `N` keys at once, mutably.
+    ///
+    /// The result holds `None` for every key that is absent.
+    ///
+    /// # Panics
+    ///
+    /// Two of the given keys are equal.
+    pub fn get_disjoint_mut<const N: usize>(
+        &mut self,
+        keys: [&Q::Key; N],
+    ) -> [Option<&mut Q::Value>; N] {
+        let mut positions = [-1i32; N];
+
+        // `find` can move the entries of a pending resize, which would invalidate the positions
+        // found so far; `find_safe` moves nothing, and the mutable borrow forbids any other
+        // modification while the references live.
+        for (slot, key) in positions.iter_mut().zip(keys) {
+            *slot = unsafe { Q::find_safe(self.as_ptr(), key) };
+        }
+
+        for (i, pos) in positions.iter().enumerate() {
+            assert!(
+                *pos < 0 || !positions[..i].contains(pos),
+                "the keys must be disjoint"
+            );
+        }
+
+        // The positions are pairwise distinct, so the references never alias.
+        positions.map(|pos| {
+            if pos < 0 {
+                None
+            } else {
+                Some(unsafe { &mut *self.values_raw().add(pos as usize) })
+            }
+        })
+    }
+
+    /// Get the values of `N` keys at once, mutably, without the disjointness check.
+    ///
+    /// The result holds `None` for every key that is absent.
+    ///
+    /// # Safety
+    ///
+    /// The given keys must be pairwise distinct: the values of two equal keys would alias.
+    pub unsafe fn get_disjoint_unchecked_mut<const N: usize>(
+        &mut self,
+        keys: [&Q::Key; N],
+    ) -> [Option<&mut Q::Value>; N] {
+        let mut positions = [-1i32; N];
+
+        // `find` can move the entries of a pending resize, which would invalidate the positions
+        // found so far; `find_safe` moves nothing, and the mutable borrow forbids any other
+        // modification while the references live.
+        for (slot, key) in positions.iter_mut().zip(keys) {
+            *slot = unsafe { Q::find_safe(self.as_ptr(), key) };
+        }
+
+        positions.map(|pos| {
+            if pos < 0 {
+                None
+            } else {
+                Some(unsafe { &mut *self.values_raw().add(pos as usize) })
+            }
+        })
+    }
+
     /// Insert a key and its value.
     ///
     /// Return the previous value of the key: the caller takes over what it owns.
@@ -186,6 +267,94 @@ where
         self.wipe_key_at(pos as u32);
         self.del_at(pos as u32);
         Some(value)
+    }
+
+    /// Remove a key and return the stored key with its value.
+    ///
+    /// Nothing is released: the caller takes over what the stored key and the value own. Use
+    /// [`Self::remove`] to release the key.
+    pub fn remove_entry(&mut self, key: &Q::Key) -> Option<(Q::Key, Q::Value)> {
+        let pos = unsafe { Q::find(self.as_mut_ptr(), key) };
+
+        if pos < 0 {
+            return None;
+        }
+
+        let stored = unsafe { self.keys_raw().add(pos as usize).read() };
+        let value = unsafe { self.values_raw().add(pos as usize).read() };
+
+        self.del_at(pos as u32);
+        Some((stored, value))
+    }
+
+    /// Keep only the entries for which `keep` returns `true`.
+    ///
+    /// What the removed entries own, the key and the value alike, is released.
+    pub fn retain<F>(&mut self, mut keep: F)
+    where
+        F: FnMut(&Q::Key, &mut Q::Value) -> bool,
+    {
+        let mut pos = first_pos(self.as_qhash());
+
+        while pos != SCAN_END {
+            let key = unsafe { &*self.keys_raw().add(pos as usize) };
+            let value = unsafe { &mut *self.values_raw().add(pos as usize) };
+
+            if !keep(key, value) {
+                W::wipe_value(value);
+                self.wipe_key_at(pos);
+                self.del_at(pos);
+            }
+            pos = unsafe { qhash_scan(self.as_qhash(), pos + 1) };
+        }
+    }
+
+    /// Remove every entry and yield its key and value, keeping the allocated memory.
+    ///
+    /// The caller takes over what every yielded entry owns. When the iterator is dropped before
+    /// its end, the entries it did not yield are released, like [`Self::clear`] does.
+    pub fn drain(&mut self) -> Drain<'_, 'a, Q, W> {
+        let pos = first_pos(self.as_qhash());
+
+        Drain { map: self, pos }
+    }
+
+    /// Remove and yield the entries for which `pred` returns `true`.
+    ///
+    /// The caller takes over what every yielded entry owns. The iterator is lazy: it removes an
+    /// entry when it yields it, so the entries it did not visit stay in the map when it is
+    /// dropped.
+    pub fn extract_if<F>(&mut self, pred: F) -> ExtractIf<'_, 'a, Q, W, F>
+    where
+        F: FnMut(&Q::Key, &mut Q::Value) -> bool,
+    {
+        let pos = first_pos(self.as_qhash());
+
+        ExtractIf {
+            map: self,
+            pos,
+            pred,
+        }
+    }
+
+    /// Convert the map into an owning iterator over its keys.
+    ///
+    /// The caller takes over what every yielded key owns, and what the matching value owns is
+    /// released.
+    pub fn into_keys(self) -> IntoKeys<'a, Q, W> {
+        let pos = first_pos(self.as_qhash());
+
+        IntoKeys { map: self, pos }
+    }
+
+    /// Convert the map into an owning iterator over its values.
+    ///
+    /// The caller takes over what every yielded value owns, and what the matching stored key owns
+    /// is released.
+    pub fn into_values(self) -> IntoValues<'a, Q, W> {
+        let pos = first_pos(self.as_qhash());
+
+        IntoValues { map: self, pos }
     }
 
     /// Iterate over the entries of the map, in an unspecified order.
@@ -607,6 +776,223 @@ impl<'t, Q: QMapType> Iterator for ValuesMut<'t, Q> {
 
     fn next(&mut self) -> Option<&'t mut Q::Value> {
         self.iter.next().map(|(_, value)| value)
+    }
+}
+
+/// Draining iterator over the entries of a map.
+///
+/// It is created by [`QMap::drain`].
+pub struct Drain<'d, 'a, Q, W>
+where
+    Q: QMapType,
+    W: QEntryWipe<Q>,
+{
+    map: &'d mut QMap<'a, Q, W>,
+    pos: u32,
+}
+
+impl<Q, W> Iterator for Drain<'_, '_, Q, W>
+where
+    Q: QMapType,
+    W: QEntryWipe<Q>,
+{
+    type Item = (Q::Key, Q::Value);
+
+    fn next(&mut self) -> Option<(Q::Key, Q::Value)> {
+        if self.pos == SCAN_END {
+            return None;
+        }
+
+        let pos = self.pos;
+        let key = unsafe { self.map.keys_raw().add(pos as usize).read() };
+        let value = unsafe { self.map.values_raw().add(pos as usize).read() };
+
+        self.map.del_at(pos);
+        self.pos = unsafe { qhash_scan(self.map.as_qhash(), pos + 1) };
+        Some((key, value))
+    }
+}
+
+impl<Q, W> Drop for Drain<'_, '_, Q, W>
+where
+    Q: QMapType,
+    W: QEntryWipe<Q>,
+{
+    fn drop(&mut self) {
+        // The entries that were not yielded are released, and the memory is kept.
+        let mut pos = self.pos;
+
+        while pos != SCAN_END {
+            W::wipe_value(unsafe { &mut *self.map.values_raw().add(pos as usize) });
+            self.map.wipe_key_at(pos);
+            pos = unsafe { qhash_scan(self.map.as_qhash(), pos + 1) };
+        }
+        unsafe {
+            qhash_clear(self.map.as_qhash_mut());
+        }
+    }
+}
+
+/// Extracting iterator over the entries of a map.
+///
+/// It is created by [`QMap::extract_if`].
+pub struct ExtractIf<'d, 'a, Q, W, F>
+where
+    Q: QMapType,
+    W: QEntryWipe<Q>,
+    F: FnMut(&Q::Key, &mut Q::Value) -> bool,
+{
+    map: &'d mut QMap<'a, Q, W>,
+    pos: u32,
+    pred: F,
+}
+
+impl<Q, W, F> Iterator for ExtractIf<'_, '_, Q, W, F>
+where
+    Q: QMapType,
+    W: QEntryWipe<Q>,
+    F: FnMut(&Q::Key, &mut Q::Value) -> bool,
+{
+    type Item = (Q::Key, Q::Value);
+
+    fn next(&mut self) -> Option<(Q::Key, Q::Value)> {
+        while self.pos != SCAN_END {
+            let pos = self.pos;
+            let key = unsafe { &*self.map.keys_raw().add(pos as usize) };
+            let value = unsafe { &mut *self.map.values_raw().add(pos as usize) };
+            let extract = (self.pred)(key, value);
+
+            self.pos = unsafe { qhash_scan(self.map.as_qhash(), pos + 1) };
+            if extract {
+                let key = unsafe { self.map.keys_raw().add(pos as usize).read() };
+                let value = unsafe { self.map.values_raw().add(pos as usize).read() };
+
+                self.map.del_at(pos);
+                return Some((key, value));
+            }
+        }
+        None
+    }
+}
+
+/// Owning iterator over the keys of a map.
+///
+/// It is created by [`QMap::into_keys`]. The caller takes over what every yielded key owns, and
+/// what the values own is released. The entries that are not yielded are released with the map.
+pub struct IntoKeys<'a, Q, W>
+where
+    Q: QMapType,
+    W: QEntryWipe<Q>,
+{
+    map: QMap<'a, Q, W>,
+    pos: u32,
+}
+
+impl<Q, W> Iterator for IntoKeys<'_, Q, W>
+where
+    Q: QMapType,
+    W: QEntryWipe<Q>,
+{
+    type Item = Q::Key;
+
+    fn next(&mut self) -> Option<Q::Key> {
+        if self.pos == SCAN_END {
+            return None;
+        }
+
+        let pos = self.pos;
+        let key = unsafe { self.map.keys_raw().add(pos as usize).read() };
+
+        W::wipe_value(unsafe { &mut *self.map.values_raw().add(pos as usize) });
+        self.map.del_at(pos);
+        self.pos = unsafe { qhash_scan(self.map.as_qhash(), pos + 1) };
+        Some(key)
+    }
+}
+
+/// Owning iterator over the values of a map.
+///
+/// It is created by [`QMap::into_values`]. The caller takes over what every yielded value owns,
+/// and what the stored keys own is released. The entries that are not yielded are released with
+/// the map.
+pub struct IntoValues<'a, Q, W>
+where
+    Q: QMapType,
+    W: QEntryWipe<Q>,
+{
+    map: QMap<'a, Q, W>,
+    pos: u32,
+}
+
+impl<Q, W> Iterator for IntoValues<'_, Q, W>
+where
+    Q: QMapType,
+    W: QEntryWipe<Q>,
+{
+    type Item = Q::Value;
+
+    fn next(&mut self) -> Option<Q::Value> {
+        if self.pos == SCAN_END {
+            return None;
+        }
+
+        let pos = self.pos;
+        let value = unsafe { self.map.values_raw().add(pos as usize).read() };
+
+        self.map.wipe_key_at(pos);
+        self.map.del_at(pos);
+        self.pos = unsafe { qhash_scan(self.map.as_qhash(), pos + 1) };
+        Some(value)
+    }
+}
+
+/// Owning iterator over the entries of a map.
+///
+/// It is created by the `IntoIterator` implementation of [`QMap`]. The caller takes over what
+/// every yielded key and value own. The entries that are not yielded are released with the map.
+pub struct IntoIter<'a, Q, W>
+where
+    Q: QMapType,
+    W: QEntryWipe<Q>,
+{
+    map: QMap<'a, Q, W>,
+    pos: u32,
+}
+
+impl<Q, W> Iterator for IntoIter<'_, Q, W>
+where
+    Q: QMapType,
+    W: QEntryWipe<Q>,
+{
+    type Item = (Q::Key, Q::Value);
+
+    fn next(&mut self) -> Option<(Q::Key, Q::Value)> {
+        if self.pos == SCAN_END {
+            return None;
+        }
+
+        let pos = self.pos;
+        let key = unsafe { self.map.keys_raw().add(pos as usize).read() };
+        let value = unsafe { self.map.values_raw().add(pos as usize).read() };
+
+        self.map.del_at(pos);
+        self.pos = unsafe { qhash_scan(self.map.as_qhash(), pos + 1) };
+        Some((key, value))
+    }
+}
+
+impl<'a, Q, W> IntoIterator for QMap<'a, Q, W>
+where
+    Q: QMapType,
+    W: QEntryWipe<Q>,
+{
+    type Item = (Q::Key, Q::Value);
+    type IntoIter = IntoIter<'a, Q, W>;
+
+    fn into_iter(self) -> IntoIter<'a, Q, W> {
+        let pos = first_pos(self.as_qhash());
+
+        IntoIter { map: self, pos }
     }
 }
 
