@@ -60,6 +60,11 @@ where
     Q: QMapType,
     W: QEntryWipe<Q>,
 {
+    /// Check whether the map holds a key.
+    pub fn contains_key(&self, key: &Q::Key) -> bool {
+        unsafe { Q::find_safe(self.as_ptr(), key) >= 0 }
+    }
+
     /// Get the value of a key.
     pub fn get(&self, key: &Q::Key) -> Option<&Q::Value> {
         let pos = unsafe { Q::find_safe(self.as_ptr(), key) };

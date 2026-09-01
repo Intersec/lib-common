@@ -23,6 +23,7 @@
 //! [`qhash`](crate::qhash) module documentation describes them.
 
 use std::fmt;
+use std::iter::Chain;
 use std::marker::PhantomData;
 use std::mem::{ManuallyDrop, MaybeUninit};
 use std::ptr;
@@ -52,11 +53,62 @@ qhash_common_impl!(QHash, QHashType<Value = ()>);
 // }}}
 // {{{ Set operations
 
-impl<Q, W> QHash<'_, Q, W>
+impl<'a, Q, W> QHash<'a, Q, W>
 where
     Q: QHashType<Value = ()>,
     W: QEntryWipe<Q>,
 {
+    /// Check whether the set holds a key.
+    pub fn contains(&self, key: &Q::Key) -> bool {
+        unsafe { Q::find_safe(self.as_ptr(), key) >= 0 }
+    }
+
+    /// Get the stored key that is equal to the given one.
+    ///
+    /// The two keys can differ, for instance two equal `lstr_t` that point to different buffers.
+    pub fn get(&self, key: &Q::Key) -> Option<&Q::Key> {
+        let pos = unsafe { Q::find_safe(self.as_ptr(), key) };
+
+        if pos < 0 {
+            return None;
+        }
+        Some(unsafe { &*self.keys_raw().add(pos as usize) })
+    }
+
+    /// Add a key to the set unless it is already there, and get the stored key.
+    ///
+    /// When the key is already there, the set keeps the stored key and releases the given one,
+    /// like [`Self::insert`] does.
+    pub fn get_or_insert(&mut self, mut key: Q::Key) -> &Q::Key {
+        let pos = unsafe { Q::reserve(self.as_mut_ptr(), &key, 0) };
+
+        if pos & QHASH_COLLISION != 0 {
+            W::wipe_key(&mut key);
+        }
+        unsafe { &*self.keys_raw().add((pos & !QHASH_COLLISION) as usize) }
+    }
+
+    /// Add the key that `make` builds unless `key` is already there, and get the stored key.
+    ///
+    /// `make` builds the key to store from `key`, for instance with a deep copy of a borrowed
+    /// buffer. The built key must be equal to `key`. When the key is already there, `make` is not
+    /// called.
+    pub fn get_or_insert_with<F>(&mut self, key: &Q::Key, make: F) -> &Q::Key
+    where
+        F: FnOnce(&Q::Key) -> Q::Key,
+    {
+        let pos = unsafe { Q::find(self.as_mut_ptr(), key) };
+
+        if pos >= 0 {
+            return unsafe { &*self.keys_raw().add(pos as usize) };
+        }
+
+        let owned = make(key);
+        let pos = unsafe { Q::reserve(self.as_mut_ptr(), &owned, 0) };
+
+        unsafe { &*self.keys_raw().add((pos & !QHASH_COLLISION) as usize) }
+    }
+
     /// Add a key to the set.
     ///
     /// Return whether the key was added. When the key is already there, the set keeps the stored
@@ -138,6 +190,129 @@ where
         self.keys()
     }
 
+    /// Keep only the keys for which `keep` returns `true`.
+    ///
+    /// What the removed keys own is released.
+    pub fn retain<F>(&mut self, mut keep: F)
+    where
+        F: FnMut(&Q::Key) -> bool,
+    {
+        let mut pos = first_pos(self.as_qhash());
+
+        while pos != SCAN_END {
+            if !keep(unsafe { &*self.keys_raw().add(pos as usize) }) {
+                self.wipe_key_at(pos);
+                self.del_at(pos);
+            }
+            pos = unsafe { qhash_scan(self.as_qhash(), pos + 1) };
+        }
+    }
+
+    /// Remove every key and yield it, keeping the allocated memory.
+    ///
+    /// The caller takes over what every yielded key owns. When the iterator is dropped before its
+    /// end, the keys it did not yield are released, like [`Self::clear`] does.
+    pub fn drain(&mut self) -> Drain<'_, 'a, Q, W> {
+        let pos = first_pos(self.as_qhash());
+
+        Drain { set: self, pos }
+    }
+
+    /// Remove and yield the keys for which `pred` returns `true`.
+    ///
+    /// The caller takes over what every yielded key owns. The iterator is lazy: it removes a key
+    /// when it yields it, so the keys it did not visit stay in the set when it is dropped.
+    pub fn extract_if<F>(&mut self, pred: F) -> ExtractIf<'_, 'a, Q, W, F>
+    where
+        F: FnMut(&Q::Key) -> bool,
+    {
+        let pos = first_pos(self.as_qhash());
+
+        ExtractIf {
+            set: self,
+            pos,
+            pred,
+        }
+    }
+
+    /// Iterate over the keys of the set that are not in `other`, in an unspecified order.
+    ///
+    /// The destructor of `other` can differ: only its keys are read.
+    pub fn difference<'t, W2>(&'t self, other: &'t QHash<'_, Q, W2>) -> Difference<'t, Q>
+    where
+        W2: QEntryWipe<Q>,
+    {
+        Difference {
+            keys: self.keys(),
+            other: &other.qh,
+        }
+    }
+
+    /// Iterate over the keys that are both in the set and in `other`, in an unspecified order.
+    pub fn intersection<'t, W2>(&'t self, other: &'t QHash<'_, Q, W2>) -> Intersection<'t, Q>
+    where
+        W2: QEntryWipe<Q>,
+    {
+        Intersection {
+            keys: self.keys(),
+            other: &other.qh,
+        }
+    }
+
+    /// Iterate over the keys of the set and of `other`, in an unspecified order.
+    ///
+    /// A key that is in both sets is yielded once, from the set.
+    pub fn union<'t, W2>(&'t self, other: &'t QHash<'_, Q, W2>) -> Union<'t, Q>
+    where
+        W2: QEntryWipe<Q>,
+    {
+        Union {
+            iter: self.keys().chain(other.difference(self)),
+        }
+    }
+
+    /// Iterate over the keys that are in exactly one of the set and `other`, in an unspecified
+    /// order.
+    pub fn symmetric_difference<'t, W2>(
+        &'t self,
+        other: &'t QHash<'_, Q, W2>,
+    ) -> SymmetricDifference<'t, Q>
+    where
+        W2: QEntryWipe<Q>,
+    {
+        SymmetricDifference {
+            iter: self.difference(other).chain(other.difference(self)),
+        }
+    }
+
+    /// Check whether the set and `other` have no key in common.
+    pub fn is_disjoint<W2>(&self, other: &QHash<'_, Q, W2>) -> bool
+    where
+        W2: QEntryWipe<Q>,
+    {
+        if self.len() <= other.len() {
+            self.intersection(other).next().is_none()
+        } else {
+            other.intersection(self).next().is_none()
+        }
+    }
+
+    /// Check whether every key of the set is in `other`.
+    pub fn is_subset<W2>(&self, other: &QHash<'_, Q, W2>) -> bool
+    where
+        W2: QEntryWipe<Q>,
+    {
+        self.len() <= other.len() && self.difference(other).next().is_none()
+    }
+
+    /// Check whether every key of `other` is in the set.
+    pub fn is_superset<W2>(&self, other: &QHash<'_, Q, W2>) -> bool
+    where
+        W2: QEntryWipe<Q>,
+    {
+        other.is_subset(self)
+    }
+
     /// Release what every entry owns.
     ///
     /// A set has no value, so only the keys are released.
@@ -180,6 +355,224 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_set().entries(self.keys()).finish()
+    }
+}
+
+// }}}
+// {{{ Set iterators
+
+/// Draining iterator over the keys of a set.
+///
+/// It is created by [`QHash::drain`].
+pub struct Drain<'d, 'a, Q, W>
+where
+    Q: QHashType<Value = ()>,
+    W: QEntryWipe<Q>,
+{
+    set: &'d mut QHash<'a, Q, W>,
+    pos: u32,
+}
+
+impl<Q, W> Iterator for Drain<'_, '_, Q, W>
+where
+    Q: QHashType<Value = ()>,
+    W: QEntryWipe<Q>,
+{
+    type Item = Q::Key;
+
+    fn next(&mut self) -> Option<Q::Key> {
+        if self.pos == SCAN_END {
+            return None;
+        }
+
+        let pos = self.pos;
+        let key = unsafe { self.set.keys_raw().add(pos as usize).read() };
+
+        self.set.del_at(pos);
+        self.pos = unsafe { qhash_scan(self.set.as_qhash(), pos + 1) };
+        Some(key)
+    }
+}
+
+impl<Q, W> Drop for Drain<'_, '_, Q, W>
+where
+    Q: QHashType<Value = ()>,
+    W: QEntryWipe<Q>,
+{
+    fn drop(&mut self) {
+        // The keys that were not yielded are released, and the memory is kept.
+        let mut pos = self.pos;
+
+        while pos != SCAN_END {
+            self.set.wipe_key_at(pos);
+            pos = unsafe { qhash_scan(self.set.as_qhash(), pos + 1) };
+        }
+        unsafe {
+            qhash_clear(self.set.as_qhash_mut());
+        }
+    }
+}
+
+/// Extracting iterator over the keys of a set.
+///
+/// It is created by [`QHash::extract_if`].
+pub struct ExtractIf<'d, 'a, Q, W, F>
+where
+    Q: QHashType<Value = ()>,
+    W: QEntryWipe<Q>,
+    F: FnMut(&Q::Key) -> bool,
+{
+    set: &'d mut QHash<'a, Q, W>,
+    pos: u32,
+    pred: F,
+}
+
+impl<Q, W, F> Iterator for ExtractIf<'_, '_, Q, W, F>
+where
+    Q: QHashType<Value = ()>,
+    W: QEntryWipe<Q>,
+    F: FnMut(&Q::Key) -> bool,
+{
+    type Item = Q::Key;
+
+    fn next(&mut self) -> Option<Q::Key> {
+        while self.pos != SCAN_END {
+            let pos = self.pos;
+            let stored = unsafe { &*self.set.keys_raw().add(pos as usize) };
+            let extract = (self.pred)(stored);
+
+            self.pos = unsafe { qhash_scan(self.set.as_qhash(), pos + 1) };
+            if extract {
+                let key = unsafe { self.set.keys_raw().add(pos as usize).read() };
+
+                self.set.del_at(pos);
+                return Some(key);
+            }
+        }
+        None
+    }
+}
+
+/// Iterator over the keys of a set that are not in another one.
+///
+/// It is created by [`QHash::difference`].
+pub struct Difference<'t, Q: QHashType<Value = ()>> {
+    keys: Keys<'t, Q>,
+
+    // The C table of the other set: the destructor type of the set is not needed to read it.
+    other: &'t Q,
+}
+
+impl<'t, Q: QHashType<Value = ()>> Iterator for Difference<'t, Q> {
+    type Item = &'t Q::Key;
+
+    fn next(&mut self) -> Option<&'t Q::Key> {
+        let other = self.other;
+
+        self.keys
+            .by_ref()
+            .find(|&key| unsafe { Q::find_safe(other, key) } < 0)
+    }
+}
+
+/// Iterator over the keys of a set that are also in another one.
+///
+/// It is created by [`QHash::intersection`].
+pub struct Intersection<'t, Q: QHashType<Value = ()>> {
+    keys: Keys<'t, Q>,
+
+    // The C table of the other set: the destructor type of the set is not needed to read it.
+    other: &'t Q,
+}
+
+impl<'t, Q: QHashType<Value = ()>> Iterator for Intersection<'t, Q> {
+    type Item = &'t Q::Key;
+
+    fn next(&mut self) -> Option<&'t Q::Key> {
+        let other = self.other;
+
+        self.keys
+            .by_ref()
+            .find(|&key| unsafe { Q::find_safe(other, key) } >= 0)
+    }
+}
+
+/// Iterator over the keys of two sets.
+///
+/// It is created by [`QHash::union`].
+pub struct Union<'t, Q: QHashType<Value = ()>> {
+    iter: Chain<Keys<'t, Q>, Difference<'t, Q>>,
+}
+
+impl<'t, Q: QHashType<Value = ()>> Iterator for Union<'t, Q> {
+    type Item = &'t Q::Key;
+
+    fn next(&mut self) -> Option<&'t Q::Key> {
+        self.iter.next()
+    }
+}
+
+/// Iterator over the keys that are in exactly one of two sets.
+///
+/// It is created by [`QHash::symmetric_difference`].
+pub struct SymmetricDifference<'t, Q: QHashType<Value = ()>> {
+    iter: Chain<Difference<'t, Q>, Difference<'t, Q>>,
+}
+
+impl<'t, Q: QHashType<Value = ()>> Iterator for SymmetricDifference<'t, Q> {
+    type Item = &'t Q::Key;
+
+    fn next(&mut self) -> Option<&'t Q::Key> {
+        self.iter.next()
+    }
+}
+
+/// Owning iterator over the keys of a set.
+///
+/// It is created by the `IntoIterator` implementation of [`QHash`]. The caller takes over what
+/// every yielded key owns; the keys that are not yielded are released with the set.
+pub struct IntoIter<'a, Q, W>
+where
+    Q: QHashType<Value = ()>,
+    W: QEntryWipe<Q>,
+{
+    set: QHash<'a, Q, W>,
+    pos: u32,
+}
+
+impl<Q, W> Iterator for IntoIter<'_, Q, W>
+where
+    Q: QHashType<Value = ()>,
+    W: QEntryWipe<Q>,
+{
+    type Item = Q::Key;
+
+    fn next(&mut self) -> Option<Q::Key> {
+        if self.pos == SCAN_END {
+            return None;
+        }
+
+        let pos = self.pos;
+        let key = unsafe { self.set.keys_raw().add(pos as usize).read() };
+
+        self.set.del_at(pos);
+        self.pos = unsafe { qhash_scan(self.set.as_qhash(), pos + 1) };
+        Some(key)
+    }
+}
+
+impl<'a, Q, W> IntoIterator for QHash<'a, Q, W>
+where
+    Q: QHashType<Value = ()>,
+    W: QEntryWipe<Q>,
+{
+    type Item = Q::Key;
+    type IntoIter = IntoIter<'a, Q, W>;
+
+    fn into_iter(self) -> IntoIter<'a, Q, W> {
+        let pos = first_pos(self.as_qhash());
+
+        IntoIter { set: self, pos }
     }
 }
 
@@ -232,7 +625,7 @@ mod tests {
 
         assert!(set.is_empty());
         assert_eq!(set.len(), 0);
-        assert!(!set.contains_key(&1));
+        assert!(!set.contains(&1));
         assert_eq!(set.keys().count(), 0);
     }
 
@@ -254,9 +647,9 @@ mod tests {
         assert!(!set.insert(1));
 
         assert_eq!(set.len(), 2);
-        assert!(set.contains_key(&1));
-        assert!(set.contains_key(&2));
-        assert!(!set.contains_key(&3));
+        assert!(set.contains(&1));
+        assert!(set.contains(&2));
+        assert!(!set.contains(&3));
     }
 
     #[test]
@@ -278,8 +671,8 @@ mod tests {
         assert!(set.remove(&1));
         assert!(!set.remove(&1));
         assert_eq!(set.len(), 1);
-        assert!(!set.contains_key(&1));
-        assert!(set.contains_key(&2));
+        assert!(!set.contains(&1));
+        assert!(set.contains(&2));
     }
 
     #[test]
@@ -314,7 +707,7 @@ mod tests {
         set.clear();
 
         assert!(set.is_empty());
-        assert!(!set.contains_key(&0));
+        assert!(!set.contains(&0));
 
         // The set is still usable after a clear.
         set.insert(42);
@@ -348,9 +741,9 @@ mod tests {
 
         assert_eq!(set.len(), 10_000);
         for i in 0..10_000 {
-            assert!(set.contains_key(&i));
+            assert!(set.contains(&i));
         }
-        assert!(!set.contains_key(&10_000));
+        assert!(!set.contains(&10_000));
     }
 
     #[test]
@@ -362,7 +755,7 @@ mod tests {
         assert_eq!(set.len(), 1);
 
         set.reserve(4096);
-        assert!(set.contains_key(&1));
+        assert!(set.contains(&1));
     }
 
     #[test]
@@ -398,8 +791,8 @@ mod tests {
         assert!(!set.insert(key("one")));
 
         assert_eq!(set.len(), 2);
-        assert!(set.contains_key(&key("two")));
-        assert!(!set.contains_key(&key("three")));
+        assert!(set.contains(&key("two")));
+        assert!(!set.contains(&key("three")));
         assert_eq!(sorted_str_keys(&set), ["one", "two"]);
 
         assert!(set.remove(&key("one")));
@@ -425,6 +818,43 @@ mod tests {
         assert_eq!(sorted_str_keys(&set), ["even", "odd"]);
     }
 
+    #[test]
+    fn test_get_returns_the_stored_key() {
+        let mut set = QHash::<qh_lstr_t>::new();
+        let stored = key("one");
+
+        set.insert(stored);
+
+        // The key given here is a different `lstr_t` with the same content; `get()` gives the
+        // stored one.
+        let Some(found) = set.get(&key("one")) else {
+            panic!("the key must be there");
+        };
+
+        let found = unsafe { from_raw_utf8(*found).as_str() };
+        let stored = unsafe { from_raw_utf8(stored).as_str() };
+
+        assert!(ptr::eq(found.as_ptr(), stored.as_ptr()));
+        assert!(set.get(&key("two")).is_none());
+    }
+
+    #[test]
+    fn test_get_or_insert_with() {
+        let mut set = QHash::<qh_lstr_t>::new();
+        let built = key("one");
+
+        // The key is absent: the key that the closure builds is stored.
+        let inserted = *set.get_or_insert_with(&key("one"), |_| built);
+        let inserted = unsafe { from_raw_utf8(inserted).as_str() };
+        let built = unsafe { from_raw_utf8(built).as_str() };
+
+        assert!(ptr::eq(inserted.as_ptr(), built.as_ptr()));
+
+        // The key is there: the closure is not called.
+        set.get_or_insert_with(&key("one"), |_| panic!("the closure must not be called"));
+        assert_eq!(set.len(), 1);
+    }
+
     // }}}
     // {{{ Allocators
 
@@ -438,7 +868,7 @@ mod tests {
         }
 
         assert_eq!(set.len(), 1_000);
-        assert!(set.contains_key(&999));
+        assert!(set.contains(&999));
     }
 
     #[test]
@@ -465,7 +895,7 @@ mod tests {
 
         // A sealed table can still be read.
         assert_eq!(set.len(), 100);
-        assert!(set.contains_key(&50));
+        assert!(set.contains(&50));
 
         set.unseal();
 
@@ -626,6 +1056,214 @@ mod tests {
         set.clear();
 
         assert_eq!(take_wiped(), 0);
+    }
+
+    #[test]
+    fn test_get_or_insert_releases_the_refused_key() {
+        let mut set = CountingSet::new();
+
+        assert_eq!(*set.get_or_insert(1), 1);
+        assert_eq!(take_wiped(), 0);
+
+        // The set keeps the stored key and releases the given one, like `insert` does.
+        assert_eq!(*set.get_or_insert(1), 1);
+        assert_eq!(take_wiped(), 1);
+        assert_eq!(set.len(), 1);
+    }
+
+    // }}}
+    // {{{ Bulk removal
+
+    #[test]
+    fn test_retain() {
+        let mut set = CountingSet::new();
+
+        for i in 0..10 {
+            set.insert(i);
+        }
+        set.retain(|key| key % 2 == 0);
+
+        // The removed keys are released, the kept keys are not touched.
+        assert_eq!(take_wiped(), 5);
+        assert_eq!(sorted_keys(set.with_wipe()), [0, 2, 4, 6, 8]);
+    }
+
+    #[test]
+    fn test_drain_hands_the_keys_over() {
+        let mut set = CountingSet::new();
+
+        for i in 0..4 {
+            set.insert(i);
+        }
+
+        // The caller takes the yielded keys over, so nothing is released.
+        let mut drained: Vec<u32> = set.drain().collect();
+
+        drained.sort_unstable();
+        assert_eq!(drained, [0, 1, 2, 3]);
+        assert_eq!(take_wiped(), 0);
+        assert!(set.is_empty());
+
+        // The set is still usable after a drain.
+        set.insert(42);
+        assert_eq!(set.len(), 1);
+    }
+
+    #[test]
+    fn test_drain_releases_the_keys_it_did_not_yield() {
+        let mut set = CountingSet::new();
+
+        for i in 0..4 {
+            set.insert(i);
+        }
+
+        {
+            let mut drain = set.drain();
+
+            assert!(drain.next().is_some());
+            assert!(drain.next().is_some());
+        }
+
+        // The two keys that were not yielded are released, like `clear()` does.
+        assert_eq!(take_wiped(), 2);
+        assert!(set.is_empty());
+    }
+
+    #[test]
+    fn test_extract_if() {
+        let mut set = CountingSet::new();
+
+        for i in 0..10 {
+            set.insert(i);
+        }
+
+        let mut extracted: Vec<u32> = set.extract_if(|key| key % 2 == 0).collect();
+
+        extracted.sort_unstable();
+        assert_eq!(extracted, [0, 2, 4, 6, 8]);
+
+        // The yielded keys are handed over, and the kept keys are not touched.
+        assert_eq!(take_wiped(), 0);
+        assert_eq!(sorted_keys(set.with_wipe()), [1, 3, 5, 7, 9]);
+    }
+
+    #[test]
+    fn test_extract_if_is_lazy() {
+        let mut set = QHash::<qh_u32_t>::new();
+
+        for i in 0..10 {
+            set.insert(i);
+        }
+
+        // Dropping the iterator early keeps the keys it did not visit.
+        assert!(set.extract_if(|key| key % 2 == 0).next().is_some());
+
+        assert_eq!(set.len(), 9);
+    }
+
+    // }}}
+    // {{{ Set algebra
+
+    #[test]
+    fn test_set_algebra() {
+        let mut a = QHash::<qh_u32_t>::new();
+        let mut b = QHash::<qh_u32_t>::new();
+
+        for i in [1, 2, 3] {
+            a.insert(i);
+        }
+        for i in [2, 3, 4] {
+            b.insert(i);
+        }
+
+        let mut difference: Vec<u32> = a.difference(&b).copied().collect();
+        let mut intersection: Vec<u32> = a.intersection(&b).copied().collect();
+        let mut union: Vec<u32> = a.union(&b).copied().collect();
+        let mut symmetric: Vec<u32> = a.symmetric_difference(&b).copied().collect();
+
+        difference.sort_unstable();
+        intersection.sort_unstable();
+        union.sort_unstable();
+        symmetric.sort_unstable();
+
+        assert_eq!(difference, [1]);
+        assert_eq!(intersection, [2, 3]);
+        assert_eq!(union, [1, 2, 3, 4]);
+        assert_eq!(symmetric, [1, 4]);
+    }
+
+    #[test]
+    fn test_set_predicates() {
+        let mut small = QHash::<qh_u32_t>::new();
+        let mut big = QHash::<qh_u32_t>::new();
+        let mut apart = QHash::<qh_u32_t>::new();
+
+        for i in [1, 2] {
+            small.insert(i);
+        }
+        for i in [1, 2, 3] {
+            big.insert(i);
+        }
+        apart.insert(9);
+
+        assert!(small.is_subset(&big));
+        assert!(!big.is_subset(&small));
+        assert!(big.is_superset(&small));
+        assert!(small.is_disjoint(&apart));
+        assert!(!small.is_disjoint(&big));
+    }
+
+    #[test]
+    fn test_set_algebra_ignores_the_destructor() {
+        let mut counting = CountingSet::new();
+        let mut plain = QHash::<qh_u32_t>::new();
+
+        counting.insert(1);
+        counting.insert(2);
+        plain.insert(2);
+
+        // The two sets name different destructors, and the comparison reads the keys only.
+        assert_eq!(
+            counting.difference(&plain).copied().collect::<Vec<u32>>(),
+            [1]
+        );
+        assert!(!counting.is_disjoint(&plain));
+        assert_eq!(take_wiped(), 0);
+    }
+
+    // }}}
+    // {{{ Owning iteration
+
+    #[test]
+    fn test_into_iter_hands_the_keys_over() {
+        let mut set = CountingSet::new();
+
+        for i in 0..3 {
+            set.insert(i);
+        }
+
+        let mut keys: Vec<u32> = set.into_iter().collect();
+
+        keys.sort_unstable();
+        assert_eq!(keys, [0, 1, 2]);
+        assert_eq!(take_wiped(), 0);
+    }
+
+    #[test]
+    fn test_into_iter_releases_the_keys_it_did_not_yield() {
+        let mut set = CountingSet::new();
+
+        for i in 0..3 {
+            set.insert(i);
+        }
+
+        let mut iter = set.into_iter();
+
+        assert!(iter.next().is_some());
+        drop(iter);
+
+        // The set is dropped with the iterator, so it releases the two remaining keys.
+        assert_eq!(take_wiped(), 2);
     }
 
     // }}}

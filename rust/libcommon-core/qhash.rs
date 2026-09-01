@@ -299,11 +299,6 @@ macro_rules! qhash_common_impl {
                 unsafe { Q::hash(self.as_ptr(), key) }
             }
 
-            /// Check whether the table holds a key.
-            pub fn contains_key(&self, key: &Q::Key) -> bool {
-                unsafe { Q::find_safe(self.as_ptr(), key) >= 0 }
-            }
-
             // }}}
             // {{{ Capacity and lifecycle
 
