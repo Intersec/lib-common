@@ -52,7 +52,7 @@ IfMacros:
   - SO_OBJ_EXT_VTABLE
   - SO_OBJ_EXT_VTABLE_WITH_PRIO
 
-# Parse `Z_TEST(...) { ... } Z_TEST_END;` and the Z_GROUP_EXPORT/Z_GROUP_END
+# Parse `Z_TEST(...) { ... } Z_TEST_END;` and the Z_GROUP[_EXPORT]/Z_GROUP_END
 # pair as do/while statements so the opening brace stays attached to the
 # header and `} Z_TEST_END;` / `} Z_GROUP_END;` stay on one line (like
 # `} while (0);`).
@@ -60,6 +60,7 @@ Macros:
   - Z_TEST(name)=do
   - Z_TEST(name, desc)=do
   - Z_TEST_END=while (0)
+  - Z_GROUP(name)=do
   - Z_GROUP_EXPORT(name)=do
   - Z_GROUP_END=while (0)
 
