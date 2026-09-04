@@ -824,6 +824,7 @@ static void core_mem_ring_print_state(void)
     size_t total_alloc_sz = 0;
     uint64_t total_alloc_nb = 0;
     int nb_ring_pool = 0;
+    int nb_busy = 0;
 
     qv_init_static(&hdr, hdr_data, hdr_size);
     t_qv_init(&rows, 200);
@@ -839,9 +840,18 @@ static void core_mem_ring_print_state(void)
     spin_lock(&_G.all_pools_lock);
 
     dlist_for_each_entry(ring_pool_t, rp, &_G.all_pools, mp.pool_link) {
-        qv_t(lstr) *tab = qv_growlen(&rows, 1);
+        qv_t(lstr) *tab;
 
-        spin_lock(&rp->lock);
+        /* XXX: never wait for the lock of a pool here. mem_ring_delete()
+         * takes it before the lock of the pool list, which we are already
+         * holding, so waiting would deadlock the daemon. A busy pool is left
+         * out of the table. */
+        if (!spin_trylock(&rp->lock)) {
+            nb_busy++;
+            continue;
+        }
+
+        tab = qv_growlen(&rows, 1);
         t_qv_init(tab, hdr_size);
         qv_append(tab, t_lstr_fmt("%s", rp->mp.name));
         qv_append(tab, t_lstr_fmt("%p", rp));
@@ -862,6 +872,13 @@ static void core_mem_ring_print_state(void)
     }
 
     spin_unlock(&_G.all_pools_lock);
+
+    if (nb_busy) {
+        logger_notice(
+            &_G.logger, "%'d ring pool(s) were busy, they are not listed",
+            nb_busy
+        );
+    }
 
     if (nb_ring_pool) {
         SB_1k(buf);
