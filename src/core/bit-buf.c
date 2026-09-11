@@ -56,6 +56,39 @@ void bb_reset(bb_t *bb)
     }
 }
 
+/** Give a string-buffer the buffer a bit-buffer can take over.
+ *
+ * A bit-buffer frees the buffer it owns, and reads and writes it as 64 bits
+ * words. It therefore needs the start of the allocation, aligned on 8 bytes.
+ * A string-buffer promises neither: sb_skip() moves data forward inside the
+ * allocation, and sb_init_full() accepts a buffer aligned on a char.
+ */
+static void bb_realign_sb(sb_t *sb)
+{
+    int size;
+
+    if (sb->skip) {
+        memmove(sb->data - sb->skip, sb->data, sb->len + 1);
+        sb->data -= sb->skip;
+        sb->size += sb->skip;
+        sb->skip = 0;
+    }
+
+    if (((uintptr_t)sb->data % 8) == 0) {
+        return;
+    }
+
+    /* Ask for one byte more than the buffer holds, so that the size always
+     * grows: that is what makes mp_irealloc_fallback() take the fallback,
+     * and the static pool cannot reallocate on its own.
+     */
+    size = ROUND_UP(sb->size + 1, 8);
+    sb->data = mp_irealloc_fallback(
+        &sb->mp, sb->data, sb->len + 1, size, 8, MEM_RAW
+    );
+    sb->size = size;
+}
+
 void bb_init_sb(bb_t *bb, sb_t *sb)
 {
     if (sb->data == __sb_slop) {
@@ -64,6 +97,7 @@ void bb_init_sb(bb_t *bb, sb_t *sb)
         /* bb->size is a number of 64 bits words so the sb size must be bigger
          * than the sb length rounded up to 8 bytes */
         sb_grow(sb, ROUND_UP(sb->len, 8) - sb->len);
+        bb_realign_sb(sb);
         bb_init_full(bb, sb->data, sb->len * 8, sb->size / 8, 8, sb->mp);
 
         /* We took ownership of the memory so ensure clear the sb */
@@ -536,6 +570,50 @@ Z_GROUP_EXPORT(bit_buf) {
         bb_add_bits(&bb, 0x2aa, 10); /* 1010101010 */
         Z_ASSERT_EQ(bb.len, 10U);
         Z_ASSERT_EQ(sb2.len, 0);
+
+        bb_wipe(&bb);
+        sb_wipe(&sb);
+    } Z_TEST_END;
+
+    Z_TEST(sb_skip, "bit-buf: take over a skipped sb") {
+        __attribute__((aligned(8))) char buf[64];
+        uintptr_t base = (uintptr_t)buf;
+        sb_t sb;
+        bb_t bb;
+
+        sb_init_full(&sb, buf, 0, sizeof(buf), &mem_pool_static);
+        sb_adds(&sb, "0123456789abcdef");
+        sb_skip(&sb, 3);
+        Z_ASSERT_EQ(3, sb.skip);
+        Z_ASSERT_EQ(13, sb.len);
+
+        /* The bit-buffer frees the buffer it takes over, so it must get the
+         * start of the allocation and not the pointer sb_skip() moved. */
+        bb_init_sb(&bb, &sb);
+        Z_ASSERT_EQ(base, (uintptr_t)bb.data);
+        Z_ASSERT_ZERO((uintptr_t)bb.data % 8);
+        Z_ASSERT_EQ(13U * 8, bb.len);
+        Z_ASSERT_ZERO(memcmp(bb.data, "3456789abcdef", 13));
+
+        bb_wipe(&bb);
+        sb_wipe(&sb);
+    } Z_TEST_END;
+
+    Z_TEST(sb_unaligned, "bit-buf: take over an unaligned sb") {
+        __attribute__((aligned(8))) char buf[64];
+        sb_t sb;
+        bb_t bb;
+
+        /* sb_init_full() accepts a buffer aligned on a char, but the
+         * bit-buffer reads and writes 64 bits words. */
+        sb_init_full(&sb, buf + 1, 0, sizeof(buf) - 1, &mem_pool_static);
+        sb_adds(&sb, "0123456789abcdef");
+        Z_ASSERT((uintptr_t)sb.data % 8);
+
+        bb_init_sb(&bb, &sb);
+        Z_ASSERT_ZERO((uintptr_t)bb.data % 8);
+        Z_ASSERT_EQ(16U * 8, bb.len);
+        Z_ASSERT_ZERO(memcmp(bb.data, "0123456789abcdef", 16));
 
         bb_wipe(&bb);
         sb_wipe(&sb);
