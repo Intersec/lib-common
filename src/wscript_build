@@ -241,6 +241,7 @@ ctx.stlib(
         'iop/yaml.blk',
         'iop/rpc-channel.fc',
         'iop/rpc-channel.blk',
+        'iop/rpc-channel-tap.c',
         'iop/rpc-http-server.c',
         'iop/rpc-http-client.c',
         'iop/rpc-el.c',

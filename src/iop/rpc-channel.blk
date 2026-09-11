@@ -25,6 +25,7 @@
 #include <lib-common/thr.h>
 
 #include "rpc-channel.fc.c"
+#include "rpc-channel-tap.h"
 
 #define IC_MSG_STREAM_CONTROL INT32_MIN
 
@@ -478,6 +479,7 @@ static int ic_initialize(void *arg)
     qv_init(&_G.traced_names);
     qh_init(u32, &_G.traced_cmds);
     ic_read_tracing();
+    ic_tap_initialize();
     return 0;
 }
 
@@ -504,6 +506,8 @@ static int ic_shutdown(void)
 
         ic_hook_ctx_delete(&ctx);
     }
+
+    ic_tap_shutdown();
 
     qv_deep_wipe(&_G.traced_names, lstr_wipe);
     qh_wipe(u32, &_G.traced_cmds);
@@ -1080,6 +1084,13 @@ static int ic_write(ichannel_t *ic, int fd)
 
             ic_msg_trace(msg, "putting %d bytes in out vector", msg->dlen);
             htlist_add_tail(&ic->iov_list, &msg->msg_link);
+
+            /* Mirror the outgoing frame now that it is committed to the
+             * wire: queue time would be too early, a message may still
+             * be canceled (or the channel wiped) before ever being
+             * written, and its frame must then not appear in the
+             * capture. */
+            ic_tap_frame(ic, true, msg->data, msg->dlen);
 
             if (ic->is_seqpacket &&
                 ic->iov_total_len + msg->dlen > IC_PKT_MAX)
@@ -2179,6 +2190,10 @@ static int ic_read(ichannel_t *ic, short events, int sock)
             errno = 0;
             return -1;
         }
+
+        /* Mirror the incoming frame if necessary. */
+        ic_tap_frame(ic, false, buf->data, IC_MSG_HDR_LEN + dlen);
+
         sb_skip(buf, IC_MSG_HDR_LEN + dlen);
         ic->hdr_checked = false;
 
@@ -2304,6 +2319,8 @@ static void ic_autodel_or_mark_disconnected(ichannel_t *ic)
 void ic_disconnect(ichannel_t *ic)
 {
     thr_assert_is_main_thread();
+
+    ic_tap_close(ic);
 
     ic->queuable = false;
     ic->is_connected = false;
@@ -2492,6 +2509,7 @@ static void ic_queue(ichannel_t *ic, ic_msg_t *msg, uint32_t flags)
     put_unaligned_le32(
         buffer + IC_MSG_DLEN_OFFSET, msg->dlen - IC_MSG_HDR_LEN
     );
+
     if (htlist_is_empty(&ic->msg_list) && ic->elh && ic->is_connected) {
         el_fd_set_mask(ic->elh, POLLINOUT);
     }
@@ -3164,6 +3182,10 @@ static int ic_mark_connected(ichannel_t *ic, int fd)
         };
         RETHROW(IC_CALL_CB(ic, ic->on_creds, ic, &creds));
     }
+
+    /* Open the spy tap now that the link is up. */
+    ic_tap_open(ic);
+
     /* force an exchange at connect time, so force NOP if queue is empty */
     ic_nop(ic);
 
