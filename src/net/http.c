@@ -3950,7 +3950,8 @@ void httpc_query_chunk_done_(httpc_query_t *q, outbuf_t *ob)
 
 void httpc_query_done(httpc_query_t *q)
 {
-    outbuf_t *ob = &q->owner->ob;
+    httpc_t *w = q->owner;
+    outbuf_t *ob = &w->ob;
 
     assert(q->hdrs_done && !q->query_done && !q->chunk_started);
     if (q->chunked) {
@@ -3964,7 +3965,20 @@ void httpc_query_done(httpc_query_t *q)
         q->clength_hack = false;
     }
     q->query_done = true;
-    httpc_set_mask(q->owner);
+
+    /* The query will only reach the socket on a further run of the event
+     * loop, whereas the no-activity timer keeps counting from the last event
+     * seen on the socket: restart it so that a query queued just before the
+     * deadline is not aborted without a single byte having been sent.
+     *
+     * This is only legitimate while the connection is idle: as soon as
+     * another query awaits its answer, its deadline must keep running,
+     * otherwise a peer that stops reading would never be detected.
+     */
+    if (w->ev && w->queries == 1) {
+        el_fd_watch_activity(w->ev, POLLINOUT, w->cfg->noact_delay);
+    }
+    httpc_set_mask(w);
 }
 
 static void _httpc_query_hdrs_add_auth(
@@ -9172,6 +9186,14 @@ static int z_reply_dup_clen(el_t el, int fd, short mask, data_t data)
     return 0;
 }
 
+static int z_read_nothing(el_t el, int fd, short mask, data_t data)
+{
+    /* Never consume a single byte: the connection stays alive at the TCP
+     * level, but the peer's receive window closes for good. */
+    el_fd_set_mask(el, 0);
+    return 0;
+}
+
 static int z_accept(el_t el, int fd, short mask, data_t data)
 {
     int (*query_cb)(el_t, int, short, data_t) = data.ptr;
@@ -9197,14 +9219,74 @@ static int z_query_on_data(httpc_query_t *q, pstream_t ps)
 
 static void z_query_on_done(httpc_query_t *q, httpc_status_t status)
 {
+    if (!has_reply_g) {
+        /* Keep the first completion: when a connection dies, the head query
+         * carries the actual cause and the queries pipelined behind it are
+         * merely aborted. */
+        zstatus_g = status;
+    }
     has_reply_g = true;
-    zstatus_g = status;
 }
 
 enum z_query_flags {
     Z_QUERY_USE_PROXY = (1 << 0),
     Z_QUERY_USE_HTTP2 = (1 << 1),
+    Z_QUERY_FAST_NOACT = (1 << 2),
 };
+
+/* Short enough to keep the test fast, long enough for the sleeps around the
+ * deadline to stay meaningful in spite of the scheduling jitter. */
+#define Z_HTTPC_NOACT_DELAY_MS 200
+#define Z_HTTPC_NOACT_MARGIN_MS 50
+
+/* Small enough to make the peer's receive window close after a few
+ * kilobytes, big enough for the kernel to accept it as is. */
+#define Z_HTTPC_SMALL_BUF (4 << 10)
+#define Z_HTTPC_BIG_BODY (256 << 10)
+
+static void
+z_query_send_body(httpc_query_t *q, lstr_t host, lstr_t uri, int body_len)
+{
+    t_scope;
+
+    zstatus_g = HTTPC_STATUS_ABORT;
+    has_reply_g = false;
+    sb_reset(&body_g);
+
+    httpc_query_init(q);
+    httpc_bufferize(q, 40 << 20);
+    q->on_hdrs = &z_query_on_hdrs;
+    q->on_data = &z_query_on_data;
+    q->on_done = &z_query_on_done;
+
+    httpc_query_attach(q, zhttpc_g);
+    httpc_query_start(
+        q, body_len ? HTTP_METHOD_POST : HTTP_METHOD_GET, host, uri
+    );
+    httpc_query_hdrs_done(q, body_len, false);
+    if (body_len) {
+        char *body = t_new_raw(char, body_len);
+
+        memset(body, 'a', body_len);
+        ob_add(httpc_get_ob(q), body, body_len);
+    }
+    httpc_query_done(q);
+}
+
+static void z_query_send(httpc_query_t *q, lstr_t host, lstr_t uri)
+{
+    z_query_send_body(q, host, uri, 0);
+}
+
+/* Run the event loop for at most \p msecs, or until a query completes. */
+static void z_loop_for(int msecs)
+{
+    uint64_t end = lp_getmsec() + msecs;
+
+    while (!has_reply_g && lp_getmsec() < end) {
+        el_loop_timeout(10);
+    }
+}
 
 static int z_query_setup_no_check(
     int (*query_cb)(el_t, int, short, el_data_t), enum z_query_flags flags,
@@ -9214,8 +9296,6 @@ static int z_query_setup_no_check(
     sockunion_t su;
     int server;
 
-    zstatus_g = HTTPC_STATUS_ABORT;
-    has_reply_g = false;
     code_g = HTTP_CODE_INTERNAL_SERVER_ERROR;
     sb_init(&body_g);
     sb_init(&zquery_sb_g);
@@ -9235,19 +9315,13 @@ static int z_query_setup_no_check(
     if (flags & Z_QUERY_USE_HTTP2) {
         zcfg_g.http_mode = HTTP_MODE_USE_HTTP2_ONLY;
     }
+    if (flags & Z_QUERY_FAST_NOACT) {
+        zcfg_g.noact_delay = Z_HTTPC_NOACT_DELAY_MS;
+    }
     zhttpc_g = httpc_connect(&su, &zcfg_g, NULL);
     Z_ASSERT_P(zhttpc_g);
 
-    httpc_query_init(&zquery_g);
-    httpc_bufferize(&zquery_g, 40 << 20);
-    zquery_g.on_hdrs = &z_query_on_hdrs;
-    zquery_g.on_data = &z_query_on_data;
-    zquery_g.on_done = &z_query_on_done;
-
-    httpc_query_attach(&zquery_g, zhttpc_g);
-    httpc_query_start(&zquery_g, HTTP_METHOD_GET, host, uri);
-    httpc_query_hdrs_done(&zquery_g, 0, false);
-    httpc_query_done(&zquery_g);
+    z_query_send(&zquery_g, host, uri);
 
     while (!has_reply_g) {
         el_loop_timeout(10);
@@ -9466,6 +9540,103 @@ Z_GROUP_EXPORT(httpc) {
         ));
         Z_ASSERT(has_reply_g);
         Z_ASSERT_NEG((int)zstatus_g, "a duplicate Content-Length must error");
+        z_query_cleanup();
+    } Z_TEST_END;
+
+    Z_TEST(
+        noact_delay_pending_query,
+        "noactDelay must not abort a query that was never written"
+    ) {
+        httpc_query_t query;
+
+        /* Reading the answer to the first query is the last activity on the
+         * connection: the no-activity deadline is one noactDelay away. */
+        Z_HELPER_RUN(z_query_setup(
+            &z_reply_keep, Z_QUERY_FAST_NOACT, LSTR("localhost"), LSTR("/")
+        ));
+
+        /* Queue a second query shortly before that deadline and let it
+         * expire before the event loop is given the opportunity to write
+         * the query, the way a peer polled at the very period of its
+         * noactDelay does. */
+        usleep(1000 * (Z_HTTPC_NOACT_DELAY_MS - Z_HTTPC_NOACT_MARGIN_MS));
+        z_query_send(&query, LSTR("localhost"), LSTR("/"));
+        usleep(1000 * 2 * Z_HTTPC_NOACT_MARGIN_MS);
+
+        while (!has_reply_g) {
+            el_loop_timeout(10);
+        }
+        Z_ASSERT_EQ(zstatus_g, HTTPC_STATUS_OK);
+        Z_ASSERT_LSTREQUAL(LSTR_SB_V(&body_g), LSTR("Coucou"));
+
+        httpc_query_wipe(&query);
+        z_query_cleanup();
+    } Z_TEST_END;
+
+    Z_TEST(
+        noact_delay_blocked_peer,
+        "noactDelay must abort when the peer stops reading, however many "
+        "queries are queued"
+    ) {
+        httpc_query_t queries[8];
+        sockunion_t su;
+        int bufsz = Z_HTTPC_SMALL_BUF;
+        int server, client;
+        int nb_sent = 0;
+
+        code_g = HTTP_CODE_INTERNAL_SERVER_ERROR;
+        sb_init(&body_g);
+        sb_init(&zquery_sb_g);
+
+        /* Both socket buffers are shrunk and the peer never reads a byte:
+         * the output of the client blocks for good after a few kilobytes,
+         * and no POLLOUT can refresh the deadline any more. */
+        Z_ASSERT_N(addr_resolve("test", LSTR("127.0.0.1:1"), &su));
+        sockunion_setport(&su, 0);
+
+        server = listenx(-1, &su, 1, SOCK_STREAM, IPPROTO_TCP, 0);
+        Z_ASSERT_N(server);
+        Z_ASSERT_N(
+            setsockopt(server, SOL_SOCKET, SO_RCVBUF, &bufsz, sizeof(bufsz))
+        );
+        zel_server_g =
+            el_fd_register(server, true, POLLIN, &z_accept, &z_read_nothing);
+
+        sockunion_setport(&su, getsockport(server, AF_INET));
+        client = connectx(-1, &su, 1, SOCK_STREAM, IPPROTO_TCP, 0);
+        Z_ASSERT_N(client);
+        Z_ASSERT_N(
+            setsockopt(client, SOL_SOCKET, SO_SNDBUF, &bufsz, sizeof(bufsz))
+        );
+        Z_ASSERT_N(fd_set_features(client, O_NONBLOCK));
+
+        httpc_cfg_init(&zcfg_g);
+        zcfg_g.refcnt++;
+        zcfg_g.noact_delay = Z_HTTPC_NOACT_DELAY_MS;
+        zhttpc_g = httpc_spawn(client, &zcfg_g, NULL);
+        Z_ASSERT_P(zhttpc_g);
+
+        z_query_send_body(
+            &zquery_g, LSTR("localhost"), LSTR("/"), Z_HTTPC_BIG_BODY
+        );
+
+        /* Keep queuing queries twice per noactDelay, the way a peer polled
+         * at the very period of its noactDelay does: queuing them must not
+         * defer the deadline of a connection that carries nothing. */
+        while (!has_reply_g && nb_sent < countof(queries)) {
+            z_loop_for(Z_HTTPC_NOACT_DELAY_MS / 2);
+            if (has_reply_g) {
+                break;
+            }
+            z_query_send(&queries[nb_sent++], LSTR("localhost"), LSTR("/"));
+        }
+
+        Z_ASSERT(has_reply_g, "the peer that stopped reading went unnoticed");
+        Z_ASSERT_EQ(zstatus_g, HTTPC_STATUS_TIMEOUT);
+
+        for (int i = 0; i < nb_sent; i++) {
+            httpc_query_wipe(&queries[i]);
+        }
         z_query_cleanup();
     } Z_TEST_END;
 } Z_GROUP_END;
