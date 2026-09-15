@@ -31,6 +31,7 @@ from typing import (  # noqa: UP035 (deprecated-import)
     List,
     Optional,
     Set,
+    Tuple,
     Type,
     TypeVar,
     cast,
@@ -458,13 +459,37 @@ def add_custom_install(self: TaskGen) -> None:
 
 
 # }}}
-# {{{ python checkers
+# {{{ File checkers
+# {{{ Common helpers
+
+# `git ls-files` patterns of the python files and `wscript*` files.
+PYTHON_FILES_PATTERNS = (
+    '*.py',
+    '**/*.py',
+    '*.pyi',
+    '**/*.pyi',
+    'wscript*',
+    '**/wscript*',
+)
+
+# `git ls-files` patterns of the C files handled by clang-format.
+# Keep it in sync with `C_PATTERNS` in `static-checks.py`.
+C_FILES_PATTERNS = (
+    '*.c',
+    '**/*.c',
+    '*.h',
+    '**/*.h',
+    '*.blk',
+    '**/*.blk',
+)
 
 
-def _get_python_files(ctx: BuildContext) -> List[str]:
+def _get_checked_files(
+    ctx: BuildContext, patterns: Tuple[str, ...]
+) -> List[str]:
     """
-    Return the file list to check: positional CLI args, or all tracked
-    python and ``wscript*`` files.
+    Return the file list to check: positional CLI args, or the tracked files
+    that match ``patterns`` under the launch directory.
     """
     # Steal the optional list of files passed as arguments.
     # Waf store the arguments in `Options.commands` and use them to run each
@@ -480,8 +505,7 @@ def _get_python_files(ctx: BuildContext) -> List[str]:
     files_str = cast(
         str,
         ctx.cmd_and_log(
-            'git ls-files "*.py" "**/*.py" "*.pyi" "**/*.pyi" '
-            '"wscript*" "**/wscript*"',
+            ['git', 'ls-files', '--', *patterns],
             cwd=ctx.launch_node(),
             quiet=Context.BOTH,
         ),
@@ -489,9 +513,11 @@ def _get_python_files(ctx: BuildContext) -> List[str]:
     return files_str.splitlines()
 
 
-def run_python_checker(ctx: BuildContext, checker_cmd: List[str]) -> None:
+def run_files_checker(
+    ctx: BuildContext, checker_cmd: List[str], patterns: Tuple[str, ...]
+) -> None:
     """
-    Run ``checker_cmd`` on tracked Python files and ``wscript*`` files.
+    Run ``checker_cmd`` on the tracked files that match ``patterns``.
 
     ``checker_cmd`` is the argv prefix (executable plus flags); files are
     appended as additional argv entries — no shell interpolation. The
@@ -501,7 +527,7 @@ def run_python_checker(ctx: BuildContext, checker_cmd: List[str]) -> None:
     groups: List[List[TaskGen]] = []
     ctx.groups = groups
 
-    files_list = _get_python_files(ctx)
+    files_list = _get_checked_files(ctx, patterns)
     if not files_list:
         return
 
@@ -523,7 +549,7 @@ def run_ruff(ctx: BuildContext) -> None:
     cmd = ['ruff', 'check', '--force-exclude']
     if ctx.cmd == 'ruff-fix':
         cmd += ['--fix', '--unsafe-fixes']
-    run_python_checker(ctx, cmd)
+    run_files_checker(ctx, cmd, PYTHON_FILES_PATTERNS)
 
 
 class RuffClass(BuildContext):
@@ -566,7 +592,7 @@ def run_pyrefly(ctx: BuildContext) -> None:
     if ctx.cmd != 'pyrefly':
         return
 
-    # `run_python_checker` passes the file list as argv, putting pyrefly
+    # `run_files_checker` passes the file list as argv, putting pyrefly
     # in single-file mode. In that mode pyrefly silently:
     #   - drops the config's `project-excludes`, so explicitly-listed
     #     files get checked even when the config excludes them (e.g.
@@ -604,8 +630,8 @@ def run_pyrefly(ctx: BuildContext) -> None:
 
     # Pyrefly's `project-includes` only matches `.py`/`.pyi` paths, so
     # `wscript*` files are silently skipped in project-checking mode. The
-    # file list passed by `run_python_checker` includes them explicitly.
-    run_python_checker(ctx, cmd)
+    # file list passed by `run_files_checker` includes them explicitly.
+    run_files_checker(ctx, cmd, PYTHON_FILES_PATTERNS)
 
 
 class PyreflyClass(BuildContext):
@@ -614,6 +640,27 @@ class PyreflyClass(BuildContext):
     cmd = 'pyrefly'
 
 
+# }}}
+# {{{ clang-format
+
+
+def run_clang_format(ctx: BuildContext) -> None:
+    if ctx.cmd != 'clang-format':
+        return
+
+    # clang-format reads `.clang-format` and `.clang-format-ignore` from the
+    # parent directories of each file, so the ignored files are skipped here.
+    cmd = ['clang-format', '-i']
+    run_files_checker(ctx, cmd, C_FILES_PATTERNS)
+
+
+class ClangFormatClass(BuildContext):
+    """format committed C files (.c, .h, .blk) in place with clang-format"""
+
+    cmd = 'clang-format'
+
+
+# }}}
 # }}}
 # {{{ git hooks
 
@@ -702,6 +749,7 @@ def build(ctx: BuildContext) -> None:
     ctx.add_pre_fun(add_scan_in_signature)
     ctx.add_pre_fun(run_ruff)
     ctx.add_pre_fun(run_pyrefly)
+    ctx.add_pre_fun(run_clang_format)
     ctx.add_post_fun(run_checks)
 
 
