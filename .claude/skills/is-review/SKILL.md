@@ -16,6 +16,19 @@ Perform a deep review of a git commit.
 
 Let `COMMIT` denote the resolved commit SHA.
 
+## Token budget
+
+Do the review in this context, one file after the other. Do not launch
+a sub-agent per file or per finding. A large commit takes
+longer, and that is the accepted cost.
+
+Sub-agents are allowed only when the `git diff --stat` of step 1
+reports more than 1500 changed lines. Then launch at most two, in one
+message. Split the work by the axes of step 2, never by file: an agent
+that holds half of the files cannot judge their consistency. Give each
+one every file of the commit, its own axes, and the report format
+below. Merge their findings into your own report and renumber them.
+
 ## Step 1 — Gather context
 
 Run these commands to collect all the information you need:
@@ -116,6 +129,9 @@ Use this structure:
 ```
 
 ## Step 4 — Offer to fix
+
+If you run inside a sub-agent, there is no user to answer. Skip this
+step and return the report.
 
 If any findings were reported, ask the user:
 
