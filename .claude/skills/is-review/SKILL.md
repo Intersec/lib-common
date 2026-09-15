@@ -1,13 +1,23 @@
 ---
 name: is-review
-description: Deep code review of a commit covering correctness, commit message quality, and English usage.
+description: Deep code review of a commit covering correctness, commit message quality, and English usage. Run only when the user asks for it, directly or through is-final-pass. Never start it on your own.
 argument-hint: "[commit-sha]"
-disable-model-invocation: true
 ---
 
 # Code Review Skill
 
 Perform a deep review of a git commit.
+
+## When to run
+
+Never start this review on your own. It runs at the discretion of the
+user, in one of two ways:
+
+- the user types `/is-review`;
+- the user accepted the final pass, and `is-final-pass` calls this
+  skill from its sub-agent.
+
+If neither applies, do not run it. Propose it instead.
 
 ## Target commit
 
