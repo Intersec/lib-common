@@ -376,7 +376,59 @@ pub struct WafBuild {
     json_env: WafBuildEnvJson,
 }
 
+pub struct WafBuildCtx {
+    pub waf: WafBuild,
+    pub out_dir: PathBuf,
+}
+
 impl WafBuild {
+    /// Run the whole build script of a package built by both `waf` and
+    /// `cargo`, deducing what to do from the package layout:
+    ///
+    /// - the `waf` build environment is read and forwarded to cargo;
+    /// - if the package has a `wrapper.h`, its bindings are generated.
+    ///
+    /// `wrapper.h` at the package root is the switch: with one, bindgen runs
+    /// on it; without one, the package gets no bindings at all -- what a
+    /// package reading its dependency's `bindings` module wants, and what a
+    /// missing or misnamed header silently looks like too.
+    ///
+    /// ```ignore
+    /// use waf_cargo_build::WafBuild;
+    ///
+    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     WafBuild::build()?;
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// A package needing more -- extra bindgen options, or tests to
+    /// generate -- can still drive [`Self::read_build_env`],
+    /// [`Self::print_cargo_instructions`] and [`Self::generate_bindings`]
+    /// itself.
+    ///
+    /// # Errors
+    ///
+    /// I/O errors, missing file, or bindgen failure.
+    pub fn build() -> Result<WafBuildCtx, Box<dyn error::Error>> {
+        let waf_build = Self::read_build_env()?;
+
+        waf_build.print_cargo_instructions();
+
+        let out_dir = PathBuf::from(env::var("OUT_DIR")?);
+        let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
+
+        if manifest_dir.join("wrapper.h").is_file() {
+            waf_build.generate_bindings(|b| Ok(b.header("wrapper.h")))?;
+        }
+
+        Ok(WafBuildCtx {
+            waf: waf_build,
+            out_dir,
+        })
+    }
+
     /// Read the `.waf-cargo-build*/waf_build_env.json` file from the cargo manifest directory
     /// using the library.
     ///

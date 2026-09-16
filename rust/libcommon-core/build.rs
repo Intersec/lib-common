@@ -17,21 +17,11 @@
 /***************************************************************************/
 
 use std::error;
+
 use waf_cargo_build::WafBuild;
 
 fn main() -> Result<(), Box<dyn error::Error>> {
-    let waf_build = WafBuild::read_build_env()?;
-
-    waf_build.print_cargo_instructions();
-    waf_build.generate_bindings(|builder| {
-        let mut builder = builder;
-
-        builder = builder.header("wrapper.h");
-
-        // Export everything from lib-common/core.h.
-
-        Ok(builder)
-    })?;
+    WafBuild::build()?;
 
     Ok(())
 }
