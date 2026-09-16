@@ -71,13 +71,20 @@ mod iop_tests {
 
     use crate::bindings::{
         core__pkg, ic__hdr__u, ic__ic_priority__e, ic__ic_priority__edesc, ic__pkg,
-        ic__simple_hdr__t, ic__tracer__t, tstiop__full_opt__t, tstiop__full_ref__t,
-        tstiop__full_repeated__t, tstiop__full_required__t, tstiop__get_bpack_sz_en__e,
-        tstiop__get_bpack_sz_st__t, tstiop__get_bpack_sz_u__u, tstiop__my_ref_union__u,
-        tstiop__my_referenced_struct__t, tstiop__my_referenced_union__u, tstiop__my_union_a__u,
-        tstiop__my_union_b__u, tstiop__my_union_c__u, tstiop__test_class__t,
-        tstiop__test_class_child__t, tstiop__test_class_child2__t, tstiop__test_enum__e,
-        tstiop__test_struct__t, tstiop__test_union__u,
+        ic__simple_hdr__t, ic__tracer__t, tstiop__basic_struct__t, tstiop__full_opt__t,
+        tstiop__full_ref__t, tstiop__full_repeated__t, tstiop__full_required__t,
+        tstiop__get_bpack_sz_en__e, tstiop__get_bpack_sz_st__t, tstiop__get_bpack_sz_u__u,
+        tstiop__my_ref_union__u, tstiop__my_referenced_struct__t, tstiop__my_referenced_union__u,
+        tstiop__my_union_a__u, tstiop__my_union_b__u, tstiop__my_union_c__u,
+        tstiop__small_class__t, tstiop__test_class__t, tstiop__test_class_child__t,
+        tstiop__test_class_child2__t, tstiop__test_enum__e, tstiop__test_struct__t,
+        tstiop__test_union__u, tstiop_backward_compat__enum1__e, tstiop_typedef__array_test__t,
+        tstiop_typedef__basic_struct_list__t, tstiop_typedef__enum1_list__e,
+        tstiop_typedef__enum1_list__t_raw, tstiop_typedef__enum2_list__e,
+        tstiop_typedef__number_struct_list__t, tstiop_typedef__remote_class__t,
+        tstiop_typedef__remote_enum__e, tstiop_typedef__remote_struct__t,
+        tstiop_typedef__remote_struct__t_raw, tstiop_typedef__remote_typedef_class__t_raw,
+        tstiop_typedef__struct_with_typedefs_from_ext__t,
     };
 
     // {{{ Test helpers
@@ -1019,6 +1026,50 @@ mod iop_tests {
             owned.as_json(),
             "{\n    \"token\": 1,\n    \"epoch\": 2\n}\n"
         );
+    }
+
+    // }}}
+    // {{{ Typedef aliases
+
+    // Nothing else looks at the aliases `iopc` writes for a typedef: they
+    // carry no descriptor of their own, so neither the layout tests nor the
+    // generated ones reach them.
+    //
+    // What they must hold is that an alias names the very type a field
+    // declared with that typedef gets, so each binding below fails to
+    // compile if the two drift apart.
+
+    #[test]
+    fn a_repeated_typedef_aliases_the_array_the_field_gets() {
+        let obj = <tstiop_typedef__array_test__t<'static>>::new();
+
+        let _: &tstiop_typedef__basic_struct_list__t<'static> = &obj.list1;
+        let _: &tstiop_typedef__enum1_list__e<'static> = &obj.list2;
+        let _: &tstiop_typedef__enum2_list__e<'static> = &obj.list3;
+        let _: &tstiop_typedef__number_struct_list__t<'static> = &obj.list4;
+    }
+
+    #[test]
+    fn a_typedef_of_another_package_aliases_the_type_it_names() {
+        let obj = <tstiop_typedef__struct_with_typedefs_from_ext__t<'static>>::new();
+
+        let _: &tstiop_typedef__remote_struct__t = &obj.tdef_s;
+        let _: &tstiop_typedef__remote_enum__e = &obj.tdef_e;
+
+        // A class is the exception: the alias names the class, and the
+        // field holds it through a reference the typedef knows nothing
+        // about.
+        let _: &&mut tstiop_typedef__remote_class__t = &obj.tdef_c;
+    }
+
+    #[test]
+    fn a_raw_alias_of_a_typedef_names_its_c_type() {
+        // bindgen renames each C name of a typedef with `_raw`. In C, the
+        // name designates the struct, union, class or enum of the typedef,
+        // without the array of its declaration.
+        let _ = |en: tstiop_typedef__enum1_list__t_raw| -> tstiop_backward_compat__enum1__e { en };
+        let _ = |st: tstiop_typedef__remote_struct__t_raw| -> tstiop__basic_struct__t { st };
+        let _ = |cl: tstiop_typedef__remote_typedef_class__t_raw| -> tstiop__small_class__t { cl };
     }
 
     // }}}

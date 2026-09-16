@@ -312,15 +312,27 @@ static lstr_t t_format_type_name(
     return t_format_symbol_name(pkg, type_name, is_union, lt);
 }
 
-static lstr_t t_format_type_name_extend(const iopc_field_t *f)
+/* The `__e`/`__u`/`__t` suffix of the type of the field or typedef `f`. A
+ * typedef alias takes the suffix of the type it designates, so that iopc
+ * names it like that type. */
+static const char *iopc_rust_field_type_suffix(const iopc_field_t *f)
 {
     if (f->kind == IOP_T_ENUM) {
-        return t_format_symbol_name(f->type_pkg, f->type_name, "e", "");
+        return "e";
     }
+    if (f->struct_def && f->struct_def->type == STRUCT_TYPE_UNION) {
+        return "u";
+    }
+    return "t";
+}
 
-    return t_format_type_name(
-        f->type_pkg, f->struct_def, f->type_name,
-        iopc_rust_add_lifetime(f->struct_def)
+static lstr_t t_format_type_name_extend(const iopc_field_t *f)
+{
+    const char *lt =
+        f->kind == IOP_T_ENUM ? "" : iopc_rust_add_lifetime(f->struct_def);
+
+    return t_format_symbol_name(
+        f->type_pkg, f->type_name, iopc_rust_field_type_suffix(f), lt
     );
 }
 
@@ -337,6 +349,53 @@ static lstr_t t_iopc_rust_get_type(const iopc_field_t *f)
 
     return iopc_rust_field_is_primitive(f) ? iopc_rust_get_type(f)
                                            : t_format_type_name_extend(f);
+}
+
+/* A Rust type, and whether it borrows the `'a` lifetime. */
+typedef struct iopc_rust_type_t {
+    lstr_t name;
+    bool borrows;
+} iopc_rust_type_t;
+
+/* Wraps `type` in what the repeat of `f` adds around it.
+ *
+ * A field and the alias of a typedef sharing a repeat must land on the
+ * same Rust type, or a field declared with that typedef stops being
+ * interchangeable with it. Only the mandatory case differs and stays
+ * with each caller: a field holds a class through a pointer, which says
+ * nothing about the type a typedef names. */
+static iopc_rust_type_t t_iopc_rust_repeat_type(
+    const iopc_field_t *f, iopc_rust_type_t type, const char *lt
+)
+{
+    /* `repeat` is an `int`: the cast makes the compiler check that the
+     * switch handles each repeat. */
+    switch ((iop_repeat_t)f->repeat) {
+    case IOP_R_REPEATED:
+        type.name =
+            iopc_rust_field_is_class(f)
+                ? t_lstr_fmt(
+                      RUST_LC_IOP "IopArray<'a, &%smut %pL>", lt, &type.name
+                  )
+                : t_lstr_fmt(RUST_LC_IOP "IopArray<'a, %pL>", &type.name);
+        type.borrows = true;
+        break;
+
+    case IOP_R_OPTIONAL:
+        if (iopc_rust_field_has_struct_def(f)) {
+            type.name = t_lstr_fmt("Option<&%smut %pL>", lt, &type.name);
+            type.borrows = true;
+        } else if (!iopc_rust_field_is_string(f)) {
+            type.name = t_lstr_fmt(RUST_LC_IOP "IopOption<%pL>", &type.name);
+        }
+        break;
+
+    case IOP_R_REQUIRED:
+    case IOP_R_DEFVAL:
+        break;
+    }
+
+    return type;
 }
 
 /* }}} */
@@ -357,24 +416,15 @@ static void iopc_rust_opt_dump(
 {
     t_scope;
     lstr_t field_name = t_iopc_rust_field_name(f);
+    iopc_rust_type_t type = {.name = rust_type, .borrows = false};
 
     if (f->kind == IOP_T_VOID) {
         sb_addf(buf, "    pub %pL: bool, // Optional\n", &field_name);
-    } else if (iopc_rust_field_has_struct_def(f)) {
-        sb_addf(
-            buf, "    pub %pL: Option<&%smut %pL>, // Optional\n",
-            &field_name, lt, &rust_type
-        );
-    } else if (iopc_rust_field_is_string(f)) {
-        sb_addf(
-            buf, "    pub %pL: %pL, // Optional\n", &field_name, &rust_type
-        );
-    } else {
-        sb_addf(
-            buf, "    pub %pL: " RUST_LC_IOP "IopOption<%pL>, // Optional\n",
-            &field_name, &rust_type
-        );
+        return;
     }
+
+    type = t_iopc_rust_repeat_type(f, type, lt);
+    sb_addf(buf, "    pub %pL: %pL, // Optional\n", &field_name, &type.name);
 }
 
 static void iopc_rust_repeat_dump(
@@ -383,23 +433,14 @@ static void iopc_rust_repeat_dump(
 {
     t_scope;
     lstr_t field_name = t_iopc_rust_field_name(f);
+    iopc_rust_type_t type = {.name = rust_type, .borrows = false};
 
-    if (iopc_rust_field_is_class(f)) {
-        sb_addf(
-            buf,
-            "    pub %pL: " RUST_LC_IOP
-            "IopArray<'a, &%smut %pL>, // repeated\n",
-            &field_name, lt, &rust_type
-        );
-    } else if (f->kind == IOP_T_VOID) {
+    if (f->kind == IOP_T_VOID) {
         return;
-    } else {
-        sb_addf(
-            buf,
-            "    pub %pL: " RUST_LC_IOP "IopArray<'a, %pL>, // repeated\n",
-            &field_name, &rust_type
-        );
     }
+
+    type = t_iopc_rust_repeat_type(f, type, lt);
+    sb_addf(buf, "    pub %pL: %pL, // repeated\n", &field_name, &type.name);
 }
 
 static void iopc_rust_field_per_constraint(
@@ -893,6 +934,87 @@ iopc_rust_dump_class(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
 }
 
 /* }}} */
+/* {{{ Typedefs */
+
+/* The Rust type a typedef aliases, that is the very type a field
+ * declared with that typedef gets, so that the two remain
+ * interchangeable. */
+static iopc_rust_type_t t_iopc_rust_typedef_target(const iopc_field_t *td)
+{
+    iopc_rust_type_t type = {
+        .name = t_iopc_rust_get_type(td),
+        .borrows = iopc_rust_field_has_struct_def(td)
+                       ? iopc_rust_needs_lifetime(td->struct_def)
+                       : iopc_rust_field_is_string(td),
+    };
+
+    /* A typedef carries the repeat of its declaration (`typedef Enum1[]
+     * Enum1List;`), so the alias carries the wrapper the field gets. */
+    type = t_iopc_rust_repeat_type(td, type, "'a ");
+
+    /* Only an explicit `&` makes the alias a reference. */
+    if (td->is_ref) {
+        type.name = t_lstr_fmt("&'a mut %pL", &type.name);
+        type.borrows = true;
+    }
+
+    return type;
+}
+
+/* The C names of a typedef of a struct, union, class or enum designate the
+ * C types of that type: `__t`, `__array_t`, and `__opt_t` for an enum.
+ * Each `_raw` alias of the typedef is therefore the one of that type. */
+static void iopc_rust_dump_typedef_raw_aliases(
+    sb_t *buf, const iopc_pkg_t *pkg, const iopc_field_t *td
+)
+{
+    const char *suffixes[] = {"t", "array_t", "opt_t"};
+    int nb_suffixes = td->kind == IOP_T_ENUM ? 3 : 2;
+
+    for (int i = 0; i < nb_suffixes; i++) {
+        t_scope;
+        lstr_t target = t_format_symbol_name(
+            td->type_pkg, td->type_name, suffixes[i], ""
+        );
+
+        iopc_rust_dump_raw_alias(
+            buf, pkg, td->name, suffixes[i], t_lstr_fmt("%pL_raw", &target)
+        );
+    }
+    sb_adds(buf, "\n");
+}
+
+static void iopc_rust_dump_typedefs(sb_t *buf, const iopc_pkg_t *pkg)
+{
+    tab_for_each_entry(td, &pkg->typedefs) {
+        t_scope;
+        lstr_t alias;
+        iopc_rust_type_t type;
+
+        if (td->kind == IOP_T_VOID) {
+            /* A void typedef has no type of its own in Rust: a field
+             * declared with it becomes a `bool` presence flag when
+             * optional, and is not emitted at all otherwise. */
+            continue;
+        }
+        type = t_iopc_rust_typedef_target(td);
+        alias = t_format_symbol_name(
+            pkg, td->name, iopc_rust_field_type_suffix(td), ""
+        );
+
+        sb_addf(
+            buf,
+            "#[allow(nonstandard_style)]\n"
+            "pub type %pL%s = %pL;\n\n",
+            &alias, type.borrows ? "<'a>" : "", &type.name
+        );
+        if (td->kind == IOP_T_ENUM || iopc_rust_field_has_struct_def(td)) {
+            iopc_rust_dump_typedef_raw_aliases(buf, pkg, td);
+        }
+    }
+}
+
+/* }}} */
 /* {{{ Main functions */
 
 static void iopc_init_rust_dump(const iopc_pkg_t *pkg)
@@ -943,6 +1065,7 @@ int iopc_do_rust(iopc_pkg_t *pkg, const char *outdir)
         throw_error("cannot build output path for `%s`: %m", outdir);
     }
     iopc_init_rust_dump(pkg);
+    iopc_rust_dump_typedefs(&buf_types, pkg);
 
     tab_for_each_entry(d, &_G.decls) {
         if (d.basic_iop_types == IOP_T_ENUM) {
