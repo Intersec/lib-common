@@ -1,14 +1,15 @@
 ---
 name: is-final-pass
-description: Final quality pass on a finished feature or patch series. It proposes to run /simplify on the whole series and /is-review on each commit, inside one clean-context sub-agent. Load when the development of a series or feature ends, or when the user says the work is done, ready for review, or ready to push to Gerrit.
+description: Final quality pass on a finished feature or patch series. It offers /simplify on the whole series, /is-review on each commit, or both, inside one clean-context sub-agent. Load when the development of a series or feature ends, or when the user says the work is done, ready for review, or ready to push to Gerrit.
 argument-hint: "[base-ref]"
 ---
 
 # Final Pass on a Series
 
-Run the two quality skills on a finished series without polluting the
-current context. One sub-agent does the review work. This session only
-presents the result and applies the fixes that the user accepts.
+Run the quality skills on a finished series without polluting the
+current context. The user picks which ones. One sub-agent does the
+work. This session only presents the result and applies the fixes that
+the user accepts.
 
 ## Step 0 — Resolve the series
 
@@ -27,20 +28,35 @@ presents the result and applies the fixes that the user accepts.
    ones already there.
 4. Record `ORIG`, the output of `git rev-parse HEAD`.
 
-## Step 1 — Propose, do not start
+## Step 1 — Ask which parts to run
 
-Never start the pass on your own. If the user did not type
-`/is-final-pass`, ask first with the AskUserQuestion tool. Show the
-base and the commit list, so that the user can correct the base:
+Never start the pass on your own. Always ask with the AskUserQuestion
+tool, even after `/is-final-pass`. Show the base and the commit list,
+so that the user can correct the base:
 
-> The series looks finished. Do you want the final pass now?
 > Base: <BASE short sha> <subject>. Commits:
 > <the list from step 0>
-> It runs /simplify on the whole series, then /is-review on each
-> commit, in a sub-agent.
+> A sub-agent runs the parts you pick.
 
-If the answer is no, stop. Do not ask again in this conversation. If
-the user gives another base, go back to step 0 with it.
+Offer these parts. Neither one changes the series: both collect
+proposals that the user arbitrates at step 3.
+
+- "Both" — /simplify on the whole series, then /is-review on each
+  commit;
+- "Simplify only" — Part A alone;
+- "Review only" — Part B alone;
+- "No" — stop.
+
+If the user did not type `/is-final-pass`, open the question with:
+
+> The series looks finished. Do you want the final pass now?
+
+If the user typed it, drop the "No" option. The user already asked for
+the pass, so the question is only about the parts.
+
+Let `PARTS` be the answer. If it is "No", stop and do not ask again in
+this conversation. If the user gives another base, go back to step 0
+with it.
 
 ## Step 2 — Launch one reviewer sub-agent
 
@@ -53,16 +69,20 @@ and the commit list, everywhere they appear. A sub-agent inherits the
 working directory of this session, which may not be the repository of
 the series.
 
+Keep only the parts of `PARTS`: delete Part A from the prompt for
+"Review only", and Part B for "Simplify only". Delete Part C with
+either of them: it compares the two.
+
 ````
 You are the final quality pass on a finished patch series in this
-repository. Two skills do the work: `simplify` and `is-review`. Invoke
-them with the Skill tool.
+repository. Run every part below, in order, and no other work. Invoke
+`simplify` and `is-review` with the Skill tool.
 
 Token budget: `simplify` launches sub-agents of its own, and its own
-rule sets how many. That rule wins: do not cap it here. In Part B,
-`is-review` follows its own sub-agent rule; that one wins there.
-Launch no agent beyond what these two skills ask for. A long
-sequential pass is the expected cost.
+rule sets how many. That rule wins: do not cap it here. `is-review`
+follows its own sub-agent rule, which wins where it runs. Launch no
+agent beyond what these two skills ask for. A long sequential pass is
+the expected cost.
 
 Repository: <absolute path>. Run every git command there.
 Series: BASE=<sha>  ORIG=<sha> (HEAD before this pass)
@@ -76,8 +96,9 @@ it went in. The user arbitrates, and this prompt has no user.
 
 1. Invoke `simplify` with the argument `BASE...HEAD`. Let it apply its
    fixes to the working tree.
-2. If `git status --porcelain` prints nothing, go to Part B. Count an
-   untracked file too: `simplify` can create one.
+2. If `git status --porcelain` prints nothing, Part A is done: there
+   is nothing to propose. Count an untracked file too: `simplify` can
+   create one.
 3. List what `simplify` touched: `git status --porcelain`. Keep the
    modified files apart from the created ones. Step 6 restores both.
 4. Number the fixes from 1, in the order `simplify` reports them, and
@@ -133,7 +154,8 @@ number names three findings. If no pair overlaps, say so in one line.
 
 ## Part D — Report
 
-Return one report and nothing else:
+Return one report and nothing else. Skip the line of a part that this
+prompt does not contain:
 
 - Series: BASE and HEAD. This pass leaves them untouched.
 - Part A: one numbered item per fix — its files, what it changes, why,
