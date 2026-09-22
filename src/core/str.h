@@ -110,6 +110,7 @@ int buffer_increment(char *nullable buf, int len);
 int buffer_increment_hex(char *nullable buf, int len);
 ssize_t pstrrand(char *nonnull dest, ssize_t size, int offset, ssize_t len);
 size_t strrand(char dest[], size_t dest_size, lstr_t alphabet);
+size_t crypto_strrand(char dest[], size_t dest_size, lstr_t alphabet);
 
 /* Return the number of occurences replaced */
 /* OG: need more general API */

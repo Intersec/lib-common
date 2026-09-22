@@ -54,6 +54,21 @@ int64_t rand_range(int64_t first, int64_t last) __attr_leaf__;
  */
 double rand_ranged(double first, double last) __attr_leaf__;
 
+/** Fill a buffer with bytes of the system cryptographic generator.
+ *
+ * Use this instead of the rand*() functions above for every value that an
+ * attacker must not be able to predict: authentication tokens, password
+ * salts, challenges and nonces. The rand*() functions are fast, not secret.
+ *
+ * The process panics if the system generator cannot be read. The caller asks
+ * for a secret, and a value from a weaker source is not an acceptable
+ * answer.
+ *
+ * \param[out] dest  the buffer to fill.
+ * \param[in]  len   the number of bytes to write in \p dest.
+ */
+void crypto_rand_bytes(void *nonnull dest, size_t len);
+
 #  define UUID_HEX_LEN (32 + 4)
 typedef uint8_t uuid_t[16];
 void rand_generate_uuid_v4(uuid_t uuid);

@@ -17,6 +17,8 @@
 /***************************************************************************/
 
 #include <pthread.h>
+#include <sys/random.h>
+
 #include <lib-common/core.h>
 
 static __thread struct {
@@ -80,6 +82,24 @@ int64_t rand_range(int64_t first, int64_t last)
 double rand_ranged(double first, double last)
 {
     return first + (last - first) * (rand() / (double)RAND_MAX);
+}
+
+void crypto_rand_bytes(void *dest, size_t len)
+{
+    byte *pos = dest;
+
+    while (len > 0) {
+        ssize_t res = getrandom(pos, len, 0);
+
+        if (res < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            e_panic("cannot read the system random generator: %m");
+        }
+        pos += res;
+        len -= res;
+    }
 }
 
 /*

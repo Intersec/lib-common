@@ -889,6 +889,63 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_EQ(sizeof(b) - 1, strlen(b));
     } Z_TEST_END;
 
+    Z_TEST(crypto_strrand) {
+        const char *default_alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                                       "abcdefghijklmnopqrstuvwxyz"
+                                       "0123456789+/";
+        lstr_t alphabet = LSTR("0123456789");
+        /* 17 characters: a draw of 5 bits lands outside this alphabet
+         * almost half of the time, which is the worst rate there is. */
+        lstr_t sparse_alphabet = LSTR("0123456789abcdefg");
+        char b[4001];
+        char big_alphabet[256];
+        uint32_t seen = 0;
+
+        Z_ASSERT_EQ(0U, crypto_strrand(b, 1, LSTR_NULL_V));
+        Z_ASSERT_EQ(strlen(b), 0U);
+
+        Z_ASSERT_EQ(31U, crypto_strrand(b, 32, LSTR_NULL_V));
+        Z_ASSERT_EQ(strlen(b), 31U);
+        Z_ASSERT_EQ(strspn(b, default_alphabet), 31U);
+
+        /* Check that every byte comes from the alphabet.
+         * The 4000 characters span many blocks of the draw loop,
+         * so strspn() covers many block boundaries. */
+        Z_ASSERT_EQ(sizeof(b) - 1, crypto_strrand(b, sizeof(b), alphabet));
+        Z_ASSERT_EQ(strlen(b), sizeof(b) - 1);
+        Z_ASSERT_EQ(strspn(b, alphabet.s), sizeof(b) - 1);
+
+        /* Check every digit of the alphabet appears. If the fold never
+         * produces a digit, a bit of `seen` stays at 0. A correct generator
+         * fails this assertion with a probability of less than 1e-182. */
+        for (int i = 0; i < countof(b) - 1; i++) {
+            seen |= 1 << (b[i] - '0');
+        }
+        Z_ASSERT_EQ(seen, (1U << alphabet.len) - 1);
+
+        /* One byte of the generator indexes at most 256 characters. */
+        for (int i = 0; i < countof(big_alphabet); i++) {
+            big_alphabet[i] = i;
+        }
+        Z_ASSERT_EQ(
+            sizeof(b) - 1,
+            crypto_strrand(b, sizeof(b), LSTR_INIT_V(big_alphabet, 256))
+        );
+
+        /* Same two checks with the alphabet that drops the most draws. */
+        Z_ASSERT_EQ(
+            sizeof(b) - 1, crypto_strrand(b, sizeof(b), sparse_alphabet)
+        );
+        Z_ASSERT_EQ(strspn(b, sparse_alphabet.s), sizeof(b) - 1);
+
+        seen = 0;
+        for (int i = 0; i < countof(b) - 1; i++) {
+            seen |=
+                1 << (strchr(sparse_alphabet.s, b[i]) - sparse_alphabet.s);
+        }
+        Z_ASSERT_EQ(seen, (1U << sparse_alphabet.len) - 1);
+    } Z_TEST_END;
+
     Z_TEST(strtoip) {
 #define T(p, err_exp, val_exp, end_i)                                        \
     ({                                                                       \

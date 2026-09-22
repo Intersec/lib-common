@@ -314,6 +314,17 @@ int buffer_increment_hex(char *buf, int len)
     return 1;
 }
 
+static lstr_t strrand_get_alphabet(lstr_t alphabet)
+{
+    if (!alphabet.s && alphabet.len == 0) {
+        return LSTR(
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop"
+            "qrstuvwxyz0123456789+/"
+        );
+    }
+    return alphabet;
+}
+
 /** Put random characters from alphabet in destination buffer, and
  *  terminate with a '\0' character.
  *  If no alphabet given, a 64 bytes alphabet will be used.
@@ -330,14 +341,14 @@ int buffer_increment_hex(char *buf, int len)
 size_t strrand(char dest[], size_t dest_size, lstr_t alphabet)
 {
     char *p = dest;
-    char *last = p + dest_size - 1;
+    char *last;
 
-    if (!alphabet.s && alphabet.len == 0) {
-        alphabet = LSTR(
-            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop"
-            "qrstuvwxyz0123456789+/"
-        );
+    if (unexpected(dest_size == 0)) {
+        return 0;
     }
+
+    last = p + dest_size - 1;
+    alphabet = strrand_get_alphabet(alphabet);
 
     assert(alphabet.len > 0);
     THROW_ERR_IF(alphabet.len <= 0);
@@ -347,6 +358,91 @@ size_t strrand(char dest[], size_t dest_size, lstr_t alphabet)
     }
 
     *p = '\0';
+    return dest_size - 1;
+}
+
+/* Size of the block of random bytes crypto_strrand() reads at a time. Up to
+ * that size, getrandom(2) never returns a partial buffer. */
+#define CRYPTO_STRRAND_BLOCK_SIZE ((size_t)256)
+
+/** Same as strrand(), with the system cryptographic generator.
+ *
+ * Use this one for every string that an attacker must not be able to
+ * predict: authentication tokens, password salts and challenges. strrand()
+ * is fast, not secret.
+ *
+ * Every character of the alphabet has the same chance, whatever the length
+ * of the alphabet.
+ *
+ * @param dest  The output buffer.
+ *              Always ends up containing a valid null-terminated string of
+ *              characters taken from the alphabet (if dest_size > 0).
+ *
+ * @param dest_size  The size of the buffer
+ *                   (room for final '\0' included).
+ *
+ * @param alphabet  The alphabet to use, with at most 256 characters.
+ *                  If LSTR_NULL a default b64 alphabet will be used.
+ *
+ * @return The number of bytes (excluding '\0') written in the buffer.
+ */
+size_t crypto_strrand(char dest[], size_t dest_size, lstr_t alphabet)
+{
+    uint8_t block[CRYPTO_STRRAND_BLOCK_SIZE];
+    size_t nb_bytes = 0;
+    size_t next_byte = 0;
+    uint8_t mask;
+    char *dest_end;
+    uint8_t alphabet_max_idx;
+
+    if (unexpected(dest_size == 0)) {
+        return 0;
+    }
+
+    alphabet = strrand_get_alphabet(alphabet);
+
+    if (unexpected(alphabet.len < 2 || alphabet.len > 256)) {
+        /* The characters are single-byte so an alphabet with more than 256
+         * characters or less than 2 would not make sense. */
+        dest[0] = '\0';
+        return 0;
+    }
+    alphabet_max_idx = alphabet.len - 1;
+
+    /* Build a mask to reset the bits we do not need in the 8-bit draw.
+     * __builtin_clz() gives the number of leading 0 in its 32-bit input.
+     * For the default 64-character alphabet, we need only 6 bits so the
+     * mask is b00111111 = 0x3f. */
+    mask = UINT32_MAX >> __builtin_clz(alphabet_max_idx);
+
+    dest_end = dest + dest_size - 1;
+    for (char *wr = dest; wr < dest_end;) {
+        uint8_t draw;
+
+        if (next_byte == nb_bytes) {
+            /* We are out of random bytes. How many more do we need? */
+            nb_bytes = dest_end - wr;
+            if (mask > alphabet_max_idx) {
+                /* We may generate out-of-range draws that we will have to
+                   reject. Generate more bytes to cover the potential extra
+                   need. */
+                nb_bytes *= 2;
+            }
+            nb_bytes = MIN(nb_bytes, sizeof(block));
+
+            crypto_rand_bytes(block, nb_bytes);
+            next_byte = 0;
+        }
+
+        draw = block[next_byte++] & mask;
+
+        /* Write the character if the draw is in-range. */
+        if (draw < alphabet.len) {
+            *wr++ = alphabet.s[draw];
+        }
+    }
+    *dest_end = '\0';
+
     return dest_size - 1;
 }
 
