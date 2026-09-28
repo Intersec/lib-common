@@ -36,7 +36,8 @@ from typing import (  # noqa: UP035 (deprecated-import)
     Tuple,
 )
 
-from waflib import Errors, Logs, Options
+import waflib.Context
+from waflib import Build, ConfigSet, Errors, Logs, Options
 from waflib.Build import BuildContext
 from waflib.Configure import ConfigurationContext
 from waflib.Context import BOTH, Context
@@ -348,11 +349,11 @@ def configure_tool_manager(ctx: BuildContext) -> None:
 # {{{ uv
 
 
-def run_waf_with_uv(ctx: BuildContext) -> None:
+def run_waf_with_uv(ctx: Context, uv: List[str]) -> None:
     Logs.info('Waf: Run waf in uv environment')
 
     exit_code = ctx.exec_command(
-        ctx.env.UV + ['run'] + sys.argv, stdout=None, stderr=None
+        uv + ['run'] + sys.argv, stdout=None, stderr=None
     )
     if exit_code != 0:
         sys.exit(exit_code)
@@ -411,14 +412,14 @@ def uv_no_srv_tools(ctx: BuildContext) -> None:
         )
 
 
-def uv_sync_args(ctx: BuildContext) -> List[str]:
+def uv_sync_args(uv_extra: Optional[str]) -> List[str]:
     # The arguments describing the environment uv must produce. Shared with
     # uv_environment_is_synced(): the check has to request the very same
     # environment, or it reports a difference on every build.
     uv_args = ['sync', '--locked']
 
-    if ctx.env.UV_EXTRA:
-        extras = set(re.split(r'[ ,]+', ctx.env.UV_EXTRA))
+    if uv_extra:
+        extras = set(re.split(r'[ ,]+', uv_extra))
 
         for extra in extras:
             uv_args += ['--extra', extra]
@@ -434,7 +435,7 @@ def uv_sync(ctx: BuildContext) -> None:
     if before_uv_sync is not None:
         before_uv_sync(ctx)
 
-    uv_args = uv_sync_args(ctx)
+    uv_args = uv_sync_args(ctx.env.UV_EXTRA)
 
     if ctx.env.UV_PYTHON_VERSION:
         # Force the interpreter selected by the tool manager: without it, uv
@@ -454,7 +455,7 @@ def uv_sync(ctx: BuildContext) -> None:
         after_uv_sync(ctx)
 
 
-def uv_environment_is_active(ctx: BuildContext) -> bool:
+def uv_environment_is_active(project_dir: str) -> bool:
     # Consider the UV environment is active if the VIRTUAL_ENV variable is set
     # to the venv path of the project (resolving symlinks), if the PATH
     # resolves python3 to that venv, and if the interpreter running waf comes
@@ -469,8 +470,7 @@ def uv_environment_is_active(ctx: BuildContext) -> bool:
         return False
 
     venv_path: str = os.path.realpath(virtual_env)
-    project_venv_node = ctx.srcnode.make_node('.venv')
-    project_venv_path: str = os.path.realpath(project_venv_node.abspath())
+    project_venv_path: str = os.path.realpath(osp.join(project_dir, '.venv'))
 
     if venv_path != project_venv_path:
         return False
@@ -498,7 +498,9 @@ def uv_environment_is_active(ctx: BuildContext) -> bool:
     return executable_dir == os.path.join(project_venv_path, 'bin')
 
 
-def uv_environment_is_synced(ctx: BuildContext) -> bool:
+def uv_environment_is_synced(
+    ctx: Context, uv: List[str], uv_extra: Optional[str], project_dir: str
+) -> bool:
     # `uv sync --check` reports whether the venv matches the lockfile without
     # touching it.
     #
@@ -508,8 +510,8 @@ def uv_environment_is_synced(ctx: BuildContext) -> bool:
     # version belongs to configure, which passes it to uv_sync().
     try:
         ctx.cmd_and_log(
-            ctx.env.UV + uv_sync_args(ctx) + ['--check'],
-            cwd=ctx.srcnode,
+            uv + uv_sync_args(uv_extra) + ['--check'],
+            cwd=project_dir,
             quiet=BOTH,
         )
     except Errors.WafError:
@@ -523,7 +525,7 @@ def rerun_waf_configure_with_uv(ctx: BuildContext) -> None:
         # We are already in a recursion with uv, do nothing.
         return
 
-    if uv_environment_is_active(ctx):
+    if uv_environment_is_active(ctx.srcnode.abspath()):
         # The uv environment is already active: re-running waf through `uv run`
         # would only set up the very same environment again. uv_sync() has
         # already synced the venv with the python version selected by the tool
@@ -534,7 +536,7 @@ def rerun_waf_configure_with_uv(ctx: BuildContext) -> None:
     os.environ['_IN_UV_WAF_CONFIGURE'] = '1'
 
     # Run waf with uv
-    run_waf_with_uv(ctx)
+    run_waf_with_uv(ctx, ctx.env.UV)
 
     # Get lockfile for waf in uv environment.
     uv_waf_lockfile = ctx.cmd_and_log(
@@ -586,11 +588,15 @@ def configure_with_uv(ctx: BuildContext) -> None:
     rerun_waf_configure_with_uv(ctx)
 
 
-def rerun_waf_build_with_uv(ctx: BuildContext) -> None:
+def rerun_waf_build_with_uv(
+    ctx: Context, uv: List[str], uv_extra: Optional[str], project_dir: str
+) -> None:
     if ctx.get_env_bool('_IN_UV_WAF_BUILD'):
         # We are already in a recursion with uv, do nothing.
         return
-    if uv_environment_is_active(ctx) and uv_environment_is_synced(ctx):
+    if uv_environment_is_active(project_dir) and uv_environment_is_synced(
+        ctx, uv, uv_extra, project_dir
+    ):
         # The uv environment is already active and up to date, do nothing.
         #
         # Being active is not enough here: unlike configure, build never calls
@@ -604,20 +610,69 @@ def rerun_waf_build_with_uv(ctx: BuildContext) -> None:
     os.environ['_IN_UV_WAF_BUILD'] = '1'
 
     # Reset current directory to launch directory.
-    os.chdir(ctx.launch_dir)
+    os.chdir(waflib.Context.launch_dir)
 
     # Run waf with uv..
-    run_waf_with_uv(ctx)
+    run_waf_with_uv(ctx, uv)
 
     # Do nothing more on build.
     sys.exit(0)
 
 
-def build_with_uv(ctx: BuildContext) -> None:
-    if not ctx.env.HAVE_UV:
+def is_build_command(cmd: str) -> bool:
+    for cls in waflib.Context.classes:
+        if cls.cmd == cmd:
+            return issubclass(cls, BuildContext)
+    return False
+
+
+# Set by init_with_uv(), so that build_with_uv() detects a top project that
+# does not pass init down to lib-common.
+INIT_WITH_UV_CALLED = False
+
+
+def init_with_uv(ctx: Context) -> None:
+    # The build commands re-run in the uv environment from `init`, before
+    # BuildContext.restore() loads the tools saved by configure: the
+    # interpreter that runs waf may be unable to import them. It is the
+    # default python3, which differs from the venv one when the tool manager
+    # keeps another system interpreter (mise then provides no python3 shim).
+    global INIT_WITH_UV_CALLED
+    INIT_WITH_UV_CALLED = True
+
+    if 'configure' in Options.commands:
+        # configure re-runs itself in the uv environment, see
+        # rerun_waf_configure_with_uv().
+        return
+    # Only the build commands load the tools saved by configure.
+    if not any(is_build_command(cmd) for cmd in Options.commands):
         return
 
-    rerun_waf_build_with_uv(ctx)
+    # Read the configuration without BuildContext.restore(), which would
+    # load the tools.
+    env = ConfigSet.ConfigSet()
+    cache_path = osp.join(
+        waflib.Context.out_dir, Build.CACHE_DIR, Build.CACHE_SUFFIX
+    )
+    try:
+        env.load(cache_path)
+    except OSError:
+        # The project is not configured: the build fails by itself.
+        return
+    if not env.HAVE_UV:
+        return
+
+    rerun_waf_build_with_uv(ctx, env.UV, env.UV_EXTRA, waflib.Context.top_dir)
+
+
+def build_with_uv(ctx: BuildContext) -> None:
+    # A re-run from build() would come too late: the tools are already
+    # loaded. init_with_uv() must have done it.
+    if ctx.env.HAVE_UV and not INIT_WITH_UV_CALLED:
+        ctx.fatal(
+            'The top wscript must pass init down to lib-common: '
+            'add an init(ctx) function that calls ctx.recurse()'
+        )
 
 
 # }}}
@@ -626,6 +681,14 @@ def build_with_uv(ctx: BuildContext) -> None:
 
 def options(ctx: OptionsContext) -> None:
     load_tools(ctx)
+
+
+# }}}
+# {{{ init
+
+
+def init(ctx: Context) -> None:
+    init_with_uv(ctx)
 
 
 # }}}
