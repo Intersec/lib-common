@@ -1774,6 +1774,34 @@ Z_GROUP_EXPORT(str) {
 #undef T
     } Z_TEST_END;
 
+    Z_TEST(sb_add_replaced) {
+        SB_1k(sb);
+
+#define T(from, search, replace, to)                                         \
+    do {                                                                     \
+        sb_add_replaced(&sb, LSTR(from), LSTR(search), LSTR(replace));       \
+        Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sb), LSTR(to));                        \
+        sb_reset(&sb);                                                       \
+    } while (0)
+
+        T("", "a", "b", "");
+        T("abc", "x", "y", "abc");
+        T("abc", "abc", "", "");
+        T("abc", "b", "", "ac");
+        T("a-b--c", "-", "+-", "a+-b+-+-c");
+        T("-a-", "-", "__", "__a__");
+        T("aaa", "aa", "b", "ba");
+        T("foo bar foo", "foo", "baz", "baz bar baz");
+        T("ab", "abc", "x", "ab");
+
+#undef T
+
+        /* The result is appended to the existing content. */
+        sb_adds(&sb, "x:");
+        sb_add_replaced(&sb, LSTR("a.b"), LSTR("."), LSTR("::"));
+        Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sb), LSTR("x:a::b"));
+    } Z_TEST_END;
+
     Z_TEST(lstr_startswithc) {
         Z_ASSERT(lstr_startswithc(LSTR("1234"), '1'));
         Z_ASSERT(!lstr_startswithc(LSTR("1234"), '2'));

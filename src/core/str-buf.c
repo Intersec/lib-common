@@ -400,6 +400,19 @@ void sb_add_sanitized_out(sb_t *sb, lstr_t s, const ctype_desc_t *d, int c)
     }
 }
 
+void sb_add_replaced(sb_t *sb, lstr_t s, lstr_t search, lstr_t replace)
+{
+    pstream_t r = ps_initlstr(&s);
+    pstream_t w;
+
+    assert(search.len > 0);
+    while (ps_get_ps_upto_data_and_skip(&r, search.s, search.len, &w) >= 0) {
+        sb_add(sb, w.s, ps_len(&w));
+        sb_add_lstr(sb, replace);
+    }
+    sb_add(sb, r.s, ps_len(&r));
+}
+
 void _sb_add_duration_ms(sb_t *sb, uint64_t ms, bool print_ms)
 {
     uint8_t nb_prints = 0;

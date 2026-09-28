@@ -602,6 +602,25 @@ void sb_add_sanitized_out(
     sb_t *nonnull sb, lstr_t s, const ctype_desc_t *nonnull d, int c
 );
 
+/** Appends content to a string buffer, replacing each occurrence of a
+ *  substring with another string.
+ *
+ * eg:
+ *   "I like cats", "cats" => "dogs" gives "I like dogs"
+ *   "Mon, Tue, Mon", "Mon" => "Monday" gives "Monday, Tue, Monday"
+ *
+ * Occurrences are searched from left to right in \p s and do not overlap.
+ * The replacement is not searched again.
+ *
+ * \param[inout] sb      Buffer to be updated
+ * \param[in]    s       String to be added
+ * \param[in]    search  Substring to replace; must not be empty
+ * \param[in]    replace String to add in place of each \p search
+ */
+void sb_add_replaced(
+    sb_t *nonnull sb, lstr_t s, lstr_t search, lstr_t replace
+);
+
 #  define sb_setvf(sb, fmt, ap)                                              \
       ({                                                                     \
         sb_t *__b = (sb);                                                    \
