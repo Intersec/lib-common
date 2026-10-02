@@ -598,6 +598,31 @@ Z_GROUP_EXPORT(iop_rpc) {
         Z_ASSERT_P(ctx);
     } Z_TEST_END;
 
+    Z_TEST(ic_proxy_reply_hook_ctx) {
+        /* The hook context of a proxied query is freed when its answer
+         * comes back, even if the channel of the query is gone and the
+         * answer is dropped. */
+        uint64_t slot = MAKE64(UINT32_MAX, 1);
+        ichannel_t pxy_ic;
+        ic_msg_t *msg;
+
+        ic_init(&pxy_ic);
+        ic_set_local(&pxy_ic, false);
+
+        ic_hook_ctx_new(slot, 0);
+        msg = ic_msg_proxy_new(-1, slot, NULL);
+        msg->cb = IC_PROXY_MAGIC_CB;
+        __ic_msg_reply_err(&pxy_ic, msg, IC_MSG_PROXY_ERROR);
+        ic_msg_delete(&msg);
+        Z_ASSERT_NULL(ic_hook_ctx_get(slot), "proxied error");
+
+        ic_hook_ctx_new(slot, 0);
+        __ic_forward_reply_to(&pxy_ic, slot, IC_MSG_OK, NULL, NULL);
+        Z_ASSERT_NULL(ic_hook_ctx_get(slot), "forwarded reply");
+
+        ic_wipe(&pxy_ic);
+    } Z_TEST_END;
+
     Z_TEST(ic_user_version, "iop-rpc: user version tests") {
         el_t server_ev;
         ichannel_t ic_client;

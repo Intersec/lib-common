@@ -784,13 +784,13 @@ static void ic_proxify(
         return;
     }
     ic = ic_get_from_slot(slot);
+    ic_query_do_post_hook(ic, cmd, slot, NULL, NULL);
     if (unlikely(!ic)) {
         return;
     }
     if (likely(ic_can_reply(ic, slot))) {
         ic_msg_t *tmp = ic_msg_new_fd(pxy_ic ? ic_get_fd(pxy_ic) : -1, 0);
 
-        ic_query_do_post_hook(ic, cmd, slot, NULL, NULL);
         ic_msg_init_for_reply(ic, tmp, slot, cmd);
         if (unpacked_msg && (likely(cmd == IC_MSG_OK) || cmd == IC_MSG_EXN)) {
             const iop_struct_t *st;
@@ -856,7 +856,9 @@ void __ic_forward_reply_to(
         return;
     }
 
-    if (unlikely(!(ic = ic_get_from_slot(slot)))) {
+    ic = ic_get_from_slot(slot);
+    ic_query_do_post_hook(ic, cmd, slot, NULL, NULL);
+    if (unlikely(!ic)) {
         return;
     }
     if (likely(ic_can_reply(ic, slot))) {
@@ -865,7 +867,6 @@ void __ic_forward_reply_to(
         const void *data = buf->data + IC_MSG_HDR_LEN;
         int dlen = get_unaligned_le32(buf->data + IC_MSG_DLEN_OFFSET);
 
-        ic_query_do_post_hook(ic, cmd, slot, NULL, NULL);
         ic_msg_init_for_reply(ic, tmp, slot, cmd);
         if (ic_is_local(pxy_ic) && !get_unaligned_le32(buf->data)) {
             const ic_msg_t *msg_org = data;
