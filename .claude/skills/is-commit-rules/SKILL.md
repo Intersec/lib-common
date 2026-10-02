@@ -163,6 +163,17 @@ grow it.
   naming the tree, the guard and the query type.
 - **Open with the TL;DR.** First sentence = the failure at its most
   general level; mechanics and fix follow.
+- **Tense separates the old code from the new.** Describe how the code
+  behaved before the commit in the past tense. Describe the change in
+  the imperative. Keep the present tense for facts that the commit does
+  not change. A reader takes each sentence in the present tense as true
+  after the commit.
+
+      Bad:  The proxy paths call the post hook only when they can
+            forward the answer.
+      Good: The proxy paths called the post hook only when they could
+            forward the answer. Make them call it first.
+      Good: Channel ids are never reused.   (still true after the fix)
 - **No diff-relative references** ("the line", "the check just above").
 - **A deep explanation carries its own context.** When quoting code,
   separate it from the prose as an indented block and annotate it
@@ -224,3 +235,5 @@ refer to something the reader can picture?
    what the tests now look like. A pointer to what comes next stays
    only when it is the reason this commit exists.
 4. 72 columns; trailers in one block; `Change-Id` untouched.
+5. Each sentence about the code before the commit is in the past
+   tense. Each sentence in the present tense is still true after it.
