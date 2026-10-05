@@ -62,6 +62,7 @@ def load_tools(ctx: Context) -> None:
     ctx.load('common', tooldir=waftoolsdir)
     ctx.load('backend', tooldir=waftoolsdir)
     ctx.load('compilation_database', tooldir=waftoolsdir)
+    ctx.load('iop_pystubs', tooldir=waftoolsdir)
     for tool in getattr(ctx, 'extra_waftools', []):
         ctx.load(tool, tooldir=waftoolsdir)
 
