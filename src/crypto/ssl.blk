@@ -879,7 +879,111 @@ int rsa_verif_finish(rsa_verif_t **pctx)
 }
 
 /* }}} */
+/* {{{ Ed25519 */
 
+/* Read an Ed25519 key in PEM format. Refuse the other key types: with a
+ * NULL digest, OpenSSL also accepts an RSA or EC key, and then signs or
+ * verifies with RSA or ECDSA. */
+static EVP_PKEY *
+ed25519_read_key(lstr_t pem, bool is_private, pem_password_b pass_cb)
+{
+    BIO *bio;
+    EVP_PKEY *key;
+
+    bio = BIO_new_mem_buf(pem.v, pem.len);
+    if (!bio) {
+        ssl_set_error("allocation failure");
+        return NULL;
+    }
+    if (is_private) {
+        key = PEM_read_bio_PrivateKey(
+            bio, NULL, pass_cb ? &pem_password_blk_cb : NULL, pass_cb
+        );
+    } else {
+        key = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);
+    }
+    BIO_free(bio);
+
+    if (!key) {
+        ssl_set_error("read key failure");
+        return NULL;
+    }
+    if (EVP_PKEY_id(key) != EVP_PKEY_ED25519) {
+        EVP_PKEY_free(key);
+        __ssl_set_error("not an Ed25519 key");
+        return NULL;
+    }
+    return key;
+}
+
+int ed25519_sign(
+    lstr_t priv_key, pem_password_b pass_cb, lstr_t msg, sb_t *out
+)
+{
+    EVP_PKEY *key;
+    EVP_MD_CTX *md_ctx = NULL;
+    size_t len = ED25519_SIGNATURE_LEN;
+    byte *sig;
+    int res = -1;
+
+    key = RETHROW_PN(ed25519_read_key(priv_key, true, pass_cb));
+    md_ctx = EVP_MD_CTX_create();
+    if (!md_ctx || EVP_DigestSignInit(md_ctx, NULL, NULL, NULL, key) <= 0) {
+        ssl_set_error("sign context initialization failure");
+        goto end;
+    }
+
+    sig = (byte *)sb_growlen(out, ED25519_SIGNATURE_LEN);
+    if (EVP_DigestSign(md_ctx, sig, &len, msg.data, msg.len) <= 0) {
+        sb_shrink(out, ED25519_SIGNATURE_LEN);
+        ssl_set_error("signature failure");
+        goto end;
+    }
+    res = 0;
+
+end:
+    if (md_ctx) {
+        EVP_MD_CTX_destroy(md_ctx);
+    }
+    EVP_PKEY_free(key);
+    return res;
+}
+
+int ed25519_verify(lstr_t pub_key, lstr_t msg, lstr_t sig)
+{
+    EVP_PKEY *key;
+    EVP_MD_CTX *md_ctx = NULL;
+    int res = -1;
+
+    /* A failed check is a normal result, but OpenSSL leaves its errors in
+     * the queue of the thread. Mark the queue here, so that the end of the
+     * function drops the errors queued after the mark. */
+    ERR_set_mark();
+    key = ed25519_read_key(pub_key, false, NULL);
+    if (!key) {
+        goto end;
+    }
+    md_ctx = EVP_MD_CTX_create();
+    if (!md_ctx || EVP_DigestVerifyInit(md_ctx, NULL, NULL, NULL, key) <= 0) {
+        goto end;
+    }
+
+    /* EVP_DigestVerify() returns 1 for a valid signature, and 0 or a
+     * negative value otherwise. */
+    if (EVP_DigestVerify(md_ctx, sig.data, sig.len, msg.data, msg.len) == 1) {
+        res = 0;
+    }
+
+end:
+    if (md_ctx) {
+        EVP_MD_CTX_destroy(md_ctx);
+    }
+    EVP_PKEY_free(key);
+    ERR_pop_to_mark();
+    return res;
+}
+
+/* }}} */
 /* }}} */
 /* {{{ TLS */
 
@@ -1260,6 +1364,16 @@ ssize_t ssl_sb_read(sb_t *sb, SSL *ssl, int hint)
 
 /* }}} */
 /* {{{ Tests */
+
+static pem_password_b z_ed25519_pass_cb =
+    ^int(char *buf, int size, int rwflag) {
+        return snprintf(buf, size, "pioupiou");
+    };
+
+static pem_password_b z_ed25519_bad_pass_cb =
+    ^int(char *buf, int size, int rwflag) {
+        return snprintf(buf, size, "wrong");
+    };
 
 Z_GROUP_EXPORT(ssl) {
     MODULE_REQUIRE(ssl);
@@ -1682,6 +1796,114 @@ Z_GROUP_EXPORT(ssl) {
             Z_ASSERT_N(ssl_decrypt(&ctx, text_encrypted, &sb_clear));
             Z_ASSERT_LSTREQUAL(text, LSTR_SB_V(&sb_clear));
             ssl_ctx_wipe(&ctx);
+        } Z_TEST_END;
+
+        /* }}} */
+        /* {{{ Ed25519 */
+
+        Z_TEST(ed25519) {
+            /* Key and signature of test 2 of RFC 8032, section 7.1.
+             * In DER, the private key is 48 bytes:
+             * - the PKCS#8 header of an Ed25519 key (RFC 8410), 16 bytes:
+             *   302e020100300506032b657004220420
+             * - the private key of the RFC, 32 bytes:
+             *   4ccd089b28ff96da9db6c346ec114e0f
+             *   5b8a319f35aba624da8cf6ed4fb8a6fb
+             * The PEM keys come from them with:
+             * $ echo <PKCS#8 header><private key> \
+             *   | xxd -r -p | openssl pkey -inform DER -out priv.pem
+             * $ openssl pkey -in priv.pem -pubout -out pub.pem
+             * $ openssl pkey -in priv.pem -aes-256-cbc \
+             *   -passout pass:pioupiou -out priv-enc.pem
+             */
+            const lstr_t ed_priv = LSTR_IMMED(
+                "-----BEGIN PRIVATE KEY-----\n"
+                "MC4CAQAwBQYDK2VwBCIEIEzNCJso/5banbbDRuwRTg9bijGfNaumJNqM9u1P"
+                "uKb7\n"
+                "-----END PRIVATE KEY-----\n"
+            );
+            const lstr_t ed_priv_encrypted = LSTR_IMMED(
+                "-----BEGIN ENCRYPTED PRIVATE KEY-----\n"
+                "MIGbMFcGCSqGSIb3DQEFDTBKMCkGCSqGSIb3DQEFDDAcBAhgEBKaZMK9IgIC"
+                "CAAw\n"
+                "DAYIKoZIhvcNAgkFADAdBglghkgBZQMEASoEEOmg5woDfvpXEV7PmEZLFVUE"
+                "QMAZ\n"
+                "2YgqJo/S7P080sSAQ9B0McBnLYowxLfRhrqMjuZPoEKEwC8x5lDDba2qPDNH"
+                "Bgn0\n"
+                "6CxlgSjldN5FC438Z3o=\n"
+                "-----END ENCRYPTED PRIVATE KEY-----\n"
+            );
+            const lstr_t ed_pub = LSTR_IMMED(
+                "-----BEGIN PUBLIC KEY-----\n"
+                "MCowBQYDK2VwAyEAPUAXw+hDiVqStwqnTRt+vJyYLM8uxJaMwM1V8Sr0Zgw="
+                "\n"
+                "-----END PUBLIC KEY-----\n"
+            );
+            /* Public key of test 1 of RFC 8032: it does not check the
+             * signature of test 2. */
+            const lstr_t other_pub = LSTR_IMMED(
+                "-----BEGIN PUBLIC KEY-----\n"
+                "MCowBQYDK2VwAyEA11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo="
+                "\n"
+                "-----END PUBLIC KEY-----\n"
+            );
+            const lstr_t msg = LSTR_IMMED("\x72");
+            const lstr_t expected_sig = LSTR_IMMED(
+                "\x92\xa0\x09\xa9\xf0\xd4\xca\xb8\x72\x0e\x82\x0b\x5f\x64"
+                "\x25\x40\xa2\xb2\x7b\x54\x16\x50\x3f\x8f\xb3\x76\x22\x23"
+                "\xeb\xdb\x69\xda\x08\x5a\xc1\xe4\x3e\x15\x99\x6e\x45\x8f"
+                "\x36\x13\xd0\xf1\x1d\x8c\x38\x7b\x2e\xae\xb4\x30\x2a\xee"
+                "\xb0\x0d\x29\x16\x12\xbb\x0c\x00"
+            );
+            SB_1k(sig);
+            SB_1k(changed);
+
+            /* The tests above can leave errors in the OpenSSL queue. */
+            ERR_clear_error();
+
+            /* Sign: the signature is deterministic. */
+            Z_ASSERT_N(ed25519_sign(ed_priv, NULL, msg, &sig));
+            Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sig), expected_sig);
+            sb_reset(&sig);
+            Z_ASSERT_N(
+                ed25519_sign(ed_priv_encrypted, z_ed25519_pass_cb, msg, &sig)
+            );
+            Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sig), expected_sig);
+            Z_ASSERT_N(ed25519_verify(ed_pub, msg, LSTR_SB_V(&sig)));
+
+            /* A changed message or signature is not valid. */
+            Z_ASSERT_NEG(ed25519_verify(ed_pub, LSTR("\x73"), expected_sig));
+            sb_set_lstr(&changed, expected_sig);
+            changed.data[10] ^= 0x01;
+            Z_ASSERT_NEG(ed25519_verify(ed_pub, msg, LSTR_SB_V(&changed)));
+            Z_ASSERT_NEG(
+                ed25519_verify(ed_pub, msg, LSTR_INIT_V(expected_sig.s, 63))
+            );
+            Z_ASSERT_NEG(ed25519_verify(other_pub, msg, expected_sig));
+
+            /* Only Ed25519 keys are accepted. */
+            Z_ASSERT_NEG(ed25519_verify(LSTR_SB_V(&pub), msg, expected_sig));
+            Z_ASSERT_NEG(ed25519_verify(ed_priv, msg, expected_sig));
+
+            /* A failed check is a normal result: it leaves no error in the
+             * OpenSSL queue, where SSL_get_error() would find it at the next
+             * TLS read. */
+            Z_ASSERT_ZERO(ERR_peek_error());
+
+            /* A failed signature gives its reason. */
+            sb_reset(&sig);
+            Z_ASSERT_NEG(ed25519_sign(LSTR_SB_V(&priv), NULL, msg, &sig));
+            Z_ASSERT_STREQUAL(ssl_get_error(), "not an Ed25519 key");
+            Z_ASSERT_EQ(sig.len, 0);
+            Z_ASSERT_NEG(ed25519_sign(ed_pub, NULL, msg, &sig));
+            Z_ASSERT_NEG(ed25519_sign(LSTR("garbage"), NULL, msg, &sig));
+            Z_ASSERT_NEG(ed25519_sign(
+                ed_priv_encrypted, z_ed25519_bad_pass_cb, msg, &sig
+            ));
+            Z_ASSERT(lstr_startswith(
+                LSTR(ssl_get_error()), LSTR("read key failure: ")
+            ));
+            Z_ASSERT_EQ(sig.len, 0);
         } Z_TEST_END;
 
         /* }}} */

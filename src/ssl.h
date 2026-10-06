@@ -471,6 +471,47 @@ void rsa_verif_update(
 
 __must_check__ int rsa_verif_finish(rsa_verif_t * nonnull * nonnull ctx);
 
+/* {{{ Ed25519 */
+
+/* Length of an Ed25519 signature, in bytes. */
+#define ED25519_SIGNATURE_LEN 64
+
+/** Sign a message with an Ed25519 private key (RFC 8032).
+ *
+ * For Ed25519, OpenSSL takes the whole message in one call, because the
+ * algorithm reads the message twice: it cannot sign a message given in
+ * several parts. To sign a large input, sign a digest of it.
+ *
+ * \param[in]  priv_key  The private key, in PEM format.
+ * \param[in]  pass_cb   The callback that gives the passphrase of an
+ *                       encrypted key, or NULL.
+ * \param[in]  msg       The message to sign.
+ * \param[out] out       The buffer that gets the ED25519_SIGNATURE_LEN
+ *                       bytes of the signature.
+ *
+ * \return 0 on success, -1 if the key cannot be read, if it is not an
+ *         Ed25519 key, or if the signature fails. You can call
+ *         ssl_get_error() on error to get the reason. \p out does not
+ *         change on error.
+ */
+__must_check__ int ed25519_sign(
+    lstr_t priv_key, pem_password_b nullable pass_cb, lstr_t msg,
+    sb_t *nonnull out
+);
+
+/** Verify an Ed25519 signature (RFC 8032).
+ *
+ * \param[in]  pub_key  The public key, in PEM format.
+ * \param[in]  msg      The signed message.
+ * \param[in]  sig      The signature.
+ *
+ * \return 0 if the signature is valid, -1 if it is not valid, if the key
+ *         cannot be read or if it is not an Ed25519 key. The OpenSSL error
+ *         queue of the thread does not change.
+ */
+__must_check__ int ed25519_verify(lstr_t pub_key, lstr_t msg, lstr_t sig);
+
+/* }}} */
 /* }}} */
 /* {{{ TLS */
 
