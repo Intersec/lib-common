@@ -395,10 +395,10 @@ TypedefStructUseAll_fields_DictType = typing.TypedDict('TypedefStructUseAll_fiel
     'm3': int,
     'm37': typing_extensions.NotRequired[int],
     'b310': int,
-    'msa': typing_extensions.NotRequired[list[str]],
-    'msa3': typing_extensions.NotRequired[list[str]],
-    'msa6': typing_extensions.NotRequired[list[str]],
-    'msa610': typing_extensions.NotRequired[list[str]],
+    'msa': list[str],
+    'msa3': list[str],
+    'msa6': list[str],
+    'msa610': list[str],
     'mnso': typing_extensions.NotRequired[str],
     'mea': str,
     'msal': MyStruct_DictType,
@@ -1094,7 +1094,7 @@ Hdr_ParamType: typing_extensions.TypeAlias = Hdr | Hdr_ParamDictType | Hdr_DictT
 
 TypedefStructUseAllWithList_fields_DictType = typing.TypedDict('TypedefStructUseAllWithList_fields_DictType', {
     'listName': str,
-    'list': typing_extensions.NotRequired[list[TypedefStructUseAll_DictType]],
+    'list': list[TypedefStructUseAll_DictType],
 })
 
 @typing.type_check_only

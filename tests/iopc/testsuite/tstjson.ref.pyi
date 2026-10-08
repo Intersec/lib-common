@@ -247,7 +247,7 @@ MyStructB_fields_DictType = typing.TypedDict('MyStructB_fields_DictType', {
     'k': typing_extensions.NotRequired[bytes],
     'l': typing_extensions.NotRequired[str],
     'm': typing_extensions.NotRequired[str],
-    'unionA': typing_extensions.NotRequired[list[MyUnionA_DictType]],
+    'unionA': list[MyUnionA_DictType],
     'structA': MyStructA_DictType,
     'xmlField': str,
 })
@@ -568,11 +568,11 @@ ConstraintU_ParamType: typing_extensions.TypeAlias = ConstraintU | ConstraintU_P
 # {{{ ConstraintS
 
 ConstraintS_fields_DictType = typing.TypedDict('ConstraintS_fields_DictType', {
-    'i8': typing_extensions.NotRequired[list[int]],
-    'i16': typing_extensions.NotRequired[list[int]],
-    'i32': typing_extensions.NotRequired[list[int]],
-    'i64': typing_extensions.NotRequired[list[int]],
-    's': typing_extensions.NotRequired[list[str]],
+    'i8': list[int],
+    'i16': list[int],
+    'i32': list[int],
+    'i64': list[int],
+    's': list[str],
     's2': str,
 })
 
@@ -749,7 +749,7 @@ MyClassBase_ParamType: typing_extensions.TypeAlias = MyClassBase | MyClassBase_P
 
 MyClassA_fields_DictType = typing.TypedDict('MyClassA_fields_DictType', {
     'b': typing_extensions.NotRequired[int],
-    'structB': typing_extensions.NotRequired[list[MyStructB_DictType]],
+    'structB': list[MyStructB_DictType],
 })
 
 @typing.type_check_only
@@ -1907,7 +1907,7 @@ class MyIfaceA_funC_RPCServer(iopy.RPCServer[MyIfaceA_funC_Arg, MyIfaceA_funC_Re
 # {{{ MyIfaceA_funF
 
 MyIfaceA_funF_Arg_fields_DictType = typing.TypedDict('MyIfaceA_funF_Arg_fields_DictType', {
-    'a': typing_extensions.NotRequired[list[int]],
+    'a': list[int],
     'b': typing_extensions.NotRequired[int],
 })
 

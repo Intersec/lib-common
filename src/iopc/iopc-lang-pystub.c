@@ -418,8 +418,15 @@ static void iopc_pystub_dump_to_dict(sb_t *buf, const char *st_name)
 /* }}} */
 /* {{{ Struct */
 
-static bool iopc_pystub_field_dict_is_optional(const iopc_field_t *field)
+static bool iopc_pystub_field_dict_is_optional(
+    const iopc_field_t *field, iopc_pystub_field_mode_t mode
+)
 {
+    if (field->repeat == IOP_R_REPEATED && mode == PYSTUB_FIELD_DICT) {
+        /* `to_dict()` always writes an array, unless 'skip_empty_arrays'. */
+        return false;
+    }
+
     if (field->repeat != IOP_R_REQUIRED) {
         /* IOP field definition is not required. */
         return true;
@@ -444,7 +451,7 @@ static bool iopc_pystub_field_dict_is_optional(const iopc_field_t *field)
 
         do {
             tab_for_each_entry(st_field, &st->fields) {
-                if (!iopc_pystub_field_dict_is_optional(st_field)) {
+                if (!iopc_pystub_field_dict_is_optional(st_field, mode)) {
                     return false;
                 }
             }
@@ -505,7 +512,7 @@ static void iopc_pystub_dump_struct_dict_type_variant(
     }
 
     tab_for_each_entry(field, &st->fields) {
-        bool is_optional = iopc_pystub_field_dict_is_optional(field);
+        bool is_optional = iopc_pystub_field_dict_is_optional(field, mode);
 
         sb_addf(buf, "    '%s': ", field->name);
         if (is_optional) {
