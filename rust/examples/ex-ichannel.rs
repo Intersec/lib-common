@@ -66,11 +66,7 @@ use crate::bindings::{
 #[waf_cargo_build::bindings_mod]
 pub mod bindings {
     pub use ichannel::bindings::*;
-    use libcommon::iop::{
-        Base, CEnum, CInstance, CStruct, CStructUnion, CUnion, Enum, IopArray, IopOption, Struct,
-        StructUnion, Union,
-    };
-    use libcommon_core::lstr::{BorrowedBytesLstr, BorrowedUtf8Lstr};
+    use libcommon::iop::{Base, CInstance, CStruct, CStructUnion, Struct, StructUnion};
     waf_cargo_build::include_bindings!();
 
     // iopc names an RPC argument after the struct it reuses, where bindgen

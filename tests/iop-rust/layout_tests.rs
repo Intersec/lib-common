@@ -36,6 +36,9 @@
 macro_rules! iop_module {
     ($pkg:ident, [$($dep:ident),* $(,)?]) => {
         paste::paste! {
+            // The generated code names the items of libcommon by their
+            // full path.
+            #[allow(clippy::absolute_paths)]
             pub mod [<$pkg _iop_module>] {
                 include!(concat!("../../src/iop-rust/", stringify!($pkg), ".iop.rs"));
                 pub use crate::modules::*;

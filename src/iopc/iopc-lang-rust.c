@@ -43,6 +43,12 @@ static struct {
 } iopc_rust_g;
 #define _G iopc_rust_g
 
+/* The generated Rust names each item of libcommon by its full path, so
+ * that the module that includes it needs no import. */
+#define RUST_LC_IOP "::libcommon::iop::"
+#define RUST_LC_LSTR "::libcommon::lstr::"
+#define RUST_LC_C "::libcommon::bindings::"
+
 #define t_string(x) LSTR(t_camelcase_to_c_str(x))
 #define t_cstring(x) t_camelcase_to_c_str(x)
 
@@ -329,9 +335,9 @@ static lstr_t iopc_rust_get_type(const iopc_field_t *f)
         return LSTR("f64");
     case IOP_T_XML:
     case IOP_T_STRING:
-        return LSTR("BorrowedUtf8Lstr<'a>");
+        return LSTR(RUST_LC_LSTR "BorrowedUtf8Lstr<'a>");
     case IOP_T_DATA:
-        return LSTR("BorrowedBytesLstr<'a>");
+        return LSTR(RUST_LC_LSTR "BorrowedBytesLstr<'a>");
     case IOP_T_STRUCT:
     case IOP_T_UNION:
     case IOP_T_ENUM:
@@ -485,8 +491,8 @@ static void iopc_rust_opt_dump(
         );
     } else {
         sb_addf(
-            buf, "    pub %pL: IopOption<%pL>, // Optional\n", &field_name,
-            &rust_type
+            buf, "    pub %pL: " RUST_LC_IOP "IopOption<%pL>, // Optional\n",
+            &field_name, &rust_type
         );
     }
 }
@@ -500,15 +506,18 @@ static void iopc_rust_repeat_dump(
 
     if (iopc_rust_field_is_class(f)) {
         sb_addf(
-            buf, "    pub %pL: IopArray<'a, &%smut %pL>, // repeated\n",
+            buf,
+            "    pub %pL: " RUST_LC_IOP
+            "IopArray<'a, &%smut %pL>, // repeated\n",
             &field_name, lt, &rust_type
         );
     } else if (f->kind == IOP_T_VOID) {
         return;
     } else {
         sb_addf(
-            buf, "    pub %pL: IopArray<'a, %pL>, // repeated\n", &field_name,
-            &rust_type
+            buf,
+            "    pub %pL: " RUST_LC_IOP "IopArray<'a, %pL>, // repeated\n",
+            &field_name, &rust_type
         );
     }
 }
@@ -581,7 +590,7 @@ static void iopc_rust_dump_fields(sb_t *buf, iopc_struct_t *st)
 
 static void iopc_rust_dump_c_instantiable_trait(sb_t *buf, lstr_t type_name)
 {
-    sb_addf(buf, "impl CInstance for %pL {}\n", &type_name);
+    sb_addf(buf, "impl " RUST_LC_IOP "CInstance for %pL {}\n", &type_name);
 }
 
 static void
@@ -593,7 +602,7 @@ iopc_rust_dump_struct_desc(sb_t *buf, const iopc_pkg_t *pkg, const char *name)
     sb_addf(
         buf,
         "unsafe extern \"C\" {\n"
-        "    pub static %pL: iop_struct_t;\n"
+        "    pub static %pL: " RUST_LC_C "iop_struct_t;\n"
         "}\n\n",
         &desc_name
     );
@@ -610,7 +619,7 @@ iopc_rust_dump_enum_desc(sb_t *buf, const iopc_pkg_t *pkg, const char *name)
         buf,
         "unsafe extern \"C\" {\n"
         "    #[link_name = \"%pL\"]\n"
-        "    pub static %pL: iop_enum_t;\n"
+        "    pub static %pL: " RUST_LC_C "iop_enum_t;\n"
         "}\n\n",
         &enum_name, &desc_name
     );
@@ -618,7 +627,7 @@ iopc_rust_dump_enum_desc(sb_t *buf, const iopc_pkg_t *pkg, const char *name)
 
 static void iopc_rust_dump_base_trait(sb_t *buf, lstr_t type_name)
 {
-    sb_addf(buf, "impl Base for %pL {}\n", &type_name);
+    sb_addf(buf, "impl " RUST_LC_IOP "Base for %pL {}\n", &type_name);
 }
 
 static void
@@ -626,8 +635,8 @@ iopc_rust_dump_enum_trait(sb_t *buf, lstr_t enum_name, lstr_t desc_name)
 {
     sb_addf(
         buf,
-        "impl Enum for %pL {\n"
-        "    fn get_cdesc(&self) -> *const iop_enum_t {\n"
+        "impl " RUST_LC_IOP "Enum for %pL {\n"
+        "    fn get_cdesc(&self) -> *const " RUST_LC_C "iop_enum_t {\n"
         "        &raw const %pL\n"
         "    }\n"
         "}\n",
@@ -637,12 +646,12 @@ iopc_rust_dump_enum_trait(sb_t *buf, lstr_t enum_name, lstr_t desc_name)
 
 static void iopc_rust_dump_union_trait(sb_t *buf, lstr_t union_name)
 {
-    sb_addf(buf, "impl Union for %pL {}\n", &union_name);
+    sb_addf(buf, "impl " RUST_LC_IOP "Union for %pL {}\n", &union_name);
 }
 
 static void iopc_rust_dump_struct_trait(sb_t *buf, lstr_t struct_name)
 {
-    sb_addf(buf, "impl Struct for %pL {}\n", &struct_name);
+    sb_addf(buf, "impl " RUST_LC_IOP "Struct for %pL {}\n", &struct_name);
 }
 
 static void iopc_rust_dump_struct_union_trait(
@@ -653,8 +662,8 @@ static void iopc_rust_dump_struct_union_trait(
     if (struct_type == STRUCT_TYPE_CLASS) {
         sb_addf(
             buf,
-            "impl StructUnion for %pL {\n"
-            "    fn get_cdesc(&self) -> *const iop_struct_t {\n"
+            "impl " RUST_LC_IOP "StructUnion for %pL {\n"
+            "    fn get_cdesc(&self) -> *const " RUST_LC_C "iop_struct_t {\n"
             "        self.vptr\n"
             "    }\n"
             "}\n",
@@ -664,8 +673,8 @@ static void iopc_rust_dump_struct_union_trait(
     }
     sb_addf(
         buf,
-        "impl StructUnion for %pL {\n"
-        "    fn get_cdesc(&self) -> *const iop_struct_t {\n"
+        "impl " RUST_LC_IOP "StructUnion for %pL {\n"
+        "    fn get_cdesc(&self) -> *const " RUST_LC_C "iop_struct_t {\n"
         "        &raw const %pL\n"
         "    }\n"
         "}\n",
@@ -678,8 +687,8 @@ iopc_rust_dump_c_enum_trait(sb_t *buf, lstr_t enum_name, lstr_t desc_name)
 {
     sb_addf(
         buf,
-        "impl CEnum for %pL {\n"
-        "    const CDESC: *const iop_enum_t = &raw const %pL;\n"
+        "impl " RUST_LC_IOP "CEnum for %pL {\n"
+        "    const CDESC: *const " RUST_LC_C "iop_enum_t = &raw const %pL;\n"
         "}\n",
         &enum_name, &desc_name
     );
@@ -687,12 +696,12 @@ iopc_rust_dump_c_enum_trait(sb_t *buf, lstr_t enum_name, lstr_t desc_name)
 
 static void iopc_rust_dump_c_union_trait(sb_t *buf, lstr_t union_name)
 {
-    sb_addf(buf, "impl CUnion for %pL {}\n", &union_name);
+    sb_addf(buf, "impl " RUST_LC_IOP "CUnion for %pL {}\n", &union_name);
 }
 
 static void iopc_rust_dump_c_struct_trait(sb_t *buf, lstr_t struct_name)
 {
-    sb_addf(buf, "impl CStruct for %pL {}\n", &struct_name);
+    sb_addf(buf, "impl " RUST_LC_IOP "CStruct for %pL {}\n", &struct_name);
 }
 
 static void iopc_rust_dump_c_struct_union_trait(
@@ -701,8 +710,9 @@ static void iopc_rust_dump_c_struct_union_trait(
 {
     sb_addf(
         buf,
-        "impl CStructUnion for %pL {\n"
-        "    const CDESC: *const iop_struct_t = &raw const %pL;\n"
+        "impl " RUST_LC_IOP "CStructUnion for %pL {\n"
+        "    const CDESC: *const " RUST_LC_C
+        "iop_struct_t = &raw const %pL;\n"
         "}\n",
         &struct_name, &desc_name
     );
@@ -924,7 +934,7 @@ iopc_rust_dump_class(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
         "#[repr(C)]\n"
         "#[allow(nonstandard_style, clippy::partial_pub_fields)]\n"
         "pub struct %pL {\n"
-        "    pub vptr: *const iop_struct_t,\n\n",
+        "    pub vptr: *const " RUST_LC_C "iop_struct_t,\n\n",
         &st_name
     );
     iopc_rust_inheritance_dump(buf, st, &offset, &align);
@@ -933,7 +943,7 @@ iopc_rust_dump_class(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
     /* Trait implementation for CDESC and runtime testing. */
     sb_addf(
         buf,
-        "impl%s Class for %pL {\n"
+        "impl%s " RUST_LC_IOP "Class for %pL {\n"
         "    type Parent = %pL;\n"
         "}\n",
         impl_lt, &st_name_impl, &parent_type
