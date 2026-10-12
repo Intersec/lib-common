@@ -657,6 +657,45 @@ impl WafBuild {
         Ok(blocked_items)
     }
 
+    /// A bindgen
+    /// [`Builder`](https://docs.rs/bindgen/0.72/bindgen/struct.Builder.html)
+    /// set up with the `waf` environment of the package and the conventions
+    /// of the repository, with no header and no callback.
+    ///
+    /// A package that reads its headers a second time, with another
+    /// configuration, starts from this.
+    #[must_use]
+    pub fn bindgen_builder(&self) -> Builder {
+        let mut builder = Builder::default();
+
+        // Add the waf environment arguments
+        for define in &self.json_env.defines {
+            builder = builder.clang_arg(format!("-D{define}"));
+        }
+        for include in &self.json_env.includes {
+            builder = builder.clang_arg(format!("-I{include}"));
+        }
+
+        // Use Rust enums as it is much more easy to use in Rust, and works well with match().
+        // We just need to be careful with it, as we always are :).
+        builder = builder.default_enum_style(EnumVariation::Rust {
+            non_exhaustive: false,
+        });
+
+        // Disable bindgen layout tests. They are incompatible with our
+        // cross-crate type deduplication: a type blocked here and re-imported
+        // from a dependency may have been generated there from an incomplete
+        // definition (e.g. `sockaddr_in6` is a 1-byte opaque placeholder in
+        // libcommon-core because glibc only forward-declares it), so the
+        // `size_of`/`offset_of` assertions of structs embedding it by value no
+        // longer hold. Some system structs also cannot be laid out identically
+        // to C in Rust at all (`packed` structs with an over-aligned member,
+        // e.g. `sctp_paddrparams` with `sockaddr_storage`).
+        builder = builder.layout_tests(false);
+
+        builder
+    }
+
     /// Generate the bindings of C code using bindgen, and splice in the
     /// `iopc --language rust` bindings of the IOP packages they cover.
     ///
@@ -709,7 +748,8 @@ impl WafBuild {
 
         let native_iop_pkgs = Rc::new(RefCell::new(Vec::new()));
 
-        let mut builder = Builder::default()
+        let mut builder = self
+            .bindgen_builder()
             // Tell cargo to invalidate the built crate whenever any of the
             // included header files changed.
             .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
@@ -723,31 +763,6 @@ impl WafBuild {
                     .to_str()
                     .ok_or_else(|| "invalid static wrapper path".to_owned())?,
             );
-
-        // Add the waf environment arguments
-        for define in &self.json_env.defines {
-            builder = builder.clang_arg(format!("-D{define}"));
-        }
-        for include in &self.json_env.includes {
-            builder = builder.clang_arg(format!("-I{include}"));
-        }
-
-        // Use Rust enums as it is much more easy to use in Rust, and works well with match().
-        // We just need to be careful with it, as we always are :).
-        builder = builder.default_enum_style(EnumVariation::Rust {
-            non_exhaustive: false,
-        });
-
-        // Disable bindgen layout tests. They are incompatible with our
-        // cross-crate type deduplication: a type blocked here and re-imported
-        // from a dependency may have been generated there from an incomplete
-        // definition (e.g. `sockaddr_in6` is a 1-byte opaque placeholder in
-        // libcommon-core because glibc only forward-declares it), so the
-        // `size_of`/`offset_of` assertions of structs embedding it by value no
-        // longer hold. Some system structs also cannot be laid out identically
-        // to C in Rust at all (`packed` structs with an over-aligned member,
-        // e.g. `sctp_paddrparams` with `sockaddr_storage`).
-        builder = builder.layout_tests(false);
 
         // Call the callback to add the headers and exported functions.
         builder = cb(builder)?;
