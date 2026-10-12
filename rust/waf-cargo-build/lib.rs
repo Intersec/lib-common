@@ -536,6 +536,43 @@ impl WafBuild {
         );
     }
 
+    /// The items that this package must not generate, because a dependency
+    /// already exports them.
+    ///
+    /// # Errors
+    ///
+    /// A dependency's `bindings_items.json` cannot be read.
+    fn blocked_items(&self) -> Result<HashSet<String>, Box<dyn error::Error>> {
+        let mut blocked_items: HashSet<String> = HashSet::new();
+        for dep_path_str in self.json_env.local_recursive_dependencies.values() {
+            let dep_path = Path::new(dep_path_str);
+            let dep_pkg_waf_build_dir = get_pkg_waf_build_dir(self.is_pic_profile, dep_path);
+            let dep_bind_json = dep_pkg_waf_build_dir.join("bindings_items.json");
+
+            if !dep_bind_json.exists() {
+                continue;
+            }
+
+            // The items of a dependency form the block list of this package, so they decide what
+            // bindgen generates here: the Rust items, and the static wrappers compiled next to
+            // them. Rerun when they change, otherwise a stale block list makes this package wrap
+            // a function that the dependency wraps too, and the two definitions collide when the
+            // final binary is linked.
+            //
+            // A missing file is not declared: cargo reruns a build script on every build when a
+            // declared path does not exist, and most dependencies generate no bindings at all.
+            println!("cargo::rerun-if-changed={}", dep_bind_json.display());
+
+            // Read the dep binding items json file
+            let dep_items: Vec<String> = read_json_file(&dep_bind_json)?;
+
+            // Add the items to the block list
+            blocked_items.extend(dep_items);
+        }
+
+        Ok(blocked_items)
+    }
+
     /// Generate the bindings of C code using bindgen.
     ///
     /// This function takes a function callback to be able to specify what functions and variables
@@ -583,33 +620,7 @@ impl WafBuild {
         let out_dir = PathBuf::from(env::var("OUT_DIR")?);
         let static_wrapper_path = out_dir.join("static-wrappers.c");
 
-        // Generate the list of blocked items
-        let mut blocked_items: HashSet<String> = HashSet::new();
-        for dep_path_str in self.json_env.local_recursive_dependencies.values() {
-            let dep_path = Path::new(dep_path_str);
-            let dep_pkg_waf_build_dir = get_pkg_waf_build_dir(self.is_pic_profile, dep_path);
-            let dep_bind_json = dep_pkg_waf_build_dir.join("bindings_items.json");
-
-            if !dep_bind_json.exists() {
-                continue;
-            }
-
-            // The items of a dependency form the block list of this package, so they decide what
-            // bindgen generates here: the Rust items, and the static wrappers compiled next to
-            // them. Rerun when they change, otherwise a stale block list makes this package wrap
-            // a function that the dependency wraps too, and the two definitions collide when the
-            // final binary is linked.
-            //
-            // A missing file is not declared: cargo reruns a build script on every build when a
-            // declared path does not exist, and most dependencies generate no bindings at all.
-            println!("cargo::rerun-if-changed={}", dep_bind_json.display());
-
-            // Read the dep binding items json file
-            let dep_items: Vec<String> = read_json_file(&dep_bind_json)?;
-
-            // Add the items to the block list
-            blocked_items.extend(dep_items);
-        }
+        let blocked_items = self.blocked_items()?;
 
         let mut builder = Builder::default()
             // Tell cargo to invalidate the built crate whenever any of the
