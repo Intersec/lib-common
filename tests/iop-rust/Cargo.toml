@@ -32,6 +32,8 @@ doc = false
 
 [build-dependencies]
 waf-cargo-build = { path = "../../rust/waf-cargo-build" }
+bindgen.workspace = true
+syn.workspace = true
 
 [dependencies]
 waf-cargo-build = { path = "../../rust/waf-cargo-build" }

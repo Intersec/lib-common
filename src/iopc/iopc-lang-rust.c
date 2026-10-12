@@ -1016,105 +1016,6 @@ iopc_rust_dump_class(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
 /* }}} */
 /* {{{ Test generation */
 
-static void iopc_rust_write_inherited_fields_offsets_tests(
-    sb_t *buf_tests, const iopc_struct_t *st, lstr_t type_ref,
-    unsigned int *offset, unsigned int *align
-)
-{
-    const iopc_struct_t *parent;
-
-    if (st->extends.len == 0) {
-        return;
-    }
-    parent = st->extends.tab[0]->st;
-    iopc_rust_write_inherited_fields_offsets_tests(
-        buf_tests, parent, type_ref, offset, align
-    );
-
-    tab_for_each_entry(f, &parent->fields_in_c_struct_order) {
-        t_scope;
-        lstr_t field_name;
-
-        if (!iopc_rust_field_is_emitted(f)) {
-            continue;
-        }
-        field_name = t_iopc_rust_field_name(f);
-        iopc_field_compute_size(f);
-        *align = MAX(*align, f->align);
-        *offset = ROUND_UP(*offset, f->align);
-
-        sb_addf(
-            buf_tests, "        assert_eq!(offset_of!(%pL, %pL), %u);\n",
-            &type_ref, &field_name, *offset
-        );
-        *offset += f->size;
-    }
-    *offset = ROUND_UP(*offset, *align);
-}
-
-static void iopc_rust_write_tests(
-    sb_t *buf_tests, const iopc_pkg_t *pkg, iopc_struct_t *st
-)
-{
-    t_scope;
-    lstr_t type_name = t_format_type_name(pkg, st, st->name, "");
-    lstr_t type_ref = t_format_type_name(
-        pkg, st, st->name, iopc_rust_add_static_lifetime(st)
-    );
-    unsigned int offset = iopc_rust_base_offset(st);
-    unsigned int align = iopc_rust_base_alignment(st);
-    unsigned int max_size = 0;
-    unsigned int size;
-
-    sb_addf(
-        buf_tests,
-        "    #[test]\n"
-        "    #[allow(nonstandard_style, dead_code)]\n"
-        "    fn %pL__layout() {\n",
-        &type_name
-    );
-
-    if (st->type == STRUCT_TYPE_CLASS) {
-        iopc_rust_write_inherited_fields_offsets_tests(
-            buf_tests, st, type_ref, &offset, &align
-        );
-    }
-
-    tab_for_each_entry(f, &st->fields_in_c_struct_order) {
-        t_scope;
-        lstr_t field_name;
-
-        if (!iopc_rust_field_is_emitted(f)) {
-            continue;
-        }
-        field_name = t_iopc_rust_field_name(f);
-        iopc_field_compute_size(f);
-        align = MAX(align, f->align);
-
-        if (st->type == STRUCT_TYPE_UNION) {
-            max_size = MAX(max_size, f->size);
-            continue;
-        }
-
-        offset = ROUND_UP(offset, f->align);
-        sb_addf(
-            buf_tests, "        assert_eq!(offset_of!(%pL, %pL), %u);\n",
-            &type_ref, &field_name, offset
-        );
-        offset += f->size;
-    }
-    size = (st->type == STRUCT_TYPE_UNION) ? align + ROUND_UP(max_size, align)
-                                           : ROUND_UP(offset, align);
-
-    sb_addf(
-        buf_tests,
-        "        assert_eq!(size_of::<%pL>(), %u);\n"
-        "        assert_eq!(align_of::<%pL>(), %u);\n",
-        &type_ref, size, &type_ref, align
-    );
-    sb_adds(buf_tests, "    }\n\n");
-}
-
 static void iopc_rust_pack(
     sb_t *buf_tests, lstr_t fn_name, lstr_t st_name, lstr_t upper_type,
     int runtime_test_type
@@ -1342,8 +1243,6 @@ int iopc_do_rust(iopc_pkg_t *pkg, const char *outdir)
         }
         if (gen_tests) {
             bool gen_packs_test = iopc_rust_should_gen_packs_test(d.st);
-
-            iopc_rust_write_tests(&buf_tests, pkg, d.st);
 
             if (gen_packs_test) {
                 iopc_rust_write_packs_tests(&buf_tests, pkg, d.st);

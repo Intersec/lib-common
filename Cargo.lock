@@ -276,9 +276,11 @@ dependencies = [
 name = "iop-rust-tests"
 version = "0.0.0"
 dependencies = [
+ "bindgen",
  "libcommon",
  "libcommon-core",
  "paste",
+ "syn",
  "waf-cargo-build",
 ]
 

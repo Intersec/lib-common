@@ -24,8 +24,13 @@ use std::path::{Path, PathBuf};
 
 use waf_cargo_build::WafBuild;
 
+#[path = "build/layout_tests.rs"]
+mod layout_tests;
+
 fn main() -> Result<(), Box<dyn error::Error>> {
     let waf_build = WafBuild::build()?;
+
+    layout_tests::generate(&waf_build)?;
 
     let iop_rs_files: Vec<PathBuf> = waf_build
         .native_iop_pkgs
