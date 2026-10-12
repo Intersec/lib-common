@@ -9,7 +9,6 @@
 *.iop.ts
 *__iop.pyi
 *.iop.rs
-*.iop.tests.rs
 
 .tags
 .syntastic*

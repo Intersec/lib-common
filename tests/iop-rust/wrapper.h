@@ -20,6 +20,7 @@
 #include <lib-common/iop-json.h>
 #include <lib-common/iop-yaml.h>
 #include "../iop/tstiop.iop.h"
+#include "iop_testable.h"
 
 /* For the other IOP packages under test. */
 #include <lib-common/iop/ic.iop.h>

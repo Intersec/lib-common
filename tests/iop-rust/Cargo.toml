@@ -39,4 +39,3 @@ syn.workspace = true
 waf-cargo-build = { path = "../../rust/waf-cargo-build" }
 libcommon = { path = "../../rust/libcommon" }
 libcommon-core = { path = "../../rust/libcommon-core" }
-paste.workspace = true

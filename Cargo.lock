@@ -279,7 +279,6 @@ dependencies = [
  "bindgen",
  "libcommon",
  "libcommon-core",
- "paste",
  "syn",
  "waf-cargo-build",
 ]

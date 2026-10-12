@@ -38,21 +38,23 @@ type Error = Box<dyn error::Error>;
 /// `c_layout.rs` is the bindgen output of `wrapper.h` without the native
 /// IOP bindings, because these are what the tests check. It holds only the
 /// C types of the IOP packages and the types that they use.
-pub fn generate(build: &WafBuildCtx) -> Result<(), Error> {
+pub fn generate(
+    build: &WafBuildCtx,
+    iop_files: &[(&NativeIopPkg, syn::File)],
+) -> Result<(), Error> {
     let builder = build
         .waf
         .bindgen_builder()
         .header("wrapper.h")
         .with_codegen_config(CodegenConfig::TYPES);
-    let c_layout = build
-        .native_iop_pkgs
+    let c_layout = iop_files
         .iter()
-        .fold(builder, |builder, pkg| {
+        .fold(builder, |builder, (pkg, _)| {
             builder.allowlist_type(format!("{}.*", pkg.prefix))
         })
         .generate()?
         .to_string();
-    let tests = generate_tests(&syn::parse_file(&c_layout)?, &build.native_iop_pkgs)?;
+    let tests = generate_tests(&syn::parse_file(&c_layout)?, iop_files)?;
 
     fs::write(build.out_dir.join("c_layout.rs"), &c_layout)?;
     fs::write(build.out_dir.join("layout_tests.rs"), tests)?;
@@ -146,7 +148,7 @@ impl<'a> CTypes<'a> {
 }
 
 /// The name of a named type.
-fn type_name(ty: &Type) -> Option<String> {
+pub fn type_name(ty: &Type) -> Option<String> {
     match ty {
         Type::Path(path) => path.path.segments.last().map(|seg| seg.ident.to_string()),
         _ => None,
@@ -228,13 +230,14 @@ fn write_test(
     Ok(())
 }
 
-fn generate_tests(c_layout: &syn::File, pkgs: &[NativeIopPkg]) -> Result<String, Error> {
+fn generate_tests(
+    c_layout: &syn::File,
+    iop_files: &[(&NativeIopPkg, syn::File)],
+) -> Result<String, Error> {
     let c_types = CTypes::new(c_layout);
     let mut tests = String::new();
 
-    for pkg in pkgs {
-        let iop_file = syn::parse_file(&fs::read_to_string(&pkg.path)?)?;
-
+    for (_, iop_file) in iop_files {
         for item in &iop_file.items {
             let (ident, generics, fields) = match item {
                 Item::Struct(st) => (&st.ident, &st.generics, Some(&st.fields)),
