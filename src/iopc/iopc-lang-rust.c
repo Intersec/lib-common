@@ -18,6 +18,7 @@
 #include <lib-common/unix.h>
 #include "iopc.h"
 #include "iopc-internal.h"
+#include "iopc-priv.h"
 
 /* {{{ Global definitions for Rust processing */
 
@@ -69,20 +70,12 @@ static const lstr_t rust_keywords_g[] = {
 /* {{{ Helpers functions */
 /* {{{ Boolean expressions */
 
-static bool iopc_rust_field_is_class(const iopc_field_t *f)
-{
-    if (f->kind != IOP_T_STRUCT && f->kind != IOP_T_UNION) {
-        return false;
-    }
-    return f->struct_def && f->struct_def->type == STRUCT_TYPE_CLASS;
-}
-
 static bool iopc_rust_field_is_ref_like(const iopc_field_t *f)
 {
     if (f->kind != IOP_T_STRUCT && f->kind != IOP_T_UNION) {
         return false;
     }
-    return f->is_ref || iopc_rust_field_is_class(f);
+    return f->is_ref || iopc_field_type_is_class(f);
 }
 
 static bool iopc_rust_field_is_emitted(const iopc_field_t *f)
@@ -267,39 +260,18 @@ static unsigned int iopc_rust_base_offset(const iopc_struct_t *st)
     }
 }
 
-/* The prefix of the names of `pkg`: its dotted IOP path joined with `__`,
- * like the C backend does, so that a Rust item has the name of its C
- * counterpart. */
-static lstr_t t_iopc_rust_mod_name(const iopc_pkg_t *pkg)
-{
-    SB_1k(buf);
-
-    iopc_path_join(pkg->name, "__", &buf);
-    return t_lstr_dup(LSTR_SB_V(&buf));
-}
-
-static lstr_t t_iopc_rust_join(
-    const iopc_pkg_t *pkg, const char *type_name, const char *suffix
-)
-{
-    lstr_t mod_name = t_iopc_rust_mod_name(pkg);
-
-    return t_lstr_fmt("%pL__%s__%s", &mod_name, t_cstring(type_name), suffix);
-}
-
+/* The name of the item `name` of `pkg`. Its prefix is the dotted IOP path
+ * of `pkg` joined with `__`, like the C backend does, so that a Rust item
+ * has the name of its C counterpart. */
 static lstr_t t_format_symbol_name(
     const iopc_pkg_t *pkg, const char *name, const char *suffix,
     const char *lt
 )
 {
-    lstr_t symbol_name = t_iopc_rust_join(pkg, name, suffix);
-
-    return t_lstr_fmt("%pL%s", &symbol_name, lt);
-}
-
-static lstr_t t_format_enum_name(const iopc_pkg_t *pkg, const iopc_enum_t *en)
-{
-    return t_format_symbol_name(pkg, en->name, "e", "");
+    return t_lstr_fmt(
+        "%s__%s__%s%s", t_iopc_path_join(pkg->name, "__"), t_cstring(name),
+        suffix, lt
+    );
 }
 
 static lstr_t t_format_type_name(
@@ -373,7 +345,7 @@ static iopc_rust_type_t t_iopc_rust_repeat_type(
     switch ((iop_repeat_t)f->repeat) {
     case IOP_R_REPEATED:
         type.name =
-            iopc_rust_field_is_class(f)
+            iopc_field_type_is_class(f)
                 ? t_lstr_fmt(
                       RUST_LC_IOP "IopArray<'a, &%smut %pL>", lt, &type.name
                   )
@@ -859,7 +831,7 @@ static void
 iopc_rust_dump_enum(sb_t *buf, const iopc_pkg_t *pkg, const iopc_enum_t *en)
 {
     t_scope;
-    lstr_t en_name = t_format_enum_name(pkg, en);
+    lstr_t en_name = t_format_symbol_name(pkg, en->name, "e", "");
 
     sb_addf(
         buf,
