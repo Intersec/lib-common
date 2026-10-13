@@ -5084,27 +5084,16 @@ static uint32_t http2_stream_get_idle(http2_conn_t *w)
     return stream_id;
 }
 
-/** Move a fully-closed stream onto the reapable closed list and, the first
- * time it reaches a closed state, release its slot against our advertised
- * max_concurrent_streams.
+/** Move a just-closed stream onto the reapable closed list and release its
+ * slot against our advertised max_concurrent_streams.
  *
- * Note: \ref stream->events still holds the flags *before* the closing event.
- * A stream can be closed twice (e.g. we send RST_STREAM and the peer also
- * sends one); the slot must be released only once or the unsigned counter
- * would underflow. */
+ * Only called on the first closing event: http2_stream_handle_events() skips
+ * the later ones (e.g. a peer RST_STREAM after ours). */
 static void http2_stream_set_closed(http2_conn_t *w, http2_stream_t *stream)
 {
-    /* stream->events still holds the flags *before* the closing event (see
-     * the note above), so this is true only if an earlier event already
-     * closed the stream (a double close): the slot must then be released only
-     * once. */
-    bool was_closed = http2_stream_is_closed(stream);
-
     dlist_move_tail(&w->closed_stream_list, &stream->class_link);
-    if (!was_closed) {
-        w->peer_streams_open -= http2_conn_is_peer_stream_id(w, stream->id);
-        w->closed_streams++;
-    }
+    w->peer_streams_open -= http2_conn_is_peer_stream_id(w, stream->id);
+    w->closed_streams++;
     /* Keep the closed-stream memory bounded by the advertised
      * SETTINGS_MAX_CONCURRENT_STREAMS: the list keeps recently-closed streams
      * so late, still-in-flight peer frames are recognized rather than
@@ -5186,6 +5175,15 @@ static void http2_stream_handle_events(
         assert(flags == HTTP2_STREAM_EV_PSH_RECV);
         stream->events |= (events | HTTP2_STREAM_EV_EOS_SENT);
         http2_stream_trace(w, stream, 2, "half closed (local) [pushed]");
+        return;
+    }
+    if (http2_stream_is_closed(stream)) {
+        /* Peer frame sent before it got our closing frame (RFC 9113 §5.1):
+         * the counters were already settled when the stream closed. */
+        http2_stream_trace(
+            w, stream, 2, "late event %#x on closed stream", events
+        );
+        stream->events = flags | events;
         return;
     }
     if (events == HTTP2_STREAM_EV_EOS_RECV) {
@@ -5811,6 +5809,15 @@ static int http2_stream_do_recv_headers(
         return 0;
     }
     RETHROW(http2_stream_check_can_recv(w, stream, true));
+    if (flags & HTTP2_STREAM_EV_RST_SENT) {
+        /* The peer sent it before getting our RST_STREAM: discard it, the
+         * caller already updated the HPACK state (RFC 9113 §5.1). Neither
+         * dispatch nor validate it, as both may reset the stream again. */
+        if (eos) {
+            http2_stream_handle_events(w, stream, HTTP2_STREAM_EV_EOS_RECV);
+        }
+        return 0;
+    }
     if (!http2_stream_validate_recv_headrs(info)) {
         if (!flags) {
             http2_stream_handle_events(w, stream, HTTP2_STREAM_EV_1ST_HDRS);
@@ -10824,6 +10831,70 @@ Z_GROUP_EXPORT(http2_framing) {
     } Z_TEST_END;
 
     Z_TEST(
+        late_frames_after_local_reset,
+        "frames in flight when we reset a stream must be discarded: not "
+        "dispatched, not reset again, not accounted twice"
+    ) {
+        enum { LATE_HEADERS, LATE_DATA };
+        struct {
+            int type;
+            unsigned hdr_flags;
+            bool eos;
+        } cases[] = {
+            {LATE_HEADERS, HTTP2_HDR_FLAG_HAS_STATUS, false},
+            {LATE_HEADERS, HTTP2_HDR_FLAG_HAS_STATUS, true},
+            /* Malformed: must be discarded too, not reset again. */
+            {LATE_HEADERS, HTTP2_HDR_FLAG_HAS_EXTRA_PSEUDO_HDR, false},
+            {LATE_DATA, 0, true},
+        };
+        http2_conn_t w;
+
+        http2_conn_init(&w);
+        w.is_client = true;
+
+        for (int i = 0; i < countof(cases); i++) {
+            uint32_t stream_id = 1 + 2 * i;
+            http2_stream_t *stream = http2_stream_get(&w, stream_id);
+            http2_header_info_t info = {
+                .flags = cases[i].hdr_flags,
+            };
+            bool eos = cases[i].eos;
+            int ob_len;
+
+            /* Our request is fully sent, then cancelled (e.g. the query is
+             * destroyed at shutdown), which resets the stream. */
+            http2_stream_handle_events(
+                &w, stream, HTTP2_STREAM_EV_1ST_HDRS_EOS_SENT
+            );
+            http2_stream_send_reset_cancel(&w, stream, "local reset");
+            ob_len = w.ob.sb.len;
+
+            /* What the server had already sent arrives. */
+            if (cases[i].type == LATE_HEADERS) {
+                Z_ASSERT_N(http2_stream_do_recv_headers(
+                    &w, stream_id, &info, ps_init(NULL, 0), eos
+                ));
+            } else {
+                Z_ASSERT_N(http2_stream_do_recv_data(
+                    &w, stream_id, ps_init(NULL, 0), 0, eos
+                ));
+            }
+            Z_ASSERT_EQ(
+                w.ob.sb.len, ob_len,
+                "nothing must be sent on a stream we reset"
+            );
+            Z_ASSERT(
+                !http2_conn_has_pending_streams(&w),
+                "a reset stream must not be left pending"
+            );
+            Z_ASSERT_EQ(w.queries_can_recv, 0);
+            Z_ASSERT_EQ(w.queries_can_send, 0);
+        }
+        http2_conn_close_streams_internal(&w, 0, 0);
+        http2_conn_wipe(&w);
+    } Z_TEST_END;
+
+    Z_TEST(
         max_concurrent_streams,
         "at the advertised max-concurrent-streams limit a new peer "
         "stream must be refused (REFUSED_STREAM), not accepted "
@@ -10958,6 +11029,8 @@ Z_GROUP_EXPORT(http2_framing) {
         Z_ASSERT_EQ(
             w.peer_streams_open, 0U, "the slot must be released exactly once"
         );
+        Z_ASSERT_EQ(w.queries_can_recv, 0);
+        Z_ASSERT_EQ(w.queries_can_send, 0);
         Z_ASSERT_ZERO(
             w.reset_streams,
             "a peer RST that merely echoes our own reset must not "
