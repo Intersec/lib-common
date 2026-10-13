@@ -348,74 +348,46 @@ static iopc_rust_type_t t_iopc_rust_repeat_type(
 /* }}} */
 /* {{{ Constraint helpers */
 
-static void
-iopc_rust_defval_dump(sb_t *buf, const iopc_field_t *f, lstr_t rust_type)
-{
-    t_scope;
-    lstr_t field_name = t_iopc_rust_field_name(f);
-
-    sb_addf(buf, "    pub %pL: %pL, // Default\n", &field_name, &rust_type);
-}
-
-static void iopc_rust_opt_dump(
-    sb_t *buf, const iopc_field_t *f, lstr_t rust_type, const char *lt
-)
-{
-    t_scope;
-    lstr_t field_name = t_iopc_rust_field_name(f);
-    iopc_rust_type_t type = {.name = rust_type, .borrows = false};
-
-    if (f->kind == IOP_T_VOID) {
-        sb_addf(buf, "    pub %pL: bool, // Optional\n", &field_name);
-        return;
-    }
-
-    type = t_iopc_rust_repeat_type(f, type, lt);
-    sb_addf(buf, "    pub %pL: %pL, // Optional\n", &field_name, &type.name);
-}
-
-static void iopc_rust_repeat_dump(
-    sb_t *buf, const iopc_field_t *f, lstr_t rust_type, const char *lt
-)
-{
-    t_scope;
-    lstr_t field_name = t_iopc_rust_field_name(f);
-    iopc_rust_type_t type = {.name = rust_type, .borrows = false};
-
-    if (f->kind == IOP_T_VOID) {
-        return;
-    }
-
-    type = t_iopc_rust_repeat_type(f, type, lt);
-    sb_addf(buf, "    pub %pL: %pL, // repeated\n", &field_name, &type.name);
-}
-
+/* Dumps the field `f` with its type wrapped by its repeat. */
 static void iopc_rust_field_per_constraint(
     sb_t *buf, iopc_struct_t *st, const iopc_field_t *f
 )
 {
     t_scope;
     lstr_t field_name = t_iopc_rust_field_name(f);
-    lstr_t rust_type = t_iopc_rust_get_type(f);
+    iopc_rust_type_t type = {.name = t_iopc_rust_get_type(f)};
     const char *lt = iopc_rust_struct_needs_lifetime(st) ? "'a " : "";
-    bool ref_like = iopc_rust_field_is_ref_like(f);
+    const char *comment = NULL;
 
-    if (f->repeat == IOP_R_REPEATED) {
-        iopc_rust_repeat_dump(buf, f, rust_type, lt);
-    } else if (f->repeat == IOP_R_OPTIONAL) {
-        iopc_rust_opt_dump(buf, f, rust_type, lt);
-    } else if (f->repeat == IOP_R_DEFVAL) {
-        iopc_rust_defval_dump(buf, f, rust_type);
-    } else if (ref_like) {
-        sb_addf(
-            buf, "    pub %pL: &%smut %pL, // ref\n", &field_name, lt,
-            &rust_type
-        );
-    } else {
-        sb_addf(
-            buf, "    pub %pL: %pL, // Mandatory\n", &field_name, &rust_type
-        );
+    switch ((iop_repeat_t)f->repeat) {
+    case IOP_R_REPEATED:
+        comment = "repeated";
+        break;
+    case IOP_R_OPTIONAL:
+        comment = "Optional";
+        if (f->kind == IOP_T_VOID) {
+            type.name = LSTR("bool");
+        }
+        break;
+    case IOP_R_DEFVAL:
+        comment = "Default";
+        break;
+    case IOP_R_REQUIRED:
+        if (iopc_rust_field_is_ref_like(f)) {
+            type.name = t_lstr_fmt("&%smut %pL", lt, &type.name);
+            comment = "ref";
+        } else {
+            comment = "Mandatory";
+        }
+        break;
     }
+    if (f->kind != IOP_T_VOID) {
+        type = t_iopc_rust_repeat_type(f, type, lt);
+    }
+
+    sb_addf(
+        buf, "    pub %pL: %pL, // %s\n", &field_name, &type.name, comment
+    );
 }
 
 /* }}} */
@@ -455,11 +427,6 @@ static void iopc_rust_dump_fields(sb_t *buf, iopc_struct_t *st)
 
 /* }}} */
 /* {{{ CDESC support (including traits) */
-
-static void iopc_rust_dump_c_instantiable_trait(sb_t *buf, lstr_t type_name)
-{
-    sb_addf(buf, "impl " RUST_LC_IOP "CInstance for %pL {}\n", &type_name);
-}
 
 static void
 iopc_rust_dump_struct_desc(sb_t *buf, const iopc_pkg_t *pkg, const char *name)
@@ -538,9 +505,12 @@ static void iopc_rust_dump_st_raw_aliases(
     );
 }
 
-static void iopc_rust_dump_base_trait(sb_t *buf, lstr_t type_name)
+/* Dumps the implementation of the marker trait `trait`, which has no
+ * item. */
+static void
+iopc_rust_dump_marker_trait(sb_t *buf, const char *trait, lstr_t type_name)
 {
-    sb_addf(buf, "impl " RUST_LC_IOP "Base for %pL {}\n", &type_name);
+    sb_addf(buf, "impl " RUST_LC_IOP "%s for %pL {}\n", trait, &type_name);
 }
 
 static void
@@ -557,41 +527,26 @@ iopc_rust_dump_enum_trait(sb_t *buf, lstr_t enum_name, lstr_t desc_name)
     );
 }
 
-static void iopc_rust_dump_union_trait(sb_t *buf, lstr_t union_name)
-{
-    sb_addf(buf, "impl " RUST_LC_IOP "Union for %pL {}\n", &union_name);
-}
-
-static void iopc_rust_dump_struct_trait(sb_t *buf, lstr_t struct_name)
-{
-    sb_addf(buf, "impl " RUST_LC_IOP "Struct for %pL {}\n", &struct_name);
-}
-
 static void iopc_rust_dump_struct_union_trait(
     sb_t *buf, iopc_struct_type_t struct_type, lstr_t struct_name,
     lstr_t desc_name
 )
 {
-    if (struct_type == STRUCT_TYPE_CLASS) {
-        sb_addf(
-            buf,
-            "impl " RUST_LC_IOP "StructUnion for %pL {\n"
-            "    fn get_cdesc(&self) -> *const " RUST_LC_C "iop_struct_t {\n"
-            "        self.vptr\n"
-            "    }\n"
-            "}\n",
-            &struct_name
-        );
-        return;
-    }
+    t_scope;
+    /* An instance of a class can be one of a child class: only its
+     * `vptr` gives its actual descriptor. */
+    lstr_t cdesc = struct_type == STRUCT_TYPE_CLASS
+                       ? LSTR("self.vptr")
+                       : t_lstr_fmt("&raw const %pL", &desc_name);
+
     sb_addf(
         buf,
         "impl " RUST_LC_IOP "StructUnion for %pL {\n"
         "    fn get_cdesc(&self) -> *const " RUST_LC_C "iop_struct_t {\n"
-        "        &raw const %pL\n"
+        "        %pL\n"
         "    }\n"
         "}\n",
-        &struct_name, &desc_name
+        &struct_name, &cdesc
     );
 }
 
@@ -605,16 +560,6 @@ iopc_rust_dump_c_enum_trait(sb_t *buf, lstr_t enum_name, lstr_t desc_name)
         "}\n",
         &enum_name, &desc_name
     );
-}
-
-static void iopc_rust_dump_c_union_trait(sb_t *buf, lstr_t union_name)
-{
-    sb_addf(buf, "impl " RUST_LC_IOP "CUnion for %pL {}\n", &union_name);
-}
-
-static void iopc_rust_dump_c_struct_trait(sb_t *buf, lstr_t struct_name)
-{
-    sb_addf(buf, "impl " RUST_LC_IOP "CStruct for %pL {}\n", &struct_name);
 }
 
 static void iopc_rust_dump_c_struct_union_trait(
@@ -640,26 +585,26 @@ static void iopc_rust_dump_needed_traits_for_structs(
     lstr_t name = t_format_type_name(pkg, st, st->name, lt);
     lstr_t desc_name = t_format_symbol_name(pkg, st->name, "s", "");
 
-    iopc_rust_dump_base_trait(buf, name);
+    iopc_rust_dump_marker_trait(buf, "Base", name);
     iopc_rust_dump_struct_union_trait(buf, st->type, name, desc_name);
     iopc_rust_dump_c_struct_union_trait(buf, name, desc_name);
 
     switch (st->type) {
     case STRUCT_TYPE_CLASS:
     case STRUCT_TYPE_STRUCT: {
-        iopc_rust_dump_struct_trait(buf, name);
+        iopc_rust_dump_marker_trait(buf, "Struct", name);
         /* `CStruct` carries `new()`, and initializing an abstract class
          * is forbidden, so it only gets the dyn-dispatch marker. */
         if (st->type != STRUCT_TYPE_CLASS || !st->is_abstract) {
-            iopc_rust_dump_c_struct_trait(buf, name);
-            iopc_rust_dump_c_instantiable_trait(buf, name);
+            iopc_rust_dump_marker_trait(buf, "CStruct", name);
+            iopc_rust_dump_marker_trait(buf, "CInstance", name);
         }
         break;
     }
     case STRUCT_TYPE_UNION: {
-        iopc_rust_dump_union_trait(buf, name);
-        iopc_rust_dump_c_union_trait(buf, name);
-        iopc_rust_dump_c_instantiable_trait(buf, name);
+        iopc_rust_dump_marker_trait(buf, "Union", name);
+        iopc_rust_dump_marker_trait(buf, "CUnion", name);
+        iopc_rust_dump_marker_trait(buf, "CInstance", name);
         break;
     }
     default:
@@ -675,7 +620,7 @@ static void iopc_rust_dump_needed_traits_for_enums(
     lstr_t enum_name = t_format_symbol_name(pkg, en->name, "e", "");
     lstr_t desc_name = t_format_symbol_name(pkg, en->name, "edesc", "");
 
-    iopc_rust_dump_base_trait(buf, enum_name);
+    iopc_rust_dump_marker_trait(buf, "Base", enum_name);
     iopc_rust_dump_enum_trait(buf, enum_name, desc_name);
     iopc_rust_dump_c_enum_trait(buf, enum_name, desc_name);
 }
@@ -1081,33 +1026,30 @@ static void iopc_rust_wipe_dump(void)
 int iopc_do_rust(iopc_pkg_t *pkg, const char *outdir)
 {
     SB_8k(buf);
-    SB_8k(buf_types);
     char path[PATH_MAX];
 
     if (iopc_set_path(outdir, pkg, ".iop.rs", sizeof(path), path, true) < 0) {
         throw_error("cannot build output path for `%s`: %m", outdir);
     }
     iopc_init_rust_dump(pkg);
-    iopc_rust_dump_typedefs(&buf_types, pkg);
+    sb_adds(&buf, "// Auto-generated by iopc - DO NOT EDIT\n");
+    sb_addf(&buf, "// IOP package: %s\n", iopc_path_dot(pkg->name));
+    iopc_rust_dump_typedefs(&buf, pkg);
 
     tab_for_each_entry(d, &_G.decls) {
         if (d.basic_iop_types == IOP_T_ENUM) {
-            iopc_rust_dump_enum(&buf_types, pkg, d.en);
+            iopc_rust_dump_enum(&buf, pkg, d.en);
             continue;
         }
 
         if (d.st->type == STRUCT_TYPE_STRUCT) {
-            iopc_rust_dump_struct(&buf_types, pkg, d.st);
+            iopc_rust_dump_struct(&buf, pkg, d.st);
         } else if (d.st->type == STRUCT_TYPE_UNION) {
-            iopc_rust_dump_union(&buf_types, pkg, d.st);
+            iopc_rust_dump_union(&buf, pkg, d.st);
         } else if (d.st->type == STRUCT_TYPE_CLASS) {
-            iopc_rust_dump_class(&buf_types, pkg, d.st);
+            iopc_rust_dump_class(&buf, pkg, d.st);
         }
     }
-
-    sb_adds(&buf, "// Auto-generated by iopc - DO NOT EDIT\n");
-    sb_addf(&buf, "// IOP package: %s\n", iopc_path_dot(pkg->name));
-    sb_addsb(&buf, &buf_types);
 
     iopc_rust_wipe_dump();
 
