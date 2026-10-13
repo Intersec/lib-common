@@ -36,6 +36,7 @@ qm_khptr_t(iopc_struct_visited, iopc_struct_t, bool);
 
 static struct {
     qh_t(lstr) rust_keywords;
+    qh_t(lstr) rust_primitive_types;
     qv_t(iopc_rust_decl) decls;
     qm_t(iopc_struct_visited) map;
 } iopc_rust_g;
@@ -50,18 +51,38 @@ static struct {
 #define t_string(x) LSTR(t_camelcase_to_c_str(x))
 #define t_cstring(x) t_camelcase_to_c_str(x)
 
+/* The strict and reserved keywords of Rust. `self`, `Self`, `super` and
+ * `crate` cannot be raw identifiers, so a name that is a keyword gets a
+ * `__var` suffix instead of an `r#` prefix. */
 static const lstr_t rust_keywords_g[] = {
-    LSTR_IMMED("as"),      LSTR_IMMED("fn"),       LSTR_IMMED("do"),
-    LSTR_IMMED("box"),     LSTR_IMMED("gen"),      LSTR_IMMED("try"),
-    LSTR_IMMED("priv"),    LSTR_IMMED("loop"),     LSTR_IMMED("self"),
-    LSTR_IMMED("Self"),    LSTR_IMMED("type"),     LSTR_IMMED("final"),
-    LSTR_IMMED("macro"),   LSTR_IMMED("yield"),    LSTR_IMMED("become"),
-    LSTR_IMMED("virtual"), LSTR_IMMED("abstract"), LSTR_IMMED("override"),
-    LSTR_IMMED("i8"),      LSTR_IMMED("u8"),       LSTR_IMMED("i16"),
-    LSTR_IMMED("u16"),     LSTR_IMMED("i32"),      LSTR_IMMED("u32"),
-    LSTR_IMMED("i64"),     LSTR_IMMED("u64"),      LSTR_IMMED("i128"),
-    LSTR_IMMED("u128"),    LSTR_IMMED("bool"),     LSTR_IMMED("f32"),
-    LSTR_IMMED("f64"),     LSTR_IMMED("isize"),    LSTR_IMMED("usize"),
+    LSTR_IMMED("abstract"), LSTR_IMMED("as"),      LSTR_IMMED("async"),
+    LSTR_IMMED("await"),    LSTR_IMMED("become"),  LSTR_IMMED("box"),
+    LSTR_IMMED("break"),    LSTR_IMMED("const"),   LSTR_IMMED("continue"),
+    LSTR_IMMED("crate"),    LSTR_IMMED("do"),      LSTR_IMMED("dyn"),
+    LSTR_IMMED("else"),     LSTR_IMMED("enum"),    LSTR_IMMED("extern"),
+    LSTR_IMMED("false"),    LSTR_IMMED("final"),   LSTR_IMMED("fn"),
+    LSTR_IMMED("for"),      LSTR_IMMED("gen"),     LSTR_IMMED("if"),
+    LSTR_IMMED("impl"),     LSTR_IMMED("in"),      LSTR_IMMED("let"),
+    LSTR_IMMED("loop"),     LSTR_IMMED("macro"),   LSTR_IMMED("match"),
+    LSTR_IMMED("mod"),      LSTR_IMMED("move"),    LSTR_IMMED("mut"),
+    LSTR_IMMED("override"), LSTR_IMMED("priv"),    LSTR_IMMED("pub"),
+    LSTR_IMMED("ref"),      LSTR_IMMED("return"),  LSTR_IMMED("self"),
+    LSTR_IMMED("Self"),     LSTR_IMMED("static"),  LSTR_IMMED("struct"),
+    LSTR_IMMED("super"),    LSTR_IMMED("trait"),   LSTR_IMMED("true"),
+    LSTR_IMMED("try"),      LSTR_IMMED("type"),    LSTR_IMMED("typeof"),
+    LSTR_IMMED("unsafe"),   LSTR_IMMED("unsized"), LSTR_IMMED("use"),
+    LSTR_IMMED("virtual"),  LSTR_IMMED("where"),   LSTR_IMMED("while"),
+    LSTR_IMMED("yield"),
+};
+
+/* A field keeps the `__var` suffix that it always had when it is named like
+ * a primitive type. A union variant does not need it. */
+static const lstr_t rust_primitive_types_g[] = {
+    LSTR_IMMED("i8"),   LSTR_IMMED("u8"),    LSTR_IMMED("i16"),
+    LSTR_IMMED("u16"),  LSTR_IMMED("i32"),   LSTR_IMMED("u32"),
+    LSTR_IMMED("i64"),  LSTR_IMMED("u64"),   LSTR_IMMED("i128"),
+    LSTR_IMMED("u128"), LSTR_IMMED("bool"),  LSTR_IMMED("f32"),
+    LSTR_IMMED("f64"),  LSTR_IMMED("isize"), LSTR_IMMED("usize"),
     LSTR_IMMED("char"),
 };
 
@@ -149,12 +170,9 @@ static bool iopc_rust_class_chain_needs_lifetime(iopc_struct_t *st)
     return false;
 }
 
-static bool iopc_rust_is_variable_name_valid(const iopc_field_t *f)
+static bool iopc_rust_is_keyword(lstr_t name)
 {
-    t_scope;
-    lstr_t field_name = LSTR(t_camelcase_to_c_str(f->name));
-
-    return qh_find(lstr, &_G.rust_keywords, &field_name) < 0;
+    return qh_find(lstr, &_G.rust_keywords, &name) >= 0;
 }
 
 /* A class declaring no field of its own is not empty as soon as one of
@@ -285,9 +303,24 @@ static lstr_t t_format_type_name_extend(const iopc_field_t *f)
 
 static lstr_t t_iopc_rust_field_name(const iopc_field_t *f)
 {
-    return iopc_rust_is_variable_name_valid(f)
-               ? t_string(f->name)
-               : t_lstr_fmt("%s__var", f->name);
+    lstr_t name = t_string(f->name);
+
+    if (iopc_rust_is_keyword(name) ||
+        qh_find(lstr, &_G.rust_primitive_types, &name) >= 0)
+    {
+        return t_lstr_fmt("%pL__var", &name);
+    }
+    return name;
+}
+
+static lstr_t t_iopc_rust_variant_name(const iopc_field_t *f)
+{
+    lstr_t name = t_string(f->name);
+
+    if (iopc_rust_is_keyword(name)) {
+        return t_lstr_fmt("%pL__var", &name);
+    }
+    return name;
 }
 
 static lstr_t t_iopc_rust_get_type(const iopc_field_t *f)
@@ -401,10 +434,8 @@ static void iopc_rust_dump_fields(sb_t *buf, iopc_struct_t *st)
         }
 
         if (st->type == STRUCT_TYPE_UNION) {
-            /* A variant lives in its own namespace and cannot shadow a
-             * type, so it keeps the natural name. */
             t_scope;
-            lstr_t variant_name = t_string(f->name);
+            lstr_t variant_name = t_iopc_rust_variant_name(f);
             lstr_t rust_type = t_iopc_rust_get_type(f);
 
             if (iopc_rust_field_is_ref_like(f)) {
@@ -996,6 +1027,10 @@ static void iopc_init_rust_dump(const iopc_pkg_t *pkg)
     carray_for_each_ptr(word, rust_keywords_g) {
         IGNORE(expect(qh_add(lstr, &_G.rust_keywords, word) >= 0));
     }
+    qh_init(lstr, &_G.rust_primitive_types);
+    carray_for_each_ptr(word, rust_primitive_types_g) {
+        IGNORE(expect(qh_add(lstr, &_G.rust_primitive_types, word) >= 0));
+    }
 
     tab_for_each_entry(st, &pkg->structs) {
         decl = (iopc_rust_decl_t){
@@ -1021,6 +1056,7 @@ static void iopc_rust_wipe_dump(void)
     qm_wipe(iopc_struct_visited, &_G.map);
     qv_wipe(&_G.decls);
     qh_wipe(lstr, &_G.rust_keywords);
+    qh_wipe(lstr, &_G.rust_primitive_types);
 }
 
 int iopc_do_rust(iopc_pkg_t *pkg, const char *outdir)

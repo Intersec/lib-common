@@ -27,3 +27,4 @@
 #include "../iop/tstiop_typedef.iop.h"
 #include "../iop/tstiop_inheritance.iop.h"
 #include "../iop/tstiop_dotted/pkg.iop.h"
+#include "../iop/tstiop_rust_keywords.iop.h"

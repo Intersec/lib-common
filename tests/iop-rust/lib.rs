@@ -78,12 +78,14 @@ mod iop_tests {
         tstiop__my_union_a__u, tstiop__my_union_b__u, tstiop__my_union_c__u,
         tstiop__small_class__t, tstiop__test_class__t, tstiop__test_class_child__t,
         tstiop__test_class_child2__t, tstiop__test_enum__e, tstiop__test_struct__t,
-        tstiop__test_union__u, tstiop_backward_compat__enum1__e, tstiop_typedef__array_test__t,
-        tstiop_typedef__basic_struct_list__t, tstiop_typedef__enum1_list__e,
-        tstiop_typedef__enum1_list__t_raw, tstiop_typedef__enum2_list__e,
-        tstiop_typedef__number_struct_list__t, tstiop_typedef__remote_class__t,
-        tstiop_typedef__remote_enum__e, tstiop_typedef__remote_struct__t,
-        tstiop_typedef__remote_struct__t_raw, tstiop_typedef__remote_typedef_class__t_raw,
+        tstiop__test_union__u, tstiop_backward_compat__enum1__e,
+        tstiop_rust_keywords__keyword_union__u, tstiop_rust_keywords__keywords__t,
+        tstiop_typedef__array_test__t, tstiop_typedef__basic_struct_list__t,
+        tstiop_typedef__enum1_list__e, tstiop_typedef__enum1_list__t_raw,
+        tstiop_typedef__enum2_list__e, tstiop_typedef__number_struct_list__t,
+        tstiop_typedef__remote_class__t, tstiop_typedef__remote_enum__e,
+        tstiop_typedef__remote_struct__t, tstiop_typedef__remote_struct__t_raw,
+        tstiop_typedef__remote_typedef_class__t_raw,
         tstiop_typedef__struct_with_typedefs_from_ext__t,
     };
 
@@ -1094,6 +1096,30 @@ mod iop_tests {
         let _ = |en: tstiop_typedef__enum1_list__t_raw| -> tstiop_backward_compat__enum1__e { en };
         let _ = |st: tstiop_typedef__remote_struct__t_raw| -> tstiop__basic_struct__t { st };
         let _ = |cl: tstiop_typedef__remote_typedef_class__t_raw| -> tstiop__small_class__t { cl };
+    }
+
+    // }}}
+    // {{{ Rust keywords
+
+    #[test]
+    fn a_name_that_is_a_rust_keyword_gets_a_suffix() {
+        let mut obj = <tstiop_rust_keywords__keywords__t>::new();
+
+        iop_set!(obj, { match__var: 1, type__var: 2, u8__var: 3 });
+        assert_eq!(iop_get!(obj, match__var), 1);
+        assert_eq!(iop_get!(obj, type__var), 2);
+        assert_eq!(iop_get!(obj, u8__var), 3);
+
+        let un = tstiop_rust_keywords__keyword_union__u::ref__var(4);
+
+        assert!(matches!(
+            un,
+            tstiop_rust_keywords__keyword_union__u::ref__var(4)
+        ));
+
+        let un = tstiop_rust_keywords__keyword_union__u::u8(5);
+
+        assert!(matches!(un, tstiop_rust_keywords__keyword_union__u::u8(5)));
     }
 
     // }}}

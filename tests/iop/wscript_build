@@ -55,6 +55,7 @@ ctx.stlib(
         'tstiop_dox_invalid_example_rpc.iop',
         'tstiop_typedef.iop',
         'tstiop_dotted/pkg.iop',
+        'tstiop_rust_keywords.iop',
     ],
 )
 
