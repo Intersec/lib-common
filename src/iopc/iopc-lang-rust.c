@@ -24,7 +24,6 @@
 
 typedef struct iopc_rust_decl_t {
     iop_type_t basic_iop_types;
-    iopc_struct_type_t iop_st_type;
     union {
         iopc_struct_t *st;
         const iopc_enum_t *en;
@@ -234,30 +233,6 @@ static int
 iopc_rust_decl_cmp(const iopc_rust_decl_t *a, const iopc_rust_decl_t *b)
 {
     return CMP(a->lmin, b->lmin);
-}
-
-static unsigned int iopc_rust_base_alignment(const iopc_struct_t *st)
-{
-    switch (st->type) {
-    case STRUCT_TYPE_CLASS:
-        return alignof(void *);
-    case STRUCT_TYPE_UNION:
-        return alignof(uint32_t);
-    default:
-        return 1;
-    }
-}
-
-static unsigned int iopc_rust_base_offset(const iopc_struct_t *st)
-{
-    switch (st->type) {
-    case STRUCT_TYPE_CLASS:
-        return sizeof(void *);
-    case STRUCT_TYPE_UNION:
-        return 0;
-    default:
-        return 0;
-    }
 }
 
 /* The name of the item `name` of `pkg`. Its prefix is the dotted IOP path
@@ -933,8 +908,9 @@ iopc_rust_dump_class(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
     t_scope;
     const char *lt = iopc_rust_add_lifetime(st);
     lstr_t st_name = t_format_type_name(pkg, st, st->name, lt);
-    unsigned int offset = iopc_rust_base_offset(st);
-    unsigned int align = iopc_rust_base_alignment(st);
+    /* A class starts with its `vptr`. */
+    unsigned int offset = sizeof(void *);
+    unsigned int align = alignof(void *);
     bool parent_needs_lt;
     lstr_t parent_type, st_name_impl;
     const char *impl_lt;
@@ -1079,7 +1055,6 @@ static void iopc_init_rust_dump(const iopc_pkg_t *pkg)
     tab_for_each_entry(st, &pkg->structs) {
         decl = (iopc_rust_decl_t){
             .basic_iop_types = IOP_T_STRUCT,
-            .iop_st_type = st->type,
             .st = st,
             .lmin = st->loc.lmin,
         };
@@ -1121,11 +1096,11 @@ int iopc_do_rust(iopc_pkg_t *pkg, const char *outdir)
             continue;
         }
 
-        if (d.iop_st_type == STRUCT_TYPE_STRUCT) {
+        if (d.st->type == STRUCT_TYPE_STRUCT) {
             iopc_rust_dump_struct(&buf_types, pkg, d.st);
-        } else if (d.iop_st_type == STRUCT_TYPE_UNION) {
+        } else if (d.st->type == STRUCT_TYPE_UNION) {
             iopc_rust_dump_union(&buf_types, pkg, d.st);
-        } else if (d.iop_st_type == STRUCT_TYPE_CLASS) {
+        } else if (d.st->type == STRUCT_TYPE_CLASS) {
             iopc_rust_dump_class(&buf_types, pkg, d.st);
         }
     }
