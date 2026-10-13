@@ -5375,17 +5375,28 @@ static void http2_conn_pack_single_hdr(
  * the upstream (http1.x) query (if any), detaching its context. A stream we
  * reset must not keep an orphaned query running, and a stream put on the
  * closed list must already be detached so it can be reaped; the detach is
- * idempotent (a no-op once the stream is already detached). */
+ * idempotent (a no-op once the stream is already detached).
+ *
+ * On a stream already closed, e.g. by the END_STREAM being dispatched,
+ * RFC 9113 §5.1 forbids the RST_STREAM: only detach. */
 #define http2_stream_error(w, stream, error_code, fmt, ...)                  \
     do {                                                                     \
         http2_conn_t *__w = (w);                                             \
         http2_stream_t *__s = (stream);                                      \
                                                                              \
-        http2_stream_trace(                                                  \
-            __w, __s, 2, "stream error: " fmt, ##__VA_ARGS__                 \
-        );                                                                   \
-        http2_conn_send_rst_stream(__w, __s->id, HTTP2_CODE_##error_code);   \
-        http2_stream_handle_events(__w, __s, HTTP2_STREAM_EV_RST_SENT);      \
+        if (http2_stream_is_closed(__s)) {                                   \
+            http2_stream_trace(                                              \
+                __w, __s, 2, "ignored (stream closed): " fmt, ##__VA_ARGS__  \
+            );                                                               \
+        } else {                                                             \
+            http2_stream_trace(                                              \
+                __w, __s, 2, "stream error: " fmt, ##__VA_ARGS__             \
+            );                                                               \
+            http2_conn_send_rst_stream(                                      \
+                __w, __s->id, HTTP2_CODE_##error_code                        \
+            );                                                               \
+            http2_stream_handle_events(__w, __s, HTTP2_STREAM_EV_RST_SENT);  \
+        }                                                                    \
         http2_stream_on_reset(__w, __s, /* remote */ false);                 \
     } while (0)
 
@@ -5656,6 +5667,13 @@ http2_stream_maintain_recv_window(http2_conn_t *w, http2_stream_t *stream)
     int initial = http2_get_settings(w).initial_window_size;
     int incr = initial - stream->recv_window;
 
+    if (stream->events &
+        (HTTP2_STREAM_EV_MASK_PEER_CANT_WRITE | HTTP2_STREAM_EV_RST_SENT))
+    {
+        /* No more DATA to come, and RFC 9113 §5.1 forbids a WINDOW_UPDATE
+         * on a closed stream. */
+        return;
+    }
     /* Replenish lazily, like the connection-level window: emit a
      * WINDOW_UPDATE only once the peer has consumed at least half of the
      * stream window, rather than topping it back up after every DATA
@@ -6032,13 +6050,6 @@ static int http2_stream_do_recv_window_update(
         return 0;
     }
     if (new_size > HTTP2_LEN_WINDOW_SIZE_LIMIT) {
-        if (flags & HTTP2_STREAM_EV_RST_SENT) {
-            http2_stream_trace(
-                w, stream, 2,
-                "flow control: ignored WINDOW_UPDATE (already RST_SENT)"
-            );
-            return 0;
-        }
         http2_stream_error(
             w, stream, FLOW_CONTROL_ERROR,
             "flow control: WINDOW_UPDATE cannot increment send-window beyond "
@@ -8831,9 +8842,7 @@ static void http2_stream_on_headers_client(
     if (http2c_ctx_read(stream->http2c_ctx, true, eos, &err)) {
         /* we are done with stream. */
         http2c_ctx_enter_idle(&stream->http2c_ctx);
-        if (!eos || !(stream->events & HTTP2_STREAM_EV_EOS_SENT)) {
-            http2_stream_send_reset_cancel(w, stream, "%pL", &err);
-        }
+        http2_stream_send_reset_cancel(w, stream, "%pL", &err);
     }
 }
 
@@ -8849,9 +8858,7 @@ static void http2_stream_on_data_client(
     if (http2c_ctx_read(stream->http2c_ctx, false, eos, &err)) {
         /* we are done with stream. */
         http2c_ctx_enter_idle(&stream->http2c_ctx);
-        if (!eos || !(stream->events & HTTP2_STREAM_EV_EOS_SENT)) {
-            http2_stream_send_reset_cancel(w, stream, "%pL", &err);
-        }
+        http2_stream_send_reset_cancel(w, stream, "%pL", &err);
     }
 }
 
@@ -10610,6 +10617,24 @@ static void z_http2_add_frame(
     sb_add0s(out, len);
 }
 
+/* A server connection whose httpds can answer, without a real socket. */
+static int z_http2_server_conn_init(http2_conn_t *w)
+{
+    http2_server_t *server = http2_server_new();
+    int fds[2];
+
+    http2_conn_init(w);
+    /* Never polled: the httpd only sets its mask. */
+    Z_ASSERT_N(pipe(fds));
+    close(fds[1]);
+    w->ev = el_fd_register(fds[0], true, POLLIN, http2_conn_on_connect, w);
+    server->conn = w;
+    server->httpd_cfg = httpd_cfg_new();
+    server->httpd_cfg->nb_conns++;
+    w->server_ctx = server;
+    Z_HELPER_END;
+}
+
 Z_GROUP_EXPORT(http2_framing) {
     Z_TEST(
         continuation_flood,
@@ -10835,7 +10860,7 @@ Z_GROUP_EXPORT(http2_framing) {
         "frames in flight when we reset a stream must be discarded: not "
         "dispatched, not reset again, not accounted twice"
     ) {
-        enum { LATE_HEADERS, LATE_DATA };
+        enum { LATE_HEADERS, LATE_DATA, LATE_WINDOW_UPDATE };
         struct {
             int type;
             unsigned hdr_flags;
@@ -10846,7 +10871,11 @@ Z_GROUP_EXPORT(http2_framing) {
             /* Malformed: must be discarded too, not reset again. */
             {LATE_HEADERS, HTTP2_HDR_FLAG_HAS_EXTRA_PSEUDO_HDR, false},
             {LATE_DATA, 0, true},
+            {LATE_DATA, 0, false},
+            /* A 0 increment calls for a reset. */
+            {LATE_WINDOW_UPDATE, 0, false},
         };
+        int frame_len = HTTP2_LEN_MAX_FRAME_SIZE_INIT;
         http2_conn_t w;
 
         http2_conn_init(&w);
@@ -10874,10 +10903,18 @@ Z_GROUP_EXPORT(http2_framing) {
                 Z_ASSERT_N(http2_stream_do_recv_headers(
                     &w, stream_id, &info, ps_init(NULL, 0), eos
                 ));
+            } else if (cases[i].type == LATE_WINDOW_UPDATE) {
+                Z_ASSERT_N(
+                    http2_stream_do_recv_window_update(&w, stream_id, 0)
+                );
             } else {
-                Z_ASSERT_N(http2_stream_do_recv_data(
-                    &w, stream_id, ps_init(NULL, 0), 0, eos
-                ));
+                /* Enough to replenish the window of a live stream. */
+                for (int f = 0; f < 2; f++) {
+                    Z_ASSERT_N(http2_stream_do_recv_data(
+                        &w, stream_id, ps_init(NULL, 0), frame_len,
+                        eos && f == 1
+                    ));
+                }
             }
             Z_ASSERT_EQ(
                 w.ob.sb.len, ob_len,
@@ -10891,6 +10928,74 @@ Z_GROUP_EXPORT(http2_framing) {
             Z_ASSERT_EQ(w.queries_can_send, 0);
         }
         http2_conn_close_streams_internal(&w, 0, 0);
+        http2_conn_wipe(&w);
+    } Z_TEST_END;
+
+    Z_TEST(
+        end_after_early_response,
+        "the DATA or trailers ending a request we answered early must "
+        "not be answered by a RST_STREAM (RFC 9113 5.1)"
+    ) {
+        struct {
+            lstr_t method;
+            bool trailers;
+        } cases[] = {
+            /* 501: the httpd ctx stays attached until the request ends, and
+             * trailers are refused on a Content-Length body. */
+            {LSTR_IMMED("POST"), true},
+            /* 204: headers-only, the httpd ctx is detached at once. */
+            {LSTR_IMMED("OPTIONS"), false},
+            {LSTR_IMMED("OPTIONS"), true},
+        };
+        http2_header_info_t trailers = {0};
+        http2_conn_t w;
+
+        Z_HELPER_RUN(z_http2_server_conn_init(&w));
+        for (int i = 0; i < countof(cases); i++) {
+            uint32_t stream_id = 1 + 2 * i;
+            http2_header_info_t req = {
+                .flags = HTTP2_HDR_FLAG_HAS_METHOD |
+                         HTTP2_HDR_FLAG_HAS_SCHEME | HTTP2_HDR_FLAG_HAS_PATH,
+                .method = cases[i].method,
+                .scheme = LSTR_IMMED("http"),
+                .path = LSTR_IMMED("/zchk"),
+                .authority = LSTR_IMMED("127.0.0.1"),
+                .content_length = LSTR_IMMED("4"),
+            };
+            http2_stream_t *stream;
+            int ob_len;
+
+            /* No handler: the httpd answers before the body arrives. */
+            Z_ASSERT_N(http2_stream_do_recv_headers(
+                &w, stream_id, &req, ps_initstr("content-length: 4\r\n"),
+                false
+            ));
+            http2_conn_on_streams_can_write_server(&w);
+            stream = http2_stream_get(&w, stream_id);
+            Z_ASSERT(
+                stream->events & HTTP2_STREAM_EV_EOS_SENT,
+                "the early response must be fully sent"
+            );
+            ob_len = w.ob.sb.len;
+
+            if (cases[i].trailers) {
+                Z_ASSERT_N(http2_stream_do_recv_headers(
+                    &w, stream_id, &trailers, ps_init(NULL, 0), true
+                ));
+            } else {
+                Z_ASSERT_N(http2_stream_do_recv_data(
+                    &w, stream_id, ps_initstr("body"), 4, true
+                ));
+            }
+            Z_ASSERT(http2_stream_is_closed(stream));
+            Z_ASSERT_EQ(
+                w.ob.sb.len, ob_len, "nothing must be sent on a closed stream"
+            );
+            Z_ASSERT_NULL(stream->http2d_ctx);
+        }
+
+        http2_conn_close_streams_internal(&w, 0, 0);
+        http2_server_delete(&w.server_ctx);
         http2_conn_wipe(&w);
     } Z_TEST_END;
 

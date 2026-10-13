@@ -1097,11 +1097,6 @@ Z_GROUP_EXPORT(http2_raw_frames)
     ) {
         SB_1k(frames);
 
-        Z_TODO(
-            "the answered httpd is dropped before the peer's end of "
-            "stream, so the frame gets a stream reset"
-        );
-
         Z_HELPER_RUN(z_h2_raw_setup());
 
         z_h2_add_request(
