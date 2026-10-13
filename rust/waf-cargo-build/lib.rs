@@ -316,10 +316,10 @@ pub fn hide_native_iop_pkgs(builder: Builder) -> Builder {
 /// `blocklist_file` on that package's headers) in favor of the native
 /// splice -- so any occurrence bindgen still emits is, by construction, a
 /// cross-reference from some other (non-IOP) header it keeps parsing raw
-/// (e.g. a raw pointer field). Since the native type may carry a lifetime
-/// bindgen's raw reference has no notion of, the two can't share the same
-/// name; renaming frees it up for a manual `'static`-pinned type alias
-/// bridging back to the native type where such a cross-reference exists.
+/// (e.g. a raw pointer field). The native type may take a lifetime that
+/// bindgen knows nothing of, so the two cannot share a name. The renamed
+/// reference resolves to the alias that iopc writes for each type, pinned
+/// to `'static`.
 #[derive(Debug)]
 pub struct NativeIopPkgRename {
     prefixes: Vec<String>,

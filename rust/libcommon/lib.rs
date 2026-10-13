@@ -172,9 +172,6 @@ pub mod bindings {
     pub type iop_json_subfile__array_t =
         crate::iop::IopArray<'static, core__iop_json_subfile__t<'static>>;
 
-    pub type yaml__presentation_node__t_raw = yaml__presentation_node__t<'static>;
-    pub type yaml__document_presentation__t_raw = yaml__document_presentation__t<'static>;
-
     unsafe extern "C" {
         pub static ic__pkg: iop_pkg_t;
         pub static core__pkg: iop_pkg_t;

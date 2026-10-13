@@ -42,20 +42,10 @@ pub mod bindings {
     pub use libcommon::bindings::*;
     waf_cargo_build::include_bindings!();
 
-    // Two families of aliases bridge back to the natively-generated types:
-    //
-    //  - the short names are the convenience typedefs of `<pkg>-t.iop.h`,
-    //    which is blocklisted as a whole and whose Rust counterpart iopc
-    //    does not emit;
-    //  - the `_raw` ones take the name bindgen freed while renaming its
-    //    own cross-references (see `hide_native_iop_pkgs`), and pin to
-    //    `'static` the lifetime of the memory the native type borrows
-    //    from, which bindgen had no notion of.
+    // The convenience typedefs of `<pkg>-t.iop.h`. bindgen blocks that
+    // header as a whole, and iopc emits no Rust counterpart for them.
     pub type ic_status__t = ic__ic_status__e;
     pub type http_code__t = core__http_code__e;
-    pub type ic__hdr__t_raw = ic__hdr__u<'static>;
-    pub type core__httpc_cfg__t_raw = core__httpc_cfg__t<'static>;
-    pub type core__httpd_cfg__t_raw = core__httpd_cfg__t<'static>;
 }
 
 // {{{ ICQuery builder

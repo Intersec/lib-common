@@ -626,6 +626,51 @@ iopc_rust_dump_enum_desc(sb_t *buf, const iopc_pkg_t *pkg, const char *name)
     );
 }
 
+/* bindgen names the C types of an IOP type by their C names plus `_raw`,
+ * because the Rust types can have other names or take a lifetime. Define
+ * these names. bindgen knows no lifetime, so the aliases pin it to
+ * `'static`. */
+static void iopc_rust_dump_raw_alias(
+    sb_t *buf, const iopc_pkg_t *pkg, const char *name, const char *suffix,
+    lstr_t target
+)
+{
+    t_scope;
+    lstr_t c_name = t_format_symbol_name(pkg, name, suffix, "");
+
+    sb_addf(
+        buf,
+        "#[allow(nonstandard_style)]\n"
+        "pub type %pL_raw = %pL;\n",
+        &c_name, &target
+    );
+}
+
+static void iopc_rust_dump_st_raw_aliases(
+    sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st
+)
+{
+    t_scope;
+    const char *lifetime;
+    lstr_t target;
+    lstr_t elem;
+
+    lifetime = iopc_rust_needs_lifetime(st) ? "<'static>" : "";
+    target = t_format_type_name(pkg, st, st->name, lifetime);
+    if (st->type == STRUCT_TYPE_CLASS) {
+        /* A C array holds a class through a pointer. */
+        elem = t_lstr_fmt("&'static mut %pL", &target);
+    } else {
+        elem = target;
+    }
+
+    iopc_rust_dump_raw_alias(buf, pkg, st->name, "t", target);
+    iopc_rust_dump_raw_alias(
+        buf, pkg, st->name, "array_t",
+        t_lstr_fmt(RUST_LC_IOP "IopArray<'static, %pL>", &elem)
+    );
+}
+
 static void iopc_rust_dump_base_trait(sb_t *buf, lstr_t type_name)
 {
     sb_addf(buf, "impl " RUST_LC_IOP "Base for %pL {}\n", &type_name);
@@ -789,6 +834,8 @@ iopc_rust_dump_struct(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
             &st_name
         );
         iopc_rust_dump_struct_desc(buf, pkg, st->name);
+        iopc_rust_dump_st_raw_aliases(buf, pkg, st);
+        sb_adds(buf, "\n");
         return;
     }
 
@@ -802,6 +849,7 @@ iopc_rust_dump_struct(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
     iopc_rust_dump_fields(buf, st);
     iopc_rust_dump_struct_desc(buf, pkg, st->name);
     iopc_rust_dump_needed_traits_for_structs(buf, pkg, st);
+    iopc_rust_dump_st_raw_aliases(buf, pkg, st);
     sb_adds(buf, "\n");
 }
 
@@ -829,6 +877,15 @@ iopc_rust_dump_enum(sb_t *buf, const iopc_pkg_t *pkg, const iopc_enum_t *en)
     sb_adds(buf, "}\n\n");
     iopc_rust_dump_enum_desc(buf, pkg, en->name);
     iopc_rust_dump_needed_traits_for_enums(buf, pkg, en);
+    iopc_rust_dump_raw_alias(buf, pkg, en->name, "t", en_name);
+    iopc_rust_dump_raw_alias(
+        buf, pkg, en->name, "array_t",
+        t_lstr_fmt(RUST_LC_IOP "IopArray<'static, %pL>", &en_name)
+    );
+    iopc_rust_dump_raw_alias(
+        buf, pkg, en->name, "opt_t",
+        t_lstr_fmt(RUST_LC_IOP "IopOption<%pL>", &en_name)
+    );
     sb_adds(buf, "\n");
 }
 
@@ -853,6 +910,7 @@ iopc_rust_dump_union(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
     iopc_rust_dump_fields(buf, st);
     iopc_rust_dump_struct_desc(buf, pkg, st->name);
     iopc_rust_dump_needed_traits_for_structs(buf, pkg, st);
+    iopc_rust_dump_st_raw_aliases(buf, pkg, st);
     sb_adds(buf, "\n");
 }
 
@@ -951,6 +1009,7 @@ iopc_rust_dump_class(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
     );
     iopc_rust_dump_struct_desc(buf, pkg, st->name);
     iopc_rust_dump_needed_traits_for_structs(buf, pkg, st);
+    iopc_rust_dump_st_raw_aliases(buf, pkg, st);
     sb_adds(buf, "\n");
 }
 
