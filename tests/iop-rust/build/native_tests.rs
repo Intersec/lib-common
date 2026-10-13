@@ -71,7 +71,7 @@ fn write_env(tests: &mut String, iop_files: &[(&NativeIopPkg, syn::File)]) -> Re
 
     write!(
         tests,
-        r#"mod iop_env {{
+        r#"pub(crate) mod iop_env {{
     use crate::bindings::iop_pkg_t;
     use libcommon::iop::{{Env, EnvCtx}};
     use std::sync::LazyLock;

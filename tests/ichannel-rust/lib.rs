@@ -103,7 +103,7 @@ mod tests {
             __ic_reply(
                 ic,
                 slot,
-                ic__ic_status__e::OK as i32,
+                ic__ic_status__e::OK.0,
                 -1,
                 (*rpc).result,
                 ptr::from_ref(&res).cast::<c_void>(),

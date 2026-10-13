@@ -26,16 +26,16 @@
 //! [`CallbackFut`](../libcommon/run_callback/struct.CallbackFut.html) with
 //! either the result or the [`IcError`] resulting from the query.
 
-use crate::{
-    bindings::{__ic_msg_build, ic__ic_status__e, ic_is_local, iop_rpc_t},
-    ic__ic_status__e::{EXN as IC_MSG_EXN, OK as IC_MSG_OK},
-};
+use crate::bindings::{__ic_msg_build, ic__ic_status__e, ic_is_local, iop_rpc_t};
 use libcommon::iop::{IopDup, Owned, OwnedIop as _};
 use libcommon::run_callback::{Callback, CallbackFut, run_callback};
 use std::ffi::c_void;
 use std::ptr::{read, write};
 
 use bindings::{__ic_query, ic__hdr__t_raw, ic_msg_new, ic_msg_t, ichannel_t};
+
+const IC_MSG_OK: ic__ic_status__e = ic__ic_status__e::OK;
+const IC_MSG_EXN: ic__ic_status__e = ic__ic_status__e::EXN;
 
 #[waf_cargo_build::bindings_mod]
 pub mod bindings {

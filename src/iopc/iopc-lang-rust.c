@@ -767,12 +767,12 @@ iopc_rust_dump_struct(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
 /* }}} */
 /* {{{ Enums management */
 
-static void
-iopc_rust_dump_enum(sb_t *buf, const iopc_pkg_t *pkg, const iopc_enum_t *en)
+/* An unpacker rejects a value that a strict enum does not name, so a Rust
+ * enum can hold the value of a strict enum. */
+static void iopc_rust_dump_strict_enum_type(
+    sb_t *buf, lstr_t en_name, const iopc_enum_t *en
+)
 {
-    t_scope;
-    lstr_t en_name = t_format_symbol_name(pkg, en->name, "e", "");
-
     sb_addf(
         buf,
         "#[repr(C)]\n"
@@ -786,6 +786,55 @@ iopc_rust_dump_enum(sb_t *buf, const iopc_pkg_t *pkg, const iopc_enum_t *en)
         sb_addf(buf, "    %s = %d,\n", v->name, v->value);
     }
     sb_adds(buf, "}\n\n");
+}
+
+/* A field of a non-strict enum holds any value, and a Rust enum that holds
+ * a value it does not name is undefined behavior. The values of the enum
+ * are therefore constants of a newtype. */
+static void iopc_rust_dump_open_enum_type(
+    sb_t *buf, lstr_t en_name, const iopc_enum_t *en
+)
+{
+    sb_addf(
+        buf,
+        "#[repr(transparent)]\n"
+        "#[allow(nonstandard_style)]\n"
+        "#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]\n"
+        "pub struct %pL(pub i32);\n\n"
+        "#[allow(nonstandard_style)]\n"
+        "impl %pL {\n",
+        &en_name, &en_name
+    );
+    tab_for_each_entry(v, &en->values) {
+        sb_addf(
+            buf, "    pub const %s: Self = Self(%d);\n", v->name, v->value
+        );
+    }
+    /* Like the Rust enum of a strict enum, the default is the first
+     * value. */
+    sb_addf(
+        buf,
+        "}\n\n"
+        "impl Default for %pL {\n"
+        "    fn default() -> Self {\n"
+        "        Self(%d)\n"
+        "    }\n"
+        "}\n\n",
+        &en_name, en->values.len > 0 ? en->values.tab[0]->value : 0
+    );
+}
+
+static void
+iopc_rust_dump_enum(sb_t *buf, const iopc_pkg_t *pkg, const iopc_enum_t *en)
+{
+    t_scope;
+    lstr_t en_name = t_format_symbol_name(pkg, en->name, "e", "");
+
+    if (iopc_attr_check(&en->attrs, IOPC_ATTR_STRICT, NULL) >= 0) {
+        iopc_rust_dump_strict_enum_type(buf, en_name, en);
+    } else {
+        iopc_rust_dump_open_enum_type(buf, en_name, en);
+    }
     iopc_rust_dump_enum_desc(buf, pkg, en->name);
     iopc_rust_dump_needed_traits_for_enums(buf, pkg, en);
     iopc_rust_dump_raw_alias(buf, pkg, en->name, "t", en_name);

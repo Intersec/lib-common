@@ -61,9 +61,10 @@ mod native_tests {
 
 #[cfg(test)]
 mod iop_tests {
+    use crate::native_tests::iop_env::ENV;
     use libcommon::iop::{
-        CEnum, CInstance as _, CStruct, CUnion, Enum as _, Env, EnvCtx, IopDup as _,
-        StructUnion as _,
+        CEnum, CInstance as _, CStruct, CStructUnion as _, CUnion, Enum as _, Env, EnvCtx,
+        IopDup as _, StructUnion as _,
     };
     use libcommon::mem_stack::TScope;
     use libcommon::{iop_get, iop_new, iop_set, lstr};
@@ -1096,6 +1097,22 @@ mod iop_tests {
         let _ = |en: tstiop_typedef__enum1_list__t_raw| -> tstiop_backward_compat__enum1__e { en };
         let _ = |st: tstiop_typedef__remote_struct__t_raw| -> tstiop__basic_struct__t { st };
         let _ = |cl: tstiop_typedef__remote_typedef_class__t_raw| -> tstiop__small_class__t { cl };
+    }
+
+    // }}}
+    // {{{ Non-strict enums
+
+    #[test]
+    fn a_non_strict_enum_holds_a_value_that_it_does_not_name() {
+        let t_scope = TScope::new_scope();
+        let obj = ENV
+            .t_junpack_desc(&t_scope, r#"{"e": 7}"#, tstiop__full_opt__t::CDESC, 0)
+            .expect("a non-strict enum should accept any value");
+        // SAFETY: `obj` holds a `tstiop.FullOpt`, which `t_scope` keeps
+        // alive.
+        let opt = unsafe { &*obj.get_cptr().cast::<tstiop__full_opt__t<'_>>() };
+
+        assert_eq!(Option::from(opt.e), Some(tstiop__test_enum__e(7)));
     }
 
     // }}}

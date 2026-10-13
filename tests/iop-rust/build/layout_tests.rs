@@ -240,6 +240,11 @@ fn generate_tests(
     for (_, iop_file) in iop_files {
         for item in &iop_file.items {
             let (ident, generics, fields) = match item {
+                // `iopc` writes a non-strict enum as a tuple struct, and an
+                // enum has no field to compare.
+                Item::Struct(st) if matches!(st.fields, Fields::Unnamed(_)) => {
+                    (&st.ident, &st.generics, None)
+                }
                 Item::Struct(st) => (&st.ident, &st.generics, Some(&st.fields)),
                 Item::Enum(en) => (&en.ident, &en.generics, None),
                 _ => continue,
