@@ -872,8 +872,11 @@ static void iopc_rust_inheritance_dump(
         padded_offset = ROUND_UP(*offset, *align);
         if (padded_offset > *offset) {
             t_scope;
+
+            /* No code may write the padding, so the field is private. The
+             * `_` prefix tells rustc that nothing reads it. */
             sb_addf(
-                sb, "    pub pad_%s_%u: [u8; %u],\n",
+                sb, "    _pad_%s_%u: [u8; %u],\n",
                 t_camelcase_to_c_str(parent->name), *offset,
                 padded_offset - *offset
             );
@@ -919,7 +922,7 @@ iopc_rust_dump_class(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
     sb_addf(
         buf,
         "#[repr(C)]\n"
-        "#[allow(nonstandard_style)]\n"
+        "#[allow(nonstandard_style, clippy::partial_pub_fields)]\n"
         "pub struct %pL {\n"
         "    pub vptr: *const iop_struct_t,\n\n",
         &st_name
