@@ -109,6 +109,11 @@ use std::ops::Deref;
 // TODO: use `thiserror` package to provide a nice error.
 pub type UnpackError = String;
 
+/// The error that the last failed IOP call reported.
+fn last_iop_error() -> UnpackError {
+    unsafe { lstr::from_raw_utf8(iop_get_err_lstr()).as_str() }.to_owned()
+}
+
 // }}}
 // {{{ IOP Base
 
@@ -161,8 +166,7 @@ pub trait StructUnion: Base {
             return Ok(());
         }
 
-        let err = unsafe { lstr::from_raw_utf8(iop_get_err_lstr()).as_str() };
-        Err(err.to_owned())
+        Err(last_iop_error())
     }
 
     /// Export the IOP struct or union as JSON
@@ -793,9 +797,7 @@ impl EnvCtx {
         if res < 0 {
             /* Unlike its JSON and YAML counterparts, this one takes no
              * error buffer and reports through the IOP error. */
-            let err = unsafe { lstr::from_raw_utf8(iop_get_err_lstr()).as_str() };
-
-            return Err(err.to_owned());
+            return Err(last_iop_error());
         }
         Ok(GenericStructUnion::new_with_ctx(st, out, self.clone()))
     }
@@ -844,7 +846,7 @@ pub struct IopOption<T> {
 
 impl<T> From<IopOption<T>> for Option<T> {
     fn from(value: IopOption<T>) -> Self {
-        value.has_field.then_some(value.v)
+        value.iop_opt()
     }
 }
 
@@ -956,11 +958,7 @@ impl<'a, T> From<&'a IopArray<'a, T>> for &'a [T] {
 
 impl<'a, T> From<IopArray<'a, T>> for &'a [T] {
     fn from(value: IopArray<'a, T>) -> Self {
-        if value.len == 0 {
-            &[]
-        } else {
-            unsafe { from_raw_parts(value.v, value.len as usize) }
-        }
+        value.as_slice()
     }
 }
 
@@ -975,8 +973,9 @@ impl<'a, T> From<&'a [T]> for IopArray<'a, T> {
     }
 }
 
-impl<T> IopArray<'_, T> {
-    pub fn as_slice(&self) -> &[T] {
+impl<'a, T> IopArray<'a, T> {
+    /// The array borrows `'a`, not `self`: it is a `Copy` shared borrow.
+    pub fn as_slice(&self) -> &'a [T] {
         if self.len == 0 {
             &[]
         } else {
