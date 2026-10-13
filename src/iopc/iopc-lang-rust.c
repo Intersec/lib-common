@@ -388,13 +388,14 @@ static unsigned int iopc_rust_base_offset(const iopc_struct_t *st)
     }
 }
 
-/* The Rust module name of `pkg`: its dotted IOP path joined with `_`,
- * since a dot is not valid in a Rust identifier. */
+/* The prefix of the names of `pkg`: its dotted IOP path joined with `__`,
+ * like the C backend does, so that a Rust item has the name of its C
+ * counterpart. */
 static lstr_t t_iopc_rust_mod_name(const iopc_pkg_t *pkg)
 {
     SB_1k(buf);
 
-    iopc_path_join(pkg->name, "_", &buf);
+    iopc_path_join(pkg->name, "__", &buf);
     return t_lstr_dup(LSTR_SB_V(&buf));
 }
 
