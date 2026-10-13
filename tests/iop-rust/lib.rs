@@ -1029,6 +1029,30 @@ mod iop_tests {
     }
 
     // }}}
+    // {{{ @ctype and @alias
+
+    use crate::bindings::{
+        tstiop__first_diff_c1__t, tstiop__first_diff_st__t, tstiop__my_enum_a__e,
+        z_first_diff_c1__t, z_first_diff_st__t, z_first_diff_st__t_raw,
+    };
+
+    #[test]
+    fn an_alias_of_an_enum_value_is_that_value() {
+        assert_eq!(tstiop__my_enum_a__e::A_ALIAS, tstiop__my_enum_a__e::A);
+        assert_eq!(tstiop__my_enum_a__e::C_ALIAS_1, tstiop__my_enum_a__e::C);
+        assert_eq!(tstiop__my_enum_a__e::C_ALIAS_2, tstiop__my_enum_a__e::C);
+    }
+
+    #[test]
+    fn a_ctype_names_the_type() {
+        // The `@ctype` name keeps the lifetime of a borrowing type, and its
+        // `_raw` alias pins it to `'static` like the other C names.
+        let _ = |st: z_first_diff_st__t<'static>| -> tstiop__first_diff_st__t<'static> { st };
+        let _ = |st: z_first_diff_st__t_raw| -> tstiop__first_diff_st__t<'static> { st };
+        let _ = |cl: z_first_diff_c1__t| -> tstiop__first_diff_c1__t { cl };
+    }
+
+    // }}}
     // {{{ Typedef aliases
 
     // Nothing else looks at the aliases `iopc` writes for a typedef: they

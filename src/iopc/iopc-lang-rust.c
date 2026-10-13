@@ -734,8 +734,89 @@ static void iopc_rust_dump_needed_traits_for_enums(
 }
 
 /* }}} */
+/* {{{ Attribute support */
+
+static void iopc_rust_dump_type_alias(
+    sb_t *buf, const lstr_t *alias, const char *lt, const lstr_t *target
+)
+{
+    sb_addf(
+        buf,
+        "#[allow(nonstandard_style)]\n"
+        "pub type %pL%s = %pL;\n\n",
+        alias, lt, target
+    );
+}
+
+static void
+iopc_rust_dump_enum_aliases(sb_t *buf, lstr_t en_name, const iopc_enum_t *en)
+{
+    SB_1k(consts);
+
+    tab_for_each_entry(v, &en->values) {
+        tab_for_each_entry(attr, &v->attrs) {
+            if (attr->desc->id != IOPC_ATTR_ALIAS) {
+                continue;
+            }
+            tab_for_each_ptr(arg, &attr->args) {
+                sb_addf(
+                    &consts, "    pub const %pL: Self = Self::%s;\n",
+                    &arg->v.s, v->name
+                );
+            }
+        }
+    }
+    if (consts.len == 0) {
+        return;
+    }
+
+    sb_addf(
+        buf,
+        "#[allow(nonstandard_style)]\n"
+        "impl %pL {\n"
+        "%*pM"
+        "}\n\n",
+        &en_name, SB_FMT_ARG(&consts)
+    );
+}
+
+static void iopc_rust_dump_ctype_aliases(
+    sb_t *buf, const qv_t(iopc_attr) *attrs, lstr_t target, const char *lt
+)
+{
+    tab_for_each_entry(attr, attrs) {
+        if (attr->desc->id != IOPC_ATTR_CTYPE) {
+            continue;
+        }
+        tab_for_each_ptr(arg, &attr->args) {
+            t_scope;
+            lstr_t raw = t_lstr_fmt("%pL_raw", &arg->v.s);
+            lstr_t raw_target =
+                t_lstr_fmt("%pL%s", &arg->v.s, *lt ? "<'static>" : "");
+
+            iopc_rust_dump_type_alias(buf, &arg->v.s, lt, &target);
+            /* bindgen names a `@ctype` like any other C name of the type,
+             * see iopc_rust_dump_raw_alias(). */
+            iopc_rust_dump_type_alias(buf, &raw, "", &raw_target);
+        }
+    }
+}
+
+/* }}} */
 /* }}} */
 /* {{{ Structures management */
+
+/* Dumps the aliases of the struct, union or class `st`: the names that
+ * bindgen and its `@ctype` give it. */
+static void iopc_rust_dump_st_aliases(
+    sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st, lstr_t st_name,
+    const char *lt
+)
+{
+    iopc_rust_dump_st_raw_aliases(buf, pkg, st);
+    iopc_rust_dump_ctype_aliases(buf, &st->attrs, st_name, lt);
+    sb_adds(buf, "\n");
+}
 
 static void
 iopc_rust_dump_struct(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
@@ -754,8 +835,7 @@ iopc_rust_dump_struct(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
             &st_name
         );
         iopc_rust_dump_struct_desc(buf, pkg, st->name);
-        iopc_rust_dump_st_raw_aliases(buf, pkg, st);
-        sb_adds(buf, "\n");
+        iopc_rust_dump_st_aliases(buf, pkg, st, st_name, lt);
         return;
     }
 
@@ -769,8 +849,7 @@ iopc_rust_dump_struct(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
     iopc_rust_dump_fields(buf, st);
     iopc_rust_dump_struct_desc(buf, pkg, st->name);
     iopc_rust_dump_needed_traits_for_structs(buf, pkg, st);
-    iopc_rust_dump_st_raw_aliases(buf, pkg, st);
-    sb_adds(buf, "\n");
+    iopc_rust_dump_st_aliases(buf, pkg, st, st_name, lt);
 }
 
 /* }}} */
@@ -806,6 +885,8 @@ iopc_rust_dump_enum(sb_t *buf, const iopc_pkg_t *pkg, const iopc_enum_t *en)
         buf, pkg, en->name, "opt_t",
         t_lstr_fmt(RUST_LC_IOP "IopOption<%pL>", &en_name)
     );
+    iopc_rust_dump_enum_aliases(buf, en_name, en);
+    iopc_rust_dump_ctype_aliases(buf, &en->attrs, en_name, "");
     sb_adds(buf, "\n");
 }
 
@@ -816,8 +897,8 @@ static void
 iopc_rust_dump_union(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
 {
     t_scope;
-    lstr_t un_name =
-        t_format_type_name(pkg, st, st->name, iopc_rust_add_lifetime(st));
+    const char *lt = iopc_rust_add_lifetime(st);
+    lstr_t un_name = t_format_type_name(pkg, st, st->name, lt);
 
     sb_addf(
         buf,
@@ -830,8 +911,7 @@ iopc_rust_dump_union(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
     iopc_rust_dump_fields(buf, st);
     iopc_rust_dump_struct_desc(buf, pkg, st->name);
     iopc_rust_dump_needed_traits_for_structs(buf, pkg, st);
-    iopc_rust_dump_st_raw_aliases(buf, pkg, st);
-    sb_adds(buf, "\n");
+    iopc_rust_dump_st_aliases(buf, pkg, st, un_name, lt);
 }
 
 /* }}} */
@@ -929,8 +1009,7 @@ iopc_rust_dump_class(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
     );
     iopc_rust_dump_struct_desc(buf, pkg, st->name);
     iopc_rust_dump_needed_traits_for_structs(buf, pkg, st);
-    iopc_rust_dump_st_raw_aliases(buf, pkg, st);
-    sb_adds(buf, "\n");
+    iopc_rust_dump_st_aliases(buf, pkg, st, st_name, lt);
 }
 
 /* }}} */
@@ -1002,11 +1081,8 @@ static void iopc_rust_dump_typedefs(sb_t *buf, const iopc_pkg_t *pkg)
             pkg, td->name, iopc_rust_field_type_suffix(td), ""
         );
 
-        sb_addf(
-            buf,
-            "#[allow(nonstandard_style)]\n"
-            "pub type %pL%s = %pL;\n\n",
-            &alias, type.borrows ? "<'a>" : "", &type.name
+        iopc_rust_dump_type_alias(
+            buf, &alias, type.borrows ? "<'a>" : "", &type.name
         );
         if (td->kind == IOP_T_ENUM || iopc_rust_field_has_struct_def(td)) {
             iopc_rust_dump_typedef_raw_aliases(buf, pkg, td);

@@ -369,6 +369,8 @@ struct LibcommonParseCallbacks {
     blocked_items: Rc<HashSet<String>>,
     /// The native bindings of the IOP headers that bindgen has walked.
     pkgs: Rc<RefCell<Vec<NativeIopPkg>>>,
+    /// The item names of `pkgs`. bindgen looks up each of its items.
+    pkg_items: RefCell<HashSet<String>>,
     /// The `<pkg>.iop.rs` files already read, with or without items.
     seen_files: RefCell<HashSet<PathBuf>>,
 }
@@ -378,15 +380,20 @@ impl LibcommonParseCallbacks {
         Self {
             blocked_items,
             pkgs,
+            pkg_items: RefCell::default(),
             seen_files: RefCell::default(),
         }
     }
 
+    /// A `@ctype` name does not carry the `<pkg>__` prefix, so only the
+    /// item names of the package find it.
     fn is_native_pkg_item(&self, name: &str) -> bool {
-        self.pkgs
-            .borrow()
-            .iter()
-            .any(|pkg| name.starts_with(&pkg.prefix))
+        self.pkg_items.borrow().contains(name)
+            || self
+                .pkgs
+                .borrow()
+                .iter()
+                .any(|pkg| name.starts_with(&pkg.prefix))
     }
 }
 
@@ -402,7 +409,12 @@ impl ParseCallbacks for LibcommonParseCallbacks {
         }
         println!("cargo::rerun-if-changed={}", path.display());
         match NativeIopPkg::read(path) {
-            Ok(Some(pkg)) => self.pkgs.borrow_mut().push(pkg),
+            Ok(Some(pkg)) => {
+                self.pkg_items
+                    .borrow_mut()
+                    .extend(pkg.items.iter().cloned());
+                self.pkgs.borrow_mut().push(pkg);
+            }
             Ok(None) => {}
             // The C definitions of the package stay, which surfaces later
             // as an unrelated type error.
