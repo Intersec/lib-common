@@ -50,9 +50,9 @@ static __inline bool OSAtomicCompareAndSwapInt(int oldi, int newi, int volatile 
  * Globals:
  */
 
-static void *_Block_copy_class = _NSConcreteMallocBlock;
-static void *_Block_copy_finalizing_class = _NSConcreteMallocBlock;
-static int _Block_copy_flag = BLOCK_NEEDS_FREE;
+static __attribute__((unused)) void *_Block_copy_class = _NSConcreteMallocBlock;
+static __attribute__((unused)) void *_Block_copy_finalizing_class = _NSConcreteMallocBlock;
+static __attribute__((unused)) int _Block_copy_flag = BLOCK_NEEDS_FREE;
 static int _Byref_flag_initial_value = BLOCK_NEEDS_FREE | 2;
 
 static const int WANTS_ONE = (1 << 16);
