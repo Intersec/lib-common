@@ -749,27 +749,16 @@ iopc_rust_dump_struct(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
     lstr_t st_name = t_format_type_name(pkg, st, st->name, lt);
 
     iopc_struct_optimize(st);
-    if (iopc_rust_is_struct_empty(st)) {
-        sb_addf(
-            buf,
-            "#[repr(C)]\n"
-            "#[allow(nonstandard_style)]\n"
-            "pub struct %pL;\n\n",
-            &st_name
-        );
-        iopc_rust_dump_struct_desc(buf, pkg, st->name);
-        iopc_rust_dump_st_aliases(buf, pkg, st, st_name, lt);
-        return;
-    }
-
-    sb_addf(
-        buf,
-        "#[repr(C)]\n"
-        "#[allow(nonstandard_style)]\n"
-        "pub struct %pL {\n",
-        &st_name
+    sb_adds(
+        buf, "#[repr(C)]\n"
+             "#[allow(nonstandard_style)]\n"
     );
-    iopc_rust_dump_fields(buf, st);
+    if (iopc_rust_is_struct_empty(st)) {
+        sb_addf(buf, "pub struct %pL;\n\n", &st_name);
+    } else {
+        sb_addf(buf, "pub struct %pL {\n", &st_name);
+        iopc_rust_dump_fields(buf, st);
+    }
     iopc_rust_dump_struct_desc(buf, pkg, st->name);
     iopc_rust_dump_needed_traits_for_structs(buf, pkg, st);
     iopc_rust_dump_st_aliases(buf, pkg, st, st_name, lt);

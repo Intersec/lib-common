@@ -25,22 +25,6 @@
 
 #include <lib-common/iop.h>
 
-/* Whether the field has a member in the C struct. */
-static inline bool iop_testable_field_is_emitted(const iop_field_t *nonnull f)
-{
-    return f->type != IOP_T_VOID || f->repeat == IOP_R_OPTIONAL;
-}
-
-static inline bool iop_testable_has_field(const iop_struct_t *nonnull st)
-{
-    iop_struct_for_each_field(f, field_st, st) {
-        if (iop_testable_field_is_emitted(f)) {
-            return true;
-        }
-    }
-    return false;
-}
-
 /* Whether a default value can fail a constraint of the field.
  *
  * A default value leaves an optional field unset and an array empty, which
@@ -132,8 +116,7 @@ static inline bool iop_testable_is_testable(const iop_struct_t *nonnull st)
     if (iop_struct_is_class(st) && st->class_attrs->is_abstract) {
         return false;
     }
-    return iop_testable_has_field(st) &&
-           iop_testable_has_safe_constraints(st) &&
+    return iop_testable_has_safe_constraints(st) &&
            iop_testable_can_fill_fields(st);
 }
 
