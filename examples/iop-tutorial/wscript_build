@@ -21,7 +21,7 @@ from waflib.Build import BuildContext
 bld: BuildContext
 
 
-bld.IopcOptions(bld, rust_path='../../src/iop-rust')
+bld.IopcOptions(bld, rust=True)
 
 # Compile the IOP package once into a reusable static library so that both the
 # C example (`ex-iop`) and the Rust example (`rust/examples`) can link it.

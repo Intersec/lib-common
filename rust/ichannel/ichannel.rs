@@ -41,11 +41,6 @@ use bindings::{__ic_query, ic__hdr__t_raw, ic_msg_new, ic_msg_t, ichannel_t};
 pub mod bindings {
     pub use libcommon::bindings::*;
     waf_cargo_build::include_bindings!();
-
-    // The convenience typedefs of `<pkg>-t.iop.h`. bindgen blocks that
-    // header as a whole, and iopc emits no Rust counterpart for them.
-    pub type ic_status__t = ic__ic_status__e;
-    pub type http_code__t = core__http_code__e;
 }
 
 // {{{ ICQuery builder

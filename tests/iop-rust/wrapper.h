@@ -20,3 +20,9 @@
 #include <lib-common/iop-json.h>
 #include <lib-common/iop-yaml.h>
 #include "../iop/tstiop.iop.h"
+
+/* For the other IOP packages under test. */
+#include <lib-common/iop/ic.iop.h>
+#include "../iop/tstiop_typedef.iop.h"
+#include "../iop/tstiop_inheritance.iop.h"
+#include "../iop/tstiop_dotted/pkg.iop.h"

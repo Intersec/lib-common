@@ -1,0 +1,15 @@
+package tstiop_dotted.pkg;
+
+/* A package with a dotted name: the names of its C and Rust items start
+ * with `tstiop_dotted__pkg__`. */
+
+enum Color {
+    RED,
+    GREEN,
+};
+
+struct Point {
+    int x;
+    int y;
+    Color color;
+};

@@ -36,16 +36,16 @@ pub mod modules {
 }
 
 // Generated Rust for each in-tree IOP package (compile-check), plus the
-// hard-coded layout assertions for the same packages, when available. See
-// `layout_tests.rs` for the single place that lists which packages are
-// wired in and how the two are gated separately.
+// generated round-trip, constraint and cast tests for the same packages,
+// when available. See `native_iop_tests.rs` for the single place that
+// lists which packages are wired in and how the two are gated separately.
 //
 // Included with `include!`, not declared with `mod`, so that the
 // `<pkg>_iop_module` modules it defines land at the crate root
 // (`crate::<pkg>_iop_module`) — required because the `.iop.tests.rs` files
 // `iopc` generates hardcode `use crate::<pkg>_iop_module::*;`.
 #[cfg(test)]
-include!("layout_tests.rs");
+include!("native_iop_tests.rs");
 
 #[cfg(test)]
 mod iop_tests {

@@ -18,17 +18,10 @@
 
 use std::error;
 
-use waf_cargo_build::{WafBuild, hide_native_iop_pkgs};
+use waf_cargo_build::WafBuild;
 
 fn main() -> Result<(), Box<dyn error::Error>> {
-    let waf_build = WafBuild::read_build_env()?;
-
-    waf_build.print_cargo_instructions();
-    waf_build.generate_bindings(|builder| {
-        // This crate gets the native IOP types from `libcommon::bindings`,
-        // so bindgen must not describe them a second time.
-        Ok(hide_native_iop_pkgs(builder.header("wrapper.h")))
-    })?;
+    WafBuild::build()?;
 
     Ok(())
 }

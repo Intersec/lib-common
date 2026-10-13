@@ -16,27 +16,12 @@
 /*                                                                         */
 /***************************************************************************/
 
-use std::env;
 use std::error;
-use std::path::Path;
 
-use waf_cargo_build::{NATIVE_IOP_PKG, WafBuild, hide_native_iop_pkgs};
+use waf_cargo_build::WafBuild;
 
 fn main() -> Result<(), Box<dyn error::Error>> {
-    let waf_build = WafBuild::read_build_env()?;
-
-    waf_build.print_cargo_instructions();
-
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR")?;
-    let iop_rust_dir = Path::new(&manifest_dir).join("../../src/iop-rust");
-
-    waf_build.generate_bindings(|builder| {
-        // Export everything from wrapper.h, but let the native `*.iop.rs`
-        // files own the IOP packages they describe.
-        Ok(hide_native_iop_pkgs(builder.header("wrapper.h")))
-    })?;
-
-    waf_build.splice_native_iop_bindings(NATIVE_IOP_PKG, &iop_rust_dir)?;
+    WafBuild::build()?;
 
     Ok(())
 }

@@ -167,11 +167,6 @@ pub mod bindings {
     pub use libcommon_core::bindings::*;
     waf_cargo_build::include_bindings!();
 
-    /// Typedefs to avoid type errors between iopc's generation and bindgen's one.
-    pub type iop_json_subfile__t = core__iop_json_subfile__t<'static>;
-    pub type iop_json_subfile__array_t =
-        crate::iop::IopArray<'static, core__iop_json_subfile__t<'static>>;
-
     unsafe extern "C" {
         pub static ic__pkg: iop_pkg_t;
         pub static core__pkg: iop_pkg_t;
