@@ -18,6 +18,7 @@
 
 [package]
 name = "libcommon-core"
+links = "libcommon-core"
 edition.workspace = true
 publish.workspace = true
 

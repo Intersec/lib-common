@@ -18,6 +18,7 @@
 
 [package]
 name = "libcommon"
+links = "libcommon"
 edition.workspace = true
 publish.workspace = true
 

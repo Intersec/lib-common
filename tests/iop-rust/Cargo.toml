@@ -18,6 +18,7 @@
 
 [package]
 name = "iop-rust-tests"
+links = "iop-rust-tests"
 edition.workspace = true
 publish.workspace = true
 

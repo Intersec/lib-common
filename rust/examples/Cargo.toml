@@ -18,6 +18,7 @@
 
 [package]
 name = "examples"
+links = "examples"
 edition.workspace = true
 publish.workspace = true
 

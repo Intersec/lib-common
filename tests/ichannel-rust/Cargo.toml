@@ -18,6 +18,7 @@
 
 [package]
 name = "ichannel-rust-tests"
+links = "ichannel-rust-tests"
 edition.workspace = true
 publish.workspace = true
 

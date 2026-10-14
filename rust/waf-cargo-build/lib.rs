@@ -542,6 +542,14 @@ impl WafBuild {
         let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
 
         let native_iop_pkgs = if manifest_dir.join("wrapper.h").is_file() {
+            // The bindings of a package block the items that its
+            // dependencies generate, so the build scripts of the
+            // dependencies must run first. Cargo orders them only for a
+            // direct dependency with a `links` key: without one, a single
+            // `cargo build` of several packages can run them in any order.
+            if env::var_os("CARGO_MANIFEST_LINKS").is_none() {
+                return Err("a package with a `wrapper.h` needs a `links` key".into());
+            }
             waf_build.generate_bindings(|b| Ok(b.header("wrapper.h")))?
         } else {
             Vec::new()

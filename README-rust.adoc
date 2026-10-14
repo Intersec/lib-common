@@ -90,13 +90,13 @@ packages, the different exported symbols by `bindgen` for a given package are
 tracked and exported in a file called `.waf-cargo-build/bindings_items.json`
 and are blocked in Rust packages that depends of that package.
 This requires the `bindings_items.json` of a package to be generated before the
-one of the packages depending on it. Cargo gives no such guarantee (it runs the
-build scripts of a package and of its dependencies in parallel), so this
-ordering is enforced by waf, through the dependencies declared with `use`
-between the Rust targets. Hence a Rust package using the bindings of another
-one *must* declare it in the `use` of its waf target, otherwise its bindings
-will be generated with an incomplete block list and the same C types will be
-defined twice.
+one of the packages depending on it. Cargo runs the build script of a package
+after the build scripts of its direct dependencies that have a `links` key.
+So a package with a `wrapper.h` *must* have a `links` key, and its build
+script fails without one. Cargo does not apply this order through a dependency
+without `links`. So a package that uses the bindings of another one *must*
+depend on it directly. Otherwise its bindings are generated with an incomplete
+block list, and the same C types are defined twice.
 
 A cargo package can define a lib and/or multiple bins.
 
