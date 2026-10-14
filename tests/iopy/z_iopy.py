@@ -30,6 +30,7 @@ import sys
 import threading
 import time
 import warnings
+from collections import UserList
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, TypeVar, assert_type, cast
@@ -1278,6 +1279,29 @@ class IopyTest(z.TestCase):
         # XXX: too complicated for the type system
         a2.tu = 42  # pyrefly: ignore[bad-assignment]
         self.assertEqual(a0, a2)
+
+    def test_sequence_array(self) -> None:
+        a0 = self.r.test.StructA(tu=[1, 2])
+        for tab in ((1, 2), range(1, 3), UserList([1, 2])):
+            a1 = self.r.test.StructA(tu=tab)
+            self.assertEqual(a0, a1)
+            self.assertIs(type(a1.tu), list)
+            a2 = self.r.test.StructA(tu=[])
+            # XXX: the attribute type is the list that the getter returns
+            a2.tu = tab  # pyrefly: ignore[bad-assignment]
+            self.assertEqual(a0, a2)
+            self.assertIs(type(a2.tu), list)
+
+        # A string is a single element of a string array.
+        b = self.r.test.StructB(a='a', b='b', tab='xy')
+        self.assertEqual(b.tab, ['xy'])
+        b = self.r.test.StructB(a='a', b='b', tab=('x', 'y'))
+        self.assertEqual(b.tab, ['x', 'y'])
+
+        # A set and a generator are not sequences. The stub rejects them too.
+        for bad in ({1, 2}, (x for x in (1, 2))):
+            with self.assertRaises(iopy.Error):
+                self.r.test.StructA(tu=bad)  # pyrefly: ignore[no-matching-overload]
 
     def test_cast_and_no_cast(self) -> None:
         tab = [1, self.r.test.UnionA(i=2)]

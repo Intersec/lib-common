@@ -103,6 +103,9 @@ import traceback
 cdef object asyncio
 import asyncio
 
+cdef object collections_abc
+import collections.abc as collections_abc
+
 
 # {{{ Globals
 
@@ -6395,6 +6398,30 @@ cdef int struct_init_provided_field(StructBase py_st, const iop_struct_t *st,
     return 0
 
 
+cdef cbool is_py_obj_iop_array(object py_obj):
+    """Tell if the python object is a list of values for a repeated field.
+
+    A repeated field accepts any sequence. A value that is not a sequence is
+    a single element of the array. str, bytes, bytearray and memoryview are
+    sequences, but they are single elements of string and bytes arrays.
+
+    Parameters
+    ----------
+    py_obj
+        The provided python object for the repeated field.
+
+    Returns
+    -------
+        True if the python object is a list of values. False if it is a
+        single element.
+    """
+    if isinstance(py_obj, list):
+        return True
+    if isinstance(py_obj, (str, bytes, bytearray, memoryview)):
+        return False
+    return isinstance(py_obj, collections_abc.Sequence)
+
+
 cdef object struct_convert_provided_field(StructBase py_st,
                                           const iop_struct_t *st,
                                           const iop_field_t *field,
@@ -6427,10 +6454,7 @@ cdef object struct_convert_provided_field(StructBase py_st,
     cdef cbool is_explicit = False
     cdef cbool recursive_constraints = False
     cdef object py_res
-    cdef list py_list_arg
     cdef list py_list_res
-    cdef Py_ssize_t py_size
-    cdef object py_child
     cdef Py_ssize_t i
 
     if field.repeat != IOP_R_REPEATED:
@@ -6439,7 +6463,7 @@ cdef object struct_convert_provided_field(StructBase py_st,
         if not is_valid[0]:
             return None
         recursive_constraints = is_explicit
-    elif not isinstance(py_obj, list):
+    elif not is_py_obj_iop_array(py_obj):
         py_res = convert_field_object(field, py_obj, plugin, is_valid,
                                       &is_explicit, err)
         if not is_valid[0]:
@@ -6447,12 +6471,11 @@ cdef object struct_convert_provided_field(StructBase py_st,
         py_res = [py_res]
         recursive_constraints = True
     else:
-        py_list_arg = <list>py_obj
-        py_size = len(py_list_arg)
-        py_list_res = py_list_arg[:]
-        for i in range(py_size):
-            py_child = py_list_arg[i]
-            py_res = convert_field_object(field, py_child, plugin,
+        # Copy the sequence: the conversion must not change the object of
+        # the caller, and the field always stores a list.
+        py_list_res = list(py_obj)
+        for i in range(len(py_list_res)):
+            py_res = convert_field_object(field, py_list_res[i], plugin,
                                           is_valid, &is_explicit, err)
             if not is_valid[0]:
                 sb_prependf(err, "invalid element list at index %ld: ", i)
