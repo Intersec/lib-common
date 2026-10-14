@@ -59,7 +59,7 @@
 //! `README-rust.adoc`, at the root of lib-common, describes the waf side.
 
 use bindgen::callbacks::{AllowOrBlockItem, ItemInfo, ParseCallbacks};
-use bindgen::{Builder, EnumVariation};
+use bindgen::{Builder, EnumVariation, Formatter};
 use quote::format_ident;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
@@ -712,6 +712,10 @@ impl WafBuild {
         // to C in Rust at all (`packed` structs with an over-aligned member,
         // e.g. `sctp_paddrparams` with `sockaddr_storage`).
         builder = builder.layout_tests(false);
+
+        // Format in process: `rustfmt` costs a process, started through the
+        // rustup proxy, for each package.
+        builder = builder.formatter(Formatter::Prettyplease);
 
         builder
     }
