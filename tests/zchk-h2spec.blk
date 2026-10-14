@@ -28,9 +28,23 @@
 
 static char h2spec_cmd_g[PATH_MAX];
 
+static void z_h2spec_post_on_done(httpd_query_t *q)
+{
+    httpd_reject(q, NOT_FOUND, "no such resource");
+}
+
+static void z_h2spec_post_hook(
+    httpd_trigger_t *cb, httpd_query_t *q, const httpd_qinfo_t *qi
+)
+{
+    q->on_done = &z_h2spec_post_on_done;
+    httpd_bufferize(q, 1 << 20);
+}
+
 static el_t z_h2spec_setup_server(void)
 {
     httpd_cfg_t *cfg = httpd_cfg_new();
+    httpd_trigger_t *post = httpd_trigger_new();
     sockunion_t su;
     el_t server;
 
@@ -38,6 +52,13 @@ static el_t z_h2spec_setup_server(void)
     cfg->max_conns = INT32_MAX;
     cfg->pipeline_depth = 100;
     cfg->max_queries = UINT_MAX;
+
+    /* Answer a POST only once its body is complete. If the answer comes
+     * first, the END_STREAM of the client closes the stream. RFC 9113 §5.1
+     * then forbids the RST_STREAM that h2spec expects for a malformed body,
+     * and the result depends on the timing of the frames. */
+    post->cb = &z_h2spec_post_hook;
+    httpd_trigger_register(cfg, POST, "/", post);
 
     addr_resolve("test", LSTR("127.0.0.1:1"), &su);
 
@@ -1175,7 +1196,6 @@ Z_GROUP_EXPORT(h2spec_http2) {
         "which does not equal the DATA frame payload length"
     ) {
         Z_H2SPEC_SKIP_IF_NO_CMD();
-        Z_TODO("failing test awaiting for a fix");
         Z_HELPER_RUN(z_h2spec_run_h2spec("http2/8.1.2.6/1"));
     } Z_TEST_END;
 
