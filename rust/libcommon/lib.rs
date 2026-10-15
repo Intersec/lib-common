@@ -167,11 +167,6 @@ pub mod bindings {
     pub use libcommon_core::bindings::*;
     waf_cargo_build::include_bindings!();
 
-    unsafe extern "C" {
-        pub static ic__pkg: iop_pkg_t;
-        pub static core__pkg: iop_pkg_t;
-    }
-
     // `iop.Void` has no `.iop` file of its own, so iopc emits no native
     // Rust for it; implement its traits by hand on bindgen's type.
     impl Base for iop__void__t {}

@@ -1128,6 +1128,74 @@ mod iop_tests {
     }
 
     // }}}
+    // {{{ RPCs
+
+    use crate::bindings::{
+        iop__void__t, iop_rpc_t, tstiop__my_iface_a__fun_a__rpc__tag,
+        tstiop__my_iface_a__fun_a_args__s, tstiop__my_iface_a__fun_async__rpc__async,
+        tstiop__my_iface_a__fun_async__rpc__tag, tstiop__my_iface_a__fun_c__rpc__async,
+        tstiop__my_iface_a__fun_c__rpc__tag, tstiop__my_iface_a__fun_c_args__t,
+        tstiop__my_iface_a__fun_c_res__t, tstiop__my_iface_a__fun_h_res__t, tstiop__my_iface_a__if,
+        tstiop__my_struct_a__s, tstiop__my_struct_a__t, tstiop__my_struct_b__s,
+        tstiop__my_struct_b__t,
+    };
+
+    /// The RPC of the interface `MyIfaceA` with the tag `tag`, from its C
+    /// descriptor.
+    fn my_iface_a_rpc(tag: u16) -> &'static iop_rpc_t {
+        let iface = unsafe { &tstiop__my_iface_a__if };
+        let rpcs = unsafe { slice::from_raw_parts(iface.funs, iface.funs_len.into()) };
+
+        rpcs.iter()
+            .find(|rpc| rpc.tag == u32::from(tag))
+            .expect("the interface should have the RPC")
+    }
+
+    #[test]
+    fn an_rpc_reusing_a_struct_names_that_struct() {
+        // `funC in MyStructA out MyStructB`. The alias keeps the lifetime of
+        // the struct.
+        let _ = |a: tstiop__my_iface_a__fun_c_args__t<'static>| -> tstiop__my_struct_a__t<'static> {
+            a
+        };
+        let _ =
+            |r: tstiop__my_iface_a__fun_c_res__t<'static>| -> tstiop__my_struct_b__t<'static> { r };
+        // `funH in void out void`.
+        let _ = |r: tstiop__my_iface_a__fun_h_res__t| -> iop__void__t { r };
+
+        let rpc = my_iface_a_rpc(tstiop__my_iface_a__fun_c__rpc__tag);
+
+        assert_eq!(rpc.args, &raw const tstiop__my_struct_a__s);
+        assert_eq!(rpc.result, &raw const tstiop__my_struct_b__s);
+    }
+
+    #[test]
+    fn the_arguments_of_an_rpc_are_its_own_struct() {
+        // `funA in (int a, MyStructA b)`.
+        let rpc = my_iface_a_rpc(tstiop__my_iface_a__fun_a__rpc__tag);
+
+        assert_eq!(rpc.args, &raw const tstiop__my_iface_a__fun_a_args__s);
+    }
+
+    #[test]
+    fn the_constants_of_an_rpc_match_its_descriptor() {
+        // `funC` is the third RPC, and `funAsync in (int test) out null`.
+        assert_eq!(tstiop__my_iface_a__fun_c__rpc__tag, 3);
+        for (tag, is_async) in [
+            (
+                tstiop__my_iface_a__fun_c__rpc__tag,
+                tstiop__my_iface_a__fun_c__rpc__async,
+            ),
+            (
+                tstiop__my_iface_a__fun_async__rpc__tag,
+                tstiop__my_iface_a__fun_async__rpc__async,
+            ),
+        ] {
+            assert_eq!(my_iface_a_rpc(tag).async_() != 0, is_async);
+        }
+    }
+
+    // }}}
     // {{{ Typedef aliases
 
     // Nothing else looks at the aliases `iopc` writes for a typedef: they

@@ -55,29 +55,23 @@ pub fn generate(
 
 /// Writes the IOP environment that the round-trip tests unpack with. It
 /// registers each package that the crate binds.
-///
-/// `iopc` does not declare the package descriptors in Rust, so the
-/// generated code declares them.
 fn write_env(tests: &mut String, iop_files: &[(&NativeIopPkg, syn::File)]) -> Result<(), Error> {
-    let mut declared = String::new();
+    let mut imported = String::new();
     let mut registered = String::new();
 
     for (pkg, _) in iop_files {
         let prefix = &pkg.prefix;
 
-        writeln!(declared, "        static {prefix}pkg: iop_pkg_t;")?;
+        write!(imported, "{prefix}pkg, ")?;
         writeln!(registered, "            &raw const {prefix}pkg,")?;
     }
 
     write!(
         tests,
-        r#"pub(crate) mod iop_env {{
-    use crate::bindings::iop_pkg_t;
+        "pub(crate) mod iop_env {{
+    use crate::bindings::{{{imported}}};
     use libcommon::iop::{{Env, EnvCtx}};
     use std::sync::LazyLock;
-
-    unsafe extern "C" {{
-{declared}    }}
 
     pub static ENV: LazyLock<EnvCtx> = LazyLock::new(|| {{
         let mut env = Env::new();
@@ -88,7 +82,7 @@ fn write_env(tests: &mut String, iop_files: &[(&NativeIopPkg, syn::File)]) -> Re
     }});
 }}
 
-"#
+"
     )?;
 
     Ok(())

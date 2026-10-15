@@ -27,34 +27,7 @@
 #[waf_cargo_build::bindings_mod]
 pub mod bindings {
     pub use ichannel::bindings::*;
-    use libcommon::iop::{Base, CStruct, CStructUnion, Struct, StructUnion};
     waf_cargo_build::include_bindings!();
-
-    // `tstiop_rpc` is still described by bindgen, so its structs get the
-    // IOP traits by hand.
-    impl Base for tstiop_rpc__test__echo_args__t {}
-    impl StructUnion for tstiop_rpc__test__echo_args__t {
-        fn get_cdesc(&self) -> *const iop_struct_t {
-            &raw const tstiop_rpc__test__echo_args__s
-        }
-    }
-    impl CStructUnion for tstiop_rpc__test__echo_args__t {
-        const CDESC: *const iop_struct_t = &raw const tstiop_rpc__test__echo_args__s;
-    }
-    impl Struct for tstiop_rpc__test__echo_args__t {}
-    impl CStruct for tstiop_rpc__test__echo_args__t {}
-
-    impl Base for tstiop_rpc__test__echo_res__t {}
-    impl StructUnion for tstiop_rpc__test__echo_res__t {
-        fn get_cdesc(&self) -> *const iop_struct_t {
-            &raw const tstiop_rpc__test__echo_res__s
-        }
-    }
-    impl CStructUnion for tstiop_rpc__test__echo_res__t {
-        const CDESC: *const iop_struct_t = &raw const tstiop_rpc__test__echo_res__s;
-    }
-    impl Struct for tstiop_rpc__test__echo_res__t {}
-    impl CStruct for tstiop_rpc__test__echo_res__t {}
 }
 
 #[cfg(test)]

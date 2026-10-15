@@ -860,7 +860,7 @@ static void iopc_rust_dump_ctype_aliases(
 /* {{{ Constants */
 
 /* The C header defines the constants below with `#define`. Their C type is
- * `int`, but a class id fits in a `u16`, which is its type in the
+ * `int`, but a tag or a class id fits in a `u16`, which is its type in the
  * descriptors. */
 static void
 iopc_rust_dump_const(sb_t *buf, lstr_t name, const char *type, int value)
@@ -1496,6 +1496,91 @@ static void iopc_rust_dump_typedefs(sb_t *buf, const iopc_pkg_t *pkg)
 }
 
 /* }}} */
+/* {{{ RPCs */
+
+/* The type `<fbase>_<part>__t` of the arguments, the result or the
+ * exception of an RPC. The C backend writes an anonymous struct under the
+ * name of its interface, and an alias otherwise. */
+static void iopc_rust_dump_rpc_struct(
+    sb_t *buf, const char *ibase, const char *fbase, const char *part,
+    const iopc_fun_struct_t *fun_st
+)
+{
+    t_scope;
+    lstr_t name = t_lstr_fmt("%s_%s__t", fbase, part);
+    const iopc_field_t *existing;
+    lstr_t target, raw_target;
+
+    if (iopc_fun_struct_is_void(fun_st)) {
+        iopc_rust_dump_c_alias(buf, name, RUST_LC_C "iop__void__t");
+        return;
+    }
+    if (fun_st->is_anonymous) {
+        iopc_struct_t *st = fun_st->anonymous_struct;
+
+        iopc_rust_dump_struct(
+            buf, t_fmt("%s__%s", ibase, t_cstring(st->name)), st
+        );
+        return;
+    }
+
+    /* The typer does not resolve the fields of a struct that only the RPCs
+     * of a package use, so whether it borrows is unknown. A `use` keeps the
+     * generics of the struct. */
+    existing = fun_st->existing_struct;
+    target = t_format_symbol_name(
+        existing->type_pkg, existing->type_name,
+        iopc_rust_field_type_suffix(existing), ""
+    );
+    raw_target = t_format_symbol_name(
+        existing->type_pkg, existing->type_name, "t_raw", ""
+    );
+    sb_addf(
+        buf,
+        "#[allow(nonstandard_style)]\n"
+        "pub use self::%pL as %pL;\n"
+        "#[allow(nonstandard_style)]\n"
+        "pub use self::%pL as %pL_raw;\n\n",
+        &target, &name, &raw_target, &name
+    );
+}
+
+/* The types of the RPCs of the interface `iface`, the constants that the C
+ * header defines for each RPC, and the descriptor of the interface. */
+static void iopc_rust_dump_iface(
+    sb_t *buf, const iopc_pkg_t *pkg, const iopc_iface_t *iface
+)
+{
+    t_scope;
+    const char *ibase = t_iopc_rust_c_base(pkg, iface->name);
+
+    tab_for_each_entry(fun, &iface->funs) {
+        t_scope;
+        const char *fbase = t_fmt("%s__%s", ibase, t_cstring(fun->name));
+
+        iopc_rust_dump_rpc_struct(buf, ibase, fbase, "args", &fun->arg);
+        iopc_rust_dump_rpc_struct(buf, ibase, fbase, "res", &fun->res);
+        iopc_rust_dump_rpc_struct(buf, ibase, fbase, "exn", &fun->exn);
+        iopc_rust_dump_const(
+            buf, t_lstr_fmt("%s__rpc__tag", fbase), "u16", fun->tag
+        );
+        sb_addf(
+            buf,
+            "#[allow(nonstandard_style)]\n"
+            "pub const %s__rpc__async: bool = %s;\n\n",
+            fbase, fun->fun_is_async ? "true" : "false"
+        );
+    }
+    sb_addf(
+        buf,
+        "unsafe extern \"C\" {\n"
+        "    pub static %s__if: " RUST_LC_C "iop_iface_t;\n"
+        "}\n\n",
+        ibase
+    );
+}
+
+/* }}} */
 /* {{{ Main functions */
 
 static void iopc_init_rust_dump(const iopc_pkg_t *pkg)
@@ -1542,6 +1627,7 @@ static void iopc_rust_wipe_dump(void)
 
 int iopc_do_rust(iopc_pkg_t *pkg)
 {
+    t_scope;
     SB_8k(buf);
     char path[PATH_MAX];
 
@@ -1575,6 +1661,21 @@ int iopc_do_rust(iopc_pkg_t *pkg)
             iopc_rust_dump_class(&buf, pkg, tbase, d.st);
         }
     }
+    tab_for_each_entry(iface, &pkg->ifaces) {
+        /* Like an snmpObj, an snmpIface gets no Rust: the arguments of its
+         * RPCs only name fields of snmpObjs, and their C descriptors lack
+         * the enum descriptors that the IOP packers read. */
+        if (!iopc_is_snmp_iface(iface->type)) {
+            iopc_rust_dump_iface(&buf, pkg, iface);
+        }
+    }
+    sb_addf(
+        &buf,
+        "unsafe extern \"C\" {\n"
+        "    pub static %s__pkg: " RUST_LC_C "iop_pkg_t;\n"
+        "}\n",
+        t_iopc_path_join(pkg->name, "__")
+    );
 
     iopc_rust_wipe_dump();
 

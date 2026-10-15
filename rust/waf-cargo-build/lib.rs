@@ -278,10 +278,10 @@ pub struct NativeIopPkg {
 impl NativeIopPkg {
     /// Reads the `<pkg>.iop.rs` file at `path`.
     ///
-    /// Returns `None` if the file defines no item. `iopc` writes such a
-    /// file for a package with only interfaces or modules. That package
-    /// has no native definition to substitute, so bindgen keeps its C
-    /// definitions.
+    /// Returns `None` if the file defines no item. Then there is no native
+    /// definition to substitute, and bindgen keeps the C definitions of the
+    /// package. `iopc` declares the package descriptor in each file, so
+    /// only a file from an older `iopc` can be empty.
     fn read(path: PathBuf) -> Result<Option<Self>, Box<dyn error::Error>> {
         let content = fs::read_to_string(&path)
             .map_err(|e| format!("cannot read `{}`: {e}", path.display()))?;
