@@ -1056,7 +1056,8 @@ mod iop_tests {
 
     use crate::bindings::{
         tstiop__first_diff_c1__t, tstiop__first_diff_st__t, tstiop__my_enum_a__e,
-        z_first_diff_c1__t, z_first_diff_st__t, z_first_diff_st__t_raw,
+        tstiop_void_type__void_only__tag_t, z_first_diff_c1__t, z_first_diff_st__t,
+        z_first_diff_st__t_raw, z_void_only__tag_t,
     };
 
     #[test]
@@ -1073,6 +1074,9 @@ mod iop_tests {
         let _ = |st: z_first_diff_st__t<'static>| -> tstiop__first_diff_st__t<'static> { st };
         let _ = |st: z_first_diff_st__t_raw| -> tstiop__first_diff_st__t<'static> { st };
         let _ = |cl: z_first_diff_c1__t| -> tstiop__first_diff_c1__t { cl };
+
+        // The tag of a union keeps its C enum, which the `@ctype` names too.
+        let _ = |tag: z_void_only__tag_t| -> tstiop_void_type__void_only__tag_t { tag };
     }
 
     // }}}

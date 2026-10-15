@@ -5,6 +5,7 @@ union VoidAlone {
     int other;
 };
 
+@ctype(z_void_only__t)
 union VoidOnly {
     void a;
     void b;
