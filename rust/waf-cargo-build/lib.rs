@@ -371,6 +371,8 @@ struct LibcommonParseCallbacks {
     pkgs: Rc<RefCell<Vec<NativeIopPkg>>>,
     /// The item names of `pkgs`. bindgen looks up each of its items.
     pkg_items: RefCell<HashSet<String>>,
+    /// The prefixes of `pkgs`, `a__b__` for `a.b`.
+    pkg_prefixes: RefCell<HashSet<String>>,
     /// The `<pkg>.iop.rs` files already read, with or without items.
     seen_files: RefCell<HashSet<PathBuf>>,
 }
@@ -381,6 +383,7 @@ impl LibcommonParseCallbacks {
             blocked_items,
             pkgs,
             pkg_items: RefCell::default(),
+            pkg_prefixes: RefCell::default(),
             seen_files: RefCell::default(),
         }
     }
@@ -396,12 +399,18 @@ impl LibcommonParseCallbacks {
             return false;
         }
 
-        self.pkg_items.borrow().contains(name)
-            || self
-                .pkgs
-                .borrow()
-                .iter()
-                .any(|pkg| name.starts_with(&pkg.prefix))
+        if self.pkg_items.borrow().contains(name) {
+            return true;
+        }
+
+        // A prefix ends with `__`: look up each start of the name that ends
+        // there. bindgen calls this for each item of each header, and a crate
+        // reads hundreds of packages.
+        let pkg_prefixes = self.pkg_prefixes.borrow();
+        name.match_indices("__").any(|(pos, sep)| {
+            name.get(..pos + sep.len())
+                .is_some_and(|prefix| pkg_prefixes.contains(prefix))
+        })
     }
 }
 
@@ -421,6 +430,7 @@ impl ParseCallbacks for LibcommonParseCallbacks {
                 self.pkg_items
                     .borrow_mut()
                     .extend(pkg.items.iter().cloned());
+                self.pkg_prefixes.borrow_mut().insert(pkg.prefix.clone());
                 self.pkgs.borrow_mut().push(pkg);
             }
             Ok(None) => {}
