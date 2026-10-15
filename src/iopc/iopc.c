@@ -31,7 +31,6 @@ static struct {
     const char *json_outpath;
     const char *c_outpath;
     const char *typescript_outpath;
-    const char *rust_outpath;
     const char *pystub_outpath;
     const char *depends;
     const char *class_id_range;
@@ -81,12 +80,6 @@ static popt_t options[] = {
     OPT_STR(
         0, "typescript-output-path", &opts.typescript_outpath,
         "base of the compiled hierarchy for TypeScript files"
-    ),
-
-    OPT_GROUP("Rust backend options"),
-    OPT_STR(
-        0, "rust-output-path", &opts.rust_outpath,
-        "base of the compiled hierarchy for Rust files"
     ),
 
     OPT_GROUP("Python stub backend options"),
@@ -167,6 +160,11 @@ struct doit {
 };
 qvector_t(doit, struct doit);
 
+static int iopc_do_rust_doit(iopc_pkg_t *pkg, const char *outpath)
+{
+    return iopc_do_rust(pkg);
+}
+
 static int build_doit_table(qv_t(doit) *doits)
 {
     qv_t(lstr) langs;
@@ -199,9 +197,9 @@ static int build_doit_table(qv_t(doit) *doits)
                 .cb = &iopc_do_typescript, .outpath = opts.typescript_outpath
             };
         } else if (lstr_ascii_iequal(lang, LSTR("rust"))) {
-            doit = (struct doit){
-                .cb = &iopc_do_rust, .outpath = opts.rust_outpath
-            };
+            /* The bindings generator finds the Rust file of a package next
+             * to its C header. */
+            doit = (struct doit){.cb = &iopc_do_rust_doit};
         } else if (lstr_ascii_iequal(lang, LSTR("pystub"))) {
             doit = (struct doit){
                 .cb = &iopc_do_pystub, .outpath = opts.pystub_outpath
