@@ -64,7 +64,7 @@ use quote::format_ident;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fs::File;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
@@ -214,6 +214,7 @@ impl GeneratedItemsVisitor {
 // }}}
 // {{{ process_bindings (visiting generated code)
 
+#[derive(Default)]
 struct ProcessedBindings {
     generated_items: Vec<String>,
     extra_qvector_bindings: String,
@@ -323,6 +324,117 @@ fn native_iop_file_of(header: &str) -> Option<PathBuf> {
         .with_file_name(format!("{stem}.iop.rs"))
         .canonicalize()
         .ok()
+}
+
+/// The path of the header that `#include "<include>"` in `header` names: next
+/// to `header`, or else in one of the directories `includes`, like a C
+/// compiler finds it.
+fn resolve_include(header: &Path, include: &str, includes: &[String]) -> Option<PathBuf> {
+    header
+        .parent()
+        .into_iter()
+        .map(Path::to_path_buf)
+        .chain(includes.iter().map(PathBuf::from))
+        .map(|dir| dir.join(include))
+        .find(|path| path.is_file())
+}
+
+/// The `"..."` header of an `#include` line, if `line` is one.
+fn quoted_include(line: &str) -> Option<&str> {
+    line.trim()
+        .strip_prefix("#include")?
+        .trim()
+        .strip_prefix('"')?
+        .strip_suffix('"')
+}
+
+/// The IOP headers that `wrapper.h` includes, if it holds nothing but
+/// comments and `#include "<pkg>.iop.h"` lines.
+///
+/// The `.iop.rs` files of such a crate define all its items, so it needs no
+/// bindgen: bindgen would only walk the C headers to find these files.
+///
+/// # Errors
+///
+/// `wrapper.h` cannot be read, or an included header cannot be found.
+fn iop_wrapper_headers(
+    wrapper: &Path,
+    includes: &[String],
+) -> Result<Option<Vec<PathBuf>>, Box<dyn error::Error>> {
+    let content = fs::read_to_string(wrapper)?;
+    let mut code = String::new();
+    let mut rest = content.as_str();
+
+    // Remove the `/* ... */` comments, such as the license.
+    while let Some((before, after)) = rest.split_once("/*") {
+        code.push_str(before);
+        rest = after.split_once("*/").map_or("", |(_, end)| end);
+    }
+    code.push_str(rest);
+
+    let mut headers = Vec::new();
+    for line in code.lines().map(str::trim) {
+        if line.is_empty() || line.starts_with("//") {
+            continue;
+        }
+        let Some(include) = quoted_include(line).filter(|h| h.ends_with(".iop.h")) else {
+            return Ok(None);
+        };
+        let header = resolve_include(wrapper, include, includes)
+            .ok_or_else(|| format!("cannot find `{include}` from `{}`", wrapper.display()))?;
+        headers.push(header);
+    }
+
+    Ok(Some(headers))
+}
+
+/// The `.iop.rs` files of the IOP headers `headers`, and of the IOP
+/// headers that they include, recursively.
+///
+/// An IOP header includes the headers of the packages that its package
+/// imports with `#include "..."`, and the C headers of lib-common with
+/// `#include <...>`.
+///
+/// # Errors
+///
+/// A header cannot be read or found.
+fn walk_iop_headers(
+    headers: Vec<PathBuf>,
+    includes: &[String],
+) -> Result<Vec<PathBuf>, Box<dyn error::Error>> {
+    let mut seen = HashSet::new();
+    let mut todo = headers;
+    // The three headers of a package name the same `.iop.rs` file, and each
+    // can include packages that the others do not.
+    let mut files = BTreeSet::new();
+
+    while let Some(header) = todo.pop() {
+        let header = header.canonicalize()?;
+
+        if !seen.insert(header.clone()) {
+            continue;
+        }
+        println!("cargo::rerun-if-changed={}", header.display());
+
+        // Without the `.iop.rs` file, the package would get no binding,
+        // and a crate would fail later on a missing name.
+        let header_str = header.to_str().ok_or("invalid header path")?;
+        let file = native_iop_file_of(header_str)
+            .ok_or_else(|| format!("`{}` has no `.iop.rs` file", header.display()))?;
+
+        files.insert(file);
+        for include in fs::read_to_string(&header)?
+            .lines()
+            .filter_map(quoted_include)
+        {
+            let path = resolve_include(&header, include, includes)
+                .ok_or_else(|| format!("cannot find `{include}` from `{}`", header.display()))?;
+
+            todo.push(path);
+        }
+    }
+
+    Ok(files.into_iter().collect())
 }
 
 /// The native bindings that a crate splices into its own `bindings.rs`:
@@ -507,6 +619,10 @@ impl WafBuild {
     /// package reading its dependency's `bindings` module wants, and what a
     /// missing or misnamed header silently looks like too.
     ///
+    /// A `wrapper.h` that holds only comments and `#include "<pkg>.iop.h"`
+    /// lines needs no bindgen: the package gets the native bindings of the
+    /// IOP packages that these headers reach.
+    ///
     /// ```ignore
     /// use waf_cargo_build::WafBuild;
     ///
@@ -542,7 +658,16 @@ impl WafBuild {
             if env::var_os("CARGO_MANIFEST_LINKS").is_none() {
                 return Err("a package with a `wrapper.h` needs a `links` key".into());
             }
-            waf_build.generate_bindings(|b| Ok(b.header("wrapper.h")))?
+            match iop_wrapper_headers(
+                &manifest_dir.join("wrapper.h"),
+                &waf_build.json_env.includes,
+            )? {
+                Some(headers) => {
+                    println!("cargo::rerun-if-changed=wrapper.h");
+                    waf_build.splice_iop_bindings(headers)?
+                }
+                None => waf_build.generate_bindings(|b| Ok(b.header("wrapper.h")))?,
+            }
         } else {
             Vec::new()
         };
@@ -810,10 +935,6 @@ impl WafBuild {
     where
         F: FnOnce(Builder) -> Result<Builder, Box<dyn error::Error>>,
     {
-        // Build the different paths
-        let binding_gen_file = self.pkg_waf_build_dir.join("bindings.rs");
-        let binding_items_file = self.pkg_waf_build_dir.join("bindings_items.json");
-
         let out_dir = PathBuf::from(env::var("OUT_DIR")?);
         let static_wrapper_path = out_dir.join("static-wrappers.c");
 
@@ -847,50 +968,7 @@ impl WafBuild {
         let bindings_str = builder.generate()?.to_string();
 
         // Process bindings, to get the generated item names.
-        let mut processed_bindings = process_bindings(&bindings_str);
-
-        // Splice in the native IOP bindings, and register their items like
-        // bindgen's own: a crate depending on this one then imports them
-        // from here instead of generating its own copy.
-        let mut native_iop_pkgs = native_iop_pkgs.take();
-
-        native_iop_pkgs.sort();
-
-        let spliced_pkgs = iop_pkgs_to_splice(&native_iop_pkgs, &blocked_items);
-
-        processed_bindings.generated_items.extend(
-            spliced_pkgs
-                .iter()
-                .flat_map(|pkg| pkg.items.iter().cloned()),
-        );
-
-        // Write the binding to the files.
-        write_read_only_file(&binding_gen_file, || {
-            let mut file = File::create(&binding_gen_file)?;
-
-            file.write_all("// {{{ Bindings generated by bindgen\n\n".as_bytes())?;
-            file.write_all(bindings_str.as_bytes())?;
-            file.write_all("\n// }}}".as_bytes())?;
-
-            write_native_iop_bindings(&mut file, &spliced_pkgs)?;
-
-            if !processed_bindings.extra_qvector_bindings.is_empty() {
-                file.write_all(
-                    "\n// {{{ qvector bindings generated by waf-cargo-build\n\n".as_bytes(),
-                )?;
-                file.write_all(processed_bindings.extra_qvector_bindings.as_bytes())?;
-                file.write_all("\n// }}}".as_bytes())?;
-            }
-
-            if !processed_bindings.extra_qhash_bindings.is_empty() {
-                file.write_all(
-                    "\n// {{{ qhash bindings generated by waf-cargo-build\n\n".as_bytes(),
-                )?;
-                file.write_all(processed_bindings.extra_qhash_bindings.as_bytes())?;
-                file.write_all("\n// }}}".as_bytes())?;
-            }
-            Ok(())
-        })?;
+        let processed_bindings = process_bindings(&bindings_str);
 
         // If the wrapper file is generated, then, compile it into a stlib.
         if static_wrapper_path.is_file() {
@@ -942,6 +1020,106 @@ impl WafBuild {
             }
         }
 
+        self.write_bindings(
+            Some((&bindings_str, processed_bindings)),
+            native_iop_pkgs.take(),
+            &blocked_items,
+            &dep_native_iop_paths,
+        )
+    }
+
+    /// Write the bindings of a package whose `wrapper.h` includes only the
+    /// IOP headers `headers`: the native bindings of their packages, with
+    /// no bindgen run.
+    ///
+    /// # Errors
+    ///
+    /// I/O errors, or a header or a `.iop.rs` file that cannot be read.
+    fn splice_iop_bindings(
+        &self,
+        headers: Vec<PathBuf>,
+    ) -> Result<Vec<NativeIopPkg>, Box<dyn error::Error>> {
+        let blocked_items = self.blocked_items()?;
+        let mut dep_native_iop_pkgs = self.dep_native_iop_pkgs()?;
+        let dep_native_iop_paths: HashSet<PathBuf> = dep_native_iop_pkgs.keys().cloned().collect();
+        let mut native_iop_pkgs = Vec::new();
+
+        for path in walk_iop_headers(headers, &self.json_env.includes)? {
+            println!("cargo::rerun-if-changed={}", path.display());
+            // Parsing a `.iop.rs` file costs: reuse what a dependency read.
+            let pkg = match dep_native_iop_pkgs.remove(&path) {
+                Some(pkg) => pkg,
+                None => NativeIopPkg::read(path.clone())?
+                    .ok_or_else(|| format!("`{}` defines no item", path.display()))?,
+            };
+            native_iop_pkgs.push(pkg);
+        }
+
+        self.write_bindings(None, native_iop_pkgs, &blocked_items, &dep_native_iop_paths)
+    }
+
+    /// Write `bindings.rs`: the output of bindgen if any, and the native
+    /// bindings `native_iop_pkgs` that no dependency provides. Write the
+    /// files that the packages depending on this one read.
+    ///
+    /// # Errors
+    ///
+    /// I/O errors.
+    fn write_bindings(
+        &self,
+        bindgen: Option<(&str, ProcessedBindings)>,
+        mut native_iop_pkgs: Vec<NativeIopPkg>,
+        blocked_items: &HashSet<String>,
+        dep_native_iop_paths: &HashSet<PathBuf>,
+    ) -> Result<Vec<NativeIopPkg>, Box<dyn error::Error>> {
+        let binding_gen_file = self.pkg_waf_build_dir.join("bindings.rs");
+        let binding_items_file = self.pkg_waf_build_dir.join("bindings_items.json");
+        let (bindings_str, processed_bindings) = bindgen.unzip();
+        let mut processed_bindings = processed_bindings.unwrap_or_default();
+
+        // Splice in the native IOP bindings, and register their items like
+        // bindgen's own: a crate depending on this one then imports them
+        // from here instead of generating its own copy. Sort them, so that
+        // the files do not depend on the order of the includes.
+        native_iop_pkgs.sort();
+        let spliced_pkgs = iop_pkgs_to_splice(&native_iop_pkgs, blocked_items);
+
+        processed_bindings.generated_items.extend(
+            spliced_pkgs
+                .iter()
+                .flat_map(|pkg| pkg.items.iter().cloned()),
+        );
+
+        // Write the binding to the files.
+        write_read_only_file(&binding_gen_file, || {
+            let mut file = File::create(&binding_gen_file)?;
+
+            if let Some(bindings_str) = bindings_str {
+                file.write_all("// {{{ Bindings generated by bindgen\n\n".as_bytes())?;
+                file.write_all(bindings_str.as_bytes())?;
+                file.write_all("\n// }}}".as_bytes())?;
+            }
+
+            write_native_iop_bindings(&mut file, &spliced_pkgs)?;
+
+            if !processed_bindings.extra_qvector_bindings.is_empty() {
+                file.write_all(
+                    "\n// {{{ qvector bindings generated by waf-cargo-build\n\n".as_bytes(),
+                )?;
+                file.write_all(processed_bindings.extra_qvector_bindings.as_bytes())?;
+                file.write_all("\n// }}}".as_bytes())?;
+            }
+
+            if !processed_bindings.extra_qhash_bindings.is_empty() {
+                file.write_all(
+                    "\n// {{{ qhash bindings generated by waf-cargo-build\n\n".as_bytes(),
+                )?;
+                file.write_all(processed_bindings.extra_qhash_bindings.as_bytes())?;
+                file.write_all("\n// }}}".as_bytes())?;
+            }
+            Ok(())
+        })?;
+
         // List the native bindings read, for the packages depending on this one.
         // They read the files of all their recursive dependencies, so list only
         // the bindings that no dependency has listed.
@@ -964,6 +1142,56 @@ impl WafBuild {
         })?;
 
         Ok(native_iop_pkgs)
+    }
+}
+
+// }}}
+// {{{ Tests
+
+#[cfg(test)]
+mod tests {
+    use super::walk_iop_headers;
+    use std::error::Error;
+    use std::path::PathBuf;
+    use std::{env, fs, process};
+
+    /// A new directory with the IOP headers `a.iop.h` and `b.iop.h`, where
+    /// `a.iop.h` includes `b.iop.h`, and with `a.iop.rs`.
+    fn iop_dir(name: &str) -> Result<PathBuf, Box<dyn Error>> {
+        let dir = env::temp_dir().join(format!("waf-cargo-build-{name}-{}", process::id()));
+
+        fs::create_dir_all(&dir)?;
+        fs::write(
+            dir.join("a.iop.h"),
+            "#include <lib-common/core.h>\n#include \"b.iop.h\"\n",
+        )?;
+        fs::write(dir.join("b.iop.h"), "")?;
+        fs::write(dir.join("a.iop.rs"), "")?;
+        Ok(dir.canonicalize()?)
+    }
+
+    #[test]
+    fn the_walk_finds_the_rust_file_of_each_included_header() -> Result<(), Box<dyn Error>> {
+        let dir = iop_dir("found")?;
+
+        fs::write(dir.join("b.iop.rs"), "")?;
+        let files = walk_iop_headers(vec![dir.join("a.iop.h")], &[]);
+        fs::remove_dir_all(&dir)?;
+
+        assert_eq!(files?, [dir.join("a.iop.rs"), dir.join("b.iop.rs")]);
+        Ok(())
+    }
+
+    #[test]
+    fn the_walk_refuses_a_header_without_rust_file() -> Result<(), Box<dyn Error>> {
+        let dir = iop_dir("missing")?;
+
+        let res = walk_iop_headers(vec![dir.join("a.iop.h")], &[]);
+        fs::remove_dir_all(&dir)?;
+
+        let err = res.err().ok_or("the walk should fail")?;
+        assert!(err.to_string().contains("b.iop.h"), "{err}");
+        Ok(())
     }
 }
 
