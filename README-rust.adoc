@@ -107,10 +107,13 @@ directory for `staticlib`, or in the source directory same as standard C waf
 targets.
 
 For packages that only define Rust libraries (`lib`, `rlib`, `dylib` and
-`proc-macro`), waf produces no output, but still calls `cargo build` on these
-packages so that their bindings are generated in the order of the waf
-dependencies (see above). The resulting rlib is reused by the packages
-depending on it, so this costs nothing.
+`proc-macro`), waf produces no output, but still builds these packages. The
+resulting rlib is reused by the packages depending on it, so this costs
+nothing.
+
+Cargo locks its build directory, so waf builds several packages with one
+`cargo build` command. A command builds each package of the waf group that
+waits only for packages that are done or in the same command.
 
 For Rust libraries that are used both by C code and other Rust packages, they
 need to be defined both a Rust library and C libraries,
