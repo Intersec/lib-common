@@ -61,12 +61,12 @@
 use bindgen::callbacks::{AllowOrBlockItem, ItemInfo, ParseCallbacks};
 use bindgen::{Builder, EnumVariation, Formatter};
 use quote::format_ident;
-use serde::Deserialize;
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
-use std::io::{BufReader, Write as _};
+use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::{env, error, fs, io};
@@ -112,15 +112,8 @@ fn read_json_file<T>(path: &Path) -> Result<T, Box<dyn error::Error>>
 where
     T: DeserializeOwned,
 {
-    // Open the file in read-only mode with buffer.
-    let file = File::open(path)?;
-    let reader = BufReader::new(file);
-
-    // Read the JSON contents of the file as an instance of `WafBuildEnvJson`.
-    let json = serde_json::from_reader(reader)?;
-
-    // Return the json struct
-    Ok(json)
+    // Read the whole file first: `serde_json::from_reader()` is much slower.
+    Ok(serde_json::from_slice(&fs::read(path)?)?)
 }
 
 /// Get the path that reaches `crate_name` from the generated bindings.
@@ -265,9 +258,14 @@ fn item_names(file: &SynFile) -> Vec<String> {
 // }}}
 // {{{ Native IOP bindings
 
+/// The file where a package lists the native bindings that its bindgen run
+/// read. A package depending on it reuses them instead of parsing the same
+/// `.iop.rs` files again.
+const NATIVE_IOP_PKGS_FILE: &str = "native_iop_pkgs.json";
+
 /// The native bindings that `iopc --language rust` writes for an IOP
 /// package.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct NativeIopPkg {
     /// The `<pkg>.iop.rs` file.
     pub path: PathBuf,
@@ -367,6 +365,9 @@ const NATIVE_ITEM_SUFFIX: &str = "_raw";
 #[derive(Debug)]
 struct LibcommonParseCallbacks {
     blocked_items: Rc<HashSet<String>>,
+    /// The native bindings that the dependencies have already read, by
+    /// path.
+    dep_pkgs: HashMap<PathBuf, NativeIopPkg>,
     /// The native bindings of the IOP headers that bindgen has walked.
     pkgs: Rc<RefCell<Vec<NativeIopPkg>>>,
     /// The item names of `pkgs`. bindgen looks up each of its items.
@@ -378,9 +379,14 @@ struct LibcommonParseCallbacks {
 }
 
 impl LibcommonParseCallbacks {
-    pub fn new(blocked_items: Rc<HashSet<String>>, pkgs: Rc<RefCell<Vec<NativeIopPkg>>>) -> Self {
+    pub fn new(
+        blocked_items: Rc<HashSet<String>>,
+        dep_pkgs: HashMap<PathBuf, NativeIopPkg>,
+        pkgs: Rc<RefCell<Vec<NativeIopPkg>>>,
+    ) -> Self {
         Self {
             blocked_items,
+            dep_pkgs,
             pkgs,
             pkg_items: RefCell::default(),
             pkg_prefixes: RefCell::default(),
@@ -425,7 +431,12 @@ impl ParseCallbacks for LibcommonParseCallbacks {
             return;
         }
         println!("cargo::rerun-if-changed={}", path.display());
-        match NativeIopPkg::read(path) {
+        // Parsing a `.iop.rs` file costs: reuse what a dependency read.
+        let read = match self.dep_pkgs.get(&path) {
+            Some(pkg) => Ok(Some(pkg.clone())),
+            None => NativeIopPkg::read(path),
+        };
+        match read {
             Ok(Some(pkg)) => {
                 self.pkg_items
                     .borrow_mut()
@@ -650,6 +661,43 @@ impl WafBuild {
         );
     }
 
+    /// The contents of the JSON file `file_name` that each dependency of
+    /// this package wrote in its waf build directory.
+    ///
+    /// # Errors
+    ///
+    /// A dependency's file cannot be read.
+    fn read_deps_json_files<T: DeserializeOwned>(
+        &self,
+        file_name: &str,
+    ) -> Result<Vec<T>, Box<dyn error::Error>> {
+        let mut res = Vec::new();
+        for dep_path_str in self.json_env.local_recursive_dependencies.values() {
+            let dep_pkg_waf_build_dir =
+                get_pkg_waf_build_dir(self.is_pic_profile, Path::new(dep_path_str));
+            let file = dep_pkg_waf_build_dir.join(file_name);
+
+            if !file.exists() {
+                continue;
+            }
+
+            // The files of a dependency decide what bindgen generates here:
+            // the Rust items, and the static wrappers compiled next to them.
+            // Rerun when they change, otherwise a stale block list makes this
+            // package wrap a function that the dependency wraps too, and the
+            // two definitions collide when the final binary is linked.
+            //
+            // A missing file is not declared: cargo reruns a build script on
+            // every build when a declared path does not exist, and most
+            // dependencies generate no bindings at all.
+            println!("cargo::rerun-if-changed={}", file.display());
+
+            res.push(read_json_file(&file)?);
+        }
+
+        Ok(res)
+    }
+
     /// The items that this package must not generate, because a dependency
     /// already exports them.
     ///
@@ -657,34 +705,25 @@ impl WafBuild {
     ///
     /// A dependency's `bindings_items.json` cannot be read.
     fn blocked_items(&self) -> Result<HashSet<String>, Box<dyn error::Error>> {
-        let mut blocked_items: HashSet<String> = HashSet::new();
-        for dep_path_str in self.json_env.local_recursive_dependencies.values() {
-            let dep_path = Path::new(dep_path_str);
-            let dep_pkg_waf_build_dir = get_pkg_waf_build_dir(self.is_pic_profile, dep_path);
-            let dep_bind_json = dep_pkg_waf_build_dir.join("bindings_items.json");
+        let deps_items: Vec<Vec<String>> = self.read_deps_json_files("bindings_items.json")?;
 
-            if !dep_bind_json.exists() {
-                continue;
-            }
+        Ok(deps_items.into_iter().flatten().collect())
+    }
 
-            // The items of a dependency form the block list of this package, so they decide what
-            // bindgen generates here: the Rust items, and the static wrappers compiled next to
-            // them. Rerun when they change, otherwise a stale block list makes this package wrap
-            // a function that the dependency wraps too, and the two definitions collide when the
-            // final binary is linked.
-            //
-            // A missing file is not declared: cargo reruns a build script on every build when a
-            // declared path does not exist, and most dependencies generate no bindings at all.
-            println!("cargo::rerun-if-changed={}", dep_bind_json.display());
+    /// The native bindings that the dependencies of this package have read,
+    /// by path. See [`NATIVE_IOP_PKGS_FILE`].
+    ///
+    /// # Errors
+    ///
+    /// A dependency's file cannot be read.
+    fn dep_native_iop_pkgs(&self) -> Result<HashMap<PathBuf, NativeIopPkg>, Box<dyn error::Error>> {
+        let deps_pkgs: Vec<Vec<NativeIopPkg>> = self.read_deps_json_files(NATIVE_IOP_PKGS_FILE)?;
 
-            // Read the dep binding items json file
-            let dep_items: Vec<String> = read_json_file(&dep_bind_json)?;
-
-            // Add the items to the block list
-            blocked_items.extend(dep_items);
-        }
-
-        Ok(blocked_items)
+        Ok(deps_pkgs
+            .into_iter()
+            .flatten()
+            .map(|pkg| (pkg.path.clone(), pkg))
+            .collect())
     }
 
     /// A bindgen
@@ -781,6 +820,8 @@ impl WafBuild {
         let blocked_items = Rc::new(self.blocked_items()?);
 
         let native_iop_pkgs = Rc::new(RefCell::new(Vec::new()));
+        let dep_native_iop_pkgs = self.dep_native_iop_pkgs()?;
+        let dep_native_iop_paths: HashSet<PathBuf> = dep_native_iop_pkgs.keys().cloned().collect();
 
         let mut builder = self
             .bindgen_builder()
@@ -789,6 +830,7 @@ impl WafBuild {
             .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
             .parse_callbacks(Box::new(LibcommonParseCallbacks::new(
                 Rc::clone(&blocked_items),
+                dep_native_iop_pkgs,
                 Rc::clone(&native_iop_pkgs),
             )))
             .wrap_static_fns(true)
@@ -899,6 +941,19 @@ impl WafBuild {
                 println!("cargo::rustc-link-lib={lib}");
             }
         }
+
+        // List the native bindings read, for the packages depending on this one.
+        // They read the files of all their recursive dependencies, so list only
+        // the bindings that no dependency has listed.
+        let read_pkgs: Vec<&NativeIopPkg> = native_iop_pkgs
+            .iter()
+            .filter(|pkg| !dep_native_iop_paths.contains(&pkg.path))
+            .collect();
+        let native_iop_pkgs_file = self.pkg_waf_build_dir.join(NATIVE_IOP_PKGS_FILE);
+        write_read_only_file(&native_iop_pkgs_file, || {
+            fs::write(&native_iop_pkgs_file, serde_json::to_vec(&read_pkgs)?)?;
+            Ok(())
+        })?;
 
         // Generate the binding items file
         write_read_only_file(&binding_items_file, || {
