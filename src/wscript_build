@@ -143,7 +143,6 @@ ctx.IopcOptions(
     json_path='json',
     ts_path='iop-core',
     pystub_path='pystubs',
-    rust=True,
 )
 ctx.stlib(
     target='libcommon-iop',

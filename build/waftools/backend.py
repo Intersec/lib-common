@@ -1464,7 +1464,6 @@ class IopcOptions:
         json_path: Optional[str] = None,
         ts_path: Optional[str] = None,
         pystub_path: Optional[str] = None,
-        rust: bool = False,
     ) -> None:
         self.ctx = ctx
         self.path = path or ctx.path
@@ -1500,11 +1499,6 @@ class IopcOptions:
         else:
             self.pystub_node = None
 
-        # rust: write each `.iop.rs` file next to its `.iop`, which is where
-        # the generated headers are and where the bindings generator looks
-        # for them.
-        self.rust = rust
-
         # Add options in global cache
         assert self.path not in ctx.iopc_options
         ctx.iopc_options[self.path] = self
@@ -1512,15 +1506,13 @@ class IopcOptions:
     @property
     def languages(self) -> str:
         """Get the list of languages for iopc"""
-        res = 'c'
+        res = 'c,rust'
         if self.json_node:
             res += ',json'
         if self.ts_node:
             res += ',typescript'
         if self.pystub_node:
             res += ',pystub'
-        if self.rust:
-            res += ',rust'
         return res
 
     @property
@@ -1700,6 +1692,7 @@ def process_iop(self: TaskGen, node: Node) -> None:
             node.change_ext_src('.iop.h'),
             node.change_ext_src('-tdef.iop.h'),
             node.change_ext_src('-t.iop.h'),
+            node.change_ext_src('.iop.rs'),
         ]
         if opts.json_node or opts.ts_node:
             package_path = iop_get_package_path(self, node, '/')
@@ -1714,9 +1707,6 @@ def process_iop(self: TaskGen, node: Node) -> None:
             package_path = iop_get_package_path(self, node, '_')
             pystub_path = package_path + '__iop.pyi'
             outputs.append(opts.pystub_node.make_node(pystub_path))
-
-        if opts.rust:
-            outputs.append(node.change_ext_src('.iop.rs'))
 
         # Create iopc task (add iopc itself in the inputs so that IOP files
         # are rebuilt if iopc changes)

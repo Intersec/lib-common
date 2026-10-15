@@ -21,8 +21,6 @@ from waflib.Build import BuildContext
 ctx: BuildContext
 
 
-ctx.IopcOptions(ctx, rust=True)
-
 ctx.stlib(
     target='tstiop',
     features='c cstlib',
