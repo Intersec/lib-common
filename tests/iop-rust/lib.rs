@@ -1055,9 +1055,11 @@ mod iop_tests {
     // {{{ @ctype and @alias
 
     use crate::bindings::{
-        tstiop__first_diff_c1__t, tstiop__first_diff_st__t, tstiop__my_enum_a__e,
-        tstiop_void_type__void_only__tag_t, z_first_diff_c1__t, z_first_diff_st__t,
-        z_first_diff_st__t_raw, z_void_only__tag_t,
+        core__http_code__array_t_raw, core__http_code__opt_t_raw, http_code__array_t,
+        http_code__opt_t, tstiop__first_diff_c1__t, tstiop__first_diff_st__array_t_raw,
+        tstiop__first_diff_st__t, tstiop__my_enum_a__e, tstiop_void_type__void_only__tag_t,
+        z_first_diff_c1__t, z_first_diff_st__array_t, z_first_diff_st__t, z_first_diff_st__t_raw,
+        z_void_only__tag_t,
     };
 
     #[test]
@@ -1077,6 +1079,11 @@ mod iop_tests {
 
         // The `@ctype` of a union names its tag enum too.
         let _ = |tag: z_void_only__tag_t| -> tstiop_void_type__void_only__tag_t { tag };
+
+        // It names the C array of the type, and the C option of an enum.
+        let _ = |a: z_first_diff_st__array_t| -> tstiop__first_diff_st__array_t_raw { a };
+        let _ = |a: http_code__array_t| -> core__http_code__array_t_raw { a };
+        let _ = |o: http_code__opt_t| -> core__http_code__opt_t_raw { o };
     }
 
     #[test]

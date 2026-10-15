@@ -326,6 +326,15 @@ static lstr_t t_format_symbol_name(
     );
 }
 
+/* The C name of the type `name` of `pkg` without its suffix, `<pkg>__<name>`:
+ * the base of the C names of its items. */
+static const char *t_iopc_rust_c_base(const iopc_pkg_t *pkg, const char *name)
+{
+    return t_fmt(
+        "%s__%s", t_iopc_path_join(pkg->name, "__"), t_cstring(name)
+    );
+}
+
 static lstr_t t_format_type_name(
     const iopc_pkg_t *pkg, const iopc_struct_t *st, const char *type_name,
     const char *lt
@@ -789,8 +798,25 @@ iopc_rust_dump_enum_aliases(sb_t *buf, lstr_t en_name, const iopc_enum_t *en)
     );
 }
 
+/* The alias `name` of the C type `target`, and its `_raw` alias: bindgen
+ * names a C type that the native bindings define like any other C name of
+ * a native type, see iopc_rust_dump_raw_alias(). */
+static void iopc_rust_dump_c_alias(sb_t *buf, lstr_t name, const char *target)
+{
+    t_scope;
+    lstr_t c_target = LSTR(target);
+    lstr_t raw = t_lstr_fmt("%pL_raw", &name);
+
+    iopc_rust_dump_type_alias(buf, &name, "", &c_target);
+    iopc_rust_dump_type_alias(buf, &raw, "", &name);
+}
+
+/* The aliases of each `@ctype` of the type `name` of `pkg`: the `@ctype`
+ * names its Rust type `target`, and the C names that the `@ctype` derives
+ * name the C types of `name`. An enum also has an optional C type. */
 static void iopc_rust_dump_ctype_aliases(
-    sb_t *buf, const qv_t(iopc_attr) *attrs, lstr_t target, const char *lt
+    sb_t *buf, const iopc_pkg_t *pkg, const char *name,
+    const qv_t(iopc_attr) *attrs, lstr_t target, const char *lt, bool is_enum
 )
 {
     tab_for_each_entry(attr, attrs) {
@@ -799,6 +825,8 @@ static void iopc_rust_dump_ctype_aliases(
         }
         tab_for_each_ptr(arg, &attr->args) {
             t_scope;
+            const char *base = t_iopc_rust_c_base(pkg, name);
+            lstr_t pfx = iopc_ctype_get_prefix(arg->v.s);
             lstr_t raw = t_lstr_fmt("%pL_raw", &arg->v.s);
             lstr_t raw_target =
                 t_lstr_fmt("%pL%s", &arg->v.s, *lt ? "<'static>" : "");
@@ -807,6 +835,16 @@ static void iopc_rust_dump_ctype_aliases(
             /* bindgen names a `@ctype` like any other C name of the type,
              * see iopc_rust_dump_raw_alias(). */
             iopc_rust_dump_type_alias(buf, &raw, "", &raw_target);
+            iopc_rust_dump_c_alias(
+                buf, t_lstr_fmt("%pL__array_t", &pfx),
+                t_fmt("%s__array_t_raw", base)
+            );
+            if (is_enum) {
+                iopc_rust_dump_c_alias(
+                    buf, t_lstr_fmt("%pL__opt_t", &pfx),
+                    t_fmt("%s__opt_t_raw", base)
+                );
+            }
         }
     }
 }
@@ -1080,7 +1118,9 @@ static void iopc_rust_dump_st_aliases(
 )
 {
     iopc_rust_dump_st_raw_aliases(buf, pkg, st);
-    iopc_rust_dump_ctype_aliases(buf, &st->attrs, st_name, lt);
+    iopc_rust_dump_ctype_aliases(
+        buf, pkg, st->name, &st->attrs, st_name, lt, false
+    );
     sb_adds(buf, "\n");
 }
 
@@ -1195,7 +1235,9 @@ iopc_rust_dump_enum(sb_t *buf, const iopc_pkg_t *pkg, const iopc_enum_t *en)
         t_lstr_fmt(RUST_LC_IOP "IopOption<%pL>", &en_name)
     );
     iopc_rust_dump_enum_aliases(buf, en_name, en);
-    iopc_rust_dump_ctype_aliases(buf, &en->attrs, en_name, "");
+    iopc_rust_dump_ctype_aliases(
+        buf, pkg, en->name, &en->attrs, en_name, "", true
+    );
     iopc_rust_dump_enum_consts(buf, en);
     sb_adds(buf, "\n");
 }
@@ -1212,9 +1254,7 @@ static void iopc_rust_dump_union_tags(
 {
     t_scope;
     lstr_t tag_name = t_format_symbol_name(pkg, st->name, "tag_t", "");
-    const char *base = t_fmt(
-        "%s__%s", t_iopc_path_join(pkg->name, "__"), t_cstring(st->name)
-    );
+    const char *base = t_iopc_rust_c_base(pkg, st->name);
 
     sb_addf(
         buf,
