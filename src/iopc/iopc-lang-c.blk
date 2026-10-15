@@ -38,7 +38,7 @@ static const char *t_iopc_name_to_c(const char *str)
     return t_camelcase_to_c_str(str);
 }
 
-static lstr_t t_enum_get_prefix(const iopc_enum_t *en)
+lstr_t t_iopc_enum_get_prefix(const iopc_enum_t *en)
 {
     lstr_t ns = LSTR_NULL;
 
@@ -639,14 +639,12 @@ static void iopc_put_range_cleanup(void)
     qm_deep_clear(rg, &range_h_g, lstr_wipe, IGNORE);
 }
 
-static lstr_t ctype_get_prefix(lstr_t ctype)
+lstr_t iopc_ctype_get_prefix(lstr_t ctype)
 {
-    lstr_t pfx = lstr_dupc(ctype);
-
     if (expect(lstr_endswith(ctype, LSTR("__t")))) {
-        pfx.len -= 3;
+        ctype.len -= 3;
     }
-    return pfx;
+    return ctype;
 }
 
 static void iopc_gen_ctype(
@@ -662,7 +660,7 @@ static void iopc_gen_ctype(
                 lstr_t ctype = arg->v.s;
                 lstr_t pfx;
 
-                pfx = ctype_get_prefix(ctype);
+                pfx = iopc_ctype_get_prefix(ctype);
                 sb_addf(
                     buf, "typedef %s__t %*pM;\n", tbase, LSTR_FMT_ARG(ctype)
                 );
@@ -1070,7 +1068,7 @@ static void iopc_enum_dump_tdef_hdr(
     const char *tname = t_iopc_name_to_c(en->name);
     char *tbase = t_fmt("%s__%s", pkg_name, tname);
     int next_value = 0;
-    lstr_t ns = t_enum_get_prefix(en);
+    lstr_t ns = t_iopc_enum_get_prefix(en);
     int min = INT_MAX;
     int max = INT_MIN;
 
@@ -2734,7 +2732,7 @@ iopc_dump_allow_enum(sb_t *sb, const iopc_attr_t *attr, const iopc_field_t *f)
     sb_adds(sb, LVL2 "switch (val) {\n");
 
     tab_for_each_entry(ef, &f->enum_def->values) {
-        lstr_t prefix = t_enum_get_prefix(f->enum_def);
+        lstr_t prefix = t_iopc_enum_get_prefix(f->enum_def);
 
         sb_addf(sb, LVL2 "  case %*pM_%s:\n", LSTR_FMT_ARG(prefix), ef->name);
 

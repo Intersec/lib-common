@@ -1080,6 +1080,35 @@ mod iop_tests {
     }
 
     // }}}
+    // {{{ Constants
+
+    // The C header defines these constants with `#define`.
+
+    use crate::bindings::{
+        MY_ENUM_A_count, MY_ENUM_A_max, MY_ENUM_A_min, tstiop__my_class2__class_id,
+        tstiop__my_enum_a__edesc, z_first_diff_c1__class_id,
+    };
+    use std::slice;
+
+    #[test]
+    fn the_constants_of_an_enum_match_its_descriptor() {
+        let desc = unsafe { &tstiop__my_enum_a__edesc };
+        let values = unsafe { slice::from_raw_parts(desc.values, desc.enum_len.into()) };
+
+        assert_eq!(MY_ENUM_A_count, i32::from(desc.enum_len));
+        assert_eq!(Some(&MY_ENUM_A_min), values.iter().min());
+        assert_eq!(Some(&MY_ENUM_A_max), values.iter().max());
+    }
+
+    #[test]
+    fn a_class_id_is_the_one_that_the_iop_declares() {
+        // `class MyClass2 : 2` and `class FirstDiffC1 : 1`, whose `@ctype`
+        // names the class id too.
+        assert_eq!(tstiop__my_class2__class_id, 2);
+        assert_eq!(z_first_diff_c1__class_id, 1);
+    }
+
+    // }}}
     // {{{ Typedef aliases
 
     // Nothing else looks at the aliases `iopc` writes for a typedef: they

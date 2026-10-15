@@ -1182,6 +1182,14 @@ extern struct iopc_do_c_globs {
 void iopc_field_compute_size(iopc_field_t *f);
 void iopc_struct_optimize(iopc_struct_t *st);
 
+/** The prefix of the C names of the values of the enum `en`: its `@prefix`,
+ * or else its name, in upper case. */
+lstr_t t_iopc_enum_get_prefix(const iopc_enum_t *en);
+
+/** The prefix of the C names that the `@ctype` `ctype` gives: `ctype`
+ * without its `__t` suffix. */
+lstr_t iopc_ctype_get_prefix(lstr_t ctype);
+
 int iopc_do_c(iopc_pkg_t *pkg, const char *outdir);
 int iopc_do_json(iopc_pkg_t *pkg, const char *outdir);
 int iopc_do_typescript(iopc_pkg_t *pkg, const char *outdir);

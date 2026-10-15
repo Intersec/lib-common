@@ -813,6 +813,67 @@ static void iopc_rust_dump_ctype_aliases(
 
 /* }}} */
 /* }}} */
+/* {{{ Constants */
+
+/* The C header defines the constants below with `#define`. Their C type is
+ * `int`, but a class id fits in a `u16`, which is its type in the
+ * descriptors. */
+static void
+iopc_rust_dump_const(sb_t *buf, lstr_t name, const char *type, int value)
+{
+    sb_addf(
+        buf,
+        "#[allow(nonstandard_style)]\n"
+        "pub const %pL: %s = %d;\n",
+        &name, type, value
+    );
+}
+
+static void iopc_rust_dump_enum_consts(sb_t *buf, const iopc_enum_t *en)
+{
+    t_scope;
+    lstr_t ns = t_iopc_enum_get_prefix(en);
+    int min = INT_MAX;
+    int max = INT_MIN;
+
+    tab_for_each_entry(v, &en->values) {
+        min = MIN(min, v->value);
+        max = MAX(max, v->value);
+    }
+    iopc_rust_dump_const(
+        buf, t_lstr_fmt("%pL_count", &ns), "i32", en->values.len
+    );
+    iopc_rust_dump_const(buf, t_lstr_fmt("%pL_min", &ns), "i32", min);
+    iopc_rust_dump_const(buf, t_lstr_fmt("%pL_max", &ns), "i32", max);
+}
+
+/* The class id of `st`, under its C name and under each of its
+ * `@ctype`. */
+static void iopc_rust_dump_class_ids(
+    sb_t *buf, const iopc_pkg_t *pkg, const iopc_struct_t *st
+)
+{
+    t_scope;
+
+    iopc_rust_dump_const(
+        buf, t_format_symbol_name(pkg, st->name, "class_id", ""), "u16",
+        st->class_id
+    );
+    tab_for_each_entry(attr, &st->attrs) {
+        if (attr->desc->id != IOPC_ATTR_CTYPE) {
+            continue;
+        }
+        tab_for_each_ptr(arg, &attr->args) {
+            lstr_t pfx = iopc_ctype_get_prefix(arg->v.s);
+
+            iopc_rust_dump_const(
+                buf, t_lstr_fmt("%pL__class_id", &pfx), "u16", st->class_id
+            );
+        }
+    }
+}
+
+/* }}} */
 /* {{{ Builders */
 
 /* The builder of a struct. Each field that has no valid initial value is
@@ -1135,6 +1196,7 @@ iopc_rust_dump_enum(sb_t *buf, const iopc_pkg_t *pkg, const iopc_enum_t *en)
     );
     iopc_rust_dump_enum_aliases(buf, en_name, en);
     iopc_rust_dump_ctype_aliases(buf, &en->attrs, en_name, "");
+    iopc_rust_dump_enum_consts(buf, en);
     sb_adds(buf, "\n");
 }
 
@@ -1265,6 +1327,7 @@ iopc_rust_dump_class(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
     if (!st->is_abstract) {
         iopc_rust_dump_builder(buf, pkg, st, st_name, lt);
     }
+    iopc_rust_dump_class_ids(buf, pkg, st);
     iopc_rust_dump_st_aliases(buf, pkg, st, st_name, lt);
 }
 
