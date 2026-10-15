@@ -82,6 +82,12 @@ tokio = {version = "1.52.1", features = ["sync","rt-multi-thread","time"]}
 # Represents waf profile 'debug'.
 panic = "abort"
 
+# Build scripts, proc macros and their dependencies. Each crate with
+# bindings runs bindgen, libclang and syn in its build script: at the
+# default `opt-level = 0`, it takes about four times longer.
+[profile.dev.build-override]
+opt-level = 3
+
 [profile.default]
 inherits = "dev"
 opt-level = 3 # Same as 'release'
@@ -89,6 +95,11 @@ opt-level = 3 # Same as 'release'
 [profile.release]
 codegen-units = 1
 panic = "abort"
+
+# Optimizing the build scripts does not change the release binaries: see
+# the dev profile.
+[profile.release.build-override]
+opt-level = 3
 
 [profile.asan]
 inherits = "dev"
