@@ -499,15 +499,21 @@ static void iopc_rust_field_per_constraint(
 static void iopc_rust_dump_fields(sb_t *buf, iopc_struct_t *st)
 {
     tab_for_each_entry(f, &st->fields_in_c_struct_order) {
-        if (!iopc_rust_field_is_emitted(f)) {
-            continue;
-        }
-
         if (st->type == STRUCT_TYPE_UNION) {
             t_scope;
             lstr_t variant_name = t_iopc_rust_variant_name(f);
-            lstr_t rust_type = t_iopc_rust_get_type(f);
+            lstr_t rust_type;
 
+            /* A void member carries no value, but it is still a choice of
+             * the union. */
+            if (f->kind == IOP_T_VOID) {
+                sb_addf(
+                    buf, "    %pL = %d, // Mandatory\n", &variant_name, f->tag
+                );
+                continue;
+            }
+
+            rust_type = t_iopc_rust_get_type(f);
             if (iopc_rust_field_is_ref_like(f)) {
                 const char *lt =
                     iopc_rust_struct_needs_lifetime(st) ? "'a " : "";
@@ -518,6 +524,9 @@ static void iopc_rust_dump_fields(sb_t *buf, iopc_struct_t *st)
                 buf, "    %pL(%pL) = %d, // Mandatory\n", &variant_name,
                 &rust_type, f->tag
             );
+            continue;
+        }
+        if (!iopc_rust_field_is_emitted(f)) {
             continue;
         }
 
@@ -1138,13 +1147,17 @@ iopc_rust_dump_union(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
     t_scope;
     const char *lt = iopc_rust_add_lifetime(st);
     lstr_t un_name = t_format_type_name(pkg, st, st->name, lt);
+    /* `repr(C)` on an enum with only unit variants conflicts with
+     * `repr(u32)`. A union of void members only has the layout of its
+     * tag anyway. */
+    const char *repr = iopc_rust_is_struct_empty(st) ? "u32" : "C, u32";
 
     sb_addf(
         buf,
-        "#[repr(C, u32)]\n"
+        "#[repr(%s)]\n"
         "#[allow(nonstandard_style)]\n"
         "pub enum %pL {\n",
-        &un_name
+        repr, &un_name
     );
     iopc_struct_optimize(st);
     iopc_rust_dump_fields(buf, st);

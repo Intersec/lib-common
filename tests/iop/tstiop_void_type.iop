@@ -5,6 +5,11 @@ union VoidAlone {
     int other;
 };
 
+union VoidOnly {
+    void a;
+    void b;
+};
+
 /* try conversion : anything to void */
 struct IntToVoid {
     int field;

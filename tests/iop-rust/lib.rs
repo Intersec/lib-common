@@ -87,7 +87,8 @@ mod iop_tests {
         tstiop_typedef__remote_class__t, tstiop_typedef__remote_enum__e,
         tstiop_typedef__remote_struct__t, tstiop_typedef__remote_struct__t_raw,
         tstiop_typedef__remote_typedef_class__t_raw,
-        tstiop_typedef__struct_with_typedefs_from_ext__t,
+        tstiop_typedef__struct_with_typedefs_from_ext__t, tstiop_void_type__void_alone__u,
+        tstiop_void_type__void_only__u,
     };
 
     // {{{ Test helpers
@@ -888,6 +889,20 @@ mod iop_tests {
         // struct field
         let un = tstiop__get_bpack_sz_u__u::st(iop_new!(tstiop__get_bpack_sz_st, { a: 42 }));
         assert!(matches!(un, tstiop__get_bpack_sz_u__u::st(val) if iop_get!(val, a) == 42));
+    }
+
+    /// Test the variants of the void members of a union. They carry no
+    /// value, and C reads the same member as Rust.
+    #[test]
+    fn iop_union_void_variants() {
+        let un = tstiop_void_type__void_alone__u::field;
+        assert_eq!(un.as_json(), "{ \"field\": null }\n");
+
+        let un = tstiop_void_type__void_alone__u::other(3);
+        assert_eq!(un.as_json(), "{ \"other\": 3 }\n");
+
+        let un = tstiop_void_type__void_only__u::b;
+        assert_eq!(un.as_json(), "{ \"b\": null }\n");
     }
 
     /// Test reassigning a union to a different variant: the old value must
