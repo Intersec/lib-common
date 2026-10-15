@@ -24,6 +24,7 @@
 #include <lib-common/str-buf-pp.h>
 #include <lib-common/unix.h>
 #include <lib-common/z.h>
+#include <lib-common/zlib-wrapper.h>
 
 #include <locale.h>
 
@@ -3529,6 +3530,171 @@ Z_GROUP_EXPORT(conv) {
         /* long string without check */
         Z_ASSERT_N(
             sb_conv_to_gsm7(&sb, 0, long_str, ' ', GSM_EXTENSION_PLAN, -1)
+        );
+    } Z_TEST_END;
+} Z_GROUP_END;
+
+/* }}} */
+/* {{{ zlib */
+
+Z_GROUP_EXPORT(zlib) {
+    Z_TEST(sb_add_uncompressed, "one stream, bounded output") {
+        t_scope;
+        SB_1k(data);
+        SB_1k(zipped);
+        SB_1k(out);
+        SB_1k(bad);
+
+        for (int i = 0; i < 1000; i++) {
+            sb_addf(&data, "line %d of the data\n", i % 7);
+        }
+
+        for (int do_gzip = 0; do_gzip < 2; do_gzip++) {
+            Z_ASSERT_N(sb_add_compressed(
+                &zipped, data.data, data.len, Z_BEST_COMPRESSION, do_gzip
+            ));
+            Z_ASSERT_LT(zipped.len, data.len);
+            Z_ASSERT_EQ(
+                sb_add_uncompressed(
+                    &out, zipped.data, zipped.len, data.len, do_gzip
+                ),
+                data.len
+            );
+            Z_ASSERT_LSTREQUAL(LSTR_SB_V(&out), LSTR_SB_V(&data));
+
+            /* A maximum size larger than what a sb_t can hold is valid. The
+             * data is added after the content of the buffer. */
+            sb_set_lstr(&out, LSTR("prefix"));
+            Z_ASSERT_EQ(
+                sb_add_uncompressed(
+                    &out, zipped.data, zipped.len, SIZE_MAX, do_gzip
+                ),
+                data.len
+            );
+            Z_ASSERT_LSTREQUAL(
+                LSTR_SB_V(&out), t_lstr_cat(LSTR("prefix"), LSTR_SB_V(&data))
+            );
+
+            /* The data must be in the requested format. */
+            sb_set_lstr(&out, LSTR("prefix"));
+            Z_ASSERT_EQ(
+                sb_add_uncompressed(
+                    &out, zipped.data, zipped.len, data.len, !do_gzip
+                ),
+                Z_DATA_ERROR
+            );
+            Z_ASSERT_LSTREQUAL(LSTR_SB_V(&out), LSTR("prefix"));
+
+            /* The uncompressed data must not exceed the maximum size. */
+            Z_ASSERT_EQ(
+                sb_add_uncompressed(
+                    &out, zipped.data, zipped.len, data.len - 1, do_gzip
+                ),
+                Z_BUF_ERROR
+            );
+            Z_ASSERT_LSTREQUAL(LSTR_SB_V(&out), LSTR("prefix"));
+
+            /* The bytes after the end of the stream are rejected, including a
+             * second stream. */
+            sb_set(&bad, zipped.data, zipped.len);
+            sb_addc(&bad, '\0');
+            Z_ASSERT_EQ(
+                sb_add_uncompressed(
+                    &out, bad.data, bad.len, data.len, do_gzip
+                ),
+                Z_DATA_ERROR
+            );
+            sb_set(&bad, zipped.data, zipped.len);
+            sb_add(&bad, zipped.data, zipped.len);
+            Z_ASSERT_EQ(
+                sb_add_uncompressed(
+                    &out, bad.data, bad.len, 2 * data.len, do_gzip
+                ),
+                Z_DATA_ERROR
+            );
+
+            /* A truncated stream is rejected, even if only the end of its
+             * trailer is missing: all the data is there, but the trailer is
+             * incomplete. */
+            Z_ASSERT_EQ(
+                sb_add_uncompressed(
+                    &out, zipped.data, zipped.len - 1, data.len, do_gzip
+                ),
+                Z_DATA_ERROR
+            );
+            Z_ASSERT_EQ(
+                sb_add_uncompressed(
+                    &out, zipped.data, zipped.len / 2, data.len, do_gzip
+                ),
+                Z_DATA_ERROR
+            );
+
+            /* A changed byte is rejected. */
+            sb_set(&bad, zipped.data, zipped.len);
+            bad.data[bad.len / 2] ^= 0x01;
+            Z_ASSERT_NEG(sb_add_uncompressed(
+                &out, bad.data, bad.len, data.len, do_gzip
+            ));
+            Z_ASSERT_LSTREQUAL(LSTR_SB_V(&out), LSTR("prefix"));
+
+            /* Empty data. */
+            sb_reset(&zipped);
+            sb_reset(&out);
+            Z_ASSERT_N(
+                sb_add_compressed(&zipped, "", 0, Z_BEST_COMPRESSION, do_gzip)
+            );
+            Z_ASSERT_ZERO(
+                sb_add_uncompressed(&out, zipped.data, zipped.len, 0, do_gzip)
+            );
+            Z_ASSERT_ZERO(out.len);
+            Z_ASSERT_EQ(
+                sb_add_uncompressed(&out, "", 0, data.len, do_gzip),
+                Z_DATA_ERROR
+            );
+
+            sb_reset(&zipped);
+            sb_reset(&out);
+        }
+
+        /* A stream that needs a preset dictionary is rejected. Its header
+         * 78 bb sets the FDICT flag, then a dictionary id follows. The gzip
+         * format has no such flag. */
+        Z_ASSERT_EQ(
+            sb_add_uncompressed(&out, "\x78\xbb\0\0\0\1", 6, data.len, false),
+            Z_DATA_ERROR
+        );
+    } Z_TEST_END;
+
+    Z_TEST(sb_add_uncompressed_max, "output above MEM_ALLOC_MAX") {
+        char data[1000] = {0};
+        int len = MEM_ALLOC_MAX - 2 - 100;
+        SB_1k(zipped);
+        SB_1k(out);
+
+        Z_ASSERT_N(sb_add_compressed(
+            &zipped, data, sizeof(data), Z_BEST_COMPRESSION, false
+        ));
+
+        /* Allocate the largest buffer first, so that no realloc copies it.
+         * The test writes only the end of the buffer, so it uses almost no
+         * memory. The buffer has room for 100 more bytes. */
+        sb_grow(&out, MEM_ALLOC_MAX - 1);
+        sb_growlen(&out, len);
+        Z_ASSERT_EQ(
+            sb_add_uncompressed(
+                &out, zipped.data, zipped.len, sizeof(data), false
+            ),
+            Z_BUF_ERROR
+        );
+        Z_ASSERT_EQ(out.len, len);
+
+        /* A full buffer. */
+        sb_growlen(&out, 101);
+        Z_ASSERT_EQ(
+            sb_add_uncompressed(
+                &out, zipped.data, zipped.len, sizeof(data), false
+            ),
+            Z_BUF_ERROR
         );
     } Z_TEST_END;
 } Z_GROUP_END;
