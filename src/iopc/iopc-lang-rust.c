@@ -1580,6 +1580,33 @@ static void iopc_rust_dump_iface(
     );
 }
 
+/* The tag of each interface that the module `mod` mounts, as the C header
+ * defines it, and the descriptor of the module. */
+static void iopc_rust_dump_module(
+    sb_t *buf, const iopc_pkg_t *pkg, const iopc_struct_t *mod
+)
+{
+    t_scope;
+    const char *mbase = t_iopc_rust_c_base(pkg, mod->name);
+
+    tab_for_each_entry(f, &mod->fields) {
+        t_scope;
+
+        iopc_rust_dump_const(
+            buf, t_lstr_fmt("%s__%s__TAG", mbase, t_cstring(f->name)), "u16",
+            f->tag
+        );
+    }
+    sb_addf(
+        buf,
+        "\n"
+        "unsafe extern \"C\" {\n"
+        "    pub static %s__mod: " RUST_LC_C "iop_mod_t;\n"
+        "}\n\n",
+        mbase
+    );
+}
+
 /* }}} */
 /* {{{ Main functions */
 
@@ -1668,6 +1695,9 @@ int iopc_do_rust(iopc_pkg_t *pkg)
         if (!iopc_is_snmp_iface(iface->type)) {
             iopc_rust_dump_iface(&buf, pkg, iface);
         }
+    }
+    tab_for_each_entry(mod, &pkg->modules) {
+        iopc_rust_dump_module(&buf, pkg, mod);
     }
     sb_addf(
         &buf,

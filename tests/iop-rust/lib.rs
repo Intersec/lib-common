@@ -1128,10 +1128,11 @@ mod iop_tests {
     }
 
     // }}}
-    // {{{ RPCs
+    // {{{ RPCs and modules
 
     use crate::bindings::{
-        iop__void__t, iop_rpc_t, tstiop__my_iface_a__fun_a__rpc__tag,
+        iop__void__t, iop_rpc_t, tstiop__both_iface__a__TAG, tstiop__both_iface__iface__TAG,
+        tstiop__both_iface__mod, tstiop__iface__if, tstiop__my_iface_a__fun_a__rpc__tag,
         tstiop__my_iface_a__fun_a_args__s, tstiop__my_iface_a__fun_async__rpc__async,
         tstiop__my_iface_a__fun_async__rpc__tag, tstiop__my_iface_a__fun_c__rpc__async,
         tstiop__my_iface_a__fun_c__rpc__tag, tstiop__my_iface_a__fun_c_args__t,
@@ -1193,6 +1194,28 @@ mod iop_tests {
         ] {
             assert_eq!(my_iface_a_rpc(tag).async_() != 0, is_async);
         }
+    }
+
+    #[test]
+    fn the_tag_of_an_interface_in_a_module_matches_its_descriptor() {
+        // `module BothIface { MyIfaceA a; Iface iface; }`.
+        let module = unsafe { &tstiop__both_iface__mod };
+        let aliases = unsafe { slice::from_raw_parts(module.ifaces, module.ifaces_len.into()) };
+        let iface_of = |tag: u16| {
+            aliases
+                .iter()
+                .find(|alias| alias.tag == u32::from(tag))
+                .map(|alias| alias.iface)
+        };
+
+        assert_eq!(
+            iface_of(tstiop__both_iface__a__TAG),
+            Some(&raw const tstiop__my_iface_a__if)
+        );
+        assert_eq!(
+            iface_of(tstiop__both_iface__iface__TAG),
+            Some(&raw const tstiop__iface__if)
+        );
     }
 
     // }}}
