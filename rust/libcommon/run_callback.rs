@@ -119,9 +119,18 @@ where
     /// Panics if the internal mutex protecting the callback state is poisoned,
     /// which only happens if another thread panics while holding the lock.
     pub fn call(self, res: T) {
-        let mut inner = self.inner.lock().expect("couldn't lock");
-        inner.result = Some(res);
-        if let Some(waker) = inner.waker.take() {
+        // Release the lock before waking: on the main C thread the waker
+        // polls the future back synchronously (`main_c_queue_schedule` runs
+        // its callbacks inline), and `CallbackFut::poll` takes this same
+        // non-reentrant mutex.
+        let waker = {
+            let mut inner = self.inner.lock().expect("couldn't lock");
+
+            inner.result = Some(res);
+            inner.waker.take()
+        };
+
+        if let Some(waker) = waker {
             waker.wake();
         }
     }
@@ -190,7 +199,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{Callback, run_callback};
+    use super::{Callback, CallbackFut, Inner, run_callback};
     use libcommon_core::{
         bindings::{
             data_t, el_blocker_register, el_loop, el_timer_register, el_unregister, ev_t,
@@ -200,6 +209,10 @@ mod tests {
         module::{module_is_loaded, module_release, module_require},
         thr::main_c_queue_schedule,
     };
+    use std::future::Future as _;
+    use std::pin::pin;
+    use std::sync::{Arc, Mutex};
+    use std::task::{Context, Wake, Waker};
     use tokio_c_mod::tokio_get_module;
 
     struct ElBlocker(*mut ev_t);
@@ -244,6 +257,33 @@ mod tests {
 
         module_release(tokio_get_module());
         assert!(!module_is_loaded(tokio_get_module()));
+    }
+
+    /// A waker that takes the lock of the callback, as the main C thread
+    /// does: it polls a woken future back at once.
+    struct LockingWaker(Arc<Mutex<Inner<()>>>);
+
+    impl Wake for LockingWaker {
+        fn wake(self: Arc<Self>) {
+            assert!(self.0.try_lock().is_ok(), "the waker runs under the lock");
+        }
+    }
+
+    #[test]
+    fn a_callback_wakes_its_future_without_holding_its_lock() {
+        let inner = Arc::new(Mutex::new(Inner {
+            result: None,
+            waker: None,
+        }));
+        let mut fut = pin!(CallbackFut {
+            inner: Arc::clone(&inner),
+        });
+        let waker = Waker::from(Arc::new(LockingWaker(Arc::clone(&inner))));
+        let mut cx = Context::from_waker(&waker);
+
+        assert!(fut.as_mut().poll(&mut cx).is_pending());
+        Callback { inner }.call(());
+        assert!(fut.as_mut().poll(&mut cx).is_ready());
     }
 }
 
