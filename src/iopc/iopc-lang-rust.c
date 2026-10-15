@@ -312,22 +312,10 @@ iopc_rust_decl_cmp(const iopc_rust_decl_t *a, const iopc_rust_decl_t *b)
     return CMP(a->lmin, b->lmin);
 }
 
-/* The name of the item `name` of `pkg`. Its prefix is the dotted IOP path
- * of `pkg` joined with `__`, like the C backend does, so that a Rust item
- * has the name of its C counterpart. */
-static lstr_t t_format_symbol_name(
-    const iopc_pkg_t *pkg, const char *name, const char *suffix,
-    const char *lt
-)
-{
-    return t_lstr_fmt(
-        "%s__%s__%s%s", t_iopc_path_join(pkg->name, "__"), t_cstring(name),
-        suffix, lt
-    );
-}
-
 /* The C name of the type `name` of `pkg` without its suffix, `<pkg>__<name>`:
- * the base of the C names of its items. */
+ * the base of the C names of its items, `tbase` in the C backend. Its prefix
+ * is the dotted IOP path of `pkg` joined with `__`, like the C backend does,
+ * so that a Rust item has the name of its C counterpart. */
 static const char *t_iopc_rust_c_base(const iopc_pkg_t *pkg, const char *name)
 {
     return t_fmt(
@@ -335,14 +323,38 @@ static const char *t_iopc_rust_c_base(const iopc_pkg_t *pkg, const char *name)
     );
 }
 
+/* The name of the item of the type whose C base name is `tbase`. */
+static lstr_t
+t_format_item_name(const char *tbase, const char *suffix, const char *lt)
+{
+    return t_lstr_fmt("%s__%s%s", tbase, suffix, lt);
+}
+
+/* The name of the item `name` of `pkg`. */
+static lstr_t t_format_symbol_name(
+    const iopc_pkg_t *pkg, const char *name, const char *suffix,
+    const char *lt
+)
+{
+    return t_format_item_name(t_iopc_rust_c_base(pkg, name), suffix, lt);
+}
+
+/* The name of the Rust type of the struct, union or class `st`, whose C
+ * base name is `tbase`. */
+static lstr_t
+t_format_st_name(const char *tbase, const iopc_struct_t *st, const char *lt)
+{
+    const char *is_union = (st->type == STRUCT_TYPE_UNION) ? "u" : "t";
+
+    return t_format_item_name(tbase, is_union, lt);
+}
+
 static lstr_t t_format_type_name(
     const iopc_pkg_t *pkg, const iopc_struct_t *st, const char *type_name,
     const char *lt
 )
 {
-    const char *is_union = (st->type == STRUCT_TYPE_UNION) ? "u" : "t";
-
-    return t_format_symbol_name(pkg, type_name, is_union, lt);
+    return t_format_st_name(t_iopc_rust_c_base(pkg, type_name), st, lt);
 }
 
 /* The `__e`/`__u`/`__t` suffix of the type of the field or typedef `f`. A
@@ -547,11 +559,10 @@ static void iopc_rust_dump_fields(sb_t *buf, iopc_struct_t *st)
 /* }}} */
 /* {{{ CDESC support (including traits) */
 
-static void
-iopc_rust_dump_struct_desc(sb_t *buf, const iopc_pkg_t *pkg, const char *name)
+static void iopc_rust_dump_struct_desc(sb_t *buf, const char *tbase)
 {
     t_scope;
-    lstr_t desc_name = t_format_symbol_name(pkg, name, "s", "");
+    lstr_t desc_name = t_format_item_name(tbase, "s", "");
 
     sb_addf(
         buf,
@@ -562,12 +573,11 @@ iopc_rust_dump_struct_desc(sb_t *buf, const iopc_pkg_t *pkg, const char *name)
     );
 }
 
-static void
-iopc_rust_dump_enum_desc(sb_t *buf, const iopc_pkg_t *pkg, const char *name)
+static void iopc_rust_dump_enum_desc(sb_t *buf, const char *tbase)
 {
     t_scope;
-    lstr_t enum_name = t_format_symbol_name(pkg, name, "e", "");
-    lstr_t desc_name = t_format_symbol_name(pkg, name, "edesc", "");
+    lstr_t enum_name = t_format_item_name(tbase, "e", "");
+    lstr_t desc_name = t_format_item_name(tbase, "edesc", "");
 
     sb_addf(
         buf,
@@ -584,12 +594,11 @@ iopc_rust_dump_enum_desc(sb_t *buf, const iopc_pkg_t *pkg, const char *name)
  * these names. bindgen knows no lifetime, so the aliases pin it to
  * `'static`. */
 static void iopc_rust_dump_raw_alias(
-    sb_t *buf, const iopc_pkg_t *pkg, const char *name, const char *suffix,
-    lstr_t target
+    sb_t *buf, const char *tbase, const char *suffix, lstr_t target
 )
 {
     t_scope;
-    lstr_t c_name = t_format_symbol_name(pkg, name, suffix, "");
+    lstr_t c_name = t_format_item_name(tbase, suffix, "");
 
     sb_addf(
         buf,
@@ -599,9 +608,8 @@ static void iopc_rust_dump_raw_alias(
     );
 }
 
-static void iopc_rust_dump_st_raw_aliases(
-    sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st
-)
+static void
+iopc_rust_dump_st_raw_aliases(sb_t *buf, const char *tbase, iopc_struct_t *st)
 {
     t_scope;
     const char *lifetime;
@@ -609,7 +617,7 @@ static void iopc_rust_dump_st_raw_aliases(
     lstr_t elem;
 
     lifetime = iopc_rust_needs_lifetime(st) ? "<'static>" : "";
-    target = t_format_type_name(pkg, st, st->name, lifetime);
+    target = t_format_st_name(tbase, st, lifetime);
     if (st->type == STRUCT_TYPE_CLASS) {
         /* A C array holds a class through a pointer. */
         elem = t_lstr_fmt("&'static mut %pL", &target);
@@ -617,9 +625,9 @@ static void iopc_rust_dump_st_raw_aliases(
         elem = target;
     }
 
-    iopc_rust_dump_raw_alias(buf, pkg, st->name, "t", target);
+    iopc_rust_dump_raw_alias(buf, tbase, "t", target);
     iopc_rust_dump_raw_alias(
-        buf, pkg, st->name, "array_t",
+        buf, tbase, "array_t",
         t_lstr_fmt(RUST_LC_IOP "IopArray<'static, %pL>", &elem)
     );
 }
@@ -696,13 +704,13 @@ static void iopc_rust_dump_c_struct_union_trait(
 }
 
 static void iopc_rust_dump_needed_traits_for_structs(
-    sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st
+    sb_t *buf, const char *tbase, iopc_struct_t *st
 )
 {
     t_scope;
     const char *lt = iopc_rust_needs_lifetime(st) ? "<'_>" : "";
-    lstr_t name = t_format_type_name(pkg, st, st->name, lt);
-    lstr_t desc_name = t_format_symbol_name(pkg, st->name, "s", "");
+    lstr_t name = t_format_st_name(tbase, st, lt);
+    lstr_t desc_name = t_format_item_name(tbase, "s", "");
 
     iopc_rust_dump_marker_trait(buf, "Base", name);
     iopc_rust_dump_struct_union_trait(buf, st->type, name, desc_name);
@@ -738,13 +746,12 @@ static void iopc_rust_dump_needed_traits_for_structs(
     }
 }
 
-static void iopc_rust_dump_needed_traits_for_enums(
-    sb_t *buf, const iopc_pkg_t *pkg, const iopc_enum_t *en
-)
+static void
+iopc_rust_dump_needed_traits_for_enums(sb_t *buf, const char *tbase)
 {
     t_scope;
-    lstr_t enum_name = t_format_symbol_name(pkg, en->name, "e", "");
-    lstr_t desc_name = t_format_symbol_name(pkg, en->name, "edesc", "");
+    lstr_t enum_name = t_format_item_name(tbase, "e", "");
+    lstr_t desc_name = t_format_item_name(tbase, "edesc", "");
 
     iopc_rust_dump_marker_trait(buf, "Base", enum_name);
     iopc_rust_dump_enum_trait(buf, enum_name, desc_name);
@@ -811,12 +818,12 @@ static void iopc_rust_dump_c_alias(sb_t *buf, lstr_t name, const char *target)
     iopc_rust_dump_type_alias(buf, &raw, "", &name);
 }
 
-/* The aliases of each `@ctype` of the type `name` of `pkg`: the `@ctype`
- * names its Rust type `target`, and the C names that the `@ctype` derives
- * name the C types of `name`. An enum also has an optional C type. */
+/* The aliases of each `@ctype` of the type whose C base name is `tbase`:
+ * the `@ctype` names its Rust type `target`, and the C names that the
+ * `@ctype` derives name its C types. An enum also has an optional C type. */
 static void iopc_rust_dump_ctype_aliases(
-    sb_t *buf, const iopc_pkg_t *pkg, const char *name,
-    const qv_t(iopc_attr) *attrs, lstr_t target, const char *lt, bool is_enum
+    sb_t *buf, const char *tbase, const qv_t(iopc_attr) *attrs, lstr_t target,
+    const char *lt, bool is_enum
 )
 {
     tab_for_each_entry(attr, attrs) {
@@ -825,7 +832,6 @@ static void iopc_rust_dump_ctype_aliases(
         }
         tab_for_each_ptr(arg, &attr->args) {
             t_scope;
-            const char *base = t_iopc_rust_c_base(pkg, name);
             lstr_t pfx = iopc_ctype_get_prefix(arg->v.s);
             lstr_t raw = t_lstr_fmt("%pL_raw", &arg->v.s);
             lstr_t raw_target =
@@ -837,12 +843,12 @@ static void iopc_rust_dump_ctype_aliases(
             iopc_rust_dump_type_alias(buf, &raw, "", &raw_target);
             iopc_rust_dump_c_alias(
                 buf, t_lstr_fmt("%pL__array_t", &pfx),
-                t_fmt("%s__array_t_raw", base)
+                t_fmt("%s__array_t_raw", tbase)
             );
             if (is_enum) {
                 iopc_rust_dump_c_alias(
                     buf, t_lstr_fmt("%pL__opt_t", &pfx),
-                    t_fmt("%s__opt_t_raw", base)
+                    t_fmt("%s__opt_t_raw", tbase)
                 );
             }
         }
@@ -888,14 +894,13 @@ static void iopc_rust_dump_enum_consts(sb_t *buf, const iopc_enum_t *en)
 /* The class id of `st`, under its C name and under each of its
  * `@ctype`. */
 static void iopc_rust_dump_class_ids(
-    sb_t *buf, const iopc_pkg_t *pkg, const iopc_struct_t *st
+    sb_t *buf, const char *tbase, const iopc_struct_t *st
 )
 {
     t_scope;
 
     iopc_rust_dump_const(
-        buf, t_format_symbol_name(pkg, st->name, "class_id", ""), "u16",
-        st->class_id
+        buf, t_format_item_name(tbase, "class_id", ""), "u16", st->class_id
     );
     tab_for_each_entry(attr, &st->attrs) {
         if (attr->desc->id != IOPC_ATTR_CTYPE) {
@@ -1034,14 +1039,14 @@ static void t_iopc_rust_builder_walk(
  * value only when each field that has no valid initial value is set, so
  * a missing field is a compilation error. */
 static void iopc_rust_dump_builder(
-    sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st, lstr_t st_name,
+    sb_t *buf, const char *tbase, iopc_struct_t *st, lstr_t st_name,
     const char *lt
 )
 {
     t_scope;
     iopc_rust_builder_t b = {
-        .name = t_format_symbol_name(pkg, st->name, "t__builder", ""),
-        .fields_mod = t_format_symbol_name(pkg, st->name, "t__fields", ""),
+        .name = t_format_item_name(tbase, "t__builder", ""),
+        .fields_mod = t_format_item_name(tbase, "t__fields", ""),
         .lt = lt,
     };
     lstr_t params, bounds, unset;
@@ -1113,23 +1118,22 @@ static void iopc_rust_dump_builder(
 /* Dumps the aliases of the struct, union or class `st`: the names that
  * bindgen and its `@ctype` give it. */
 static void iopc_rust_dump_st_aliases(
-    sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st, lstr_t st_name,
+    sb_t *buf, const char *tbase, iopc_struct_t *st, lstr_t st_name,
     const char *lt
 )
 {
-    iopc_rust_dump_st_raw_aliases(buf, pkg, st);
-    iopc_rust_dump_ctype_aliases(
-        buf, pkg, st->name, &st->attrs, st_name, lt, false
-    );
+    iopc_rust_dump_st_raw_aliases(buf, tbase, st);
+    iopc_rust_dump_ctype_aliases(buf, tbase, &st->attrs, st_name, lt, false);
     sb_adds(buf, "\n");
 }
 
+/* Dumps the struct `st`, whose C base name is `tbase`. */
 static void
-iopc_rust_dump_struct(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
+iopc_rust_dump_struct(sb_t *buf, const char *tbase, iopc_struct_t *st)
 {
     t_scope;
     const char *lt = iopc_rust_add_lifetime(st);
-    lstr_t st_name = t_format_type_name(pkg, st, st->name, lt);
+    lstr_t st_name = t_format_st_name(tbase, st, lt);
     bool is_empty;
 
     iopc_struct_optimize(st);
@@ -1144,12 +1148,12 @@ iopc_rust_dump_struct(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
         sb_addf(buf, "pub struct %pL {\n", &st_name);
         iopc_rust_dump_fields(buf, st);
     }
-    iopc_rust_dump_struct_desc(buf, pkg, st->name);
-    iopc_rust_dump_needed_traits_for_structs(buf, pkg, st);
+    iopc_rust_dump_struct_desc(buf, tbase);
+    iopc_rust_dump_needed_traits_for_structs(buf, tbase, st);
     if (!is_empty) {
-        iopc_rust_dump_builder(buf, pkg, st, st_name, lt);
+        iopc_rust_dump_builder(buf, tbase, st, st_name, lt);
     }
-    iopc_rust_dump_st_aliases(buf, pkg, st, st_name, lt);
+    iopc_rust_dump_st_aliases(buf, tbase, st, st_name, lt);
 }
 
 /* }}} */
@@ -1213,31 +1217,29 @@ static void iopc_rust_dump_open_enum_type(
 }
 
 static void
-iopc_rust_dump_enum(sb_t *buf, const iopc_pkg_t *pkg, const iopc_enum_t *en)
+iopc_rust_dump_enum(sb_t *buf, const char *tbase, const iopc_enum_t *en)
 {
     t_scope;
-    lstr_t en_name = t_format_symbol_name(pkg, en->name, "e", "");
+    lstr_t en_name = t_format_item_name(tbase, "e", "");
 
     if (iopc_rust_enum_is_strict(en)) {
         iopc_rust_dump_strict_enum_type(buf, en_name, en);
     } else {
         iopc_rust_dump_open_enum_type(buf, en_name, en);
     }
-    iopc_rust_dump_enum_desc(buf, pkg, en->name);
-    iopc_rust_dump_needed_traits_for_enums(buf, pkg, en);
-    iopc_rust_dump_raw_alias(buf, pkg, en->name, "t", en_name);
+    iopc_rust_dump_enum_desc(buf, tbase);
+    iopc_rust_dump_needed_traits_for_enums(buf, tbase);
+    iopc_rust_dump_raw_alias(buf, tbase, "t", en_name);
     iopc_rust_dump_raw_alias(
-        buf, pkg, en->name, "array_t",
+        buf, tbase, "array_t",
         t_lstr_fmt(RUST_LC_IOP "IopArray<'static, %pL>", &en_name)
     );
     iopc_rust_dump_raw_alias(
-        buf, pkg, en->name, "opt_t",
+        buf, tbase, "opt_t",
         t_lstr_fmt(RUST_LC_IOP "IopOption<%pL>", &en_name)
     );
     iopc_rust_dump_enum_aliases(buf, en_name, en);
-    iopc_rust_dump_ctype_aliases(
-        buf, pkg, en->name, &en->attrs, en_name, "", true
-    );
+    iopc_rust_dump_ctype_aliases(buf, tbase, &en->attrs, en_name, "", true);
     iopc_rust_dump_enum_consts(buf, en);
     sb_adds(buf, "\n");
 }
@@ -1249,12 +1251,11 @@ iopc_rust_dump_enum(sb_t *buf, const iopc_pkg_t *pkg, const iopc_enum_t *en)
  * of its `@ctype`. The Rust enum of a union holds the tag as its
  * discriminant, but the C code names the tags through this enum. */
 static void iopc_rust_dump_union_tags(
-    sb_t *buf, const iopc_pkg_t *pkg, const iopc_struct_t *st
+    sb_t *buf, const char *tbase, const iopc_struct_t *st
 )
 {
     t_scope;
-    lstr_t tag_name = t_format_symbol_name(pkg, st->name, "tag_t", "");
-    const char *base = t_iopc_rust_c_base(pkg, st->name);
+    lstr_t tag_name = t_format_item_name(tbase, "tag_t", "");
 
     sb_addf(
         buf,
@@ -1266,7 +1267,7 @@ static void iopc_rust_dump_union_tags(
     );
     tab_for_each_entry(f, &st->fields) {
         sb_addf(
-            buf, "    %s__%s__ft = %d,\n", base, t_cstring(f->name), f->tag
+            buf, "    %s__%s__ft = %d,\n", tbase, t_cstring(f->name), f->tag
         );
     }
     sb_adds(buf, "}\n\n");
@@ -1285,11 +1286,11 @@ static void iopc_rust_dump_union_tags(
 }
 
 static void
-iopc_rust_dump_union(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
+iopc_rust_dump_union(sb_t *buf, const char *tbase, iopc_struct_t *st)
 {
     t_scope;
     const char *lt = iopc_rust_add_lifetime(st);
-    lstr_t un_name = t_format_type_name(pkg, st, st->name, lt);
+    lstr_t un_name = t_format_st_name(tbase, st, lt);
     /* `repr(C)` on an enum with only unit variants conflicts with
      * `repr(u32)`. A union of void members only has the layout of its
      * tag anyway. */
@@ -1304,10 +1305,10 @@ iopc_rust_dump_union(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
     );
     iopc_struct_optimize(st);
     iopc_rust_dump_fields(buf, st);
-    iopc_rust_dump_struct_desc(buf, pkg, st->name);
-    iopc_rust_dump_needed_traits_for_structs(buf, pkg, st);
-    iopc_rust_dump_union_tags(buf, pkg, st);
-    iopc_rust_dump_st_aliases(buf, pkg, st, un_name, lt);
+    iopc_rust_dump_struct_desc(buf, tbase);
+    iopc_rust_dump_needed_traits_for_structs(buf, tbase, st);
+    iopc_rust_dump_union_tags(buf, tbase, st);
+    iopc_rust_dump_st_aliases(buf, tbase, st, un_name, lt);
 }
 
 /* }}} */
@@ -1351,12 +1352,14 @@ static void iopc_rust_inheritance_dump(
     sb_adds(sb, "\n");
 }
 
-static void
-iopc_rust_dump_class(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
+/* Dumps the class `st` of `pkg`, whose C base name is `tbase`. */
+static void iopc_rust_dump_class(
+    sb_t *buf, const iopc_pkg_t *pkg, const char *tbase, iopc_struct_t *st
+)
 {
     t_scope;
     const char *lt = iopc_rust_add_lifetime(st);
-    lstr_t st_name = t_format_type_name(pkg, st, st->name, lt);
+    lstr_t st_name = t_format_st_name(tbase, st, lt);
     /* A class starts with its `vptr`. */
     unsigned int offset = sizeof(void *);
     unsigned int align = alignof(void *);
@@ -1382,7 +1385,7 @@ iopc_rust_dump_class(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
 
     impl_lt = parent_needs_lt ? lt : "";
     st_name_impl = (*lt && !parent_needs_lt)
-                       ? t_format_type_name(pkg, st, st->name, "<'_>")
+                       ? t_format_st_name(tbase, st, "<'_>")
                        : st_name;
 
     sb_addf(
@@ -1404,13 +1407,13 @@ iopc_rust_dump_class(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
         "}\n",
         impl_lt, &st_name_impl, &parent_type
     );
-    iopc_rust_dump_struct_desc(buf, pkg, st->name);
-    iopc_rust_dump_needed_traits_for_structs(buf, pkg, st);
+    iopc_rust_dump_struct_desc(buf, tbase);
+    iopc_rust_dump_needed_traits_for_structs(buf, tbase, st);
     if (!st->is_abstract) {
-        iopc_rust_dump_builder(buf, pkg, st, st_name, lt);
+        iopc_rust_dump_builder(buf, tbase, st, st_name, lt);
     }
-    iopc_rust_dump_class_ids(buf, pkg, st);
-    iopc_rust_dump_st_aliases(buf, pkg, st, st_name, lt);
+    iopc_rust_dump_class_ids(buf, tbase, st);
+    iopc_rust_dump_st_aliases(buf, tbase, st, st_name, lt);
 }
 
 /* }}} */
@@ -1458,7 +1461,8 @@ static void iopc_rust_dump_typedef_raw_aliases(
         );
 
         iopc_rust_dump_raw_alias(
-            buf, pkg, td->name, suffixes[i], t_lstr_fmt("%pL_raw", &target)
+            buf, t_iopc_rust_c_base(pkg, td->name), suffixes[i],
+            t_lstr_fmt("%pL_raw", &target)
         );
     }
     sb_adds(buf, "\n");
@@ -1552,17 +1556,23 @@ int iopc_do_rust(iopc_pkg_t *pkg)
     iopc_rust_dump_typedefs(&buf, pkg);
 
     tab_for_each_entry(d, &_G.decls) {
+        t_scope;
+        const char *tbase;
+
         if (d.basic_iop_types == IOP_T_ENUM) {
-            iopc_rust_dump_enum(&buf, pkg, d.en);
+            iopc_rust_dump_enum(
+                &buf, t_iopc_rust_c_base(pkg, d.en->name), d.en
+            );
             continue;
         }
 
+        tbase = t_iopc_rust_c_base(pkg, d.st->name);
         if (d.st->type == STRUCT_TYPE_STRUCT) {
-            iopc_rust_dump_struct(&buf, pkg, d.st);
+            iopc_rust_dump_struct(&buf, tbase, d.st);
         } else if (d.st->type == STRUCT_TYPE_UNION) {
-            iopc_rust_dump_union(&buf, pkg, d.st);
+            iopc_rust_dump_union(&buf, tbase, d.st);
         } else if (d.st->type == STRUCT_TYPE_CLASS) {
-            iopc_rust_dump_class(&buf, pkg, d.st);
+            iopc_rust_dump_class(&buf, pkg, tbase, d.st);
         }
     }
 
