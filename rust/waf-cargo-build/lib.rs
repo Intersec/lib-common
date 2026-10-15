@@ -396,15 +396,7 @@ impl LibcommonParseCallbacks {
 
     /// A `@ctype` name does not carry the `<pkg>__` prefix, so only the
     /// item names of the package find it.
-    ///
-    /// The tag enum of a union, `<pkg>__<union>__tag_t`, is not one: the
-    /// native bindings write a union as a Rust enum, with no tag type. So
-    /// bindgen keeps the C enum, which a `@ctype` alias of the tag names.
     fn is_native_pkg_item(&self, name: &str) -> bool {
-        if name.ends_with("__tag_t") {
-            return false;
-        }
-
         if self.pkg_items.borrow().contains(name) {
             return true;
         }

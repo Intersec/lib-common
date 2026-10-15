@@ -1075,8 +1075,20 @@ mod iop_tests {
         let _ = |st: z_first_diff_st__t_raw| -> tstiop__first_diff_st__t<'static> { st };
         let _ = |cl: z_first_diff_c1__t| -> tstiop__first_diff_c1__t { cl };
 
-        // The tag of a union keeps its C enum, which the `@ctype` names too.
+        // The `@ctype` of a union names its tag enum too.
         let _ = |tag: z_void_only__tag_t| -> tstiop_void_type__void_only__tag_t { tag };
+    }
+
+    #[test]
+    fn the_tag_enum_of_a_union_holds_the_tags_that_the_iop_declares() {
+        assert_eq!(
+            tstiop_void_type__void_only__tag_t::tstiop_void_type__void_only__a__ft as u32,
+            1
+        );
+        assert_eq!(
+            tstiop_void_type__void_only__tag_t::tstiop_void_type__void_only__b__ft as u32,
+            2
+        );
     }
 
     // }}}

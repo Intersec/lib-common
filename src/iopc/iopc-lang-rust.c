@@ -1203,6 +1203,47 @@ iopc_rust_dump_enum(sb_t *buf, const iopc_pkg_t *pkg, const iopc_enum_t *en)
 /* }}} */
 /* {{{ Unions management */
 
+/* The C enum of the tags of the union `st`, under its C name and under each
+ * of its `@ctype`. The Rust enum of a union holds the tag as its
+ * discriminant, but the C code names the tags through this enum. */
+static void iopc_rust_dump_union_tags(
+    sb_t *buf, const iopc_pkg_t *pkg, const iopc_struct_t *st
+)
+{
+    t_scope;
+    lstr_t tag_name = t_format_symbol_name(pkg, st->name, "tag_t", "");
+    const char *base = t_fmt(
+        "%s__%s", t_iopc_path_join(pkg->name, "__"), t_cstring(st->name)
+    );
+
+    sb_addf(
+        buf,
+        "#[repr(u32)]\n"
+        "#[allow(nonstandard_style)]\n"
+        "#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]\n"
+        "pub enum %pL {\n",
+        &tag_name
+    );
+    tab_for_each_entry(f, &st->fields) {
+        sb_addf(
+            buf, "    %s__%s__ft = %d,\n", base, t_cstring(f->name), f->tag
+        );
+    }
+    sb_adds(buf, "}\n\n");
+
+    tab_for_each_entry(attr, &st->attrs) {
+        if (attr->desc->id != IOPC_ATTR_CTYPE) {
+            continue;
+        }
+        tab_for_each_ptr(arg, &attr->args) {
+            lstr_t pfx = iopc_ctype_get_prefix(arg->v.s);
+            lstr_t alias = t_lstr_fmt("%pL__tag_t", &pfx);
+
+            iopc_rust_dump_type_alias(buf, &alias, "", &tag_name);
+        }
+    }
+}
+
 static void
 iopc_rust_dump_union(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
 {
@@ -1225,6 +1266,7 @@ iopc_rust_dump_union(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
     iopc_rust_dump_fields(buf, st);
     iopc_rust_dump_struct_desc(buf, pkg, st->name);
     iopc_rust_dump_needed_traits_for_structs(buf, pkg, st);
+    iopc_rust_dump_union_tags(buf, pkg, st);
     iopc_rust_dump_st_aliases(buf, pkg, st, un_name, lt);
 }
 
