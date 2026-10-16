@@ -27,6 +27,8 @@ workspace = true
 [lib]
 path = "lib.rs"
 crate-type = ["lib", "staticlib"]
+# The crate only holds tests: keep it out of the API documentation.
+doc = false
 
 [build-dependencies]
 waf-cargo-build = { path = "../../rust/waf-cargo-build" }
