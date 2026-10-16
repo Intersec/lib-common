@@ -50,14 +50,6 @@ static inline bool iop_testable_field_can_break_constraint(
     if (f->repeat == IOP_R_REPEATED) {
         return TST_BIT(&flags, IOP_FIELD_MIN_OCCURS);
     }
-    if (f->repeat == IOP_R_REQUIRED && f->type == IOP_T_ENUM) {
-        /* The zero of a strict enum may not be a valid value. */
-        unsigned en_flags = f->u1.en_desc->flags;
-
-        if (TST_BIT(&en_flags, IOP_ENUM_STRICT)) {
-            return true;
-        }
-    }
     return flags & risky;
 }
 
@@ -78,46 +70,15 @@ iop_testable_has_safe_constraints(const iop_struct_t *nonnull st)
     return true;
 }
 
-/* Whether a default value fills each required field.
+/* Whether a default-constructed object of `st` satisfies its constraints.
  *
- * C leaves a required reference, class or union field NULL, and the
- * packers dereference it.
- */
-static inline bool
-iop_testable_can_fill_fields(const iop_struct_t *nonnull st)
-{
-    iop_struct_for_each_field(f, field_st, st) {
-        if (f->repeat != IOP_R_REQUIRED) {
-            continue;
-        }
-        if (iop_field_is_reference(f) || iop_field_is_class(f) ||
-            f->type == IOP_T_UNION)
-        {
-            return false;
-        }
-        if (f->type == IOP_T_STRUCT &&
-            !iop_testable_can_fill_fields(f->u1.st_desc))
-        {
-            return false;
-        }
-    }
-    return true;
-}
-
-/* Whether a default-constructed object of `st` packs, and satisfies its
- * constraints.
+ * The tests run only for a type that implements `CInstance`: iopc already
+ * rejects a union, an abstract class, and a type with a field that has no
+ * valid initial value.
  */
 static inline bool iop_testable_is_testable(const iop_struct_t *nonnull st)
 {
-    if (st->is_union) {
-        /* A default value selects no member. */
-        return false;
-    }
-    if (iop_struct_is_class(st) && st->class_attrs->is_abstract) {
-        return false;
-    }
-    return iop_testable_has_safe_constraints(st) &&
-           iop_testable_can_fill_fields(st);
+    return iop_testable_has_safe_constraints(st);
 }
 
 /* A private class must not leave the process: the YAML packer asserts on

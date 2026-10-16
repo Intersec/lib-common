@@ -124,8 +124,8 @@ fn has_parent(item: &ItemImpl) -> bool {
 
 /// The types of a `.iop.rs` file that a test can construct.
 ///
-/// `iopc` implements `CStruct`, which provides `new()`, only for the types
-/// that can be instantiated.
+/// `iopc` implements `CInstance`, which provides `new()`, only for the
+/// structs whose initial value is a valid Rust value.
 fn tested_types(file: &syn::File) -> Vec<TestedType> {
     let mut generic = HashSet::new();
     let mut constructible = Vec::new();
@@ -137,7 +137,7 @@ fn tested_types(file: &syn::File) -> Vec<TestedType> {
                 generic.insert(st.ident.to_string());
             }
             Item::Impl(item) => match impl_trait_for(item) {
-                Some((tr, name)) if tr == "CStruct" => constructible.push(name),
+                Some((tr, name)) if tr == "CInstance" => constructible.push(name),
                 Some((tr, name)) if tr == "Class" && has_parent(item) => {
                     with_parent.insert(name);
                 }

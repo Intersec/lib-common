@@ -27,7 +27,7 @@
 #[waf_cargo_build::bindings_mod]
 pub mod bindings {
     pub use ichannel::bindings::*;
-    use libcommon::iop::{Base, CInstance, CStruct, CStructUnion, Struct, StructUnion};
+    use libcommon::iop::{Base, CStruct, CStructUnion, Struct, StructUnion};
     waf_cargo_build::include_bindings!();
 
     // `tstiop_rpc` is still described by bindgen, so its structs get the
@@ -43,7 +43,6 @@ pub mod bindings {
     }
     impl Struct for tstiop_rpc__test__echo_args__t {}
     impl CStruct for tstiop_rpc__test__echo_args__t {}
-    impl CInstance for tstiop_rpc__test__echo_args__t {}
 
     impl Base for tstiop_rpc__test__echo_res__t {}
     impl StructUnion for tstiop_rpc__test__echo_res__t {
@@ -56,7 +55,6 @@ pub mod bindings {
     }
     impl Struct for tstiop_rpc__test__echo_res__t {}
     impl CStruct for tstiop_rpc__test__echo_res__t {}
-    impl CInstance for tstiop_rpc__test__echo_res__t {}
 }
 
 #[cfg(test)]

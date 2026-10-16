@@ -63,8 +63,8 @@ mod native_tests {
 mod iop_tests {
     use crate::native_tests::iop_env::ENV;
     use libcommon::iop::{
-        CEnum, CInstance as _, CStruct, CStructUnion as _, CUnion, Enum as _, Env, EnvCtx,
-        IopDup as _, StructUnion as _,
+        CEnum, CInstance as _, CStruct, CStructUnion as _, CUnion, Class as _, Enum as _, Env,
+        EnvCtx, IopDup as _, StructUnion as _,
     };
     use libcommon::mem_stack::TScope;
     use libcommon::{iop_get, iop_new, iop_set, lstr};
@@ -75,11 +75,11 @@ mod iop_tests {
         ic__simple_hdr__t, ic__tracer__t, tstiop__basic_struct__t, tstiop__full_opt__t,
         tstiop__full_ref__t, tstiop__full_repeated__t, tstiop__full_required__t,
         tstiop__get_bpack_sz_en__e, tstiop__get_bpack_sz_st__t, tstiop__get_bpack_sz_u__u,
-        tstiop__my_ref_union__u, tstiop__my_referenced_struct__t, tstiop__my_referenced_union__u,
-        tstiop__my_union_a__u, tstiop__my_union_b__u, tstiop__my_union_c__u,
-        tstiop__small_class__t, tstiop__test_class__t, tstiop__test_class_child__t,
-        tstiop__test_class_child2__t, tstiop__test_enum__e, tstiop__test_struct__t,
-        tstiop__test_union__u, tstiop_backward_compat__enum1__e,
+        tstiop__my_parent__t, tstiop__my_ref_union__u, tstiop__my_referenced_struct__t,
+        tstiop__my_referenced_union__u, tstiop__my_union_a__u, tstiop__my_union_b__u,
+        tstiop__my_union_c__u, tstiop__small_class__t, tstiop__test_class__t,
+        tstiop__test_class_child__t, tstiop__test_class_child2__t, tstiop__test_enum__e,
+        tstiop__test_struct__t, tstiop__test_union__u, tstiop_backward_compat__enum1__e,
         tstiop_rust_keywords__keyword_union__u, tstiop_rust_keywords__keywords__t,
         tstiop_typedef__array_test__t, tstiop_typedef__basic_struct_list__t,
         tstiop_typedef__enum1_list__e, tstiop_typedef__enum1_list__t_raw,
@@ -394,7 +394,13 @@ mod iop_tests {
     #[test]
     #[allow(clippy::float_cmp)]
     fn iop_struct_required_fields() {
-        let mut obj = iop_new!(tstiop__full_required);
+        // The union and the class have no default value: the builder
+        // requires them.
+        let mut first_child = iop_new!(tstiop__test_class_child2, { u: 4 });
+        let mut obj = iop_new!(tstiop__full_required, {
+            un: iop_new!(tstiop__test_union::i, 0),
+            o: first_child.upcast_mut(),
+        });
 
         // byte/ubyte field
         iop_set!(obj, { i8__var: -1 });
@@ -456,13 +462,14 @@ mod iop_tests {
         assert_eq!(iop_get!(obj, st.i), 123);
         assert!(iop_get!(obj, st.s).is_null());
 
-        // class field
-        // FIXME: we should not have to make all these unsafe conversions manually
+        // class field: the field holds the child through its parent class
         let mut child = iop_new!(tstiop__test_class_child2, { u: 5 });
-        iop_set!(obj, { o: unsafe { &mut *ptr::from_mut(&mut child).cast::<tstiop__test_class__t>() } });
-        let child2: &tstiop__test_class_child2__t =
-            unsafe { &*ptr::from_ref(iop_get!(obj, o)).cast::<tstiop__test_class_child2__t>() };
-        assert!(ptr::eq(child2, &raw const child));
+        let child_addr = ptr::from_ref(&child);
+        iop_set!(obj, { o: child.upcast_mut() });
+        let child2 = iop_get!(obj, o)
+            .downcast::<tstiop__test_class_child2__t>()
+            .expect("the field should hold a `TestClassChild2`");
+        assert!(ptr::eq(child2, child_addr));
         assert_eq!(iop_get!(child2, u), 5);
 
         // union field
@@ -783,9 +790,7 @@ mod iop_tests {
         let mut un = iop_new!(tstiop__test_union::i, 56);
         let st_addr = ptr::from_ref(&st);
         let un_addr = ptr::from_ref(&un);
-        let mut obj = iop_new!(tstiop__full_ref);
-
-        iop_set!(obj, { st: &mut st, un: &mut un });
+        let obj = iop_new!(tstiop__full_ref, { st: &mut st, un: &mut un });
 
         // reference struct: the field points at `st` itself, not a copy.
         assert!(ptr::eq(ptr::from_ref(&*obj.st), st_addr));
@@ -1078,14 +1083,19 @@ mod iop_tests {
 
     #[test]
     fn a_typedef_of_another_package_aliases_the_type_it_names() {
-        let obj = <tstiop_typedef__struct_with_typedefs_from_ext__t<'static>>::new();
+        // `tstiop_typedef` names types of `tstiop` through typedefs, and
+        // declares the fields of this struct with these typedefs.
+        let mut parent = iop_new!(tstiop__my_parent);
+        let obj = iop_new!(tstiop_typedef__struct_with_typedefs_from_ext, {
+            tdef_c: &mut parent,
+        });
 
         let _: &tstiop_typedef__remote_struct__t = &obj.tdef_s;
         let _: &tstiop_typedef__remote_enum__e = &obj.tdef_e;
 
         // A class is the exception: the alias names the class, and the
-        // field holds it through a reference the typedef knows nothing
-        // about.
+        // field holds it through a reference that the typedef knows
+        // nothing about.
         let _: &&mut tstiop_typedef__remote_class__t = &obj.tdef_c;
     }
 

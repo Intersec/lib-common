@@ -218,21 +218,26 @@ pub trait CStructUnion: Sized + StructUnion {
     const CDESC: *const iop_struct_t;
 }
 
-/// IOP trait implemented by a C IOP struct or union that can be
-/// instantiated.
+/// IOP trait implemented by a C IOP struct that can be instantiated.
 ///
-/// `iop_init_desc()` panics on an abstract class, hence `iopc` implements
-/// it for every struct and union but not for one: an abstract class keeps
-/// [`CStructUnion`], which only names the C description.
-pub trait CInstance: CStructUnion {
+/// The constructors take the value of `iop_init_desc()`: zeroes, the
+/// default values, and the `vptr` of a class. `iopc` implements the trait
+/// only for a struct whose initial value is a valid Rust value. A union
+/// selects no variant, and a required reference or a required or optional
+/// strict enum with no zero value would hold an invalid value.
+/// `iop_init_desc()` also panics on an abstract class. A struct without
+/// `CInstance` is built with [`iop_new!`](crate::iop_new) and the fields that it requires.
+///
+/// # Safety
+///
+/// The value of `iop_init_desc()` on [`CStructUnion::CDESC`] must be a
+/// valid value of the type.
+pub unsafe trait CInstance: CStructUnion {
     /// Create an empty value with the default arguments.
     fn new() -> Self {
-        let mut res = MaybeUninit::<Self>::uninit();
-
-        unsafe {
-            iop_init_desc(Self::CDESC, res.as_mut_ptr().cast::<c_void>());
-        }
-        unsafe { res.assume_init() }
+        // SAFETY: the implementer of `CInstance` guarantees that the
+        // initial value is valid.
+        unsafe { __iop_init::<Self>().assume_init() }
     }
 
     /// Create a new IOP value on a `t_scope`.
@@ -282,7 +287,7 @@ pub trait Class: CStructUnion {
 pub trait Union: StructUnion {}
 
 /// IOP trait implemented by a C IOP union.
-pub trait CUnion: Union + CInstance {}
+pub trait CUnion: Union + CStructUnion {}
 
 // }}}
 // {{{ IOP Struct
@@ -291,7 +296,7 @@ pub trait CUnion: Union + CInstance {}
 pub trait Struct: StructUnion {}
 
 /// IOP trait implemented by a C IOP struct.
-pub trait CStruct: Struct + CInstance {}
+pub trait CStruct: Struct + CStructUnion {}
 
 // }}}
 // {{{ IOP Generic struct or union
@@ -1014,6 +1019,15 @@ impl<'a, T> IopArray<'a, T> {
 /// union. A union therefore has no default value, and the no-argument
 /// form does not apply to it.
 ///
+/// The form with fields goes through the builder that `iopc` writes for
+/// the struct. It starts from the value of `iop_init_desc()`, so the
+/// default values, the padding and the `vptr` of a class are set. A
+/// field that has no valid initial value must be in the list: a required
+/// union, reference or class, or a required or optional strict enum with
+/// no zero value. If one is missing, the build fails and names it. The
+/// no-argument form needs [`CInstance`], which only the structs with no
+/// such field implement.
+///
 /// Fields are public and plain, so these macros just do `.field` access,
 /// going through `IopFrom` for every value: it reduces to a no-op for an
 /// already-correctly-typed one, and otherwise does the real work —
@@ -1039,11 +1053,10 @@ macro_rules! iop_new {
     // Struct or class, with field initialization.
     ($type:ident, { $($field:ident : $value:expr),* $(,)? }) => {{
         $crate::paste::paste! {
-            let mut obj = <[<$type __t>]>::new();
-            $(
-                obj.$field = $crate::iop::IopFrom::iop_from($value);
-            )*
-            obj
+            $crate::iop::IopBuild::__iop_build(
+                <[<$type __t>]>::builder()
+                    $(.$field($crate::iop::IopFrom::iop_from($value)))*
+            )
         }
     }};
 }
@@ -1175,6 +1188,55 @@ macro_rules! iop_get {
     ($obj:expr, $field:ident) => {
         ($obj).$field
     };
+}
+
+// }}}
+// {{{ Builders
+
+/// The state of the field `F` of a builder, before its setter runs.
+///
+/// `F` is a marker type that `iopc` names after the field, so that an
+/// error names the field that is not set.
+pub struct Unset<F>(PhantomData<F>);
+
+/// The state of a field of a builder, after its setter runs.
+pub struct Set;
+
+/// Implemented by the state of a field that is set.
+#[diagnostic::on_unimplemented(
+    message = "a required IOP field is not set: `{Self}`",
+    label = "this builder misses a field",
+    note = "set each required union, reference or class, and each strict enum with no zero value"
+)]
+pub trait IsSet {}
+
+impl IsSet for Set {}
+
+/// Builds an IOP struct from the builder that `iopc` writes for it.
+///
+/// `iopc` implements this trait only when each field that has no valid
+/// initial value is set: a required union, reference or class, or a
+/// required or optional strict enum with no zero value.
+pub trait IopBuild {
+    type Output;
+
+    fn __iop_build(self) -> Self::Output;
+}
+
+/// The initial value of `S`, which `iop_init_desc()` gives.
+///
+/// Some fields of this value can be invalid in Rust: a builder sets them
+/// before it calls `assume_init()`.
+#[doc(hidden)]
+#[inline]
+#[must_use]
+pub fn __iop_init<S: CStructUnion>() -> MaybeUninit<S> {
+    let mut value = MaybeUninit::<S>::uninit();
+
+    unsafe {
+        iop_init_desc(S::CDESC, value.as_mut_ptr().cast::<c_void>());
+    }
+    value
 }
 
 // }}}

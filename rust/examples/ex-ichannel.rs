@@ -66,7 +66,7 @@ use crate::bindings::{
 #[waf_cargo_build::bindings_mod]
 pub mod bindings {
     pub use ichannel::bindings::*;
-    use libcommon::iop::{Base, CInstance, CStruct, CStructUnion, Struct, StructUnion};
+    use libcommon::iop::{Base, CStruct, CStructUnion, Struct, StructUnion};
     waf_cargo_build::include_bindings!();
 
     // iopc names an RPC argument after the struct it reuses, where bindgen
@@ -101,7 +101,6 @@ pub mod bindings {
     }
     impl Struct for exiop__hello_iface__send_res__t {}
     impl CStruct for exiop__hello_iface__send_res__t {}
-    impl CInstance for exiop__hello_iface__send_res__t {}
 }
 
 /// Gathers the "global" state of the example in a single place.

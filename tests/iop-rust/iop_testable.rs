@@ -24,7 +24,7 @@
 //! from the IOP descriptor.
 
 use crate::bindings::{iop_testable_is_private, iop_testable_is_testable};
-use libcommon::iop::{CStruct, Class, EnvCtx, StructUnion as _};
+use libcommon::iop::{CInstance, CStruct, Class, EnvCtx, StructUnion as _};
 use libcommon::mem_stack::TScope;
 use std::ptr;
 
@@ -36,7 +36,7 @@ pub enum Pack {
     Yaml,
 }
 
-fn is_testable<T: CStruct>() -> bool {
+fn is_testable<T: CStruct + CInstance>() -> bool {
     // SAFETY: `CDESC` is a static IOP descriptor.
     unsafe { iop_testable_is_testable(T::CDESC) }
 }
@@ -47,7 +47,7 @@ fn is_testable<T: CStruct>() -> bool {
 /// # Panics
 ///
 /// The round-trip fails or gives other bytes.
-pub fn roundtrip<T: CStruct>(env: &EnvCtx, pack: Pack) {
+pub fn roundtrip<T: CStruct + CInstance>(env: &EnvCtx, pack: Pack) {
     // SAFETY: `CDESC` is a static IOP descriptor.
     if !is_testable::<T>()
         || (matches!(pack, Pack::Yaml) && unsafe { iop_testable_is_private(T::CDESC) })
@@ -91,7 +91,7 @@ pub fn roundtrip<T: CStruct>(env: &EnvCtx, pack: Pack) {
 /// # Panics
 ///
 /// A constraint fails.
-pub fn check_constraints<T: CStruct>() {
+pub fn check_constraints<T: CStruct + CInstance>() {
     if is_testable::<T>() {
         T::new()
             .check_constraints()
@@ -107,7 +107,7 @@ pub fn check_constraints<T: CStruct>() {
 /// One of the two fails.
 pub fn cast<C>()
 where
-    C: CStruct + Class,
+    C: CStruct + CInstance + Class,
     C::Parent: Class,
 {
     let child = C::new();

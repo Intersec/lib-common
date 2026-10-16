@@ -103,6 +103,65 @@ static bool iopc_rust_field_is_emitted(const iopc_field_t *f)
     return f->kind != IOP_T_VOID || f->repeat == IOP_R_OPTIONAL;
 }
 
+static bool iopc_rust_enum_is_strict(const iopc_enum_t *en)
+{
+    return iopc_attr_check(&en->attrs, IOPC_ATTR_STRICT, NULL) >= 0;
+}
+
+/* Whether zero is a valid Rust value of the enum `en`. The Rust enum of a
+ * strict enum holds only the values that it names. */
+static bool iopc_rust_enum_accepts_zero(const iopc_enum_t *en)
+{
+    if (!iopc_rust_enum_is_strict(en)) {
+        return true;
+    }
+    tab_for_each_entry(v, &en->values) {
+        if (v->value == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool iopc_rust_init_is_valid(const iopc_struct_t *st);
+
+/* Whether the field `f` has no valid initial value in Rust, so that its
+ * builder requires it. An `IopOption` holds a value even when it is not
+ * set, and an array is empty. */
+static bool iopc_rust_field_must_be_set(const iopc_field_t *f)
+{
+    if (f->kind == IOP_T_ENUM && !iopc_rust_enum_accepts_zero(f->enum_def) &&
+        (f->repeat == IOP_R_REQUIRED || f->repeat == IOP_R_OPTIONAL))
+    {
+        return true;
+    }
+    return f->repeat == IOP_R_REQUIRED &&
+           (iopc_rust_field_is_ref_like(f) || f->kind == IOP_T_UNION ||
+            (f->kind == IOP_T_STRUCT &&
+             !iopc_rust_init_is_valid(f->struct_def)));
+}
+
+/* Whether `iop_init_desc()` gives a valid Rust value of `st`. It zeroes the
+ * value, then sets the default values and the `vptr` of a class. A zeroed
+ * union selects no variant, and a zeroed reference is null. */
+static bool iopc_rust_init_is_valid(const iopc_struct_t *st)
+{
+    if (st->type == STRUCT_TYPE_UNION) {
+        return false;
+    }
+    if (st->type == STRUCT_TYPE_CLASS && st->extends.len > 0 &&
+        !iopc_rust_init_is_valid(st->extends.tab[0]->st))
+    {
+        return false;
+    }
+    tab_for_each_entry(f, &st->fields) {
+        if (iopc_rust_field_must_be_set(f)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static bool iopc_rust_field_is_string(const iopc_field_t *f)
 {
     return (
@@ -381,13 +440,11 @@ static iopc_rust_type_t t_iopc_rust_repeat_type(
 /* }}} */
 /* {{{ Constraint helpers */
 
-/* Dumps the field `f` with its type wrapped by its repeat. */
-static void iopc_rust_field_per_constraint(
-    sb_t *buf, iopc_struct_t *st, const iopc_field_t *f
+/* The Rust type of the field `f` of `st`, and the comment of its repeat. */
+static lstr_t t_iopc_rust_field_type(
+    iopc_struct_t *st, const iopc_field_t *f, const char **comment_out
 )
 {
-    t_scope;
-    lstr_t field_name = t_iopc_rust_field_name(f);
     iopc_rust_type_t type = {.name = t_iopc_rust_get_type(f)};
     const char *lt = iopc_rust_struct_needs_lifetime(st) ? "'a " : "";
     const char *comment = NULL;
@@ -417,10 +474,23 @@ static void iopc_rust_field_per_constraint(
     if (f->kind != IOP_T_VOID) {
         type = t_iopc_rust_repeat_type(f, type, lt);
     }
+    if (comment_out) {
+        *comment_out = comment;
+    }
+    return type.name;
+}
 
-    sb_addf(
-        buf, "    pub %pL: %pL, // %s\n", &field_name, &type.name, comment
-    );
+/* Dumps the field `f` with its type wrapped by its repeat. */
+static void iopc_rust_field_per_constraint(
+    sb_t *buf, iopc_struct_t *st, const iopc_field_t *f
+)
+{
+    t_scope;
+    lstr_t field_name = t_iopc_rust_field_name(f);
+    const char *comment;
+    lstr_t type = t_iopc_rust_field_type(st, f, &comment);
+
+    sb_addf(buf, "    pub %pL: %pL, // %s\n", &field_name, &type, comment);
 }
 
 /* }}} */
@@ -624,18 +694,25 @@ static void iopc_rust_dump_needed_traits_for_structs(
     case STRUCT_TYPE_CLASS:
     case STRUCT_TYPE_STRUCT: {
         iopc_rust_dump_marker_trait(buf, "Struct", name);
-        /* `CStruct` carries `new()`, and initializing an abstract class
-         * is forbidden, so it only gets the dyn-dispatch marker. */
-        if (st->type != STRUCT_TYPE_CLASS || !st->is_abstract) {
-            iopc_rust_dump_marker_trait(buf, "CStruct", name);
-            iopc_rust_dump_marker_trait(buf, "CInstance", name);
+        /* Initializing an abstract class is forbidden, so it only gets the
+         * dyn-dispatch marker. */
+        if (st->type == STRUCT_TYPE_CLASS && st->is_abstract) {
+            break;
+        }
+        iopc_rust_dump_marker_trait(buf, "CStruct", name);
+        /* `CInstance` carries `new()`. Its implementation is `unsafe`,
+         * because it promises that the initial value is valid. */
+        if (iopc_rust_init_is_valid(st)) {
+            sb_addf(
+                buf, "unsafe impl " RUST_LC_IOP "CInstance for %pL {}\n",
+                &name
+            );
         }
         break;
     }
     case STRUCT_TYPE_UNION: {
         iopc_rust_dump_marker_trait(buf, "Union", name);
         iopc_rust_dump_marker_trait(buf, "CUnion", name);
-        iopc_rust_dump_marker_trait(buf, "CInstance", name);
         break;
     }
     default:
@@ -727,6 +804,202 @@ static void iopc_rust_dump_ctype_aliases(
 
 /* }}} */
 /* }}} */
+/* {{{ Builders */
+
+/* The builder of a struct. Each field that has no valid initial value is
+ * a type parameter of the builder: `Unset<marker>` until its setter runs,
+ * and `Set` after. */
+typedef struct iopc_rust_builder_t {
+    lstr_t name;
+    /* The module of the markers of the fields to set. */
+    lstr_t fields_mod;
+    const char *lt;
+    /* The names of the fields to set. */
+    qv_t(lstr) params;
+    /* The index of the next field to set, while the setters are dumped. */
+    int param;
+} iopc_rust_builder_t;
+
+typedef enum iopc_rust_generics_t {
+    /* `M0, M1`: one parameter per field to set. */
+    IOPC_RUST_GENERICS_PARAMS,
+    /* `M0: IsSet, M1: IsSet`. */
+    IOPC_RUST_GENERICS_BOUNDS,
+    /* `Unset<fields::a>, Unset<fields::b>`. */
+    IOPC_RUST_GENERICS_UNSET,
+} iopc_rust_generics_t;
+
+/* The generics of the builder, between `<>`, or nothing if it has none.
+ * The parameter `set` is `Set`. */
+static lstr_t t_iopc_rust_builder_generics(
+    const iopc_rust_builder_t *b, iopc_rust_generics_t kind, int set
+)
+{
+    SB_1k(sb);
+
+    if (*b->lt) {
+        sb_adds(&sb, "'a, ");
+    }
+    tab_for_each_pos(i, &b->params) {
+        if (i == set) {
+            sb_adds(&sb, RUST_LC_IOP "Set, ");
+        } else if (kind == IOPC_RUST_GENERICS_UNSET) {
+            sb_addf(
+                &sb, RUST_LC_IOP "Unset<%pL::%pL>, ", &b->fields_mod,
+                &b->params.tab[i]
+            );
+        } else if (kind == IOPC_RUST_GENERICS_BOUNDS) {
+            sb_addf(&sb, "M%d: " RUST_LC_IOP "IsSet, ", i);
+        } else {
+            sb_addf(&sb, "M%d, ", i);
+        }
+    }
+    if (!sb.len) {
+        return LSTR("");
+    }
+    /* Drop the last ", ". */
+    return t_lstr_fmt("<%*pM>", sb.len - 2, sb.data);
+}
+
+/* Walks the fields of `st` and of its parent classes. It lists the fields
+ * to set if `buf` is NULL, and dumps a setter per field otherwise. */
+static void t_iopc_rust_builder_walk(
+    sb_t *nullable buf, iopc_rust_builder_t *b, iopc_struct_t *st
+)
+{
+    if (st->type == STRUCT_TYPE_CLASS && st->extends.len > 0) {
+        t_iopc_rust_builder_walk(buf, b, st->extends.tab[0]->st);
+    }
+    iopc_struct_optimize(st);
+    tab_for_each_entry(f, &st->fields_in_c_struct_order) {
+        bool must_be_set;
+        lstr_t field_name, type, ret;
+
+        if (!iopc_rust_field_is_emitted(f)) {
+            continue;
+        }
+        must_be_set = iopc_rust_field_must_be_set(f);
+        field_name = t_iopc_rust_field_name(f);
+        if (!buf) {
+            if (must_be_set) {
+                qv_append(&b->params, field_name);
+            }
+            continue;
+        }
+        type = t_iopc_rust_field_type(st, f, NULL);
+        ret = LSTR("Self");
+        if (must_be_set) {
+            lstr_t generics = t_iopc_rust_builder_generics(
+                b, IOPC_RUST_GENERICS_PARAMS, b->param
+            );
+
+            ret = t_lstr_fmt("%pL%pL", &b->name, &generics);
+        }
+        sb_addf(
+            buf,
+            "    #[inline]\n"
+            "    pub fn %pL(mut self, value: %pL) -> %pL {\n"
+            "        unsafe {\n"
+            "            (&raw mut (*self.value.as_mut_ptr()).%pL)"
+            ".write(value);\n"
+            "        }\n",
+            &field_name, &type, &ret, &field_name
+        );
+        if (must_be_set) {
+            sb_addf(
+                buf,
+                "        %pL {\n"
+                "            value: self.value,\n"
+                "            set: ::core::marker::PhantomData,\n"
+                "        }\n",
+                &b->name
+            );
+            b->param++;
+        } else {
+            sb_adds(buf, "        self\n");
+        }
+        sb_adds(buf, "    }\n");
+    }
+}
+
+/* Dumps the builder of the struct or class `st`. `IopBuild` builds the
+ * value only when each field that has no valid initial value is set, so
+ * a missing field is a compilation error. */
+static void iopc_rust_dump_builder(
+    sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st, lstr_t st_name,
+    const char *lt
+)
+{
+    t_scope;
+    iopc_rust_builder_t b = {
+        .name = t_format_symbol_name(pkg, st->name, "t__builder", ""),
+        .fields_mod = t_format_symbol_name(pkg, st->name, "t__fields", ""),
+        .lt = lt,
+    };
+    lstr_t params, bounds, unset;
+    SB_1k(phantom);
+
+    t_qv_init(&b.params, 8);
+    t_iopc_rust_builder_walk(NULL, &b, st);
+    params = t_iopc_rust_builder_generics(&b, IOPC_RUST_GENERICS_PARAMS, -1);
+    bounds = t_iopc_rust_builder_generics(&b, IOPC_RUST_GENERICS_BOUNDS, -1);
+    unset = t_iopc_rust_builder_generics(&b, IOPC_RUST_GENERICS_UNSET, -1);
+
+    tab_for_each_pos(i, &b.params) {
+        sb_addf(&phantom, "%sM%d", i ? ", " : "", i);
+    }
+    if (b.params.len == 1) {
+        sb_adds(&phantom, ",");
+    }
+
+    if (b.params.len) {
+        sb_addf(
+            buf,
+            "#[allow(nonstandard_style)]\n"
+            "pub mod %pL {\n",
+            &b.fields_mod
+        );
+        tab_for_each_entry(param, &b.params) {
+            sb_addf(buf, "    pub struct %pL;\n", &param);
+        }
+        sb_adds(buf, "}\n\n");
+    }
+    sb_addf(
+        buf,
+        "#[allow(nonstandard_style)]\n"
+        "pub struct %pL%pL {\n"
+        "    value: ::core::mem::MaybeUninit<%pL>,\n"
+        "    set: ::core::marker::PhantomData<(%*pM)>,\n"
+        "}\n\n"
+        "impl%s %pL {\n"
+        "    #[inline]\n"
+        "    pub fn builder() -> %pL%pL {\n"
+        "        %pL {\n"
+        "            value: " RUST_LC_IOP "__iop_init(),\n"
+        "            set: ::core::marker::PhantomData,\n"
+        "        }\n"
+        "    }\n"
+        "}\n\n"
+        "impl%pL %pL%pL {\n",
+        &b.name, &params, &st_name, SB_FMT_ARG(&phantom), lt, &st_name,
+        &b.name, &unset, &b.name, &params, &b.name, &params
+    );
+    t_iopc_rust_builder_walk(buf, &b, st);
+    sb_addf(
+        buf,
+        "}\n\n"
+        "impl%pL " RUST_LC_IOP "IopBuild for %pL%pL {\n"
+        "    type Output = %pL;\n\n"
+        "    #[inline]\n"
+        "    fn __iop_build(self) -> %pL {\n"
+        "        unsafe { self.value.assume_init() }\n"
+        "    }\n"
+        "}\n\n",
+        &bounds, &b.name, &params, &st_name, &st_name
+    );
+}
+
+/* }}} */
 /* {{{ Structures management */
 
 /* Dumps the aliases of the struct, union or class `st`: the names that
@@ -747,13 +1020,15 @@ iopc_rust_dump_struct(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
     t_scope;
     const char *lt = iopc_rust_add_lifetime(st);
     lstr_t st_name = t_format_type_name(pkg, st, st->name, lt);
+    bool is_empty;
 
     iopc_struct_optimize(st);
+    is_empty = iopc_rust_is_struct_empty(st);
     sb_adds(
         buf, "#[repr(C)]\n"
              "#[allow(nonstandard_style)]\n"
     );
-    if (iopc_rust_is_struct_empty(st)) {
+    if (is_empty) {
         sb_addf(buf, "pub struct %pL;\n\n", &st_name);
     } else {
         sb_addf(buf, "pub struct %pL {\n", &st_name);
@@ -761,6 +1036,9 @@ iopc_rust_dump_struct(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
     }
     iopc_rust_dump_struct_desc(buf, pkg, st->name);
     iopc_rust_dump_needed_traits_for_structs(buf, pkg, st);
+    if (!is_empty) {
+        iopc_rust_dump_builder(buf, pkg, st, st_name, lt);
+    }
     iopc_rust_dump_st_aliases(buf, pkg, st, st_name, lt);
 }
 
@@ -830,7 +1108,7 @@ iopc_rust_dump_enum(sb_t *buf, const iopc_pkg_t *pkg, const iopc_enum_t *en)
     t_scope;
     lstr_t en_name = t_format_symbol_name(pkg, en->name, "e", "");
 
-    if (iopc_attr_check(&en->attrs, IOPC_ATTR_STRICT, NULL) >= 0) {
+    if (iopc_rust_enum_is_strict(en)) {
         iopc_rust_dump_strict_enum_type(buf, en_name, en);
     } else {
         iopc_rust_dump_open_enum_type(buf, en_name, en);
@@ -971,6 +1249,9 @@ iopc_rust_dump_class(sb_t *buf, const iopc_pkg_t *pkg, iopc_struct_t *st)
     );
     iopc_rust_dump_struct_desc(buf, pkg, st->name);
     iopc_rust_dump_needed_traits_for_structs(buf, pkg, st);
+    if (!st->is_abstract) {
+        iopc_rust_dump_builder(buf, pkg, st, st_name, lt);
+    }
     iopc_rust_dump_st_aliases(buf, pkg, st, st_name, lt);
 }
 
