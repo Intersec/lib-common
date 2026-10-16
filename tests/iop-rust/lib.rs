@@ -64,7 +64,7 @@ mod iop_tests {
     use crate::native_tests::iop_env::ENV;
     use libcommon::iop::{
         CEnum, CInstance as _, CStruct, CStructUnion as _, CUnion, Class as _, Enum as _, Env,
-        EnvCtx, IopDup as _, StructUnion as _,
+        EnvCtx, IopDup as _, IopIface, IopModule as _, IopRPC, StructUnion as _,
     };
     use libcommon::mem_stack::TScope;
     use libcommon::{iop_get, iop_new, iop_set, lstr};
@@ -1131,14 +1131,17 @@ mod iop_tests {
     // {{{ RPCs and modules
 
     use crate::bindings::{
-        iop__void__t, iop_rpc_t, tstiop__both_iface__a__TAG, tstiop__both_iface__iface__TAG,
-        tstiop__both_iface__mod, tstiop__iface__if, tstiop__my_iface_a__fun_a__rpc__tag,
-        tstiop__my_iface_a__fun_a_args__s, tstiop__my_iface_a__fun_async__rpc__async,
+        iop__void__t, iop_rpc_t, tstiop__both_iface__a__TAG, tstiop__both_iface__a__fun_c__rpc,
+        tstiop__both_iface__iface__TAG, tstiop__both_iface__mod, tstiop__iface__if,
+        tstiop__my_iface_a__fun_a__rpc__tag, tstiop__my_iface_a__fun_a_args__s,
+        tstiop__my_iface_a__fun_a_args__t, tstiop__my_iface_a__fun_async__rpc__async,
         tstiop__my_iface_a__fun_async__rpc__tag, tstiop__my_iface_a__fun_c__rpc__async,
         tstiop__my_iface_a__fun_c__rpc__tag, tstiop__my_iface_a__fun_c_args__t,
         tstiop__my_iface_a__fun_c_res__t, tstiop__my_iface_a__fun_h_res__t, tstiop__my_iface_a__if,
         tstiop__my_struct_a__s, tstiop__my_struct_a__t, tstiop__my_struct_b__s,
-        tstiop__my_struct_b__t,
+        tstiop__my_struct_b__t, tstiop_cross_mount__cross_mount__a__fun_a__rpc,
+        tstiop_cross_mount__cross_mount__mod, tstiop_dox__my_iface__fun_c__rpc__tag,
+        tstiop_dox__my_module__iface__fun_c__rpc, tstiop_dox__my_struct__s,
     };
 
     /// The RPC of the interface `MyIfaceA` with the tag `tag`, from its C
@@ -1216,6 +1219,75 @@ mod iop_tests {
             iface_of(tstiop__both_iface__iface__TAG),
             Some(&raw const tstiop__iface__if)
         );
+    }
+
+    #[test]
+    fn the_markers_of_an_rpc_name_its_c_descriptors() {
+        // `module BothIface { MyIfaceA a; ... }`, and `funC` has the tag 3.
+        type Rpc = tstiop__both_iface__a__fun_c__rpc;
+        let rpc = unsafe { &*Rpc::rpc_desc() };
+
+        assert_eq!(rpc.tag, u32::from(tstiop__my_iface_a__fun_c__rpc__tag));
+        assert_eq!(rpc.args, &raw const tstiop__my_struct_a__s);
+        assert_eq!(Rpc::CMD, (1 << 16) | 3);
+        assert_eq!(
+            <Rpc as IopRPC>::Iface::iface_desc(),
+            &raw const tstiop__my_iface_a__if
+        );
+        assert_eq!(
+            <<Rpc as IopRPC>::Iface as IopIface>::Module::mod_desc(),
+            &raw const tstiop__both_iface__mod
+        );
+    }
+
+    #[test]
+    fn the_marker_of_an_rpc_points_after_the_aliases_of_the_previous_ones() {
+        // The descriptor has an entry for each `@alias` of an RPC, after
+        // the entry of the RPC.
+        // `@alias(funBal1) @alias(funBal2) funB`, then `funC`.
+        let fun_c = unsafe { &*tstiop_dox__my_module__iface__fun_c__rpc::rpc_desc() };
+
+        assert_eq!(fun_c.tag, u32::from(tstiop_dox__my_iface__fun_c__rpc__tag));
+        assert_eq!(
+            fun_c.args, &raw const tstiop_dox__my_struct__s,
+            "funC takes a MyStruct"
+        );
+    }
+
+    #[test]
+    fn the_markers_of_a_mount_from_another_package() {
+        // `module CrossMount { tstiop.MyIfaceA a; }` in its own package.
+        type Rpc = tstiop_cross_mount__cross_mount__a__fun_a__rpc;
+
+        // The anonymous struct of `funA` holds a `MyStructA`, which
+        // borrows: the marker keeps its lifetime.
+        fn same_arg(a: <Rpc as IopRPC>::Arg<'_>) -> tstiop__my_iface_a__fun_a_args__t<'_> {
+            a
+        }
+
+        let rpc = unsafe { &*Rpc::rpc_desc() };
+
+        assert_eq!(rpc.tag, u32::from(tstiop__my_iface_a__fun_a__rpc__tag));
+        assert_eq!(rpc.args, &raw const tstiop__my_iface_a__fun_a_args__s);
+        assert_eq!(Rpc::CMD, (1 << 16) | 1);
+        assert_eq!(
+            <Rpc as IopRPC>::Iface::iface_desc(),
+            &raw const tstiop__my_iface_a__if
+        );
+        assert_eq!(
+            <<Rpc as IopRPC>::Iface as IopIface>::Module::mod_desc(),
+            &raw const tstiop_cross_mount__cross_mount__mod
+        );
+        let _ = same_arg;
+    }
+
+    #[test]
+    fn the_marker_of_an_rpc_names_its_types() {
+        // `funC in MyStructA out MyStructB`, a struct of the package.
+        type Rpc = tstiop__both_iface__a__fun_c__rpc;
+        let _ = |a: <Rpc as IopRPC>::Arg<'static>| -> tstiop__my_struct_a__t<'static> { a };
+        let _ = |r: <Rpc as IopRPC>::Res<'static>| -> tstiop__my_struct_b__t<'static> { r };
+        let _ = |e: <Rpc as IopRPC>::Exn<'static>| -> iop__void__t { e };
     }
 
     // }}}

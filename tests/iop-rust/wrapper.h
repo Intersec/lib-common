@@ -28,3 +28,5 @@
 #include "../iop/tstiop_inheritance.iop.h"
 #include "../iop/tstiop_dotted/pkg.iop.h"
 #include "../iop/tstiop_rust_keywords.iop.h"
+#include "../iop/tstiop_dox.iop.h"
+#include "../iop/tstiop_cross_mount.iop.h"

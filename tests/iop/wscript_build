@@ -27,6 +27,7 @@ ctx.stlib(
     source=[
         'tstiop.iop',
         'tstiop_rpc.iop',
+        'tstiop_cross_mount.iop',
         'tstiop_inheritance.iop',
         'tstiop_backward_compat.iop',
         'tstiop_backward_compat_deleted_struct_1.iop',

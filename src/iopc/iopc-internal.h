@@ -661,6 +661,8 @@ typedef struct iopc_field_t {
     iopc_path_t *type_path;
     /** package of the resolved complex type */
     iopc_pkg_t *type_pkg;
+    /** for a field of a module, the interface that it mounts */
+    struct iopc_iface_t *iface_def;
     /** in case of a typedef, package of the typedef, otherwise same as
      * type_pkg */
     iopc_pkg_t *found_pkg;
@@ -1189,6 +1191,11 @@ lstr_t t_iopc_enum_get_prefix(const iopc_enum_t *en);
 /** The prefix of the C names that the `@ctype` `ctype` gives: `ctype`
  * without its `__t` suffix. */
 lstr_t iopc_ctype_get_prefix(lstr_t ctype);
+
+/** The position of the RPC `fun` in the descriptor of the interface
+ * `iface`. The descriptor has an entry for each `@alias` of an RPC after the
+ * entry of the RPC. */
+int iopc_iface_fun_pos(const iopc_iface_t *iface, const iopc_fun_t *fun);
 
 int iopc_do_c(iopc_pkg_t *pkg, const char *outdir);
 int iopc_do_json(iopc_pkg_t *pkg, const char *outdir);

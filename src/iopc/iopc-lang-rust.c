@@ -1116,13 +1116,24 @@ static void iopc_rust_dump_builder(
 /* {{{ Structures management */
 
 /* Dumps the aliases of the struct, union or class `st`: the names that
- * bindgen and its `@ctype` give it. */
+ * bindgen and its `@ctype` give it. Dumps its `WithLifetime`, which names
+ * it without knowing whether it borrows, as an RPC that reuses it does. */
 static void iopc_rust_dump_st_aliases(
     sb_t *buf, const char *tbase, iopc_struct_t *st, lstr_t st_name,
     const char *lt
 )
 {
+    t_scope;
+    lstr_t of_name = t_format_st_name(tbase, st, *lt ? "<'a>" : "");
+
     iopc_rust_dump_st_raw_aliases(buf, tbase, st);
+    sb_addf(
+        buf,
+        "impl " RUST_LC_IOP "WithLifetime for %s__t_raw {\n"
+        "    type Of<'a> = %pL;\n"
+        "}\n",
+        tbase, &of_name
+    );
     iopc_rust_dump_ctype_aliases(buf, tbase, &st->attrs, st_name, lt, false);
     sb_adds(buf, "\n");
 }
@@ -1608,6 +1619,114 @@ static void iopc_rust_dump_module(
 }
 
 /* }}} */
+/* {{{ RPC markers */
+
+/* The type of the arguments, the result or the exception of an RPC, as a
+ * function of the lifetime `'a`. */
+static lstr_t t_iopc_rust_rpc_part_type(
+    const char *fbase, const char *part, const iopc_fun_struct_t *fun_st
+)
+{
+    if (iopc_fun_struct_is_void(fun_st)) {
+        return LSTR(RUST_LC_C "iop__void__t");
+    }
+    /* Whether a struct that the RPC reuses borrows is unknown, see
+     * iopc_rust_dump_rpc_struct(). An anonymous struct has a
+     * `WithLifetime` too, so one form names both. */
+    return t_lstr_fmt(
+        "<%s_%s__t_raw as " RUST_LC_IOP "WithLifetime>::Of<'a>", fbase, part
+    );
+}
+
+/* The marker of the RPC `fun` of the interface `iface`, which the module
+ * marker `mbase` mounts with the field `f`. */
+static void iopc_rust_dump_rpc_marker(
+    sb_t *buf, const char *mbase, const iopc_field_t *f,
+    const iopc_iface_t *iface, const char *ibase, const iopc_fun_t *fun
+)
+{
+    t_scope;
+    const char *fbase = t_fmt("%s__%s", ibase, t_cstring(fun->name));
+    const char *marker = t_fmt(
+        "%s__%s__%s__rpc", mbase, t_cstring(f->name), t_cstring(fun->name)
+    );
+    lstr_t arg = t_iopc_rust_rpc_part_type(fbase, "args", &fun->arg);
+    lstr_t res = t_iopc_rust_rpc_part_type(fbase, "res", &fun->res);
+    lstr_t exn = t_iopc_rust_rpc_part_type(fbase, "exn", &fun->exn);
+
+    sb_addf(
+        buf,
+        "#[allow(nonstandard_style)]\n"
+        "pub struct %s;\n\n"
+        "impl " RUST_LC_IOP "IopRPC for %s {\n"
+        "    type Iface = %s__%s__iface;\n"
+        "    type Arg<'a> = %pL;\n"
+        "    type Res<'a> = %pL;\n"
+        "    type Exn<'a> = %pL;\n\n",
+        marker, marker, mbase, t_cstring(f->name), &arg, &res, &exn
+    );
+    sb_addf(
+        buf,
+        "    const CMD: i32 = %#010x;\n\n"
+        "    fn rpc_desc() -> *const " RUST_LC_C "iop_rpc_t {\n"
+        "        unsafe { %s__if.funs.add(%d) }\n"
+        "    }\n"
+        "}\n\n",
+        (f->tag << 16) | fun->tag, ibase, iopc_iface_fun_pos(iface, fun)
+    );
+}
+
+/* The markers of the module `mod`, of each interface that it mounts and of
+ * each RPC of these interfaces. */
+static void iopc_rust_dump_module_markers(
+    sb_t *buf, const iopc_pkg_t *pkg, const iopc_struct_t *mod
+)
+{
+    t_scope;
+    const char *mbase = t_iopc_rust_c_base(pkg, mod->name);
+
+    sb_addf(
+        buf,
+        "#[allow(nonstandard_style)]\n"
+        "pub struct %s__module;\n\n"
+        "impl " RUST_LC_IOP "IopModule for %s__module {\n"
+        "    fn mod_desc() -> *const " RUST_LC_C "iop_mod_t {\n"
+        "        &raw const %s__mod\n"
+        "    }\n"
+        "}\n\n",
+        mbase, mbase, mbase
+    );
+
+    tab_for_each_entry(f, &mod->fields) {
+        t_scope;
+        const iopc_iface_t *iface = f->iface_def;
+        const char *ibase;
+        const char *fname = t_cstring(f->name);
+
+        /* An snmpIface has no Rust, see iopc_do_rust(). */
+        if (iopc_is_snmp_iface(iface->type)) {
+            continue;
+        }
+        ibase = t_iopc_rust_c_base(f->type_pkg, iface->name);
+        sb_addf(
+            buf,
+            "#[allow(nonstandard_style)]\n"
+            "pub struct %s__%s__iface;\n\n"
+            "impl " RUST_LC_IOP "IopIface for %s__%s__iface {\n"
+            "    type Module = %s__module;\n\n"
+            "    fn iface_desc() -> *const " RUST_LC_C "iop_iface_t {\n"
+            "        &raw const %s__if\n"
+            "    }\n"
+            "}\n\n",
+            mbase, fname, mbase, fname, mbase, ibase
+        );
+        tab_for_each_entry(fun, &iface->funs) {
+            iopc_rust_dump_rpc_marker(buf, mbase, f, iface, ibase, fun);
+        }
+    }
+}
+
+/* }}} */
 /* {{{ Main functions */
 
 static void iopc_init_rust_dump(const iopc_pkg_t *pkg)
@@ -1698,6 +1817,7 @@ int iopc_do_rust(iopc_pkg_t *pkg)
     }
     tab_for_each_entry(mod, &pkg->modules) {
         iopc_rust_dump_module(&buf, pkg, mod);
+        iopc_rust_dump_module_markers(&buf, pkg, mod);
     }
     sb_addf(
         &buf,

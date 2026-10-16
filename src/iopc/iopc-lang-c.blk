@@ -1742,6 +1742,20 @@ static int iopc_fun_n_aliases(const iopc_fun_t *fun)
     return 0;
 }
 
+int iopc_iface_fun_pos(const iopc_iface_t *iface, const iopc_fun_t *fun)
+{
+    int pos = 0;
+
+    tab_for_each_entry(other, &iface->funs) {
+        if (other == fun) {
+            return pos;
+        }
+        pos += 1 + iopc_fun_n_aliases(other);
+    }
+    assert(false);
+    return -1;
+}
+
 static void iopc_fun_struct_dump_tdef_hdr(
     sb_t *buf, const char *pkg_name, const char *ibase, const char *fbase,
     const char *fun_type, iopc_fun_struct_t *fun_st
@@ -1812,7 +1826,6 @@ static void iopc_iface_dump_hdr(
     t_scope;
     const char *iname = t_iopc_name_to_c(iface->name);
     char *ibase = t_fmt("%s__%s", pkg_name, iname);
-    int j = 0;
 
     sb_addf(
         buf, "/*----- interface %s.%s -----*/\n", iopc_path_dot(pkg->name),
@@ -1831,9 +1844,9 @@ static void iopc_iface_dump_hdr(
             "#define %s__rpc__tag    0x%04x\n"
             "#define %s__rpc__async  %d\n"
             "#define %s__rpc         (%s__if.funs + %d)\n\n",
-            fbase, fun->tag, fbase, fun->fun_is_async, fbase, ibase, j
+            fbase, fun->tag, fbase, fun->fun_is_async, fbase, ibase,
+            iopc_iface_fun_pos(iface, fun)
         );
-        j += 1 + iopc_fun_n_aliases(fun);
     }
     sb_addf(buf, "EXPORT iop_iface_t const %s__if;\n", ibase);
     sb_addf(

@@ -123,10 +123,10 @@ use std::{ptr, slice::from_raw_parts};
 use crate::bindings::{
     iop_bunpack_ptr_flags, iop_check_constraints_desc, iop_enum_t, iop_env_ctx_acquire,
     iop_env_ctx_dup, iop_env_ctx_get_struct, iop_env_ctx_guard_t, iop_env_ctx_release,
-    iop_env_delete, iop_env_new, iop_env_t, iop_get_err_lstr, iop_init_desc, iop_obj_is_a_desc,
-    iop_pkg_t, iop_register_packages, iop_rpc_t, iop_sb_jpack, iop_struct_t, mp_iop_dup_desc_sz,
-    t_iop_bpack_struct_flags, t_iop_junpack_ptr_ps, t_iop_new_desc, t_iop_sb_ypack,
-    t_iop_yunpack_ptr_ps, t_pool,
+    iop_env_delete, iop_env_new, iop_env_t, iop_get_err_lstr, iop_iface_t, iop_init_desc,
+    iop_mod_t, iop_obj_is_a_desc, iop_pkg_t, iop_register_packages, iop_rpc_t, iop_sb_jpack,
+    iop_struct_t, mp_iop_dup_desc_sz, t_iop_bpack_struct_flags, t_iop_junpack_ptr_ps,
+    t_iop_new_desc, t_iop_sb_ypack, t_iop_yunpack_ptr_ps, t_pool,
 };
 
 use crate::lstr;
@@ -603,13 +603,59 @@ impl<T: CStructUnion> IopDup for T {
 
 /*
    Module -> Interface -> RPC
+
+   `iopc` writes a marker type for each module, for each interface that a
+   module mounts, and for each RPC of such an interface. They play the part
+   of the `_mod, _if, _rpc` arguments of the C macros `IOP_RPC()` and
+   `IOP_RPC_CMD()`.
 */
 
-pub trait IopRPC: Base {
-    type Arg<'a>: 'a;
-    type Res<'a>: 'a;
-    type Exn<'a>: 'a;
+/// An IOP struct, union or class, as a function of its lifetime.
+///
+/// `iopc` implements it on the `'static` form of each type, the `_raw`
+/// alias. Code that names a type whose lifetime it does not know, such as a
+/// struct that an RPC reuses, names `<X_raw as WithLifetime>::Of<'a>`.
+pub trait WithLifetime {
+    /// The type with the lifetime `'a`, or the type itself when it borrows
+    /// nothing.
+    type Of<'a>;
+}
 
+/// An IOP module.
+pub trait IopModule {
+    /// The C description of the module.
+    fn mod_desc() -> *const iop_mod_t;
+}
+
+/// An IOP interface, as a module mounts it.
+///
+/// The same interface mounted twice gives two types: the command id of an
+/// RPC depends on the tag of its interface in the module.
+pub trait IopIface {
+    /// The module that mounts the interface.
+    type Module: IopModule;
+
+    /// The C description of the interface, shared by all its mounts.
+    fn iface_desc() -> *const iop_iface_t;
+}
+
+/// An IOP RPC, as a module mounts its interface.
+pub trait IopRPC {
+    /// The interface of the RPC, in its module.
+    type Iface: IopIface;
+
+    /// The types of the arguments, of the result and of the exception. A
+    /// query can copy its arguments, and a reply is rebuilt from the raw
+    /// value that the `IChannel` gives, hence `IopDup`.
+    type Arg<'a>: IopDup + 'a;
+    type Res<'a>: IopDup + 'a;
+    type Exn<'a>: IopDup + 'a;
+
+    /// The command id of the RPC, `IOP_RPC_CMD()` in C: the tag of the
+    /// interface in the module, then the tag of the RPC.
+    const CMD: i32;
+
+    /// The C description of the RPC.
     fn rpc_desc() -> *const iop_rpc_t;
 }
 

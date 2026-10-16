@@ -41,15 +41,15 @@ static iopc_struct_t *pkg_find_module(iopc_pkg_t *pkg, const char *name)
          strequal(__iopc_symbol->name, (_type)));                            \
     })
 
-static bool
+static iopc_iface_t *
 pkg_provides_iface(iopc_pkg_t *pkg, const char *type, bool visible)
 {
     tab_for_each_entry(iface, &pkg->ifaces) {
         if (IS_IOPC_SYMBOL_VISIBLE_AND_TYPE(iface, type, visible)) {
-            return true;
+            return iface;
         }
     }
-    return false;
+    return NULL;
 }
 
 static int
@@ -142,7 +142,8 @@ static int iopc_ifaces_find_n_check(iopc_pkg_t *pkg, iopc_field_t *iface)
     int res = 0;
 
     if (t_pkg) {
-        if (pkg_provides_iface(t_pkg, iface->type_name, false)) {
+        iface->iface_def = pkg_provides_iface(t_pkg, iface->type_name, false);
+        if (iface->iface_def) {
             return 0;
         }
         throw_loc(
@@ -151,7 +152,8 @@ static int iopc_ifaces_find_n_check(iopc_pkg_t *pkg, iopc_field_t *iface)
         );
     }
 
-    if (pkg_provides_iface(pkg, iface->type_name, false)) {
+    iface->iface_def = pkg_provides_iface(pkg, iface->type_name, false);
+    if (iface->iface_def) {
         found = true;
         iface->type_pkg = t_pkg = pkg;
     }
