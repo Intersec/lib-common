@@ -31,7 +31,10 @@
 //! table of the RPCs that a channel serves, each implemented with
 //! [`IopRPCImpl`].
 
-use crate::bindings::{__ic_msg_build, ic__ic_status__e, ic_is_local, ic_msg_set_timeout};
+use crate::bindings::{
+    __ic_msg_build, ev_priority_t, ic__ic_status__e, ic_is_local, ic_msg_set_priority,
+    ic_msg_set_timeout,
+};
 use libcommon::iop::{IopDup as _, IopRPC, Owned, OwnedGeneric, OwnedIop as _, StructUnion as _};
 use libcommon::run_callback::{Callback, CallbackFut, run_callback, run_now};
 use libcommon_core::thr::is_main_c_thread;
@@ -72,6 +75,7 @@ pub struct ICQueryBuilder<'a, RPC: IopRPC> {
     ic: *mut ichannel_t,
     hdr: Option<ic__hdr__u<'a>>,
     timeout: u32,
+    priority: ev_priority_t,
     _rpc: PhantomData<RPC>,
 }
 
@@ -87,6 +91,17 @@ impl<'a, RPC: IopRPC + 'static> ICQueryBuilder<'a, RPC> {
     /// long as the channel lives.
     pub fn timeout(mut self, ms: u32) -> Self {
         self.timeout = ms;
+        self
+    }
+
+    /// Places the query in the send queue by priority rather than by arrival
+    /// order. Left alone, the query keeps `EV_PRIORITY_NORMAL`.
+    ///
+    /// A queue saturated with high-priority messages never pops the others,
+    /// so raising this is a decision about the whole channel, not about one
+    /// query.
+    pub fn priority(mut self, priority: ev_priority_t) -> Self {
+        self.priority = priority;
         self
     }
 
@@ -129,6 +144,7 @@ impl<'a, RPC: IopRPC + 'static> ICQuery<'a, RPC> {
             ic,
             hdr: None,
             timeout: 0,
+            priority: ev_priority_t::EV_PRIORITY_NORMAL,
             _rpc: PhantomData,
         }
     }
@@ -184,6 +200,7 @@ struct QueryParts {
     hdr: *const ic__hdr__t_raw,
     args: *const c_void,
     timeout: u32,
+    priority: ev_priority_t,
 }
 
 impl QueryParts {
@@ -199,6 +216,7 @@ impl QueryParts {
             hdr,
             args,
             timeout: settings.timeout,
+            priority: settings.priority,
         }
     }
 }
@@ -326,10 +344,9 @@ fn ic_prepare_msg<RPC: IopRPC>(msg: &mut ic_msg_t, cb: Callback<IcReply<RPC>>, q
     // `IChannel` packs it, or a local channel runs the RPC at once.
     msg.hdr = query.hdr;
     msg.set_trace(false);
-    if query.timeout != 0 {
-        unsafe {
-            ic_msg_set_timeout(msg, query.timeout);
-        }
+    unsafe {
+        ic_msg_set_timeout(msg, query.timeout);
+        ic_msg_set_priority(msg, query.priority);
     }
 }
 

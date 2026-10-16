@@ -33,9 +33,9 @@ pub mod bindings {
 #[cfg(test)]
 mod tests {
     use crate::bindings::{
-        __socket_type::SOCK_SEQPACKET, AF_UNIX, O_NONBLOCK, ic__hdr__t_raw, ic__hdr__u,
-        ic__ic_status__e, ic__simple_hdr__t, ic_delete, ic_event_t, ic_get_module, ic_new,
-        ic_set_local, ic_spawn, ichannel_t, iop_mod_find_rpc, qm_ic_cbs_t, socketpairx,
+        __socket_type::SOCK_SEQPACKET, AF_UNIX, O_NONBLOCK, ev_priority_t, ic__hdr__t_raw,
+        ic__hdr__u, ic__ic_status__e, ic__simple_hdr__t, ic_delete, ic_event_t, ic_get_module,
+        ic_new, ic_set_local, ic_spawn, ichannel_t, iop_mod_find_rpc, qm_ic_cbs_t, socketpairx,
         tstiop_rpc__pkg, tstiop_rpc__rpc__test__echo__rpc as EchoRpc,
         tstiop_rpc__rpc__test__echo_or_throw__rpc as EchoOrThrowRpc,
         tstiop_rpc__test__echo_args__t, tstiop_rpc__test__echo_or_throw_args__t,
@@ -51,8 +51,8 @@ mod tests {
     use libcommon_core::lstr;
     use libcommon_core::{
         bindings::{
-            data_t, el_blocker_register, el_loop, el_t, el_timer_register, el_unloop,
-            el_unregister, ev_t, ev_timer_flags_t,
+            data_t, el_blocker_register, el_loop, el_loop_timeout, el_t, el_timer_register,
+            el_unloop, el_unregister, ev_t, ev_timer_flags_t,
         },
         c_event_loop_test,
         module::{module_release, module_require},
@@ -60,7 +60,7 @@ mod tests {
     };
     use std::mem::zeroed;
     use std::process::abort;
-    use std::sync::atomic::{AtomicI32, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
     use std::sync::mpsc::{RecvTimeoutError, Sender, channel};
     use std::sync::{Arc, Mutex};
     use std::thread::{JoinHandle, spawn};
@@ -129,6 +129,10 @@ mod tests {
         }
     }
 
+    /// The positive arguments of `echoOrThrow`, in the order the server got
+    /// them.
+    static SERVED_ORDER: Mutex<Vec<i32>> = Mutex::new(Vec::new());
+
     /// Replies to the slot that `echoOrThrow` kept, once its callback has
     /// returned.
     ///
@@ -150,7 +154,10 @@ mod tests {
     impl IopRPCImpl for EchoOrThrowRpc {
         fn handle(arg: &Self::Arg<'_>, _hdr: Option<&ic__hdr__t_raw>, reply: IcReplySlot<Self>) {
             match arg.i {
-                i if i > 0 => reply.reply_res(&tstiop_rpc__test__echo_or_throw_res__t { i }),
+                i if i > 0 => {
+                    SERVED_ORDER.lock().expect("poisoned").push(i);
+                    reply.reply_res(&tstiop_rpc__test__echo_or_throw_res__t { i });
+                }
                 0 => reply.reply_err(ic__ic_status__e::SERVER_ERROR),
                 -1 => reply.reply_exn(&tstiop_rpc__test__echo_or_throw_exn__t {
                     desc: lstr::from_str("i is -1"),
@@ -458,6 +465,7 @@ mod tests {
             let args = tstiop_rpc__test__echo_or_throw_args__t { i };
             ICQuery::<EchoOrThrowRpc>::builder(c.0)
                 .timeout(QUERY_TIMEOUT_MS)
+                .priority(ev_priority_t::EV_PRIORITY_HIGH)
                 .build(args)
                 .run()
                 .await
@@ -507,6 +515,15 @@ mod tests {
         (env, ic, cbs)
     }
 
+    /// Runs iterations of the event loop until `done` returns true.
+    fn loop_until(mut done: impl FnMut() -> bool) {
+        while !done() {
+            unsafe {
+                el_loop_timeout(10);
+            }
+        }
+    }
+
     /// Two connected channels over a seqpacket socket pair.
     fn socketpair_ics() -> (Env, *mut ichannel_t, *mut ichannel_t) {
         let env = test_env();
@@ -530,6 +547,31 @@ mod tests {
         }
         assert!(unsafe { (*ic1).is_connected() && (*ic2).is_connected() });
         (env, ic1, ic2)
+    }
+
+    /// Two connected channels over a seqpacket socket pair, the second one
+    /// serving the implementations of `register`.
+    fn served_socketpair(
+        register: fn(&mut IcImpls<'static>),
+    ) -> (Env, *mut ichannel_t, *mut ichannel_t, IcImpls<'static>) {
+        let (env, ic1, ic2) = socketpair_ics();
+        let mut cbs = IcImpls::new();
+
+        register(&mut cbs);
+        unsafe {
+            (*ic2).impl_ = cbs.as_ptr();
+        }
+        (env, ic1, ic2, cbs)
+    }
+
+    /// Deletes the channels of [`served_socketpair`], then their table.
+    fn release_socketpair(ics: [*mut ichannel_t; 2], mut cbs: IcImpls<'static>) {
+        for mut ic in ics {
+            unsafe {
+                ic_delete(&raw mut ic);
+            }
+        }
+        cbs.wipe();
     }
 
     /// Serves `echo` over a socket pair, from a table that C owns, as in a C
@@ -669,6 +711,47 @@ mod tests {
         module_release(unsafe { thr_get_module() });
 
         assert_eq!(outcome.unwrap_or_else(|e| panic!("{e}")), 1);
+    }
+
+    /// A query of a higher priority overtakes the queries that wait in the
+    /// send queue of its channel.
+    #[c_event_loop_test]
+    fn a_high_priority_query_goes_out_first() {
+        let _watchdog = watchdog();
+
+        module_require(unsafe { thr_get_module() });
+        module_require(unsafe { ic_get_module() });
+        let (_env, ic1, ic2, cbs) = served_socketpair(IcImpls::register::<EchoOrThrowRpc>);
+        SERVED_ORDER.lock().expect("poisoned").clear();
+
+        // On the main C thread, both queries wait in the send queue until
+        // the event loop runs.
+        let [low, high] = [
+            (1, ev_priority_t::EV_PRIORITY_LOW),
+            (2, ev_priority_t::EV_PRIORITY_HIGH),
+        ]
+        .map(|(i, priority)| {
+            ICQuery::<EchoOrThrowRpc>::builder(ic1)
+                .priority(priority)
+                .build(tstiop_rpc__test__echo_or_throw_args__t { i })
+                .run()
+        });
+        let done = Arc::new(AtomicBool::new(false));
+        let done_c = Arc::clone(&done);
+
+        run_future(
+            async move {
+                let _unused = (low.await, high.await);
+            },
+            move |()| done_c.store(true, Ordering::Relaxed),
+        );
+        loop_until(|| done.load(Ordering::Relaxed));
+
+        assert_eq!(*SERVED_ORDER.lock().expect("poisoned"), [2, 1]);
+
+        release_socketpair([ic1, ic2], cbs);
+        module_release(unsafe { ic_get_module() });
+        module_release(unsafe { thr_get_module() });
     }
 
     // }}}
