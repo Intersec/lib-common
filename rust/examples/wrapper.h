@@ -51,18 +51,6 @@ exiop_register_send_async(qm_t(ic_cbs) *impl, exiop_send_async_impl_f cb)
 }
 
 /* }}} */
-/* {{{ `send` RPC descriptor / command id (for the Rust ic_query path) */
-
-static inline const iop_rpc_t *exiop_send_rpc(void)
-{
-    return IOP_RPC(exiop__hello_mod, hello_interface, send);
-}
-static inline int32_t exiop_send_cmd(void)
-{
-    return IOP_RPC_CMD(exiop__hello_mod, hello_interface, send);
-}
-
-/* }}} */
 /* {{{ Server-side helpers */
 
 /* Reply to a `send` query. */
@@ -73,7 +61,7 @@ static inline void exiop_reply_send(ichannel_t *ic, uint64_t slot, int res)
 
 /* Push a one-way `sendAsync` message. This RPC has `out null`, so it is
  * fire-and-forget: no reply comes back and no completion callback runs, which
- * is why it cannot go through the reply-based Rust `ic_query`. */
+ * is why it cannot go through the reply-based Rust `ICQuery::run()`. */
 static inline void
 exiop_send_async_query(ichannel_t *ic, int seqnum, lstr_t msg)
 {

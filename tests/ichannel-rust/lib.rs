@@ -33,16 +33,18 @@ pub mod bindings {
 #[cfg(test)]
 mod tests {
     use crate::bindings::{
-        __ic_reply, __socket_type::SOCK_SEQPACKET, AF_UNIX, O_NONBLOCK, ic__hdr__t_raw,
-        ic__ic_status__e, ic_delete, ic_event_t, ic_get_module, ic_new, ic_set_local, ic_spawn,
-        ichannel_t, qm_ic_cbs_t, socketpairx, tstiop_rpc__pkg, tstiop_rpc__test__echo_args__t,
-        tstiop_rpc__test__echo_exn__t, tstiop_rpc__test__echo_res__t, z_echo_cmd, z_echo_rpc,
-        z_ic_cbs_init, z_ic_cbs_wipe, z_ic_register_echo,
+        __ic_reply, __socket_type::SOCK_SEQPACKET, AF_UNIX, O_NONBLOCK, ic__hdr__t_raw, ic__hdr__u,
+        ic__ic_status__e, ic__simple_hdr__t, ic_delete, ic_event_t, ic_get_module, ic_new,
+        ic_set_local, ic_spawn, ichannel_t, iop_mod_find_rpc, qm_ic_cbs_t, socketpairx,
+        tstiop_rpc__pkg, tstiop_rpc__rpc__test__echo__rpc as EchoRpc,
+        tstiop_rpc__test__echo_args__t, tstiop_rpc__test__echo_res__t, z_ic_cbs_init,
+        z_ic_cbs_wipe, z_ic_register_echo,
     };
-    use ichannel::{ICQuery, IcError, ic_query};
+    use ichannel::{ICQuery, IcError};
     use libcommon::bindings::thr_get_module;
     use libcommon::c_main_waker::run_future;
-    use libcommon::iop::{Env, IopDup as _};
+    use libcommon::iop::{Env, IopIface, IopModule as _, IopRPC};
+    use libcommon::iop_new;
     use libcommon_core::{
         bindings::{
             data_t, el_blocker_register, el_loop, el_t, el_timer_register, el_unloop,
@@ -54,6 +56,7 @@ mod tests {
     };
     use std::mem::zeroed;
     use std::process::abort;
+    use std::sync::atomic::{AtomicI32, Ordering};
     use std::sync::mpsc::{RecvTimeoutError, Sender, channel};
     use std::sync::{Arc, Mutex};
     use std::thread::{JoinHandle, spawn};
@@ -62,21 +65,71 @@ mod tests {
 
     use tokio_c_mod::tokio_get_module;
 
+    // {{{ Marker chain
+
+    /// The chain the markers encode -- RPC, then interface, then module --
+    /// has to match what the C descriptors say.
+    ///
+    /// Asking the module for the RPC's command id is the whole chain in one
+    /// assertion: it fails if `mod_desc()` names the wrong symbol, if the
+    /// interface is bound to the wrong module, or if the command id is
+    /// built from the wrong tag.
+    #[test]
+    fn marker_chain_matches_the_c_descriptors() {
+        type Iface = <EchoRpc as IopRPC>::Iface;
+        type Module = <Iface as IopIface>::Module;
+
+        // SAFETY: both descriptors are static, and `iop_mod_find_rpc` only
+        // walks them.
+        let found = unsafe { iop_mod_find_rpc(Module::mod_desc(), EchoRpc::CMD as u32) };
+
+        assert_eq!(found, EchoRpc::rpc_desc());
+    }
+
+    // }}}
     // {{{ Setup
 
     unsafe extern "C" fn dummy_on_event(_ic: *mut ichannel_t, _evt: ic_event_t) {}
+
+    /// The payload of the header that the runners send with each query.
+    const HDR_PAYLOAD: i32 = 42;
+
+    /// The payload of the header that the echo implementation got last.
+    static RECEIVED_HDR_PAYLOAD: AtomicI32 = AtomicI32::new(0);
+
+    fn echo_hdr() -> ic__hdr__u<'static> {
+        ic__hdr__u::simple(iop_new!(ic__simple_hdr, { payload: HDR_PAYLOAD }))
+    }
+
+    fn record_hdr(hdr: Option<&ic__hdr__t_raw>) {
+        if let Some(ic__hdr__u::simple(hdr)) = hdr {
+            RECEIVED_HDR_PAYLOAD.store(hdr.payload, Ordering::Relaxed);
+        }
+    }
+
+    /// Fails unless the implementation got the header of the runner since
+    /// the previous check.
+    fn check_hdr() -> Result<(), String> {
+        match RECEIVED_HDR_PAYLOAD.swap(0, Ordering::Relaxed) {
+            HDR_PAYLOAD => Ok(()),
+            payload => Err(format!(
+                "the implementation got the header payload {payload}"
+            )),
+        }
+    }
 
     // server-side echo
     unsafe extern "C" fn echo_impl(
         ic: *mut ichannel_t,
         slot: u64,
         arg: *mut tstiop_rpc__test__echo_args__t,
-        _hdr: *const ic__hdr__t_raw,
+        hdr: *const ic__hdr__t_raw,
     ) {
+        record_hdr(unsafe { hdr.as_ref() });
         let res = tstiop_rpc__test__echo_res__t {
             i: unsafe { (*arg).i },
         };
-        let rpc = unsafe { z_echo_rpc() };
+        let rpc = EchoRpc::rpc_desc();
         unsafe {
             __ic_reply(
                 ic,
@@ -230,20 +283,11 @@ mod tests {
             let (c, td) = (client, td);
 
             let args = tstiop_rpc__test__echo_args__t { i: 1 };
-            let icq = ICQuery {
-                ic: c.0,
-                rpc: unsafe { z_echo_rpc() },
-                hdr: ptr::null(),
-                args: args.dup(),
-                cmd: unsafe { z_echo_cmd() },
-            };
-            // `echo` has no exception, so E is an unused placeholder.
-            let result = ic_query::<
-                tstiop_rpc__test__echo_args__t,
-                tstiop_rpc__test__echo_res__t,
-                tstiop_rpc__test__echo_exn__t,
-            >(icq)
-            .await;
+            let result = ICQuery::<EchoRpc>::builder(c.0)
+                .hdr(echo_hdr())
+                .build(args)
+                .run()
+                .await;
             *outcome_t.lock().expect("poisoned") = Some(match result {
                 Ok(res) => Ok(res.i),
                 Err(IcError::Status(s)) => Err(format!("query failed with status {s:?}")),
@@ -257,11 +301,14 @@ mod tests {
             el_loop();
         }
 
-        outcome
+        let result = outcome
             .lock()
             .map_err(|_unused| "outcome mutex poisoned".to_owned())?
             .take()
-            .ok_or_else(|| "query never completed".to_owned())?
+            .ok_or_else(|| "query never completed".to_owned())?;
+
+        check_hdr()?;
+        result
     }
 
     fn run_echo_on_main_c_thread(
@@ -291,20 +338,11 @@ mod tests {
             let c = client;
 
             let args = tstiop_rpc__test__echo_args__t { i: 1 };
-            let icq = ICQuery {
-                ic: c.0,
-                rpc: unsafe { z_echo_rpc() },
-                hdr: ptr::null(),
-                args: args.dup(),
-                cmd: unsafe { z_echo_cmd() },
-            };
-            // `echo` has no exception, so E is an unused placeholder.
-            ic_query::<
-                tstiop_rpc__test__echo_args__t,
-                tstiop_rpc__test__echo_res__t,
-                tstiop_rpc__test__echo_exn__t,
-            >(icq)
-            .await
+            ICQuery::<EchoRpc>::builder(c.0)
+                .hdr(echo_hdr())
+                .build(args)
+                .run()
+                .await
         };
 
         run_future(future, move |result| {
@@ -351,11 +389,14 @@ mod tests {
             el_loop();
         }
 
-        outcome
+        let result = outcome
             .lock()
             .map_err(|_unused| "outcome mutex poisoned".to_owned())?
             .take()
-            .ok_or_else(|| "query never completed".to_owned())?
+            .ok_or_else(|| "query never completed".to_owned())?;
+
+        check_hdr()?;
+        result
     }
 
     fn run_local(is_async: bool) -> (Env, *mut ichannel_t, qm_ic_cbs_t) {

@@ -44,10 +44,10 @@ use std::process;
 use std::ptr;
 
 use ichannel::bindings::ichannel_t;
-use ichannel::{ICQuery, IcError, ic_query};
+use ichannel::{ICQuery, IcError};
 use libcommon::bindings::thr_get_module;
 use libcommon::c_main_waker::run_future;
-use libcommon::iop::{Env, IopDup as _};
+use libcommon::iop::Env;
 use libcommon_core::lstr;
 use libcommon_core::module::{module_release, module_require};
 
@@ -55,11 +55,11 @@ use crate::bindings::ic_event_t::{IC_EVT_CONNECTED, IC_EVT_DISCONNECTED};
 use crate::bindings::{
     AF_UNSPEC, SIGINT, SIGQUIT, SIGTERM, addr_info, addr_parse, data_t, el_blocker_register,
     el_loop, el_signal_register, el_t, el_unregister, exiop__hello_iface__send_args__t,
-    exiop__hello_iface__send_async_args__t, exiop__hello_iface__send_exn__t,
-    exiop__hello_iface__send_res__t, exiop__pkg, exiop_ic_cbs_init, exiop_ic_cbs_wipe,
-    exiop_proto_tcp, exiop_register_send, exiop_register_send_async, exiop_reply_send,
-    exiop_send_async_query, exiop_send_cmd, exiop_send_rpc, exiop_sock_stream, ic__hdr__t_raw,
-    ic_bye, ic_connect, ic_event_t, ic_get_module, ic_init, ic_listento, ic_new, ic_spawn, ic_wipe,
+    exiop__hello_iface__send_async_args__t,
+    exiop__hello_mod__hello_interface__send__rpc as SendRpc, exiop__pkg, exiop_ic_cbs_init,
+    exiop_ic_cbs_wipe, exiop_proto_tcp, exiop_register_send, exiop_register_send_async,
+    exiop_reply_send, exiop_send_async_query, exiop_sock_stream, ic__hdr__t_raw, ic_bye,
+    ic_connect, ic_event_t, ic_get_module, ic_init, ic_listento, ic_new, ic_spawn, ic_wipe,
     in_port_t, iop_env_t, ps_initlstr, pstream_t, qm_ic_cbs_t, sa_family_t, sockunion_t,
 };
 
@@ -98,9 +98,6 @@ impl Global {
 thread_local! {
     static G: RefCell<Global> = const { RefCell::new(Global::new()) };
 }
-
-struct SendPtr<T>(*mut T);
-unsafe impl<T> Send for SendPtr<T> {}
 
 // {{{ Utils
 
@@ -175,35 +172,17 @@ unsafe extern "C" fn exiop_client_on_event(ic: *mut ichannel_t, evt: ic_event_t)
     match evt {
         IC_EVT_CONNECTED => {
             eprintln!("connected to server");
-            let ic = SendPtr(ic);
-            let future = async move {
-                // Force capture of the whole `Send` wrapper.
-                let ic = ic;
-
-                let icq = {
-                    let args = exiop__hello_iface__send_args__t {
-                        seqnum: 1,
-                        msg: lstr::from_str("From client : Hello (1)"),
-                    };
-                    ICQuery {
-                        ic: ic.0,
-                        rpc: unsafe { exiop_send_rpc() },
-                        hdr: ptr::null(),
-                        args: args.dup(),
-                        cmd: unsafe { exiop_send_cmd() },
-                    }
-                };
-                ic_query::<
-                    exiop__hello_iface__send_args__t<'_>,
-                    exiop__hello_iface__send_res__t,
-                    exiop__hello_iface__send_exn__t<'_>,
-                >(icq)
-                .await
+            let args = exiop__hello_iface__send_args__t {
+                seqnum: 1,
+                msg: lstr::from_str("From client : Hello (1)"),
             };
+            // On the main C thread, `run()` sends the query before it
+            // returns, so the future that it returns does not borrow the args.
+            let query = ICQuery::<SendRpc>::builder(ic).build(args).run();
 
             // Drive the query on the main C thread: it is polled from the C
             // event loop itself, so no other runtime is needed.
-            run_future(future, |result| match result {
+            run_future(query, |result| match result {
                 Ok(res) => eprintln!("helloworld: res = {}", res.res),
                 Err(IcError::Exn(exn)) => {
                     eprintln!("cannot send (exception {}): {}", exn.code, exn.desc);

@@ -32,12 +32,3 @@ static inline void z_ic_register_echo(qm_t(ic_cbs) *impl, z_echo_impl_f cb)
 {
     ic_register_(impl, tstiop_rpc__rpc, test, echo, cb);
 }
-/* handy constants so Rust doesn't hardcode them */
-static inline const iop_rpc_t *z_echo_rpc(void)
-{
-    return IOP_RPC(tstiop_rpc__rpc, test, echo);
-}
-static inline int32_t z_echo_cmd(void)
-{
-    return IOP_RPC_CMD(tstiop_rpc__rpc, test, echo);
-}
