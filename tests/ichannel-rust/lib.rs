@@ -44,7 +44,10 @@ mod tests {
     use libcommon::c_main_waker::run_future;
     use libcommon::iop::{Env, IopDup as _};
     use libcommon_core::{
-        bindings::{el_blocker_register, el_loop, el_unregister},
+        bindings::{
+            data_t, el_blocker_register, el_loop, el_t, el_timer_register, el_unloop,
+            el_unregister, ev_t, ev_timer_flags_t,
+        },
         c_event_loop_test,
         module::{module_release, module_require},
         thr::main_c_queue_schedule,
@@ -91,6 +94,61 @@ mod tests {
 
     // }}}
     // {{{ Helper
+
+    /// What a test releases once its query has completed.
+    struct Teardown {
+        ics: Vec<SendPtr<ichannel_t>>,
+        cbs: SendPtr<qm_ic_cbs_t>,
+        blocker: SendPtr<ev_t>,
+    }
+
+    impl Teardown {
+        /// Deletes the channels, wipes the table, and unregisters the
+        /// blocker, which lets `el_loop()` return.
+        ///
+        /// # Safety
+        ///
+        /// Runs on the main C thread, outside of any callback of the
+        /// channels.
+        unsafe fn release(mut self) {
+            unsafe {
+                for ic in &mut self.ics {
+                    ic_delete(&raw mut ic.0);
+                }
+                z_ic_cbs_wipe(self.cbs.0);
+                el_unregister(&raw mut self.blocker.0);
+            }
+        }
+    }
+
+    /// Releases the test's channels from a zero-delay timer, that is at the
+    /// very top of an event loop iteration, outside of any `IChannel`
+    /// callback.
+    ///
+    /// The completion closure cannot do it itself: it runs from the callback
+    /// that delivered the reply, where `ic->cb_level` is non-zero and
+    /// `ic_wipe()` asserts on it. The C `ic_delete_later()` defers the
+    /// same release, but through a before hook, which does not fit here.
+    ///
+    /// Timers are what `el_loop_timeout()` processes first, and it returns
+    /// right after them when `el_unloop()` has been called. Deferring to an
+    /// `el_before` hook instead would release everything just as well, but
+    /// the iteration would then go on to block in `epoll_wait()` for the
+    /// whole loop timeout before noticing it has nothing left to serve.
+    ///
+    /// One-shot timers unregister themselves once fired, so this hook does
+    /// not unregister its timer.
+    ///
+    /// # Safety
+    ///
+    /// `data.ptr` must be the `Teardown` leaked by
+    /// `run_echo_on_main_c_thread`, and this hook must run only once for it.
+    unsafe extern "C" fn run_echo_teardown(_el: el_t, data: data_t) {
+        unsafe {
+            Box::from_raw(data.ptr.cast::<Teardown>()).release();
+            el_unloop();
+        }
+    }
 
     /// How long a test may drive the event loop before the watchdog calls
     /// it stuck.
@@ -157,18 +215,19 @@ mod tests {
         ics: &[*mut ichannel_t],
         cbs: *mut qm_ic_cbs_t,
     ) -> Result<i32, String> {
-        let blocker = unsafe { el_blocker_register() };
+        let td = Teardown {
+            ics: ics.iter().map(|&ic| SendPtr(ic)).collect(),
+            cbs: SendPtr(cbs),
+            blocker: SendPtr(unsafe { el_blocker_register() }),
+        };
         let client = SendPtr(client);
-        let bl = SendPtr(blocker);
-        let cbs = SendPtr(cbs);
-        let to_delete: Vec<SendPtr<ichannel_t>> = ics.iter().map(|&ic| SendPtr(ic)).collect();
 
         let outcome = Arc::new(Mutex::new(None::<Result<i32, String>>));
         let outcome_t = Arc::clone(&outcome);
 
         tokio_c_mod::spawn(async move {
             // Force capture of the whole `Send` wrappers.
-            let (c, bl, cbs, to_delete) = (client, bl, cbs, to_delete);
+            let (c, td) = (client, td);
 
             let args = tstiop_rpc__test__echo_args__t { i: 1 };
             let icq = ICQuery {
@@ -191,15 +250,7 @@ mod tests {
                 Err(IcError::Exn(_)) => Err("query returned an exception".to_owned()),
             });
 
-            main_c_queue_schedule(move || unsafe {
-                let (bl, cbs, mut to_del) = (bl, cbs, to_delete);
-                for ic in &mut to_del {
-                    ic_delete(&raw mut ic.0);
-                }
-                z_ic_cbs_wipe(cbs.0);
-                let mut bl = bl.0;
-                el_unregister(&raw mut bl);
-            });
+            main_c_queue_schedule(move || unsafe { td.release() });
         });
 
         unsafe {
@@ -222,9 +273,11 @@ mod tests {
 
         // Same ownership rules as `run_echo`: `cbs` points into the caller's
         // frame, kept alive by the synchronous `el_loop` below, and the
-        // ichannels live until the completion closure deletes them. Unlike
-        // `run_echo`, the future is polled on the main C thread, so `on_done`
-        // can clean up directly instead of scheduling another callback.
+        // ichannels live until the deferred teardown deletes them. Unlike
+        // `run_echo`, the future is polled on the main C thread, so the
+        // completion closure runs from the very callback that delivered the
+        // reply: the teardown has to be deferred to the next event loop
+        // iteration rather than done on the spot.
         let client = SendPtr(client);
         let bl = SendPtr(blocker);
         let cbs = SendPtr(cbs);
@@ -256,7 +309,7 @@ mod tests {
 
         run_future(future, move |result| {
             // Force capture of the whole `Send` wrappers.
-            let (bl, cbs, mut to_del) = (bl, cbs, to_delete);
+            let (bl, cbs, to_del) = (bl, cbs, to_delete);
 
             *outcome_c.lock().expect("poisoned") = Some(match result {
                 Ok(res) => Ok(res.i),
@@ -264,13 +317,33 @@ mod tests {
                 Err(IcError::Exn(_)) => Err("query returned an exception".to_owned()),
             });
 
+            // Defer the teardown to the next event loop iteration: this
+            // closure runs from the callback that delivered the reply, and
+            // deleting a channel from one of its own callbacks trips the
+            // assertion in `ic_wipe()`. `main_c_queue_schedule` would not
+            // help here: on the main C thread it runs its callbacks inline.
+            //
+            // The box is handed to the timer, which owns it from here on.
+            // Were `el_loop()` to return before the timer fires, the box
+            // and the ichannels it names would leak; that only happens if
+            // something else already unregistered the blocker, which is
+            // what `run_echo_teardown` itself does.
+            let td = Box::into_raw(Box::new(Teardown {
+                ics: to_del,
+                cbs,
+                blocker: bl,
+            }));
+
             unsafe {
-                for ic in &mut to_del {
-                    ic_delete(&raw mut ic.0);
-                }
-                z_ic_cbs_wipe(cbs.0);
-                let mut blocker = bl.0;
-                el_unregister(&raw mut blocker);
+                el_timer_register(
+                    // `next` and `repeat`, both in milliseconds: fire at
+                    // the top of the next loop iteration, once.
+                    0,
+                    0,
+                    ev_timer_flags_t::EL_TIMER_NOMISS,
+                    Some(run_echo_teardown),
+                    td.cast(),
+                );
             }
         });
 
@@ -302,6 +375,39 @@ mod tests {
             ic_set_local(ic, is_async);
         };
         (env, ic, cbs)
+    }
+
+    /// Two connected channels over a seqpacket socket pair.
+    fn socketpair_ics() -> (Env, *mut ichannel_t, *mut ichannel_t) {
+        let mut env = Env::new();
+        env.register_packages(&[&raw const tstiop_rpc__pkg]);
+        let (ic1, ic2) = unsafe { (ic_new(), ic_new()) };
+        for ic in [ic1, ic2] {
+            unsafe {
+                (*ic).set_no_autodel(true);
+                (*ic).iop_env = env.as_ptr();
+                (*ic).on_event = Some(dummy_on_event);
+            }
+        }
+
+        let mut sv = [0i32; 2];
+        assert!(
+            unsafe {
+                socketpairx(
+                    AF_UNIX as i32,
+                    SOCK_SEQPACKET as i32,
+                    0,
+                    O_NONBLOCK as i32,
+                    sv.as_mut_ptr(),
+                )
+            } >= 0
+        );
+        unsafe {
+            ic_spawn(ic1, sv[0], None);
+            ic_spawn(ic2, sv[1], None);
+        }
+        assert!(unsafe { (*ic1).is_connected() && (*ic2).is_connected() });
+        (env, ic1, ic2)
     }
 
     // }}}
@@ -371,47 +477,49 @@ mod tests {
         // `ic_new()` asserts on `_G.ics` being initialized, which only happens
         // once the `ic` module is loaded.
         module_require(unsafe { ic_get_module() });
-        let mut env = Env::new();
-        env.register_packages(&[&raw const tstiop_rpc__pkg]);
-        let (ic1, ic2) = unsafe { (ic_new(), ic_new()) };
-        for ic in [ic1, ic2] {
-            unsafe {
-                (*ic).set_no_autodel(true);
-                (*ic).iop_env = env.as_ptr();
-                (*ic).on_event = Some(dummy_on_event);
-            }
-        }
-
+        let (_env, ic1, ic2) = socketpair_ics();
         let mut cbs: qm_ic_cbs_t = unsafe { zeroed() };
+
         unsafe {
             z_ic_cbs_init(&raw mut cbs);
             z_ic_register_echo(&raw mut cbs, Some(echo_impl));
-        }
-
-        // connected seqpacket pair, then spawn both ends.
-        let mut sv = [0i32; 2];
-        assert!(
-            unsafe {
-                socketpairx(
-                    AF_UNIX as i32,
-                    SOCK_SEQPACKET as i32,
-                    0,
-                    O_NONBLOCK as i32,
-                    sv.as_mut_ptr(),
-                )
-            } >= 0
-        );
-        unsafe {
-            ic_spawn(ic1, sv[0], None);
-            ic_spawn(ic2, sv[1], None);
             (*ic2).impl_ = &raw const cbs;
         }
-        assert!(unsafe { (*ic1).is_connected() && (*ic2).is_connected() });
 
         let outcome = run_echo(ic1, &[ic1, ic2], &raw mut cbs);
 
         module_release(unsafe { ic_get_module() });
         module_release(tokio_get_module());
+
+        assert_eq!(outcome.unwrap_or_else(|e| panic!("{e}")), 1);
+    }
+
+    /// Same as `ic_query_over_socketpair`, but polled on the main C thread.
+    ///
+    /// This is the closest thing to a real client: the reply comes back from
+    /// the socket, through `ic_read_process_answer()`, so the whole wake and
+    /// re-poll happens inside an `IChannel` callback.
+    #[c_event_loop_test]
+    fn ic_query_over_socketpair_on_main_c_thread() {
+        let _watchdog = watchdog();
+
+        module_require(unsafe { thr_get_module() });
+        // `ic_new()` asserts on `_G.ics` being initialized, which only happens
+        // once the `ic` module is loaded.
+        module_require(unsafe { ic_get_module() });
+        let (_env, ic1, ic2) = socketpair_ics();
+        let mut cbs: qm_ic_cbs_t = unsafe { zeroed() };
+
+        unsafe {
+            z_ic_cbs_init(&raw mut cbs);
+            z_ic_register_echo(&raw mut cbs, Some(echo_impl));
+            (*ic2).impl_ = &raw const cbs;
+        }
+
+        let outcome = run_echo_on_main_c_thread(ic1, &[ic1, ic2], &raw mut cbs);
+
+        module_release(unsafe { ic_get_module() });
+        module_release(unsafe { thr_get_module() });
 
         assert_eq!(outcome.unwrap_or_else(|e| panic!("{e}")), 1);
     }
