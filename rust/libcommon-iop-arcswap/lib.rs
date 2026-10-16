@@ -78,16 +78,16 @@ pub struct iop_env_ctx_arcswap_t {
 // }}}
 // {{{ Acquire/release guard
 
-/// Guard returned by [`iop_env_ctx_arcswap_acquire`]: `ctx` is the
-/// readable ctx pointer; `arc_handle` is the `Arc::into_raw` keepalive
-/// that [`iop_env_ctx_arcswap_release`] uses to decrement the strong
-/// count.
+/// Guard returned by [`iop_env_ctx_arcswap_acquire`].
 ///
 /// Exposed to C as a `#[repr(C)]` struct so the scope macro in `iop.h`
 /// can hold both fields and clean up on scope exit.
 #[repr(C)]
 pub struct iop_env_ctx_guard_t {
+    /// The readable ctx pointer.
     pub ctx: *const c_void,
+    /// The `Arc::into_raw` keepalive that [`iop_env_ctx_arcswap_release`]
+    /// uses to decrement the strong count.
     pub arc_handle: *const CtxBox,
 }
 

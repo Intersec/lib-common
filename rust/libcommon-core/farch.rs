@@ -228,6 +228,12 @@ fn farch_unarchive_persist_ref(entry: &farch_entry_t) -> lstr_t {
 // }}}
 // {{{ Public C functions
 
+/// Unobfuscate the filename of `entry` into `name_outbuf`, and return `name_outbuf`.
+///
+/// It returns null for the empty entry that ends an archive. `name_outbuf` must hold
+/// `FARCH_MAX_FILENAME` bytes.
+///
+/// It implements the C function of the same name, declared in `farch.h`.
 #[allow(
     clippy::missing_safety_doc,
     clippy::missing_panics_doc,
@@ -263,6 +269,9 @@ pub unsafe extern "C" fn farch_get_filename(
     name_outbuf
 }
 
+/// Get the uncompressed content of `entry`, allocated on the `t_pool`.
+///
+/// It implements the C function of the same name, declared in `farch.h`.
 #[allow(
     clippy::missing_safety_doc,
     clippy::missing_panics_doc,
@@ -277,6 +286,9 @@ pub unsafe extern "C" fn t_farch_unarchive(entry: *const farch_entry_t) -> lstr_
     res_lstr.as_raw()
 }
 
+/// Get the uncompressed content of `entry`, kept until the `farch` module is released.
+///
+/// It implements the C function of the same name, declared in `farch.h`.
 #[allow(
     clippy::missing_safety_doc,
     clippy::missing_panics_doc,
@@ -289,6 +301,11 @@ pub unsafe extern "C" fn farch_unarchive_persist(entry: *const farch_entry_t) ->
     farch_unarchive_persist_ref(entry)
 }
 
+/// Get the uncompressed content of the entry of `files` named `name`, allocated on the `t_pool`.
+///
+/// If `name` is null, it gets the first entry. If no entry has this name, it returns `LSTR_NULL`.
+///
+/// It implements the C function of the same name, declared in `farch.h`.
 #[allow(
     clippy::missing_safety_doc,
     clippy::missing_panics_doc,
@@ -310,6 +327,12 @@ pub unsafe extern "C" fn t_farch_get_data(
     res_lstr.as_raw()
 }
 
+/// Get the uncompressed content of the entry of `files` named `name`, kept until the `farch`
+/// module is released.
+///
+/// If `name` is null, it gets the first entry. If no entry has this name, it returns `LSTR_NULL`.
+///
+/// It implements the C function of the same name, declared in `farch.h`.
 #[allow(
     clippy::missing_safety_doc,
     clippy::missing_panics_doc,

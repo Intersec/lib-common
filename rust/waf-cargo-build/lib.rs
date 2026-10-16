@@ -265,6 +265,8 @@ impl WafBuildEnvJson {
 // }}}
 // {{{ WafBuild
 
+/// The waf build environment of a package, read by its build script with
+/// [`WafBuild::read_build_env`].
 pub struct WafBuild {
     is_pic_profile: bool,
     pkg_waf_build_dir: PathBuf,

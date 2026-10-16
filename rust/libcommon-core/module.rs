@@ -933,6 +933,10 @@ macro_rules! c_module {
                 fn(&mut $crate::module::ModuleBuilder<$ctx>) =
                     |$builder: &mut $crate::module::ModuleBuilder<$ctx>| $body;
 
+            #[doc = concat!(
+                "Get the `", stringify!($name), "` module, to pass to `module_require()` and ",
+                "`module_release()`.",
+            )]
             #[unsafe(no_mangle)]
             #[allow(clippy::macro_metavars_in_unsafe)]
             pub extern "C" fn [<$name _get_module>]() -> *mut $crate::module::module_t {

@@ -41,6 +41,8 @@ use std::ops::Deref;
 
 // {{{ Errors
 
+/// Error of [`EnvCtx::t_junpack_desc`] and [`EnvCtx::t_yunpack_desc`]: the message of the C
+/// unpacker.
 // TODO: use `thiserror` package to provide a nice error.
 pub type UnpackError = String;
 

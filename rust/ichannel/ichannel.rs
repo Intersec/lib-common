@@ -45,19 +45,16 @@ pub mod bindings {
 // {{{ ICQuery builder
 
 /// A structure to hold message payload data and a target `IChannel`.
-///
-/// # Fields
-///
-/// - `ic` - the target [`ichannel_t`]
-/// - `rpc` - the [`iop_rpc_t`] descriptor
-/// - `hdr` - the optional query [`ic__hdr__t`] (null means none)
-/// - `args` - an owned deep copy of the IOP arg struct, packed when the query is launched
-/// - `cmd` - the RPC command id (`IOP_RPC_CMD`), stored in [`ic_msg_t`]'s `.cmd` field.
 pub struct ICQuery<A: IopDup> {
+    /// The target [`ichannel_t`].
     pub ic: *mut ichannel_t,
+    /// The [`iop_rpc_t`] descriptor.
     pub rpc: *const iop_rpc_t,
+    /// The optional query [`ic__hdr__t`]. Null means none.
     pub hdr: *const ic__hdr__t,
+    /// An owned deep copy of the IOP arg struct, packed when the query is launched.
     pub args: Owned<A>,
+    /// The RPC command id (`IOP_RPC_CMD`), stored in the `cmd` field of [`ic_msg_t`].
     pub cmd: i32,
 }
 
