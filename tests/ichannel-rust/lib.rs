@@ -50,7 +50,11 @@ mod tests {
         thr::main_c_queue_schedule,
     };
     use std::mem::zeroed;
+    use std::process::abort;
+    use std::sync::mpsc::{RecvTimeoutError, Sender, channel};
     use std::sync::{Arc, Mutex};
+    use std::thread::{JoinHandle, spawn};
+    use std::time::Duration;
     use std::{ffi::c_void, ptr};
 
     use tokio_c_mod::tokio_get_module;
@@ -87,6 +91,66 @@ mod tests {
 
     // }}}
     // {{{ Helper
+
+    /// How long a test may drive the event loop before the watchdog calls
+    /// it stuck.
+    ///
+    /// Well above the slowest test rather than close to it: what this has
+    /// to tell apart is a slow run from a loop that will never return.
+    /// Turning a passing test into an abort would cost more than the minutes
+    /// a deadlock wastes.
+    const WATCHDOG_SECS: u64 = 300;
+
+    /// Guard of a watchdog: dropping it disarms the watchdog and waits for
+    /// its thread.
+    struct Watchdog {
+        disarm: Option<Sender<()>>,
+        thread: Option<JoinHandle<()>>,
+    }
+
+    impl Drop for Watchdog {
+        fn drop(&mut self) {
+            // Dropping the sender wakes the thread at once.
+            drop(self.disarm.take());
+
+            if let Some(thread) = self.thread.take() {
+                // Joining is what keeps a passing test from leaving a thread
+                // behind for the next one to run alongside.
+                let _unused = thread.join();
+            }
+        }
+    }
+
+    /// Aborts the test binary if the event loop has not returned after
+    /// `WATCHDOG_SECS`, rather than hanging forever.
+    ///
+    /// A deadlock inside the event loop freezes the loop itself, so an `el`
+    /// timer would never fire: only an OS thread can notice. And since every
+    /// `#[c_event_loop_test]` shares one global mutex, a hung test blocks all
+    /// the others with no output at all, so aborting loudly is strictly
+    /// better than waiting for the outer harness to time out.
+    ///
+    /// That argument holds for every test driving the loop, so each one
+    /// binds a guard rather than picking. The guard disarms on drop, which
+    /// a failing assertion reaches just as well as a passing one.
+    #[must_use = "the watchdog is disarmed as soon as its guard is dropped"]
+    fn watchdog() -> Watchdog {
+        let (disarm, armed) = channel::<()>();
+
+        let thread = spawn(move || {
+            if let Err(RecvTimeoutError::Timeout) =
+                armed.recv_timeout(Duration::from_secs(WATCHDOG_SECS))
+            {
+                eprintln!("watchdog: the C event loop is stuck, aborting");
+                abort();
+            }
+        });
+
+        Watchdog {
+            disarm: Some(disarm),
+            thread: Some(thread),
+        }
+    }
 
     fn run_echo(
         client: *mut ichannel_t,
@@ -245,6 +309,8 @@ mod tests {
 
     #[c_event_loop_test]
     fn ic_query_local_sync() {
+        let _watchdog = watchdog();
+
         module_require(tokio_get_module());
         module_require(unsafe { ic_get_module() });
         let (_env, ic, mut cbs) = run_local(false);
@@ -262,6 +328,8 @@ mod tests {
 
     #[c_event_loop_test]
     fn ic_query_local_sync_on_main_c_thread() {
+        let _watchdog = watchdog();
+
         module_require(unsafe { thr_get_module() });
         module_require(unsafe { ic_get_module() });
         let (_env, ic, mut cbs) = run_local(false);
@@ -278,6 +346,8 @@ mod tests {
 
     #[c_event_loop_test]
     fn ic_query_local_async() {
+        let _watchdog = watchdog();
+
         module_require(tokio_get_module());
         module_require(unsafe { ic_get_module() });
         let (_env, ic, mut cbs) = run_local(true);
@@ -295,6 +365,8 @@ mod tests {
 
     #[c_event_loop_test]
     fn ic_query_over_socketpair() {
+        let _watchdog = watchdog();
+
         module_require(tokio_get_module());
         // `ic_new()` asserts on `_G.ics` being initialized, which only happens
         // once the `ic` module is loaded.
