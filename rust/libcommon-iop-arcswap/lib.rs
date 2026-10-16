@@ -18,6 +18,9 @@
 
 //! Lock-free `ArcSwap` primitive for the IOP environment context.
 //!
+//! Only the C code of lib-common calls this crate. Rust code uses the
+//! `Env` type of the `iop` module of `libcommon` instead.
+//!
 //! `iop_env_t` itself stays a plain C struct (see `src/iop/priv.h`).
 //! Only the mutable `iop_env_ctx_t` storage is held here, behind an
 //! `ArcSwap<CtxBox>`. C code calls into these FFI functions to acquire

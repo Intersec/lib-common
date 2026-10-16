@@ -16,10 +16,20 @@
 /*                                                                         */
 /***************************************************************************/
 
-//! This module is used to export the functions and types of `libcommon-minimal`.
-//! Do not use it directly.
-//! Use `libcommon` instead.
-//! The different modules are reexported in `libcommon`.
+//! Rust API of `libcommon-minimal`, the part of lib-common that the code generators need.
+//!
+//! The code generators of lib-common, such as `farchc` and `iopc`, are built before the full
+//! `libcommon` C library. This crate only wraps `libcommon-minimal`, so that these tools can use
+//! it.
+//!
+//! Use its modules through [`libcommon`](../libcommon/index.html): it re-exports all of them, and
+//! adds the modules that need the full C library.
+//!
+//! A package that has bindings must still depend on this crate, because the code that
+//! `waf-cargo-build` generates for the `qv_t`, `qh_t` and IOP types names it.
+//!
+//! The `test-support` feature is for the tests of a package. It enables the `c_event_loop_test`
+//! attribute and the `test_sync` module.
 
 #[waf_cargo_build::bindings_mod]
 pub mod bindings {

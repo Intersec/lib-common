@@ -15,6 +15,15 @@
 /* limitations under the License.                                          */
 /*                                                                         */
 /***************************************************************************/
+
+//! Compile the files listed in a farch script into a C file.
+//!
+//! The C file defines an array of `farch_entry_t`: the content of each file, compressed and
+//! obfuscated. The C code reads it with the functions of `farch.h`, and the Rust code with the
+//! `farch` module of `libcommon`.
+//!
+//! waf runs this tool on the `.fc` files.
+
 #![allow(clippy::unwrap_used)] // TODO: Use expect() instead with a convenient macro
 
 use std::cmp::min;

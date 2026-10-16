@@ -15,3 +15,11 @@
 /* limitations under the License.                                          */
 /*                                                                         */
 /***************************************************************************/
+
+//! Build every external dependency of the workspace with the same features.
+//!
+//! This crate has no code. It depends on all the external dependencies of the workspace, with the
+//! features that the workspace declares, and waf builds it with every package. Cargo then unifies
+//! the features of a dependency across the packages, and builds each dependency only once.
+//!
+//! A package still links only its own dependencies.

@@ -16,6 +16,10 @@
 /*                                                                         */
 /***************************************************************************/
 
+//! Procedural macros of [`waf-cargo-build`](../waf_cargo_build/index.html).
+//!
+//! Do not depend on this crate: `waf-cargo-build` re-exports its macros.
+
 use proc_macro::TokenStream;
 use quote::quote;
 

@@ -17,6 +17,9 @@
 /***************************************************************************/
 
 //! Procedural macros supporting the `libcommon` test suites.
+//!
+//! Do not depend on this crate: `libcommon-core` re-exports its macros with
+//! its `test-support` feature.
 
 use proc_macro::TokenStream;
 use quote::quote;

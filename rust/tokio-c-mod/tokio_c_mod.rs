@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-//! Infrastructure for creating tokio threads able to communicate with C event loop.
+//! Run a tokio runtime next to the C event loop.
 //!
 //! This provides a `TokioCMod` exposed to C with [`c_module!`] as
 //! `tokio_c_module`. A global [`ArcSwapOption`] stores the tokio runtime's

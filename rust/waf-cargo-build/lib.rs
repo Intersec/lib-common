@@ -16,15 +16,47 @@
 /*                                                                         */
 /***************************************************************************/
 
-//! # Waf Cargo binding library
+//! Connect the build script of a package to the waf build of lib-common.
 //!
-//! This library helps binding the Waf build system and Cargo build system.
+//! waf builds the C code, and calls cargo to build the Rust code. For each package that it
+//! builds, waf writes a `.waf-cargo-build/waf_build_env.json` file next to its `Cargo.toml`. This
+//! file holds the include paths, the libraries and the flags of the C code that the package uses.
 //!
-//! The Waf build system generates a `.waf-cargo-build/waf_build_env.json` to pass the environment
-//! or the package using this library.
-//! This library is used in build scripts.
+//! [`WafBuild`] reads this file in the `build.rs` of the package. It gives the link instructions
+//! to cargo, and it runs `bindgen` to generate the Rust bindings of the C headers.
 //!
-//! The main entry point is the structure [`WafBuild`].
+//! # Example
+//!
+//! The `build.rs` of a package that uses the C functions declared in its `wrapper.h`:
+//!
+//! ```no_run
+//! use std::error;
+//!
+//! use waf_cargo_build::WafBuild;
+//!
+//! fn main() -> Result<(), Box<dyn error::Error>> {
+//!     let waf_build = WafBuild::read_build_env()?;
+//!
+//!     waf_build.print_cargo_instructions();
+//!     waf_build.generate_bindings(|builder| Ok(builder.header("wrapper.h")))?;
+//!     Ok(())
+//! }
+//! ```
+//!
+//! The package then includes the bindings in its `bindings` module:
+//!
+//! ```ignore
+//! #[waf_cargo_build::bindings_mod]
+//! pub mod bindings {
+//!     pub use libcommon::bindings::*;
+//!     waf_cargo_build::include_bindings!();
+//! }
+//! ```
+//!
+//! The bindings of a package leave out the C items that the bindings of its dependencies
+//! already define. The `pub use` line gives access to them.
+//!
+//! `README-rust.adoc`, at the root of lib-common, describes the waf side.
 
 use bindgen::callbacks::{AllowOrBlockItem, ItemInfo, ParseCallbacks};
 use bindgen::{Builder, EnumVariation};
