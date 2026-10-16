@@ -968,6 +968,13 @@ impl WafBuild {
         let out_dir = PathBuf::from(env::var("OUT_DIR")?);
         let static_wrapper_path = out_dir.join("static-wrappers.c");
 
+        // bindgen writes the wrappers only when the headers have static
+        // functions: remove the file of a previous run, which would be
+        // compiled below.
+        if static_wrapper_path.is_file() {
+            fs::remove_file(&static_wrapper_path)?;
+        }
+
         let blocked_items = Rc::new(self.blocked_items()?);
 
         let native_iop_pkgs = Rc::new(RefCell::new(Vec::new()));
