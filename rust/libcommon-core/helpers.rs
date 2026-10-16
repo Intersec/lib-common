@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-//! Utility helpers functions.
+//! Build Rust slices from C pointers.
 
 use std::mem::{MaybeUninit, transmute};
 use std::ptr::NonNull;

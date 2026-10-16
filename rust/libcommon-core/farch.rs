@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-//! Unarchive embedded content in C files.
+//! Read the files that `farchc` embeds in the C code.
 
 use std::collections::HashMap;
 use std::mem::MaybeUninit;

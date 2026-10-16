@@ -17,7 +17,7 @@
 /***************************************************************************/
 #![allow(clippy::module_name_repetitions)]
 
-//! Module to interact with `sb_t` in Rust.
+//! [`Sb`], the Rust wrapper around a C `sb_t` string buffer.
 //!
 //! A `sb_t` is always wrapped in a Rust struct to be able to initialize and deallocate it.
 

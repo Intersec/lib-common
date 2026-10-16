@@ -16,11 +16,13 @@
 /*                                                                         */
 /***************************************************************************/
 
-//! Module to export the thread functions used by `libcommon` in a safe way
+//! Attach Rust threads to lib-common, and run closures on the main C thread.
 //!
-//! Using `attach()` and `detach()` are required to use `TScope`.
+//! A thread that the C code did not create must call [`attach()`] before it uses a
+//! [`TScope`](crate::mem_stack::TScope), and [`detach()`] before it ends.
 //!
-//! `main_c_queue_schedule()` can be used to run a closure into the main C thread.
+//! Most of the C code runs only on the main thread. [`main_c_queue_schedule()`] runs a closure
+//! there.
 
 use crate::bindings::{
     thr_attach, thr_detach, thr_is_initialized, thr_is_on_queue, thr_job_t, thr_queue,

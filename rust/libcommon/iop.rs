@@ -16,9 +16,63 @@
 /*                                                                         */
 /***************************************************************************/
 
-//! Module to interact with IOPs in Rust
+//! Use IOP objects from Rust.
 //!
-//! WIP
+//! `waf-cargo-build` generates a Rust type for each IOP struct, class, union and enum that the
+//! bindings of a crate include. The type has the layout of the C type, so the same object is
+//! usable from both languages without a copy. Each field gets a `<field>__get()` and a
+//! `<field>__set()` method.
+//!
+//! The traits of this module describe these types: [`CStruct`], [`CUnion`] and [`CEnum`] for a
+//! type known at compile time, and [`StructUnion`] and [`Enum`] for dynamic dispatch.
+//! [`GenericStructUnion`] holds an object whose type is only known at run time, by its
+//! descriptor.
+//!
+//! # Create and access an object
+//!
+//! The [`iop_new!`](crate::iop_new), [`iop_set!`](crate::iop_set) and
+//! [`iop_get!`](crate::iop_get) macros name the type and the fields like the IOP file does. They
+//! call the methods of [`CStructUnion`] and [`CStruct`], so these traits must be in scope:
+//!
+//! ```
+//! use libcommon::bindings::ic__tracer__t;
+//! use libcommon::iop::{CStruct as _, CStructUnion as _};
+//! use libcommon::{iop_get, iop_new, iop_set};
+//!
+//! let mut tracer = iop_new!(ic__tracer, { token: 123 });
+//! iop_set!(tracer, { epoch: 456 });
+//!
+//! assert_eq!(iop_get!(tracer, token), 123);
+//! assert_eq!(iop_get!(tracer, epoch), 456);
+//! ```
+//!
+//! # Unpack an object by its name
+//!
+//! An [`Env`] holds the registered IOP packages. It belongs to the main thread. [`Env::acquire`]
+//! gives an [`EnvCtx`]: a snapshot of the packages that any thread can read.
+//!
+//! ```
+//! use libcommon::bindings::{core__pkg, ic__pkg};
+//! use libcommon::iop::{Env, StructUnion as _};
+//! use libcommon::mem_stack::TScope;
+//!
+//! let mut env = Env::new();
+//! env.register_packages(&[&raw const ic__pkg, &raw const core__pkg]);
+//! let ctx = env.acquire();
+//!
+//! let t_scope = TScope::new_scope();
+//! let desc = ctx.get_struct_desc("ic.Tracer").expect("ic.Tracer is registered");
+//! let tracer = ctx
+//!     .t_junpack_desc(&t_scope, r#"{"token": 1, "epoch": 2}"#, desc, 0)
+//!     .expect("the JSON is a valid ic.Tracer");
+//!
+//! assert_eq!(tracer.as_json(), "{\n    \"token\": 1,\n    \"epoch\": 2\n}\n");
+//! ```
+//!
+//! # Keep an object
+//!
+//! An object allocated on a [`TScope`] dies with it. [`IopDup::dup`] makes a deep copy that
+//! the caller owns, and that can move to another thread.
 
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;

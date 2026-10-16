@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-//! Module to interact with `qv_t` (qvector) in Rust.
+//! [`QVector`], the Rust wrapper around a C `qv_t` vector.
 //!
 //! [`QVector`] wraps a C `qvector_t` and behaves like a [`Vec`]. It derefs to a slice, so the
 //! whole slice API (indexing, iteration, sorting, searching) is available on it.

@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-//! `t_pool` implementation and manipulation in Rust.
+//! [`TScope`], the Rust side of the C `t_scope`: a stack allocator on the `t_pool`.
 //!
 //! Unlike in C the [`TScope`] allocator object needs to be passed around to properly associate the
 //! lifetimes of the variables.

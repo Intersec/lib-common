@@ -16,11 +16,11 @@
 /*                                                                         */
 /***************************************************************************/
 
-//! Infrastructure to run functions that need `callback` in `main C event loop`
+//! Turn a C function that reports its result through a callback into a [`Future`].
 //!
-//! This provides a `run_callback` function. `run_callback` launches a function
-//! in the `main C event loop` and returns a `CallbackFut<T>` that resolves to
-//! the result once the completion callback runs.
+//! [`run_callback`] runs a function on the main C event loop, and returns a [`CallbackFut`]. The
+//! function gets a [`Callback`], and the future resolves to the value that it passes to
+//! [`Callback::call`].
 //!
 //! # Example
 //!
