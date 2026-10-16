@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-//! Infrastructure to send an `IChannel` query from Rust code.
+//! Infrastructure to send and to serve `IChannel` queries from Rust code.
 //!
 //! An RPC is named by the marker type that `iopc` writes for it, which
 //! implements [`IopRPC`](../libcommon/iop/trait.IopRPC.html): the RPC
@@ -27,21 +27,29 @@
 //! [`ICQueryBuilder::build`] locks it with its arguments. [`ICQuery::run`]
 //! sends it, and returns a
 //! [`CallbackFut`](../libcommon/run_callback/struct.CallbackFut.html)
-//! resolving to either the result or an [`IcError`].
+//! resolving to either the result or an [`IcError`]. [`IcImpls`] is the
+//! table of the RPCs that a channel serves, each implemented with
+//! [`IopRPCImpl`].
 
 use crate::bindings::{__ic_msg_build, ic__ic_status__e, ic_is_local, ic_msg_set_timeout};
 use libcommon::iop::{IopDup as _, IopRPC, Owned, OwnedGeneric, OwnedIop as _, StructUnion as _};
 use libcommon::run_callback::{Callback, CallbackFut, run_callback, run_now};
 use libcommon_core::thr::is_main_c_thread;
 
+use std::cell::Cell;
 use std::ffi::c_void;
 use std::marker::PhantomData;
-use std::ptr::{self, read, write};
+use std::mem::zeroed;
+use std::ptr::{self, from_ref, read, write};
 
 const IC_MSG_OK: ic__ic_status__e = ic__ic_status__e::OK;
 const IC_MSG_EXN: ic__ic_status__e = ic__ic_status__e::EXN;
 
-use bindings::{__ic_query, ic__hdr__t_raw, ic__hdr__u, ic_msg_new, ic_msg_t, ichannel_t};
+use bindings::{
+    __ic_query, __ic_reply, ic__hdr__t_raw, ic__hdr__u, ic_cb_entry_t, ic_cb_entry_type_t,
+    ic_msg_new, ic_msg_t, ic_reply_err, ichannel_t, qm_ic_cbs_t,
+};
+use libcommon::qhashmap::QMap;
 
 #[waf_cargo_build::bindings_mod]
 pub mod bindings {
@@ -346,5 +354,270 @@ fn call_ic_query<RPC: IopRPC>(cb: Callback<IcReply<RPC>>, ic_query: &QueryParts)
         __ic_query(ic_query.ic, msg);
     }
 }
+
+// }}}
+// {{{ RPC implementation
+
+/// Slot of a received query, awaiting its reply.
+///
+/// Replying consumes the slot, so an RPC cannot be answered twice; the
+/// `#[must_use]` covers the other side, an implementation that forgets to
+/// answer at all. Together they carry an invariant the C side can only
+/// document. An asynchronous RPC (`out null`) expects no reply: its
+/// implementation gives the slot up with [`Self::discard`].
+///
+/// Deliberately not `Send`: a reply is only valid on the main C event loop,
+/// the thread the implementation callback runs on.
+///
+/// An implementation can keep the slot and reply after `handle()` returns.
+/// The channel may be gone by then, so such a reply names the query by its
+/// slot only, as the C side requires.
+#[must_use = "a query slot must be replied to, or explicitly discarded"]
+pub struct IcReplySlot<RPC: IopRPC> {
+    slot: u64,
+    // The raw pointer keeps the slot off `Send`: a marker is.
+    _rpc: PhantomData<(RPC, *const ())>,
+}
+
+thread_local! {
+    /// The channel and the slot of the query whose implementation callback
+    /// runs, if any.
+    static SERVED: Cell<Option<(*mut ichannel_t, u64)>> = const { Cell::new(None) };
+}
+
+impl<RPC: IopRPC> IcReplySlot<RPC> {
+    /// The channel to reply on: the one of the query while its
+    /// implementation callback runs, NULL after it, for a deferred reply.
+    fn reply_ic(&self) -> *mut ichannel_t {
+        self.channel().unwrap_or(ptr::null_mut())
+    }
+
+    /// Answers the query with the RPC's result.
+    pub fn reply_res(self, res: &RPC::Res<'_>) {
+        // SAFETY: `res` is described by the `result` of `RPC::rpc_desc()`,
+        // both being projections of the same `RPC`, and the slot is
+        // answered once since replying consumes it.
+        unsafe {
+            __ic_reply(
+                self.reply_ic(),
+                self.slot,
+                IC_MSG_OK.0,
+                -1,
+                (*RPC::rpc_desc()).result,
+                from_ref(res).cast::<c_void>(),
+            );
+        }
+    }
+
+    /// Answers the query with the RPC's modeled exception.
+    pub fn reply_exn(self, exn: &RPC::Exn<'_>) {
+        // SAFETY: as `reply_res`, with the `exn` descriptor.
+        unsafe {
+            __ic_reply(
+                self.reply_ic(),
+                self.slot,
+                IC_MSG_EXN.0,
+                -1,
+                (*RPC::rpc_desc()).exn,
+                from_ref(exn).cast::<c_void>(),
+            );
+        }
+    }
+
+    /// Answers the query with a transport status, for a failure the RPC does
+    /// not model as an exception.
+    ///
+    /// # Panics
+    ///
+    /// In debug builds, if `status` is `OK` or `EXN`: those two carry a
+    /// payload, which this path has no way to send. Use [`Self::reply_res`]
+    /// or [`Self::reply_exn`].
+    pub fn reply_err(self, status: ic__ic_status__e) {
+        debug_assert!(
+            !matches!(status, IC_MSG_OK | IC_MSG_EXN),
+            "reply_err cannot carry a payload"
+        );
+
+        // SAFETY: the channel is the one of the query while its callback
+        // runs, and NULL after it, as a deferred reply requires.
+        unsafe {
+            ic_reply_err(self.reply_ic(), self.slot, status.0);
+        }
+    }
+
+    /// The channel the query came from, while the implementation callback
+    /// runs. After it, the channel may be gone, and this is `None`.
+    ///
+    /// An implementation sometimes needs it before answering -- to reach the
+    /// other channels of a broadcast, say -- and replying consumes the slot.
+    #[must_use]
+    pub fn channel(&self) -> Option<*mut ichannel_t> {
+        SERVED
+            .get()
+            .filter(|&(_, slot)| slot == self.slot)
+            .map(|(ic, _)| ic)
+    }
+
+    /// Gives the slot up without answering, for an asynchronous RPC.
+    pub fn discard(self) {}
+}
+
+/// Rust implementation of one RPC.
+///
+/// The argument type is projected from the marker rather than spelled out,
+/// so an implementation cannot read the query through the wrong struct --
+/// which is what `IOP_RPC_IMPL_ARGS()` buys C callers, and what a
+/// hand-written `extern "C"` callback loses.
+pub trait IopRPCImpl: IopRPC + Sized {
+    /// Serves one query. `hdr` is `None` when the query carries no header.
+    fn handle(arg: &Self::Arg<'_>, hdr: Option<&ic__hdr__t_raw>, reply: IcReplySlot<Self>);
+}
+
+/// Untyped callback the `IChannel` core stores and calls, one instance per
+/// implemented RPC.
+///
+/// This is the single place where the argument blob is typed, so it is also
+/// the only `unsafe` left on the implementation path.
+extern "C" fn ic_rust_impl_cb<RPC: IopRPCImpl>(
+    ic: *mut ichannel_t,
+    slot: u64,
+    arg: *mut c_void,
+    hdr: *const ic__hdr__t_raw,
+) {
+    // SAFETY: the core calls this with the blob of the RPC it was registered
+    // for, described by that RPC's `args`; `IcImpls::register` ties the two
+    // together by taking both from a single `RPC`. The borrow cannot escape
+    // the call, which is exactly the C contract on `arg`.
+    let arg: &RPC::Arg<'_> = unsafe { &*arg.cast() };
+    let hdr = unsafe { hdr.as_ref() };
+
+    let served = SERVED.replace(Some((ic, slot)));
+
+    RPC::handle(
+        arg,
+        hdr,
+        IcReplySlot {
+            slot,
+            _rpc: PhantomData,
+        },
+    );
+    SERVED.set(served);
+}
+
+/// Table of the RPCs an `IChannel` implements.
+///
+/// The `qm_t(ic_cbs)` the C side expects, driven through [`QMap`]: what
+/// the C header reaches through `qm_init()`, `qm_add()` and the
+/// `ic_cb_entry_t` initializer -- all macros, hence out of reach of
+/// bindgen -- the Rust binding of the table does directly.
+///
+/// The table is either owned by Rust ([`Self::new`]), or owned by C and
+/// borrowed ([`Self::borrow`]): most of the code that serves RPCs stays in
+/// C, with its own table, and Rust adds its implementations to it.
+///
+/// An owned table is released when its `IcImpls` drops, or before with
+/// [`Self::wipe`]. The channels pointing at it must be done with it by
+/// then, so keep the `IcImpls` as long as they live.
+pub struct IcImpls<'t> {
+    cbs: IcImplsTable<'t>,
+}
+
+/// Where the table of an [`IcImpls`] lives.
+enum IcImplsTable<'t> {
+    /// Owned by Rust. Boxed, so that the pointer of [`IcImpls::as_ptr`]
+    /// stays valid when the `IcImpls` moves.
+    Owned(Box<QMap<'static, qm_ic_cbs_t>>),
+    /// Owned by C, which also wipes it.
+    Borrowed(&'t mut QMap<'static, qm_ic_cbs_t>),
+}
+
+impl IcImpls<'static> {
+    /// Creates an empty table, owned by Rust.
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            cbs: IcImplsTable::Owned(Box::new(QMap::new())),
+        }
+    }
+}
+
+impl<'t> IcImpls<'t> {
+    /// Adds implementations to `cbs`, a table that C owns.
+    ///
+    /// ```ignore
+    /// let cbs = unsafe { QMap::from_c_ptr_mut(&raw mut _G.ic_cbs) };
+    /// let mut impls = IcImpls::borrow(cbs);
+    /// ```
+    #[must_use]
+    pub fn borrow(cbs: &'t mut QMap<'static, qm_ic_cbs_t>) -> Self {
+        Self {
+            cbs: IcImplsTable::Borrowed(cbs),
+        }
+    }
+
+    fn qm(&mut self) -> &mut QMap<'static, qm_ic_cbs_t> {
+        match &mut self.cbs {
+            IcImplsTable::Owned(qm) => qm,
+            IcImplsTable::Borrowed(qm) => qm,
+        }
+    }
+
+    /// Registers the implementation of the RPC `RPC`.
+    ///
+    /// # Panics
+    ///
+    /// The command id of `RPC` already has an implementation.
+    pub fn register<RPC: IopRPCImpl>(&mut self) {
+        // SAFETY: `ic_cb_entry_t` is a C aggregate of a tag, pointers and
+        // function pointers; all-zero is the empty `IC_CB_NORMAL` entry the
+        // three assignments below complete, leaving the hooks unset just as
+        // the C initializer does.
+        let mut entry: ic_cb_entry_t = unsafe { zeroed() };
+
+        // The descriptor and the callback are both projections of `RPC`, so
+        // the entry cannot describe one RPC and serve another.
+        entry.cb_type = ic_cb_entry_type_t::IC_CB_NORMAL;
+        entry.rpc = RPC::rpc_desc();
+        entry.u.cb.cb = Some(ic_rust_impl_cb::<RPC>);
+
+        assert!(
+            self.qm().try_insert(RPC::CMD as u32, entry).is_ok(),
+            "duplicate registration for RPC command {:#x}",
+            RPC::CMD
+        );
+    }
+
+    /// Pointer to store in `ichannel_t::impl_`.
+    #[must_use]
+    pub fn as_ptr(&self) -> *const qm_ic_cbs_t {
+        match &self.cbs {
+            IcImplsTable::Owned(qm) => qm.as_ptr(),
+            IcImplsTable::Borrowed(qm) => qm.as_ptr(),
+        }
+    }
+
+    /// Releases a table owned by Rust. The channels pointing at it must be
+    /// done with it. A table owned by C is left to C.
+    ///
+    /// An empty table is left behind, so the pointer [`Self::as_ptr`] hands
+    /// out stays valid and wiping twice is harmless.
+    pub fn wipe(&mut self) {
+        if let IcImplsTable::Owned(qm) = &mut self.cbs {
+            **qm = QMap::new();
+        }
+    }
+}
+
+impl Default for IcImpls<'static> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// SAFETY: the table only holds RPC descriptors, which live in iopc-generated
+// statics, and monomorphised callbacks, which are code pointers. Neither is
+// tied to a thread; what blocks the auto impl is the raw pointers inside the
+// qm.
+unsafe impl Send for IcImpls<'_> {}
 
 // }}}

@@ -18,46 +18,11 @@
 #include <lib-common/iop-rpc.h>
 #include "../../examples/iop-tutorial/exiop.iop.h"
 
-/* The IChannel RPC helpers below are macros in C, so they can't be reached
+/* The IChannel helpers below are macros in C, so they can't be reached
  * through bindgen directly. We wrap them in small `static inline` shims that
- * Rust can call. This mirrors the pattern used by `tests/ichannel-rust`. */
+ * Rust can call. */
 
-/* {{{ RPC implementation table (qm_t(ic_cbs)) */
-
-typedef void (*exiop_send_impl_f)(
-    IOP_RPC_IMPL_ARGS(exiop__hello_mod, hello_interface, send)
-);
-typedef void (*exiop_send_async_impl_f)(
-    IOP_RPC_IMPL_ARGS(exiop__hello_mod, hello_interface, send_async)
-);
-
-static inline void exiop_ic_cbs_init(qm_t(ic_cbs) *impl)
-{
-    qm_init(ic_cbs, impl);
-}
-static inline void exiop_ic_cbs_wipe(qm_t(ic_cbs) *impl)
-{
-    qm_wipe(ic_cbs, impl);
-}
-static inline void
-exiop_register_send(qm_t(ic_cbs) *impl, exiop_send_impl_f cb)
-{
-    ic_register_(impl, exiop__hello_mod, hello_interface, send, cb);
-}
-static inline void
-exiop_register_send_async(qm_t(ic_cbs) *impl, exiop_send_async_impl_f cb)
-{
-    ic_register_(impl, exiop__hello_mod, hello_interface, send_async, cb);
-}
-
-/* }}} */
 /* {{{ Server-side helpers */
-
-/* Reply to a `send` query. */
-static inline void exiop_reply_send(ichannel_t *ic, uint64_t slot, int res)
-{
-    ic_reply(ic, slot, exiop__hello_mod, hello_interface, send, .res = res);
-}
 
 /* Push a one-way `sendAsync` message. This RPC has `out null`, so it is
  * fire-and-forget: no reply comes back and no completion callback runs, which

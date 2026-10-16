@@ -36,15 +36,10 @@
 //! Each client's message reaches the server and the already-connected clients.
 //! Exit with `SIGINT` / `SIGTERM` / `SIGQUIT` (e.g. Ctrl+C).
 
-use std::cell::RefCell;
-use std::env;
-use std::ffi::c_int;
-use std::mem::zeroed;
-use std::process;
-use std::ptr;
+use std::{cell::RefCell, env, ffi::c_int, mem::zeroed, process, ptr};
 
 use ichannel::bindings::ichannel_t;
-use ichannel::{ICQuery, IcError};
+use ichannel::{ICQuery, IcError, IcImpls, IcReplySlot, IopRPCImpl};
 use libcommon::bindings::thr_get_module;
 use libcommon::c_main_waker::run_future;
 use libcommon::iop::Env;
@@ -55,12 +50,11 @@ use crate::bindings::ic_event_t::{IC_EVT_CONNECTED, IC_EVT_DISCONNECTED};
 use crate::bindings::{
     AF_UNSPEC, SIGINT, SIGQUIT, SIGTERM, addr_info, addr_parse, data_t, el_blocker_register,
     el_loop, el_signal_register, el_t, el_unregister, exiop__hello_iface__send_args__t,
-    exiop__hello_iface__send_async_args__t,
-    exiop__hello_mod__hello_interface__send__rpc as SendRpc, exiop__pkg, exiop_ic_cbs_init,
-    exiop_ic_cbs_wipe, exiop_proto_tcp, exiop_register_send, exiop_register_send_async,
-    exiop_reply_send, exiop_send_async_query, exiop_sock_stream, ic__hdr__t_raw, ic_bye,
-    ic_connect, ic_event_t, ic_get_module, ic_init, ic_listento, ic_new, ic_spawn, ic_wipe,
-    in_port_t, iop_env_t, ps_initlstr, pstream_t, qm_ic_cbs_t, sa_family_t, sockunion_t,
+    exiop__hello_iface__send_res__t, exiop__hello_mod__hello_interface__send__rpc as SendRpc,
+    exiop__hello_mod__hello_interface__send_async__rpc as SendAsyncRpc, exiop__pkg,
+    exiop_proto_tcp, exiop_send_async_query, exiop_sock_stream, ic__hdr__t_raw, ic_bye, ic_connect,
+    ic_event_t, ic_get_module, ic_init, ic_listento, ic_new, ic_spawn, ic_wipe, in_port_t,
+    iop_env_t, ps_initlstr, pstream_t, qm_ic_cbs_t, sa_family_t, sockunion_t,
 };
 
 #[waf_cargo_build::bindings_mod]
@@ -154,17 +148,16 @@ fn exiop_ic_listento(
 // {{{ Client
 
 /// Allow a client to receive a message sent through the server.
-unsafe extern "C" fn exiop_send_async_impl(
-    _ic: *mut ichannel_t,
-    _slot: u64,
-    arg: *mut exiop__hello_iface__send_async_args__t<'_>,
-    _hdr: *const ic__hdr__t_raw,
-) {
-    let arg = unsafe { &*arg };
-    eprintln!(
-        "received: msg = '{}', from client = {}",
-        arg.msg, arg.seqnum
-    );
+impl IopRPCImpl for SendAsyncRpc {
+    fn handle(arg: &Self::Arg<'_>, _hdr: Option<&ic__hdr__t_raw>, reply: IcReplySlot<Self>) {
+        eprintln!(
+            "received: msg = '{}', from client = {}",
+            arg.msg, arg.seqnum
+        );
+
+        // `sendAsync` is declared `out null`, so it expects no reply.
+        reply.discard();
+    }
 }
 
 /// State machine of the client.
@@ -206,13 +199,13 @@ fn exiop_client_initialize(
     addr: &str,
     remote_ic: *mut ichannel_t,
     iop_env: *const iop_env_t,
-    ic_impl: *mut qm_ic_cbs_t,
+    ic_impl: &mut IcImpls<'_>,
 ) {
     unsafe {
         ic_init(remote_ic);
         (*remote_ic).iop_env = iop_env;
         (*remote_ic).on_event = Some(exiop_client_on_event);
-        (*remote_ic).impl_ = ic_impl.cast_const();
+        (*remote_ic).impl_ = ic_impl.as_ptr();
     }
 
     exiop_addr_resolve(addr, unsafe { &raw mut (*remote_ic).su });
@@ -223,38 +216,33 @@ fn exiop_client_initialize(
     );
 
     // Register RPCs: the client receives the broadcast `sendAsync`.
-    unsafe {
-        exiop_register_send_async(ic_impl, Some(exiop_send_async_impl));
-    }
+    ic_impl.register::<SendAsyncRpc>();
 }
 
 // }}}
 // {{{ Server implementation
 
 /// Allow the server to respond to a message and broadcast it on the channel.
-unsafe extern "C" fn exiop_send_impl(
-    ic: *mut ichannel_t,
-    slot: u64,
-    arg: *mut exiop__hello_iface__send_args__t<'_>,
-    _hdr: *const ic__hdr__t_raw,
-) {
-    let arg = unsafe { &*arg };
-    eprintln!("helloworld: msg = '{}', seqnum = {}", arg.msg, arg.seqnum);
+impl IopRPCImpl for SendRpc {
+    fn handle(arg: &Self::Arg<'_>, _hdr: Option<&ic__hdr__t_raw>, reply: IcReplySlot<Self>) {
+        eprintln!("helloworld: msg = '{}', seqnum = {}", arg.msg, arg.seqnum);
 
-    unsafe {
-        exiop_reply_send(ic, slot, 1);
-    }
+        // Read the channel before answering: replying consumes the slot.
+        let ic = reply.channel();
 
-    // Broadcast the message to the other clients.
-    G.with_borrow(|g| {
-        for &client in &g.clients {
-            if client != ic {
-                unsafe {
-                    exiop_send_async_query(client, 0, arg.msg.as_raw());
+        reply.reply_res(&exiop__hello_iface__send_res__t { res: 1 });
+
+        // Broadcast the message to the other clients.
+        G.with_borrow(|g| {
+            for &client in &g.clients {
+                if Some(client) != ic {
+                    unsafe {
+                        exiop_send_async_query(client, 0, arg.msg.as_raw());
+                    }
                 }
             }
-        }
-    });
+        });
+    }
 }
 
 /// Allow the server to choose an action depending on whether the client
@@ -296,14 +284,12 @@ unsafe extern "C" fn exiop_on_accept(_ev: el_t, fd: c_int) -> c_int {
 }
 
 /// Initialize the server side by setting up a listener on `addr`.
-fn exiop_server_initialize(addr: &str, ic_impl: *mut qm_ic_cbs_t) {
+fn exiop_server_initialize(addr: &str, ic_impl: &mut IcImpls<'_>) {
     // Start listening. The listener is owned by the event loop.
     let _listener = exiop_ic_listento(addr, exiop_on_accept);
 
     // Register RPCs: the server implements `send`.
-    unsafe {
-        exiop_register_send(ic_impl, Some(exiop_send_impl));
-    }
+    ic_impl.register::<SendRpc>();
 }
 
 // }}}
@@ -403,26 +389,23 @@ fn main() {
     // `run_future` schedules the polls on the main C thread queue.
     module_require(unsafe { thr_get_module() });
 
-    let mut ic_impl: Box<qm_ic_cbs_t> = Box::new(unsafe { zeroed() });
-    unsafe {
-        exiop_ic_cbs_init(&raw mut *ic_impl);
-    }
+    let mut ic_impl = IcImpls::new();
     let mut remote_ic: Box<ichannel_t> = Box::new(unsafe { zeroed() });
 
     G.with_borrow_mut(|g| {
         g.opt_client = opts.client;
         g.iop_env = iop_env.as_ptr();
-        g.ic_impl = &raw const *ic_impl;
+        g.ic_impl = ic_impl.as_ptr();
     });
 
     if opts.client {
         eprintln!("launching in client mode…");
         let remote_ptr: *mut ichannel_t = &raw mut *remote_ic;
-        exiop_client_initialize(&address, remote_ptr, iop_env.as_ptr(), &raw mut *ic_impl);
+        exiop_client_initialize(&address, remote_ptr, iop_env.as_ptr(), &mut ic_impl);
         G.with_borrow_mut(|g| g.remote_ic = remote_ptr);
     } else if opts.server {
         eprintln!("launching in server mode…");
-        exiop_server_initialize(&address, &raw mut *ic_impl);
+        exiop_server_initialize(&address, &mut ic_impl);
     }
 
     let blocker = unsafe { el_blocker_register() };
@@ -445,9 +428,7 @@ fn main() {
 
     G.with_borrow_mut(|g| g.clients.clear());
 
-    unsafe {
-        exiop_ic_cbs_wipe(&raw mut *ic_impl);
-    }
+    ic_impl.wipe();
 
     module_release(unsafe { thr_get_module() });
     module_release(unsafe { ic_get_module() });
