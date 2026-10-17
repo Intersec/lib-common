@@ -188,6 +188,14 @@ pub trait StructUnion: Base {
         ptr::from_mut(self) as *mut c_void
     }
 
+    /// Get an untyped view of the IOP structure or union, borrowed from it.
+    ///
+    /// The view is read-only: the value is only borrowed shared, so nothing
+    /// may write through the pointer of the view.
+    fn as_generic(&self) -> GenericStructUnion<'_> {
+        GenericStructUnion::new(self.get_cdesc(), self.get_cptr().cast_mut())
+    }
+
     /// Check the constraints (`@min`, `@max`, `@nonEmpty`, `@pattern`, ...)
     /// declared on the IOP structure or union fields.
     ///
@@ -390,6 +398,17 @@ impl StructUnion for GenericStructUnion<'_> {
 
     fn get_cptr_mut(&mut self) -> *mut c_void {
         self.cptr
+    }
+
+    /// Keeps the `EnvCtx` of the value, so that a copy of the view keeps
+    /// its descriptor alive.
+    fn as_generic(&self) -> GenericStructUnion<'_> {
+        GenericStructUnion {
+            cdesc: self.cdesc,
+            cptr: self.cptr,
+            ctx: self.ctx.clone(),
+            _phantom: PhantomData,
+        }
     }
 }
 
@@ -1322,6 +1341,20 @@ pub fn __iop_init<S: CStructUnion>() -> MaybeUninit<S> {
 
 // }}}
 // {{{ Tests
+
+#[cfg(test)]
+mod as_generic_tests {
+    use super::{Env, GenericStructUnion, StructUnion as _};
+    use std::ptr;
+
+    #[test]
+    fn the_view_of_a_generic_value_keeps_its_ctx() {
+        let env = Env::new();
+        let value = GenericStructUnion::new_with_ctx(ptr::null(), ptr::null_mut(), env.acquire());
+
+        assert!(value.as_generic().ctx.is_some());
+    }
+}
 
 #[cfg(test)]
 mod env_send_sync_assertions {

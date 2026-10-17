@@ -1051,6 +1051,40 @@ mod iop_tests {
         );
     }
 
+    #[test]
+    fn as_generic_dup() {
+        // The untyped view of a compiled value dups into a lifetime-free
+        // `OwnedGeneric` with the same descriptor and content.
+        let src = ic__simple_hdr__t::new();
+        let owned = src.as_generic().dup();
+
+        assert_eq!(owned.get_cdesc(), src.get_cdesc());
+        assert_eq!(owned.as_json(), src.as_json());
+    }
+
+    #[test]
+    fn as_generic_dup_outlives_source_ctx() {
+        // The view of a generic value keeps its `EnvCtx`, so its copy stays
+        // valid after the ctx that resolved the descriptor is gone.
+        let owned = {
+            let ctx = setup_env_with_packages();
+            let t_scope = TScope::new_scope();
+            let desc = ctx
+                .get_struct_desc("ic.Tracer")
+                .expect("ic.Tracer should exist");
+            let obj = ctx
+                .t_junpack_desc(&t_scope, r#"{"token": 1, "epoch": 2}"#, desc, 0)
+                .expect("valid JSON should unpack");
+
+            obj.as_generic().dup()
+        };
+
+        assert_eq!(
+            owned.as_json(),
+            "{\n    \"token\": 1,\n    \"epoch\": 2\n}\n"
+        );
+    }
+
     // }}}
     // {{{ @ctype and @alias
 
