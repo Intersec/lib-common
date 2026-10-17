@@ -31,11 +31,13 @@
 //! table of the RPCs that a channel serves, each implemented with
 //! [`IopRPCImpl`].
 
-use crate::bindings::{
-    __ic_msg_build, ev_priority_t, ic__ic_status__e, ic_is_local, ic_msg_set_priority,
-    ic_msg_set_timeout,
+use bindings::{
+    __ic_msg_build, __ic_query, __ic_reply, ev_priority_t, ic__hdr__t_raw, ic__hdr__u,
+    ic__ic_status__e, ic_cb_entry_t, ic_cb_entry_type_t, ic_is_local, ic_msg_new,
+    ic_msg_set_priority, ic_msg_set_timeout, ic_msg_t, ic_reply_err, ichannel_t, qm_ic_cbs_t,
 };
 use libcommon::iop::{IopDup as _, IopRPC, Owned, OwnedGeneric, OwnedIop as _, StructUnion as _};
+use libcommon::qhashmap::QMap;
 use libcommon::run_callback::{Callback, CallbackFut, run_callback, run_now};
 use libcommon_core::thr::is_main_c_thread;
 
@@ -48,19 +50,32 @@ use std::ptr::{self, from_ref, read, write};
 const IC_MSG_OK: ic__ic_status__e = ic__ic_status__e::OK;
 const IC_MSG_EXN: ic__ic_status__e = ic__ic_status__e::EXN;
 
-use bindings::{
-    __ic_query, __ic_reply, ic__hdr__t_raw, ic__hdr__u, ic_cb_entry_t, ic_cb_entry_type_t,
-    ic_msg_new, ic_msg_t, ic_reply_err, ichannel_t, qm_ic_cbs_t,
-};
-use libcommon::qhashmap::QMap;
-
 #[waf_cargo_build::bindings_mod]
 pub mod bindings {
     pub use libcommon::bindings::*;
     waf_cargo_build::include_bindings!();
 }
 
-// {{{ ICQuery builder
+// {{{ Errors
+
+/// Error returned by an `IChannel` query.
+pub enum IcError<E> {
+    /// A modeled IOP exception returned by the RPC (`IC_MSG_EXN`).
+    Exn(E),
+    /// A status failure with no modeled exception - e.g. timeout, canceled,
+    /// or unimplemented RPC (any status other than OK/EXN).
+    Status(ic__ic_status__e),
+}
+
+// }}}
+// {{{ Query
+
+/// What the future of [`ICQuery::run`] resolves to.
+// `RPC: 'static` is not a restriction: a marker is a unit struct generated at
+// module scope. The bound is what makes the reply `'static`, as the callback
+// that the `IChannel` core resolves later requires.
+pub type IcReply<RPC> =
+    Result<Owned<<RPC as IopRPC>::Res<'static>>, IcError<Owned<<RPC as IopRPC>::Exn<'static>>>>;
 
 /// Settings of a query for the RPC `RPC`, before the query is built.
 ///
@@ -130,13 +145,6 @@ pub struct ICQuery<'a, RPC: IopRPC> {
     args: RPC::Arg<'a>,
 }
 
-/// What the future of [`ICQuery::run`] resolves to.
-// `RPC: 'static` is not a restriction: a marker is a unit struct generated at
-// module scope. The bound is what makes the reply `'static`, as the callback
-// that the `IChannel` core resolves later requires.
-pub type IcReply<RPC> =
-    Result<Owned<<RPC as IopRPC>::Res<'static>>, IcError<Owned<<RPC as IopRPC>::Exn<'static>>>>;
-
 impl<'a, RPC: IopRPC + 'static> ICQuery<'a, RPC> {
     /// Starts the settings of a query for `RPC` on the channel `ic`.
     pub fn builder(ic: *mut ichannel_t) -> ICQueryBuilder<'a, RPC> {
@@ -193,6 +201,9 @@ impl<'a, RPC: IopRPC + 'static> ICQuery<'a, RPC> {
         }
     }
 }
+
+// }}}
+// {{{ Sending a query
 
 /// What sending a query reads, wherever it comes from.
 struct QueryParts {
@@ -260,20 +271,49 @@ impl OwnedQuery {
 // remains the caller's responsibility until then.
 unsafe impl Send for OwnedQuery {}
 
-// }}}
-// {{{ Error Handler
+/// Allocates a `msg`, decides whether to `do_bpack`, packs the args via
+/// [`__ic_msg_build`], then calls [`__ic_query`] to send the query on the
+/// `IChannel`.
+///
+/// `Owned<T>` is an associated-type projection, which is not injective, so
+/// `RPC` cannot be inferred back from `cb`: callers name it explicitly.
+fn call_ic_query<RPC: IopRPC>(cb: Callback<IcReply<RPC>>, ic_query: &QueryParts) {
+    let msg = unsafe { &mut *ic_msg_new(size_of_val(&cb) as i32) };
 
-/// Error returned by an `IChannel` query.
-pub enum IcError<E> {
-    /// A modeled IOP exception returned by the RPC (`IC_MSG_EXN`).
-    Exn(E),
-    /// A status failure with no modeled exception - e.g. timeout, canceled,
-    /// or unimplemented RPC (any status other than OK/EXN).
-    Status(ic__ic_status__e),
+    ic_prepare_msg::<RPC>(msg, cb, ic_query);
+    let args = unsafe { (*msg.rpc).args };
+    let do_bpack = !unsafe { ic_is_local(ic_query.ic) } || msg.force_pack();
+    unsafe {
+        __ic_msg_build(msg, args, ic_query.args, do_bpack);
+    }
+    unsafe {
+        __ic_query(ic_query.ic, msg);
+    }
 }
 
-// }}}
-// {{{ Macro equivalent
+/// Writes and wires the elements needed to send a `msg` on an `IChannel` and
+/// links a callback function.
+fn ic_prepare_msg<RPC: IopRPC>(msg: &mut ic_msg_t, cb: Callback<IcReply<RPC>>, query: &QueryParts) {
+    let rpc = RPC::rpc_desc();
+    let ptr = (&raw mut msg.priv_) as *mut Callback<IcReply<RPC>>;
+
+    debug_assert!(ptr.is_aligned(), "ic_msg_t::priv_ is not properly aligned");
+    unsafe {
+        write(ptr, cb);
+    }
+    msg.cb = Some(cb_func::<RPC>);
+    msg.rpc = rpc;
+    msg.set_async(unsafe { (*rpc).async_() } != 0);
+    msg.cmd = RPC::CMD;
+    // The header only has to live until `__ic_query()` returns: the
+    // `IChannel` packs it, or a local channel runs the RPC at once.
+    msg.hdr = query.hdr;
+    msg.set_trace(false);
+    unsafe {
+        ic_msg_set_timeout(msg, query.timeout);
+        ic_msg_set_priority(msg, query.priority);
+    }
+}
 
 /// C completion callback: reads the Rust [`Callback`] from `msg.priv_` and
 /// resolves it with the decoded reply ([`IC_MSG_OK`]), IOP exception
@@ -323,53 +363,6 @@ unsafe extern "C" fn cb_func<RPC: IopRPC>(
         cb.call(Err(IcError::Exn(result)));
     } else {
         cb.call(Err(IcError::Status(status)));
-    }
-}
-
-/// Writes and wires the elements needed to send a `msg` on an `IChannel` and
-/// links a callback function.
-fn ic_prepare_msg<RPC: IopRPC>(msg: &mut ic_msg_t, cb: Callback<IcReply<RPC>>, query: &QueryParts) {
-    let rpc = RPC::rpc_desc();
-    let ptr = (&raw mut msg.priv_) as *mut Callback<IcReply<RPC>>;
-
-    debug_assert!(ptr.is_aligned(), "ic_msg_t::priv_ is not properly aligned");
-    unsafe {
-        write(ptr, cb);
-    }
-    msg.cb = Some(cb_func::<RPC>);
-    msg.rpc = rpc;
-    msg.set_async(unsafe { (*rpc).async_() } != 0);
-    msg.cmd = RPC::CMD;
-    // The header only has to live until `__ic_query()` returns: the
-    // `IChannel` packs it, or a local channel runs the RPC at once.
-    msg.hdr = query.hdr;
-    msg.set_trace(false);
-    unsafe {
-        ic_msg_set_timeout(msg, query.timeout);
-        ic_msg_set_priority(msg, query.priority);
-    }
-}
-
-// }}}
-// {{{ Rust IChannel query
-
-/// Allocates a `msg`, decides whether to `do_bpack`, packs the args via
-/// [`__ic_msg_build`], then calls [`__ic_query`] to send the query on the
-/// `IChannel`.
-///
-/// `Owned<T>` is an associated-type projection, which is not injective, so
-/// `RPC` cannot be inferred back from `cb`: callers name it explicitly.
-fn call_ic_query<RPC: IopRPC>(cb: Callback<IcReply<RPC>>, ic_query: &QueryParts) {
-    let msg = unsafe { &mut *ic_msg_new(size_of_val(&cb) as i32) };
-
-    ic_prepare_msg::<RPC>(msg, cb, ic_query);
-    let args = unsafe { (*msg.rpc).args };
-    let do_bpack = !unsafe { ic_is_local(ic_query.ic) } || msg.force_pack();
-    unsafe {
-        __ic_msg_build(msg, args, ic_query.args, do_bpack);
-    }
-    unsafe {
-        __ic_query(ic_query.ic, msg);
     }
 }
 
