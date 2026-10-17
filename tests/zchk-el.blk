@@ -18,6 +18,7 @@
 
 /* LCOV_EXCL_START */
 
+#include <lib-common/datetime.h>
 #include <lib-common/el.h>
 #include <lib-common/net.h>
 #include <lib-common/unix.h>
@@ -209,6 +210,45 @@ static int z_timer_tolerance(void)
      * the timeout.*/
     Z_ASSERT(running);
     Z_ASSERT_LT(running - before, timeout);
+    Z_HELPER_END;
+}
+
+/* An idle event or a before event registers a before event: the iteration
+ * must not wait for the timeout in epoll. */
+static int z_before_from(bool from_idle)
+{
+    el_t outer = NULL;
+    el_t before = NULL;
+    bool before_ran = false;
+    el_t *p_outer = &outer;
+    el_t *p_before = &before;
+    bool *p_before_ran = &before_ran;
+    uint64_t start;
+    el_cb_b register_before = ^(el_t ev) {
+        *p_before = el_before_register_blk(
+            ^(el_t ev2) {
+                *p_before_ran = true;
+                el_unregister(p_before);
+            },
+            NULL
+        );
+        /* Last: it releases this block and what the block captured. */
+        el_unregister(p_outer);
+    };
+
+    if (from_idle) {
+        outer = el_idle_register_blk(register_before, NULL);
+    } else {
+        outer = el_before_register_blk(register_before, NULL);
+    }
+
+    start = lp_getmsec();
+    el_loop_timeout(10000);
+    Z_ASSERT_LT(lp_getmsec() - start, 5000UL);
+    Z_ASSERT(!before_ran);
+
+    el_loop_timeout(0);
+    Z_ASSERT(before_ran);
     Z_HELPER_END;
 }
 
@@ -419,6 +459,14 @@ Z_GROUP_EXPORT(el) {
 
     Z_TEST(el_repeat_timer_tolerance) {
         Z_HELPER_RUN(z_timer_tolerance());
+    } Z_TEST_END;
+
+    Z_TEST(before_from_before, "el: before event from a before event") {
+        Z_HELPER_RUN(z_before_from(false));
+    } Z_TEST_END;
+
+    Z_TEST(before_from_idle, "el: before event from an idle event") {
+        Z_HELPER_RUN(z_before_from(true));
     } Z_TEST_END;
 } Z_GROUP_END;
 

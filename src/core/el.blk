@@ -406,7 +406,8 @@ void el_before_set_hook(el_t ev, el_cb_f *cb)
     ev->cb.cb = cb;
 }
 
-static void el_before_process(void)
+/* Returns the generation of the before events that ran. */
+static uint8_t el_before_process(void)
 {
     uint8_t generation;
 
@@ -437,6 +438,18 @@ static void el_before_process(void)
             (*ev->cb.cb)(ev, ev->priv);
         }
     }
+    return generation;
+}
+
+/* Whether a before event was registered after the before events of the
+ * `generation` ran. The loop must then not wait in epoll. `ev_add()`
+ * inserts at the head, so such an event is the first one.
+ */
+static bool el_before_is_pending(uint8_t generation)
+{
+    return !dlist_is_empty(&_G.before) &&
+           dlist_first_entry(&_G.before, ev_t, ev_list)->generation !=
+               generation;
 }
 
 ev_t *el_idle_register_d(el_cb_f *cb, data_t priv)
@@ -1851,6 +1864,7 @@ data_t el_get_priv(const el_t ev)
 void el_loop_timeout(int timeout)
 {
     uint64_t clk = get_clock();
+    uint8_t before_generation;
 
     _G.loop_depth++;
     el_timer_process(clk);
@@ -1858,10 +1872,10 @@ void el_loop_timeout(int timeout)
         _G.loop_depth--;
         return;
     }
-    el_before_process();
+    before_generation = el_before_process();
     el_idle_process(clk);
     if (!dlist_is_empty(&_G.proxy_ready) || !dlist_is_empty(&_G.idle) ||
-        !dlist_is_empty(&_G.fired))
+        !dlist_is_empty(&_G.fired) || el_before_is_pending(before_generation))
     {
         timeout = 0;
     }
@@ -1895,6 +1909,12 @@ void el_loop_timeout(int timeout)
     }
 
     el_fd_process_fired();
+    if (el_before_is_pending(before_generation)) {
+        /* The worker or a fired event registered a before event. Only the
+         * next iteration runs it, so poll epoll without waiting.
+         */
+        timeout = 0;
+    }
     el_loop_fds(el_timer_next_expiration(timeout, clk));
     el_loop_proxies();
     el_signal_process();
