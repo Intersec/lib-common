@@ -181,17 +181,43 @@ where
     F: FnOnce(Callback<T>) + Send + 'static,
     T: Send + 'static,
 {
+    let (task, fut) = callback_pair();
+
+    main_c_queue_schedule(move || run_fun(task));
+    fut
+}
+
+/// Run the input function right away on the current thread, and return a
+/// `CallbackFut<T>`.
+///
+/// Unlike [`run_callback`], `run_fun` may borrow: it has returned when this
+/// function returns, and only the `Callback<T>` it received outlives it.
+/// The caller must already be on the thread that `run_fun` needs.
+pub fn run_now<F, T>(run_fun: F) -> CallbackFut<T>
+where
+    F: FnOnce(Callback<T>),
+    T: Send + 'static,
+{
+    let (task, fut) = callback_pair();
+
+    run_fun(task);
+    fut
+}
+
+/// Creates a `Callback<T>` and the `CallbackFut<T>` that it resolves.
+fn callback_pair<T>() -> (Callback<T>, CallbackFut<T>)
+where
+    T: Send + 'static,
+{
     let inner = Arc::new(Mutex::new(Inner {
         result: None,
         waker: None,
     }));
-
     let task = Callback {
         inner: Arc::clone(&inner),
     };
-    main_c_queue_schedule(move || run_fun(task));
 
-    CallbackFut { inner }
+    (task, CallbackFut { inner })
 }
 
 // }}}
@@ -199,7 +225,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{Callback, CallbackFut, Inner, run_callback};
+    use super::{Callback, CallbackFut, Inner, run_callback, run_now};
     use libcommon_core::{
         bindings::{
             data_t, el_blocker_register, el_loop, el_timer_register, el_unregister, ev_t,
@@ -212,7 +238,7 @@ mod tests {
     use std::future::Future as _;
     use std::pin::pin;
     use std::sync::{Arc, Mutex};
-    use std::task::{Context, Wake, Waker};
+    use std::task::{Context, Poll, Wake, Waker};
     use tokio_c_mod::tokio_get_module;
 
     struct ElBlocker(*mut ev_t);
@@ -284,6 +310,21 @@ mod tests {
         assert!(fut.as_mut().poll(&mut cx).is_pending());
         Callback { inner }.call(());
         assert!(fut.as_mut().poll(&mut cx).is_ready());
+    }
+
+    #[test]
+    fn run_now_runs_its_function_before_returning() {
+        // The function borrows `ran`, which `run_callback` would refuse. A
+        // result that it delivers at once is ready at the first poll.
+        let mut ran = false;
+        let mut fut = pin!(run_now(|cb: Callback<i32>| {
+            ran = true;
+            cb.call(7);
+        }));
+        let mut cx = Context::from_waker(Waker::noop());
+
+        assert!(ran);
+        assert!(matches!(fut.as_mut().poll(&mut cx), Poll::Ready(7)));
     }
 }
 
