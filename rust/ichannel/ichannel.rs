@@ -22,7 +22,8 @@
 //! `IChannel` query.
 //!
 //! It also provides the [`ic_query`] function which takes the [`ICQuery`] as
-//! input and launches it on an `IChannel`, sending back a [`CallbackFut`] with
+//! input and launches it on an `IChannel`, sending back a
+//! [`CallbackFut`](../libcommon/run_callback/struct.CallbackFut.html) with
 //! either the result or the [`IcError`] resulting from the query.
 
 use crate::{
@@ -198,7 +199,8 @@ where
 ///
 /// # Returns
 ///
-/// a [`CallbackFut`] with either the result or the error produced.
+/// a [`CallbackFut`](../libcommon/run_callback/struct.CallbackFut.html) with either the result or
+/// the error produced.
 pub fn ic_query<A, R, E>(ic_query: ICQuery<A>) -> CallbackFut<Result<Owned<R>, IcError<Owned<E>>>>
 where
     A: IopDup + 'static,

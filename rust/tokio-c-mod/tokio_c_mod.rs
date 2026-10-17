@@ -18,9 +18,11 @@
 
 //! Run a tokio runtime next to the C event loop.
 //!
-//! This provides a `TokioCMod` exposed to C with [`c_module!`] as
-//! `tokio_c_module`. A global [`ArcSwapOption`] stores the tokio runtime's
-//! [`Handle`] allowing us to run a thread with a custom [`Future`] object.
+//! This provides a `TokioCMod` exposed to C with
+//! [`c_module!`](../libcommon_core/macro.c_module.html) as `tokio_c_module`. A global
+//! [`ArcSwapOption`](https://docs.rs/arc-swap/1/arc_swap/type.ArcSwapOption.html) stores the
+//! [`Handle`](https://docs.rs/tokio/1/tokio/runtime/struct.Handle.html) of the tokio runtime,
+//! allowing us to run a thread with a custom [`Future`] object.
 //!
 //! # Overview
 //!
@@ -31,7 +33,8 @@
 //! - `shutdown` : terminate the thread and make sure it is finished.
 //!
 //! The [`spawn`] function allows us to spawn a task using the `tokio_c_module`
-//! runtime and the [`Future`] input. It returns a [`tokio::task::JoinHandle`].
+//! runtime and the [`Future`] input. It returns a
+//! [`tokio::task::JoinHandle`](https://docs.rs/tokio/1/tokio/task/struct.JoinHandle.html).
 //!
 //! # Example
 //!
@@ -101,7 +104,8 @@ struct TokioCMod {
 ///
 /// # Returns
 ///
-/// Returns a [`tokio::task::JoinHandle`] for the spawned future.
+/// Returns a [`tokio::task::JoinHandle`](https://docs.rs/tokio/1/tokio/task/struct.JoinHandle.html) for the
+/// spawned future.
 ///
 /// # Panics
 ///
