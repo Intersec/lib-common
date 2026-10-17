@@ -68,6 +68,12 @@ where
     (job.callback)();
 }
 
+/// Whether the current thread is the main C thread.
+#[inline]
+pub fn is_main_c_thread() -> bool {
+    unsafe { thr_is_on_queue(thr_queue_main_g) }
+}
+
 /// Schedule a closure to be run on the main C thread.
 ///
 /// # Example
@@ -86,7 +92,7 @@ where
     // Assert that the `thr` module is initialized.
     debug_assert!(unsafe { thr_is_initialized() });
 
-    if unsafe { thr_is_on_queue(thr_queue_main_g) } {
+    if is_main_c_thread() {
         // We are already on the main C thread, run the callback immediately.
         callback();
         return;
