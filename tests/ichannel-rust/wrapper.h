@@ -18,8 +18,8 @@
 #include <lib-common/iop-rpc.h>
 #include "../iop/tstiop_rpc.iop.h"
 
-typedef void (*z_echo_impl_f)(IOP_RPC_IMPL_ARGS(tstiop_rpc__rpc, test, echo));
-
+/* `qm_init()` and `qm_wipe()` are macros, out of reach of bindgen: they
+ * stand for a table that C code owns. */
 static inline void z_ic_cbs_init(qm_t(ic_cbs) *impl)
 {
     qm_init(ic_cbs, impl);
@@ -27,8 +27,4 @@ static inline void z_ic_cbs_init(qm_t(ic_cbs) *impl)
 static inline void z_ic_cbs_wipe(qm_t(ic_cbs) *impl)
 {
     qm_wipe(ic_cbs, impl);
-}
-static inline void z_ic_register_echo(qm_t(ic_cbs) *impl, z_echo_impl_f cb)
-{
-    ic_register_(impl, tstiop_rpc__rpc, test, echo, cb);
 }

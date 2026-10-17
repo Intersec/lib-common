@@ -18,11 +18,11 @@
 
 //! `IChannel` Rust tests.
 //!
-//! This crate exercises the `ichannel` crate's `ic_query` end-to-end, both
-//! over a real socket and over a local (in-process, loopback) `IChannel`. It
-//! is here and not directly in `rust/ichannel/ichannel.rs` so that it can
-//! use the RPC defined in `tests/iop/tstiop_rpc.iop` and the test-only C
-//! shims declared in `wrapper.h`.
+//! This crate exercises the queries and the implementations of the
+//! `ichannel` crate end-to-end, both over a real socket and over a local
+//! (in-process, loopback) `IChannel`. It is here and not directly in
+//! `rust/ichannel/ichannel.rs` so that it can use the RPCs defined in
+//! `tests/iop/tstiop_rpc.iop`.
 
 #[waf_cargo_build::bindings_mod]
 pub mod bindings {
@@ -33,18 +33,22 @@ pub mod bindings {
 #[cfg(test)]
 mod tests {
     use crate::bindings::{
-        __ic_reply, __socket_type::SOCK_SEQPACKET, AF_UNIX, O_NONBLOCK, ic__hdr__t_raw, ic__hdr__u,
+        __socket_type::SOCK_SEQPACKET, AF_UNIX, O_NONBLOCK, ic__hdr__t_raw, ic__hdr__u,
         ic__ic_status__e, ic__simple_hdr__t, ic_delete, ic_event_t, ic_get_module, ic_new,
         ic_set_local, ic_spawn, ichannel_t, iop_mod_find_rpc, qm_ic_cbs_t, socketpairx,
         tstiop_rpc__pkg, tstiop_rpc__rpc__test__echo__rpc as EchoRpc,
-        tstiop_rpc__test__echo_args__t, tstiop_rpc__test__echo_res__t, z_ic_cbs_init,
-        z_ic_cbs_wipe, z_ic_register_echo,
+        tstiop_rpc__rpc__test__echo_or_throw__rpc as EchoOrThrowRpc,
+        tstiop_rpc__test__echo_args__t, tstiop_rpc__test__echo_or_throw_args__t,
+        tstiop_rpc__test__echo_or_throw_exn__t, tstiop_rpc__test__echo_or_throw_res__t,
+        tstiop_rpc__test__echo_res__t, z_ic_cbs_init, z_ic_cbs_wipe,
     };
-    use ichannel::{ICQuery, IcError};
+    use ichannel::{ICQuery, IcError, IcImpls, IcReply, IcReplySlot, IopRPCImpl};
     use libcommon::bindings::thr_get_module;
     use libcommon::c_main_waker::run_future;
     use libcommon::iop::{Env, IopIface, IopModule as _, IopRPC};
     use libcommon::iop_new;
+    use libcommon::qhashmap::QMap;
+    use libcommon_core::lstr;
     use libcommon_core::{
         bindings::{
             data_t, el_blocker_register, el_loop, el_t, el_timer_register, el_unloop,
@@ -61,7 +65,6 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use std::thread::{JoinHandle, spawn};
     use std::time::Duration;
-    use std::{ffi::c_void, ptr};
 
     use tokio_c_mod::tokio_get_module;
 
@@ -119,26 +122,55 @@ mod tests {
     }
 
     // server-side echo
-    unsafe extern "C" fn echo_impl(
-        ic: *mut ichannel_t,
-        slot: u64,
-        arg: *mut tstiop_rpc__test__echo_args__t,
-        hdr: *const ic__hdr__t_raw,
-    ) {
-        record_hdr(unsafe { hdr.as_ref() });
-        let res = tstiop_rpc__test__echo_res__t {
-            i: unsafe { (*arg).i },
-        };
-        let rpc = EchoRpc::rpc_desc();
-        unsafe {
-            __ic_reply(
-                ic,
-                slot,
-                ic__ic_status__e::OK.0,
-                -1,
-                (*rpc).result,
-                ptr::from_ref(&res).cast::<c_void>(),
-            );
+    impl IopRPCImpl for EchoRpc {
+        fn handle(arg: &Self::Arg<'_>, hdr: Option<&ic__hdr__t_raw>, reply: IcReplySlot<Self>) {
+            record_hdr(hdr);
+            reply.reply_res(&tstiop_rpc__test__echo_res__t { i: arg.i });
+        }
+    }
+
+    /// Replies to the slot that `echoOrThrow` kept, once its callback has
+    /// returned.
+    ///
+    /// # Safety
+    ///
+    /// `data.ptr` must be the slot leaked by `echoOrThrow`, and this hook
+    /// must run only once for it.
+    unsafe extern "C" fn reply_deferred(_el: el_t, data: data_t) {
+        let reply = unsafe { Box::from_raw(data.ptr.cast::<IcReplySlot<EchoOrThrowRpc>>()) };
+
+        assert!(reply.channel().is_none(), "the callback has returned");
+        reply.reply_res(&tstiop_rpc__test__echo_or_throw_res__t { i: -3 });
+    }
+
+    /// One branch per way a slot can be given up, picked by the argument, so
+    /// that a test names the path it wants by the value it sends. The exits
+    /// are the whole point of `IcReplySlot`: each is reachable, and exactly
+    /// one is taken.
+    impl IopRPCImpl for EchoOrThrowRpc {
+        fn handle(arg: &Self::Arg<'_>, _hdr: Option<&ic__hdr__t_raw>, reply: IcReplySlot<Self>) {
+            match arg.i {
+                i if i > 0 => reply.reply_res(&tstiop_rpc__test__echo_or_throw_res__t { i }),
+                0 => reply.reply_err(ic__ic_status__e::SERVER_ERROR),
+                -1 => reply.reply_exn(&tstiop_rpc__test__echo_or_throw_exn__t {
+                    desc: lstr::from_str("i is -1"),
+                }),
+                // Reply after the callback, from a one-shot timer that owns
+                // the slot.
+                -3 => unsafe {
+                    el_timer_register(
+                        0,
+                        0,
+                        ev_timer_flags_t::EL_TIMER_NOMISS,
+                        Some(reply_deferred),
+                        Box::into_raw(Box::new(reply)).cast(),
+                    );
+                },
+                // Answering never comes: the query can only end on its
+                // timeout, which is what an unanswered slot looks like from
+                // the other end.
+                _ => reply.discard(),
+            }
         }
     }
 
@@ -151,11 +183,21 @@ mod tests {
     /// What a test releases once its query has completed.
     struct Teardown {
         ics: Vec<SendPtr<ichannel_t>>,
-        cbs: SendPtr<qm_ic_cbs_t>,
+        cbs: SendPtr<IcImpls<'static>>,
         blocker: SendPtr<ev_t>,
     }
 
     impl Teardown {
+        /// Registers a blocker, which keeps `el_loop()` running until the
+        /// release.
+        fn new(ics: &[*mut ichannel_t], cbs: *mut IcImpls<'_>) -> Self {
+            Self {
+                ics: ics.iter().map(|&ic| SendPtr(ic)).collect(),
+                cbs: SendPtr(cbs.cast()),
+                blocker: SendPtr(unsafe { el_blocker_register() }),
+            }
+        }
+
         /// Deletes the channels, wipes the table, and unregisters the
         /// blocker, which lets `el_loop()` return.
         ///
@@ -168,7 +210,7 @@ mod tests {
                 for ic in &mut self.ics {
                     ic_delete(&raw mut ic.0);
                 }
-                z_ic_cbs_wipe(self.cbs.0);
+                (*self.cbs.0).wipe();
                 el_unregister(&raw mut self.blocker.0);
             }
         }
@@ -263,37 +305,25 @@ mod tests {
         }
     }
 
-    fn run_echo(
-        client: *mut ichannel_t,
+    /// Drives `query` on the tokio runtime, and the event loop until the
+    /// query has completed. Then releases `ics` and `cbs` from the main C
+    /// thread.
+    ///
+    /// Returns `None` if the event loop returned before the query
+    /// completed.
+    fn run_on_tokio<T: Send + 'static>(
         ics: &[*mut ichannel_t],
-        cbs: *mut qm_ic_cbs_t,
-    ) -> Result<i32, String> {
-        let td = Teardown {
-            ics: ics.iter().map(|&ic| SendPtr(ic)).collect(),
-            cbs: SendPtr(cbs),
-            blocker: SendPtr(unsafe { el_blocker_register() }),
-        };
-        let client = SendPtr(client);
-
-        let outcome = Arc::new(Mutex::new(None::<Result<i32, String>>));
+        cbs: *mut IcImpls<'_>,
+        query: impl Future<Output = T> + Send + 'static,
+    ) -> Option<T> {
+        let td = Teardown::new(ics, cbs);
+        let outcome = Arc::new(Mutex::new(None));
         let outcome_t = Arc::clone(&outcome);
 
         tokio_c_mod::spawn(async move {
-            // Force capture of the whole `Send` wrappers.
-            let (c, td) = (client, td);
+            let result = query.await;
 
-            let args = tstiop_rpc__test__echo_args__t { i: 1 };
-            let result = ICQuery::<EchoRpc>::builder(c.0)
-                .hdr(echo_hdr())
-                .build(args)
-                .run()
-                .await;
-            *outcome_t.lock().expect("poisoned") = Some(match result {
-                Ok(res) => Ok(res.i),
-                Err(IcError::Status(s)) => Err(format!("query failed with status {s:?}")),
-                Err(IcError::Exn(_)) => Err("query returned an exception".to_owned()),
-            });
-
+            *outcome_t.lock().expect("poisoned") = Some(result);
             main_c_queue_schedule(move || unsafe { td.release() });
         });
 
@@ -301,59 +331,56 @@ mod tests {
             el_loop();
         }
 
-        let result = outcome
-            .lock()
-            .map_err(|_unused| "outcome mutex poisoned".to_owned())?
-            .take()
+        outcome.lock().expect("outcome mutex poisoned").take()
+    }
+
+    fn run_echo(
+        client: *mut ichannel_t,
+        ics: &[*mut ichannel_t],
+        cbs: *mut IcImpls<'_>,
+    ) -> Result<i32, String> {
+        let result = run_on_tokio(ics, cbs, echo_query(SendPtr(client)))
             .ok_or_else(|| "query never completed".to_owned())?;
 
         check_hdr()?;
-        result
+        echo_result(result)
+    }
+
+    /// Sends an `echo` query with its header on `client`, from the thread
+    /// that first polls the future.
+    async fn echo_query(client: SendPtr<ichannel_t>) -> IcReply<EchoRpc> {
+        let args = tstiop_rpc__test__echo_args__t { i: 1 };
+
+        ICQuery::<EchoRpc>::builder(client.0)
+            .hdr(echo_hdr())
+            .build(args)
+            .run()
+            .await
+    }
+
+    /// The reply of an `echo` query, or what went wrong.
+    fn echo_result(result: IcReply<EchoRpc>) -> Result<i32, String> {
+        match result {
+            Ok(res) => Ok(res.i),
+            Err(IcError::Status(s)) => Err(format!("query failed with status {s:?}")),
+            Err(IcError::Exn(_)) => Err("query returned an exception".to_owned()),
+        }
     }
 
     fn run_echo_on_main_c_thread(
         client: *mut ichannel_t,
         ics: &[*mut ichannel_t],
-        cbs: *mut qm_ic_cbs_t,
+        cbs: *mut IcImpls<'_>,
     ) -> Result<i32, String> {
-        let blocker = unsafe { el_blocker_register() };
-
         // Same ownership rules as `run_echo`: `cbs` points into the caller's
         // frame, kept alive by the synchronous `el_loop` below, and the
-        // ichannels live until the deferred teardown deletes them. Unlike
-        // `run_echo`, the future is polled on the main C thread, so the
-        // completion closure runs from the very callback that delivered the
-        // reply: the teardown has to be deferred to the next event loop
-        // iteration rather than done on the spot.
-        let client = SendPtr(client);
-        let bl = SendPtr(blocker);
-        let cbs = SendPtr(cbs);
-        let to_delete: Vec<SendPtr<ichannel_t>> = ics.iter().map(|&ic| SendPtr(ic)).collect();
-
-        let outcome = Arc::new(Mutex::new(None::<Result<i32, String>>));
+        // ichannels live until the deferred teardown deletes them.
+        let td = Teardown::new(ics, cbs);
+        let outcome = Arc::new(Mutex::new(None));
         let outcome_c = Arc::clone(&outcome);
 
-        let future = async move {
-            // Force capture of the whole `Send` wrapper.
-            let c = client;
-
-            let args = tstiop_rpc__test__echo_args__t { i: 1 };
-            ICQuery::<EchoRpc>::builder(c.0)
-                .hdr(echo_hdr())
-                .build(args)
-                .run()
-                .await
-        };
-
-        run_future(future, move |result| {
-            // Force capture of the whole `Send` wrappers.
-            let (bl, cbs, to_del) = (bl, cbs, to_delete);
-
-            *outcome_c.lock().expect("poisoned") = Some(match result {
-                Ok(res) => Ok(res.i),
-                Err(IcError::Status(s)) => Err(format!("query failed with status {s:?}")),
-                Err(IcError::Exn(_)) => Err("query returned an exception".to_owned()),
-            });
+        run_future(echo_query(SendPtr(client)), move |result| {
+            *outcome_c.lock().expect("poisoned") = Some(result);
 
             // Defer the teardown to the next event loop iteration: this
             // closure runs from the callback that delivered the reply, and
@@ -366,11 +393,7 @@ mod tests {
             // and the ichannels it names would leak; that only happens if
             // something else already unregistered the blocker, which is
             // what `run_echo_teardown` itself does.
-            let td = Box::into_raw(Box::new(Teardown {
-                ics: to_del,
-                cbs,
-                blocker: bl,
-            }));
+            let td = Box::into_raw(Box::new(td));
 
             unsafe {
                 el_timer_register(
@@ -396,40 +419,98 @@ mod tests {
             .ok_or_else(|| "query never completed".to_owned())?;
 
         check_hdr()?;
-        result
+        echo_result(result)
     }
 
-    fn run_local(is_async: bool) -> (Env, *mut ichannel_t, qm_ic_cbs_t) {
+    /// What a query ended as, so a test can name the reply path it expects.
+    #[derive(Debug, PartialEq, Eq)]
+    enum Outcome {
+        Res(i32),
+        Exn(String),
+        Status(ic__ic_status__e),
+    }
+
+    /// What an `echoOrThrow` query ended as.
+    fn echo_or_throw_outcome(result: IcReply<EchoOrThrowRpc>) -> Outcome {
+        match result {
+            Ok(res) => Outcome::Res(res.i),
+            Err(IcError::Exn(exn)) => Outcome::Exn(exn.desc.to_string()),
+            Err(IcError::Status(s)) => Outcome::Status(s),
+        }
+    }
+
+    /// Sends one `echoOrThrow` carrying `i`, and reports which way the
+    /// implementation gave the slot up.
+    ///
+    /// The timeout is what makes the discarding branch observable: without
+    /// it the query would wait for as long as the channel lives.
+    fn run_echo_or_throw(
+        client: *mut ichannel_t,
+        ics: &[*mut ichannel_t],
+        cbs: *mut IcImpls<'_>,
+        i: i32,
+    ) -> Outcome {
+        let client = SendPtr(client);
+        let result = run_on_tokio(ics, cbs, async move {
+            // Force capture of the whole `Send` wrapper.
+            let c = client;
+
+            let args = tstiop_rpc__test__echo_or_throw_args__t { i };
+            ICQuery::<EchoOrThrowRpc>::builder(c.0)
+                .timeout(QUERY_TIMEOUT_MS)
+                .build(args)
+                .run()
+                .await
+        })
+        .expect("query never completed");
+
+        echo_or_throw_outcome(result)
+    }
+
+    /// Long enough that a local reply always wins the race, short enough
+    /// that the discarding branch does not stall the suite.
+    const QUERY_TIMEOUT_MS: u32 = 500;
+
+    /// The environment of the test RPCs.
+    fn test_env() -> Env {
         let mut env = Env::new();
+
         env.register_packages(&[&raw const tstiop_rpc__pkg]);
+        env
+    }
+
+    /// A channel that the test deletes, with the types of `env`.
+    fn new_ic(env: &Env) -> *mut ichannel_t {
         let ic = unsafe { ic_new() };
+
         unsafe {
             (*ic).set_no_autodel(true);
             (*ic).iop_env = env.as_ptr();
             (*ic).on_event = Some(dummy_on_event);
         }
-        let mut cbs: qm_ic_cbs_t = unsafe { zeroed() };
+        ic
+    }
 
+    fn run_local(is_async: bool) -> (Env, *mut ichannel_t, IcImpls<'static>) {
+        let env = test_env();
+        let ic = new_ic(&env);
+        let mut cbs = IcImpls::new();
+
+        cbs.register::<EchoRpc>();
+        cbs.register::<EchoOrThrowRpc>();
         unsafe {
-            z_ic_cbs_init(&raw mut cbs);
-            z_ic_register_echo(&raw mut cbs, Some(echo_impl));
+            // The table is boxed, so the pointer stays valid when `cbs`
+            // moves out.
+            (*ic).impl_ = cbs.as_ptr();
             ic_set_local(ic, is_async);
-        };
+        }
         (env, ic, cbs)
     }
 
     /// Two connected channels over a seqpacket socket pair.
     fn socketpair_ics() -> (Env, *mut ichannel_t, *mut ichannel_t) {
-        let mut env = Env::new();
-        env.register_packages(&[&raw const tstiop_rpc__pkg]);
-        let (ic1, ic2) = unsafe { (ic_new(), ic_new()) };
-        for ic in [ic1, ic2] {
-            unsafe {
-                (*ic).set_no_autodel(true);
-                (*ic).iop_env = env.as_ptr();
-                (*ic).on_event = Some(dummy_on_event);
-            }
-        }
+        let env = test_env();
+        let (ic1, ic2) = (new_ic(&env), new_ic(&env));
 
         let mut sv = [0i32; 2];
         assert!(
@@ -451,6 +532,32 @@ mod tests {
         (env, ic1, ic2)
     }
 
+    /// Serves `echo` over a socket pair, from a table that C owns, as in a C
+    /// product, and sends one query with `runner`.
+    fn echo_over_socketpair(
+        runner: fn(*mut ichannel_t, &[*mut ichannel_t], *mut IcImpls<'_>) -> Result<i32, String>,
+    ) -> Result<i32, String> {
+        let (_env, ic1, ic2) = socketpair_ics();
+        let mut c_cbs: qm_ic_cbs_t = unsafe { zeroed() };
+
+        unsafe {
+            z_ic_cbs_init(&raw mut c_cbs);
+        }
+        let mut cbs = IcImpls::borrow(unsafe { QMap::from_c_ptr_mut(&raw mut c_cbs) });
+
+        cbs.register::<EchoRpc>();
+        unsafe {
+            (*ic2).impl_ = cbs.as_ptr();
+        }
+
+        let outcome = runner(ic1, &[ic1, ic2], &raw mut cbs);
+
+        unsafe {
+            z_ic_cbs_wipe(&raw mut c_cbs);
+        }
+        outcome
+    }
+
     // }}}
     // {{{ Tests
 
@@ -461,9 +568,6 @@ mod tests {
         module_require(tokio_get_module());
         module_require(unsafe { ic_get_module() });
         let (_env, ic, mut cbs) = run_local(false);
-        unsafe {
-            (*ic).impl_ = &raw const cbs;
-        }
 
         let outcome = run_echo(ic, &[ic], &raw mut cbs);
 
@@ -480,15 +584,38 @@ mod tests {
         module_require(unsafe { thr_get_module() });
         module_require(unsafe { ic_get_module() });
         let (_env, ic, mut cbs) = run_local(false);
-        unsafe {
-            (*ic).impl_ = &raw const cbs;
-        }
 
         let outcome = run_echo_on_main_c_thread(ic, &[ic], &raw mut cbs);
 
         module_release(unsafe { ic_get_module() });
         module_release(unsafe { thr_get_module() });
         assert_eq!(outcome.unwrap_or_else(|e| panic!("{e}")), 1);
+    }
+
+    /// Each way an implementation can give up a reply slot, and what the
+    /// caller sees for it, a reply after the callback included.
+    #[c_event_loop_test]
+    fn ic_query_reply_paths() {
+        let _watchdog = watchdog();
+
+        for (i, expected) in [
+            (1, Outcome::Res(1)),
+            (0, Outcome::Status(ic__ic_status__e::SERVER_ERROR)),
+            (-1, Outcome::Exn("i is -1".to_owned())),
+            (-2, Outcome::Status(ic__ic_status__e::TIMEDOUT)),
+            (-3, Outcome::Res(-3)),
+        ] {
+            module_require(tokio_get_module());
+            module_require(unsafe { ic_get_module() });
+            let (_env, ic, mut cbs) = run_local(false);
+
+            let outcome = run_echo_or_throw(ic, &[ic], &raw mut cbs, i);
+
+            module_release(unsafe { ic_get_module() });
+            module_release(tokio_get_module());
+
+            assert_eq!(outcome, expected, "for i = {i}");
+        }
     }
 
     #[c_event_loop_test]
@@ -498,9 +625,6 @@ mod tests {
         module_require(tokio_get_module());
         module_require(unsafe { ic_get_module() });
         let (_env, ic, mut cbs) = run_local(true);
-        unsafe {
-            (*ic).impl_ = &raw const cbs;
-        }
 
         let outcome = run_echo(ic, &[ic], &raw mut cbs);
 
@@ -518,16 +642,7 @@ mod tests {
         // `ic_new()` asserts on `_G.ics` being initialized, which only happens
         // once the `ic` module is loaded.
         module_require(unsafe { ic_get_module() });
-        let (_env, ic1, ic2) = socketpair_ics();
-        let mut cbs: qm_ic_cbs_t = unsafe { zeroed() };
-
-        unsafe {
-            z_ic_cbs_init(&raw mut cbs);
-            z_ic_register_echo(&raw mut cbs, Some(echo_impl));
-            (*ic2).impl_ = &raw const cbs;
-        }
-
-        let outcome = run_echo(ic1, &[ic1, ic2], &raw mut cbs);
+        let outcome = echo_over_socketpair(run_echo);
 
         module_release(unsafe { ic_get_module() });
         module_release(tokio_get_module());
@@ -548,16 +663,7 @@ mod tests {
         // `ic_new()` asserts on `_G.ics` being initialized, which only happens
         // once the `ic` module is loaded.
         module_require(unsafe { ic_get_module() });
-        let (_env, ic1, ic2) = socketpair_ics();
-        let mut cbs: qm_ic_cbs_t = unsafe { zeroed() };
-
-        unsafe {
-            z_ic_cbs_init(&raw mut cbs);
-            z_ic_register_echo(&raw mut cbs, Some(echo_impl));
-            (*ic2).impl_ = &raw const cbs;
-        }
-
-        let outcome = run_echo_on_main_c_thread(ic1, &[ic1, ic2], &raw mut cbs);
+        let outcome = echo_over_socketpair(run_echo_on_main_c_thread);
 
         module_release(unsafe { ic_get_module() });
         module_release(unsafe { thr_get_module() });

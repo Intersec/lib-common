@@ -115,10 +115,11 @@ pub struct ICQuery<'a, RPC: IopRPC> {
     args: RPC::Arg<'a>,
 }
 
+/// What the future of [`ICQuery::run`] resolves to.
 // `RPC: 'static` is not a restriction: a marker is a unit struct generated at
 // module scope. The bound is what makes the reply `'static`, as the callback
 // that the `IChannel` core resolves later requires.
-type IcReply<RPC> =
+pub type IcReply<RPC> =
     Result<Owned<<RPC as IopRPC>::Res<'static>>, IcError<Owned<<RPC as IopRPC>::Exn<'static>>>>;
 
 impl<'a, RPC: IopRPC + 'static> ICQuery<'a, RPC> {

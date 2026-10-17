@@ -19,10 +19,22 @@
 /* This file is used to test RPCs. */
 package tstiop_rpc;
 
+struct EchoError {
+    string desc;
+};
+
 interface Test {
     echo
         in (int i)
         out (int i);
+
+    /* Every way an implementation can answer, so that each one is
+     * reachable from a test: a result, a declared exception, and a
+     * transport status. */
+    echoOrThrow
+        in    (int i)
+        out   (int i)
+        throw EchoError;
 };
 
 module Rpc {
