@@ -7,9 +7,30 @@
         "renovate"
     ],
     "baseBranchPatterns": [
-        "/^2024.6$/",
+        "/^r2024$/",
         "/^r2026$/"
     ],
+    // Without this, Renovate on Gerrit never learns about advisories:
+    // vulnerabilityAlerts reads GitHub's alerts only.
+    "osvVulnerabilityAlerts": true,
+    "vulnerabilityAlerts": {
+        "labels": [
+            "renovate",
+            "security"
+        ]
+    },
+    // Transitive dependencies exist only in the lockfiles, and nothing
+    // else ever updates them.
+    "lockFileMaintenance": {
+        "enabled": true,
+        "schedule": [
+            "before 6am on monday"
+        ]
+    },
+    // The defaults (10 open, 2 per hour) let a few failing changes block
+    // every other update, security fixes included.
+    "prConcurrentLimit": 50,
+    "prHourlyLimit": 10,
     "separateMinorPatch": true,
     // In order to be able to see the changelog in the commit message, changing the commitbody and generating the changelog during branch creation
     "fetchChangeLogs": "branch",
