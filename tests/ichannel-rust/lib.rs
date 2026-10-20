@@ -175,6 +175,27 @@ mod tests {
                 },
                 // A forgotten slot answers on its own.
                 -4 => drop(reply),
+                // Another thread replies, or forgets: the main C thread
+                // sends the reply.
+                -5 => {
+                    spawn(move || {
+                        reply.reply_res(&tstiop_rpc__test__echo_or_throw_res__t { i: -5 });
+                    });
+                }
+                -6 => {
+                    spawn(move || drop(reply));
+                }
+                // The text of the exception dies with the thread, before
+                // the main C thread sends the reply.
+                -7 => {
+                    spawn(move || {
+                        let desc = String::from("i is -7");
+
+                        reply.reply_exn(&tstiop_rpc__test__echo_or_throw_exn__t {
+                            desc: lstr::from_str(&desc),
+                        });
+                    });
+                }
                 // Answering never comes: the query can only end on its
                 // timeout, which is what a discarded slot looks like from
                 // the other end.
@@ -649,6 +670,9 @@ mod tests {
             (-2, Outcome::Status(ic__ic_status__e::TIMEDOUT)),
             (-3, Outcome::Res(-3)),
             (-4, Outcome::Status(ic__ic_status__e::SERVER_ERROR)),
+            (-5, Outcome::Res(-5)),
+            (-6, Outcome::Status(ic__ic_status__e::SERVER_ERROR)),
+            (-7, Outcome::Exn("i is -7".to_owned())),
         ] {
             module_require(tokio_get_module());
             module_require(unsafe { ic_get_module() });

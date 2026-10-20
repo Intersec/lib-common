@@ -35,18 +35,18 @@ use bindings::{
     __ic_msg_build, __ic_query, __ic_reply, ev_priority_t, ic__hdr__t_raw, ic__hdr__u,
     ic__ic_status__e, ic_cb_entry_t, ic_cb_entry_type_t, ic_is_local, ic_msg_new,
     ic_msg_set_priority, ic_msg_set_timeout, ic_msg_t, ic_reply_err, ic_slot_is_async, ichannel_t,
-    qm_ic_cbs_t,
+    iop_struct_t, qm_ic_cbs_t,
 };
-use libcommon::iop::{IopDup as _, IopRPC, Owned, OwnedGeneric, OwnedIop as _, StructUnion as _};
+use libcommon::iop::{IopDup as _, IopRPC, Owned, OwnedGeneric, OwnedIop as _, StructUnion};
 use libcommon::qhashmap::QMap;
 use libcommon::run_callback::{Callback, CallbackFut, run_callback, run_now};
-use libcommon_core::thr::is_main_c_thread;
+use libcommon_core::thr::{is_main_c_thread, main_c_queue_schedule};
 
 use std::cell::Cell;
 use std::ffi::c_void;
 use std::marker::PhantomData;
 use std::mem::{ManuallyDrop, zeroed};
-use std::ptr::{self, from_ref, read, write};
+use std::ptr::{self, read, write};
 
 const IC_MSG_OK: ic__ic_status__e = ic__ic_status__e::OK;
 const IC_MSG_EXN: ic__ic_status__e = ic__ic_status__e::EXN;
@@ -379,8 +379,9 @@ unsafe extern "C" fn cb_func<RPC: IopRPC>(
 /// side can only document. An asynchronous RPC (`out null`) expects no
 /// reply: its implementation gives the slot up with [`Self::discard`].
 ///
-/// Deliberately not `Send`: a reply is only valid on the main C event loop,
-/// the thread the implementation callback runs on.
+/// A reply is only valid on the main C thread, the thread the
+/// implementation callback runs on. From another thread, the slot copies
+/// the reply, and the main C thread sends the copy.
 ///
 /// An implementation can keep the slot and reply after `handle()` returns.
 /// The channel may be gone by then, so such a reply names the query by its
@@ -388,8 +389,7 @@ unsafe extern "C" fn cb_func<RPC: IopRPC>(
 #[must_use = "a query slot must be replied to, or explicitly discarded"]
 pub struct IcReplySlot<RPC: IopRPC> {
     slot: u64,
-    // The raw pointer keeps the slot off `Send`: a marker is.
-    _rpc: PhantomData<(RPC, *const ())>,
+    _rpc: PhantomData<RPC>,
 }
 
 thread_local! {
@@ -415,37 +415,47 @@ impl<RPC: IopRPC> IcReplySlot<RPC> {
 
     /// Answers the query with the RPC's result.
     pub fn reply_res(self, res: &RPC::Res<'_>) {
-        let (ic, slot) = self.take();
+        // SAFETY: the descriptor of an RPC is static.
+        let desc = unsafe { (*RPC::rpc_desc()).result };
 
-        // SAFETY: `res` is described by the `result` of `RPC::rpc_desc()`,
-        // both being projections of the same `RPC`, and the slot is
-        // answered once since replying consumes it.
-        unsafe {
-            __ic_reply(
-                ic,
-                slot,
-                IC_MSG_OK.0,
-                -1,
-                (*RPC::rpc_desc()).result,
-                from_ref(res).cast::<c_void>(),
-            );
-        }
+        self.reply(IC_MSG_OK, desc, res);
     }
 
     /// Answers the query with the RPC's modeled exception.
     pub fn reply_exn(self, exn: &RPC::Exn<'_>) {
+        // SAFETY: as `reply_res`.
+        let desc = unsafe { (*RPC::rpc_desc()).exn };
+
+        self.reply(IC_MSG_EXN, desc, exn);
+    }
+
+    /// Answers the query with `value`, which `desc` describes.
+    fn reply<V: StructUnion>(self, status: ic__ic_status__e, desc: *const iop_struct_t, value: &V) {
         let (ic, slot) = self.take();
 
-        // SAFETY: as `reply_res`, with the `exn` descriptor.
-        unsafe {
-            __ic_reply(
-                ic,
-                slot,
-                IC_MSG_EXN.0,
-                -1,
-                (*RPC::rpc_desc()).exn,
-                from_ref(exn).cast::<c_void>(),
-            );
+        if is_main_c_thread() {
+            // SAFETY: `value` is described by `desc`, both being projections
+            // of the same `RPC`, and the slot is answered once since
+            // replying consumes it.
+            unsafe {
+                __ic_reply(ic, slot, status.0, -1, desc, value.get_cptr());
+            }
+        } else {
+            // `value` can die before the main C thread runs.
+            let value = value.as_generic().dup();
+
+            // SAFETY: as above, with the descriptor of the copy. A NULL
+            // channel names the query by its slot only.
+            main_c_queue_schedule(move || unsafe {
+                __ic_reply(
+                    ptr::null_mut(),
+                    slot,
+                    status.0,
+                    -1,
+                    value.cdesc(),
+                    value.as_raw(),
+                );
+            });
         }
     }
 
@@ -465,10 +475,23 @@ impl<RPC: IopRPC> IcReplySlot<RPC> {
 
         let (ic, slot) = self.take();
 
-        // SAFETY: the channel is the one of the query while its callback
-        // runs, and NULL after it, as a deferred reply requires.
-        unsafe {
-            ic_reply_err(ic, slot, status.0);
+        Self::send_err(ic, slot, status);
+    }
+
+    /// Answers the query `slot` with `status`, from the main C thread.
+    fn send_err(ic: *mut ichannel_t, slot: u64, status: ic__ic_status__e) {
+        if is_main_c_thread() {
+            // SAFETY: the channel is the one of the query while its
+            // callback runs, and NULL after it, as a deferred reply
+            // requires.
+            unsafe {
+                ic_reply_err(ic, slot, status.0);
+            }
+        } else {
+            // SAFETY: a NULL channel names the query by its slot only.
+            main_c_queue_schedule(move || unsafe {
+                ic_reply_err(ptr::null_mut(), slot, status.0);
+            });
         }
     }
 
@@ -500,10 +523,7 @@ impl<RPC: IopRPC> Drop for IcReplySlot<RPC> {
         if unsafe { ic_slot_is_async(self.slot) } {
             return;
         }
-        // SAFETY: as `reply_err`.
-        unsafe {
-            ic_reply_err(self.reply_ic(), self.slot, IC_MSG_SERVER_ERROR.0);
-        }
+        Self::send_err(self.reply_ic(), self.slot, IC_MSG_SERVER_ERROR);
     }
 }
 
