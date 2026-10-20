@@ -107,7 +107,11 @@ testem.startCI({
     reporter: new ZReporter(),
     framework: 'jasmine',
     bail_on_uncaught_error: true,
+    /* On a loaded CI host, phantomJS can stall long enough to lose its
+     * socket.io connection to testem. The default timeouts (30s to start,
+     * 10s to reconnect) are too short for it. */
     browser_start_timeout: 60,
+    browser_disconnect_timeout: 60,
     fail_on_zero_tests: true,
     browser_paths: {
         'Chromium': puppeteer.executablePath(),
