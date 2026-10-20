@@ -173,8 +173,10 @@ mod tests {
                         Box::into_raw(Box::new(reply)).cast(),
                     );
                 },
+                // A forgotten slot answers on its own.
+                -4 => drop(reply),
                 // Answering never comes: the query can only end on its
-                // timeout, which is what an unanswered slot looks like from
+                // timeout, which is what a discarded slot looks like from
                 // the other end.
                 _ => reply.discard(),
             }
@@ -646,6 +648,7 @@ mod tests {
             (-1, Outcome::Exn("i is -1".to_owned())),
             (-2, Outcome::Status(ic__ic_status__e::TIMEDOUT)),
             (-3, Outcome::Res(-3)),
+            (-4, Outcome::Status(ic__ic_status__e::SERVER_ERROR)),
         ] {
             module_require(tokio_get_module());
             module_require(unsafe { ic_get_module() });

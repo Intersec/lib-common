@@ -34,7 +34,8 @@
 use bindings::{
     __ic_msg_build, __ic_query, __ic_reply, ev_priority_t, ic__hdr__t_raw, ic__hdr__u,
     ic__ic_status__e, ic_cb_entry_t, ic_cb_entry_type_t, ic_is_local, ic_msg_new,
-    ic_msg_set_priority, ic_msg_set_timeout, ic_msg_t, ic_reply_err, ichannel_t, qm_ic_cbs_t,
+    ic_msg_set_priority, ic_msg_set_timeout, ic_msg_t, ic_reply_err, ic_slot_is_async, ichannel_t,
+    qm_ic_cbs_t,
 };
 use libcommon::iop::{IopDup as _, IopRPC, Owned, OwnedGeneric, OwnedIop as _, StructUnion as _};
 use libcommon::qhashmap::QMap;
@@ -44,11 +45,12 @@ use libcommon_core::thr::is_main_c_thread;
 use std::cell::Cell;
 use std::ffi::c_void;
 use std::marker::PhantomData;
-use std::mem::zeroed;
+use std::mem::{ManuallyDrop, zeroed};
 use std::ptr::{self, from_ref, read, write};
 
 const IC_MSG_OK: ic__ic_status__e = ic__ic_status__e::OK;
 const IC_MSG_EXN: ic__ic_status__e = ic__ic_status__e::EXN;
+const IC_MSG_SERVER_ERROR: ic__ic_status__e = ic__ic_status__e::SERVER_ERROR;
 
 #[waf_cargo_build::bindings_mod]
 pub mod bindings {
@@ -371,11 +373,11 @@ unsafe extern "C" fn cb_func<RPC: IopRPC>(
 
 /// Slot of a received query, awaiting its reply.
 ///
-/// Replying consumes the slot, so an RPC cannot be answered twice; the
-/// `#[must_use]` covers the other side, an implementation that forgets to
-/// answer at all. Together they carry an invariant the C side can only
-/// document. An asynchronous RPC (`out null`) expects no reply: its
-/// implementation gives the slot up with [`Self::discard`].
+/// Replying consumes the slot, so an RPC cannot be answered twice. A slot
+/// dropped without a reply answers `IC_MSG_SERVER_ERROR`, so the caller
+/// does not wait for its timeout. Together they carry an invariant the C
+/// side can only document. An asynchronous RPC (`out null`) expects no
+/// reply: its implementation gives the slot up with [`Self::discard`].
 ///
 /// Deliberately not `Send`: a reply is only valid on the main C event loop,
 /// the thread the implementation callback runs on.
@@ -403,15 +405,25 @@ impl<RPC: IopRPC> IcReplySlot<RPC> {
         self.channel().unwrap_or(ptr::null_mut())
     }
 
+    /// Consumes the slot without its `Drop`, and gives the channel and the
+    /// slot to reply with.
+    fn take(self) -> (*mut ichannel_t, u64) {
+        let this = ManuallyDrop::new(self);
+
+        (this.reply_ic(), this.slot)
+    }
+
     /// Answers the query with the RPC's result.
     pub fn reply_res(self, res: &RPC::Res<'_>) {
+        let (ic, slot) = self.take();
+
         // SAFETY: `res` is described by the `result` of `RPC::rpc_desc()`,
         // both being projections of the same `RPC`, and the slot is
         // answered once since replying consumes it.
         unsafe {
             __ic_reply(
-                self.reply_ic(),
-                self.slot,
+                ic,
+                slot,
                 IC_MSG_OK.0,
                 -1,
                 (*RPC::rpc_desc()).result,
@@ -422,11 +434,13 @@ impl<RPC: IopRPC> IcReplySlot<RPC> {
 
     /// Answers the query with the RPC's modeled exception.
     pub fn reply_exn(self, exn: &RPC::Exn<'_>) {
+        let (ic, slot) = self.take();
+
         // SAFETY: as `reply_res`, with the `exn` descriptor.
         unsafe {
             __ic_reply(
-                self.reply_ic(),
-                self.slot,
+                ic,
+                slot,
                 IC_MSG_EXN.0,
                 -1,
                 (*RPC::rpc_desc()).exn,
@@ -449,10 +463,12 @@ impl<RPC: IopRPC> IcReplySlot<RPC> {
             "reply_err cannot carry a payload"
         );
 
+        let (ic, slot) = self.take();
+
         // SAFETY: the channel is the one of the query while its callback
         // runs, and NULL after it, as a deferred reply requires.
         unsafe {
-            ic_reply_err(self.reply_ic(), self.slot, status.0);
+            ic_reply_err(ic, slot, status.0);
         }
     }
 
@@ -469,8 +485,26 @@ impl<RPC: IopRPC> IcReplySlot<RPC> {
             .map(|(ic, _)| ic)
     }
 
-    /// Gives the slot up without answering, for an asynchronous RPC.
-    pub fn discard(self) {}
+    /// Gives the slot up without answering, for an asynchronous RPC. Any
+    /// other query then waits for its timeout, or forever without one.
+    pub fn discard(self) {
+        let _unused = self.take();
+    }
+}
+
+impl<RPC: IopRPC> Drop for IcReplySlot<RPC> {
+    /// Answers a query that nobody answered. Silence would leave the caller
+    /// waiting for its timeout, or forever without one.
+    fn drop(&mut self) {
+        // SAFETY: `ic_slot_is_async()` only reads the bits of the slot.
+        if unsafe { ic_slot_is_async(self.slot) } {
+            return;
+        }
+        // SAFETY: as `reply_err`.
+        unsafe {
+            ic_reply_err(self.reply_ic(), self.slot, IC_MSG_SERVER_ERROR.0);
+        }
+    }
 }
 
 /// Rust implementation of one RPC.
