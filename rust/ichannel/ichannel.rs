@@ -29,7 +29,7 @@
 //! [`CallbackFut`](../libcommon/run_callback/struct.CallbackFut.html)
 //! resolving to either the result or an [`IcError`]. [`IcImpls`] is the
 //! table of the RPCs that a channel serves, each implemented with
-//! [`IopRPCImpl`].
+//! [`IopRPCImpl`] or [`IopRPCAsyncImpl`].
 
 use bindings::{
     __ic_msg_build, __ic_query, __ic_reply, ev_priority_t, ic__hdr__t_raw, ic__hdr__u,
@@ -37,7 +37,8 @@ use bindings::{
     ic_msg_set_priority, ic_msg_set_timeout, ic_msg_t, ic_reply_err, ic_slot_is_async, ichannel_t,
     iop_struct_t, qm_ic_cbs_t,
 };
-use libcommon::iop::{IopDup as _, IopRPC, Owned, OwnedGeneric, OwnedIop as _, StructUnion};
+use libcommon::c_main_waker::run_future;
+use libcommon::iop::{IopDup, IopRPC, Owned, OwnedGeneric, OwnedIop as _, StructUnion};
 use libcommon::qhashmap::QMap;
 use libcommon::run_callback::{Callback, CallbackFut, run_callback, run_now};
 use libcommon_core::thr::{is_main_c_thread, main_c_queue_schedule};
@@ -541,8 +542,8 @@ pub trait IopRPCImpl: IopRPC + Sized {
 /// Untyped callback the `IChannel` core stores and calls, one instance per
 /// implemented RPC.
 ///
-/// This is the single place where the argument blob is typed, so it is also
-/// the only `unsafe` left on the implementation path.
+/// This and [`ic_rust_async_impl_cb`] are the only places where the argument
+/// blob is typed.
 extern "C" fn ic_rust_impl_cb<RPC: IopRPCImpl>(
     ic: *mut ichannel_t,
     slot: u64,
@@ -556,18 +557,68 @@ extern "C" fn ic_rust_impl_cb<RPC: IopRPCImpl>(
     let arg: &RPC::Arg<'_> = unsafe { &*arg.cast() };
     let hdr = unsafe { hdr.as_ref() };
 
+    serve(ic, slot, |reply| RPC::handle(arg, hdr, reply));
+}
+
+/// Gives `f` the reply slot of the query `slot`, with `ic` as the channel
+/// it replies on while `f` runs.
+fn serve<RPC: IopRPC>(ic: *mut ichannel_t, slot: u64, f: impl FnOnce(IcReplySlot<RPC>)) {
     let served = SERVED.replace(Some((ic, slot)));
 
-    RPC::handle(
-        arg,
-        hdr,
-        IcReplySlot {
-            slot,
-            _rpc: PhantomData,
-        },
-    );
+    f(IcReplySlot {
+        slot,
+        _rpc: PhantomData,
+    });
     SERVED.set(served);
 }
+
+/// Rust implementation of one RPC, with an `async fn`.
+///
+/// The `IChannel` only lends the argument and the header while its callback
+/// runs, so the implementation gets copies. Its future is polled on the
+/// main C thread, through [`run_future`], which needs the `thr` module: the
+/// slot replies there without a copy. The future drops where its last waker
+/// drops, which can be another thread.
+///
+/// ```ignore
+/// impl IopRPCAsyncImpl for EchoRpc {
+///     async fn handle(arg: Owned<Self::Arg<'static>>, _hdr: ..., reply: IcReplySlot<Self>) {
+///         let i = compute(arg.i).await;
+///
+///         reply.reply_res(&tstiop_rpc__test__echo_res__t { i });
+///     }
+/// }
+/// ```
+pub trait IopRPCAsyncImpl: IopRPC + Sized + 'static {
+    /// Serves one query. `hdr` is `None` when the query carries no header.
+    fn handle(
+        arg: Owned<Self::Arg<'static>>,
+        hdr: Option<Owned<ic__hdr__t_raw>>,
+        reply: IcReplySlot<Self>,
+    ) -> impl Future<Output = ()> + Send + 'static;
+}
+
+/// Untyped callback of an [`IopRPCAsyncImpl`].
+extern "C" fn ic_rust_async_impl_cb<RPC: IopRPCAsyncImpl>(
+    ic: *mut ichannel_t,
+    slot: u64,
+    arg: *mut c_void,
+    hdr: *const ic__hdr__t_raw,
+) {
+    // SAFETY: as `ic_rust_impl_cb`. The copies own their data, so they can
+    // outlive the call.
+    let arg = unsafe { <RPC::Arg<'static> as IopDup>::dup_from_raw((*RPC::rpc_desc()).args, arg) };
+    let hdr = unsafe { hdr.as_ref() }.map(IopDup::dup);
+
+    // On the main C thread, `run_future()` polls the future at once: a
+    // future that does not wait replies on the channel of the query.
+    serve(ic, slot, |reply| {
+        run_future(RPC::handle(arg, hdr, reply), |()| {});
+    });
+}
+
+/// The callback of an implementation, as the `IChannel` core calls it.
+type IcImplCb = unsafe extern "C" fn(*mut ichannel_t, u64, *mut c_void, *const ic__hdr__t_raw);
 
 /// Table of the RPCs an `IChannel` implements.
 ///
@@ -633,17 +684,30 @@ impl<'t> IcImpls<'t> {
     ///
     /// The command id of `RPC` already has an implementation.
     pub fn register<RPC: IopRPCImpl>(&mut self) {
+        self.insert::<RPC>(ic_rust_impl_cb::<RPC>);
+    }
+
+    /// Registers the `async fn` implementation of the RPC `RPC`.
+    ///
+    /// # Panics
+    ///
+    /// The command id of `RPC` already has an implementation.
+    pub fn register_async<RPC: IopRPCAsyncImpl>(&mut self) {
+        self.insert::<RPC>(ic_rust_async_impl_cb::<RPC>);
+    }
+
+    fn insert<RPC: IopRPC>(&mut self, cb: IcImplCb) {
         // SAFETY: `ic_cb_entry_t` is a C aggregate of a tag, pointers and
         // function pointers; all-zero is the empty `IC_CB_NORMAL` entry the
         // three assignments below complete, leaving the hooks unset just as
         // the C initializer does.
         let mut entry: ic_cb_entry_t = unsafe { zeroed() };
 
-        // The descriptor and the callback are both projections of `RPC`, so
-        // the entry cannot describe one RPC and serve another.
+        // The callers pass the callback of the same `RPC` as the descriptor,
+        // so the entry cannot describe one RPC and serve another.
         entry.cb_type = ic_cb_entry_type_t::IC_CB_NORMAL;
         entry.rpc = RPC::rpc_desc();
-        entry.u.cb.cb = Some(ic_rust_impl_cb::<RPC>);
+        entry.u.cb.cb = Some(cb);
 
         assert!(
             self.qm().try_insert(RPC::CMD as u32, entry).is_ok(),

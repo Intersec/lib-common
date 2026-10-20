@@ -42,10 +42,10 @@ mod tests {
         tstiop_rpc__test__echo_or_throw_exn__t, tstiop_rpc__test__echo_or_throw_res__t,
         tstiop_rpc__test__echo_res__t, z_ic_cbs_init, z_ic_cbs_wipe,
     };
-    use ichannel::{ICQuery, IcError, IcImpls, IcReply, IcReplySlot, IopRPCImpl};
+    use ichannel::{ICQuery, IcError, IcImpls, IcReply, IcReplySlot, IopRPCAsyncImpl, IopRPCImpl};
     use libcommon::bindings::thr_get_module;
     use libcommon::c_main_waker::run_future;
-    use libcommon::iop::{Env, IopIface, IopModule as _, IopRPC};
+    use libcommon::iop::{Env, IopIface, IopModule as _, IopRPC, Owned};
     use libcommon::iop_new;
     use libcommon::qhashmap::QMap;
     use libcommon_core::lstr;
@@ -58,12 +58,15 @@ mod tests {
         module::{module_release, module_require},
         thr::main_c_queue_schedule,
     };
+    use std::future::pending;
     use std::mem::zeroed;
+    use std::pin::Pin;
     use std::process::abort;
     use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
     use std::sync::mpsc::{RecvTimeoutError, Sender, channel};
     use std::sync::{Arc, Mutex};
-    use std::thread::{JoinHandle, spawn};
+    use std::task::{Context, Poll};
+    use std::thread::{JoinHandle, sleep, spawn};
     use std::time::Duration;
 
     use tokio_c_mod::tokio_get_module;
@@ -202,6 +205,87 @@ mod tests {
                 _ => reply.discard(),
             }
         }
+    }
+
+    /// What a thread does with the waker of an [`OnThread`].
+    enum Later {
+        Wake,
+        DropWaker,
+    }
+
+    /// Pending at its first poll. Then a thread, once the implementation
+    /// callback has returned, wakes the future, or drops its waker: the last
+    /// reference to the future, which then drops on that thread.
+    struct OnThread(Option<Later>);
+
+    impl Future for OnThread {
+        type Output = ();
+
+        fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<()> {
+            let Some(later) = self.0.take() else {
+                return Poll::Ready(());
+            };
+            let waker = cx.waker().clone();
+
+            spawn(move || {
+                sleep(Duration::from_millis(10));
+                match later {
+                    Later::Wake => waker.wake(),
+                    Later::DropWaker => drop(waker),
+                }
+            });
+            Poll::Pending
+        }
+    }
+
+    // server-side echo, which replies after an await
+    impl IopRPCAsyncImpl for EchoRpc {
+        async fn handle(
+            arg: Owned<Self::Arg<'static>>,
+            hdr: Option<Owned<ic__hdr__t_raw>>,
+            reply: IcReplySlot<Self>,
+        ) {
+            record_hdr(hdr.as_deref());
+            OnThread(Some(Later::Wake)).await;
+            reply.reply_res(&tstiop_rpc__test__echo_res__t { i: arg.i });
+        }
+    }
+
+    /// The paths of the synchronous implementation, as an async one, and a
+    /// slot that drops with its future.
+    impl IopRPCAsyncImpl for EchoOrThrowRpc {
+        async fn handle(
+            arg: Owned<Self::Arg<'static>>,
+            _hdr: Option<Owned<ic__hdr__t_raw>>,
+            reply: IcReplySlot<Self>,
+        ) {
+            match arg.i {
+                i if i > 0 => {
+                    OnThread(Some(Later::Wake)).await;
+                    reply.reply_res(&tstiop_rpc__test__echo_or_throw_res__t { i });
+                }
+                0 => reply.reply_err(ic__ic_status__e::SERVER_ERROR),
+                -1 => reply.reply_exn(&tstiop_rpc__test__echo_or_throw_exn__t {
+                    desc: lstr::from_str("i is -1"),
+                }),
+                // Nothing keeps a waker, so the future and its slot drop on
+                // the main C thread, at its first poll.
+                -4 => pending::<()>().await,
+                // A thread drops the waker, so the future and its slot drop
+                // there.
+                _ => OnThread(Some(Later::DropWaker)).await,
+            }
+        }
+    }
+
+    fn register_impls(cbs: &mut IcImpls<'static>) {
+        cbs.register::<EchoRpc>();
+        cbs.register::<EchoOrThrowRpc>();
+    }
+
+    fn register_async_impls(cbs: &mut IcImpls<'static>) {
+        cbs.register_async::<EchoRpc>();
+        cbs.register_async::<EchoOrThrowRpc>();
     }
 
     struct SendPtr<T>(*mut T);
@@ -522,13 +606,15 @@ mod tests {
         ic
     }
 
-    fn run_local(is_async: bool) -> (Env, *mut ichannel_t, IcImpls<'static>) {
+    fn run_local(
+        is_async: bool,
+        register: fn(&mut IcImpls<'static>),
+    ) -> (Env, *mut ichannel_t, IcImpls<'static>) {
         let env = test_env();
         let ic = new_ic(&env);
         let mut cbs = IcImpls::new();
 
-        cbs.register::<EchoRpc>();
-        cbs.register::<EchoOrThrowRpc>();
+        register(&mut cbs);
         unsafe {
             // The table is boxed, so the pointer stays valid when `cbs`
             // moves out.
@@ -632,7 +718,7 @@ mod tests {
 
         module_require(tokio_get_module());
         module_require(unsafe { ic_get_module() });
-        let (_env, ic, mut cbs) = run_local(false);
+        let (_env, ic, mut cbs) = run_local(false, register_impls);
 
         let outcome = run_echo(ic, &[ic], &raw mut cbs);
 
@@ -648,7 +734,7 @@ mod tests {
 
         module_require(unsafe { thr_get_module() });
         module_require(unsafe { ic_get_module() });
-        let (_env, ic, mut cbs) = run_local(false);
+        let (_env, ic, mut cbs) = run_local(false, register_impls);
 
         let outcome = run_echo_on_main_c_thread(ic, &[ic], &raw mut cbs);
 
@@ -657,26 +743,16 @@ mod tests {
         assert_eq!(outcome.unwrap_or_else(|e| panic!("{e}")), 1);
     }
 
-    /// Each way an implementation can give up a reply slot, and what the
-    /// caller sees for it, a reply after the callback included.
-    #[c_event_loop_test]
-    fn ic_query_reply_paths() {
-        let _watchdog = watchdog();
-
-        for (i, expected) in [
-            (1, Outcome::Res(1)),
-            (0, Outcome::Status(ic__ic_status__e::SERVER_ERROR)),
-            (-1, Outcome::Exn("i is -1".to_owned())),
-            (-2, Outcome::Status(ic__ic_status__e::TIMEDOUT)),
-            (-3, Outcome::Res(-3)),
-            (-4, Outcome::Status(ic__ic_status__e::SERVER_ERROR)),
-            (-5, Outcome::Res(-5)),
-            (-6, Outcome::Status(ic__ic_status__e::SERVER_ERROR)),
-            (-7, Outcome::Exn("i is -7".to_owned())),
-        ] {
+    /// Serves one `echoOrThrow` per case on a local channel, with the
+    /// implementations of `register`, and checks the outcome of each.
+    fn check_reply_paths<const N: usize>(
+        register: fn(&mut IcImpls<'static>),
+        cases: [(i32, Outcome); N],
+    ) {
+        for (i, expected) in cases {
             module_require(tokio_get_module());
             module_require(unsafe { ic_get_module() });
-            let (_env, ic, mut cbs) = run_local(false);
+            let (_env, ic, mut cbs) = run_local(false, register);
 
             let outcome = run_echo_or_throw(ic, &[ic], &raw mut cbs, i);
 
@@ -687,13 +763,35 @@ mod tests {
         }
     }
 
+    /// Each way an implementation can give up a reply slot, and what the
+    /// caller sees for it, a reply after the callback included.
+    #[c_event_loop_test]
+    fn ic_query_reply_paths() {
+        let _watchdog = watchdog();
+
+        check_reply_paths(
+            register_impls,
+            [
+                (1, Outcome::Res(1)),
+                (0, Outcome::Status(ic__ic_status__e::SERVER_ERROR)),
+                (-1, Outcome::Exn("i is -1".to_owned())),
+                (-2, Outcome::Status(ic__ic_status__e::TIMEDOUT)),
+                (-3, Outcome::Res(-3)),
+                (-4, Outcome::Status(ic__ic_status__e::SERVER_ERROR)),
+                (-5, Outcome::Res(-5)),
+                (-6, Outcome::Status(ic__ic_status__e::SERVER_ERROR)),
+                (-7, Outcome::Exn("i is -7".to_owned())),
+            ],
+        );
+    }
+
     #[c_event_loop_test]
     fn ic_query_local_async() {
         let _watchdog = watchdog();
 
         module_require(tokio_get_module());
         module_require(unsafe { ic_get_module() });
-        let (_env, ic, mut cbs) = run_local(true);
+        let (_env, ic, mut cbs) = run_local(true, register_impls);
 
         let outcome = run_echo(ic, &[ic], &raw mut cbs);
 
@@ -779,6 +877,42 @@ mod tests {
         release_socketpair([ic1, ic2], cbs);
         module_release(unsafe { ic_get_module() });
         module_release(unsafe { thr_get_module() });
+    }
+
+    /// Each way an async implementation can answer, and what the caller
+    /// sees for it, a slot that drops with its future included.
+    #[c_event_loop_test]
+    fn ic_query_async_impl_reply_paths() {
+        let _watchdog = watchdog();
+
+        check_reply_paths(
+            register_async_impls,
+            [
+                (1, Outcome::Res(1)),
+                (0, Outcome::Status(ic__ic_status__e::SERVER_ERROR)),
+                (-1, Outcome::Exn("i is -1".to_owned())),
+                (-4, Outcome::Status(ic__ic_status__e::SERVER_ERROR)),
+                (-5, Outcome::Status(ic__ic_status__e::SERVER_ERROR)),
+            ],
+        );
+    }
+
+    /// An async implementation behind a socket: its reply goes out after
+    /// the implementation callback has returned.
+    #[c_event_loop_test]
+    fn ic_query_over_socketpair_async_impl() {
+        let _watchdog = watchdog();
+
+        module_require(tokio_get_module());
+        module_require(unsafe { ic_get_module() });
+        let (_env, ic1, ic2, mut cbs) = served_socketpair(IcImpls::register_async::<EchoRpc>);
+
+        let outcome = run_echo(ic1, &[ic1, ic2], &raw mut cbs);
+
+        module_release(unsafe { ic_get_module() });
+        module_release(tokio_get_module());
+
+        assert_eq!(outcome.unwrap_or_else(|e| panic!("{e}")), 1);
     }
 
     // }}}
