@@ -33,9 +33,9 @@
 
 use bindings::{
     __ic_msg_build, __ic_query, __ic_reply, ev_priority_t, ic__hdr__t_raw, ic__hdr__u,
-    ic__ic_status__e, ic_cb_entry_t, ic_cb_entry_type_t, ic_is_local, ic_msg_new,
-    ic_msg_set_priority, ic_msg_set_timeout, ic_msg_t, ic_reply_err, ic_slot_is_async, ichannel_t,
-    iop_struct_t, qm_ic_cbs_t,
+    ic__ic_status__e, ic_cb_entry_t, ic_cb_entry_type_t, ic_is_local, ic_msg_cancel, ic_msg_delete,
+    ic_msg_new, ic_msg_set_priority, ic_msg_set_timeout, ic_msg_t, ic_reply_err, ic_slot_is_async,
+    ichannel_t, iop_struct_t, qm_ic_cbs_t,
 };
 use libcommon::c_main_waker::run_future;
 use libcommon::iop::{IopDup, IopRPC, Owned, OwnedGeneric, OwnedIop as _, StructUnion};
@@ -166,6 +166,9 @@ impl<'a, RPC: IopRPC + 'static> ICQuery<'a, RPC> {
     /// that thread may use an `IChannel`, so another thread copies the
     /// arguments and the header, and the main C thread sends the copy later.
     ///
+    /// Dropping the future before the reply cancels the query on its
+    /// channel, as `ic_msg_cancel()` does in C.
+    ///
     /// # Returns
     ///
     /// a [`CallbackFut`](../libcommon/run_callback/struct.CallbackFut.html)
@@ -281,8 +284,31 @@ unsafe impl Send for OwnedQuery {}
 /// `Owned<T>` is an associated-type projection, which is not injective, so
 /// `RPC` cannot be inferred back from `cb`: callers name it explicitly.
 fn call_ic_query<RPC: IopRPC>(cb: Callback<IcReply<RPC>>, ic_query: &QueryParts) {
+    // A channel that is aborting its queries frees a new one without
+    // calling it back, which would leave the future pending, and its cancel
+    // hook on a freed message. Abort it here instead.
+    if unsafe { (*ic_query.ic).cancel_guard() } {
+        cb.call(Err(IcError::Status(ic__ic_status__e::ABORT)));
+        return;
+    }
+
     let msg = unsafe { &mut *ic_msg_new(size_of_val(&cb) as i32) };
 
+    // The C side never completes the query of an asynchronous RPC, and
+    // frees its message once sent: there is nothing to cancel.
+    if unsafe { (*RPC::rpc_desc()).async_() } == 0 {
+        let pending = PendingMsg(msg);
+
+        if !cb.on_cancel(move || pending.cancel()) {
+            // The future is gone, so nobody waits for the reply.
+            let mut msg: *mut ic_msg_t = msg;
+
+            unsafe {
+                ic_msg_delete(&raw mut msg);
+            }
+            return;
+        }
+    }
     ic_prepare_msg::<RPC>(msg, cb, ic_query);
     let args = unsafe { (*msg.rpc).args };
     let do_bpack = !unsafe { ic_is_local(ic_query.ic) } || msg.force_pack();
@@ -293,6 +319,26 @@ fn call_ic_query<RPC: IopRPC>(cb: Callback<IcReply<RPC>>, ic_query: &QueryParts)
         __ic_query(ic_query.ic, msg);
     }
 }
+
+/// The message of a query that its future may cancel.
+struct PendingMsg(*mut ic_msg_t);
+
+impl PendingMsg {
+    fn cancel(self) {
+        // SAFETY: a cancel hook runs on the main C thread, and only before
+        // the completion callback. Until then, the `IChannel` keeps the
+        // message alive. `ic_msg_cancel()` calls the completion callback
+        // with `IC_MSG_CANCELED`, and the `IChannel` drops the answer of a
+        // cancelled message, so the callback still runs once.
+        unsafe {
+            ic_msg_cancel(self.0);
+        }
+    }
+}
+
+// SAFETY: the pointer is only dereferenced by `cancel()`, on the main C
+// thread.
+unsafe impl Send for PendingMsg {}
 
 /// Writes and wires the elements needed to send a `msg` on an `IChannel` and
 /// links a callback function.

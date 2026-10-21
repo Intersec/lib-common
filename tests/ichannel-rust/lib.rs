@@ -34,9 +34,9 @@ pub mod bindings {
 mod tests {
     use crate::bindings::{
         __socket_type::SOCK_SEQPACKET, AF_UNIX, O_NONBLOCK, ev_priority_t, ic__hdr__t_raw,
-        ic__hdr__u, ic__ic_status__e, ic__simple_hdr__t, ic_delete, ic_event_t, ic_get_module,
-        ic_new, ic_set_local, ic_spawn, ichannel_t, iop_mod_find_rpc, qm_ic_cbs_t, socketpairx,
-        tstiop_rpc__pkg, tstiop_rpc__rpc__test__echo__rpc as EchoRpc,
+        ic__hdr__u, ic__ic_status__e, ic__simple_hdr__t, ic_delete, ic_disconnect, ic_event_t,
+        ic_get_module, ic_new, ic_set_local, ic_spawn, ichannel_t, iop_mod_find_rpc, qm_ic_cbs_t,
+        socketpairx, tstiop_rpc__pkg, tstiop_rpc__rpc__test__echo__rpc as EchoRpc,
         tstiop_rpc__rpc__test__echo_or_throw__rpc as EchoOrThrowRpc,
         tstiop_rpc__test__echo_args__t, tstiop_rpc__test__echo_or_throw_args__t,
         tstiop_rpc__test__echo_or_throw_exn__t, tstiop_rpc__test__echo_or_throw_res__t,
@@ -52,7 +52,7 @@ mod tests {
     use libcommon_core::{
         bindings::{
             data_t, el_blocker_register, el_loop, el_loop_timeout, el_t, el_timer_register,
-            el_unloop, el_unregister, ev_t, ev_timer_flags_t,
+            el_unloop, el_unregister, ev_t, ev_timer_flags_t, thr_queue_main_drain,
         },
         c_event_loop_test,
         module::{module_release, module_require},
@@ -136,6 +136,9 @@ mod tests {
     /// them.
     static SERVED_ORDER: Mutex<Vec<i32>> = Mutex::new(Vec::new());
 
+    /// The slot of the `echoOrThrow` query that the test answers itself.
+    static HELD_SLOT: Mutex<Option<IcReplySlot<EchoOrThrowRpc>>> = Mutex::new(None);
+
     /// Replies to the slot that `echoOrThrow` kept, once its callback has
     /// returned.
     ///
@@ -188,6 +191,8 @@ mod tests {
                 -6 => {
                     spawn(move || drop(reply));
                 }
+                // The test replies when it wants.
+                -8 => *HELD_SLOT.lock().expect("poisoned") = Some(reply),
                 // The text of the exception dies with the thread, before
                 // the main C thread sends the reply.
                 -7 => {
@@ -913,6 +918,121 @@ mod tests {
         module_release(tokio_get_module());
 
         assert_eq!(outcome.unwrap_or_else(|e| panic!("{e}")), 1);
+    }
+
+    /// Drops a query that the server holds, and lets the late answer come
+    /// back.
+    fn drop_a_held_query(drop_on_another_thread: bool) {
+        let (_env, ic1, ic2, cbs) = served_socketpair(IcImpls::register::<EchoOrThrowRpc>);
+
+        let args = tstiop_rpc__test__echo_or_throw_args__t { i: -8 };
+        let query = ICQuery::<EchoOrThrowRpc>::builder(ic1).build(args).run();
+
+        loop_until(|| HELD_SLOT.lock().expect("poisoned").is_some());
+        assert_eq!(unsafe { (*ic1).queue_len }, 1, "the query is pending");
+
+        if drop_on_another_thread {
+            spawn(move || drop(query)).join().expect("panicked");
+            // The cancel waits for the main C thread.
+            assert_eq!(unsafe { (*ic1).queue_len }, 1);
+            unsafe {
+                thr_queue_main_drain();
+            }
+        } else {
+            drop(query);
+        }
+        assert_eq!(unsafe { (*ic1).queue_len }, 0, "the query is cancelled");
+
+        // The `IChannel` drops the answer of a cancelled query: its
+        // completion callback, already consumed, does not run again.
+        HELD_SLOT
+            .lock()
+            .expect("poisoned")
+            .take()
+            .expect("held")
+            .reply_res(&tstiop_rpc__test__echo_or_throw_res__t { i: -8 });
+        for _ in 0..5 {
+            unsafe {
+                el_loop_timeout(10);
+            }
+        }
+
+        release_socketpair([ic1, ic2], cbs);
+    }
+
+    /// A query whose future is dropped, as `tokio::time::timeout()` drops
+    /// it, is cancelled on its channel, from wherever the future drops.
+    #[c_event_loop_test]
+    fn dropping_a_query_cancels_it() {
+        let _watchdog = watchdog();
+
+        module_require(unsafe { thr_get_module() });
+        module_require(unsafe { ic_get_module() });
+
+        drop_a_held_query(false);
+        drop_a_held_query(true);
+
+        module_release(unsafe { ic_get_module() });
+        module_release(unsafe { thr_get_module() });
+    }
+
+    /// A query sent from the abort callback of its channel, as a future
+    /// that retries after `IC_MSG_ABORT` does: the `IChannel` discards it,
+    /// so it has to end at once, and with no cancel hook left behind.
+    #[c_event_loop_test]
+    fn a_query_sent_while_its_channel_aborts_ends_at_once() {
+        let _watchdog = watchdog();
+
+        module_require(unsafe { thr_get_module() });
+        module_require(unsafe { ic_get_module() });
+        let (_env, ic1, ic2, cbs) = served_socketpair(IcImpls::register::<EchoOrThrowRpc>);
+
+        let client = SendPtr(ic1);
+        let outcomes = Arc::new(Mutex::new(None));
+        let outcomes_c = Arc::clone(&outcomes);
+
+        run_future(
+            async move {
+                // Force capture of the whole `Send` wrapper.
+                let c = client;
+                let args = tstiop_rpc__test__echo_or_throw_args__t { i: -8 };
+                let first = ICQuery::<EchoOrThrowRpc>::builder(c.0)
+                    .build(args)
+                    .run()
+                    .await;
+                // Polled from the abort callback of `first`.
+                let args = tstiop_rpc__test__echo_or_throw_args__t { i: 1 };
+                let second = ICQuery::<EchoOrThrowRpc>::builder(c.0)
+                    .build(args)
+                    .run()
+                    .await;
+
+                (echo_or_throw_outcome(first), echo_or_throw_outcome(second))
+            },
+            move |outcomes| *outcomes_c.lock().expect("poisoned") = Some(outcomes),
+        );
+        loop_until(|| HELD_SLOT.lock().expect("poisoned").is_some());
+        unsafe {
+            ic_disconnect(ic1);
+        }
+
+        assert_eq!(
+            outcomes.lock().expect("poisoned").take(),
+            Some((
+                Outcome::Status(ic__ic_status__e::ABORT),
+                Outcome::Status(ic__ic_status__e::ABORT)
+            ))
+        );
+
+        HELD_SLOT
+            .lock()
+            .expect("poisoned")
+            .take()
+            .expect("held")
+            .discard();
+        release_socketpair([ic1, ic2], cbs);
+        module_release(unsafe { ic_get_module() });
+        module_release(unsafe { thr_get_module() });
     }
 
     // }}}
