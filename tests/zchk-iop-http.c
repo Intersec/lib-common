@@ -46,6 +46,15 @@ static struct {
     bool query_http_header;
     bool resp_http_header;
 
+    int reply_hooks_calls;
+    bool reply_hook_without_rpc;
+
+    sockunion_t soap_server_su;
+    httpc_cfg_t *soap_client_cfg;
+    httpc_t *soap_client;
+    httpc_query_t soap_query;
+    lstr_t soap_resp;
+
     /* for el_wait_until */
     bool el_wait_timed_out;
 } z_iop_http_g;
@@ -105,6 +114,14 @@ static int z_iop_httpd_on_query_done(
     return 0;
 }
 
+static void z_iop_httpd_record_reply_hook(const ichttp_query_t *nonnull iq)
+{
+    _G.reply_hooks_calls++;
+    if (!iq->cbe) {
+        _G.reply_hook_without_rpc = true;
+    }
+}
+
 static void z_iop_httpd_on_reply_http_headers(
     const httpd_trigger__ic_t *nonnull tcb, ichttp_query_t *nonnull iq,
     http_code_t res_code
@@ -112,7 +129,16 @@ static void z_iop_httpd_on_reply_http_headers(
 {
     outbuf_t *ob = httpd_get_ob(&iq->super);
 
+    z_iop_httpd_record_reply_hook(iq);
     ob_adds(ob, "X-ZCHK-IOP-HTTP-RESP: 99\r\n");
+}
+
+static void z_iop_httpd_on_reply(
+    const httpd_trigger__ic_t *nonnull tcb, const ichttp_query_t *nonnull iq,
+    size_t res_size, http_code_t res_code
+)
+{
+    z_iop_httpd_record_reply_hook(iq);
 }
 
 static void z_iop_httpd_pre_hook(
@@ -202,6 +228,7 @@ static int z_iop_http_create_server(const iop_env_t *iop_env, sockunion_t *su)
     _G.itcb->query_max_size = 2 << 20;
     _G.itcb->on_query_done = &z_iop_httpd_on_query_done;
     _G.itcb->on_reply_http_headers = &z_iop_httpd_on_reply_http_headers;
+    _G.itcb->on_reply = &z_iop_httpd_on_reply;
     httpd_trigger_register(cfg, POST, "iop", &_G.itcb->cb);
     ichttp_register_pre_post_hook(
         _G.itcb, tstiop__t, iface, f, &z_iop_httpd_pre_hook,
@@ -346,6 +373,122 @@ static int z_iop_http_do_simple_query(
     Z_HELPER_END;
 }
 
+/* {{{ SOAP */
+
+#define SOAP_QUERY(body)                                                     \
+    "<?xml version=\"1.0\"?>"                                                \
+    "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" "     \
+    "xmlns:n=\"" SCHEMA "\">"                                                \
+    "<s:Body>" body "</s:Body></s:Envelope>"
+
+static void z_iop_http_soap_on_done(httpc_query_t *q, httpc_status_t st)
+{
+    _G.query_answered = true;
+    if (q->qinfo) {
+        _G.query_code = q->qinfo->code;
+        _G.resp_http_header = !!http_qhdr_find_from_key(
+            q->qinfo->hdrs, q->qinfo->hdrs_len, LSTR("X-ZCHK-IOP-HTTP-RESP")
+        );
+    }
+    lstr_wipe(&_G.soap_resp);
+    _G.soap_resp = lstr_dup(LSTR_SB_V(&q->payload));
+
+    httpc_query_wipe(q);
+}
+
+static void z_iop_http_soap_query_send(lstr_t body)
+{
+    httpc_query_t *q = &_G.soap_query;
+    outbuf_t *ob;
+
+    _G.val_received = 0;
+    _G.query_answered = false;
+    _G.query_code = 0;
+    _G.resp_http_header = false;
+    _G.reply_hooks_calls = 0;
+    _G.reply_hook_without_rpc = false;
+
+    httpc_query_init(q);
+    httpc_bufferize(q, 1 << 20);
+    q->on_done = &z_iop_http_soap_on_done;
+
+    httpc_query_attach(q, _G.soap_client);
+    httpc_query_start(q, HTTP_METHOD_POST, LSTR("localhost"), LSTR("/iop"));
+    ob = httpc_get_ob(q);
+    ob_adds(ob, "Content-Type: text/xml\r\n");
+    ob_adds(ob, "X-ZCHK-IOP-HTTP-QUERY: 1\r\n");
+    httpc_query_hdrs_done(q, body.len, false);
+    ob_add(ob, body.s, body.len);
+    httpc_query_done(q);
+}
+
+/* Send a SOAP query and check its reply.
+ *
+ * If `rpc_resolved` is false, the query fails before its RPC is resolved, so
+ * the reply hooks must not run.
+ */
+static int z_iop_http_soap_query(
+    lstr_t body, http_code_t code, bool rpc_resolved, lstr_t resp_part
+)
+{
+    /* The server accepts a single query per connection. */
+    _G.soap_client =
+        httpc_connect(&_G.soap_server_su, _G.soap_client_cfg, NULL);
+    Z_ASSERT_P(_G.soap_client);
+    el_wait_until(!_G.soap_client->busy, 100);
+    Z_ASSERT(!_G.soap_client->busy);
+
+    z_iop_http_soap_query_send(body);
+
+    el_wait_until(_G.query_answered, 100);
+    Z_ASSERT(_G.query_answered);
+    Z_ASSERT_EQ(_G.query_code, code);
+    Z_ASSERT(
+        lstr_contains(_G.soap_resp, resp_part), "%*pM",
+        LSTR_FMT_ARG(_G.soap_resp)
+    );
+    Z_ASSERT(!_G.reply_hook_without_rpc);
+    Z_ASSERT_EQ(_G.reply_hooks_calls, rpc_resolved ? 2 : 0);
+    Z_ASSERT_EQ(_G.resp_http_header, rpc_resolved);
+
+    Z_HELPER_END;
+}
+
+static int z_iop_http_soap_create(const iop_env_t *iop_env)
+{
+    httpc_cfg_t *cfg = httpc_cfg_new();
+    sockunion_t *su = &_G.soap_server_su;
+
+    Z_ASSERT_N(addr_resolve("test", LSTR("127.0.0.1:1"), su));
+    sockunion_setport(su, 0);
+    Z_HELPER_RUN(z_iop_http_create_server(iop_env, su));
+
+    cfg->http_mode = _G.http_mode;
+    cfg->max_queries = 1;
+    cfg->pipeline_depth = 1;
+    cfg->noact_delay = HTTP_TEST_NOACT_DELAY;
+    _G.soap_client_cfg = cfg;
+
+    _G.response_time = -1;
+
+    Z_HELPER_END;
+}
+
+static int z_iop_http_soap_finalize(void)
+{
+    httpc_cfg_delete(&_G.soap_client_cfg);
+    httpd_unlisten(&_G.server);
+    lstr_wipe(&_G.soap_resp);
+
+    /* Wait to allow the transporting http to finalize. */
+    el_wait_until(false, 100);
+    Z_ASSERT(!el_has_pending_events());
+
+    Z_HELPER_END;
+}
+
+/* }}} */
+
 static void z_iop_http_tests(http_mode_t http_mode)
 {
     iop_env_t *iop_env = iop_env_new();
@@ -374,6 +517,40 @@ static void z_iop_http_tests(http_mode_t http_mode)
         Z_HELPER_RUN(z_iop_http_do_simple_query(iop_env, true, 0, 1));
         /* Repeat the query 10 times in a single run. */
         Z_HELPER_RUN(z_iop_http_do_simple_query(iop_env, true, 0, 10));
+    } Z_TEST_END;
+
+    Z_TEST(soap_query, "SOAP query with a resolved RPC") {
+        Z_HELPER_RUN(z_iop_http_soap_create(iop_env));
+
+        Z_HELPER_RUN(z_iop_http_soap_query(
+            LSTR(SOAP_QUERY("<n:iface.fReq><i>21</i></n:iface.fReq>")),
+            HTTP_CODE_OK, true, LSTR("iface.fRes")
+        ));
+        Z_ASSERT_EQ(_G.val_received, 21);
+
+        /* The arguments are invalid, but the RPC is resolved. */
+        Z_HELPER_RUN(z_iop_http_soap_query(
+            LSTR(SOAP_QUERY("<n:iface.fReq><i>abc</i></n:iface.fReq>")),
+            HTTP_CODE_INTERNAL_SERVER_ERROR, true, LSTR("s:Fault")
+        ));
+        Z_ASSERT_EQ(_G.val_received, 0);
+
+        Z_HELPER_RUN(z_iop_http_soap_finalize());
+    } Z_TEST_END;
+
+    Z_TEST(soap_query_no_rpc, "SOAP query rejected before RPC resolution") {
+        Z_HELPER_RUN(z_iop_http_soap_create(iop_env));
+
+        Z_HELPER_RUN(z_iop_http_soap_query(
+            LSTR(SOAP_QUERY("<n:iface.unknownReq/>")),
+            HTTP_CODE_INTERNAL_SERVER_ERROR, false, LSTR("unknown rpc")
+        ));
+        Z_HELPER_RUN(z_iop_http_soap_query(
+            LSTR(SOAP_QUERY("<&x;>data</&x;>")),
+            HTTP_CODE_INTERNAL_SERVER_ERROR, false, LSTR("s:Client")
+        ));
+
+        Z_HELPER_RUN(z_iop_http_soap_finalize());
     } Z_TEST_END;
 
     iop_env_delete(&iop_env);

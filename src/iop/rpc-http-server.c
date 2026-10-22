@@ -671,7 +671,10 @@ void __ichttp_reply_soap_err(
     __ichttp_err_ctx_set(*err);
     ob = httpd_reply_hdrs_start(q, code, true);
     ob_adds(ob, "Content-Type: text/xml; charset=utf-8\r\n");
-    if (tcb->on_reply_http_headers) {
+    /* The query can fail before its RPC is resolved (invalid XML, unknown
+     * RPC). The hooks expect a resolved RPC, so skip them in this case, as
+     * for the REST rejects. */
+    if (iq->cbe && tcb->on_reply_http_headers) {
         (*tcb->on_reply_http_headers)(tcb, iq, code);
     }
     httpd_reply_hdrs_done(q, -1, false);
@@ -700,7 +703,7 @@ void __ichttp_reply_soap_err(
     outbuf_sb_end(ob, oldlen);
 
     oblen = ob->length - oblen;
-    if (tcb->on_reply) {
+    if (iq->cbe && tcb->on_reply) {
         (*tcb->on_reply)(tcb, iq, oblen, code);
     }
     httpd_reply_done(q);

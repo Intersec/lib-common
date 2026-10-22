@@ -123,13 +123,21 @@ typedef struct httpd_trigger__ic_t {
     /** Callback to add HTTP headers on reply.
      *
      * It is called just before closing the headers.
+     *
+     * It is only called when the RPC of the query is resolved, so
+     * `iq->cbe` is always set. A query rejected before (invalid XML, unknown
+     * RPC, bad URL) does not call it.
      */
     void (*nullable on_reply_http_headers)(
         const struct httpd_trigger__ic_t *nonnull tcb,
         ichttp_query_t *nonnull iq, http_code_t res_code
     );
 
-    /** Callback just before sending the reply. */
+    /** Callback just before sending the reply.
+     *
+     * Like `on_reply_http_headers`, it is only called when the RPC of the
+     * query is resolved.
+     */
     void (*nullable on_reply)(
         const struct httpd_trigger__ic_t *nonnull tcb,
         const ichttp_query_t *nonnull iq, size_t res_size,
