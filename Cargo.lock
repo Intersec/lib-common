@@ -185,6 +185,7 @@ dependencies = [
  "bindgen",
  "cc",
  "clap",
+ "libc",
  "paste",
  "prettyplease",
  "proc-macro2",
@@ -609,6 +610,7 @@ name = "tokio-c-mod"
 version = "0.0.0"
 dependencies = [
  "arc-swap",
+ "libc",
  "libcommon-core",
  "paste",
  "tokio",

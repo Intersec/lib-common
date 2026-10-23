@@ -68,7 +68,9 @@ use arc_swap::ArcSwapOption;
 use libcommon_core::bindings::{on_term_method, thr_get_module};
 use libcommon_core::{c_module, thr};
 use std::future::Future;
+use std::mem::MaybeUninit;
 use std::os::raw::{c_int, c_void};
+use std::ptr;
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 use tokio::runtime::{Builder, Handle};
@@ -137,6 +139,57 @@ where
 }
 
 // }}}
+// {{{ Signals
+
+/// Block every signal in the calling thread, and return the previous mask.
+///
+/// The threads inherit the mask of the thread creating them: this is how the
+/// tokio threads, like the thr-job workers, keep the C signal handlers, which
+/// are not thread-safe, on the main thread only.
+fn block_all_signals() -> libc::sigset_t {
+    let mut all = MaybeUninit::<libc::sigset_t>::uninit();
+    let mut prev = MaybeUninit::<libc::sigset_t>::uninit();
+
+    unsafe {
+        libc::sigfillset(all.as_mut_ptr());
+        libc::pthread_sigmask(libc::SIG_SETMASK, all.as_ptr(), prev.as_mut_ptr());
+        prev.assume_init()
+    }
+}
+
+fn restore_signals(prev: &libc::sigset_t) {
+    unsafe {
+        libc::pthread_sigmask(libc::SIG_SETMASK, prev, ptr::null_mut());
+    }
+}
+
+/// Unblock the synchronous fault signals, as thr-job does: blocked, a fault
+/// would kill the process without running the crash handlers.
+fn unblock_fault_signals() {
+    let mut faults = MaybeUninit::<libc::sigset_t>::uninit();
+
+    unsafe {
+        libc::sigemptyset(faults.as_mut_ptr());
+        for signo in [
+            libc::SIGABRT,
+            libc::SIGILL,
+            libc::SIGFPE,
+            libc::SIGSEGV,
+            libc::SIGBUS,
+            libc::SIGSTKFLT,
+        ] {
+            libc::sigaddset(faults.as_mut_ptr(), signo);
+        }
+        libc::pthread_sigmask(libc::SIG_UNBLOCK, faults.as_ptr(), ptr::null_mut());
+    }
+}
+
+fn on_tokio_thread_start() {
+    unblock_fault_signals();
+    thr::attach();
+}
+
+// }}}
 // {{{ tokio c module
 
 /// Initialize a `tokio_c_module` and the global variable `TOKIO_RUNTIME`.
@@ -147,10 +200,12 @@ fn tokio_c_mod_initialize(ctx: &mut TokioCMod, _arg: *mut c_void) {
     // thread to have built its runtime before returning.
     let (runtime_send, runtime_recv) = oneshot::channel();
     ctx.shutdown_send = Some(shutdown_send);
+    let prev_signals = block_all_signals();
     ctx.tokio_thr = Some(thread::spawn(move || {
+        unblock_fault_signals();
         let runtime = Builder::new_multi_thread()
             .enable_all()
-            .on_thread_start(thr::attach)
+            .on_thread_start(on_tokio_thread_start)
             .on_thread_stop(thr::detach)
             .build()
             .expect("failed to build tokio runtime");
@@ -160,6 +215,7 @@ fn tokio_c_mod_initialize(ctx: &mut TokioCMod, _arg: *mut c_void) {
 
         let _unused = runtime.block_on(shutdown_recv);
     }));
+    restore_signals(&prev_signals);
 
     // Wait for the tokio thread to have built its runtime. blocking_recv() is
     // safe here: initialize() runs on the main C thread, outside any tokio
