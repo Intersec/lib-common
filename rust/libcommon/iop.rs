@@ -18,15 +18,50 @@
 
 //! Use IOP objects from Rust.
 //!
-//! `waf-cargo-build` generates a Rust type for each IOP struct, class, union and enum that the
-//! bindings of a crate include. The type has the layout of the C type, so the same object is
-//! usable from both languages without a copy. Each field gets a `<field>__get()` and a
-//! `<field>__set()` method.
+//! `iopc` writes a `<pkg>.iop.rs` file next to each `.iop` file. This file holds a Rust type for
+//! each struct, class, union and enum of the package. The Rust type has the layout of the C type,
+//! so C and Rust use the same object without a copy. A package gets these types in its `bindings`
+//! module when its `wrapper.h` includes the `<pkg>.iop.h` header: see
+//! [`waf_cargo_build`](../../waf_cargo_build/index.html).
 //!
-//! The traits of this module describe these types: [`CStruct`], [`CUnion`] and [`CEnum`] for a
-//! type known at compile time, and [`StructUnion`] and [`Enum`] for dynamic dispatch.
-//! [`GenericStructUnion`] holds an object whose type is only known at run time, by its
-//! descriptor.
+//! # Generated types
+//!
+//! A Rust type has the name of the C type. For example, the IOP struct `ic.Tracer` is
+//! `ic__tracer__t` in C and in Rust.
+//!
+//! | IOP type | Rust type |
+//! |----------|-----------|
+//! | struct or class | `<pkg>__<name>__t`: a struct with `pub` fields |
+//! | union | `<pkg>__<name>__u`: a `#[repr(C, u32)]` enum with one variant for each field, or `#[repr(u32)]` if all the fields are void |
+//! | strict enum | `<pkg>__<name>__e`: a Rust enum |
+//! | other enum | `<pkg>__<name>__e`: a newtype of `i32`, with one associated constant for each value |
+//!
+//! An enum that is not strict can hold a value that it does not name, so a Rust enum cannot hold
+//! it. A type that holds a string, an array or a pointer has a lifetime `'a`: it borrows these
+//! values. Its `_raw` alias, such as `ic__simple_hdr__t_raw`, is the type with the `'static`
+//! lifetime.
+//!
+//! The type of a field depends on its kind:
+//!
+//! | IOP field | Rust type |
+//! |-----------|-----------|
+//! | scalar or enum | the type, such as `i32`, `u64` or `bool` |
+//! | optional scalar or optional enum | [`IopOption<T>`](IopOption) |
+//! | string, xml or bytes | [`BorrowedUtf8Lstr<'a>`](crate::lstr::BorrowedUtf8Lstr) or [`BorrowedBytesLstr<'a>`](crate::lstr::BorrowedBytesLstr). An optional one is null when it is not set. |
+//! | struct or union | the type |
+//! | class, or reference (`&`) | `&'a mut T` |
+//! | optional struct, union or class | `Option<&'a mut T>` |
+//! | repeated | [`IopArray<'a, T>`](IopArray) |
+//!
+//! The file also holds the C descriptor of each type (`<pkg>__<name>__s` for a struct), the
+//! descriptor of the package (`<pkg>__pkg`), the types of the arguments, results and exceptions
+//! of the RPCs, and the constants of the C header: the `count`, `min` and `max` of each enum, the
+//! `class_id` of each class, and the tag enum `<pkg>__<name>__tag_t` of each union.
+//!
+//! The traits of this module describe the generated types: [`CStruct`], [`CUnion`] and [`CEnum`]
+//! for a type known at compile time, and [`StructUnion`] and [`Enum`] for dynamic dispatch. A class
+//! also implements [`Class`], to upcast it to its parent and to downcast it.
+//! [`GenericStructUnion`] holds an object whose type is only known at run time, by its descriptor.
 //!
 //! # Create and access an object
 //!

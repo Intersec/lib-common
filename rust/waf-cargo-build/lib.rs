@@ -23,11 +23,16 @@
 //! file holds the include paths, the libraries and the flags of the C code that the package uses.
 //!
 //! [`WafBuild`] reads this file in the `build.rs` of the package. It gives the link instructions
-//! to cargo, and it runs `bindgen` to generate the Rust bindings of the C headers.
+//! to cargo, and it writes the Rust bindings of the headers that the `wrapper.h` of the package
+//! includes:
+//!
+//! - `bindgen` translates the C functions, types and constants.
+//! - The IOP types come from the `<pkg>.iop.rs` file that `iopc` writes next to each `.iop` file.
+//!   `bindgen` leaves out the C items of these packages.
 //!
 //! # Example
 //!
-//! The `build.rs` of a package that uses the C functions declared in its `wrapper.h`:
+//! The `build.rs` of a package:
 //!
 //! ```no_run
 //! use std::error;
@@ -35,13 +40,14 @@
 //! use waf_cargo_build::WafBuild;
 //!
 //! fn main() -> Result<(), Box<dyn error::Error>> {
-//!     let waf_build = WafBuild::read_build_env()?;
+//!     WafBuild::build()?;
 //!
-//!     waf_build.print_cargo_instructions();
-//!     waf_build.generate_bindings(|builder| Ok(builder.header("wrapper.h")))?;
 //!     Ok(())
 //! }
 //! ```
+//!
+//! If the package has a `wrapper.h`, its `Cargo.toml` must have a `links` key. [`WafBuild::build`]
+//! tells when `bindgen` runs, and how a package that needs other `bindgen` options calls its steps.
 //!
 //! The package then includes the bindings in its `bindings` module:
 //!
