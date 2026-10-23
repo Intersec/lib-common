@@ -39,7 +39,7 @@
 //! | Crate | Use it to |
 //! |-------|-----------|
 //! | [`libcommon`](crate) | Use lib-common from Rust. Start here. |
-//! | [`ichannel`](../ichannel/index.html) | Send `IChannel` queries from Rust. |
+//! | [`ichannel`](../ichannel/index.html) | Send `IChannel` queries from Rust, and implement RPCs in Rust. |
 //! | [`tokio_c_mod`](../tokio_c_mod/index.html) | Run a tokio runtime next to the C event loop. |
 //! | [`waf_cargo_build`] | Connect the `build.rs` of a package to the waf build. |
 //! | [`libcommon_core`](../libcommon_core/index.html) | Name the crate in `Cargo.toml`: the generated bindings need it. `libcommon` re-exports its modules. |

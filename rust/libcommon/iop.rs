@@ -58,6 +58,18 @@
 //! of the RPCs, and the constants of the C header: the `count`, `min` and `max` of each enum, the
 //! `class_id` of each class, and the tag enum `<pkg>__<name>__tag_t` of each union.
 //!
+//! Each module, each interface that it mounts and each RPC of these interfaces gets a marker type:
+//! a unit struct that names it at compile time.
+//!
+//! | IOP item | Marker type | Trait |
+//! |----------|-------------|-------|
+//! | module | `<pkg>__<module>__module` | [`IopModule`] |
+//! | interface | `<pkg>__<module>__<field>__iface` | [`IopIface`] |
+//! | RPC | `<pkg>__<module>__<field>__<rpc>__rpc` | [`IopRPC`] |
+//!
+//! `<field>` is the name of the interface in the module. The
+//! [`ichannel`](../../ichannel/index.html) crate sends and serves a query by its [`IopRPC`] marker.
+//!
 //! The traits of this module describe the generated types: [`CStruct`], [`CUnion`] and [`CEnum`]
 //! for a type known at compile time, and [`StructUnion`] and [`Enum`] for dynamic dispatch. A class
 //! also implements [`Class`], to upcast it to its parent and to downcast it.
